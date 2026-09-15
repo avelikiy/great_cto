@@ -165,6 +165,31 @@ function section_open(text) {
 
 const SEVERITY = { error: 'error', warn: 'warn' };
 
+// ── Authority (FM-005) ──────────────────────────────────────────────────────
+// autonomous — dispatch it and take the result
+// proposes   — it may do the work; the diff is shown before it lands
+// escalates  — do not dispatch it unasked; the work itself is the decision
+const AUTHORITY_VALUES = ['autonomous', 'proposes', 'escalates'];
+
+// Pinned for the agents whose work is expensive to undo (ADR-009), so the field
+// cannot be relaxed quietly in a frontmatter edit. Everything else is the agent's
+// own declaration, checked only for shape.
+const AUTHORITY_POLICY = {
+  devops: 'escalates',
+  'infra-provisioner': 'escalates',
+  'senior-dev': 'proposes',
+  'continuous-learner': 'proposes',
+};
+const AUTHORITY_POLICY_WHY = {
+  escalates: 'its work escapes the machine or costs money (ADR-009)',
+  proposes: 'its work lands in the product or in state other projects read (ADR-009)',
+};
+
+function canWrite(tools) {
+  const list = Array.isArray(tools) ? tools.join(',') : String(tools ?? '');
+  return list.trim() === '*' || /\b(Write|Edit|MultiEdit|NotebookEdit)\b/.test(list);
+}
+
 // ── Rule definitions ────────────────────────────────────────────────────────
 
 const RULES = [
@@ -231,6 +256,34 @@ const RULES = [
         return [`\`tools\` must be a list or comma-string, got: ${typeof tools}`];
       }
       return [];
+    },
+  },
+  {
+    // Whether an agent's work may land without a decision used to be settled per
+    // dispatch, from memory. ADR-009 says an expensive-to-undo action needs a human
+    // wherever it sits; this states it once, per agent, where it can be checked.
+    // (Borrowed from headcount's surface map, MIT: autonomous / proposes / escalates.)
+    id: 'FM-005',
+    severity: SEVERITY.error,
+    desc: 'authority field declares whether the agent\'s work may land without a decision',
+    test(file) {
+      const meta = file.frontmatter || {};
+      const authority = meta.authority;
+      if (!authority) return ['frontmatter missing `authority` (autonomous | proposes | escalates)'];
+      if (!AUTHORITY_VALUES.includes(authority)) {
+        return [`\`authority\` must be one of ${AUTHORITY_VALUES.join(' | ')}, got: ${authority}`];
+      }
+      const msgs = [];
+      // A gate needs something to gate. An agent that cannot write lands nothing,
+      // so marking it `proposes` reads as governed while governing nothing.
+      if (authority !== 'autonomous' && !canWrite(meta.tools)) {
+        msgs.push(`\`authority: ${authority}\` on an agent with no Write/Edit tools — it lands nothing to gate; use autonomous`);
+      }
+      const pinned = AUTHORITY_POLICY[file.slug];
+      if (pinned && authority !== pinned) {
+        msgs.push(`\`authority: ${authority}\` for '${file.slug}', policy requires '${pinned}' — ${AUTHORITY_POLICY_WHY[pinned]}`);
+      }
+      return msgs;
     },
   },
 

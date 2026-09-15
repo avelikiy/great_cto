@@ -2,6 +2,7 @@
 name: security-officer
 description: Use after QA passes. Runs security audit by project type, writes report, controls gate:ship.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01

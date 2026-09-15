@@ -2,6 +2,7 @@
 name: marketplace-reviewer
 description: Two-sided marketplace pre-implementation reviewer. SD), 1099-K reporting, escrow / hold-and-release, dispute mediation, two-sided fee model, EU DSA + P2B Regulation compliance. Outputs threat model TM-{slug}.md and signs off payout-flow + seller-onboarding decisions before senior-dev claims tasks.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01

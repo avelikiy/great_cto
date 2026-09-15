@@ -22,6 +22,7 @@ Exit code: `0` clean, `1` errors, `2` invalid invocation.
 | **FM-002** | error | `description` field present, ≥ 20 characters |
 | **FM-003** | error | `model` is `haiku\|sonnet\|opus` or `claude-<tier>-N-N` |
 | **FM-004** | error | `tools` is a non-empty list (or comma-separated string) |
+| **FM-005** | error | `authority` is `autonomous\|proposes\|escalates`; an agent with no Write/Edit tools cannot be gated; devops and infra-provisioner are pinned to `escalates`, senior-dev and continuous-learner to `proposes` (ADR-009) |
 
 ### Structure (STR-*)
 

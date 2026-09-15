@@ -87,13 +87,21 @@ dispatch, from memory.
 
 **Design.** An `authority:` frontmatter field on every agent — `autonomous`
 (take the result), `proposes` (show the diff before it lands), `escalates` (do
-not dispatch unasked). The agent linter requires the field, rejects `proposes`
-or `escalates` on a read-only reviewer (nothing to gate), and reports agents that
-defaulted. The coordinator reads it when deciding whether to surface a diff.
+not dispatch unasked). The agent linter (FM-005) requires the field, rejects
+`proposes` or `escalates` on an agent with no Write/Edit tools (nothing to gate),
+and pins the value for the agents whose work is expensive to undo, so it cannot
+be relaxed quietly. The coordinator reads it when deciding whether to surface a
+diff.
 
-**Acceptance.** All 70 agents declare it; the linter fails on a missing or
-contradictory value; devops, infra-provisioner and db-migration-reviewer are not
-`autonomous`.
+Measured before assigning: 69 of 70 agents can write — great_cto's reviewers
+write their own threat models — so headcount's "a reviewer holds no surface"
+becomes "an agent with no write tools is autonomous" here. Reviewers stay
+autonomous: their output is a verdict document, and what it blocks is blocked by
+the verdict, not by landing the document.
+
+**Acceptance.** All 70 agents declare it; the linter fails on a missing,
+invalid or contradictory value and on a pinned agent relaxed; devops and
+infra-provisioner are `escalates`, senior-dev and continuous-learner `proposes`.
 
 ### 4. Handoff packet between models
 

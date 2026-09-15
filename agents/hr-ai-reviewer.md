@@ -2,6 +2,7 @@
 name: hr-ai-reviewer
 description: HR-AI / AI-recruiting pre-implementation reviewer. Outputs threat model TM-hrai-{slug}.md.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01

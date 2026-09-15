@@ -2,6 +2,7 @@
 name: senior-dev
 description: Use to implement tasks from Beads backlog. Claims a task, implements with TDD, closes when done. Can run in parallel.
 model: sonnet
+authority: proposes
 advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01

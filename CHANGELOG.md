@@ -17,6 +17,14 @@ All notable changes to great_cto are documented here.
   file names the packet that owns it, so a race is told apart from drift. The
   coordinator runs it after each builder returns and before committing. Exit 3 means
   "not checked" and is never a pass. (Method from headcount's `agent-guard diff`, MIT.)
+- **Every agent declares whether its work may land without a decision.** A new
+  `authority:` frontmatter field — `autonomous` (take the result), `proposes` (show the
+  diff before it lands), `escalates` (do not dispatch unasked) — on all 70 agents: 47
+  autonomous, 21 proposes (product builders, the three stages a human gate decides, and
+  agents that write state other projects read), 2 escalates (devops, infra-provisioner).
+  The agent linter's FM-005 requires it, refuses to gate an agent with no write tools,
+  and pins the value for the agents whose work is expensive to undo (ADR-009), so it
+  cannot be relaxed in a frontmatter edit. The coordinator reads it before committing.
 
 ### Fixed
 

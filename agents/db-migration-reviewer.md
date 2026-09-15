@@ -2,6 +2,7 @@
 name: db-migration-reviewer
 description: Database migration safety specialist. Activates when migrations/ files are detected in a PR or feature branch. Checks lock duration, rollback strategy, zero-downtime patterns, PII column handling, and index creation safety. Writes docs/migrations/MIGRATE-{slug}.md. Blocks deploy if no rollback path exists.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01

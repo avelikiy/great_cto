@@ -2,6 +2,7 @@
 name: ai-prompt-architect
 description: Designs and versions LLM system prompts for ai-system / agent-product archetypes. Outputs docs/adr/ADR-{NN}-PROMPT-{name}.md files with sha256-pinned prompt text, jailbreak resistance test cases, and revision history. Pairs with ai-eval-engineer for golden-set scenarios.
 model: sonnet
+authority: proposes
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301
 maxTurns: 25
 timeout: 600

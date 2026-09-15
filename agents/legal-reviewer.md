@@ -2,6 +2,7 @@
 name: legal-reviewer
 description: Legal-services / legal-tech specialist pre-implementation reviewer for legal archetype (law firms, solo practitioners, legal-SaaS). Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01

@@ -2,6 +2,7 @@
 name: healthcare-reviewer
 description: Healthcare-specific pre-implementation reviewer for archetype:healthcare. Specialises in HIPAA Security Rule (45 CFR 164.308–318), Business Associate Agreement (BAA) chain, FHIR/HL7 implementation gotchas, PHI access logging (immutable audit), HITECH breach-notification timelines, and HHS Office for Civil Rights (OCR) audit readiness. Outputs threat model TM-{slug}.md and signs off PHI-handling decisions before senior-dev starts.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01

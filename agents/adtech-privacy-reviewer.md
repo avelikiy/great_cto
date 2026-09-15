@@ -2,6 +2,7 @@
 name: adtech-privacy-reviewer
 description: US adtech / web-tracking privacy-litigation pre-implementation reviewer. Outputs threat model TM-adtech-{slug}.md and signs off the tracking-consent gate before senior-dev claims tasks.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01

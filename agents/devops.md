@@ -2,6 +2,7 @@
 name: devops
 description: Use after gate:ship is approved. Deploys using the method matching the project type.
 model: haiku
+authority: escalates
 advisor-model: claude-sonnet-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01

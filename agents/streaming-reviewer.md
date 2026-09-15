@@ -2,6 +2,7 @@
 name: streaming-reviewer
 description: Streaming / event-driven pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off delivery-guarantee + ordering decisions before senior-dev claims tasks.
 model: sonnet
+authority: autonomous
 advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
