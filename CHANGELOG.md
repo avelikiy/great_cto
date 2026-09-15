@@ -37,6 +37,78 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.29.0 — 2026-09-15
+
+The board shows what agents are doing while they run, what each turn changed, and
+Codex runs alongside Claude Code. It is also safe to leave open: another web page
+can no longer read it or approve a gate through it.
+
+### Changed behaviour — read before upgrading
+
+- **The board answers only names it knows.** Every request — reads, the event
+  stream, state changes — is refused with 403 unless its `Host` is `localhost`,
+  `127.0.0.1` or `[::1]` on the board's port, the concrete address it is bound to,
+  or a name listed in `GREAT_CTO_ALLOWED_HOSTS`. Before, a page on a DNS-rebinding
+  domain could read the board and pass its cross-origin check, gate approvals
+  included. **A console reached through a tunnel or a LAN address stops answering
+  until you set `GREAT_CTO_ALLOWED_HOSTS=<host[:port]>`.** Started on `0.0.0.0`
+  with nothing listed, the board says which variable to set.
+
+- **A gate decision through the API needs its token.** `POST /api/gates/<id>` now
+  requires the `token` that `/api/inbox` issues for that pending gate — single use,
+  valid 24 hours, bound to the project as it was when the gate was listed — and,
+  to approve an expensive or unclassified gate, `confirm` with its typed name. It
+  answers 403 without them and 409, naming the files, if the project changed since.
+  The board's own page sends both; scripts that approved gates directly must read
+  the token first. See `docs/BOARD-API.md` and ADR-024.
+
+- **Each agent turn is snapshotted locally, on by default.** At the end of every
+  turn a commit of the project's files is stored under `refs/great-cto/turns/` in
+  the project's own `.git` — the same content the working tree already holds,
+  nothing uploaded. A normal push and a clone do not carry these refs, and the
+  pre-push hook refuses a push that would. The newest 50 turns per session are
+  kept; sessions idle 14 days are removed. Turn it off with
+  `GREAT_CTO_DISABLE_TURNS=1`. See `docs/PRIVACY.md` and ADR-023.
+
+### Added
+
+- **A live feed of agent events on the board** (ADR-021). The hooks append one
+  line per agent start, stop, tool call and pipeline outcome to
+  `.great_cto/events.jsonl` — facts only, never command text, file content,
+  prompts or output — and the board streams it. A pipeline stage that did not
+  chain is called out while it happens. `GREAT_CTO_DISABLE_EVENTS=1` turns it off.
+
+- **The stream resumes after a dropped connection.** Every frame carries a cursor;
+  a reconnecting page receives the events it missed, and nothing twice. A cursor
+  that no longer points into the file (rotation, truncation) gets a fresh snapshot
+  instead of a read from the wrong place.
+
+- **Codex runs appear in the same feed.** The controlled Codex host records each
+  stage as `codex-<role>`, its verifier as `codex-verifier`, and each tool call
+  from the exec stream — facts only, as for Claude Code.
+
+- **The controlled Codex host lifecycle** (`great-cto codex-host`): attempts and
+  bounded verifier rework, cross-role repair, safe recovery, offline Docker checks,
+  and local and GitHub artifact releases bound to approval and verified after
+  publication.
+
+- **What each agent turn changed, on the board** (ADR-023). A Turns panel lists a
+  project's sessions and opens any turn's diff and changed files.
+  `GET /api/turns` and `GET /api/turns/diff`.
+
+### Fixed
+
+- **Review receipts no longer drift by themselves.** A receipt counted the agent
+  events log and the beads interactions log, neither of which `init` or current
+  `bd init` ignores, so one tool call or one `bd update` made reviewed code read as
+  changed after approval.
+
+- **A beads-backed approval no longer makes the next gate stale** — found by the
+  end-to-end pipeline test while binding approvals to the project state.
+
+---
+
 ## v3.28.9 — 2026-09-14
 
 A live run of the pipeline with real agents found that it did not chain for agents
