@@ -136,6 +136,28 @@ text = re.sub(r'^v\d+\.\d+\.\d+ — actively maintained',
 with open(path, "w") as f: f.write(text)
 PY
 
+# Version-pinned `npx --yes great-cto@X.Y.Z` entrypoints (#149). A plugin-only
+# install has no npm binary on PATH, so the Codex host skill and the public docs
+# call the exact shipped CLI version — and tests/lib/codex-host-entrypoint.test.mjs
+# fails the release gate when that pin lags the CLI. 3.29.1's gate failed on
+# exactly this: the bump moved package.json and left 26 pins at the old version.
+# CHANGELOG.md is not touched: a version named in history stays what it was.
+# Named one by one, and the same list release.sh stages: a docs/*/README.md glob
+# would reach READMEs that are not translations.
+PINNED=$(cd "$ROOT" && git grep -l "great-cto@$OLD" -- skills/codex-host/SKILL.md README.md docs/HOST-CODEX.md docs/de/README.md docs/es/README.md docs/fr/README.md docs/ja/README.md docs/ko/README.md docs/pt-BR/README.md docs/ru/README.md docs/zh-CN/README.md docs/zh-TW/README.md 2>/dev/null || true)
+PINS_TOUCHED=""
+if [ -n "$PINNED" ]; then
+  (cd "$ROOT" && python3 - "$OLD" "$NEW" $PINNED <<'PY'
+import sys
+old, new, files = sys.argv[1], sys.argv[2], sys.argv[3:]
+for f in files:
+    with open(f) as fh: text = fh.read()
+    with open(f, "w") as fh: fh.write(text.replace(f"great-cto@{old}", f"great-cto@{new}"))
+PY
+  )
+  PINS_TOUCHED="  ✓ npx great-cto@$NEW pins in: $(echo $PINNED | tr '\n' ' ')"
+fi
+
 # CHANGELOG.md stub — idempotent prepend
 # If "## v$NEW — " already exists, do nothing. Otherwise prepend a stub block
 # directly after the file header (after the first "---" divider).
@@ -182,6 +204,7 @@ echo "bumped: $OLD → $NEW"
 echo "  ✓ $PLUGIN_JSON"
 echo "  ✓ $CLI_JSON"
 [ -n "$JSR_TOUCHED" ] && echo "$JSR_TOUCHED"
+[ -n "$PINS_TOUCHED" ] && echo "$PINS_TOUCHED"
 echo "  ✓ $README (badge + actively-maintained)"
 [ -n "$CHANGELOG_TOUCHED" ] && echo "$CHANGELOG_TOUCHED"
 echo ""

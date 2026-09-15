@@ -40,3 +40,21 @@ test('the version-file list matches what bump-version.sh actually writes', () =>
   assert.ok(written.length >= 6, `bump writes ${written.length} files`);
   for (const f of written) assert.ok(src.includes(f), `bump writes ${f} but release.sh does not stage it by name`);
 });
+
+test('every npx pin file the bump rewrites is one release.sh stages and allows', () => {
+  // The pin block names its files after `git grep -l "great-cto@$OLD" --`, not as
+  // "$ROOT/…", so the test above cannot see them. 3.29.1 found the gap the other way
+  // round: the pins lagged the CLI and failed the gate. Once the bump wrote them,
+  // release.sh would have refused them as strays.
+  const bump = readFileSync(path.join(ROOT, 'scripts/bump-version.sh'), 'utf8');
+  const line = bump.split('\n').find((l) => l.includes('git grep -l "great-cto@$OLD" --'));
+  assert.ok(line, 'the bump has a pin block');
+  const pinned = line.slice(line.indexOf('--') + 2).split('2>')[0].trim().split(/\s+/);
+  assert.ok(pinned.length >= 3, `pin block names ${pinned.length} files`);
+  for (const f of pinned) {
+    assert.ok(!f.includes('*'), `${f}: a glob here reaches files that are not translations`);
+    assert.ok(src.includes(f), `bump rewrites ${f} but release.sh does not stage it by name`);
+    assert.ok(src.includes(f.replace(/[.]/g, '\\.').replace(/\/(de|es|fr|ja|ko|pt-BR|ru|zh-CN|zh-TW)\//, '/(de|es|fr|ja|ko|pt-BR|ru|zh-CN|zh-TW)/'))
+      || src.includes(f.replace(/[.]/g, '\\.')), `bump rewrites ${f} but release.sh's stray filter does not allow it`);
+  }
+});

@@ -257,12 +257,19 @@ else
   # notes, all public the moment the tag was pushed. A version commit carries
   # the files the bump wrote and nothing else; anything else dirty is a reason
   # to stop, not a passenger.
+  # The npx pins (#149) are version files too: bump-version.sh rewrites
+  # `great-cto@X.Y.Z` in the Codex host skill and the public docs. Translations
+  # are named one by one — a `docs/*/README.md` glob would admit docs/plans/README.md
+  # and every other README into a version commit.
   VERSION_FILES=(
     .claude-plugin/plugin.json .codex-plugin/plugin.json .codex-plugin/mcp.json
     CHANGELOG.md README.md
     packages/cli/package.json packages/cli/package-lock.json packages/cli/jsr.json
+    skills/codex-host/SKILL.md docs/HOST-CODEX.md
+    docs/de/README.md docs/es/README.md docs/fr/README.md docs/ja/README.md docs/ko/README.md
+    docs/pt-BR/README.md docs/ru/README.md docs/zh-CN/README.md docs/zh-TW/README.md
   )
-  STRAY=$(git status --porcelain | awk '{print $2}' | grep -vE '^(\.claude-plugin/plugin\.json|\.codex-plugin/(plugin|mcp)\.json|CHANGELOG\.md|README\.md|packages/cli/(package|package-lock|jsr)\.json|docs/screenshots/[^/]+\.png)$' || true)
+  STRAY=$(git status --porcelain | awk '{print $2}' | grep -vE '^(\.claude-plugin/plugin\.json|\.codex-plugin/(plugin|mcp)\.json|CHANGELOG\.md|README\.md|packages/cli/(package|package-lock|jsr)\.json|docs/screenshots/[^/]+\.png|skills/codex-host/SKILL\.md|docs/HOST-CODEX\.md|docs/(de|es|fr|ja|ko|pt-BR|ru|zh-CN|zh-TW)/README\.md)$' || true)
   if [ -n "$STRAY" ]; then
     echo ""; color_red "✗ refusing to commit — the tree carries changes that are not version files:"; echo ""
     echo "$STRAY" | sed 's/^/      /'
