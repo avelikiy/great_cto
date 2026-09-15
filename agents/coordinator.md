@@ -274,6 +274,33 @@ with a green light from the check that exists to prevent it.
 
 If exit 1 → force sequential: add the dependency in the WPL before dispatching, or re-split the packets until the check passes.
 
+### After each builder returns — before you commit its work
+
+A disjoint plan does not make disjoint work. The overlap check above proves the
+packets CLAIMED separate files; it cannot see that a packet then edited a file it
+never claimed — possibly one another packet owns and is editing right now. Check
+each builder's actual diff against its row, in its own worktree, before its work
+is committed. After the commit the diff has no author and this can no longer be
+answered.
+
+```bash
+LD="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/lane-diff.mjs"
+[ -f "$LD" ] || LD="$(pwd)/scripts/lib/lane-diff.mjs"
+# --cwd: the builder's worktree · --base: the commit the worktree branched from
+node "$LD" wpl.md --lane "Implement auth" --cwd "$WORKTREE" --base "$BRANCH_POINT"
+```
+
+- **exit 0** — every changed file is inside the packet's zone (or it changed nothing). Commit it.
+- **exit 1, a stray file owned by another packet** — a race. Do not commit either
+  packet until you have compared both diffs on that file; one may have overwritten the other.
+- **exit 1, a stray file owned by no packet** — drift. Either the WPL was wrong (amend the
+  row, re-run `wpl.mjs` so the new claim is proven disjoint, then re-check) or the builder
+  overreached (revert that file in its worktree).
+- **exit 3** — not checked: no matrix, an unreadable matrix, or git could not produce the
+  diff. That is not a pass. Fix the cause and run it again.
+
+Session side files (`.great_cto/**`, `.beads/**`) are ignored and counted, never silently dropped.
+
 ---
 
 ## Reproduction Requirement (bug-fix class)

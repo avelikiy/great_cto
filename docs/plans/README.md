@@ -84,6 +84,10 @@ What a run spends, and what it can hold.
   `cmmc-reviewer`, `adtech-privacy-reviewer`).
 - [NaCl-inspired governance](PLAN-nacl-governance.md)
 - [Borrow from Santander AI Open Source](PLAN-borrow-santander.md)
+- [Patterns borrowed from three open-source agent projects](PLAN-2026-09-15-borrowed-patterns.md) —
+  *declares: in progress · 2026-09-15*. Seven items from claudexor, headcount and
+  agentic-rag-for-dummies (all MIT): a diff-time write-zone guard, per-agent authority,
+  council planning, handoff packets, numbered invariants, sectioned recall. The guard landed first.
 
 ---
 

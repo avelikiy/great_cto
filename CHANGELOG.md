@@ -6,6 +6,18 @@ All notable changes to great_cto are documented here.
 
 ## Unreleased
 
+### Added
+
+- **A builder's actual diff is checked against the write zone it claimed.**
+  `scripts/lib/wpl.mjs` proved a Work Packet List was disjoint before a fan-out, but
+  nothing proved the work stayed inside it: a packet could claim `src/auth/*.ts`, also
+  edit a file another packet owned, and be committed. `scripts/lib/lane-diff.mjs` reads a
+  packet's changed files (including untracked files and both sides of a rename) and
+  answers `inside`, `empty`, `stray`, `unknown-lane`, `absent` or `malformed`; a stray
+  file names the packet that owns it, so a race is told apart from drift. The
+  coordinator runs it after each builder returns and before committing. Exit 3 means
+  "not checked" and is never a pass. (Method from headcount's `agent-guard diff`, MIT.)
+
 ### Fixed
 
 - **A project started with `/start` now appears on the board.** The board lists only

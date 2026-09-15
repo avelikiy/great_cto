@@ -89,6 +89,23 @@ export function claimsOverlap(a, b) {
   return pathsIntersect(segmentsOf(a), segmentsOf(b));
 }
 
+/**
+ * Is a concrete, changed file inside a claim?
+ *
+ * Not the same question as claimsOverlap. That one compares two plans and reads
+ * an extensionless name as a directory, because at planning time `src/auth` is
+ * a claim on everything under it. A path out of `git diff` is a file that
+ * exists: `Dockerfile` or `bin/cli` is that one file, and reading it as a
+ * directory would call it inside any claim that shares its first segments. So
+ * the file side is taken literally and only the claim side is expanded.
+ * Lives here so the glob rule still has one owner (lane-diff uses it).
+ */
+export function fileInClaim(file, claim) {
+  const f = String(file).replace(/^\.\//, '').split('/').filter(Boolean);
+  if (f.length === 0) return false;
+  return pathsIntersect(f, segmentsOf(claim));
+}
+
 /** The more specific of two claims, for naming the conflict. */
 function moreSpecific(a, b) {
   const stars = (x) => (x.match(/\*/g) || []).length;
