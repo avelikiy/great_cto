@@ -4,6 +4,20 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **A project started with `/start` now appears on the board.** The board lists only
+  projects in `~/.great_cto/projects.json`, and nothing but `great-cto register` wrote
+  there — so a project initialised the normal way stayed invisible. The SessionStart
+  and Stop hooks now register any directory with a `.great_cto/PROJECT.md`. Temp
+  directories and agent worktrees are skipped; `GREAT_CTO_NO_AUTO_REGISTER=1` turns it
+  off. A registry that cannot be parsed is left untouched and reported, never rewritten.
+- **`great-cto register` no longer wipes the registry.** Given an unparseable
+  `projects.json`, it replaced it with a file holding only the current project; it now
+  refuses and exits 1.
+
 
 
 

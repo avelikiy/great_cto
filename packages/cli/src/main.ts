@@ -196,7 +196,16 @@ async function runRegister(args: CliArgs): Promise<number> {
   const f = join(dir, "projects.json");
   let reg: { projects: Array<typeof meta> } = { projects: [] };
   if (existsSync(f)) {
-    try { reg = JSON.parse(readFileSync(f, "utf8")); } catch {}
+    // An unparseable registry used to be replaced by one holding only this project —
+    // every other project vanished from the board. Refuse instead.
+    try { reg = JSON.parse(readFileSync(f, "utf8")); } catch (e) {
+      error(`${f} is not valid JSON — not touching it: ${(e as Error).message}`);
+      return 1;
+    }
+    if (!reg || !Array.isArray(reg.projects)) {
+      error(`${f} has no projects[] list — not touching it`);
+      return 1;
+    }
   }
   if (reg.projects.find(p => p.path === meta.path)) {
     log(`✓ Already registered: ${meta.slug} (${cwd})`);

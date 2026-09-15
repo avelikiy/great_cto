@@ -415,6 +415,10 @@ If `PACKS` is non-empty, write it to PROJECT.md as `packs: voice-pack, …`. Eac
 mkdir -p .great_cto
 ```
 
+You do not register the project on the board yourself: the Stop hook at the end of
+this turn adds any directory with `.great_cto/PROJECT.md` to `~/.great_cto/projects.json`
+(`scripts/hooks/register-project.mjs`).
+
 Write `.great_cto/PROJECT.md`:
 
 ```markdown
