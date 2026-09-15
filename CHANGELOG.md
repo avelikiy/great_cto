@@ -14,6 +14,12 @@ All notable changes to great_cto are documented here.
   and Stop hooks now register any directory with a `.great_cto/PROJECT.md`. Temp
   directories and agent worktrees are skipped; `GREAT_CTO_NO_AUTO_REGISTER=1` turns it
   off. A registry that cannot be parsed is left untouched and reported, never rewritten.
+- **The board checks the judge key instead of always saying "not verified".** It
+  asks OpenRouter once (`GET /api/v1/key`, free) and shows `verified`, `rejected by
+  OpenRouter — replace it`, or `could not check` with a retry. A check that fails to
+  connect never reports the key as bad. The request goes only to OpenRouter, is
+  started from the board page (`POST /api/router-key/verify`, origin-checked), and
+  the answer is kept for that key only — a replaced key is checked again.
 - **`great-cto register` no longer wipes the registry.** Given an unparseable
   `projects.json`, it replaced it with a file holding only the current project; it now
   refuses and exits 1.

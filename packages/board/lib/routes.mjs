@@ -13,7 +13,11 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
-import { status as routerKeyStatus, writeKey as writeRouterKey } from '../../../scripts/lib/router-key.mjs';
+import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
+
+// The last live check of the judge key, by fingerprint. In memory: a restart
+// re-checks, which costs one free request.
+let routerKeyCheck = null;
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
 import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from './data-readers.mjs';
@@ -879,8 +883,31 @@ async function dispatch(req, res, url, cwd) {
   // single-page app a secret disclosure, and buys nothing: nobody needs to read
   // back a key they already hold.
   if (pathname === '/api/router-key' && req.method === 'GET') {
+    // The last live check rides along, but only for the key it checked: a replaced
+    // key must not inherit its predecessor's "verified". GET makes no network call.
+    const st = routerKeyStatus({ cwd });
+    const verification = routerKeyCheck && routerKeyCheck.fingerprint === st.fingerprint ? routerKeyCheck : null;
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
-    res.end(JSON.stringify(routerKeyStatus({ cwd })));
+    res.end(JSON.stringify({ ...st, verification }));
+    return true;
+  }
+
+  // A live check against OpenRouter. POST and origin-checked like the write: it
+  // spends the key on an outbound request, so another page must not trigger it.
+  if (pathname === '/api/router-key/verify' && req.method === 'POST') {
+    if (!originAllowed(req)) {
+      res.writeHead(403, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'origin not allowed' }));
+      return true;
+    }
+    verifyRouterKey({ cwd }).then((r) => {
+      routerKeyCheck = r;
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(r));
+    }, (e) => {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ state: 'unreachable', reason: String(e.message || e) }));
+    });
     return true;
   }
 

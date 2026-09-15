@@ -215,6 +215,24 @@ for 14 days are removed. Delete them all with
 `git for-each-ref --format='%(refname)' refs/great-cto/ | xargs -n1 git update-ref -d`.
 Turn them off with `GREAT_CTO_DISABLE_TURNS=1`.
 
+## Judge key check (not telemetry — sent only to OpenRouter)
+
+When the board shows the judge settings with a key stored, it asks OpenRouter whether
+that key is live: one `GET https://openrouter.ai/api/v1/key` carrying the key, which
+costs nothing and returns the key's limit and usage. The request goes to OpenRouter
+and nowhere else, carries nothing about your project, and is started only from the
+board page itself (another site cannot trigger it). The answer is kept in the board's
+memory for that key; a restart or a replaced key checks again. Nothing is sent when
+no key is stored.
+
+## Local project registry (not telemetry — never sent)
+
+The board's project switcher reads `~/.great_cto/projects.json`. At session start and
+at the end of each turn, a directory with `.great_cto/PROJECT.md` is added to it:
+name, archetype, description and path. The file stays on your machine. Temp
+directories and agent worktrees are not added; turn it off with
+`GREAT_CTO_NO_AUTO_REGISTER=1`, and remove a project by deleting its entry.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

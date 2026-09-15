@@ -36,11 +36,11 @@ export const KEY_NAME = 'OPENROUTER_API_KEY';
 export const MODEL_NAME = 'GREAT_CTO_ROUTER_MODEL';
 
 /** Where the router looks, in the order it looks. */
-export function keyLocations(cwd = process.cwd()) {
+export function keyLocations(cwd = process.cwd(), home = os.homedir()) {
   return [
     { where: 'environment', kind: 'env' },
     { where: path.join(cwd, '.env.local'), kind: 'file' },
-    { where: path.join(os.homedir(), '.great_cto', 'secrets.env'), kind: 'file' },
+    { where: path.join(home, '.great_cto', 'secrets.env'), kind: 'file' },
   ];
 }
 
@@ -69,13 +69,20 @@ export function fingerprint(key) {
  * no key, and telling the operator "no key" when the answer is "I could not
  * look" sends them to set a key they already have.
  */
-export function status({ cwd = process.cwd(), env = process.env } = {}) {
+export function status({ cwd = process.cwd(), env = process.env, home = os.homedir() } = {}) {
+  const { value, ...rest } = locate({ cwd, env, home });
+  return rest;
+}
+
+// The one place that holds the value. Not exported: status() strips it, and
+// verifyKey() hands it only to OpenRouter.
+function locate({ cwd, env, home }) {
   const problems = [];
-  for (const loc of keyLocations(cwd)) {
+  for (const loc of keyLocations(cwd, home)) {
     if (loc.kind === 'env') {
       if (env[KEY_NAME]) {
         return { state: 'present', from: 'environment', fingerprint: fingerprint(env[KEY_NAME]),
-                 model: env[MODEL_NAME] || null, problems };
+                 model: env[MODEL_NAME] || null, problems, value: env[KEY_NAME] };
       }
       continue;
     }
@@ -86,7 +93,7 @@ export function status({ cwd = process.cwd(), env = process.env } = {}) {
     const vars = parseEnv(text);
     if (vars.get(KEY_NAME)) {
       return { state: 'present', from: loc.where, fingerprint: fingerprint(vars.get(KEY_NAME)),
-               model: vars.get(MODEL_NAME) || null, problems };
+               model: vars.get(MODEL_NAME) || null, problems, value: vars.get(KEY_NAME) };
     }
   }
   return {
@@ -95,6 +102,46 @@ export function status({ cwd = process.cwd(), env = process.env } = {}) {
     fingerprint: null,
     model: env[MODEL_NAME] || null,
     problems,
+    value: null,
+  };
+}
+
+/**
+ * Is the stored key live? One free request — `GET /api/v1/key` returns the key's
+ * limit and usage and spends nothing.
+ *
+ * "Stored" was all the board could say, and a stored key that OpenRouter rejects
+ * scores every stage `unverifiable` exactly like no key. Four states, because
+ * "could not check" is not "rejected":
+ *   verified    — OpenRouter accepted the key (HTTP 200)
+ *   rejected    — OpenRouter refused it (401/403): revoked, mistyped, disabled
+ *   unreachable — no answer, a timeout, or any other status; says nothing about the key
+ *   absent      — there is no key to check
+ *
+ * Never returns the key. The request goes only to OpenRouter (overridable with
+ * GREAT_CTO_OPENROUTER_BASE, which tests point at a local stub).
+ */
+export async function verifyKey({ cwd = process.cwd(), env = process.env, home = os.homedir(), timeoutMs = 8000,
+                                  fetchImpl = globalThis.fetch, now = () => new Date() } = {}) {
+  const found = locate({ cwd, env, home });
+  const base = { fingerprint: found.fingerprint, checkedAt: now().toISOString() };
+  if (found.state !== 'present') return { state: 'absent', ...base };
+  const url = `${String(env.GREAT_CTO_OPENROUTER_BASE || 'https://openrouter.ai').replace(/\/+$/, '')}/api/v1/key`;
+  let r;
+  try {
+    r = await fetchImpl(url, { headers: { Authorization: `Bearer ${found.value}` },
+                               signal: AbortSignal.timeout(timeoutMs) });
+  } catch (e) {
+    return { state: 'unreachable', ...base, reason: e.name === 'TimeoutError' ? 'timed out' : 'network error' };
+  }
+  if (r.status === 401 || r.status === 403) return { state: 'rejected', ...base, http: r.status };
+  if (r.status !== 200) return { state: 'unreachable', ...base, http: r.status, reason: `OpenRouter answered ${r.status}` };
+  let data = {};
+  try { data = (await r.json())?.data || {}; } catch { /* a 200 is the answer; the body is detail */ }
+  return {
+    state: 'verified', ...base, http: 200,
+    limit: typeof data.limit === 'number' ? data.limit : null,
+    usage: typeof data.usage === 'number' ? data.usage : null,
   };
 }
 

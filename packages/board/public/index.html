@@ -2261,6 +2261,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .judge-status .js-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .judge-status.ok .js-dot { background: var(--status-done); }
 .judge-status.off .js-dot { background: var(--status-blocked); }
+.judge-status .js-ok { color: var(--status-done); }
+.judge-status .js-bad { color: var(--status-blocked); }
 .judge-status .js-where { font-family: var(--mono); font-size: var(--fs-small); color: var(--text3); }
 .judge-status .js-form { display: flex; gap: 8px; align-items: center; margin-left: auto; }
 .judge-status input {
@@ -4877,11 +4879,20 @@ async function loadJudgeStatus() {
   if (!s) { el.hidden = true; return; }
 
   const connected = s.state === 'present';
-  el.className = 'judge-status ' + (connected ? 'ok' : 'off');
+  const v = s.verification;
+  // Four states from the live check, plus "checking" while it runs. Only a 200
+  // from OpenRouter says "verified"; a failed request says it could not check,
+  // never that the key is bad.
+  const check = !v ? `<span class="abs" title="asking OpenRouter whether this key is live">· checking…</span>`
+    : v.state === 'verified' ? `<span class="js-ok" title="OpenRouter accepted this key ${esc(String(v.checkedAt || '').slice(0, 16).replace('T', ' '))}">· verified</span>`
+    : v.state === 'rejected' ? `<span class="js-bad" title="OpenRouter answered ${esc(String(v.http || ''))} — revoked, mistyped or disabled">· rejected by OpenRouter — replace it</span>`
+    : `<span class="abs" title="${esc(v.reason || 'no answer')}">· could not check — ${esc(v.reason || 'no answer')} <a href="#" onclick="verifyJudgeKey();return false">retry</a></span>`;
+  el.className = 'judge-status ' + (connected ? (v && v.state === 'rejected' ? 'off' : 'ok') : 'off');
   el.hidden = false;
+  if (connected && !v && !verifyJudgeKey.running) verifyJudgeKey();
   el.innerHTML = connected
     ? `<span class="js-dot"></span>
-       <span><strong>Judge key stored</strong> <span class="abs" title="a stored key is not a working key — no probe has verified it from here">· not verified</span> — ${esc(s.model || 'default model')}</span>
+       <span><strong>Judge key stored</strong> ${check} — ${esc(s.model || 'default model')}</span>
        <span class="js-where">${esc(s.fingerprint || '')} · from ${esc(String(s.from || '').replace(/^.*\/(?=\.great_cto)/, '~/'))}</span>
        <span class="js-form">
          <input id="judge-key" type="password" autocomplete="off" spellcheck="false" placeholder="replace key (sk-or-…)">
@@ -4984,6 +4995,18 @@ async function saveJudgeKey() {
   if (input) input.value = '';
   if (!r || r.error) { alert(`Key not saved: ${r?.error || 'network error'}`); return; }
   showToast(r.replaced ? 'Judge key replaced' : 'Judge connected', 'success', 2500);
+  loadJudgeStatus();
+}
+
+// Ask OpenRouter whether the stored key is live, then redraw. `running` keeps a
+// redraw from starting a second check while the first is out.
+async function verifyJudgeKey() {
+  if (verifyJudgeKey.running) return;
+  verifyJudgeKey.running = true;
+  try {
+    await api(`/api/router-key/verify${pqs()}`, { method: 'POST' });
+  } catch { /* the redraw shows "could not check" from the cached state */ }
+  finally { verifyJudgeKey.running = false; }
   loadJudgeStatus();
 }
 

@@ -25,6 +25,8 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/gates/<id>` | POST | Approve/reject gate (body: `{action, reason?, token, confirm?}`). `token` comes from that gate's `/api/inbox` entry and is single-use; `confirm` is the typed gate name, required to approve an expensive or unclassified gate. 403 `refused-token` / `refused-expired` / `refused-confirm`; 409 `refused-stale` with `changed` paths when the project changed since the gate was listed; 409 without `.beads/` and without `tasks.md` |
 | `/api/turns?project=<slug>&limit=10` | GET | `{state, sessions, why?}` — agent turn snapshots (ADR-023), newest session first: `{session, turns, newestTurn, newestAt}`. `state` is `none` outside git, `unreadable` if git refused, `live` otherwise |
 | `/api/turns/diff?project=<slug>&session=<id>&turn=<n>` | GET | `{state:'ok', paths, patch, truncated}` — one turn's unified diff and every changed path; the patch is cut at 200 KB. 400 for a bad session or turn, 404 for a turn that does not exist |
+| `/api/router-key` | GET | `{state, from, fingerprint, model, problems, verification}` — whether a judge key is stored, never the key. `verification` is the last live check for this fingerprint, or `null`; GET makes no network request |
+| `/api/router-key/verify` | POST | `{state, fingerprint, checkedAt, http?, limit?, usage?, reason?}` — asks OpenRouter (`GET /api/v1/key`, free) whether the stored key is live. `state` is `verified` (200), `rejected` (401/403), `unreachable` (no answer, timeout, any other status) or `absent`. 403 from another origin |
 | `/api/healthz` | GET | `{ok: true}` |
 
 ## Common gotcha — array vs object
