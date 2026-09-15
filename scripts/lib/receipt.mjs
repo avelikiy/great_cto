@@ -49,8 +49,13 @@ export const MAX_FILES = 200;
  * a gate read "reviewed files changed" one tool call later, and the controlled
  * Codex host would block on "working tree changed during verification" (bkvj).
  * Only these files: anything else under .great_cto/ is still part of the tree.
+ *
+ * beads' own interactions log is the same kind of file (4b9l). Current `bd init`
+ * no longer gitignores it, so in a fresh project it is tracked, and every
+ * `bd update` an agent or the board runs made a reviewed tree read as changed.
+ * The rest of .beads/ — config, metadata, hooks — is configuration and counts.
  */
-export const ACTIVITY_LOGS = Object.freeze(['.great_cto/events.jsonl', '.great_cto/events.1.jsonl']);
+export const ACTIVITY_LOGS = Object.freeze(['.great_cto/events.jsonl', '.great_cto/events.1.jsonl', '.beads/interactions.jsonl']);
 const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
 
 /**

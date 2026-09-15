@@ -102,3 +102,41 @@ test('exclude adds to the activity-log exclusion rather than replacing it', (t) 
   const after = treeReceipt(root, { exclude: ['docs'] });
   assert.ok(same(before, after), 'the events log stays excluded when a caller excludes something else');
 });
+
+// ── the beads interactions log (great_cto-4b9l) ────────────────────────────
+//
+// Same class as the events log, found through ADR-024. Current `bd init` writes a
+// .beads/.gitignore that no longer lists interactions.jsonl, so in a fresh project
+// the file is tracked — measured 2026-09-15: one `bd update` modified it and the
+// receipt listed `.beads/interactions.jsonl` as a changed file. Every bd command an
+// agent or the board runs would read as "reviewed files changed". Only that log is
+// excluded: .beads/config.yaml and the hooks are configuration, and still count.
+
+test('the beads interactions log does not move a receipt, tracked or not', (t) => {
+  const { root, git } = repo(t);
+  mkdirSync(join(root, '.beads'));
+  const log = join(root, '.beads', 'interactions.jsonl');
+  writeFileSync(log, '{"kind":"create","id":"x-1"}\n');
+  const untrackedBefore = treeReceipt(root);
+  writeFileSync(log, '{"kind":"create","id":"x-1"}\n{"kind":"update","id":"x-1"}\n');
+  assert.ok(same(untrackedBefore, treeReceipt(root)), 'an untracked interactions log grew; nothing reviewed changed');
+
+  git('add', '-f', '.beads/interactions.jsonl'); git('commit', '-q', '-m', 'bd init tracked the log');
+  const trackedBefore = treeReceipt(root);
+  writeFileSync(log, '{"kind":"create","id":"x-1"}\n{"kind":"update","id":"x-1"}\n{"kind":"close","id":"x-1"}\n');
+  const trackedAfter = treeReceipt(root);
+  assert.ok(same(trackedBefore, trackedAfter), 'a committed interactions log grew; nothing reviewed changed');
+  assert.ok(!('.beads/interactions.jsonl' in trackedAfter.files), 'and it is not listed as a changed file');
+});
+
+test('beads configuration still counts — only the interactions log is excluded', (t) => {
+  const { root, git } = repo(t);
+  mkdirSync(join(root, '.beads'));
+  writeFileSync(join(root, '.beads', 'config.yaml'), 'issue-prefix: x\n');
+  git('add', '.beads/config.yaml'); git('commit', '-q', '-m', 'config');
+  const before = treeReceipt(root);
+  writeFileSync(join(root, '.beads', 'config.yaml'), 'issue-prefix: y\n');
+  const after = treeReceipt(root);
+  assert.ok(!same(before, after), 'a changed beads config is a change');
+  assert.ok('.beads/config.yaml' in after.files);
+});
