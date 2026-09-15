@@ -1,6 +1,12 @@
 # Plan — patterns borrowed from three open-source agent projects
 
-Status: in progress · Epic: `great_cto-7bgx` · Started 2026-09-15
+Status: done 2026-09-15 · Epic: `great_cto-7bgx` (closed) · Started 2026-09-15
+
+All seven items shipped; three shipped in a different form than planned, each
+explained under its item: section ranking became a section pointer (6), the
+re-query became a named gap (7), and the handoff packet became a bounded,
+recorded stage context (4). Commits: `c4ab362a` (1), `139d1e75` (3),
+`c931804a` (5–7), `cf84b06a` (2, 4).
 
 ## Where these come from
 
