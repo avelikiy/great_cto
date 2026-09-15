@@ -200,6 +200,21 @@ command text, its output, MCP arguments or results, or a search query.
 The events log is not part of a review receipt: appending to it does not make a
 reviewed tree look changed.
 
+## Local turn snapshots (not telemetry — on by default, never sent)
+
+So a reviewer can see what each agent turn changed (ADR-023), the plugin records the
+project's files at the end of each turn as a git commit under
+`refs/great-cto/turns/<session>/<n>` **in your project's own `.git`**. It holds the
+same content your working tree already holds, including uncommitted work; gitignored
+files and the agent events log are left out. Nothing is uploaded.
+
+These refs are not branches: a normal `git push` and a `git clone` do not carry them.
+A mirror push would, so the plugin's pre-push hook refuses any push that includes
+`refs/great-cto/`. The newest 50 turns per session are kept, and sessions untouched
+for 14 days are removed. Delete them all with
+`git for-each-ref --format='%(refname)' refs/great-cto/ | xargs -n1 git update-ref -d`.
+Turn them off with `GREAT_CTO_DISABLE_TURNS=1`.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

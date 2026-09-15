@@ -411,3 +411,22 @@ test('GREAT_CTO_DISABLE_EVENTS=1 keeps the controller silent', async t => {
   assert.deepEqual(eventsOf(s.root), []);
   assert.equal(s.status, 'awaiting-gate');
 });
+
+// ── ADR-023: each Codex stage leaves a turn snapshot ─────────────────────────
+import { listTurns as listTurnRefs } from '../../scripts/lib/turn-snapshot.mjs';
+
+test('a stage in a git project leaves one turn snapshot under the run id', async t => {
+  const s = fixture(t);
+  execSync('git init -q && git config user.email t@t && git config user.name t && git add -A && git commit -q -m init', { cwd: s.root });
+  await runStage(s, { execute: async () => response() });
+  const turns = listTurnRefs(s.root, { session: s.id });
+  assert.equal(turns.length, 1, 'the stage that just ran is one turn');
+  assert.equal(s.status, 'awaiting-gate', 'recording it changed nothing about the run');
+});
+
+test('a stage outside git runs exactly as before, with no snapshot', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  assert.equal(s.status, 'awaiting-gate');
+  assert.deepEqual(listTurnRefs(s.root, { session: s.id }), []);
+});

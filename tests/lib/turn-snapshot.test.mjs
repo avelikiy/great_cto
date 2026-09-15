@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, appendFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { snapshotTurn, listTurns, turnDiff, pruneTurns, TURN_REF_PREFIX } from '../../scripts/lib/turn-snapshot.mjs';
+import { snapshotTurn, listTurns, turnDiff, pruneTurns, pruneStaleSessions, TURN_REF_PREFIX } from '../../scripts/lib/turn-snapshot.mjs';
 
 function repo(t) {
   const root = mkdtempSync(join(tmpdir(), 'gcto-turns-'));
@@ -102,4 +102,41 @@ test('GREAT_CTO_DISABLE_TURNS=1 records nothing, and says so', (t) => {
   const r = snapshotTurn(root, { session: 's1', env: { GREAT_CTO_DISABLE_TURNS: '1' } });
   assert.equal(r.state, 'disabled');
   assert.deepEqual(listTurns(root, { session: 's1' }), []);
+});
+
+// ── step 2: two hooks at once, and sessions that ended long ago ─────────────
+
+test('turns taken at the same moment get distinct numbers — none overwrites another', async (t) => {
+  // Stop and SubagentStop can fire together for one session. Without a create-only
+  // ref update, both read "next is n" and the second silently replaces the first.
+  const { root } = repo(t);
+  const { spawn } = await import('node:child_process');
+  const lib = new URL('../../scripts/lib/turn-snapshot.mjs', import.meta.url).pathname;
+  const run = (i) => new Promise((res) => {
+    writeFileSync(join(root, `f${i}.txt`), `${i}\n`);
+    const p = spawn(process.execPath, ['--input-type=module', '-e',
+      `import { snapshotTurn } from ${JSON.stringify(lib)}; const r = snapshotTurn(${JSON.stringify(root)}, { session: 'race', env: {} }); process.stdout.write(JSON.stringify(r));`]);
+    let out = ''; p.stdout.on('data', (b) => { out += b; }); p.on('close', () => res(JSON.parse(out || '{}')));
+  });
+  const results = await Promise.all([0, 1, 2, 3, 4].map(run));
+  assert.ok(results.every((r) => r.state === 'recorded'), JSON.stringify(results));
+  const turns = listTurns(root, { session: 'race' });
+  assert.equal(turns.length, 5, `five snapshots, five refs — got ${turns.map((x) => x.turn)}`);
+  assert.equal(new Set(results.map((r) => r.turn)).size, 5, 'each call reports its own turn');
+});
+
+test('a session whose newest turn is older than the limit is removed; a recent one is kept', (t) => {
+  const { root, git } = repo(t);
+  snapshotTurn(root, { session: 'recent', env: {} });
+  const tree = git('write-tree').trim();
+  const old = execFileSync('git', ['commit-tree', tree, '-p', 'HEAD'], {
+    cwd: root, encoding: 'utf8', input: 'old turn\n',
+    env: { ...process.env, GIT_COMMITTER_DATE: '2026-08-01T00:00:00Z', GIT_AUTHOR_DATE: '2026-08-01T00:00:00Z' },
+  }).trim();
+  git('update-ref', `${TURN_REF_PREFIX}old/0`, old);
+  git('update-ref', `${TURN_REF_PREFIX}old/1`, old);
+  const r = pruneStaleSessions(root, { maxAgeDays: 14, now: Date.parse('2026-09-15T00:00:00Z') });
+  assert.deepEqual(r.deleted, ['old']);
+  assert.deepEqual(listTurns(root, { session: 'old' }), []);
+  assert.equal(listTurns(root, { session: 'recent' }).length, 1, 'a session with a recent turn is untouched');
 });

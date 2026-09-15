@@ -121,6 +121,11 @@
             "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/subagent-stop-completion.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Three-state completion check..."
+          },
+          {
+            "type": "command",
+            "async": true,
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/turn-snapshot.mjs\" 2>/dev/null || true"
           }
         ]
       }
@@ -288,6 +293,11 @@
           {
             "type": "command",
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/cross-review-gate.mjs\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "async": true,
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/turn-snapshot.mjs\" 2>/dev/null || true"
           }
         ]
       }

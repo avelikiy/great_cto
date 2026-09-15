@@ -26,6 +26,7 @@ import { ACTIVITY_LOGS } from './receipt.mjs';
 export const TURN_REF_PREFIX = 'refs/great-cto/turns/';
 const SESSION = /^[A-Za-z0-9_-]{1,80}$/;
 const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
+const ZERO_OID = '0000000000000000000000000000000000000000';
 
 function git(cwd, args, { env = null, input = null } = {}) {
   return execFileSync('git', args, {
@@ -65,24 +66,30 @@ export function snapshotTurn(cwd, { session, env = process.env } = {}) {
   const root = top.trim();
   const head = tryGit(root, ['rev-parse', '--verify', '-q', 'HEAD'])?.trim() || null;
 
-  const prior = listTurns(root, { session });
-  const turn = prior.length ? prior.at(-1).turn + 1 : 0;
-  const parent = prior.length ? prior.at(-1).commit : head;
-
   const scratch = mkdtempSync(join(tmpdir(), 'gcto-turn-index-'));
   const index = { GIT_INDEX_FILE: join(scratch, 'index') };
   try {
     git(root, ['read-tree', head || EMPTY_TREE], { env: index });
     git(root, ['add', '-A', '--', '.', ...ACTIVITY_LOGS.map((p) => `:(exclude)${p}`)], { env: index });
     const tree = git(root, ['write-tree'], { env: index }).trim();
-    const args = ['commit-tree', tree, ...(parent ? ['-p', parent] : [])];
-    const commit = git(root, args, {
-      input: `great_cto turn ${turn} (${session})\n`,
-      env: { GIT_AUTHOR_NAME: 'great_cto', GIT_AUTHOR_EMAIL: 'turns@great-cto.local', GIT_COMMITTER_NAME: 'great_cto', GIT_COMMITTER_EMAIL: 'turns@great-cto.local' },
-    }).trim();
-    const ref = `${TURN_REF_PREFIX}${session}/${turn}`;
-    git(root, ['update-ref', ref, commit]);
-    return { state: 'recorded', turn, ref, commit, parent };
+    // Stop and SubagentStop can fire together for one session. Both would read
+    // "the next turn is n", and a plain update-ref lets the second silently replace
+    // the first. So the ref is created only if it does not exist (old value = zeros),
+    // and a lost race moves to the next number.
+    for (let attempt = 0; attempt < 10; attempt++) {
+      const prior = listTurns(root, { session });
+      const turn = prior.length ? prior.at(-1).turn + 1 : 0;
+      const parent = prior.length ? prior.at(-1).commit : head;
+      const commit = git(root, ['commit-tree', tree, ...(parent ? ['-p', parent] : [])], {
+        input: `great_cto turn ${turn} (${session})\n`,
+        env: { GIT_AUTHOR_NAME: 'great_cto', GIT_AUTHOR_EMAIL: 'turns@great-cto.local', GIT_COMMITTER_NAME: 'great_cto', GIT_COMMITTER_EMAIL: 'turns@great-cto.local' },
+      }).trim();
+      const ref = `${TURN_REF_PREFIX}${session}/${turn}`;
+      if (tryGit(root, ['update-ref', ref, commit, ZERO_OID]) !== null) {
+        return { state: 'recorded', turn, ref, commit, parent };
+      }
+    }
+    return { state: 'failed', why: 'another snapshot kept taking the next turn number' };
   } catch (err) {
     return { state: 'failed', why: String(err?.stderr || err?.message || err).trim().slice(0, 300) };
   } finally {
@@ -100,6 +107,34 @@ export function turnDiff(cwd, { session, turn } = {}) {
     : tryGit(cwd, ['ls-tree', '-r', '--name-only', t.commit]);
   if (out == null) return { state: 'failed', paths: [], why: 'git could not diff the turn' };
   return { state: 'ok', paths: out.split('\n').filter(Boolean), ref: t.ref };
+}
+
+/**
+ * Remove whole sessions whose newest turn is older than `maxAgeDays` (ADR-023: 14).
+ * Age is the snapshot commit's own committer date, so it is what was recorded, not
+ * when a file on disk was last touched. A session with any recent turn is kept whole.
+ */
+export function pruneStaleSessions(cwd, { maxAgeDays = 14, now = Date.now() } = {}) {
+  const out = tryGit(cwd, ['for-each-ref', '--format=%(refname) %(committerdate:unix)', TURN_REF_PREFIX]);
+  if (!out) return { deleted: [] };
+  const newest = new Map();
+  const refs = new Map();
+  for (const line of out.split('\n').filter(Boolean)) {
+    const [ref, unix] = line.split(' ');
+    const session = ref.slice(TURN_REF_PREFIX.length).split('/')[0];
+    if (!checkSession(session)) continue;
+    const at = Number(unix) * 1000;
+    newest.set(session, Math.max(newest.get(session) ?? 0, Number.isFinite(at) ? at : 0));
+    refs.set(session, [...(refs.get(session) || []), ref]);
+  }
+  const cutoff = now - maxAgeDays * 24 * 60 * 60 * 1000;
+  const deleted = [];
+  for (const [session, at] of newest) {
+    if (at >= cutoff) continue;
+    for (const ref of refs.get(session)) tryGit(cwd, ['update-ref', '-d', ref]);
+    deleted.push(session);
+  }
+  return { deleted: deleted.sort() };
 }
 
 /** Keep the newest `keep` turns of a session; delete the rest. */

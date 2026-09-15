@@ -7,6 +7,7 @@ import { parsePipelineToml } from './pipeline-toml.mjs';
 import { scan } from './secret-patterns.mjs';
 import { runCodexExec, codexToolEvent } from './codex-exec.mjs';
 import { appendEvent } from './agent-events.mjs';
+import { snapshotTurn, pruneTurns } from './turn-snapshot.mjs';
 import { treeReceipt } from './receipt.mjs';
 import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
 import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
@@ -451,6 +452,9 @@ export async function runStage(state, { execute = runCodexExec, verify = verifyS
     save(state);
   } finally {
     emit(state, { kind: 'agent-stop', agent, ok: stageOk, duration_ms: Date.now() - t0 });
+    // ADR-023: a Codex stage is a turn. Recorded after every tree check above, and it
+    // writes only git objects and a ref, never a working file. Never throws.
+    if (snapshotTurn(state.root, { session: state.id }).state === 'recorded') pruneTurns(state.root, { session: state.id, keep: 50 });
   }
   return state;
 }

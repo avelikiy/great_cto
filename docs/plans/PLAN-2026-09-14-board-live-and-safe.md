@@ -151,9 +151,20 @@ index, logs not excluded, loose session name, parent always HEAD, prune across
 sessions) each caught by the test aimed at it; the push-guard tests fail against
 the old hook, and an ordinary branch push still passes.
 
-Not yet: calling it from the Stop / SubagentStop hooks (an `async` entry in
-`.claude-plugin/plugin.json`) and from each Codex stage, running retention, and
-showing a turn's diff on the board.
+**Step 2 landed (2026-09-15).** `scripts/hooks/turn-snapshot.mjs` runs as an
+`async` hook on Stop and SubagentStop, so the turn never waits on the ~300 ms
+snapshot; each controlled Codex stage takes one too. Retention runs in the same
+call: the newest 50 turns per session, and whole sessions whose newest turn is older
+than 14 days. Two hooks firing together for one session can no longer overwrite each
+other's turn — the ref is created only if absent, and a lost race takes the next
+number. The hook prints nothing and exits 0 whatever it is given.
+
+Checked: tests red first (the library, the hook run as the host runs it, the
+manifest, the Codex stage); six mutations caught by the test aimed at each —
+overwriting ref update, inverted age check, pruning skipped, an exception escaping
+the hook, the Stop entry not async, the Codex snapshot removed.
+
+Not yet: showing a turn's diff on the board.
 
 A decision document only: a git ref per agent turn (the checkpoint idea), built on
 `scripts/lib/receipt.mjs`, with retention, and how the board would show a turn's
