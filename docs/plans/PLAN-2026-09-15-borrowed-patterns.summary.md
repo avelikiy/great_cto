@@ -3,6 +3,6 @@
 
 _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, set ANTHROPIC_API_KEY._
 
-- Status: in progress · Epic: `great_cto-7bgx` · Started 2026-09-15
+- Status: done 2026-09-15 · Epic: `great_cto-7bgx` (closed) · Started 2026-09-15
 
 - **Full doc:** docs/plans/PLAN-2026-09-15-borrowed-patterns.md
