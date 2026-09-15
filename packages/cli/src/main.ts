@@ -645,9 +645,9 @@ ${bold("Claude Code adapter:")}
   ${dim("Idempotent — re-run after editing .great_cto/PROJECT.md")}
 
 ${bold("Controlled Codex host:")}
-  great-cto codex-host doctor          Check Codex auth, state store, Docker and GitHub CLI
-  great-cto codex-host list --dir .    Show sanitized runs for this project
-  great-cto codex-host start --dir . --prompt "..." --allow src,tests,docs
+  npx --yes great-cto codex-host doctor          Check Codex auth, state store, Docker and GitHub CLI
+  npx --yes great-cto codex-host list --dir .    Show sanitized runs for this project
+  npx --yes great-cto codex-host start --dir . --prompt "..." --allow src,tests,docs
   ${dim("The controller owns writes, verification, gates and release approvals.")}
 
 ${bold("Webhook server (preview):")}

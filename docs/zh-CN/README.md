@@ -107,8 +107,8 @@ npx great-cto init
 真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。
 
 **在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills 和 MCP
-服务器。原生 hooks、斜杠命令和角色 agent 仍然不存在。受支持的流水线路径是独立
-控制器 `great-cto codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
+服务器。原生 hooks、斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
+加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.29.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
 的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
 [Codex host 指南](../HOST-CODEX.md)。
 

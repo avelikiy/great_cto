@@ -111,8 +111,8 @@ solos. Tras el init, verifica que el host cargó el plugin de verdad:
 
 **En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills y el
 servidor MCP. Los hooks, slash commands y agentes con rol nativos siguen sin
-existir. La ruta de pipeline soportada es el controlador separado
-`great-cto codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
+pipeline soportada es `npx --yes great-cto@3.29.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
 [guía del host Codex](../HOST-CODEX.md).

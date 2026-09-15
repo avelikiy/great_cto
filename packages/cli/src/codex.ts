@@ -59,7 +59,7 @@ export function codexInstallPlan(
     supported: [
       "skills — all of them, the same tree Claude Code reads",
       "the MCP server (great_cto), resolved from npm",
-      "the controlled role pipeline — run `great-cto codex-host doctor` then `great-cto codex-host start`",
+      "the controlled role pipeline — run `npx --yes great-cto codex-host doctor` then `npx --yes great-cto codex-host start`",
     ],
     // Checked across every shipped Codex plugin: no manifest declares any of
     // these. Saying "installed" without saying this would promise a pipeline the
@@ -67,7 +67,7 @@ export function codexInstallPlan(
     notSupported: [
       "native hooks — no plugin surface; ordinary Codex sessions do not inherit controller gates or secret-scan",
       "slash commands — no plugin surface",
-      "native role agents — Codex plugins carry interface metadata; controlled roles run only through `great-cto codex-host`",
+      "native role agents — Codex plugins carry interface metadata; controlled roles run only through `npx --yes great-cto codex-host`",
     ],
   };
 }

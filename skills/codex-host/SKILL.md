@@ -8,15 +8,17 @@ allowed-tools: Read, Bash
 
 # Controlled Codex host
 
-Use the supported CLI entrypoint. Do not imitate Claude Code hooks or manually
-chain roles: the controller reads `shared/pipeline.toml`, persists the cursor and
-owns every write and gate transition.
+Use the version-pinned npm entrypoint below. A Codex plugin install loads skills
+and MCP configuration, but it does not add the `great-cto` npm binary to `PATH`.
+Do not imitate Claude Code hooks or manually chain roles: the controller reads
+`shared/pipeline.toml`, persists the cursor and owns every write and gate
+transition.
 
 ## Preflight
 
 ```sh
-great-cto codex-host doctor
-great-cto codex-host list --dir /absolute/project
+npx --yes great-cto@3.29.0 codex-host doctor
+npx --yes great-cto@3.29.0 codex-host list --dir /absolute/project
 ```
 
 `doctor.state=blocked` means do not start. Docker may be unavailable when no
@@ -29,7 +31,7 @@ Policies must be operator-owned absolute files outside the worker project.
 Allowed paths are explicit controller write boundaries.
 
 ```sh
-great-cto codex-host start \
+npx --yes great-cto@3.29.0 codex-host start \
   --dir /absolute/project \
   --prompt "the requested outcome" \
   --allow src,tests,docs \
@@ -47,9 +49,9 @@ Then pass back the controller-issued token; never synthesize or persist one in a
 project file.
 
 ```sh
-great-cto codex-host approve RUN_UUID --token GATE_TOKEN
-great-cto codex-host approve-release RUN_UUID --token RELEASE_TOKEN
-great-cto codex-host resume RUN_UUID
+npx --yes great-cto@3.29.0 codex-host approve RUN_UUID --token GATE_TOKEN
+npx --yes great-cto@3.29.0 codex-host approve-release RUN_UUID --token RELEASE_TOKEN
+npx --yes great-cto@3.29.0 codex-host resume RUN_UUID
 ```
 
 Use `recover` only after inspecting the recorded reason. Recovery reuses the
