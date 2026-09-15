@@ -346,3 +346,49 @@ test('generic workspace container names are not treated as private projects', ()
       + 'flagging it trains the operator to pass --no-verify');
   }
 });
+
+// ── turn snapshots never leave the machine by accident (ADR-023) ────────────
+//
+// A turn snapshot under refs/great-cto/ holds uncommitted work. A default push
+// never carries it; a mirror push or an explicit refspec does. The hook refuses
+// both, and an ordinary branch push from the same repository still goes through.
+
+function turnRef(work, cfg) {
+  const tree = git(work, ['write-tree'], cfg).stdout.trim();
+  const c = spawnSync('git', ['commit-tree', tree, '-p', 'HEAD'], { cwd: work, encoding: 'utf8', input: 'turn 0\n', env: { ...process.env, ...cfg } }).stdout.trim();
+  git(work, ['update-ref', 'refs/great-cto/turns/s1/0', c]);
+  return c;
+}
+const remoteHas = (bare, ref) => spawnSync('git', ['--git-dir', bare, 'show-ref', '--verify', '--quiet', ref]).status === 0;
+
+test('a turn snapshot pushed by explicit refspec is refused', () => {
+  const { home, bare, work, cfg } = setupRepo();
+  commit(work, cfg, 'app.js', 'export const x = 1;\n', 'init');
+  installHook(work);
+  turnRef(work, cfg);
+  const r = push(work, home, 'refs/great-cto/turns/s1/0:refs/great-cto/turns/s1/0');
+  assert.notEqual(r.status, 0, `push should be refused:\n${r.stdout}${r.stderr}`);
+  assert.match(r.stdout + r.stderr, /turn snapshot/);
+  assert.equal(remoteHas(bare, 'refs/great-cto/turns/s1/0'), false, 'the remote did not gain the snapshot');
+});
+
+test('a mirror push from a repository holding a turn snapshot is refused', () => {
+  const { home, bare, work, cfg } = setupRepo();
+  commit(work, cfg, 'app.js', 'export const x = 1;\n', 'init');
+  installHook(work);
+  turnRef(work, cfg);
+  const r = git(work, ['push', '--mirror', 'origin'], { HOME: home });
+  assert.notEqual(r.status, 0, `mirror push should be refused:\n${r.stdout}${r.stderr}`);
+  assert.equal(remoteHas(bare, 'refs/great-cto/turns/s1/0'), false);
+});
+
+test('an ordinary branch push is untouched by the snapshot guard', () => {
+  const { home, bare, work, cfg } = setupRepo();
+  commit(work, cfg, 'app.js', 'export const x = 1;\n', 'init');
+  installHook(work);
+  turnRef(work, cfg);
+  const r = push(work, home, 'main');
+  assert.equal(r.status, 0, `branch push should pass:\n${r.stdout}${r.stderr}`);
+  assert.equal(remoteHas(bare, 'refs/heads/main'), true);
+  assert.equal(remoteHas(bare, 'refs/great-cto/turns/s1/0'), false, 'and a branch push does not carry the snapshot');
+});

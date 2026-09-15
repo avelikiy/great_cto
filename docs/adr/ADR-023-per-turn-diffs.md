@@ -1,6 +1,6 @@
 # ADR-023 — What each agent turn changed, kept as a git ref
 
-**Status:** Proposed
+**Status:** Accepted — step 1 implemented 2026-09-15 (snapshot library `scripts/lib/turn-snapshot.mjs` and the pre-push refusal of `refs/great-cto/`); hook wiring, retention runs and the board view not yet
 **Date:** 2026-09-14
 **Deciders:** great_cto core
 **Supersedes:** —

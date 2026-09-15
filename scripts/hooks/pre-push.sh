@@ -254,6 +254,15 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     continue
   fi
 
+  # ADR-023: turn snapshots live under refs/great-cto/. They hold uncommitted work,
+  # and a default push never carries them — but a mirror push, or an explicit
+  # refspec, does. A snapshot must not reach a shared remote by accident.
+  if [[ "$local_ref" == refs/great-cto/* || "$remote_ref" == refs/great-cto/* ]]; then
+    echo -e "${RED}[pre-push] REFUSED${NC} — ${local_ref} → ${remote_ref} is a great_cto turn snapshot (uncommitted work)."
+    echo "  Push branches and tags explicitly instead of --mirror, e.g.: git push origin --all && git push origin --tags"
+    exit 1
+  fi
+
   # Determine range — if remote_sha is all zeros this is a new branch or new tag.
   if [[ "$remote_sha" == "0000000000000000000000000000000000000000" ]]; then
     # New branch/tag: scan ONLY commits reachable from local_sha that are not yet

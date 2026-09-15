@@ -138,7 +138,22 @@ log.
 ## 4 — [ADR-023](../adr/ADR-023-per-turn-diffs.md): per-turn diffs (great_cto-mx9y)
 
 ADR-022 was already taken (GitHub release reconciliation). The decision is written,
-with its mechanism measured first — status Proposed; no code yet.
+with its mechanism measured first.
+
+**Step 1 landed (2026-09-15).** `scripts/lib/turn-snapshot.mjs`: `snapshotTurn`
+builds a commit under `refs/great-cto/turns/<session>/<n>` through a temporary
+index, parented on the previous turn; `listTurns`, `turnDiff` and `pruneTurns`
+read and bound them. The pre-push hook refuses any `refs/great-cto/` ref, so a
+mirror push or explicit refspec cannot carry uncommitted work to a remote.
+
+Checked: every library test fails against an empty stub; five mutations (real
+index, logs not excluded, loose session name, parent always HEAD, prune across
+sessions) each caught by the test aimed at it; the push-guard tests fail against
+the old hook, and an ordinary branch push still passes.
+
+Not yet: calling it from the Stop / SubagentStop hooks (an `async` entry in
+`.claude-plugin/plugin.json`) and from each Codex stage, running retention, and
+showing a turn's diff on the board.
 
 A decision document only: a git ref per agent turn (the checkpoint idea), built on
 `scripts/lib/receipt.mjs`, with retention, and how the board would show a turn's
