@@ -1,6 +1,6 @@
 # ADR-023 — What each agent turn changed, kept as a git ref
 
-**Status:** Accepted — implemented 2026-09-15 except the board view. Step 1: snapshot library `scripts/lib/turn-snapshot.mjs` and the pre-push refusal of `refs/great-cto/`. Step 2: an `async` `scripts/hooks/turn-snapshot.mjs` on Stop and SubagentStop, a snapshot per controlled Codex stage, and retention (newest 50 turns per session; whole sessions idle 14 days removed)
+**Status:** Accepted — implemented 2026-09-15, including the board view (the Turns panel under the pipeline track, `GET /api/turns` and `GET /api/turns/diff`). Step 1: snapshot library `scripts/lib/turn-snapshot.mjs` and the pre-push refusal of `refs/great-cto/`. Step 2: an `async` `scripts/hooks/turn-snapshot.mjs` on Stop and SubagentStop, a snapshot per controlled Codex stage, and retention (newest 50 turns per session; whole sessions idle 14 days removed)
 **Date:** 2026-09-14
 **Deciders:** great_cto core
 **Supersedes:** —

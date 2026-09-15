@@ -22,6 +22,7 @@ import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, g
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
 import { issueTokens, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
+import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
 /** A gate decision — made or refused — as an agent event (ADR-024 §1). */
@@ -966,6 +967,27 @@ async function dispatch(req, res, url, cwd) {
     if (limit > 200) limit = 200;
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(agentActivity(cwd, { limit })));
+    return true;
+  }
+
+  // ADR-023: what each agent turn changed. Turns are git refs in the project's own
+  // repository; these read them and nothing else. A diff is file content, served only
+  // on a Host the board knows (xq9h) and escaped by the page before it is drawn.
+  if (pathname === '/api/turns') {
+    let limit = parseInt(url.searchParams.get('limit') || '10', 10);
+    if (!Number.isFinite(limit) || limit < 1) limit = 10;
+    if (limit > 50) limit = 50;
+    res.writeHead(200, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(readTurns(cwd, { limit })));
+    return true;
+  }
+  if (pathname === '/api/turns/diff') {
+    const turnParam = url.searchParams.get('turn');
+    const turn = /^\d{1,9}$/.test(turnParam || '') ? Number(turnParam) : NaN;
+    const p = turnPatch(cwd, { session: url.searchParams.get('session') || '', turn });
+    const status = p.state === 'ok' ? 200 : p.state === 'invalid' ? 400 : 404;
+    res.writeHead(status, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify(p));
     return true;
   }
 

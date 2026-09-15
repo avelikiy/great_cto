@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync, appendFileSync } from 'n
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { snapshotTurn, listTurns, turnDiff, pruneTurns, pruneStaleSessions, TURN_REF_PREFIX } from '../../scripts/lib/turn-snapshot.mjs';
+import { snapshotTurn, listTurns, turnDiff, pruneTurns, pruneStaleSessions, listSessions, turnPatch, TURN_REF_PREFIX } from '../../scripts/lib/turn-snapshot.mjs';
 
 function repo(t) {
   const root = mkdtempSync(join(tmpdir(), 'gcto-turns-'));
@@ -139,4 +139,64 @@ test('a session whose newest turn is older than the limit is removed; a recent o
   assert.deepEqual(r.deleted, ['old']);
   assert.deepEqual(listTurns(root, { session: 'old' }), []);
   assert.equal(listTurns(root, { session: 'recent' }).length, 1, 'a session with a recent turn is untouched');
+});
+
+// ── reading turns for the board (ADR-023, board view) ──────────────────────
+
+test('sessions list newest first, with how many turns and when the last one was', (t) => {
+  const { root, git } = repo(t);
+  const tree = git('write-tree').trim();
+  const at = (iso) => execFileSync('git', ['commit-tree', tree, '-p', 'HEAD'], {
+    cwd: root, encoding: 'utf8', input: 'turn\n',
+    env: { ...process.env, GIT_COMMITTER_DATE: iso, GIT_AUTHOR_DATE: iso },
+  }).trim();
+  git('update-ref', `${TURN_REF_PREFIX}older/0`, at('2026-09-10T10:00:00Z'));
+  git('update-ref', `${TURN_REF_PREFIX}newer/0`, at('2026-09-14T10:00:00Z'));
+  git('update-ref', `${TURN_REF_PREFIX}newer/1`, at('2026-09-14T11:00:00Z'));
+  const s = listSessions(root);
+  assert.deepEqual(s.map((x) => x.session), ['newer', 'older']);
+  assert.equal(s[0].turns, 2);
+  assert.equal(s[0].newestTurn, 1);
+  assert.equal(s[0].newestAt, Date.parse('2026-09-14T11:00:00Z'));
+  assert.equal(listSessions(root, { limit: 1 }).length, 1);
+});
+
+test('a turn patch is that turn’s unified diff, with its paths', (t) => {
+  const { root } = repo(t);
+  snapshotTurn(root, { session: 's1', env: {} });
+  writeFileSync(join(root, 'app.js'), 'export const x = 2;\n');
+  writeFileSync(join(root, 'new.mjs'), 'export const y = 1;\n');
+  snapshotTurn(root, { session: 's1', env: {} });
+  const p = turnPatch(root, { session: 's1', turn: 1 });
+  assert.equal(p.state, 'ok');
+  assert.deepEqual(p.paths.sort(), ['app.js', 'new.mjs']);
+  assert.match(p.patch, /^-export const x = 1;$/m);
+  assert.match(p.patch, /^\+export const x = 2;$/m);
+  assert.equal(p.truncated, false);
+});
+
+test('a large turn patch is cut at the cap and says so', (t) => {
+  const { root } = repo(t);
+  snapshotTurn(root, { session: 's1', env: {} });
+  writeFileSync(join(root, 'big.txt'), 'line of text\n'.repeat(5000));
+  snapshotTurn(root, { session: 's1', env: {} });
+  const p = turnPatch(root, { session: 's1', turn: 1, maxBytes: 1000 });
+  assert.equal(p.state, 'ok');
+  assert.equal(p.truncated, true);
+  assert.ok(Buffer.byteLength(p.patch) <= 1000, `patch is ${Buffer.byteLength(p.patch)} bytes`);
+  assert.deepEqual(p.paths, ['big.txt'], 'the paths are complete even when the patch is cut');
+});
+
+test('a turn patch says which of invalid, none and ok it is', (t) => {
+  const { root } = repo(t);
+  snapshotTurn(root, { session: 's1', env: {} });
+  assert.equal(turnPatch(root, { session: '../heads/main', turn: 0 }).state, 'invalid');
+  assert.equal(turnPatch(root, { session: 's1', turn: -1 }).state, 'invalid');
+  assert.equal(turnPatch(root, { session: 's1', turn: 1.5 }).state, 'invalid');
+  assert.equal(turnPatch(root, { session: 's1', turn: 7 }).state, 'none');
+  const nogit = mkdtempSync(join(tmpdir(), 'gcto-turns-nogit2-'));
+  try {
+    assert.equal(turnPatch(nogit, { session: 's1', turn: 0 }).state, 'none');
+    assert.deepEqual(listSessions(nogit), []);
+  } finally { rmSync(nogit, { recursive: true, force: true }); }
 });

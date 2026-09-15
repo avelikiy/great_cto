@@ -164,7 +164,23 @@ manifest, the Codex stage); six mutations caught by the test aimed at each —
 overwriting ref update, inverted age check, pruning skipped, an exception escaping
 the hook, the Stop entry not async, the Codex snapshot removed.
 
-Not yet: showing a turn's diff on the board.
+**Board view landed (2026-09-15).** A collapsible Turns panel under the pipeline
+track lists a project's sessions, newest first, with a button per turn; a turn opens
+its unified diff and the full list of changed files. `GET /api/turns` answers in three
+states (`none` outside git, `unreadable`, `live`); `GET /api/turns/diff` answers 400
+for a bad session or turn, 404 for a turn that does not exist. A diff past 200 KB is
+cut at a line boundary and says so; the file list is never cut.
+
+A diff is file content, so every line is escaped, and a session name reaches the
+click handler as a JSON string — `esc()` alone turns `'` into `&#39;`, which the
+browser decodes before the handler runs.
+
+Checked: tests red first; seven mutations caught by the test aimed at each — the diff
+unescaped, the handler built from `esc()` alone, bad input answered 404, the no-git
+state removed, truncation removed, sessions oldest first, the panel never loaded.
+On a running board over a throwaway project: both sessions listed newest first; a
+real click opened a turn adding `<script>alert("turn")</script>`, which rendered as
+text, with no script element and no alert; no console errors.
 
 A decision document only: a git ref per agent turn (the checkpoint idea), built on
 `scripts/lib/receipt.mjs`, with retention, and how the board would show a turn's

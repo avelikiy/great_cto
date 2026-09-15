@@ -109,6 +109,71 @@ export function turnDiff(cwd, { session, turn } = {}) {
   return { state: 'ok', paths: out.split('\n').filter(Boolean), ref: t.ref };
 }
 
+// ── reading turns for the board ────────────────────────────────────────────
+
+/** Sessions with turns, newest first: {session, turns, newestTurn, newestAt}. */
+export function listSessions(cwd, { limit = 10 } = {}) {
+  const out = tryGit(cwd, ['for-each-ref', '--format=%(refname) %(committerdate:unix)', TURN_REF_PREFIX]);
+  if (!out) return [];
+  const bySession = new Map();
+  for (const line of out.split('\n').filter(Boolean)) {
+    const [ref, unix] = line.split(' ');
+    const [session, n] = ref.slice(TURN_REF_PREFIX.length).split('/');
+    const turn = Number(n);
+    if (!checkSession(session) || !Number.isInteger(turn) || turn < 0) continue;
+    const at = Number(unix) * 1000;
+    const s = bySession.get(session) || { session, turns: 0, newestTurn: -1, newestAt: 0 };
+    s.turns += 1;
+    if (turn > s.newestTurn) s.newestTurn = turn;
+    if (Number.isFinite(at) && at > s.newestAt) s.newestAt = at;
+    bySession.set(session, s);
+  }
+  return [...bySession.values()].sort((a, b) => b.newestAt - a.newestAt || a.session.localeCompare(b.session)).slice(0, Math.max(1, limit));
+}
+
+/**
+ * The board's view of a project's turns, in three states: `none` (not a git
+ * repository — no history, not an empty one), `unreadable` (git refused), `live`.
+ */
+export function readTurns(cwd, { limit = 10 } = {}) {
+  if (!tryGit(cwd, ['rev-parse', '--git-dir'])) return { state: 'none', why: 'not a git repository — turns are recorded as git refs', sessions: [] };
+  try {
+    git(cwd, ['for-each-ref', '--count=1', TURN_REF_PREFIX]);
+  } catch (err) {
+    return { state: 'unreadable', why: String(err?.stderr || err?.message || err).trim().slice(0, 300), sessions: [] };
+  }
+  return { state: 'live', sessions: listSessions(cwd, { limit }) };
+}
+
+export const MAX_PATCH_BYTES = 200_000;
+
+/**
+ * One turn as a unified diff against the turn before it (or its recorded parent),
+ * with the full list of paths. A patch past `maxBytes` is cut at a line boundary and
+ * says so; the paths are never cut.
+ * @returns {{state:'ok', paths:string[], patch:string, truncated:boolean}
+ *         | {state:'invalid'|'none', why:string}}
+ */
+export function turnPatch(cwd, { session, turn, maxBytes = MAX_PATCH_BYTES } = {}) {
+  if (!checkSession(session) || !Number.isInteger(turn) || turn < 0) return { state: 'invalid', why: 'session must be a turn session id and turn a non-negative integer' };
+  const t = listTurns(cwd, { session }).find((x) => x.turn === turn);
+  if (!t) return { state: 'none', why: `no turn ${turn} recorded for this session` };
+  const base = tryGit(cwd, ['rev-parse', '--verify', '-q', `${t.commit}^`])?.trim() || EMPTY_TREE;
+  const names = tryGit(cwd, ['diff', '--name-only', base, t.commit]);
+  const full = tryGit(cwd, ['diff', '--no-color', '--no-ext-diff', base, t.commit]);
+  if (names == null || full == null) return { state: 'none', why: 'git could not diff this turn' };
+  const buf = Buffer.from(full, 'utf8');
+  let patch = full;
+  let truncated = false;
+  if (buf.length > maxBytes) {
+    const cut = buf.subarray(0, maxBytes);
+    const lastNl = cut.lastIndexOf(0x0a);
+    patch = cut.subarray(0, lastNl >= 0 ? lastNl + 1 : 0).toString('utf8');
+    truncated = true;
+  }
+  return { state: 'ok', paths: names.split('\n').filter(Boolean), patch, truncated, ref: t.ref };
+}
+
 /**
  * Remove whole sessions whose newest turn is older than `maxAgeDays` (ADR-023: 14).
  * Age is the snapshot commit's own committer date, so it is what was recorded, not

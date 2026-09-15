@@ -1584,6 +1584,21 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 }
 .agent-activity { margin-top: 8px; font-size: var(--fs-small); }
 .agent-activity .aa-row { display: flex; gap: 10px; align-items: baseline; padding: 2px 16px; }
+/* ADR-023: what each agent turn changed. */
+.turns-panel { margin: 8px 16px 0; font-size: var(--fs-small); }
+.turns-panel > summary { cursor: pointer; color: var(--text2); }
+.turns-panel .tp-session { margin-top: 6px; }
+.turns-panel .tp-turns { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.turns-panel .tp-turn { font: inherit; padding: 1px 6px; border: 1px solid var(--border); border-radius: 4px; background: transparent; cursor: pointer; }
+.turns-panel .tp-diff { margin-top: 8px; max-height: 420px; overflow: auto; white-space: pre; font-family: var(--mono); font-size: 12px; padding: 8px; border: 1px solid var(--border); border-radius: 4px; }
+.turns-panel .tp-add { color: var(--status-done); }
+.turns-panel .tp-del { color: var(--status-blocked); }
+/* The panel reuses the agent strip's state classes, which are scoped to .agent-activity. */
+.turns-panel .aa-time { font-family: var(--mono); opacity: 0.7; }
+.turns-panel .aa-row { padding: 2px 0; }
+.turns-panel .aa-empty { padding: 2px 0; opacity: 0.75; }
+.turns-panel .aa-bad { color: var(--status-blocked); }
+.turns-panel .aa-attn { color: var(--status-progress); }
 .agent-activity .aa-time { font-family: var(--mono); opacity: 0.7; min-width: 64px; }
 .agent-activity .aa-ok { color: var(--status-done); }
 .agent-activity .aa-bad { color: var(--status-blocked); }
@@ -3433,6 +3448,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <div class="pipeline-track" id="pipeline-track"></div>
           <!-- ADR-021: what agents are doing, streamed as it happens. -->
           <div class="agent-activity" id="agent-activity" aria-live="polite"></div>
+          <!-- ADR-023: what each agent turn changed, from the turn snapshots. -->
+          <details class="turns-panel" id="turns-panel">
+            <summary>Turns — what each agent turn changed</summary>
+            <div id="turns-body"></div>
+            <div id="turn-diff" aria-live="polite"></div>
+          </details>
         </div>
 
         <!-- Harnesses: the host that runs the pipeline, and the second harness
@@ -5616,11 +5637,64 @@ async function refreshPipeline() {
   renderTierBadge();
   renderHarnesses();
   loadAgentActivity();
+  loadTurns();
 }
 
 // ADR-021 phase 1: what agents are doing, streamed as it happens. Three states,
 // and each says which: no events recorded is not an idle agent, and events the
 // board could not read are "not measured", never an empty strip.
+// ADR-023: the turns a project's agents took, and what each one changed.
+async function loadTurns() {
+  const root = document.getElementById('turns-body');
+  if (!root) return;
+  const snap = await api(`/api/turns${pqs()}`).catch(() => null);
+  root.innerHTML = renderTurns(snap);
+}
+
+function renderTurns(snap) {
+  // Three states, never an empty list that could mean either "nothing" or "could not read".
+  if (!snap) return `<div class="aa-empty aa-bad">Turns not measured: the board could not load them.</div>`;
+  if (snap.state === 'none') return `<div class="aa-empty">No turn history: ${esc(snap.why || 'not available for this project')}</div>`;
+  if (snap.state === 'unreadable') return `<div class="aa-empty aa-bad">Turns not measured: ${esc(snap.why || 'git refused')}</div>`;
+  const sessions = Array.isArray(snap.sessions) ? snap.sessions : [];
+  if (!sessions.length) return `<div class="aa-empty">No turn snapshots yet — they start with the next agent turn.</div>`;
+  const when = (ms) => { try { return ms ? new Date(ms).toLocaleString([], { hour12: false }) : ''; } catch { return ''; } };
+  return sessions.map((s) => {
+    const count = Math.min(Number(s.turns) || 0, 50);
+    const first = Math.max(0, (Number(s.newestTurn) || 0) - count + 1);
+    const buttons = [];
+    for (let n = Number(s.newestTurn) || 0; n >= first; n--) {
+      // The session goes in as a JSON string, escaped for the attribute: esc() turns '
+      // into &#39;, which the browser decodes before the handler runs, so a quoted
+      // string built from esc() alone could be broken out of.
+      buttons.push(`<button type="button" class="tp-turn" onclick="showTurnDiff(${esc(JSON.stringify(String(s.session)))}, ${n})">${n}</button>`);
+    }
+    return `<div class="tp-session"><span class="aa-time">${esc(when(s.newestAt))}</span> <code>${esc(String(s.session).slice(0, 8))}</code> · ${esc(String(s.turns))} turn(s)`
+      + `<div class="tp-turns">${buttons.join('')}</div></div>`;
+  }).join('');
+}
+
+async function showTurnDiff(session, turn) {
+  const root = document.getElementById('turn-diff');
+  if (!root) return;
+  root.innerHTML = `<div class="aa-empty">Loading turn ${esc(String(turn))}…</div>`;
+  const q = pqs() ? `&${pqs().slice(1)}` : '';
+  const d = await api(`/api/turns/diff?session=${encodeURIComponent(session)}&turn=${encodeURIComponent(turn)}${q}`).catch(() => null);
+  root.innerHTML = renderTurnDiff(d);
+}
+
+function renderTurnDiff(d) {
+  // A diff is file content: every line is escaped before it is drawn.
+  if (!d || d.state !== 'ok') return `<div class="aa-empty aa-bad">This turn could not be shown: ${esc((d && d.why) || 'the board could not load it')}</div>`;
+  const paths = (Array.isArray(d.paths) ? d.paths : []).map((p) => `<code>${esc(p)}</code>`).join(', ') || 'no files changed';
+  const lines = String(d.patch || '').split('\n').map((l) => {
+    const cls = l.startsWith('+') && !l.startsWith('+++') ? 'tp-add' : l.startsWith('-') && !l.startsWith('---') ? 'tp-del' : '';
+    return cls ? `<span class="${cls}">${esc(l)}</span>` : esc(l);
+  }).join('\n');
+  const cut = d.truncated ? `<div class="aa-row aa-attn">⚠ The diff was cut at the size limit — the file list above is complete.</div>` : '';
+  return `<div class="aa-row">Changed: ${paths}</div>${cut}<div class="tp-diff">${lines}</div>`;
+}
+
 async function loadAgentActivity() {
   // Once the stream holds a cursor for this project it owns the strip: a GET
   // snapshot landing after its deltas would show those events twice.
