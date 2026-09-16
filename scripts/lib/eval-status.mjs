@@ -147,8 +147,12 @@ export function statusFor(meta, rows, { now = Date.now(), staleDays = DEFAULT_ST
   // It ran. Without a rate or a bar we cannot say whether it passed, but saying
   // "never run" over a row that carries a rate and a timestamp is the one claim
   // this module exists to prevent.
-  if (rate === null || bar === null) state = STATES.UNSCORED;
-  else if (rate < bar) state = STATES.FAILING;
+  // The runner's own verdict wins when the row carries one. A dual threshold is
+  // recorded as its leading bar, so rate < threshold misreads a whole-set run
+  // judged per split (code-reviewer: 0.96 against 1.0, passing both of its bars).
+  const below = typeof last.belowThreshold === 'boolean' ? last.belowThreshold : (rate !== null && bar !== null && rate < bar);
+  if (rate === null || bar === null || last.dropout?.severe) state = STATES.UNSCORED;
+  else if (below) state = STATES.FAILING;
   // An age nobody can establish must not read as fresh — unknown is not current.
   else if (ageDays === null || ageDays > staleDays) state = STATES.STALE;
   else state = STATES.PASSING;

@@ -265,3 +265,22 @@ test('summarise counts unscored runs as executed, and never as passing', () => {
   assert.equal(s.executed, 2, 'an unscored run still ran');
   assert.match(s.line, /1 unscored/);
 });
+
+// A dual threshold is recorded as its leading bar. code-reviewer at 24/25 on
+// "5/5 tuning · 2/3 holdout" carries threshold: 1 and rate: 0.96, and the runner
+// judged it per split: belowThreshold false. Comparing rate to threshold here read
+// it as failing — the ladder then called a passing reviewer exercised-but-failing.
+test('a row judged per split is failing only when the runner said so', () => {
+  const rows = [row({ eval: 'EVAL-demo', rate: 0.96, threshold: 1, belowThreshold: false })];
+  assert.equal(statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW }).state, STATES.PASSING);
+});
+
+test('the runner\'s below-threshold verdict wins in the failing direction too', () => {
+  const rows = [row({ eval: 'EVAL-demo', rate: 0.92, threshold: 0.8, belowThreshold: true })];
+  assert.equal(statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW }).state, STATES.FAILING);
+});
+
+test('a run lost to dropout is unscored, not passing', () => {
+  const rows = [row({ eval: 'EVAL-demo', rate: 1, threshold: 0.8, belowThreshold: false, dropout: { severe: true } })];
+  assert.equal(statusFor(parseEvalMeta(EVAL_MD, 'EVAL-demo.md'), rows, { now: NOW }).state, STATES.UNSCORED);
+});

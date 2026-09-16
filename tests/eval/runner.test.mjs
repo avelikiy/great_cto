@@ -12,7 +12,7 @@ import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome, classifyActorOutcome, callJudge } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome, classifyActorOutcome, splitPower, callJudge } from './runner.mjs';
 import { dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -812,7 +812,11 @@ test('the interval is computed from every sample, not the last run', () => {
   // Forty cases at 74% cannot clear a 67% bar; eighty can. Reading only the
   // last run discarded half the evidence and called the result underpowered.
   const src = fs.readFileSync(RUNNER, 'utf8');
-  const call = src.slice(src.indexOf('power: powerVerdict('), src.indexOf('power: powerVerdict(') + 400);
+  // A dual-threshold run takes the same count per split (splitPower); the
+  // single-bar path is the one below.
+  const at = src.indexOf(': powerVerdict(');
+  assert.ok(at > 0, 'the single-bar power call exists');
+  const call = src.slice(at, at + 400);
   assert.match(call, /runs\.reduce\(\(a, r\) => a \+ r\.passed, 0\)/);
   assert.match(call, /runs\.reduce\(\(a, r\) => a \+ r\.judged, 0\)/);
   assert.ok(!/powerVerdict\(\s*last\.passed/.test(src), 'the last-run-only form must be gone, not merely shadowed');
@@ -822,7 +826,7 @@ test('the history row carries the power verdict and the dropout count', () => {
   // A row with a rate and no power invites reading 74% as a pass when the
   // interval spanned the bar. A row that hides ten fetch failures reports the
   // same rate as a clean run and is not the same measurement.
-  const row = (() => { const s = fs.readFileSync(RUNNER, 'utf8'); const i = s.indexOf('const jsonlEntry = {'); return s.slice(i, i + 1600); })();
+  const row = (() => { const s = fs.readFileSync(RUNNER, 'utf8'); const i = s.indexOf('const jsonlEntry = {'); return s.slice(i, i + 2400); })();
   assert.match(row, /power: result\.power/);
   assert.match(row, /skipped: result\.skipped/);
 });
@@ -1378,4 +1382,47 @@ test('dropout names actor-side losses in words', async () => {
   const d = dropout({ skipped: 4, attempted: 5, kinds: { 'actor-empty': 3, 'actor-refused': 1 } });
   assert.match(d.why, /3 empty agent answers/);
   assert.match(d.why, /1 refused by the agent/);
+});
+
+// ── a dual threshold is two gates in the interval too ──────────────────────
+//
+// 2026-09-16: code-reviewer scored 24/25 on "5/5 tuning · 2/3 holdout" — 5/5
+// tuning, 19/20 holdout. belowThreshold (per split) said false. power said
+// "failed: even the high end (0.99) is below 1.00", because it judged all 25
+// cases against the tuning bar. The report printed a pass and recorded a fail.
+
+test('splitPower: each split is judged against its own bar, over every sample', () => {
+  const holdout = new Set(['H1', 'H2', 'H3']);
+  const run = (verdicts) => ({ caseResults: Object.entries(verdicts).map(([num, verdict]) => ({ num, verdict })) });
+  const runs = [run({ 1: 'PASS', 2: 'PASS', 3: 'PASS', H1: 'PASS', H2: 'FAIL', H3: 'PASS' })];
+  const p = splitPower({ tuning: 1, holdout: 2 / 3 }, runs, holdout);
+  assert.notEqual(p.status, 'failed', 'a holdout miss above its 2/3 bar is not a failure of the 1.0 tuning bar');
+  assert.equal(p.splits.holdout.n, 3);
+  assert.equal(p.splits.tuning.n, 3);
+});
+
+test('splitPower: a split whose interval is wholly below its bar fails the run', () => {
+  const holdout = new Set(['H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'H7', 'H8', 'H9', 'H10']);
+  const cases = { 1: 'PASS', 2: 'PASS' };
+  for (const h of holdout) cases[h] = 'FAIL';
+  const p = splitPower({ tuning: 1, holdout: 2 / 3 }, [{ caseResults: Object.entries(cases).map(([num, verdict]) => ({ num, verdict })) }], holdout);
+  assert.equal(p.status, 'failed');
+  assert.match(p.why, /holdout/);
+});
+
+test('splitPower: SKIP cases are not observations', () => {
+  const holdout = new Set(['H1']);
+  const p = splitPower({ tuning: 1, holdout: 1 }, [{ caseResults: [{ num: '1', verdict: 'PASS' }, { num: 'H1', verdict: 'SKIP' }] }], holdout);
+  assert.equal(p.splits.holdout.n, 0);
+});
+
+test('the history row keeps the per-split outcome', () => {
+  const s = fs.readFileSync(RUNNER, 'utf8'); const i = s.indexOf('const jsonlEntry = {');
+  assert.match(s.slice(i, i + 2400), /splits: result\.splits/);
+});
+
+test('splitPower: a split that never ran leaves the run inconclusive, not passed', () => {
+  const p = splitPower({ tuning: 1, holdout: 2 / 3 }, [{ caseResults: [{ num: '1', verdict: 'PASS' }, { num: '2', verdict: 'PASS' }] }], new Set(['H1']));
+  assert.equal(p.splits.holdout.status, 'not_run');
+  assert.notEqual(p.status, 'passed');
 });

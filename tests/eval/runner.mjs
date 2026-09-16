@@ -369,6 +369,46 @@ export function splitOutcomes(bars, caseResults, holdoutNums) {
   return { tuning: of('tuning'), holdout: of('holdout') };
 }
 
+/**
+ * The interval verdict for a whole-set run against a dual threshold.
+ *
+ * `belowThreshold` already judged each split against its own bar; the interval
+ * did not. code-reviewer at 24/25 on "5/5 tuning · 2/3 holdout" (5/5 and 19/20)
+ * printed a pass and recorded `power: failed — even the high end (0.99) is below
+ * 1.00`: all 25 cases against the tuning bar. Each split gets its own interval,
+ * over every sample; the run fails if either split fails, is inconclusive if
+ * either is, and passes only when both do.
+ */
+export function splitPower(bars, runs, holdoutNums, opts = {}) {
+  const count = (want) => {
+    let passed = 0; let n = 0;
+    for (const r of runs ?? []) {
+      for (const c of r.caseResults ?? []) {
+        if (c.verdict === 'SKIP') continue;
+        if ((holdoutNums.has(String(c.num)) ? 'holdout' : 'tuning') !== want) continue;
+        n++; if (c.verdict === 'PASS') passed++;
+      }
+    }
+    return powerVerdict(passed, n, bars[want], opts);
+  };
+  const splits = { tuning: count('tuning'), holdout: count('holdout') };
+  const named = Object.entries(splits);
+  const pick = (status) => named.filter(([, v]) => v.status === status);
+  const failed = pick('failed');
+  const inconclusive = pick('inconclusive');
+  const status = failed.length ? 'failed'
+    : inconclusive.length ? 'inconclusive'
+      : named.every(([, v]) => v.status === 'not_run') ? 'not_run'
+        : named.some(([, v]) => v.status === 'not_run') ? 'inconclusive' : 'passed';
+  const lead = failed[0] ?? inconclusive[0] ?? null;
+  return {
+    status,
+    n: splits.tuning.n + splits.holdout.n,
+    why: lead ? `${lead[0]}: ${lead[1].why}` : null,
+    splits,
+  };
+}
+
 // ── Actor prompt resolution ───────────────────────────────────────────────────
 
 const GENERIC_ACTOR_SYSTEM =
@@ -1185,12 +1225,14 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
     dropout: runDropout,
     // Surfaced to the file loop, which stops the whole run on it.
     terminalFailure: runs.find((r) => r.terminalFailure)?.terminalFailure ?? null,
-    power: powerVerdict(
-      runs.reduce((a, r) => a + r.passed, 0),
-      runs.reduce((a, r) => a + r.judged, 0),
-      threshold,
-      { dropout: runDropout },
-    ),
+    power: bars && !runDropout.severe
+      ? splitPower(bars, runs, new Set((parsed.holdoutCases ?? []).map((c) => String(c.num))), { dropout: runDropout })
+      : powerVerdict(
+        runs.reduce((a, r) => a + r.passed, 0),
+        runs.reduce((a, r) => a + r.judged, 0),
+        threshold,
+        { dropout: runDropout },
+      ),
     ts: new Date().toISOString(),
     caseResults: last.caseResults,
   };
@@ -1424,6 +1466,9 @@ async function main() {
       passed: result.passed,
       skipped: result.skipped,
       rate: parseFloat(result.rate.toFixed(4)),
+      // Per split, when the eval carries two bars: `threshold` below is only the
+      // leading one, and a reader comparing rate to it misjudges a whole-set run.
+      splits: result.splits,
       stddev: parseFloat(result.stddev.toFixed(4)),
       samples: result.samples,
       flaky: result.flaky,
