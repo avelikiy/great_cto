@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: in progress · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: paused — provider credits ran out · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -20,6 +20,40 @@ stops an empty answer from becoming a verdict.
 
 Rewriting a prompt against that record would tune agents to a measurement fault.
 So the ruler comes first.
+
+## Where it stands (2026-09-16, evening)
+
+The finding that reorganised the day: **no agent prompt needed a change.** Every
+agent that read as failing was failing on the ruler.
+
+| Cause | Agents | Fix |
+|---|---|---|
+| Empty answers judged as failures | cli-reviewer, voice-ai-reviewer (Aug), 41 cases fleet-wide | R1, runner |
+| Evidence from another actor or file | architect, voice-ai-reviewer | R2, ladder |
+| Dual threshold judged by its leading bar | code-reviewer (24/25 recorded as failed) | runner + eval-status |
+| Case missing the input the agent's contract requires | code-reviewer, senior-dev, knowledge-extractor | case text, answers unchanged |
+| Eval contradicting the prompt | product-owner | CTO decision: ask and stop |
+
+One prompt candidate was measured (code-reviewer) and scored no better than the
+shipped prompt; it was not shipped.
+
+Re-measured on the fixed runner, unchanged prompts: ai-security-reviewer 7/8,
+architect 23/25 and 20/25, auth-engineer 7/8, cli-reviewer 8/8, code-reviewer
+24/25, decision-scorer 7/8, e2e-test-engineer 19/24, integrations-engineer 7/8,
+mlops-reviewer 8/8, mobile-app-builder 14/14, msp-reviewer 8/8, pm 22/25,
+project-auditor 21/25, regulated-reviewer 8/8, senior-dev 5/5×3 + 18/20,
+subscription-billing-engineer 8/9. New sets: six agents 8/8, knowledge-extractor
+5/5×3 on tuning.
+
+Open:
+- **product-owner** — 14/17 judged before credits ran out; needs one full run at
+  `--actor-max-tokens 16000`. Case T1 (BUILD on three voices after declaring the
+  panel short) is a real miss if it repeats.
+- **M2** — the fleet re-measure, not started; ~$40–70.
+- New tuning sets written from each agent's contract pass by construction; the
+  holdout rows are the signal, and each ran once.
+
+Spend so far: about $20.
 
 ## Items, in order
 
