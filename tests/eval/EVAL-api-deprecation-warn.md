@@ -1,6 +1,11 @@
 # EVAL-api-deprecation-warn.md
 
 > Pack: api-platform-pack · Reviewer: api-platform-reviewer
+> Actor: generic · the tuning cases below describe what the API itself must return —
+> a header, a 403, a 410, a send-log entry. api-platform-reviewer is a
+> pre-implementation reviewer that writes threat models; it reviews this behaviour,
+> it does not perform it. Bound to the reviewer (2026-09-16 re-measure), it passed
+> every holdout case and failed the tuning cases for answering as a reviewer.
 
 ## Scenario
 Deprecated endpoints emit RFC 8594 `Sunset` header and `Deprecation` header; clients receive ≥ 6 months lead time + machine-readable changelog entry.

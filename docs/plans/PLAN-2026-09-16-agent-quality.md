@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: R1–F1 and E1 done; M2 awaits approval · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: M2 ran; framing fixes await a re-measure · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -65,7 +65,19 @@ Open:
   scored 23/30; one real miss repeated (T4: invents a wedge and returns PIVOT
   instead of DON'T BUILD, 2 runs of 3). The one prompt change of the day fixed it:
   tuning 30/30 over 3 samples, holdout 14/20 (shipped prompt 15/20). `bdee80c6`.
-- **M2** — the fleet re-measure, not started; ~$40–70.
+- **M2** — ran 2026-09-16 on 60 evals not measured earlier the same day, one sample,
+  $17.23 before the provider ran out of credits. 37 passed, 14 below threshold,
+  9 not measured (credits: streaming, tax, us-privacy, web-store, four voice).
+  Holdout passed its bar in almost every failing eval; tuning failed. Causes, from
+  the answer text: pack evals whose tuning cases ask the actor to BE the API or the
+  screening system (4 api, 2 hr) — now `> Actor: generic`, and the ladder no longer
+  credits such files to the reviewer they name; diffs described in prose with no
+  code (qa-engineer boilerplate, security-officer adversarial) and a session with
+  no data (continuous-learner) — the cases now carry it, answers unchanged;
+  compression-fidelity cannot be measured from text — marked so; coordinator 7/8
+  and request-classifier left as they are. api-platform-reviewer lost its only
+  evals to the opt-out and got a set of its own role. **None of these fixes is
+  measured yet.**
 - New tuning sets written from each agent's contract pass by construction; the
   holdout rows are the signal, and each ran once.
 

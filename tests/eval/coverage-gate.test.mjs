@@ -120,7 +120,9 @@ test('an old pass still counts as measured — stale is old, not absent', () => 
 // run with the reviewer itself acting scored 0–0.33. A filename match did the
 // same for `architect` through EVAL-ai-prompt-architect-versioning.
 test('a pass by a different actor is not evidence about this agent', () => {
-  const files = [{ name: 'EVAL-voice-x.md', content: '# E\n\n> Pack: voice-pack · Reviewer: voice-ai-reviewer\n> Actor: generic\n\n## Pass threshold\n2/3.\n' }];
+  // No `> Actor: generic` in the file: the binding is inferred, and the history
+  // still carries runs by another actor (the case the ladder must not credit).
+  const files = [{ name: 'EVAL-voice-x.md', content: '# E\n\n> Pack: voice-pack · Reviewer: voice-ai-reviewer\n\n## Pass threshold\n2/3.\n' }];
   const e = agentEvidence('voice-ai-reviewer', files, [run('EVAL-voice-x', { actorSource: 'generic' })], NOW);
   assert.equal(e.level, 'present');
   assert.match(e.why, /voice-ai-reviewer as the actor/);
@@ -130,6 +132,16 @@ test('a filename match on another agent\'s eval does not lend its pass', () => {
   const files = [evalFile('ai-prompt-architect', 'EVAL-ai-prompt-architect-versioning.md')];
   const e = agentEvidence('architect', files, [run('EVAL-ai-prompt-architect-versioning', { actorSource: 'agent:ai-prompt-architect' })], NOW);
   assert.notEqual(e.level, 'passing');
+});
+
+test('a file that opts its actor out is not evidence about the reviewer it names', () => {
+  // The api-platform and hr-ai packs name their reviewer, but their tuning cases
+  // ask the actor to BE the API or the screening system. After `> Actor: generic`,
+  // the reviewer's old bound runs of those files kept it on the failing rung for
+  // cases it is no longer asked to answer.
+  const files = [{ name: 'EVAL-api-x.md', content: '# E\n\n> Pack: api-pack · Reviewer: api-platform-reviewer\n> Actor: generic · the API answers\n\n## Pass threshold\n2/3.\n' }];
+  const e = agentEvidence('api-platform-reviewer', files, [run('EVAL-api-x', { actorSource: 'agent:api-platform-reviewer', rate: 0.2 })], NOW);
+  assert.equal(e.level, 'missing');
 });
 
 test('a candidate prompt run is not the shipped agent', () => {
@@ -164,7 +176,11 @@ test('--require rejects an unknown rung instead of falling back to the weakest',
 });
 
 test('--require exercised blocks an agent whose EVAL has never run', () => {
-  const r = spawnSync('node', [GATE, '--strict', '--require', 'exercised'], { encoding: 'utf8' });
+  // Against an empty history, so the answer does not depend on which evals this
+  // machine happens to have run (the real history file is gitignored).
+  const r = spawnSync('node', [GATE, '--strict', '--require', 'exercised'], {
+    encoding: 'utf8', env: { ...process.env, GREAT_CTO_EVAL_HISTORY: '/nonexistent/results-history.jsonl' },
+  });
   assert.equal(r.status, 1);
   assert.match(r.stdout, /present-only/);
 });

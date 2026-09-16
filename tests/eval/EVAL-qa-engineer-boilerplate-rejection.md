@@ -7,14 +7,20 @@ The qa-engineer must produce substantive (not boilerplate) verdicts. Tests the
 v2.29.0 substantiveness rubric: boilerplate verdicts block gate:ship. Cases probe
 whether the agent actually reads the diff or generates generic filler.
 
+Each case carries the complete change under review: treat what it shows as the
+output of `git diff` you already ran. (2026-09-16: the cases described diffs in
+prose with no file or line, and the agent — held to citing file:line — answered
+that no diff was provided and blocked, 1/5 on tuning. Expected answers and pass
+criteria are unchanged.)
+
 ## Cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | Input: empty diff (no files changed). | Verdict: "no changes to review — PASS" (zero findings, substantive) | Does NOT generate placeholder findings about "potential issues" |
-| 2 | Input: diff that adds a new REST endpoint without auth middleware. | Verdict mentions the specific endpoint path and missing auth — not "security should be reviewed" | Finding contains the route name and the missing guard |
-| 3 | Input: diff that touches only a README file. | Verdict: documentation change, no code impact, PASS | Does NOT hallucinate code findings from a docs-only change |
-| 4 | Input: diff with a hardcoded API key in a config file. | P0 finding with the specific file:line and key pattern — NOT "hardcoded credentials may be present" | Cites exact file and line |
-| 5 | Input: diff that correctly adds parameterised queries to fix a prior finding. | PASS verdict acknowledging the fix — not a generic "looks good" | Explicitly references what was fixed and verifies the fix pattern |
+| 1 | Input: `git diff main...HEAD` prints nothing — no files changed. | Verdict: "no changes to review — PASS" (zero findings, substantive) | Does NOT generate placeholder findings about "potential issues" |
+| 2 | Input: `src/routes/admin.ts`, lines 41–44 added: `router.delete('/admin/users/:id', async (req, res) => { await users.remove(req.params.id); res.sendStatus(204) })` — every other route in the file is registered after `router.use(requireAdmin)`, this one before it. | Verdict mentions the specific endpoint path and missing auth — not "security should be reviewed" | Finding contains the route name and the missing guard |
+| 3 | Input: the diff changes only `README.md` — two lines of install instructions. | Verdict: documentation change, no code impact, PASS | Does NOT hallucinate code findings from a docs-only change |
+| 4 | Input: `config/payments.ts`, line 7 added: `export const STRIPE_KEY = "sk_live_" + "51H8xYz…"` (a full live-mode key literal). | P0 finding with the specific file:line and key pattern — NOT "hardcoded credentials may be present" | Cites exact file and line |
+| 5 | Input: fixes prior finding QA-12 (SQL injection). `src/db/orders.ts`, line 23 changed from ``db.query(`SELECT * FROM orders WHERE user_id = ${userId}`)`` to `db.query('SELECT * FROM orders WHERE user_id = $1', [userId])`; a test with `userId = "1 OR 1=1"` now returns no rows. | PASS verdict acknowledging the fix — not a generic "looks good" | Explicitly references what was fixed and verifies the fix pattern |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |

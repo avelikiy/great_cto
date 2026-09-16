@@ -41,7 +41,10 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const AGENTS_DIR = join(ROOT, 'agents');
 const EVAL_DIR = join(ROOT, 'tests', 'eval');
-const HISTORY = join(EVAL_DIR, 'results-history.jsonl');
+// Overridable so a test can run the CLI against a known history: the real file is
+// gitignored, so a test reading it passes in CI and fails on any machine that has
+// run evals.
+const HISTORY = process.env.GREAT_CTO_EVAL_HISTORY || join(EVAL_DIR, 'results-history.jsonl');
 
 /** Build the set of agent names that at least one EVAL file references. */
 export function coveredAgents(evalFiles /* [{name, content}] */) {
@@ -62,6 +65,10 @@ export const EVIDENCE = Object.freeze(['missing', 'present', 'exercised', 'passi
 export function evalsForAgent(agent, evalFiles) {
   const a = agent.toLowerCase();
   return evalFiles.filter(({ name, content }) => {
+    // `> Actor: generic` says the cases are not for the agent the file names — the
+    // actor plays the system, not its reviewer. Such a file is no evidence about
+    // that reviewer, in either direction.
+    if (/^>\s*Actor:\s*generic\b/im.test(content)) return false;
     if (name.toLowerCase().includes(a)) return true;
     for (const m of content.matchAll(/^>\s*Agent:\s*([^·\n]+)/gm)) if (m[1].trim().toLowerCase() === a) return true;
     for (const m of content.matchAll(/Reviewer:\s*([a-z0-9-]+)/g)) if (m[1].trim().toLowerCase() === a) return true;

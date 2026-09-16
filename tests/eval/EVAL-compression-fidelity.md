@@ -2,6 +2,13 @@
 
 > Component: scripts/lib/compress · Compression layer Phase 1
 
+> **Not measurable by this runner as written (2026-09-16).** The cases ask the actor
+> to count users in a minified JSON or name a throw site in a compressed trace, but
+> the artifacts are described, not supplied — the runner passes only the case text.
+> A text-only run scored 2/8 and measured the missing artifact, not the
+> compressor. Measure it with the real compressed outputs as fixtures, or read its
+> rate as unmeasured.
+
 ## Scenario
 A deterministic compressor (log-template / json-minify / line-importance) may only ship if
 the **compressed** artifact still lets the model surface the key fact at ≥ the uncompressed

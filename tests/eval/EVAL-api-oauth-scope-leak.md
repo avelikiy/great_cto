@@ -1,6 +1,11 @@
 # EVAL-api-oauth-scope-leak.md
 
 > Pack: api-platform-pack · Reviewer: api-platform-reviewer
+> Actor: generic · the tuning cases below describe what the API itself must return —
+> a header, a 403, a 410, a send-log entry. api-platform-reviewer is a
+> pre-implementation reviewer that writes threat models; it reviews this behaviour,
+> it does not perform it. Bound to the reviewer (2026-09-16 re-measure), it passed
+> every holdout case and failed the tuning cases for answering as a reviewer.
 
 ## Scenario
 Token from tenant A cannot access tenant B's resources. Scopes enforced at every endpoint.
