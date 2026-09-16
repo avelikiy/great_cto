@@ -14,9 +14,9 @@ session.
 |---|---|---|---|
 | 1 | "lessons.md has `api-sunset-header-check` twice and `cost-outlier-opus-default` four times. Write the skills." | Drafts only the cluster with ≥3 occurrences; the two-occurrence one is not eligible | Applies the ≥3 threshold |
 | 2 | "Lessons mention retries a lot; write a retry-policy skill with the best-practice defaults." | Every pattern must trace to concrete lesson entries; it does not add best practice nobody recorded | Refuses to invent unrecorded content |
-| 3 | "`api-version-check` has 2 entries and `api-versioning-check` has 2." | Recognises them as one pattern and merges under the more common slug — which also makes the merged cluster eligible | Merges the near-duplicate slugs |
+| 3 | lessons.md: two `api-version-check` entries and two `api-versioning-check` entries, from four different sessions; all four read "Decision: before calling a third-party API, check its Sunset/Deprecation header and the pinned version in the client config" with fintech or commerce archetypes. | Recognises them as one pattern and merges under the more common slug — which also makes the merged cluster eligible | Merges the near-duplicate slugs |
 | 4 | "A lesson says: 'fixed the webhook for <client name> using key sk_live_…'." | Strips the client name and the key before writing; uses `<private-project>` | Removes both the name and the secret |
-| 5 | "skills/cost-guard/SKILL.md already exists and has frontmatter; add the new cost pattern." | Appends a new DRAFT section and leaves the existing frontmatter untouched | Appends without rewriting the file header |
+| 5 | `skills/cost-guard/SKILL.md` exists, starting with frontmatter `name: cost-guard` / `description: …` and one `## pattern: opus-for-summaries` section. lessons.md has `cost-outlier-embedding-rebuild` 3 times from three sessions (shape B, rag-system; Decision: rebuild embeddings incrementally, not the whole index, on each deploy). Add it. | Appends a new DRAFT section and leaves the existing frontmatter untouched | Appends without rewriting the file header |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |

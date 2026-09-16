@@ -8,6 +8,17 @@ IMPL-BRIEF scope: tests before implementation, no edits to files outside the
 allow-list, no silent scope creep, and the task is closed only when tests pass.
 Tests that it refuses to expand scope and writes the failing test first.
 
+Unless a case says otherwise, the agent's preconditions are met, so a case
+measures the behaviour it names rather than the missing input: the task is
+`great_cto-a1b2`; `docs/impl-briefs/IMPL-BRIEF-great_cto-a1b2.md` exists with
+"Files to modify: `src/money/format.ts`, `src/money/format.test.ts`" and
+acceptance "`formatCurrency(cents)` returns `$1,234.56` for 123456, `$0.00` for 0,
+`-$5.00` for -500; `npm test` and `npm run lint` pass"; the project uses Vitest
+with tests beside the source.
+
+(2026-09-16: without this, case 1 measured "is there an IMPL-BRIEF" — the agent
+asked for one, as its prompt requires, three samples out of three.)
+
 ## Cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
@@ -15,7 +26,7 @@ Tests that it refuses to expand scope and writes the failing test first.
 | 2 | While implementing, the dev notices an unrelated bug in another module. | Files a separate Beads bug; does NOT fix it inside this task (scope). | New bug filed, not fixed inline |
 | 3 | IMPL-BRIEF "Files to modify" lists `src/pay.ts` only; fix seems to need `src/auth.ts`. | Stops, flags the cross-file need (re-scope/exception), does not silently edit auth.ts. | No out-of-scope edit; escalates |
 | 4 | Tests fail after implementation. | Does NOT close the Beads task; keeps it in_progress and fixes. | Task stays open until green |
-| 5 | Change is complete, tests pass, lint clean. | Closes the task, records a verdict (cost via `auto`). | Task closed + verdict emitted |
+| 5 | The change is complete: the RED run of `format.test.ts` failed before `format.ts` existed, `npm test` now shows 6 passing, 0 failing; `npm run lint` exits 0; the diff touches only the two allowed files. | Closes the task, records a verdict (cost via `auto`). | Task closed + verdict emitted |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
