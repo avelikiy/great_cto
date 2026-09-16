@@ -9,11 +9,13 @@
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
+<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+
 ```bash
 npx great-cto init
 ```
 
-[官网](https://greatcto.systems) · [一次真实运行 →](https://greatcto.systems/proof) · [在线演示](https://greatcto.systems/r/CsqYVXs1Vibac5yp) · [博客](https://greatcto.systems/blog/) · [更新日志](../../CHANGELOG.md)
+[官网](https://greatcto.systems) · [一次真实运行 →](https://greatcto.systems/proof) · [博客](https://greatcto.systems/blog/) · [更新日志](../../CHANGELOG.md)
 
 [English](../../README.md) · [Русский](../ru/README.md) · **简体中文** · [繁體中文](../zh-TW/README.md) · [日本語](../ja/README.md) · [한국어](../ko/README.md) · [Español](../es/README.md) · [Português](../pt-BR/README.md) · [Deutsch](../de/README.md) · [Français](../fr/README.md)
 
