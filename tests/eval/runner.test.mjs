@@ -12,7 +12,7 @@ import { costForUsage } from '../../scripts/lib/cost-meter.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome, callJudge } from './runner.mjs';
+import { parseEvalFile, parseThreshold, thresholdForSplit, dualThreshold, splitOutcomes, splitSections, parseCasesTable, parseArgs, selectCases, loadAgentPrompt, resolveActorSystem, parseJudgeVerdict, majorityVerdict, stddev, truncateAnswer, ANSWER_LIMIT, expandSharedRefs, appliedThresholdLabel, cacheableSystem, normalizeCacheUsage, CACHE_MIN_CHARS, parseActorStep, buildFixture, runActorLoop, pickProvider, modelFor , loadDagFor, runEvalFileOnce, runEvalFile, classifyJudgeOutcome, classifyActorOutcome, callJudge } from './runner.mjs';
 import { dagFingerprint } from '../../scripts/lib/dag-metric.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -1275,4 +1275,107 @@ test('the judge asks OpenRouter not to reason, because reasoning is billed again
     assert.deepEqual(bodies[0].reasoning, { enabled: false },
       'without this the opus-5 judge spends its whole answer budget reasoning and replies with nothing');
   });
+});
+
+// ── an empty actor answer is not an answer ─────────────────────────────────
+//
+// Of the 123 failing cases in the latest run of every eval (2026-09-16), 41 had an
+// empty actor answer. cli-reviewer scored 0.12 with 7 of 8 answers empty; twelve
+// pack cases on 2026-08-01 scored PASS on an empty answer. The judge was asked to
+// grade nothing and graded it. An empty, refused, or cut-to-nothing reply is a
+// case that did not happen: dropout, never a verdict.
+
+async function withStubbedReplies(replies, fn) {
+  const savedFetch = global.fetch;
+  const savedAnthropic = process.env.ANTHROPIC_API_KEY;
+  const savedOpenrouter = process.env.OPENROUTER_API_KEY;
+  let calls = 0;
+  global.fetch = async () => {
+    const r = replies[calls++] ?? { text: 'PASS - stub ran out' };
+    return {
+      ok: true, status: 200,
+      json: async () => ({
+        content: [{ text: r.text }],
+        usage: { input_tokens: 10, output_tokens: 5 },
+        stop_reason: r.stop ?? 'end_turn', model: 'claude-test-stub',
+      }),
+    };
+  };
+  process.env.ANTHROPIC_API_KEY = ['test', 'key', 'not', 'real'].join('-');
+  delete process.env.OPENROUTER_API_KEY;
+  try {
+    const result = await fn();
+    return { result, calls };
+  } finally {
+    global.fetch = savedFetch;
+    if (savedAnthropic === undefined) delete process.env.ANTHROPIC_API_KEY;
+    else process.env.ANTHROPIC_API_KEY = savedAnthropic;
+    if (savedOpenrouter === undefined) delete process.env.OPENROUTER_API_KEY;
+    else process.env.OPENROUTER_API_KEY = savedOpenrouter;
+  }
+}
+
+function runOnePlain(replies, extra = {}) {
+  const parsed = { scenario: 's', cases: [onePlainCase()], tuningCases: [onePlainCase()], holdoutCases: [] };
+  return withStubbedReplies(replies, () => runEvalFileOnce({
+    parsed, evalName: 'EVAL-runner-actor-empty.md',
+    actorModel: 'test-actor', judgeModel: 'test-judge',
+    actorSystem: 'system prompt', split: 'all', useTools: false, judgeMode: 'rubric', ...extra,
+  }));
+}
+
+test('classifyActorOutcome: empty, refused and cut-to-nothing are not answers; text is', () => {
+  assert.equal(classifyActorOutcome({ text: '', stopReason: 'end_turn' }).kind, 'actor-empty');
+  assert.equal(classifyActorOutcome({ text: '   \n', stopReason: 'end_turn' }).kind, 'actor-empty');
+  assert.equal(classifyActorOutcome({ text: '', stopReason: 'refusal' }).kind, 'actor-refused');
+  assert.equal(classifyActorOutcome({ text: '', stopReason: 'content_filter' }).kind, 'actor-refused');
+  assert.equal(classifyActorOutcome({ text: '', stopReason: 'max_tokens' }).kind, 'actor-truncated');
+  assert.equal(classifyActorOutcome({ text: '', stopReason: 'length' }).kind, 'actor-truncated');
+  // A long agent that was cut mid-answer still said something; the judge sees the cut.
+  assert.equal(classifyActorOutcome({ text: 'partial review…', stopReason: 'max_tokens' }).kind, null);
+  assert.equal(classifyActorOutcome({ text: 'a review', stopReason: 'end_turn' }).kind, null);
+});
+
+test('runEvalFileOnce: an empty actor answer is dropout, and the judge is never asked', async () => {
+  const { result, calls } = await runOnePlain([{ text: '' }, { text: 'FAIL - the response is empty' }]);
+  assert.equal(calls, 1, 'only the actor was called');
+  assert.equal(result.passed, 0);
+  assert.equal(result.skipped, 1);
+  assert.equal(result.judged, 0);
+  const c = result.caseResults[0];
+  assert.equal(c.verdict, 'SKIP');
+  assert.equal(c.skip.kind, 'actor-empty');
+});
+
+test('runEvalFileOnce: an empty answer can no longer score PASS', async () => {
+  const { result } = await runOnePlain([{ text: '' }, { text: 'PASS - nothing wrong here' }]);
+  assert.equal(result.passed, 0, 'a PASS on nothing was recorded twelve times on 2026-08-01');
+});
+
+test('runEvalFileOnce: a refused actor reply is recorded as refused, not failed', async () => {
+  const { result } = await runOnePlain([{ text: '', stop: 'refusal' }]);
+  assert.equal(result.caseResults[0].skip.kind, 'actor-refused');
+  assert.equal(result.judged, 0);
+});
+
+test('runEvalFileOnce: a cut answer that has text is still judged', async () => {
+  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' }, { text: 'FAIL - stops before the finding' }]);
+  assert.equal(calls, 2);
+  assert.equal(result.judged, 1);
+  assert.equal(result.caseResults[0].verdict, 'FAIL');
+});
+
+test('runActorLoop: an empty FINAL carries the stop reason, so the runner can classify it', async () => {
+  const llmFn = async () => ({ text: 'FINAL: ', usage: { input_tokens: 1, output_tokens: 1 }, model: 'm', stopReason: 'max_tokens' });
+  const out = await runActorLoop({ system: 's', scenario: 'x', test: 'y', llmFn, maxTurns: 1 });
+  assert.equal(out.text.trim(), '');
+  assert.equal(out.stopReason, 'max_tokens');
+  assert.equal(classifyActorOutcome(out).kind, 'actor-truncated');
+});
+
+test('dropout names actor-side losses in words', async () => {
+  const { dropout } = await import('../../scripts/lib/eval-power.mjs');
+  const d = dropout({ skipped: 4, attempted: 5, kinds: { 'actor-empty': 3, 'actor-refused': 1 } });
+  assert.match(d.why, /3 empty agent answers/);
+  assert.match(d.why, /1 refused by the agent/);
 });

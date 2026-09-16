@@ -673,14 +673,14 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
     const res = await llmFn({ system: fullSystem, user: transcript });
     usage = addUsage(usage, res.usage); model = res.model;
     const step = parseActorStep(res.text);
-    if (step.kind === 'final') return { text: step.payload, usage, model };
+    if (step.kind === 'final') return { text: step.payload, usage, model, stopReason: res.stopReason ?? null };
     const obs = buildFixture({ scenario, test, query: step.payload });
     transcript += `\n\nINSPECT: ${step.payload}\n${obs}\n\nContinue (INSPECT: ... or FINAL: ...).`;
   }
   // Turn cap reached → force a final answer.
   const res = await llmFn({ system: fullSystem, user: transcript + `\n\nInspection limit reached. Reply FINAL: now.` });
   usage = addUsage(usage, res.usage); model = res.model;
-  return { text: parseActorStep(res.text).payload, usage, model };
+  return { text: parseActorStep(res.text).payload, usage, model, stopReason: res.stopReason ?? null };
 }
 
 // The actor's token budget — part of the measurement, not a detail.
@@ -817,6 +817,25 @@ export function classifyJudgeOutcome({ text, stopReason }) {
   if (/^(length|max_tokens)$/.test(s)) return { verdict: null, kind: 'truncated', stopReason: stop };
   if (!t) return { verdict: null, kind: 'empty', stopReason: stop };
   return { verdict: null, kind: 'unparseable', stopReason: stop };
+}
+
+/**
+ * Whether the actor said anything a judge could grade.
+ *
+ * The judge side has had this since 2026-09-12; the actor side did not, so an
+ * empty answer went to the judge like any other. On 2026-09-16, 41 of the 123
+ * failing cases in the latest run of every eval had an empty answer — cli-reviewer
+ * "scored" 0.12 on seven of them — and twelve pack cases on 2026-08-01 scored PASS
+ * on one. A reply with no text is a case that did not happen, and says why.
+ * A cut answer that has text is kept: the cut is a property of the agent under
+ * test, and the judge can see it.
+ */
+export function classifyActorOutcome({ text, stopReason }) {
+  if (String(text ?? '').trim()) return { kind: null, stopReason: stopReason ?? null };
+  const s = String(stopReason ?? '').toLowerCase();
+  if (/content_filter|refusal/.test(s)) return { kind: 'actor-refused', stopReason };
+  if (/^(length|max_tokens)$/.test(s)) return { kind: 'actor-truncated', stopReason };
+  return { kind: 'actor-empty', stopReason: stopReason ?? null };
 }
 
 export function parseJudgeVerdict(reply) {
@@ -969,6 +988,13 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
     try {
       const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem, useTools, actorTurns });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
+
+      const heard = classifyActorOutcome(actor);
+      if (heard.kind) {
+        skipped++;
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '' });
+        continue;
+      }
 
       const judgeArgs = {
         judgeModel,

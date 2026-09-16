@@ -114,6 +114,34 @@ test('an old pass still counts as measured — stale is old, not absent', () => 
   assert.match(e.why, /\d+d ago/, 'and the age is stated rather than hidden');
 });
 
+// Who acted matters. The voice pack names voice-ai-reviewer as its Reviewer but
+// runs with `> Actor: generic` — the cases ask the actor to BE the voice agent.
+// Those generic runs pass, and made voice-ai-reviewer "passing", while the only
+// run with the reviewer itself acting scored 0–0.33. A filename match did the
+// same for `architect` through EVAL-ai-prompt-architect-versioning.
+test('a pass by a different actor is not evidence about this agent', () => {
+  const files = [{ name: 'EVAL-voice-x.md', content: '# E\n\n> Pack: voice-pack · Reviewer: voice-ai-reviewer\n> Actor: generic\n\n## Pass threshold\n2/3.\n' }];
+  const e = agentEvidence('voice-ai-reviewer', files, [run('EVAL-voice-x', { actorSource: 'generic' })], NOW);
+  assert.equal(e.level, 'present');
+  assert.match(e.why, /voice-ai-reviewer as the actor/);
+});
+
+test('a filename match on another agent\'s eval does not lend its pass', () => {
+  const files = [evalFile('ai-prompt-architect', 'EVAL-ai-prompt-architect-versioning.md')];
+  const e = agentEvidence('architect', files, [run('EVAL-ai-prompt-architect-versioning', { actorSource: 'agent:ai-prompt-architect' })], NOW);
+  assert.notEqual(e.level, 'passing');
+});
+
+test('a candidate prompt run is not the shipped agent', () => {
+  const e = agentEvidence('architect', [evalFile('architect')], [run('EVAL-architect', { actorSource: 'prompt-file' })], NOW);
+  assert.equal(e.level, 'present');
+});
+
+test('the agent\'s own run still counts', () => {
+  const e = agentEvidence('architect', [evalFile('architect')], [run('EVAL-architect', { actorSource: 'agent:architect' })], NOW);
+  assert.equal(e.level, 'passing');
+});
+
 test('the report counts every rung and never collapses them into one number', () => {
   const files = [evalFile('a'), evalFile('b')];
   const r = evidenceReport(['a', 'b', 'c'], files, [run('EVAL-a')], NOW);

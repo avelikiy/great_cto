@@ -93,6 +93,9 @@ const KIND_LABEL = {
   unparseable: 'no verdict in the reply',
   'no-leaf': 'graph did not reach a leaf',
   'call-failed': 'call failed',
+  'actor-empty': 'empty agent answers',
+  'actor-refused': 'refused by the agent',
+  'actor-truncated': 'agent answers cut before any text',
 };
 export function describeKinds(kinds) {
   if (!kinds) return null;

@@ -83,10 +83,20 @@ export function agentEvidence(agent, evalFiles, historyRows = [], now = Date.now
   if (!mine.length) return { agent, level: 'missing', evals: [], why: 'no EVAL file references this agent' };
 
   const names = mine.map((e) => basename(e.name));
+  // Only runs where this agent was the actor say anything about it. A pack eval
+  // run with a generic actor, a candidate --prompt-file, or another agent whose
+  // file name happens to contain this one are all measurements of something
+  // else: voice-ai-reviewer read "passing" on generic runs while its own run
+  // scored 0–0.33. A row with no actorSource predates the field and is kept.
+  const own = (historyRows || []).filter((r) => !r?.actorSource || r.actorSource === `agent:${agent}`);
+  const ranOther = (historyRows || []).some((r) => r?.actorSource && r.actorSource !== `agent:${agent}`
+    && mine.some((e) => r.eval === basename(e.name).replace(/\.md$/, '')));
   let best = 'present';
-  let why = `${names.length} EVAL file(s), none ever executed`;
+  let why = ranOther
+    ? `${names.length} EVAL file(s) ran, but never with ${agent} as the actor`
+    : `${names.length} EVAL file(s), none ever executed`;
   for (const e of mine) {
-    const st = statusFor(parseEvalMeta(e.content, basename(e.name)), historyRows, { now });
+    const st = statusFor(parseEvalMeta(e.content, basename(e.name)), own, { now });
     if (st.state === 'never-run') continue;
     if (st.state === 'passing' || st.state === 'stale') {
       // Stale is still a pass that happened — it is old, not absent. eval-status
