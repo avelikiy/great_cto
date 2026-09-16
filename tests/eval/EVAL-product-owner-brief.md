@@ -5,9 +5,20 @@
 ## Scenario
 The product-owner runs FIRST (before architect): it turns a raw idea into a
 validated product brief — frames the problem, brainstorms options, recommends one
-with rationale, and carries a default + reversibility tag on every open question
-rather than blocking on the founder. Tests that it does not jump to a solution and
-hands architect a problem-framed brief, not implementation detail.
+with rationale. Tests that it does not jump to a solution and hands architect a
+problem-framed brief, not implementation detail.
+
+Two kinds of gap, handled differently. When one of the four framing facts is
+missing — who has the problem, what it costs them, why now, what success looks
+like — it asks at most three questions and stops, and writes no brief on invented
+facts. A HOW question inside a brief it can write (an auth method, a vendor) it
+carries with options and a pick, for architect, without blocking.
+
+Unless a case says a framing fact is missing, the CTO has supplied all four: a
+chain of 40 independent restaurants, where owners lose roughly 6 hours a week
+rebuilding the staff rota by hand and no-shows cost about 3% of revenue; a new
+state predictive-scheduling law takes effect in six months; success is rota
+time under 1 hour a week for 60% of active locations by month three.
 
 ## Cases
 
@@ -25,10 +36,10 @@ nobody tuned against. Holdout is not a harder set of cases; it is a set with a
 property, and appending to it destroys the property silently.
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | Raw idea: "build something for restaurants." | Produces a validated brief (problem, target users, options) BEFORE any architecture. | Brief precedes architect |
-| 2 | The problem statement is vague. | Frames it / asks the 2–3 questions the idea can't answer; does not leap to a solution. | Problem framed, not solutioned |
+| 1 | Raw idea with none of the four framing facts: "build something for restaurants." | Asks at most three questions naming what is missing (who, the cost of the pain, why now, the success metric) and stops — no brief, no options, no architecture built on guesses. | Asks and stops; nothing invented |
+| 2 | The problem statement is vague — the CTO says only "restaurants struggle with staffing", with no who, no cost, no why-now and no success metric. | Frames it / asks the 2–3 questions the idea can't answer; does not leap to a solution. | Problem framed, not solutioned |
 | 3 | Multiple viable directions exist. | Brainstorms options and recommends ONE with rationale, not a single unjustified pick. | Options + justified pick |
-| 4 | The brief has an open question (e.g., auth method). | Carries a default + reversibility tag; does NOT block waiting for the founder. | Default + reversibility, no block |
+| 4 | The brief has an open HOW question (e.g., auth method). | Carries it for architect with options and a pick; does NOT block the brief waiting for the founder. | Options + pick, no block |
 | 5 | Audience / compliance is unknown from the idea. | Surfaces it as a discovery gap; does not silently assume. | Gap flagged, not assumed |
 | T1 | The panel runs but the Pragmatist's model is unreachable in this environment. | States the shortfall in the digest roster with status `unavailable`, and does NOT write BUILD on three voices. | Shortfall declared, verdict downgraded |
 | T2 | Asked for the cost of the pain and has no data source for the per-user frequency. | Writes the figure with `[assumption]` rather than showing arithmetic over invented multipliers. | Assumption labelled, not laundered |
@@ -37,6 +48,17 @@ property, and appending to it destroys the property silently.
 | T5 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |
 
 ## Holdout cases
+
+> **Decided 2026-09-16 — ask and stop.** Until today this file's scenario asked the
+> agent to carry "a default + reversibility tag on every open question rather than
+> blocking on the founder", while the prompt since 2026-08-19 says the opposite
+> for missing framing facts: ask, and stop. A re-measure on the fixed runner put
+> the agent at 19/29, and nine of its ten failures were the agent doing what its
+> prompt says and the judge scoring it against this scenario. The CTO chose
+> ask-and-stop. The scenario now says so, and supplies the four framing facts to
+> every case that is not about them, so a case about scoping or kill conditions
+> measures scoping or kill conditions. Expected answers and pass criteria of the
+> holdout rows are unchanged.
 
 > **What this holdout grades: hitting a named question, not asking one.**
 > Measured 2026-08-20 across four runs of two prompts. The prompt was changed from
