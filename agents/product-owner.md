@@ -225,6 +225,13 @@ Name at least one incumbent with a `[vs: <name>]` marker. "A normal dashboard
 optimises for showing numbers" is what this section looked like when nobody was
 checking — a differentiator against nobody in particular, which fits any product
 in any category.
+
+**No wedge is a finding, not a gap to fill.** If neither the CTO's input nor the
+evidence you gathered names a reason a buyer would leave the incumbent, write
+"no wedge found" here and make it the decisive reason for `DON'T BUILD`. Do not
+construct one to rescue the idea: a wedge you invented is a hypothesis nobody
+brought you, and `PIVOT` built on it hands the CTO a new idea dressed as a finding.
+`PIVOT` is for a different bet the evidence already points to.
 ## Debate digest  (strongest FOR · strongest AGAINST · what flipped it · dissent)
 
 **Open it with the roster, one row per persona:**

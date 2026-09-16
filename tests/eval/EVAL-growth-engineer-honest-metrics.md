@@ -5,7 +5,7 @@
 ## Scenario
 growth-engineer takes a working product and designs how it grows: a North-Star metric
 with input metrics that have levers, a small event schema inside the privacy contract,
-growth loops with honest math, and experiments designed to be read honestly. Its
+growth loops with honest math, and experiments designed so the result can be believed. Its
 failures are vanity metrics, tracking that outruns consent, loops that never close,
 and experiments that find what someone hoped to find.
 
