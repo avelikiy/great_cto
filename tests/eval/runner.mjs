@@ -863,10 +863,10 @@ export function classifyJudgeOutcome({ text, stopReason }) {
  * Whether the actor said anything a judge could grade.
  *
  * The judge side has had this since 2026-09-12; the actor side did not, so an
- * empty answer went to the judge like any other. On 2026-09-16, 41 of the 123
- * failing cases in the latest run of every eval had an empty answer — cli-reviewer
- * "scored" 0.12 on seven of them — and twelve pack cases on 2026-08-01 scored PASS
- * on one. A reply with no text is a case that did not happen, and says why.
+ * empty answer went to the judge like any other. cli-reviewer's latest run before
+ * this (2026-08-27) recorded seven empty answers out of eight, and the judge
+ * failed all seven: a 0.12 that measured nothing about the agent. A reply with no
+ * text is a case that did not happen, and says why.
  * A cut answer that has text is kept: the cut is a property of the agent under
  * test, and the judge can see it.
  */

@@ -1283,11 +1283,10 @@ test('the judge asks OpenRouter not to reason, because reasoning is billed again
 
 // ── an empty actor answer is not an answer ─────────────────────────────────
 //
-// Of the 123 failing cases in the latest run of every eval (2026-09-16), 41 had an
-// empty actor answer. cli-reviewer scored 0.12 with 7 of 8 answers empty; twelve
-// pack cases on 2026-08-01 scored PASS on an empty answer. The judge was asked to
-// grade nothing and graded it. An empty, refused, or cut-to-nothing reply is a
-// case that did not happen: dropout, never a verdict.
+// cli-reviewer's run of 2026-08-27 recorded seven empty answers out of eight, and
+// the judge failed all seven — a 0.12 that measured nothing about the agent. The
+// judge was asked to grade nothing and graded it. An empty, refused, or
+// cut-to-nothing reply is a case that did not happen: dropout, never a verdict.
 
 async function withStubbedReplies(replies, fn) {
   const savedFetch = global.fetch;
@@ -1353,7 +1352,7 @@ test('runEvalFileOnce: an empty actor answer is dropout, and the judge is never 
 
 test('runEvalFileOnce: an empty answer can no longer score PASS', async () => {
   const { result } = await runOnePlain([{ text: '' }, { text: 'PASS - nothing wrong here' }]);
-  assert.equal(result.passed, 0, 'a PASS on nothing was recorded twelve times on 2026-08-01');
+  assert.equal(result.passed, 0, 'an empty answer must not be able to pass either');
 });
 
 test('runEvalFileOnce: a refused actor reply is recorded as refused, not failed', async () => {

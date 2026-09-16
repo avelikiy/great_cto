@@ -43,8 +43,8 @@ Whether what was reviewed is what shipped, and whether a claim can be traced.
 - [A requirement that nothing downstream cites](PLAN-2026-08-14-requirement-coverage.md)
 - [Judge provenance on eval result rows](PLAN-judge-provenance.md)
 - [Agent quality: fix the ruler, then the agents](PLAN-2026-09-16-agent-quality.md) —
-  *declares: in progress · 2026-09-16*. 41 of 123 failing eval cases had an empty
-  actor answer; the runner now records those as dropout, and the coverage ladder
+  *declares: in progress · 2026-09-16*. An empty agent answer was graded like any
+  other; the runner now records it as dropout, and the coverage ladder
   counts only runs where the agent itself acted. Then re-measure, fix prompts, and
   write evals for the agents that have none.
 - [A gate that stands down must still leave a record](PLAN-2026-08-17-gate-fail-closed.md)

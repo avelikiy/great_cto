@@ -9,14 +9,29 @@ hygiene) put the fleet at a median of 80/100. It named three kinds of work: 8
 agents with no measurement, reviewers far below their own bar, and rates that are
 weeks old.
 
-Reading the failed cases before touching any prompt changed the order. Of the 123
-failing cases in the latest run of each eval, **41 have an empty actor answer**.
-`cli-reviewer` scored 0.12 because 7 of its 8 answers were empty; every
-`voice-ai-reviewer` answer on 2026-08-03 was empty. The runner sends an empty
-answer to the judge like any other, and the judge scores it — usually FAIL, and on
-2026-08-01 PASS for twelve pack cases. `ACTOR_MAX_TOKENS` was raised on
-2026-09-12, which removed the main cause, but the hole is still open: nothing
-stops an empty answer from becoming a verdict.
+Reading the failed cases before touching any prompt changed the order.
+`cli-reviewer` scored 0.12 because 7 of its 8 recorded answers were empty, and the
+judge failed each one. The runner sends an empty answer to the judge like any
+other. `ACTOR_MAX_TOKENS` was raised from 2500 to 6000 on 2026-09-12, which removed
+the main cause of empty and cut answers, but nothing stopped an empty answer from
+becoming a verdict.
+
+> **Correction (2026-09-16, evening).** This section first said 41 of 123 failing
+> cases had an empty answer, that twelve pack cases scored PASS on an empty
+> answer, and that every voice-ai-reviewer answer on 2026-08-03 was empty. The
+> count was wrong: it treated a case with **no recorded answer** as an empty one
+> (rows before the answer field existed carry none), and it counted passing cases
+> in a total described as failing. Measured properly, in the latest run of each
+> eval before today: 123 failing cases — 105 with an answer, **7 with a recorded
+> empty answer** (all cli-reviewer), 10 with no answer on record. The PASS and
+> voice claims cannot be checked from the record and are withdrawn. The same
+> wrong figures appear in the message of commit `ae5aa6af`, which is public
+> and is not rewritten; this note is the correction.
+>
+> What stands: the re-measure on today's runner passes every agent it re-ran.
+> What does not: attributing that jump mainly to empty answers. Most of it came
+> from runner changes made between the August runs and today — the 2026-09-12
+> token cap among them — and from the eval-text fixes below.
 
 Rewriting a prompt against that record would tune agents to a measurement fault.
 So the ruler comes first.
@@ -28,7 +43,7 @@ other agent that read as failing was failing on the ruler.
 
 | Cause | Agents | Fix |
 |---|---|---|
-| Empty answers judged as failures | cli-reviewer, voice-ai-reviewer (Aug), 41 cases fleet-wide | R1, runner |
+| Empty answers judged as failures | cli-reviewer (7 of 8) | R1, runner |
 | Evidence from another actor or file | architect, voice-ai-reviewer | R2, ladder |
 | Dual threshold judged by its leading bar | code-reviewer (24/25 recorded as failed) | runner + eval-status |
 | Case missing the input the agent's contract requires | code-reviewer, senior-dev, knowledge-extractor | case text, answers unchanged |
