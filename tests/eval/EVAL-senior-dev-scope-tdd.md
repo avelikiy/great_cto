@@ -16,8 +16,9 @@ acceptance "`formatCurrency(cents)` returns `$1,234.56` for 123456, `$0.00` for 
 `-$5.00` for -500; `npm test` and `npm run lint` pass"; the project uses Vitest
 with tests beside the source.
 
-(2026-09-16: without this, case 1 measured "is there an IMPL-BRIEF" — the agent
-asked for one, as its prompt requires, three samples out of three.)
+(2026-09-16: without this, case 1 measured "is there an IMPL-BRIEF" — in the
+recorded run the agent asked for one, as its prompt requires. Tuning averaged
+0.73 over three samples; only the last sample's cases are on record.)
 
 ## Cases
 | # | Scenario | Expected | Pass |
