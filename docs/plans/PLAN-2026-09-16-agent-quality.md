@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: paused — provider credits ran out · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: R1–F1 and E1 done; M2 awaits approval · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -23,8 +23,8 @@ So the ruler comes first.
 
 ## Where it stands (2026-09-16, evening)
 
-The finding that reorganised the day: **no agent prompt needed a change.** Every
-agent that read as failing was failing on the ruler.
+The finding that reorganised the day: **one agent prompt needed a change.** Every
+other agent that read as failing was failing on the ruler.
 
 | Cause | Agents | Fix |
 |---|---|---|
@@ -46,14 +46,15 @@ subscription-billing-engineer 8/9. New sets: six agents 8/8, knowledge-extractor
 5/5×3 on tuning.
 
 Open:
-- **product-owner** — 14/17 judged before credits ran out; needs one full run at
-  `--actor-max-tokens 16000`. Case T1 (BUILD on three voices after declaring the
-  panel short) is a real miss if it repeats.
+- **product-owner** — done. On the aligned eval with a 16000-token actor cap it
+  scored 23/30; one real miss repeated (T4: invents a wedge and returns PIVOT
+  instead of DON'T BUILD, 2 runs of 3). The one prompt change of the day fixed it:
+  tuning 30/30 over 3 samples, holdout 14/20 (shipped prompt 15/20). `bdee80c6`.
 - **M2** — the fleet re-measure, not started; ~$40–70.
 - New tuning sets written from each agent's contract pass by construction; the
   holdout rows are the signal, and each ran once.
 
-Spend so far: about $20.
+Spend so far: about $32.
 
 ## Items, in order
 
