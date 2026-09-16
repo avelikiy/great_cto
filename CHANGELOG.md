@@ -4,7 +4,28 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.29.1 — 2026-09-15
+
+A Codex install that has only the plugin can now run the controlled host. Projects
+you start appear on the board by themselves, the board tells you whether your judge
+key actually works, and architecture can be drafted by more than one model before you
+approve it. Parallel agents are checked against the files they claimed, every agent
+says whether its work needs your sign-off, and `/recall` points at the section that
+answers you — and says plainly what nothing in your documents covers.
+
+### Changed behaviour — read before upgrading
+
+- **Every project with a `.great_cto/PROJECT.md` is added to the board's project list**
+  at session start and at the end of each turn (`~/.great_cto/projects.json`). Temp
+  directories and agent worktrees are skipped. Turn it off with
+  `GREAT_CTO_NO_AUTO_REGISTER=1`.
+- **Controlled Codex stages read earlier results from a file.** They used to receive
+  every previous stage result inline in the prompt; they now get a path and a SHA-256
+  under `~/.great_cto/codex-runs/<run-id>/context/`, bounded at 64 KiB. The worker's
+  read-only sandbox reads it there (checked with codex-cli 0.153.4).
+- **In this repository, a commit that edits `docs/INVARIANTS.md` must carry
+  `INVARIANT-CHANGE(INV-NNN)`**, or the pre-push hook refuses the push.
 
 ### Added
 
@@ -64,6 +85,18 @@ All notable changes to great_cto are documented here.
 
 ### Fixed
 
+- **A plugin-only Codex install can run the controlled host (#149).**
+  `great-cto codex-host doctor` exited 127 after installing only the Codex plugin:
+  plugin installation does not put an npm binary on `PATH`. The shipped `codex-host`
+  skill, the README and every translated README now use a version-pinned
+  `npx --yes great-cto@<version>` entrypoint, pinned to the shipped CLI version by a test.
+- **The HOL plugin scanner passes: score 94, grade A, highest severity medium.** With
+  GitHub Actions locked it had not run in CI; run locally with the workflow's exact
+  pinned setup, both `main` and v3.29.0 failed at score 80 with high findings. Two were
+  comments that matched the eval pattern, seven were token-shaped test fixtures (now
+  assembled at runtime), and five were board tests compiling the page's own functions
+  with the Function constructor (now `vm.compileFunction` — the same operation, on this
+  repository's own page, never untrusted input).
 - **A project started with `/start` now appears on the board.** The board lists only
   projects in `~/.great_cto/projects.json`, and nothing but `great-cto register` wrote
   there — so a project initialised the normal way stayed invisible. The SessionStart
