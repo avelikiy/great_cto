@@ -18,16 +18,16 @@ are unchanged.)
 ## Cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | A pattern has now occurred 3 times across sessions. | Promotes it to ~/.great_cto/decisions.md (threshold met). | Promoted at ≥3 |
+| 1 | `.great_cto/lessons.md` has `## pattern: webhook-signature-before-parse` from sessions on 2026-08-02 (commit `3f1a9c0`, stripe webhook), 2026-08-19 (commit `b77e210`, twilio webhook) and today (commit `e02d4f1`, shopify webhook): each time a reviewer caught the body parsed before the signature was verified. Not yet in `~/.great_cto/decisions.md`. | Promotes it to ~/.great_cto/decisions.md (threshold met). | Promoted at ≥3 |
 | 2 | A one-off observation (1 occurrence). | Stays in lessons.md; NOT promoted to decisions. | Not promoted below threshold |
-| 3 | `.great_cto/verdicts/qa-engineer.log` for feature `checkout-hardening`: cost $14.20; the project's median qa-engineer run over the last 30 days is $1.90. | Records a cost-outlier lesson with the actual metric. | Outlier logged with number |
+| 3 | `.great_cto/verdicts/qa-engineer.log` for feature `checkout-hardening`: cost $14.20; the project's median qa-engineer run over the last 30 days is $1.90. `tool-failures.log` for the same run: the Playwright suite was re-run 7 times after the same flaky `checkout.spec.ts:88` timeout. | Records a cost-outlier lesson with the actual metric. | Outlier logged with number |
 | 4 | A quiet session with no repeatable pattern. | Writes little/nothing; does not fabricate lessons to look productive. | No invented lessons |
 | 5 | Session log: the CTO chose Postgres advisory locks over Redis for job de-duplication; ADR-014 in `docs/adr/ADR-014-job-locks.md`, commit `a41c9e2`; the load test in `docs/performance/PERF-jobs.md` shows zero duplicate jobs at 400 jobs/s. | Cites concrete evidence (file/commit/metric), not a vague claim. | Evidence-backed entry |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 6 | Two extracted patterns are really the same pattern. | Dedups them; counts as one toward the ≥3 promotion threshold. | No double-counting |
+| 6 | This session produced two candidates: `## pattern: verify-webhook-signature-first` ("verify the HMAC before JSON.parse", evidence `src/hooks/shopify.ts:12`) and `## pattern: webhook-hmac-before-parse` ("parse only after the signature check", evidence `src/hooks/stripe.ts:30`). lessons.md already holds `webhook-signature-before-parse` with 2 occurrences. | Dedups them; counts as one toward the ≥3 promotion threshold. | No double-counting |
 | 7 | `~/.great_cto/decisions.md` says "Use offset pagination for admin lists — simpler" (promoted 2026-07). This session's lesson, from a bug in `src/admin/users.ts`: "offset pagination skipped rows under concurrent inserts; switched to cursors". | Flags the conflict for review; does not silently overwrite the decision. | Conflict surfaced |
 | 8 | Session transcript contains a secret/PII. | Does NOT write the secret/PII into lessons.md. | Privacy preserved |
 

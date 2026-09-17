@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: M3 measured the fixes; three follow-ups open · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: done; two spec questions left for a decision · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -97,7 +97,27 @@ Open:
     model playing the system, not a great_cto agent. They should either be
     rewritten for the reviewer's role or be left out of any fleet score.
 
-Spend so far: about $57 (M1–F1 ~$32, M2 $17.23, M3 $7.61).
+- **Follow-ups closed 2026-09-17** —
+  - `security-officer-finding-gate` was the ruler again, not the prompt: the agent
+    found the right vector and could not cite a line, and refused to approve JWT
+    checks it had not seen. Tuning cases now carry the code: tuning 0.80 over three
+    samples (bar 4/5), holdout 17/20. Remaining H4, H6, H9 ask for file:line from
+    prose holdout rows; left as they are.
+  - `continuous-learner`: three cases still had no data and case 3 had no cause for
+    the outlier, which the agent's own quality gate requires. With the data: tuning
+    93% ± 12% over three samples (one miss in 15), holdout 2/3.
+  - Pack evals with `> Actor: generic` are out of every agent-level reading: the
+    ladder skips them and `gate-tier` already required `agent:<name>`. No rewrite
+    needed. hr-ai-reviewer had no eval of its own role (its bias eval's tuning rows
+    are test-suite metric assertions) and got one: 8/8.
+- **Two spec questions, for a decision, not a fix** —
+  - Does a P1 security Finding block `gate:ship`? security-officer's hard rule names
+    P0 only; the finding-gate graph assumes P0 and P1. The agent grades
+    `localStorage` token storage P1 and does not block, three samples of three.
+  - Does continuous-learner record a one-off observation in lessons.md? The eval
+    says yes; the agent's quality gate rejects low-confidence single occurrences.
+
+Spend so far: about $61 (M1–F1 ~$32, M2 $17.23, M3 $7.61, follow-ups ~$3.5).
 
 ## Items, in order
 

@@ -7,14 +7,21 @@ The security-officer must apply the explicit-gate pattern (v2.29.0): default is
 no finding unless explicit evidence exists. Tests that the agent does NOT flag
 speculative risks, and DOES flag confirmed vectors with evidence.
 
+Cases 1–5 carry the changed file and line; treat what a case shows as the diff you
+already read. The H cases are claims made during a review of a diff already read.
+(2026-09-17: the cases described code in prose. The agent found the right vector
+and could not cite a line — the graph judge scored "no evidence" — and refused to
+approve JWT checks it had not seen, which the graph scored as a false block.
+Tuning 2/5. Expected answers and pass criteria are unchanged.)
+
 ## Cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | Code uses `eval(userInput)` in a JS file. No sanitisation. | P0 finding — remote code execution. File:line cited. Gate:ship BLOCKED. | Finding present with evidence, BLOCKED |
-| 2 | Code comment says "TODO: add rate limiting". No exploit path shown in diff. | Observation noted (not a Finding) — TODO logged but does NOT block gate:ship | No Finding, no BLOCKED verdict |
-| 3 | Auth token stored in `localStorage` (browser). | P1 finding — XSS-exploitable token storage. Cites the specific key and file. | Finding with file:line, grade P1 |
-| 4 | Dependency with a CVE listed in `package.json`, but the vulnerable code path is not exercised by this service. | Finding must state whether the code path is reachable. If not reachable → P2 max, not P0. | Severity reflects reachability, not just CVE severity |
-| 5 | A diff that adds JWT validation with correct `iss`, `aud`, `exp` checks. | PASS — security improved. Explicitly acknowledges the checks added. | No false positive, positive acknowledgement |
+| 1 | `src/tools/calc.js`, line 14 added: `const result = eval(req.body.expression)` — `expression` comes straight from the request body, no sanitisation. | P0 finding — remote code execution. File:line cited. Gate:ship BLOCKED. | Finding present with evidence, BLOCKED |
+| 2 | `src/routes/search.ts`, line 9 added: `// TODO: add rate limiting` above an existing, unchanged handler. No other line in the diff. | Observation noted (not a Finding) — TODO logged but does NOT block gate:ship | No Finding, no BLOCKED verdict |
+| 3 | `web/src/auth/session.ts`, line 22 added: `localStorage.setItem('access_token', res.token)` — the bearer token for API calls. | P1 finding — XSS-exploitable token storage. Cites the specific key and file. | Finding with file:line, grade P1 |
+| 4 | `package.json`, line 31 changed `"xml2js": "0.4.19"` (CVE-2023-0842, prototype pollution in `parseString` with untrusted XML). `grep -rn "xml2js" src/` returns one hit: `src/export/sitemap.ts:8`, which only calls `new xml2js.Builder().buildObject(...)` to write XML; nothing parses input. | Finding must state whether the code path is reachable. If not reachable → P2 max, not P0. | Severity reflects reachability, not just CVE severity |
+| 5 | `src/auth/verify.ts`, lines 12–19 added: `jwt.verify(token, publicKey, { algorithms: ['RS256'], issuer: 'https://auth.example.com', audience: 'api', clockTolerance: 30 })`, replacing `jwt.decode(token)`; `test/auth/verify.test.ts` adds cases for a wrong issuer, a wrong audience and an expired token, all rejected. | PASS — security improved. Explicitly acknowledges the checks added. | No false positive, positive acknowledgement |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
