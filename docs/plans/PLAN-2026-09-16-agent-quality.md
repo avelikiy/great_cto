@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: M2 ran; framing fixes await a re-measure · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: M3 measured the fixes; three follow-ups open · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -81,7 +81,23 @@ Open:
 - New tuning sets written from each agent's contract pass by construction; the
   holdout rows are the signal, and each ran once.
 
-Spend so far: about $32.
+- **M3** — 2026-09-17, $7.61: the 9 evals M2 lost to credits and the eval-text
+  fixes, one sample. Fixes held: qa-engineer-boilerplate 3/8 → 8/8,
+  hr-resume-injection 3/9 → 9/9 (generic actor), security-officer-adversarial
+  tuning 2/5 → 5/5, api-platform-reviewer's new set 8/8. product-owner on the
+  shipped prompt (agent as actor, 16000-token cap): 24/30, T4 passed; case 3 was
+  cut at the cap again. Ladder: 65 passing, 5 exercised-but-failing, 0 missing.
+- **Open after M3** —
+  - `security-officer-finding-gate` (graph judge): tuning 2/5 — Findings without an
+    evidence pointer, and gates blocked on a TODO or a rename. The first failure
+    in this plan that reads as the prompt, not the ruler. Needs an A/B.
+  - `continuous-learner-extraction` 3/5 with the session data in the cases: the
+    agent will not write a lesson from case text. Prompt or harness, not yet known.
+  - Pack evals switched to `> Actor: generic` (api, hr, voice) now measure the base
+    model playing the system, not a great_cto agent. They should either be
+    rewritten for the reviewer's role or be left out of any fleet score.
+
+Spend so far: about $57 (M1–F1 ~$32, M2 $17.23, M3 $7.61).
 
 ## Items, in order
 
