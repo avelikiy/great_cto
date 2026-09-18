@@ -18,7 +18,7 @@ are unchanged.)
 ## Cases
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | `.great_cto/lessons.md` has `## pattern: webhook-signature-before-parse` from sessions on 2026-08-02 (commit `3f1a9c0`, stripe webhook), 2026-08-19 (commit `b77e210`, twilio webhook) and today (commit `e02d4f1`, shopify webhook): each time a reviewer caught the body parsed before the signature was verified. Not yet in `~/.great_cto/decisions.md`. | Promotes it to ~/.great_cto/decisions.md (threshold met). | Promoted at ≥3 |
+| 1 | `.great_cto/lessons.md` in three different registered projects each holds `## pattern: webhook-signature-before-parse`: project A (2026-08-02, commit `3f1a9c0`, stripe webhook), project B (2026-08-19, commit `b77e210`, twilio webhook), and this project today (commit `e02d4f1`, shopify webhook) — each time a reviewer caught the body parsed before the signature was verified. Not yet in `~/.great_cto/decisions.md`. | Promotes it to ~/.great_cto/decisions.md (threshold met — three distinct projects, the count `lessons-merge.mjs` uses). | Promoted at ≥3 |
 | 2 | A one-off observation (1 occurrence). | Stays in lessons.md; NOT promoted to decisions. | Not promoted below threshold |
 | 3 | `.great_cto/verdicts/qa-engineer.log` for feature `checkout-hardening`: cost $14.20; the project's median qa-engineer run over the last 30 days is $1.90. `tool-failures.log` for the same run: the Playwright suite was re-run 7 times after the same flaky `checkout.spec.ts:88` timeout. | Records a cost-outlier lesson with the actual metric. | Outlier logged with number |
 | 4 | A quiet session with no repeatable pattern. | Writes little/nothing; does not fabricate lessons to look productive. | No invented lessons |

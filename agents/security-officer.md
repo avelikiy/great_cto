@@ -191,7 +191,7 @@ fi
 | Mode | When | Outputs | Halts on |
 |---|---|---|---|
 | **pre-impl** | After architect writes ARCH, BEFORE senior-dev claims tasks | `docs/sec-threats/TM-{slug}.md` (threat model), `docs/architecture/ARCH-{slug}.md § Security` (appended) | mitigations missing for Critical/High threats; senior-dev cannot proceed |
-| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{date}.md` (Compliance & Security Officer report; same name the artefact post-condition checks), `gate:ship` verdict | unmitigated Critical findings |
+| **post-impl** | After senior-dev finishes, BEFORE devops ships | `docs/security/CSO-{date}.md` (Compliance & Security Officer report; same name the artefact post-condition checks), `gate:ship` verdict | unmitigated Critical or High (P0/P1) findings not covered by a signed exception |
 
 ### pre-impl flow (security-critical archetypes only)
 
@@ -286,7 +286,7 @@ fi
 
 ### post-impl flow
 
-Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, controls `gate:ship`, blocks on unmitigated Critical findings.
+Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, controls `gate:ship`, blocks on unmitigated Critical or High (P0/P1) findings not covered by a signed exception — see the hard rule under the verdict log.
 
 ## Workflow
 
@@ -898,8 +898,16 @@ One canonical verdict line per run — already emitted in Step 6 via
 also write a daily-file variant; the dispatcher keys on
 `verdicts/security-officer.log`.
 
-**Hard rule**: if any open P0 carries the `SEC` label, the verdict is `BLOCKED`
-regardless of local judgement — P0-SEC cannot be approved.
+**Hard rule**: if any open P0 or P1 Finding stands — a confirmed vector with
+evidence, after skeptical triage — the verdict is `BLOCKED` regardless of local
+judgement, unless a valid signed exception (`/exception`) covers that finding.
+P0-SEC cannot be approved at all. A P1 is a confirmed exploit path, not a
+suspicion: shipping it is a decision a person makes and signs, not one this
+verdict makes by staying silent. P2 and below never block.
+
+This matches code-reviewer (`BLOCKED` on any P0 or unresolved P1). Two reviewers
+reading the same token-in-localStorage finding must not reach opposite gate
+decisions.
 
 ## Evidence discipline — check it before you claim you are done
 

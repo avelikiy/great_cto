@@ -1,6 +1,6 @@
 # Plan — agent quality: fix the ruler, then the agents
 
-Status: done; two spec questions left for a decision · Epic: `great_cto-9znw` · Started 2026-09-16
+Status: done · Epic: `great_cto-9znw` · Started 2026-09-16
 
 ## Why
 
@@ -110,14 +110,20 @@ Open:
     ladder skips them and `gate-tier` already required `agent:<name>`. No rewrite
     needed. hr-ai-reviewer had no eval of its own role (its bias eval's tuning rows
     are test-suite metric assertions) and got one: 8/8.
-- **Two spec questions, for a decision, not a fix** —
-  - Does a P1 security Finding block `gate:ship`? security-officer's hard rule names
-    P0 only; the finding-gate graph assumes P0 and P1. The agent grades
-    `localStorage` token storage P1 and does not block, three samples of three.
-  - Does continuous-learner record a one-off observation in lessons.md? The eval
-    says yes; the agent's quality gate rejects low-confidence single occurrences.
+- **Two spec questions, decided 2026-09-18 by the CTO** —
+  - *A P1 Finding blocks `gate:ship`* unless a signed `/exception` covers it — the
+    same rule code-reviewer already had. security-officer carried three
+    contradicting lines (the hard rule named P0 only; the mode table and the
+    post-impl flow said "Critical"); all three now say P0/P1. finding-gate tuning
+    0.80 → 0.92 over three samples, holdout 17/20 → 18/20.
+  - *A first sighting is recorded in lessons.md*; promotion is the strict gate.
+    continuous-learner's quality list read "one occurrence" as low confidence, so no
+    pattern could ever reach the threshold `lessons-merge.mjs` counts. Fixing it
+    exposed a second mismatch: the prompt and eval case 1 said "≥3 occurrences"
+    while the script counts ≥3 **distinct projects**; both now say projects.
+    Tuning 0.93 → 1.00 over three samples, holdout 2/3 unchanged.
 
-Spend so far: about $61 (M1–F1 ~$32, M2 $17.23, M3 $7.61, follow-ups ~$3.5).
+Spend so far: about $66 (M1–F1 ~$32, M2 $17.23, M3 $7.61, follow-ups and decisions ~$9).
 
 ## Items, in order
 
