@@ -6,9 +6,9 @@
  * Phase 2 (v1.2.0): additionally registers this project in
  *                   ~/.great_cto/projects/<slug>/lessons.md (symlink) so
  *                   lessons-merge.mjs can consolidate cross-project patterns.
- * Phase 3 (v1.3.0): auto-triggers continuous-learner agent at session end
- *                   when GREAT_CTO_AUTO_LEARN=1 is set. Off by default to
- *                   avoid surprising existing users.
+ * Phase 3 (v1.3.0): starts continuous-learner at session end when auto-learn
+ *                   is on (GREAT_CTO_AUTO_LEARN=1 or "auto_learn": true in
+ *                   ~/.great_cto/config.json). Off by default: each run is paid.
  *
  * Hook protocol:
  *   stdin:  { session_id, reason }    (Claude Code SessionEnd payload)
@@ -16,14 +16,14 @@
  *   exit:   0 always (never block session shutdown)
  *
  * Opt-out: GREAT_CTO_DISABLE_SESSION_LEARNING=1
- * Auto-learn: GREAT_CTO_AUTO_LEARN=1 (opt-in, default off)
+ * Auto-learn: GREAT_CTO_AUTO_LEARN=1 or config auto_learn (opt-in, default off)
  *
  * @see docs/HOOKS.md
  * @see docs/LEARNING.md
  */
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync, readdirSync } from 'node:fs';
-import { learnWorthIt } from '../lib/learn-worth-it.mjs';
+import { learnWorthIt, autoLearnEnabled } from '../lib/learn-worth-it.mjs';
 import { spawnSync, spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve, basename, dirname } from 'node:path';
@@ -95,24 +95,22 @@ function countSessionLogs() {
 }
 
 /**
- * Spawn the continuous-learner agent in detached, best-effort mode.
+ * Start continuous-learner for this session, detached and best-effort.
  * Never throws — session end must not be blocked.
  *
- * Enabled only when GREAT_CTO_AUTO_LEARN=1.
- * Silently skipped when claude CLI is not found.
- * Writes .great_cto/.last-auto-learn on success.
+ * It starts scripts/lib/run-learner.mjs, which waits for the learner and writes
+ * the outcome to .great_cto/.last-auto-learn (`done: lessons+N` / `failed: …`).
+ * This function writes only `started:` — it used to write `ran` on spawn, for a
+ * learner that exited 1 at once, and the marker was the only record anyone had.
  */
-function spawnLearner(git) {
-  if (process.env.GREAT_CTO_AUTO_LEARN !== '1') return;
+function spawnLearner(git, payload = {}) {
+  if (!autoLearnEnabled()) return;
 
   // A paid agent run needs something to learn from. Spawning at EVERY session
   // end includes the thirty-second one that answered a question — and /save
   // already refuses to update brain.md for a trivial session. Same rule, applied
-  // where it costs money. The inputs come from captureGitState(), already
-  // computed above, so this is free to evaluate.
-  //
-  // An unreadable git state RUNS it: skipping would drop a lesson whenever git
-  // is unavailable and deliver "I could not tell" as "nothing to learn".
+  // where it costs money. An unreadable git state RUNS it: skipping would deliver
+  // "I could not tell" as "nothing to learn".
   const verdict = learnWorthIt(git);
   if (!verdict.run) {
     try {
@@ -124,27 +122,20 @@ function spawnLearner(git) {
   }
 
   try {
-    // Locate the claude CLI — prefer PATH resolution
     const which = spawnSync('which', ['claude'], { encoding: 'utf8', timeout: 3_000 });
-    if (which.status !== 0 || !which.stdout.trim()) return; // claude CLI not found — silent skip
-
-    const child = spawn(
-      'claude',
-      ['--agent', 'continuous-learner'],
-      {
-        detached: true,
-        stdio: 'ignore',
-        timeout: 90_000,
-      },
-    );
-    child.unref();
-
-    // Write marker file with ISO timestamp on successful spawn
-    try {
+    if (which.status !== 0 || !which.stdout.trim()) {
       mkdirSync('.great_cto', { recursive: true });
-      writeFileSync('.great_cto/.last-auto-learn',
-        `${new Date().toISOString()} ran: ${verdict.reason}\n`);
-    } catch { /* never block */ }
+      writeFileSync('.great_cto/.last-auto-learn', `${new Date().toISOString()} skipped: claude CLI not on PATH\n`);
+      return;
+    }
+    const runner = resolve(import.meta.dirname || '.', '..', 'lib', 'run-learner.mjs');
+    const child = spawn(process.execPath, [runner, JSON.stringify({
+      cwd: process.cwd(), transcript: payload.transcript_path || null, reason: payload.reason || null,
+    })], { detached: true, stdio: 'ignore' });
+    child.unref();
+    mkdirSync('.great_cto', { recursive: true });
+    writeFileSync('.great_cto/.last-auto-learn',
+      `${new Date().toISOString()} started: ${verdict.reason} (the runner rewrites this line with the outcome)\n`);
   } catch { /* never block session end */ }
 }
 
@@ -192,12 +183,12 @@ ${costHint || '(no cost log)'}
 
 ## Auto-learning
 
-continuous-learner runs automatically at session end when GREAT_CTO_AUTO_LEARN=1.
-It reads this snapshot, extracts repeatable patterns, and appends to .great_cto/lessons.md.
-Promote skill-candidates after ≥3 occurrences to ~/.great_cto/decisions.md.
+continuous-learner runs at session end when auto-learn is on, and records its
+outcome in .great_cto/.last-auto-learn. It reads a redacted digest of the session,
+extracts evidence-backed lessons, and adds them to .great_cto/lessons.md.
 
-To enable: export GREAT_CTO_AUTO_LEARN=1
-To disable: unset GREAT_CTO_AUTO_LEARN (or set to anything other than 1)
+To enable: "auto_learn": true in ~/.great_cto/config.json (or GREAT_CTO_AUTO_LEARN=1)
+To disable: remove it, or GREAT_CTO_AUTO_LEARN=0
 `;
 
   // Append crystallize hint if session count warrants it.
@@ -241,7 +232,7 @@ To disable: unset GREAT_CTO_AUTO_LEARN (or set to anything other than 1)
   } catch { /* never block session end */ }
 
   // --- Auto-trigger continuous-learner (Phase 3) ---
-  spawnLearner(git);
+  spawnLearner(git, payload);
 
   return process.exit(0);
 }

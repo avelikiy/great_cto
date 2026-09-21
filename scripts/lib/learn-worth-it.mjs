@@ -1,3 +1,7 @@
+import { readFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { join } from 'node:path';
+
 /**
  * Is this session end worth spending a paid agent run on?
  *
@@ -30,4 +34,17 @@ export function learnWorthIt(git) {
   const dirty = Number(git.uncommitted) || 0;
   if (commits === 0 && dirty === 0) return { run: false, reason: 'nothing-changed' };
   return { run: true, reason: commits > 0 ? `${commits}-commits` : `${dirty}-uncommitted` };
+}
+
+/**
+ * Is auto-learn on? `GREAT_CTO_AUTO_LEARN=1`, or `"auto_learn": true` in
+ * ~/.great_cto/config.json. The file exists because the env var alone reached
+ * nobody: set in a shell rc, it is invisible to sessions the desktop app starts,
+ * and on the measuring machine it was set in exactly one of 28 projects' sessions.
+ * An explicit `GREAT_CTO_AUTO_LEARN=0` turns it off whatever the file says.
+ */
+export function autoLearnEnabled(env = process.env, home = homedir()) {
+  if (env.GREAT_CTO_AUTO_LEARN === '1') return true;
+  if (env.GREAT_CTO_AUTO_LEARN === '0') return false;
+  try { return JSON.parse(readFileSync(join(home, '.great_cto', 'config.json'), 'utf8')).auto_learn === true; } catch { return false; }
 }
