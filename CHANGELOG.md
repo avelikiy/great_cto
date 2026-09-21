@@ -6,6 +6,75 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.31.0 — 2026-09-21
+
+What 28 real projects taught the pipeline. The session-end learner now actually runs
+and says what it did. `gate:ship` reads what verdicts say, not only that they exist.
+Every session is told to take reversible steps instead of offering them, and to call
+work done only on what the user receives.
+
+### Changed behaviour — read before upgrading
+
+- **`gate:ship` refuses over an open finding or a stale QA verdict.** It now also
+  refuses when:
+  - any agent's **latest** verdict is BLOCKED, FAIL, REJECTED or REWORK, or is an
+    approval that names deferred criticals, and no later verdict from that agent
+    closes it;
+  - qa-engineer or security-officer has no passing verdict;
+  - QA's verdict is older than the last commit that changed code (docs, `*.md` and
+    `.great_cto/` do not count).
+
+  Each is waived only by a signed exception:
+  `/exception create --gate gate:ship --scope reviewer:<agent>`. Measured on the
+  machine this came from: 16 of 17 projects with verdicts would be refused, each for a
+  reason their logs support. So expect a refusal, and read what it names. Agent names
+  in verdict logs are normalised (`great-cto:x`, `great_cto:x`, `qa`, `security`). An
+  agent checking before writing its own verdict passes `--as <agent>`; security-officer
+  does.
+- **Every session prints four operating rules** (`scripts/hooks/operating-rules.md`,
+  about 900 characters):
+  - reversible steps inside the task are taken, not offered;
+  - ask only for what is expensive to undo;
+  - "done" is checked on the artifact the user gets;
+  - an agent's finding is a claim until checked.
+
+  senior-dev now fixes a defect it found inside the task and reports it, instead of
+  ending with "fix them?".
+- **Higher turn caps**, where the session logs showed runs dying: senior-dev 50→80,
+  code-reviewer 40→60, db-migration-reviewer 20→40, devops 25→40. A run can now cost
+  more before it stops.
+
+### Added
+
+- **Auto-learn can be switched on in a file.** Add `"auto_learn": true` to
+  `~/.great_cto/config.json`. `GREAT_CTO_AUTO_LEARN=1` still works, and `=0` wins over
+  the file. The env var alone never reached sessions the desktop app starts. Still off
+  by default, because each run is a paid call, capped at $0.50.
+- **verify-by-running rule 5**, also referenced by senior-dev, devops and
+  mobile-app-builder. A shipped change's report names the live revision, build or
+  version and a check run against it. A skipped suite (`E2E_SKIP`, `SKIP_*`) is
+  INVALID. A health endpoint shows the process is up, not that the product works. A
+  deploy command's exit code does not show the deploy landed.
+- **Board E2E covers Fleet:** real dispatches and required reviewers, checked in the
+  browser.
+
+### Fixed
+
+- **continuous-learner never ran.** SessionEnd started `claude --agent
+  continuous-learner` with no prompt and no `-p`. The CLI exits 1 without a prompt,
+  and the hook had already written `ran` to `.great_cto/.last-auto-learn`, so
+  `lessons.md` stayed empty in every project. `scripts/lib/run-learner.mjs` now runs
+  the learner in print mode and gives it a redacted digest of the ended session: the
+  operator's messages, agent dispatches and failed tool calls, taken from the
+  transcript Claude Code names. The digest is deleted after the run. The marker is
+  rewritten with the outcome, `done: lessons+N` or `failed: exit=… <first error
+  line>`. The learner's own session cannot start another learner. Checked against the
+  real CLI: three lessons written in 2 m 27 s.
+- **A legacy verdict line `2026-07-12 15:47:00 PASS`** read the time as the verdict, so
+  a passing QA read as no verdict at all.
+
+
 ## v3.30.0 — 2026-09-21
 
 The domain reviewers a project's archetype implies are now required before
