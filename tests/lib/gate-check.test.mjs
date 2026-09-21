@@ -153,7 +153,13 @@ test('CLI: without Beads the reviewer check still runs — a missing bd is not a
 });
 
 test('CLI: with every required verdict present, gate:ship passes the reviewer check', () => {
-  const dir = project('primary: commerce\n', { 'pci-reviewer': '2026-09-01 pci-reviewer APPROVED' });
+  // QA and security are required for gate:ship too (ship-evidence.mjs), so a
+  // project that passes carries them as well as the domain reviewer.
+  const dir = project('primary: commerce\n', {
+    'pci-reviewer': '2026-09-01 pci-reviewer APPROVED',
+    'qa-engineer': '2026-09-02T00:00:00Z qa-engineer PASS',
+    'security-officer': '2026-09-02T01:00:00Z security-officer APPROVED',
+  });
   const r = spawnSync(process.execPath, [GATE, 'gate:ship'], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: '/nonexistent' } });
   assert.equal(r.status, 0, r.stdout + r.stderr);
 });

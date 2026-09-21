@@ -12,6 +12,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { verify, list as listExceptions } from './exceptions.mjs';
 import { reviewerStatus } from './required-reviewers.mjs';
+import { latestVerdicts, lastCodeChange, shipBlockers } from './ship-evidence.mjs';
 
 // Terminal-fail states that block a gate (normalized, lowercase).
 export const BLOCKING_STATES = new Set(['blocked', 'failed', 'unverified', 'not_run', 'not-run']);
@@ -82,6 +83,24 @@ export function evaluateReviewers(status, exceptions, { gate, now } = {}) {
   return { pass: blocking.length === 0, blocking, covered };
 }
 
+/**
+ * What the verdict logs say about gate:ship (ship-evidence.mjs): an open negative
+ * verdict, a missing or non-passing QA / security verdict, or a QA verdict older
+ * than the last code change. Each is waived only by a signed exception naming
+ * `reviewer:<agent>` — the same scope the required-reviewer check uses.
+ */
+export function evaluateShipEvidence(blockers, exceptions, { gate, now } = {}) {
+  const blocking = [];
+  const covered = [];
+  if (gate !== 'gate:ship') return { pass: true, blocking, covered };
+  for (const b of blockers || []) {
+    const exc = (exceptions || []).find((e) => covers(e, gate, `reviewer:${b.agent}`, now));
+    if (exc) covered.push({ ...b, exception: exc.id });
+    else blocking.push(b);
+  }
+  return { pass: blocking.length === 0, blocking, covered };
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
 function loadTasks() {
@@ -100,8 +119,14 @@ function loadTasks() {
 }
 
 function main() {
-  const gate = process.argv[2];
-  if (!gate) { process.stderr.write('Usage: gate-check.mjs <gate>\n'); process.exit(2); }
+  const argv = process.argv.slice(2);
+  // --as <agent>: the agent about to write its own verdict runs this check, and its
+  // own previous verdict (or absence) must not block it — security-officer calls
+  // `gate-check gate:ship --as security-officer` before it approves.
+  const asIdx = argv.indexOf('--as');
+  const as = asIdx >= 0 ? argv[asIdx + 1] : null;
+  const gate = argv.find((a, i) => !a.startsWith('--') && !(asIdx >= 0 && i === asIdx + 1));
+  if (!gate) { process.stderr.write('Usage: gate-check.mjs <gate> [--as <agent>]\n'); process.exit(2); }
 
   const exceptions = listExceptions({});
 
@@ -114,10 +139,20 @@ function main() {
     process.stdout.write(`  Run the reviewer, or sign an exception: /exception create --gate ${gate} --scope reviewer:<agent> --reason "…"\n`);
   }
 
+  const cwd = process.cwd();
+  const ev = evaluateShipEvidence(shipBlockers(latestVerdicts(cwd), lastCodeChange(cwd), { as }), exceptions, { gate });
+  for (const c of ev.covered) process.stdout.write(`  ⚠ ${c.agent}: ${c.why} — sanctioned by signed exception ${c.exception}\n`);
+  if (!ev.pass) {
+    process.stdout.write(`✗ ${gate} BLOCKED — ${ev.blocking.length} verdict problem(s):\n`);
+    for (const b of ev.blocking) process.stdout.write(`    ${b.agent} — ${b.why}\n`);
+    process.stdout.write(`  Re-run the agent, or sign an exception: /exception create --gate ${gate} --scope reviewer:<agent> --reason "…"\n`);
+  }
+  const filesPass = rev.pass && ev.pass;
+
   const tasks = loadTasks();
   if (tasks === null) {
     process.stdout.write('gate-check: beads (bd) unavailable — task states not evaluated; treat them as a manual check.\n');
-    process.exit(rev.pass ? 0 : 1); // bd absent skips the task check, never the reviewer check
+    process.exit(filesPass ? 0 : 1); // bd absent skips the task check, never the file checks
   }
   const r = evaluateGate(tasks, exceptions, { gate });
 
@@ -126,7 +161,7 @@ function main() {
   }
   if (r.pass) {
     process.stdout.write(`✓ ${gate}: no blocking tasks (${r.covered.length} covered by exception).\n`);
-    process.exit(rev.pass ? 0 : 1);
+    process.exit(filesPass ? 0 : 1);
   }
   process.stdout.write(`✗ ${gate} BLOCKED — ${r.blocking.length} task(s) in a terminal-fail state with no signed exception:\n`);
   for (const b of r.blocking) process.stdout.write(`    ${b.id} [${b.state}] ${b.title}\n`);

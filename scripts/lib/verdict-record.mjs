@@ -202,6 +202,12 @@ export function parseVerdictLine(line) {
     // is a verdict this system knows. Neither position matching leaves the
     // original reading in place rather than guessing a different wrong one.
     const parts = raw.split(/\s+/);
+    // `2026-07-12 15:47:00 PASS …` — a date and a time written with a space, as
+    // one project's QA log was. Read as two tokens, the time became the verdict
+    // and a passing QA read as no verdict at all.
+    if (/^\d{4}-\d{2}-\d{2}$/.test(parts[0] || '') && /^\d{2}:\d{2}(:\d{2}(\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/.test(parts[1] || '')) {
+      parts.splice(0, 2, `${parts[0]}T${parts[1]}`);
+    }
     ts = parts[0] || '';
     const known = (t) => KNOWN_VERDICTS.includes(String(t || '').toUpperCase());
     if (!known(parts[1]) && known(parts[2])) {

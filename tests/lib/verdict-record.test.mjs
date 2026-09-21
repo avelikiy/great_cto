@@ -143,3 +143,10 @@ test('a pipe line whose details also contain pipes still reads the verdict', () 
   const r = parseVerdictLine('2026-07-30T10:00:00Z | qa-engineer | DONE | 12 pass | 0 fail | cost=$0.3');
   assert.equal(r.rec.verdict, 'DONE');
 });
+
+test('legacy: a date and time separated by a space are one timestamp, not a verdict', () => {
+  const r = parseVerdictLine('2026-07-12 15:47:00 PASS ready-for-security-review');
+  assert.equal(r.ok, true);
+  assert.equal(r.rec.ts, '2026-07-12T15:47:00');
+  assert.equal(r.rec.verdict, 'PASS');
+});
