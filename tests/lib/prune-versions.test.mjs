@@ -45,3 +45,20 @@ test('a plugin root with a space in it is read whole, not cut at the space', () 
   const r = pruneVersionsPlan({ versionDirs: [root, '/h/other/3.28.5'], keep: '/h/other/3.28.5', liveRoots: liveRootsFromPs(ps) });
   assert.deepEqual(r.remove, [], 'the directory a session runs from was planned for deletion');
 });
+
+// SessionStart ran its own cleanup: `ls | sort -V | awk (all but the newest 3) |
+// xargs rm -rf`, with no live-session check — the check install-local --prune got
+// after 2026-09-11. It now calls this plan with keepNewest, so the newest three
+// stay as before and a version a live session runs from stays too.
+test('keepNewest keeps the newest N by version, not by name order', () => {
+  const dirs = ['3.9.0', '3.10.0', '3.28.4', '3.29.0', '3.29.1'].map((v) => `${C}/${v}`);
+  const r = pruneVersionsPlan({ versionDirs: dirs, keep: `${C}/3.29.1`, liveRoots: [], keepNewest: 3 });
+  assert.deepEqual(r.remove.sort(), [`${C}/3.10.0`, `${C}/3.9.0`].sort(), '3.10.0 is older than 3.28.4, and 3.9.0 older than both');
+  assert.ok(r.kept.some((k) => k.dir === `${C}/3.28.4` && /newest/.test(k.why)));
+});
+
+test('keepNewest never removes a version a live session runs from, however old', () => {
+  const dirs = ['3.9.0', '3.28.4', '3.29.0', '3.29.1'].map((v) => `${C}/${v}`);
+  const r = pruneVersionsPlan({ versionDirs: dirs, keep: `${C}/3.29.1`, liveRoots: [`${C}/3.9.0`], keepNewest: 3 });
+  assert.deepEqual(r.remove, []);
+});

@@ -57,9 +57,18 @@ dispatches use.
   that line must stay.
 - The Codex host is unaffected: it installs skills and the MCP server, not these files.
 
-## Also found
+## Also found — fixed
 
-The SessionStart hook ends with a cache cleanup that deletes every cached plugin version
-but the newest three (`rm -rf`). `install-local --prune` was made to keep any version a
-live session still names after it deleted one under six open sessions on 2026-09-11; this
-cleanup has no such check. Out of scope here; filed separately.
+The SessionStart hook ended with a cache cleanup that deleted every cached plugin version
+but the newest three (`rm -rf`) with no live-session check — the check
+`install-local --prune` got after it deleted a version under six open sessions on
+2026-09-11. It now calls `prune-versions.mjs --keep-newest 3`: the newest three stay as
+before, a version a live session runs from stays however old, and nothing is removed when
+the live sessions cannot be read (`great_cto-agad`).
+
+## Measurement status
+
+The first-session probe (a SessionStart hook writes an agent file; `claude -p` is asked
+whether that agent is listed) ran on 2026-09-21: the hook wrote the file, and the CLI
+stopped at `OAuth session expired and could not be refreshed` before any answer. The
+measurement needs a signed-in CLI; until then the recommendation stands unmeasured.

@@ -13,7 +13,9 @@
  * read, nothing is removed: not knowing who runs a directory is not permission
  * to delete it.
  *
- * CLI: node prune-versions.mjs --cache-root <dir> --keep <dir>
+ * CLI: node prune-versions.mjs --cache-root <dir> --keep <dir> [--keep-newest N]
+ *   --keep-newest keeps the N newest versions as well (by version, not name order);
+ *   SessionStart's cache cleanup uses 3.
  *   stdout: one directory to remove per line; stderr: what was kept, and why.
  */
 import { readdirSync, statSync, realpathSync } from 'node:fs';
@@ -36,11 +38,19 @@ export function liveRootsFromPs(text) {
   return out;
 }
 
+/** "3.10.0" after "3.9.0": compare dotted numbers, not strings. */
+const versionKey = (dir) => (norm(dir).split('/').pop() || '').split('.').map((n) => Number.parseInt(n, 10) || 0);
+const byVersionDesc = (a, b) => {
+  const x = versionKey(a); const y = versionKey(b);
+  for (let i = 0; i < Math.max(x.length, y.length); i++) if ((y[i] || 0) !== (x[i] || 0)) return (y[i] || 0) - (x[i] || 0);
+  return 0;
+};
+
 /**
- * @param {{versionDirs:string[], keep:string, liveRoots:string[]|null}} a
+ * @param {{versionDirs:string[], keep:string, liveRoots:string[]|null, keepNewest?:number}} a
  * @returns {{remove:string[], kept:{dir:string, why:string}[], why:string}}
  */
-export function pruneVersionsPlan({ versionDirs, keep, liveRoots }) {
+export function pruneVersionsPlan({ versionDirs, keep, liveRoots, keepNewest = 0 }) {
   const k = norm(keep);
   const others = versionDirs.map(norm).filter((d) => d !== k);
   if (liveRoots == null) {
@@ -48,9 +58,11 @@ export function pruneVersionsPlan({ versionDirs, keep, liveRoots }) {
       why: 'could not read which versions open sessions run from — removed nothing' };
   }
   const live = new Set(liveRoots.map(norm));
+  const newest = new Set([...versionDirs.map(norm)].sort(byVersionDesc).slice(0, Math.max(0, keepNewest)));
   const remove = []; const kept = [];
   for (const d of others) {
     if (live.has(d)) kept.push({ dir: d, why: 'a live session runs hooks from it' });
+    else if (newest.has(d)) kept.push({ dir: d, why: `one of the newest ${keepNewest}` });
     else remove.push(d);
   }
   return { remove, kept, why: '' };
@@ -78,7 +90,8 @@ if (invokedDirectly) {
     versionDirs = readdirSync(root).map((f) => join(root, f))
       .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } });
   } catch { process.exit(0); }
-  const plan = pruneVersionsPlan({ versionDirs, keep, liveRoots: readLiveRoots() });
+  const keepNewest = Number.parseInt(arg('--keep-newest') || '0', 10) || 0;
+  const plan = pruneVersionsPlan({ versionDirs, keep, liveRoots: readLiveRoots(), keepNewest });
   if (plan.why) process.stderr.write(`  · ${plan.why}\n`);
   for (const k of plan.kept) process.stderr.write(`  · kept ${k.dir} — ${k.why}\n`);
   for (const d of plan.remove) process.stdout.write(`${d}\n`);
