@@ -523,7 +523,10 @@ elif [[ -f "scripts/lib/prose-slop.mjs" ]] && command -v node >/dev/null 2>&1; t
     if git rev-parse --verify --quiet "${cand%%..*}" >/dev/null 2>&1; then PROSE_RANGE="$cand"; break; fi
   done
   PROSE_FILES=$(git diff --name-only --diff-filter=ACM ${PROSE_RANGE:+"$PROSE_RANGE"} 2>/dev/null \
-    | grep -E '\.md$' | grep -vE '^(CHANGELOG\.md|node_modules/|tests/fixtures/)' || true)
+    | grep -E '\.md$' | grep -vE '^(CHANGELOG\.md|node_modules/|tests/fixtures/|agents-full/)' || true)
+  # agents-full/ is generated from agents/ (build-agent-bundle.mjs): checking it
+  # reports every finding twice and asks for an edit to build output. The first
+  # push after it landed printed 60 findings in 42 files, all of them copies.
   if [[ -n "$PROSE_FILES" ]]; then
     PROSE_RC=0
     # shellcheck disable=SC2086 — deliberate word-splitting of the file list
