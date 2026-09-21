@@ -79,6 +79,9 @@ step "structural validation" python3 tests/structural/validate.py
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
+# agents-full/ is what the plugin registers (ADR-027); stale output would ship an
+# agent without the shared contracts its source points at.
+step "agent bundle in sync" node scripts/build-agent-bundle.mjs --check
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no
 # logs. So they were configured, correct, and had not executed: six structural

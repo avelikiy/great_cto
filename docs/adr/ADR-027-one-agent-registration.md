@@ -1,6 +1,6 @@
 # ADR-027 — Register each agent and command once
 
-**Status:** Proposed · **Date:** 2026-09-21 · **Decider:** CTO
+**Status:** Accepted (option D) · **Date:** 2026-09-21 · **Decider:** CTO
 **Relates to:** `great_cto-hfr0`, [PLAN-2026-09-21-real-usage](../plans/PLAN-2026-09-21-real-usage.md)
 
 ## Context
@@ -36,25 +36,32 @@ is now the weaker one, and it is the one the model picks 4% of the time.
 | **C. Plugin only, full text** | generate inlined copies into a committed directory, point `plugin.json` at it, stop syncing into `~/.claude` | ~7k per session | every dispatch name becomes `great-cto:<name>`: prompts, SKILL routing, hooks and 96% of observed dispatches use the short name |
 | **D. Keep both, full text** | plugin points at generated inlined copies too | 0 | none new; fixes correctness only |
 
-## Recommendation
+## Decision — D, because B was measured and refused
 
-**B**, with one measurement first: install into a fresh `HOME`, start one session, and
-record whether the unprefixed agents are listed in that first session.
+Measured 2026-09-21 with a signed-in CLI. A SessionStart hook wrote an agent file into
+`~/.claude/agents`; the same session was asked whether that agent was available:
 
-- If they are → ship B.
-- If they are not → ship **D** now (correct text in both copies, no rename) and revisit B
-  once first-session behaviour is known.
+| | |
+|---|---|
+| probe agent, written during this session's SessionStart | **not available** (`probe=NO`) |
+| control (`senior-dev`, already installed) | available (`control=YES`) |
+| the same probe agent in the next session | available (`probe=YES`) |
 
-C is rejected: it trades 7k tokens for renaming the dispatch surface that 96% of real
-dispatches use.
+So the synced copies reach a session only from the **next** one. Under B, a user's first
+session after installing would have no great_cto agents at all. Seven thousand tokens are
+not worth that, so B is refused and **D** ships: both registrations carry the same full
+text, no rename, no saving.
 
-## Consequences of B
+C stays rejected: it trades 7k tokens for renaming the dispatch surface that 96% of real
+dispatches use. B can be revisited only if the plugin gains a way to register the agents it
+installs within the same session.
 
-- Every session loads ~7k fewer tokens of descriptions.
-- There is one text per agent, and it is the one the evals measure.
-- `sync-managed` becomes load-bearing: if it cannot run, there are no great_cto agents,
-  rather than a weaker duplicate. Its failure already prints a line at session start;
-  that line must stay.
+## Consequences of D
+
+- The duplicate registration stays; a session still loads ~18k tokens of descriptions.
+- Both copies carry the same text — the one the evals measure — so the 4% of dispatches
+  that use `great-cto:<name>` no longer get an agent without its shared contracts.
+- The plugin registers generated files, so a generator and a freshness check join the build.
 - The Codex host is unaffected: it installs skills and the MCP server, not these files.
 
 ## Also found — fixed

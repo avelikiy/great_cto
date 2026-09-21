@@ -20,7 +20,9 @@ test('plugin.json lists its agents instead of letting agents/ be scanned', () =>
 });
 
 test('the list is every top-level agent file, once', () => {
-  const listed = (manifest.agents || []).map((p) => p.replace(/^\.\/agents\//, ''));
+  // The paths point at agents-full/ (the bundled text the plugin registers, ADR-027);
+  // the file names are still the agents'.
+  const listed = (manifest.agents || []).map((p) => p.replace(/^\.\/agents(?:-full)?\//, ''));
   assert.deepEqual([...listed].sort(), onDisk, 'a new agent missing here would never be registered by the plugin');
   assert.equal(new Set(listed).size, listed.length);
 });
