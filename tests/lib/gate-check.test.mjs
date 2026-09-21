@@ -2,7 +2,7 @@
 //
 // Run: node --test tests/lib/gate-check.test.mjs
 
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 
 import { normalizeTask, covers, evaluateGate, BLOCKING_STATES } from '../../scripts/lib/gate-check.mjs';
@@ -96,4 +96,64 @@ test('evaluateGate: one blocked + one covered → still blocked by the uncovered
   assert.equal(r.blocking.length, 1);
   assert.equal(r.blocking[0].id, 'uncovered');
   assert.equal(r.covered.length, 1);
+});
+
+// ── required domain reviewers (PLAN-2026-09-21-required-reviewers) ─────────────
+// pci-reviewer was needed by 7 of 22 projects and ran once; nothing required it.
+// gate:ship now refuses while a reviewer the project's archetype, packs or
+// compliance imply has no verdict, unless a signed exception names it.
+import { evaluateReviewers } from '../../scripts/lib/gate-check.mjs';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const status = (...rs) => ({ state: 'read', reviewers: rs.map(([agent, verdict]) => ({ agent, why: `archetype x`, verdict })) });
+
+test('evaluateReviewers: a required reviewer with no verdict blocks gate:ship', () => {
+  const r = evaluateReviewers(status(['pci-reviewer', false], ['voice-ai-reviewer', true]), [], { gate: 'gate:ship', now: NOW });
+  assert.equal(r.pass, false);
+  assert.deepEqual(r.blocking.map((b) => b.agent), ['pci-reviewer']);
+});
+
+test('evaluateReviewers: an exception scoped reviewer:<agent> sanctions it, and says so', () => {
+  const exc = create({ gate: 'gate:ship', scope: 'reviewer:pci-reviewer', reason: 'no card data in this release', now: NOW });
+  const r = evaluateReviewers(status(['pci-reviewer', false]), [exc], { gate: 'gate:ship', now: NOW });
+  assert.equal(r.pass, true);
+  assert.equal(r.covered[0].exception, exc.id);
+});
+
+test('evaluateReviewers: only gate:ship asks for reviewers', () => {
+  assert.equal(evaluateReviewers(status(['pci-reviewer', false]), [], { gate: 'gate:plan', now: NOW }).pass, true);
+});
+
+test('evaluateReviewers: no PROJECT.md requires nothing', () => {
+  assert.equal(evaluateReviewers({ state: 'no-project', reviewers: [] }, [], { gate: 'gate:ship', now: NOW }).pass, true);
+});
+
+const GATE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'lib', 'gate-check.mjs');
+const madeDirs = [];
+after(() => { for (const d of madeDirs) rmSync(d, { recursive: true, force: true }); });
+function project(md, verdicts = {}) {
+  const dir = mkdtempSync(join(tmpdir(), 'gate-rev-'));
+  madeDirs.push(dir);
+  mkdirSync(join(dir, '.great_cto', 'verdicts'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), md);
+  for (const [a, line] of Object.entries(verdicts)) writeFileSync(join(dir, '.great_cto', 'verdicts', `${a}.log`), `${line}\n`);
+  return dir;
+}
+
+test('CLI: without Beads the reviewer check still runs — a missing bd is not a pass', () => {
+  const dir = project('primary: commerce\n');
+  const r = spawnSync(process.execPath, [GATE, 'gate:ship'], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: '/nonexistent' } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /pci-reviewer/);
+  assert.match(r.stdout, /archetype commerce/);
+});
+
+test('CLI: with every required verdict present, gate:ship passes the reviewer check', () => {
+  const dir = project('primary: commerce\n', { 'pci-reviewer': '2026-09-01 pci-reviewer APPROVED' });
+  const r = spawnSync(process.execPath, [GATE, 'gate:ship'], { cwd: dir, encoding: 'utf8', env: { ...process.env, PATH: '/nonexistent' } });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
 });

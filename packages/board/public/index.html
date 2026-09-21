@@ -8671,7 +8671,20 @@ const fleetState = {
   // Real dispatches from the session logs (/api/agent-usage). Machine-wide, and
   // null until the first answer; `computing` while the first scan runs.
   usage: null,
+  // Reviewers this project requires (/api/required-reviewers) — gate:ship refuses
+  // while one has no verdict.
+  required: null,
 };
+function requiredOf(slug) {
+  const r = fleetState.required;
+  return r && r.state === 'read' ? (r.reviewers || []).find((x) => x.agent === slug) || null : null;
+}
+async function refreshRequiredReviewers() {
+  const r = await api(`/api/required-reviewers${pqs()}`);
+  if (!r) return;
+  fleetState.required = r;
+  renderFleetList();
+}
 
 // Dispatches for one agent, or null when the logs were not counted. Null is not
 // zero: a zero means the logs were read and never named this agent.
@@ -8690,6 +8703,7 @@ async function refreshAgentUsage() {
 
 async function refreshAgentsInstalled() {
   refreshAgentUsage();
+  refreshRequiredReviewers();
   const data = await api(`/api/agents-installed${pqs()}`);
   if (!data) return;
   fleetState.agents = data.agents || [];
@@ -8722,7 +8736,8 @@ const FLEET_VIEWS = [
 // brief refuses an inferred idle/retired status in v1.
 function agentNeedsAttention(a) {
   const p = a.posture || {};
-  return a.health === 'failing'
+  const req = requiredOf(a.slug);
+  return (req && !req.verdict) || a.health === 'failing'
     || p.state === 'unclassified' || p.state === 'unreadable'
     || (Array.isArray(p.scopedInNameOnly) && p.scopedInNameOnly.length > 0)
     || String(a.budget?.state || '').startsWith('over');
@@ -8869,6 +8884,14 @@ function postureChips(a) {
   }
   return out.join('');
 }
+// Required by this project's PROJECT.md: the chip says why, and whether it has run.
+function requiredChip(a) {
+  const r = requiredOf(a.slug);
+  if (!r) return '';
+  return r.verdict
+    ? `<span class="pos rou" title="required by ${esc(r.why)} — has a verdict in this project">✓ required</span>`
+    : `<span class="pos warn" title="required by ${esc(r.why)} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it">⚠ required · not run</span>`;
+}
 function agentRowHtml(a) {
   const rate = a.success_rate;
   const runs = a.runs_30d ?? 0;
@@ -8899,7 +8922,7 @@ function agentRowHtml(a) {
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-status" aria-hidden="true"></span>
         <span class="ar-name">${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
-        <span class="ar-posture">${postureChips(a)}</span>
+        <span class="ar-posture">${requiredChip(a)}${postureChips(a)}</span>
         <span class="mono cap ar-last">${last}</span>
         <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
         <span class="mono cap tab" title="pass rate over those runs">${pass}</span>

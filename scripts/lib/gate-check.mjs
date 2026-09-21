@@ -11,6 +11,7 @@
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { verify, list as listExceptions } from './exceptions.mjs';
+import { reviewerStatus } from './required-reviewers.mjs';
 
 // Terminal-fail states that block a gate (normalized, lowercase).
 export const BLOCKING_STATES = new Set(['blocked', 'failed', 'unverified', 'not_run', 'not-run']);
@@ -62,6 +63,25 @@ export function evaluateGate(tasks, exceptions, { gate, now } = {}) {
   return { pass: blocking.length === 0, blocking, covered };
 }
 
+/**
+ * Required domain reviewers for gate:ship. A reviewer the project's archetype, packs
+ * or compliance imply (required-reviewers.mjs) must have a verdict, or a signed
+ * exception whose scope names `reviewer:<agent>`. On the measuring machine
+ * pci-reviewer was needed by 7 of 22 projects and ran once — nothing required it.
+ */
+export function evaluateReviewers(status, exceptions, { gate, now } = {}) {
+  const blocking = [];
+  const covered = [];
+  if (gate !== 'gate:ship' || !status || status.state !== 'read') return { pass: true, blocking, covered };
+  for (const r of status.reviewers) {
+    if (r.verdict) continue;
+    const exc = (exceptions || []).find((e) => covers(e, gate, `reviewer:${r.agent}`, now));
+    if (exc) covered.push({ agent: r.agent, exception: exc.id });
+    else blocking.push({ agent: r.agent, why: r.why });
+  }
+  return { pass: blocking.length === 0, blocking, covered };
+}
+
 // ── CLI ──────────────────────────────────────────────────────────────────────
 
 function loadTasks() {
@@ -83,12 +103,22 @@ function main() {
   const gate = process.argv[2];
   if (!gate) { process.stderr.write('Usage: gate-check.mjs <gate>\n'); process.exit(2); }
 
+  const exceptions = listExceptions({});
+
+  // Reviewers first: they read files, so a missing bd is no reason to skip them.
+  const rev = evaluateReviewers(reviewerStatus(process.cwd()), exceptions, { gate });
+  for (const c of rev.covered) process.stdout.write(`  ⚠ ${c.agent} has no verdict — sanctioned by signed exception ${c.exception}\n`);
+  if (!rev.pass) {
+    process.stdout.write(`✗ ${gate} BLOCKED — ${rev.blocking.length} required reviewer(s) never ran for this project:\n`);
+    for (const b of rev.blocking) process.stdout.write(`    ${b.agent} — required by ${b.why}\n`);
+    process.stdout.write(`  Run the reviewer, or sign an exception: /exception create --gate ${gate} --scope reviewer:<agent> --reason "…"\n`);
+  }
+
   const tasks = loadTasks();
   if (tasks === null) {
-    process.stdout.write('gate-check: beads (bd) unavailable — cannot evaluate; treat as a manual check.\n');
-    process.exit(0); // do not hard-fail when bd isn't present
+    process.stdout.write('gate-check: beads (bd) unavailable — task states not evaluated; treat them as a manual check.\n');
+    process.exit(rev.pass ? 0 : 1); // bd absent skips the task check, never the reviewer check
   }
-  const exceptions = listExceptions({});
   const r = evaluateGate(tasks, exceptions, { gate });
 
   for (const c of r.covered) {
@@ -96,7 +126,7 @@ function main() {
   }
   if (r.pass) {
     process.stdout.write(`✓ ${gate}: no blocking tasks (${r.covered.length} covered by exception).\n`);
-    process.exit(0);
+    process.exit(rev.pass ? 0 : 1);
   }
   process.stdout.write(`✗ ${gate} BLOCKED — ${r.blocking.length} task(s) in a terminal-fail state with no signed exception:\n`);
   for (const b of r.blocking) process.stdout.write(`    ${b.id} [${b.state}] ${b.title}\n`);

@@ -89,6 +89,10 @@ What a run spends, and what it can hold.
   `cmmc-reviewer`, `adtech-privacy-reviewer`).
 - [NaCl-inspired governance](PLAN-nacl-governance.md)
 - [Borrow from Santander AI Open Source](PLAN-borrow-santander.md)
+- [Domain reviewers are required, not suggested](PLAN-2026-09-21-required-reviewers.md) —
+  *declares: done · 2026-09-21*. The reviewers a project's archetype, packs or compliance
+  imply were never required: pci-reviewer was needed by 7 projects and ran once. `gate:ship`
+  now refuses without their verdict, unless a signed exception names them.
 - [How often each agent really runs](PLAN-2026-09-21-real-usage.md) — *declares: done ·
   2026-09-21*. Dispatches per agent from Claude Code's session logs (idea from
   migsilva89/loadout): 26 of 70 agents dispatched on the measuring machine, 44 never. On the

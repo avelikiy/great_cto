@@ -13,6 +13,7 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
+import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
 
@@ -1464,6 +1465,15 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/agent-usage') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(boardUsage().get()));
+    return true;
+  }
+
+  // Domain reviewers this project's PROJECT.md requires (archetype, packs,
+  // compliance), each with whether a verdict exists — the list gate:ship refuses on.
+  if (pathname === '/api/required-reviewers') {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(c ? reviewerStatus(c) : { state: 'no-project', reviewers: [] }));
     return true;
   }
 

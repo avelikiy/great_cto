@@ -101,3 +101,19 @@ test('rendered summary states its provenance — reconstructed, not assumed', ()
   const text = renderSummary(summarizeStages([]));
   assert.match(text, /reconstructed from \.great_cto\/verdicts/);
 });
+
+// A resume must not finish without the domain reviewers PROJECT.md requires —
+// the same list gate:ship now refuses on (PLAN-2026-09-21-required-reviewers).
+test('required reviewers without a verdict are named, and count as unfinished', async () => {
+  const { summarizeStages: sum2, renderSummary: render2 } = await import('../scripts/pipeline-state.mjs');
+  const s = sum2([], { reviewers: [{ agent: 'pci-reviewer', why: 'archetype commerce', verdict: false }, { agent: 'gdpr-reviewer', why: 'compliance gdpr', verdict: true }] });
+  assert.deepEqual(s.reviewersMissing.map((r) => r.agent), ['pci-reviewer']);
+  const text = render2(s, []);
+  assert.match(text, /REQUIRED REVIEWERS.*pci-reviewer.*archetype commerce/);
+  assert.doesNotMatch(text, /gdpr-reviewer — /, 'a reviewer with a verdict is not listed as missing');
+});
+
+test('no reviewers passed keeps the old summary shape', async () => {
+  const { summarizeStages: sum2 } = await import('../scripts/pipeline-state.mjs');
+  assert.deepEqual(sum2([]).reviewersMissing, []);
+});

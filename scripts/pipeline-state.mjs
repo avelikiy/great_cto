@@ -14,6 +14,7 @@
 // Usage:
 //   node scripts/pipeline-state.mjs [dir] [--json]
 import { getPipeline } from '../packages/board/lib/data-readers.mjs';
+import { reviewerStatus } from './lib/required-reviewers.mjs';
 
 // The linear build pipeline. `reviewers`, `l3-support` and the human gate are
 // real stages but not sequential build steps, so they are reported separately
@@ -30,7 +31,7 @@ export const MANDATORY = ['qa-engineer', 'security-officer'];
  * Reduce the board's stage records to what a resuming agent needs.
  * Pure — takes the stage array, returns a plain summary.
  */
-export function summarizeStages(stages = []) {
+export function summarizeStages(stages = [], { reviewers = [] } = {}) {
   const by = new Map(stages.map(s => [s.stage, s]));
   const stateOf = (name) => (by.get(name) || {}).status || 'idle';
 
@@ -42,7 +43,10 @@ export function summarizeStages(stages = []) {
   const remaining = BUILD_ORDER.filter(s => stateOf(s) !== 'done');
   const mandatoryMissing = MANDATORY.filter(s => stateOf(s) !== 'done');
 
-  return { completed, failed, active, next, remaining, mandatoryMissing };
+  // Domain reviewers PROJECT.md requires (required-reviewers.mjs) with no verdict yet.
+  const reviewersMissing = reviewers.filter((r) => !r.verdict);
+
+  return { completed, failed, active, next, remaining, mandatoryMissing, reviewersMissing };
 }
 
 /** Human-readable block for embedding in a resume prompt. */
@@ -66,6 +70,9 @@ export function renderSummary(sum, stages = []) {
   } else {
     lines.push('  ✓ mandatory stages (qa-engineer, security-officer) have terminal verdicts');
   }
+  if ((sum.reviewersMissing || []).length) {
+    lines.push(`  ⚠ REQUIRED REVIEWERS with no verdict: ${sum.reviewersMissing.map((r) => `${r.agent} — ${r.why}`).join('; ')} — gate:ship refuses until they run or a signed exception names them`);
+  }
   return lines.join('\n');
 }
 
@@ -75,7 +82,7 @@ if (isMain) {
   const args = process.argv.slice(2);
   const dir = args.find(a => !a.startsWith('--')) || process.cwd();
   const stages = getPipeline(dir);
-  const sum = summarizeStages(stages);
+  const sum = summarizeStages(stages, { reviewers: reviewerStatus(dir).reviewers });
   if (args.includes('--json')) {
     process.stdout.write(JSON.stringify({ dir, ...sum }, null, 2) + '\n');
   } else {
@@ -83,5 +90,5 @@ if (isMain) {
   }
   // Exit 3 when a mandatory stage is missing, so a shell caller can branch on it
   // without parsing text. 0 = safe to finish, 3 = unfinished mandatory work.
-  process.exit(sum.mandatoryMissing.length ? 3 : 0);
+  process.exit(sum.mandatoryMissing.length || sum.reviewersMissing.length ? 3 : 0);
 }
