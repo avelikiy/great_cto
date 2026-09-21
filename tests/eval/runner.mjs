@@ -56,6 +56,7 @@ import { costForUsage, round4 } from '../../scripts/lib/cost-meter.mjs';
 import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib/eval-power.mjs';
 import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
+import { expandSharedRefs as expandShared } from '../../scripts/lib/shared-fragments.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -443,24 +444,9 @@ function stripFrontmatter(text) {
  * Runs record `sharedExpanded` so a result carries which it was.
  */
 export function expandSharedRefs(body, { root = AGENTS_DIR, seen = new Set() } = {}) {
-  if (!body) return { text: body, expanded: [] };
-  const expanded = [];
-  const text = body.replace(/`?agents\/_shared\/([a-z0-9-]+\.md)`?/gi, (match, file) => {
-    if (seen.has(file)) return match;   // a pointer back to something already inlined
-    let content;
-    try {
-      content = stripFrontmatter(readFileSync(join(root, '_shared', file), 'utf8'));
-    } catch {
-      return match;   // a pointer at a file that does not exist stays a pointer
-    }
-    seen.add(file);
-    expanded.push(file);
-    // Nested: a shared file may point at another. Same `seen` set bounds the walk.
-    const inner = expandSharedRefs(content, { root, seen });
-    expanded.push(...inner.expanded);
-    return `${match}\n\n<<< BEGIN agents/_shared/${file} >>>\n${inner.text}\n<<< END agents/_shared/${file} >>>`;
-  });
-  return { text, expanded };
+  // The same inlining sync-managed applies to every agent it installs — one source,
+  // so the prompt measured here is the prompt a user runs.
+  return expandShared(body, { root, seen });
 }
 
 /** Load an agent's prompt body from agents/<name>.md. Returns null if absent. */

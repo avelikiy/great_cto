@@ -120,3 +120,39 @@ test('an unmarked copy identical to the plugin file is ours, and gets updated an
   assert.equal(r.commands.kept, 0, 'an exact copy of our own file was treated as the user\'s');
   assert.ok(readFileSync(join(w.C, 'learn.md'), 'utf8').includes(MARKER));
 });
+
+// The installed agent must carry what its `agents/_shared/` pointers name. An
+// agent runs in the user's project, where that relative path does not exist: across
+// every retained session log on the measuring machine (2026-09-21), agents outside
+// this repository opened a shared fragment twice — once by `find /` over the disk —
+// while those agents were dispatched hundreds of times. The eval runner inlines the
+// same fragments (expandSharedRefs), so the evals measured a prompt users never got.
+test('shared fragments an agent points at are inlined into the installed copy', () => {
+  const w = world({ agents: ['code-reviewer'] });
+  writeFileSync(join(w.plugin, 'agents', 'code-reviewer.md'), '---\nname: code-reviewer\n---\nEmit the verdict (see `agents/_shared/verdict-format.md`).\n');
+  writeFileSync(join(w.plugin, 'agents', '_shared', 'verdict-format.md'), '---\ntitle: v\n---\nONE VERDICT LINE PER RUN\n');
+  syncManaged({ pluginDir: w.plugin, home: w.home });
+  const text = readFileSync(join(w.A, 'great_cto-code-reviewer.md'), 'utf8');
+  assert.match(text, /ONE VERDICT LINE PER RUN/, 'the fragment is in the installed agent');
+  assert.match(text, /BEGIN agents\/_shared\/verdict-format\.md/, 'and says where it came from');
+  assert.doesNotMatch(text, /title: v/, "the fragment's own frontmatter is not copied in");
+  assert.match(text, /^---\nname: code-reviewer\n---/, "the agent's frontmatter is untouched");
+});
+
+test('a pointer at a fragment that does not exist stays a pointer', () => {
+  const w = world({ agents: ['pm'] });
+  writeFileSync(join(w.plugin, 'agents', 'pm.md'), '---\nname: pm\n---\nsee agents/_shared/nope.md\n');
+  syncManaged({ pluginDir: w.plugin, home: w.home });
+  assert.match(readFileSync(join(w.A, 'great_cto-pm.md'), 'utf8'), /see agents\/_shared\/nope\.md\n/);
+});
+
+test('with fragments inlined, a second run still changes nothing and a user file is still kept', () => {
+  const w = world({ agents: ['code-reviewer'] });
+  writeFileSync(join(w.plugin, 'agents', 'code-reviewer.md'), '---\nname: code-reviewer\n---\nsee `agents/_shared/verdict-format.md`\n');
+  writeFileSync(join(w.plugin, 'agents', '_shared', 'verdict-format.md'), 'VERDICT\n');
+  syncManaged({ pluginDir: w.plugin, home: w.home });
+  const before = readFileSync(join(w.A, 'great_cto-code-reviewer.md'), 'utf8');
+  const r = syncManaged({ pluginDir: w.plugin, home: w.home });
+  assert.equal(readFileSync(join(w.A, 'great_cto-code-reviewer.md'), 'utf8'), before);
+  assert.equal(r.agents.kept, 0, 'our own inlined copy is not mistaken for a user file');
+});

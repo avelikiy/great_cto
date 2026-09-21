@@ -97,6 +97,23 @@ with open(path, "w") as f: json.dump(data, f, indent=2); f.write("\n")
 CODEXPY
 echo "  ✓ $CODEX_JSON"
 
+# .claude-plugin/marketplace.json — the marketplace entry carries its own version.
+# It shipped at 3.27.3 on 2026-09-07 and this script never touched it, so two
+# releases later `claude plugin validate` warned that the entry said 3.27.3 while
+# plugin.json said 3.29.1. Edited as text so the file's own formatting survives.
+MARKETPLACE="$ROOT/.claude-plugin/marketplace.json"
+if [ -f "$MARKETPLACE" ]; then
+  python3 - "$MARKETPLACE" "$NEW" <<'MKT'
+import re, sys
+path, new = sys.argv[1], sys.argv[2]
+with open(path) as f: text = f.read()
+text, n = re.subn(r'("name":\s*"great_cto"[\s\S]*?"version":\s*")[^"]+(")', lambda m: m.group(1) + new + m.group(2), text, count=1)
+if n != 1: sys.exit("FAIL: marketplace.json has no great_cto entry with a version")
+with open(path, "w") as f: f.write(text)
+MKT
+  echo "  ✓ $MARKETPLACE"
+fi
+
 # packages/cli/package-lock.json — top-level version fields follow package.json
 CLI_LOCK="$ROOT/packages/cli/package-lock.json"
 if [ -f "$CLI_LOCK" ]; then

@@ -28,6 +28,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSy
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { expandSharedRefs } from './shared-fragments.mjs';
 
 export const MARKER = '<!-- great_cto-managed -->';
 
@@ -35,7 +36,7 @@ const isDir = (p) => { try { return statSync(p).isDirectory(); } catch { return 
 const isFile = (p) => { try { return statSync(p).isFile(); } catch { return false; } };
 const readOr = (p) => { try { return readFileSync(p, 'utf8'); } catch { return null; } };
 
-function syncOne({ src, dst, isSource, dstName, isOurs, sourceOf }) {
+function syncOne({ src, dst, isSource, dstName, isOurs, sourceOf, transform = (t) => t }) {
   const skipped = (why) => ({ state: 'skipped', why, copied: 0, pruned: 0, kept: 0 });
   if (!src || !isDir(src)) return skipped(`${src || 'the plugin directory'} is not a directory — nothing pruned, nothing copied`);
   let files;
@@ -57,7 +58,7 @@ function syncOne({ src, dst, isSource, dstName, isOurs, sourceOf }) {
   for (const f of files) {
     const out = join(dst, dstName(f));
     const existing = readOr(out);
-    const body = readFileSync(join(src, f), 'utf8');
+    const body = transform(readFileSync(join(src, f), 'utf8'));
     // Ours: it carries the marker, or it is byte-for-byte the plugin's file. The
     // second case is real: commands/learn.md says "great_cto-managed" in prose,
     // the old shell loop's substring grep took that for the marker, and the copy
@@ -80,6 +81,9 @@ export function syncManaged({ pluginDir, home = homedir() }) {
       dstName: (f) => `great_cto-${f}`,
       isOurs: (f) => /^great_cto-.+\.md$/.test(f),
       sourceOf: (f) => f.slice('great_cto-'.length),
+      // An agent runs in the user's project, where `agents/_shared/…` does not
+      // exist; the fragments it points at go into the installed copy.
+      transform: (t) => expandSharedRefs(t, { root: join(base, 'agents') }).text,
     }),
     commands: syncOne({
       src: base && join(base, 'commands'),
