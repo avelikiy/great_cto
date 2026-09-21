@@ -231,6 +231,11 @@ component the implementer touches), `status: draft`, `author: design-advisor v2.
 1. **Design system pick** — decision + context. Reuse existing tokens unless the ARCH
    doc says otherwise; justify any new dependency. Cite the ui-ux-pro-max style.
 2. **Component inventory** — every component, existing vs new, with its states.
+   Every chip, badge, status pill and counter names **what it means and which state
+   drives it**; one that cannot is removed, not styled. Every image names its source
+   — generated for this product, owned, or licensed — and nothing ships as a
+   placeholder, a lorem photo or a hotlinked stock URL. Both are the fastest tells
+   of a generated interface (see `anti-patterns` U-1, U-2).
 3. **Wireframe-as-text** — layout and hierarchy in prose/ASCII, per breakpoint.
 4. **A11y contract** — WCAG target, focus order, labels, contrast, keyboard paths.
    For React Native pull the Critical/High rules from `app-interface.csv`.

@@ -102,6 +102,26 @@ try { doThing(); } catch (e) { console.log(e); }
 **Why bad:** Leaks in git history forever; rotation requires force-push (impossible).
 **Fix:** Env vars or secret manager. Pre-commit hook to grep for `sk-`, `ghp_`, etc.
 
+## UI anti-patterns
+
+Taken from Google AI Studio's guide to polishing generated interfaces (2026-09-16):
+the fastest way to spot one is decoration that means nothing.
+
+### U-1. Chips that mean nothing
+**Smell:** Status pills, badges, counters and tags that no state drives — "New", "Beta",
+"AI", "3 insights" on a screen where nothing is new, beta, or counted.
+**Why bad:** The reader cannot tell signal from ornament, so a real warning in the same
+visual language is ignored. It is the most reliable tell of a generated UI.
+**Fix:** Each chip names its meaning and the state behind it, or it is removed.
+
+### U-2. Placeholder imagery
+**Smell:** Grey boxes, lorem photos, broken or hotlinked stock image URLs in a build
+that is meant to be shown.
+**Why bad:** The first impression is of an unfinished product; hotlinked assets break
+or change without notice and may not be licensed.
+**Fix:** Every image has a named source — generated for this product, owned, or
+licensed — and is served from the product's own assets.
+
 ## Incident / ops anti-patterns
 
 ### O-1. No SLO

@@ -12,6 +12,7 @@ import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
+import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
 
@@ -1455,6 +1456,17 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // Real dispatches per agent, read from Claude Code's session logs on this
+  // machine (scripts/lib/agent-usage.mjs). Machine-wide, not per project: the logs
+  // are one history. The first pass over a large history takes about a minute, so
+  // the snapshot answers at once — `computing`, then the last result — and never
+  // makes a request wait for the scan.
+  if (pathname === '/api/agent-usage') {
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(boardUsage().get()));
+    return true;
+  }
+
   // Installed agents — fleet view (DESIGN-agents-fleet-view §3.1).
   //
   // Extended in 2026-05-15 from a flat list to a faceted-fleet payload:
@@ -2083,5 +2095,17 @@ async function dispatch(req, res, url, cwd) {
  * a throw, because "could not tell" is data for the row, not a reason to lose
  * the inbox.
  */
+
+
+let _usageSnap = null;
+function boardUsage() {
+  if (!_usageSnap) {
+    const agentsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'agents');
+    let agents = [];
+    try { agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)); } catch { /* none: every count is unavailable-by-omission */ }
+    _usageSnap = usageSnapshot({ compute: () => agentUsage({ agents }) });
+  }
+  return _usageSnap;
+}
 
 export { dispatch, secondOpinionForTree };

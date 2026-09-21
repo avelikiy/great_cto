@@ -8668,9 +8668,28 @@ const fleetState = {
   search: '',
   sort: 'runs_30d',
   drawerSlug: null,
+  // Real dispatches from the session logs (/api/agent-usage). Machine-wide, and
+  // null until the first answer; `computing` while the first scan runs.
+  usage: null,
 };
 
+// Dispatches for one agent, or null when the logs were not counted. Null is not
+// zero: a zero means the logs were read and never named this agent.
+function usageOf(slug) {
+  const u = fleetState.usage;
+  return u && u.state === 'counted' && u.agents ? (u.agents[slug] || { dispatches: 0, lastRun: null, projects: 0 }) : null;
+}
+async function refreshAgentUsage() {
+  const u = await api('/api/agent-usage');
+  if (!u) return;
+  fleetState.usage = u;
+  renderFleetList();
+  // The first scan of a large history takes about a minute; ask again until it lands.
+  if (u.state === 'computing' || u.refreshing) setTimeout(refreshAgentUsage, 15000);
+}
+
 async function refreshAgentsInstalled() {
+  refreshAgentUsage();
   const data = await api(`/api/agents-installed${pqs()}`);
   if (!data) return;
   fleetState.agents = data.agents || [];
@@ -8713,7 +8732,9 @@ function inFleetView(a, view) {
   if (a.retired) return false;
   if (view === 'needs') return agentNeedsAttention(a);
   if (view === 'expensive') return a.posture?.state === 'expensive';
-  if (view === 'never') return !(a.runs_total > 0);
+  // Never observed: no verdict line, and — when the logs were counted — no
+  // dispatch either. An agent that ran without reporting is not "never".
+  if (view === 'never') return !(a.runs_total > 0) && !((usageOf(a.slug)?.dispatches || 0) > 0);
   return true;
 }
 function setFleetView(view) {
@@ -8809,7 +8830,12 @@ function renderFleetList() {
   const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
   const expanded = order.filter((d) => (byDomain[d] || []).length);
   const collapsed = order.filter((d) => !(byDomain[d] || []).length && totals[d]);
-  const head = `<li class="fleet-head" aria-hidden="true"><span></span><span>Agent</span><span>Posture</span><span>Last verdict</span><span class="tab">Runs</span><span class="tab">Pass</span><span class="tab">30d $</span><span></span></li>`;
+  const uu = fleetState.usage;
+  const usageLine = !uu ? ''
+    : uu.state === 'counted'
+      ? `<li class="fleet-group-collapsed" title="read from Claude Code session logs on this machine; they keep about 30 days"><span>dispatched in session logs: ${Object.values(uu.agents || {}).filter((x) => x.dispatches > 0).length} of ${Object.keys(uu.agents || {}).length} agents · ${esc((uu.window?.from || '?').slice(0, 10))} → ${esc((uu.window?.to || '?').slice(0, 10))}</span></li>`
+      : `<li class="fleet-group-collapsed"><span class="abs">${esc(uu.state === 'computing' ? 'counting dispatches in the session logs…' : (uu.why || 'dispatches not counted'))}</span></li>`;
+  const head = usageLine + `<li class="fleet-head" aria-hidden="true"><span></span><span>Agent</span><span>Posture</span><span>Last verdict</span><span class="tab">Runs</span><span class="tab">Pass</span><span class="tab">30d $</span><span></span></li>`;
   const rows = head + expanded.map((d) => `
     <li class="fleet-group-head"><span>${esc(d)} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
     ${byDomain[d].map(agentRowHtml).join('')}`).join('');
@@ -8847,9 +8873,15 @@ function agentRowHtml(a) {
   const rate = a.success_rate;
   const runs = a.runs_30d ?? 0;
   const observed = a.runs_total > 0 || !!a.last_run;
+  const u = usageOf(a.slug);
+  const dispatchNote = u ? `dispatched ${u.dispatches}× in the session logs${u.lastRun ? `, last ${agoStr(u.lastRun)}` : ''}${u.projects ? `, ${u.projects} project${u.projects === 1 ? '' : 's'}` : ''}` : 'dispatches not counted';
   const last = observed
-    ? (a.health === 'failing' ? `<span style="color:var(--status-blocked)">failing</span> ${esc(agoStr(a.last_run))}` : `<span style="color:var(--status-done)">ok</span> ${esc(agoStr(a.last_run))}`)
-    : '<span class="abs" title="no verdict line names this agent — absence of a log is not absence of a run">never observed</span>';
+    ? `<span title="${esc(dispatchNote)}">${a.health === 'failing' ? `<span style="color:var(--status-blocked)">failing</span>` : `<span style="color:var(--status-done)">ok</span>`} ${esc(agoStr(a.last_run))}</span>`
+    : u && u.dispatches > 0
+      ? `<span class="abs" title="${esc(dispatchNote)} — but no verdict line names it: it ran and did not report">dispatched ${u.dispatches}× · no verdict</span>`
+      : u
+        ? '<span class="abs" title="no verdict line names this agent, and the session logs on this machine never dispatched it">never dispatched</span>'
+        : '<span class="abs" title="no verdict line names this agent — absence of a log is not absence of a run">never observed</span>';
   const pass = !observed ? '<span class="abs" title="never observed">—</span>'
     : runs === 0 ? '<span class="abs" title="no run in this window — measured, none">—</span>'
     : rate != null ? `${rate}%` : '<span class="abs" title="runs exist but no verdict carried a result yet">·</span>';
