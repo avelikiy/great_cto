@@ -5,6 +5,91 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v3.30.0 — 2026-09-21
+
+The domain reviewers a project's archetype implies are now required before
+`gate:ship`, not just suggested. The board shows how often each agent is really
+dispatched, read from the session logs, and which reviewers this project still owes.
+Agents installed on your machine now carry the shared contracts they point at, and
+every agent has an eval of its own role.
+
+### Changed behaviour — read before upgrading
+
+- **`gate:ship` requires every domain reviewer your project implies.** The archetype
+  (`primary:` / `archetype:` in `.great_cto/PROJECT.md`), a pack in `packs:` that
+  brings a reviewer, and a compliance token (`pci`, `hipaa`, `tcpa`, `gdpr`,
+  `ccpa`/`cpra`/`us-privacy`, `dpdpa`, `cmmc`) each name reviewers, and `gate-check
+  gate:ship` now refuses while one of them has no verdict in
+  `.great_cto/verdicts/<agent>.log`. Run the reviewer, or sign
+  `/exception create --gate gate:ship --scope reviewer:<agent>`. `secondary:`
+  archetypes are not required. On the machine this was measured on, 15 of 22
+  registered projects require at least one domain reviewer, and none of the 15 had a
+  verdict from one — so expect your first `gate:ship` after upgrading to be refused.
+  `pipeline-state` names the missing reviewers and exits 3, as it does for QA and
+  security. The reviewer check runs without Beads; a missing `bd` now skips only the
+  task check instead of passing the whole gate.
+- **A P1 finding from security-officer blocks `gate:ship`** unless a signed
+  `/exception` covers it — the rule code-reviewer already applied. The prompt used to
+  name P0 in one place and "Critical" in two others.
+- **continuous-learner records a pattern the first time it sees it.** It used to drop
+  first sightings, so no pattern could ever reach the promotion count. Promotion to
+  `~/.great_cto/decisions.md` is at three distinct projects, as the merge script
+  always counted — the prompt said three occurrences.
+- **Agents installed into `~/.claude/agents` are larger.** The 41 agents that point
+  at `agents/_shared/` fragments (verdict format, handoff, evidence discipline) now
+  carry them inline: +37% bytes, paid per dispatch, not per session. The relative
+  path they pointed at exists only inside this repository.
+
+### Added
+
+- **Board Fleet: real dispatches from the session logs.** `scripts/lib/agent-usage.mjs`
+  counts `Agent` tool calls per great_cto agent in Claude Code's own logs
+  (`~/.claude/projects`): dispatches, last run, distinct projects. Rows that said
+  "never observed" now say "dispatched N× · no verdict" or "never dispatched", and the
+  *Never observed* view means no verdict and no dispatch. Read-only on the logs; the
+  index lives in `~/.great_cto/usage-index.json`; paths never leave the module; no
+  logs reads as "unavailable", never as zero. The first scan of a large history runs
+  in the background (47 s over 4.1 GB here; 2.4 s from the index). Idea from
+  migsilva89/loadout (MIT). `node scripts/lib/agent-usage.mjs` prints the table.
+- **Board Fleet: required reviewers.** "✓ required" or "⚠ required · not run", with
+  the reason on hover; a required reviewer with no verdict is in *Needs attention*.
+- **Every agent has an eval of its own role.** Eight new sets (app-scaffolder,
+  connector-builder, geo-routing-engineer, growth-engineer, knowledge-extractor,
+  media-pipeline-engineer, voice-ai-reviewer, api-platform-reviewer), each with
+  tuning and holdout cases.
+- **design-advisor flags UI clutter.** Chips and badges that mean nothing, and
+  placeholder or broken stock imagery, are defects (`anti-patterns` U-1, U-2; from
+  Google AI Studio's guide to polishing generated interfaces).
+- **README opens on a real run** — a recording of the public proof run, above the
+  install command.
+
+### Fixed
+
+- **The plugin no longer registers 14 fragments as agents.** Without an `agents`
+  list in `plugin.json`, Claude Code scanned `agents/` and listed every file in
+  `agents/_shared/` as an agent (`great-cto:_shared:phase-task`, …) in every session.
+- **Both registrations of an agent carry the same text (ADR-027).** An agent reaches a
+  session as `great-cto:<name>` from the plugin and as `<name>` from the copy
+  SessionStart installs. The plugin copy now points at generated full-text files
+  (`agents-full/`), so the 4% of dispatches that use the prefixed name no longer get
+  an agent without its shared contracts. Dropping the plugin registration to save
+  ~7k tokens per session was measured and refused: an agent installed during
+  SessionStart is only available from the next session.
+- **SessionStart cache cleanup keeps any version a live session runs from.** It
+  deleted every cached plugin version but the newest three with no live-session
+  check; it now uses the same check as `install-local --prune`.
+- **`marketplace.json` follows the version.** It said 3.27.3 since 2026-09-07;
+  `bump-version.sh` now updates it and a test ties it to `plugin.json`.
+- **Evals measure the agent, not the harness.** An empty, refused or truncated actor
+  answer is dropout, no longer judged (41 of 123 failing cases had been empty); a run
+  counts as evidence for an agent only when it ran that agent; a dual tuning/holdout
+  threshold is judged per split; cases now carry the inputs their agent's contract
+  requires. product-owner now writes "no wedge" as a finding and the decisive reason
+  for DON'T BUILD instead of inventing one.
+- **The "Live demo" link in all ten READMEs led to an expired report.** Removed.
+
+
 ## v3.29.1 — 2026-09-15
 
 A Codex install that has only the plugin can now run the controlled host. Projects

@@ -110,7 +110,7 @@ npx great-cto init
 
 **在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills 和 MCP
 服务器。原生 hooks、斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
-加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.29.1 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
+加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.30.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
 的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
 [Codex host 指南](../HOST-CODEX.md)。
 
