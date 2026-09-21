@@ -301,3 +301,59 @@ test('the fixture project is the one the board resolved', { timeout: 120_000 }, 
       'the board is showing the fixture, not some other project on this machine');
   } finally { await env.close(); }
 });
+
+// Fleet reads two machine-level answers besides the verdicts: how often the
+// session logs dispatched each agent, and which reviewers this project's
+// PROJECT.md requires. Both are stubbed — the logs and the fixture's archetype
+// are this machine's business — so what is under test is that the screen says
+// what those answers mean, and that a required reviewer with no verdict is put
+// in front of the operator rather than left in the roster.
+test('Fleet shows real dispatches and required reviewers, and puts a missing one in Needs attention', { timeout: 120_000 }, async (t) => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const page = await env.browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    const json = (body) => (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+    await page.route('**/api/agent-usage*', json({
+      state: 'counted', transcripts: 3, read: 3,
+      window: { from: '2026-08-01T00:00:00Z', to: '2026-09-20T00:00:00Z' },
+      agents: { 'legal-reviewer': { dispatches: 4, lastRun: '2026-09-19T00:00:00Z', projects: 2 } },
+    }));
+    // The fixture HOME installs no agents, so the roster is stubbed too: two
+    // reviewers, neither with a verdict in this project.
+    const agent = (slug) => ({ slug, health: 'unknown', runs_total: 0, runs_30d: 0, last_run: null,
+      success_rate: null, model_state: 'undeclared', retired: false });
+    await page.route('**/api/agents-installed*', json({
+      agents: [agent('pci-reviewer'), agent('legal-reviewer')], summary: { active_30d: 0 },
+    }));
+    await page.route('**/api/required-reviewers*', json({
+      state: 'read',
+      reviewers: [{ agent: 'pci-reviewer', why: 'archetype commerce', verdict: false }],
+    }));
+    await page.goto(`${env.url}/#/fleet`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.agent-row', { timeout: 15000 });
+    await page.waitForTimeout(1200);
+
+    const row = (slug) => page.locator(`.agent-row[data-slug="${slug}"]`);
+    assert.equal(await row('pci-reviewer').count(), 1,
+      'the required reviewer with no verdict is in the default view, Needs attention');
+    assert.match(await row('pci-reviewer').innerText(), /required · not run/,
+      'and its row says it is required and has not run');
+
+    await page.evaluate(() => setFleetView('all'));
+    await page.waitForTimeout(600);
+    const legal = await row('legal-reviewer').innerText();
+    assert.match(legal, /dispatched 4× · no verdict/,
+      'an agent the logs dispatched but no verdict names reads as dispatched, not as never observed');
+    assert.doesNotMatch(legal, /never observed/);
+
+    await page.evaluate(() => setFleetView('never'));
+    await page.waitForTimeout(600);
+    assert.equal(await row('legal-reviewer').count(), 0,
+      'Never observed means no verdict AND no dispatch — a dispatched agent is not in it');
+    assert.deepEqual(errors, [], 'nothing threw on the Fleet screen');
+    await page.close();
+  } finally { await env.close(); }
+});
