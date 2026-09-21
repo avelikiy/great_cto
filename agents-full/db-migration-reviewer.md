@@ -7,7 +7,7 @@ advisor-model: claude-opus-5
 advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301
-maxTurns: 20
+maxTurns: 40
 timeout: 600
 effort: HIGH
 memory: project

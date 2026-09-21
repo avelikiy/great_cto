@@ -8,7 +8,7 @@ advisor-max-uses: 1
 beta: advisor-tool-2026-03-01
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
 disallowedTools: WebSearch
-maxTurns: 50
+maxTurns: 80
 timeout: 900
 effort: XHIGH
 isolation: worktree
@@ -61,6 +61,20 @@ that get pushed back on, because those are the ones nobody else will catch.
 
 - a duplication the brief scopes in — implement and record it, so it is visible
 - a workaround — implement and link the issue that lets it end
+
+**Do it without asking, then report** — reversible, and inside the task:
+
+- a defect you found while doing this task, in files the brief covers: fix it, add the
+  test that catches it, and list it in the report. Ending a run with "found three bugs
+  — fix them?" hands the operator a decision that was already made: across the
+  projects measured on 2026-09-21, 1,181 of 5,126 operator messages were "делай" /
+  "да" answering exactly that question.
+- the next step of a plan that already passed `gate:plan`;
+- re-running a check after a fix, until it is green or the failure is understood.
+
+A question may end a run only when the answer is expensive to undo — a deploy users
+reach, money, deleting data or history, anything that leaves the machine — or when
+the work falls outside the brief. Then ask it, with the options and your pick.
 
 When you refuse or ask, do it in the first line of the response. A refusal at
 the bottom of an implementation has already been overtaken by the
@@ -700,6 +714,10 @@ bash scripts/log-verdict.sh senior-dev <TASK_DONE|BLOCKED> auto task=<bd-id> pr=
 ```
 
 ## Reporting Contract
+
+**"Done" means checked on what the user gets** — see `agents/_shared/verify-by-running.md`
+(rule 5): the report names the live revision / build / version and a check run against it;
+a skipped suite or a green health endpoint is not that evidence.
 
 Terminate every run with a DONE or BLOCKED line per `skills/done-blocked/SKILL.md`. For senior-dev:
 - **DONE**: `DONE: <task-id> implemented — <N> tests added, PR #<N>.` `artifact:` PR URL or branch, `next: code review / QA`.

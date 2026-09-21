@@ -90,7 +90,7 @@ What a run spends, and what it can hold.
 - [NaCl-inspired governance](PLAN-nacl-governance.md)
 - [Borrow from Santander AI Open Source](PLAN-borrow-santander.md)
 - [What 28 projects taught the pipeline](PLAN-2026-09-21-field-lessons.md) —
-  *declares: in progress · 2026-09-21*. The learning loop never ran, gate:ship passed over
+  *declares: done · 2026-09-21*. The learning loop never ran, gate:ship passed over
   open findings, and the operator approved reversible steps one "делай" at a time.
 - [Domain reviewers are required, not suggested](PLAN-2026-09-21-required-reviewers.md) —
   *declares: done · 2026-09-21*. The reviewers a project's archetype, packs or compliance

@@ -1,6 +1,6 @@
 # Plan — what 28 projects taught the pipeline
 
-Status: in progress · Epic: `great_cto-aocg` · Started 2026-09-21
+Status: done · Epic: `great_cto-aocg` · Started 2026-09-21
 
 ## Where this comes from
 
@@ -33,3 +33,24 @@ Skill descriptions that never trigger (35 of 41 skills never invoked by the mode
 deploy-landed / secrets-rotation / signing-preflight skills; verdict-format
 normalisation at write time; project-registry hygiene; l3-support bound to declared
 capabilities.
+
+## What shipped
+
+- **F1** `scripts/lib/run-learner.mjs`: the learner runs in print mode with a prompt, a
+  $0.50 cap and a redacted digest of the ended session; the marker reads `done: lessons+N`
+  or `failed: exit=…`, never `ran` on spawn. Checked against the real CLI on this
+  repository: 2 m 27 s, three lessons written — the first `lessons.md` entries on this
+  machine. `"auto_learn": true` in `~/.great_cto/config.json` turns it on.
+- **F2** `scripts/lib/ship-evidence.mjs` in `gate-check gate:ship`: an open negative
+  verdict, a missing or non-passing QA/security verdict, or a QA verdict older than the
+  last code change refuses the gate; `--as <agent>` for the agent writing its own verdict.
+  Measured: 16 of 17 projects with verdicts would be refused, each for a reason the logs
+  support.
+- **F3** `scripts/hooks/operating-rules.md`, printed by SessionStart in every session, and
+  senior-dev's "do it without asking, then report".
+- **F4** `verify-by-running` rule 5, now also referenced by senior-dev, devops and
+  mobile-app-builder: done names the artifact the user receives and a check run on it.
+- **F5** turn caps: senior-dev 80, code-reviewer 60, db-migration-reviewer 40, devops 40.
+
+Not measured: whether F3/F4 change what the agents do. The prompts changed; their evals
+(security-officer finding-gate, senior-dev) should be re-run when provider credits allow.

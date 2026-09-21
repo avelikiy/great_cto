@@ -3,6 +3,10 @@
 
 _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, set ANTHROPIC_API_KEY._
 
-- Status: in progress · Epic: `great_cto-aocg` · Started 2026-09-21
+- **F1** `scripts/lib/run-learner.mjs`: the learner runs in print mode with a prompt, a
+- **F2** `scripts/lib/ship-evidence.mjs` in `gate-check gate:ship`: an open negative
+- **F3** `scripts/hooks/operating-rules.md`, printed by SessionStart in every session, and
+- **F4** `verify-by-running` rule 5, now also referenced by senior-dev, devops and
+- **F5** turn caps: senior-dev 80, code-reviewer 60, db-migration-reviewer 40, devops 40.
 
 - **Full doc:** docs/plans/PLAN-2026-09-21-field-lessons.md

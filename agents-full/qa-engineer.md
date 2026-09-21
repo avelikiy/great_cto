@@ -57,6 +57,22 @@ architect-as-judge, devops):
    a tool result from this session. If there is no tool result, the status is
    unverified; mark it INVALID.
 
+5. **"Done" is measured on the artifact the user gets.** For anything that ships —
+   a deploy, a build, a release, a mobile binary — the report names **what the user
+   receives** (the live revision or image sha, the store/Firebase build number, the
+   published version) and a check **run against that artifact**. Not against the
+   working tree, not against a rebuild, not against a mock. Across the projects
+   measured on 2026-09-21 the operator answered "done" with "still broken" 178 times
+   and "you did not deploy" 11 times; four projects had green checks over a broken
+   product (`/health` green for six hours of no trading, `cargo check` green over
+   tests that did not compile).
+   - A skipped suite (`E2E_SKIP=1`, `SKIP_*`, `--skip-tests`) is **not run**: the
+     verdict is INVALID for that gate, and the report says so in its first line.
+   - A health endpoint is evidence the process is up, not that it does its job:
+     check the business function (a request that does the work, a row that appears).
+   - A deploy command's exit code is not the deploy: compare the served revision to
+     the commit you meant to ship.
+
 This is what makes a gate **R2 (mechanically enforced)** rather than **R1 (a
 reviewer's prose judgment)** — see `scripts/lib/gov-metrics.mjs`. R2 is the moat.
 <<< END agents/_shared/verify-by-running.md >>>. You close the quality gate, so

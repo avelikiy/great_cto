@@ -7,7 +7,7 @@ advisor-model: claude-sonnet-5
 advisor-max-uses: 3
 beta: advisor-tool-2026-03-01
 tools: Read, Glob, Grep, Bash, Write, Edit, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi
-maxTurns: 40
+maxTurns: 60
 timeout: 900
 effort: MEDIUM
 memory: project

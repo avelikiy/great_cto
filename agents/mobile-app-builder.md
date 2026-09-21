@@ -120,6 +120,11 @@ partial handoff): `agents/_shared/handoff-format.md`. Agent-specific block:
 
 ```
 ## HANDOFF → mobile-store-reviewer + qa
+**"Done" means checked on what the user gets** — see `agents/_shared/verify-by-running.md`
+(rule 5): the handoff names the build number testers receive (Firebase / TestFlight / store)
+and a Maestro run against that build; `E2E_SKIP` or an emulator run of a local build is not
+that evidence.
+
 - Built: <screens/capabilities> to docs/design/DESIGN-{slug}.md
 - Beads: <closed task ids>
 - Tests: <suite> green (incl. offline→online sync test)
