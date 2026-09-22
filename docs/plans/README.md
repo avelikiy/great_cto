@@ -89,6 +89,9 @@ What a run spends, and what it can hold.
   `cmmc-reviewer`, `adtech-privacy-reviewer`).
 - [NaCl-inspired governance](PLAN-nacl-governance.md)
 - [Borrow from Santander AI Open Source](PLAN-borrow-santander.md)
+- [Two mechanisms from agtx](PLAN-2026-09-22-borrow-agtx.md) — *declares: done (items 1–2) ·
+  2026-09-22*. A session stopped on a permission prompt is shown on the board, from hook
+  events; security-officer's verdict must be newer than the last code change, like QA's.
 - [Skills reach the work](PLAN-2026-09-22-skills-reach-the-work.md) — *declares: done ·
   2026-09-22*. "35 skills never invoked" counted Skill calls and missed preloading; the
   real defects were preload names that resolve to nothing (`beads` in 39 agents), verticals

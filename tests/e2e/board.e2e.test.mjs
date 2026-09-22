@@ -357,3 +357,33 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
     await page.close();
   } finally { await env.close(); }
 });
+
+// A session stopped on a permission prompt is a decision the operator owes, so it
+// sits at the top of Decisions; sessions that merely finished a turn are one line.
+test('Decisions shows a session that waits for the operator, above the status', { timeout: 120_000 }, async (t) => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const page = await env.browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    await page.route('**/api/session-status*', (r) => r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ sessions: [
+      { session: 'a1b2c3d4e5', state: 'blocked', since: new Date(Date.now() - 120_000).toISOString(), reason: 'Claude needs your permission to use Bash', kind: 'permission_prompt' },
+      { session: 'ffff0000', state: 'waiting', since: new Date().toISOString() },
+      { session: 'eeee1111', state: 'waiting', since: new Date().toISOString() },
+    ] }) }));
+    await page.goto(`${env.url}/#/decisions`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('#inbox-sessions .session-blocked', { timeout: 15000 });
+    const text = await page.locator('#inbox-sessions').innerText();
+    assert.match(text, /session a1b2c3d4 waits for you/);
+    assert.match(text, /permission to use Bash/);
+    assert.match(text, /2 sessions finished a turn/);
+    const above = await page.evaluate(() => {
+      const a = document.getElementById('inbox-sessions'); const b = document.getElementById('proj-status');
+      return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+    assert.ok(above, 'the waiting session is above the project-status disclosure');
+    assert.deepEqual(errors, []);
+    await page.close();
+  } finally { await env.close(); }
+});

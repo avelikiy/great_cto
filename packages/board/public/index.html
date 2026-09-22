@@ -1696,6 +1696,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pl-stage.pl-compact .pl-name { color: var(--text2); }
 .pl-stage.active { flex: 2; }
 /* Idle-focus all-clear card (shown when nothing needs a decision). */
+/* A session stopped on a permission prompt or an unanswered wait — the one piece
+   of session status the operator can act on, so it is styled like a decision. */
+.session-blocked {
+  padding: 6px 10px;
+  margin-bottom: 4px;
+  border-left: 3px solid var(--status-blocked);
+  background: var(--bg-elevated);
+}
+
 .inbox-allclear {
   display: flex; align-items: center; gap: 14px;
   padding: 22px 22px; margin-top: 4px;
@@ -3399,6 +3408,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              two speaking states render into #inbox-receipt-foot at the bottom of
              this page (see refreshReceipt). -->
         <div id="inbox-receipt" style="display:none;margin:6px 0 2px;font-size:var(--fs-small)"></div>
+        <!-- Sessions stopped on the operator: a permission prompt, or idle waiting for
+             an answer (Notification hook → .great_cto/status/). The one piece of
+             status that IS a decision, so it sits above the status disclosure. -->
+        <div id="inbox-sessions" style="display:none;margin:6px 0 10px;font-size:var(--fs-small)"></div>
         <!-- Everything below is STATUS, and status is not a decision.
 
              Six of the seven blocks on this screen were read-only: a pipeline rail,
@@ -4673,7 +4686,28 @@ function renderInboxList(rootId, items, countId, opts = {}) {
   }).join('');
 }
 
+// Sessions waiting on a person (scripts/lib/session-status.mjs). `blocked` is a
+// prompt or an unanswered wait and gets a row; `waiting` (turn ended) is what every
+// open session is between turns, so it is one muted count, not a row each.
+async function refreshSessionStatus() {
+  const el = document.getElementById('inbox-sessions');
+  if (!el) return;
+  const r = await api(`/api/session-status${pqs()}`);
+  const rows = (r && Array.isArray(r.sessions)) ? r.sessions : [];
+  const blocked = rows.filter((x) => x.state === 'blocked');
+  const waiting = rows.filter((x) => x.state === 'waiting').length;
+  if (!blocked.length && !waiting) { el.style.display = 'none'; el.innerHTML = ''; return; }
+  el.style.display = '';
+  el.innerHTML = blocked.map((x) => `<div class="session-blocked">
+      <strong>⏸ session ${esc(String(x.session).slice(0, 8))} waits for you</strong>
+      <span class="muted">· ${esc(agoStr(x.since))}${x.kind ? ` · ${esc(x.kind)}` : ''}</span><br>
+      <span>${esc(x.reason || 'waiting for input')}</span>
+    </div>`).join('')
+    + (waiting ? `<div class="muted" title="these sessions finished their turn; the next message is yours">${waiting} session${waiting === 1 ? '' : 's'} finished a turn and wait for your next message</div>` : '');
+}
+
 async function refreshInbox() {
+  refreshSessionStatus();
   // Tiers first: the gate rows are rendered from this same call, and a row drawn
   // before the tiers arrive would silently claim every gate is waiting.
   await refreshGateTiers();

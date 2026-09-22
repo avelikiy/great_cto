@@ -71,6 +71,9 @@ test('a QA verdict older than the last code change is stale', () => {
   const b = shipBlockers(latest, '2026-09-05T12:00:00+02:00');
   assert.deepEqual(agents(b), ['qa-engineer']);
   assert.match(b[0].why, /predates the last code change/);
+  const both = shipBlockers(latest, '2026-09-10T00:00:00Z');
+  assert.deepEqual(agents(both), ['qa-engineer', 'security-officer'], 'a security verdict from before the change is stale too');
+  assert.deepEqual(agents(shipBlockers(latest, '2026-09-10T00:00:00Z', { as: 'security-officer' })), ['qa-engineer'], 'but not to the agent writing it now');
   assert.deepEqual(shipBlockers(latest, '2026-08-01T00:00:00Z'), [], 'a QA after the change is fresh');
 });
 

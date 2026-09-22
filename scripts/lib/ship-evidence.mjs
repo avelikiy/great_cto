@@ -14,8 +14,8 @@
  *  1. An agent whose LATEST verdict is negative (BLOCKED, FAIL, REJECTED, REWORK)
  *     has an open finding. A later positive verdict from the same agent closes it.
  *  2. qa-engineer and security-officer must each have a positive latest verdict.
- *  3. QA's must be newer than the last commit that changed code — a QA verdict
- *     from before the change it is supposed to cover is not evidence about it.
+ *  3. Both must be newer than the last commit that changed code — a verdict from
+ *     before the change it is supposed to cover is not evidence about it.
  *
  * Agent names are read from the log's file name and normalised: the same agent
  * was found logged as `code-reviewer`, `great-cto:code-reviewer`,
@@ -101,9 +101,15 @@ export function shipBlockers(latest, lastChange, { as } = {}) {
     if (!v) { out.push({ agent, why: 'no verdict in this project' }); continue; }
     if (v.kind === 'neutral') out.push({ agent, why: `latest verdict ${v.verdict} is not a pass` });
   }
-  const qa = latest.get('qa-engineer');
-  if (self !== 'qa-engineer' && qa && qa.kind === 'positive' && lastChange && tsOf(qa.ts) !== null && tsOf(qa.ts) < tsOf(lastChange)) {
-    out.push({ agent: 'qa-engineer', why: `QA verdict ${qa.ts} predates the last code change ${lastChange} — re-run QA on what ships` });
+  // A verdict counts for the code it saw. Both post-implementation checks must be
+  // newer than the last code change; agtx (fynnfluegge/agtx) applies the same rule
+  // to a phase artifact — only one written after the phase began counts.
+  for (const agent of MANDATORY_FOR_SHIP) {
+    if (agent === self) continue;
+    const v = latest.get(agent);
+    if (v && v.kind === 'positive' && lastChange && tsOf(v.ts) !== null && tsOf(v.ts) < tsOf(lastChange)) {
+      out.push({ agent, why: `verdict ${v.ts} predates the last code change ${lastChange} — re-run ${agent} on what ships` });
+    }
   }
   return out;
 }

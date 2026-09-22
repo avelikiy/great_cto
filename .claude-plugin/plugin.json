@@ -251,6 +251,11 @@
             "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-end.mjs\" 2>/dev/null; true",
             "timeout": 8,
             "statusMessage": "Saving session summary..."
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
+            "timeout": 5
           }
         ]
       }
@@ -273,6 +278,11 @@
             "type": "command",
             "command": "[ -n \"$GREAT_CTO_CLASS_TELEMETRY\" ] && { PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/classify-telemetry.mjs\" 2>/dev/null; }; true",
             "timeout": 3
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
+            "timeout": 5
           }
         ]
       }
@@ -309,6 +319,23 @@
             "type": "command",
             "async": true,
             "command": "node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/register-project.mjs\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
+            "timeout": 5
           }
         ]
       }
