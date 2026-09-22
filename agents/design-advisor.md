@@ -16,7 +16,6 @@ skills:
   - aesthetic-instrument
   - superpowers:writing-plans
   - decision-eval
-  - beads
   - skeptical-triage
   - done-blocked
 ---

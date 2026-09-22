@@ -13,7 +13,6 @@ skills:
   - archetype-review-base
   - prose-style
   - superpowers:test-driven-development
-  - beads
   - done-blocked
 ---
 

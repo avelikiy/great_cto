@@ -19,6 +19,7 @@ skills:
   - prose-style
   - done-blocked
   - observability-baseline
+  - deploy-landed
 ---
 
 # Infra Provisioner

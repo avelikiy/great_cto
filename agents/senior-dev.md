@@ -19,12 +19,10 @@ skills:
   - superpowers:test-driven-development
   - superpowers:subagent-driven-development
   - superpowers:requesting-code-review
-  - beads
   - done-blocked
   - ui-ux-pro-max
   - stack-baseline
-  - anthropic-skills:web-artifacts-builder
-  - anthropic-skills:theme-factory
+  - signing-preflight
 ---
 
 You are a Senior Developer. Implement tasks with strict TDD.

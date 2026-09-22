@@ -11,3 +11,6 @@
    SKIP_*) or an agent's report is not done — say what was not verified.
 4. An agent's finding is a claim. Re-check it against the live system before filing it
    or repeating it to the operator.
+5. Load the skill before these three: after a deploy or restart → great-cto:deploy-landed;
+   a key or token seen where it should not be → great-cto:secrets-rotation; before the
+   first commit of a session → great-cto:signing-preflight.

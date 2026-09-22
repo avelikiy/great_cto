@@ -13,7 +13,6 @@ effort: MEDIUM
 memory: project
 color: green
 skills:
-  - beads
   - stack-baseline
 ---
 

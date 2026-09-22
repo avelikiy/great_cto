@@ -13,12 +13,10 @@ effort: MEDIUM
 memory: project
 color: green
 skills:
-  - ship
-  - land-and-deploy
-  - canary
-  - beads
   - done-blocked
   - observability-baseline
+  - deploy-landed
+  - signing-preflight
 ---
 
 You are the DevOps Engineer. Deploy after security approval.

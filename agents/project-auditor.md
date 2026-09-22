@@ -10,7 +10,6 @@ effort: HIGH
 memory: project
 color: white
 skills:
-  - beads
   - done-blocked
   - prose-style
 ---

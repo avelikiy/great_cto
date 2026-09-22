@@ -4,7 +4,7 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-41 in total: 12 industry domain packs and 29 others.
+44 in total: 12 industry domain packs and 32 others.
 
 ## Industry domain packs (12)
 
@@ -26,7 +26,7 @@ are not naive about the domain.
 | `vertical-restaurants` | Domain-knowledge primer for the restaurants & hospitality vertical (dine-in, pickup, delivery). |
 | `vertical-retail` | Retail & e-commerce domain knowledge for SMB storefront products (storefront, inventory, pricing, cart-recovery). |
 
-## Everything else (29)
+## Everything else (32)
 
 | Skill | What it carries |
 |---|---|
@@ -40,6 +40,7 @@ are not naive about the domain.
 | `cost-model` | Standardized cost-estimation framework for great_cto plans. |
 | `crystallize` | Distils repeating patterns from session logs and lessons.md into draft skill files. |
 | `decision-eval` | Spawns the decision-scorer agent after architect proposes 2+ variants in an ADR. |
+| `deploy-landed` | Prove a deploy landed — the served revision is the commit you meant, its env is present, and the product does its job — instead of trusting the deploy command's exit code. |
 | `discovery` | Structured pre-design questioning to surface hidden constraints before any architecture decision is locked in. |
 | `done-blocked` | Reusable reporting contract for any agent that hands work back to the pipeline. |
 | `great_cto` | Use when the CTO describes a feature, task, or project goal. |
@@ -54,6 +55,8 @@ are not naive about the domain.
 | `product-economics` | Does this product make money at a price someone will pay? |
 | `prose-style` | Reusable writing-style contract for agent outputs (reports, ARCH docs, verdicts, threat models). |
 | `quant-validation` | The methods a financial-ML result has to survive before it is evidence — purged cross-validation with an embargo, triple-barrier labelling, sample uniqueness under overlapping labels, fractional di… |
+| `secrets-rotation` | What to do the moment a secret is exposed — pasted into chat, committed, logged, shown in a transcript or a screenshot. |
+| `signing-preflight` | Before the first commit of a session, check that commit signing will work — the key is loaded and unlocked — and ask the operator to unlock it once, up front, instead of discovering it after a hund… |
 | `skeptical-triage` | Reusable 3-round self-challenge + arbiter pattern for filtering false positives from findings/verdicts. |
 | `stack-baseline` | The pinned default technology stack for SMB Product-Builder products. |
 | `test-strategy` | Coverage-design method for qa-engineer — pyramid ratios per archetype, equivalence/boundary/property case selection, mutation score as the real coverage signal, and a flake-quarantine policy. |

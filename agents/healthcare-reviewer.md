@@ -17,7 +17,6 @@ skills:
   - superpowers:receiving-code-review
   - prose-style
   - skeptical-triage
-  - beads
   - done-blocked
   - discovery
 applies_to: [healthcare, regulated, digital-health]

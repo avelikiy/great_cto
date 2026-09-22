@@ -12,8 +12,6 @@ timeout: 900
 effort: MEDIUM
 memory: project
 color: yellow
-skills:
-  - beads
 ---
 
 # code-reviewer

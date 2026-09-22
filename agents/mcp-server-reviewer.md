@@ -16,7 +16,6 @@ skills:
   - archetype-review-base
   - prose-style
   - skeptical-triage
-  - beads
   - done-blocked
 ---
 

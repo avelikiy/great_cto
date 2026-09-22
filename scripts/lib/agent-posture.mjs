@@ -134,6 +134,9 @@ const TOOL_POSTURES = Object.freeze({
   WebSearch: ['network.fetch', 'communication.external.send'],
   Agent: ['process.spawn'],
   Task: ['process.spawn'],
+  // Loads a skill's text into the agent's context. It grants no tool the agent does
+  // not already hold: the skill runs with the agent's own grants.
+  Skill: ['code.read'],
 });
 
 /** MCP and beta tools, matched by prefix — the list of these grows monthly. */

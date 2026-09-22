@@ -31,6 +31,9 @@ test('the rules say: take reversible steps, ask for irreversible ones, prove don
   assert.match(t, /expensive to undo/);
   assert.match(t, /E2E_SKIP/);
   assert.match(t, /finding is a claim/);
+  // The main session does most deploys and commits, and on a machine with hundreds
+  // of skills their descriptions do not reach it — so the rules name them.
+  for (const s of ['deploy-landed', 'secrets-rotation', 'signing-preflight']) assert.match(t, new RegExp(`great-cto:${s}`));
   // Paid in every session: keep it short.
   assert.ok(t.length < 1500, `operating rules are ${t.length} chars`);
 });

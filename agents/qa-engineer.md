@@ -13,7 +13,6 @@ effort: MEDIUM
 memory: project
 color: cyan
 skills:
-  - beads
   - skeptical-triage
   - done-blocked
   - prose-style

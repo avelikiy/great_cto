@@ -19,7 +19,6 @@ skills:
   - prose-style
   - skeptical-triage
   - done-blocked
-  - beads
 ---
 
 # Quant researcher (research only)
