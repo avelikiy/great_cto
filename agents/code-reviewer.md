@@ -35,6 +35,27 @@ git diff --merge-base "$(git merge-base HEAD origin/main 2>/dev/null || echo HEA
 Read the changed files in full where the diff alone is ambiguous — a finding you
 can't ground in the actual code is a guess, not a finding.
 
+### A re-review reads what changed since your last one
+
+When you reviewed this branch before (a fix after your BLOCKED is the usual case),
+do not re-read the whole feature — that is how six of twenty-eight runs ended at the
+turn cap on the projects measured. Ask what is new:
+
+```bash
+RR="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/review-range.mjs"
+[ -f "$RR" ] || RR="$(pwd)/scripts/lib/review-range.mjs"
+node "$RR"
+```
+
+- `incremental — git diff <sha>..HEAD` → review that range, plus any uncommitted files
+  it lists; check first that each Finding of your last review is fixed. Say in the
+  review's first line that it is incremental and from which commit.
+- `nothing-new` → nothing changed since your verdict; say so and re-emit it.
+- `full` → the whole diff, as above. The reason is printed (no earlier review, or the
+  reviewed commit was rebased away).
+
+After the verdict is written, record where you reviewed to: `node "$RR" --record`.
+
 ### First: is this reviewable at all?
 
 ```bash
@@ -152,7 +173,8 @@ sets the verdict, and the human at the gate sees both.
    omitting `need` on a BLOCKED halts the chain and asks the CTO.
    Use `auto` cost so the real token spend is recorded (cost-meter), not guessed.
 
-Done = verdict emitted, review artefact written, P0/P1 bugs filed. gate:code reads
+Done = verdict emitted, review artefact written, P0/P1 bugs filed, review marker
+recorded (`review-range.mjs --record`). gate:code reads
 your verdict.
 
 ## Open questions carry options and a pick

@@ -10,6 +10,7 @@
  *   cost_summary     — LLM spend, budget burn, top features
  *   pipeline_stages  — detailed stage list with verdicts
  *   recent_verdicts  — last N agent verdicts (default 10)
+ *   wait_for_board_change — block until a verdict lands or a session is blocked
  *
  * Usage:
  *   # Start as MCP server (board must be running on --port)
@@ -31,6 +32,7 @@
  */
 
 import { createInterface } from 'node:readline';
+import { waitForChange } from '../../scripts/lib/board-watch.mjs';
 
 const PORT = parseInt(process.env.GREAT_CTO_PORT || '3141', 10);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -112,6 +114,23 @@ const TOOLS = [
           type: 'string',
           description: 'Project slug (optional).',
         },
+      },
+    },
+  },
+  {
+    name: 'wait_for_board_change',
+    description:
+      'Blocks until something in this project needs you — an agent wrote a verdict ' +
+      '(BLOCKED/FAIL first), or a session stopped on a permission prompt — then returns ' +
+      'only those changes. Use it instead of polling status in a loop while parallel ' +
+      'work runs: one call, not a sleep-and-list per turn. Call first with no `since` ' +
+      'to get a cursor; pass the returned `cursor` back each time so nothing between ' +
+      'calls is missed. Reads the project files directly; the board need not be running.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        since: { type: 'string', description: 'Cursor from the previous call. Omit on the first call.' },
+        timeout_s: { type: 'number', description: 'Longest wait in seconds (1–600). Default: 300.' },
       },
     },
   },
@@ -243,6 +262,12 @@ async function callTool(name, args = {}) {
       lines.push(`| ${ts} | ${v.agent || '—'} | ${v.verdict || '—'} | ${cost} |`);
     }
     return lines.join('\n');
+  }
+
+  if (name === 'wait_for_board_change') {
+    // The MCP server runs in the project directory (codex-host starts it there).
+    const r = await waitForChange({ cwd: process.cwd(), since: args.since || null, timeoutS: args.timeout_s || 300 });
+    return JSON.stringify(r);
   }
 
   throw new Error(`Unknown tool: ${name}`);

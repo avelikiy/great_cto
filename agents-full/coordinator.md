@@ -254,6 +254,20 @@ bd list --status in_progress --label coordinator 2>/dev/null
 bd list --status blocked 2>/dev/null
 ```
 
+**Waiting on background work: one blocking call, not a loop.** A sleep-and-list per
+turn is how orchestrators run out of turns (69 runs ended at their cap on the projects
+measured). Wait on the project instead — it returns when an agent writes a verdict
+(negative ones first) or a session stops on a permission prompt:
+
+```bash
+BW="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/board-watch.mjs"
+[ -f "$BW" ] || BW="$(pwd)/scripts/lib/board-watch.mjs"
+C=$(node "$BW" | python3 -c 'import json,sys;print(json.load(sys.stdin)["cursor"])')   # once
+node "$BW" --since "$C" --timeout 300    # → {cursor, changes, timedOut}; pass the new cursor next time
+```
+
+Under Codex the same wait is the MCP tool `wait_for_board_change`.
+
 If an agent returns BLOCKED:
 1. Read its blocking reason from the Beads task comment
 2. Resolve the blocker (unblock dependency, provide missing info, escalate)
@@ -404,6 +418,29 @@ node "$LD" wpl.md --lane "Implement auth" --cwd "$WORKTREE" --base "$BRANCH_POIN
   diff. That is not a pass. Fix the cause and run it again.
 
 Session side files (`.great_cto/**`, `.beads/**`) are ignored and counted, never silently dropped.
+
+### Before merging a lane's branch — preflight, never "help"
+
+A lane that worked on its own branch is merged into the shared checkout, and that
+checkout may hold another session's uncommitted edits. Stashing or switching branches
+to make the merge possible takes those edits with it — they are in no commit. Ask
+first, without touching anything:
+
+```bash
+MP="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/merge-preflight.mjs"
+[ -f "$MP" ] || MP="$(pwd)/scripts/lib/merge-preflight.mjs"
+node "$MP" "$LANE_BRANCH" --base main
+```
+
+- **clean** (exit 0) — `git merge --no-ff "$LANE_BRANCH"`.
+- **conflict** — the files are named. Send the branch back to its builder with them;
+  do not resolve another packet's conflict yourself.
+- **nothing-to-merge** — the lane reported done and its branch holds nothing. Its work
+  is somewhere else (a different worktree, uncommitted) or was never done. Find it
+  before you close the lane.
+- **refused-dirty / refused-not-on-base** — someone is working in this checkout. Never
+  stash, checkout or restore their files. Tell the operator which files, and wait.
+- **not-checked** (exit 3) — not a pass.
 
 ### Authority — whether the work may land without a decision
 
