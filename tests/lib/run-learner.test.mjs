@@ -104,20 +104,33 @@ test('the digest does not outlive the run', () => {
 
 test('a learner that fails is recorded as failed with its first error line — never as ran', () => {
   const cwd = project();
-  const r = runLearner({ cwd, transcript: null, claude: fakeClaude({ fail: true }).bin });
+  const r = runLearner({ cwd, transcript: transcript(), claude: fakeClaude({ fail: true }).bin });
   assert.equal(r.state, 'failed');
   const marker = readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8');
-  assert.match(marker, /failed: exit=2 Error: budget exceeded digest=none/);
+  assert.match(marker, /failed: exit=2 Error: budget exceeded digest=2msg/);
   assert.doesNotMatch(marker, /\bran\b/);
 });
 
 test('a missing CLI is failed, not done', () => {
   const cwd = project();
-  const r = runLearner({ cwd, claude: join(tmpdir(), 'no-such-claude-bin') });
+  const r = runLearner({ cwd, transcript: transcript(), claude: join(tmpdir(), 'no-such-claude-bin') });
   assert.equal(r.state, 'failed');
   assert.match(readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8'), /failed: exit=null ENOENT/);
 });
 
 test('without a transcript the prompt says so instead of pointing at nothing', () => {
   assert.match(learnerPrompt({ digestPath: null }), /No transcript was available/);
+});
+
+test('no transcript, or a session the operator barely spoke in, is skipped — the model is never called', () => {
+  const cwd = project();
+  const fake = fakeClaude();
+  const r = runLearner({ cwd, transcript: null, claude: fake.bin });
+  assert.equal(r.state, 'skipped');
+  assert.match(readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8'), /skipped: no transcript/);
+  assert.throws(() => fake.argv(), 'the fake claude was never started');
+  const one = join(tmp('learn-tx1-'), 't.jsonl');
+  writeFileSync(one, JSON.stringify({ type: 'user', message: { content: 'ok' } }));
+  assert.equal(runLearner({ cwd, transcript: one, claude: fake.bin }).state, 'skipped');
+  assert.match(readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8'), /skipped: 1 operator message/);
 });

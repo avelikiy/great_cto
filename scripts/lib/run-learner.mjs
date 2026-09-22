@@ -37,6 +37,7 @@ import { PATTERNS } from './secret-patterns.mjs';
 import { parseLessons } from './lessons-write.mjs';
 
 export const DEFAULT_BUDGET_USD = 0.5;
+export const MIN_OPERATOR_MESSAGES = 2;
 const MAX_TRANSCRIPT_TAIL = 8 * 1024 * 1024; // the last 8 MB of a transcript is the session that matters
 const MAX_DIGEST_CHARS = 60_000;
 
@@ -155,7 +156,7 @@ function writeMarker(cwd, line) {
 
 /**
  * Run the learner once and record the outcome.
- * @returns {{state:'done'|'failed', exit:number|null, added:number, detail?:string}}
+ * @returns {{state:'done'|'failed'|'skipped', exit:number|null, added:number, detail?:string}}
  */
 export function runLearner({ cwd, transcript, reason, claude = 'claude', budgetUsd, timeoutMs = 300_000, env = process.env } = {}) {
   const before = lessonCount(cwd);
@@ -170,6 +171,16 @@ export function runLearner({ cwd, transcript, reason, claude = 'claude', budgetU
       digestPath = join(dir, 'session-digest.md');
       writeFileSync(digestPath, d.text, { mode: 0o600 });
     } catch { digestPath = null; }
+  }
+  // Nothing to learn from is not a reason to pay for a run. A `claude -p` probe, a
+  // script's one-shot call, a session that ended before its first message: each
+  // fired SessionEnd and would have started a paid learner with only git to read.
+  // The first one after this was switched on was exactly that.
+  if (!counts || counts.operator < MIN_OPERATOR_MESSAGES) {
+    if (dir) rmSync(dir, { recursive: true, force: true });
+    const why = !counts ? 'no transcript' : `${counts.operator} operator message(s)`;
+    writeMarker(cwd, `skipped: ${why} — nothing to learn from`);
+    return { state: 'skipped', exit: null, added: 0, detail: why };
   }
   let r;
   try {

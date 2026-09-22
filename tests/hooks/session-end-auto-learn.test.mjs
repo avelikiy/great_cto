@@ -89,6 +89,13 @@ exit 1
   return binDir;
 }
 
+/** A transcript the operator actually spoke in — the runner skips sessions with fewer than two messages. */
+function talkedTranscript() {
+  const f = join(mkdtempSync(join(tmpdir(), 'learn-talk-')), 't.jsonl');
+  writeFileSync(f, ['почини тест', 'всё ещё красный'].map((t) => JSON.stringify({ type: 'user', message: { content: t } })).join('\n'));
+  return f;
+}
+
 async function markerEventually(path, re, ms = 8000) {
   const end = Date.now() + ms;
   let last = '';
@@ -101,7 +108,7 @@ async function markerEventually(path, re, ms = 8000) {
 
 test('the hook writes started, and the runner replaces it with the real outcome', async () => {
   const binDir = fakeClaudeBin();
-  const res = run({ reason: 'logout' }, { dirty: true, env: { GREAT_CTO_AUTO_LEARN: '1', PATH: `${binDir}:${process.env.PATH || ''}` } });
+  const res = run({ reason: 'logout', transcript_path: talkedTranscript() }, { dirty: true, env: { GREAT_CTO_AUTO_LEARN: '1', PATH: `${binDir}:${process.env.PATH || ''}` } });
   try {
     assert.equal(res.exit, 0, 'hook must exit 0');
     const first = readFileSync(res.markerPath, 'utf8');
@@ -118,7 +125,7 @@ test('the hook writes started, and the runner replaces it with the real outcome'
 
 test('"auto_learn": true in ~/.great_cto/config.json turns it on without the env var', async () => {
   const binDir = fakeClaudeBin();
-  const res = run({}, { dirty: true, env: { PATH: `${binDir}:${process.env.PATH || ''}` }, config: { auto_learn: true } });
+  const res = run({ transcript_path: talkedTranscript() }, { dirty: true, env: { PATH: `${binDir}:${process.env.PATH || ''}` }, config: { auto_learn: true } });
   try {
     assert.match(await markerEventually(res.markerPath, /done: |failed: /), /done: /);
   } finally {
