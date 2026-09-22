@@ -47,8 +47,15 @@ defects were underneath.
 
 signing-preflight's check was run on this repository: `signs`.
 
-## Not measured
+## Measured after the fact (2026-09-22, signed-in CLI)
 
-Whether K2's on-demand loading happens in a live architect run, and the exact skill name
-the `Skill` tool accepts from a subagent (`great-cto:<name>` matches the listing). Probing
-it needs a signed-in CLI; it was expired on 2026-09-22.
+An agent with `tools: Skill` asked to load a vertical:
+
+| Run | Result |
+|---|---|
+| `claude -p --agent probe` (Skill not pre-allowed) | every call `is_error`: "Execute skill: great-cto:vertical-retail" — the permission request, refused because nobody can answer it |
+| same, `--allowedTools Skill` | both `great-cto:vertical-retail` and `vertical-retail` loaded; first heading returned verbatim |
+
+So on-demand loading works and both name forms resolve. In an interactive session the
+operator is asked once per skill; in an unattended run (`claude -p`, codex-host) `Skill`
+must be in the allowed tools, or the architect runs without its vertical and says so.
