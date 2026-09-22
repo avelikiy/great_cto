@@ -7,6 +7,62 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.32.0 — 2026-09-22
+
+Skills now reach the agents that need them, the board says which session is waiting for
+you, and a verdict written before the code it is supposed to cover no longer counts.
+
+### Changed behaviour — read before upgrading
+
+- **`gate:ship` also refuses when security-officer's verdict predates the last code
+  change**, as it already did for QA. A verdict is evidence about the code it saw.
+- **Agent `skills:` lists were cleaned of names that load nothing.** Measured across
+  1,987 subagent transcripts: a listed skill is preloaded into the agent at start by
+  bare name, and a name that resolves to nothing is dropped silently. `beads` sat in 39
+  agents and loaded zero times; so did `anthropic-skills:*`,
+  `product-management:brainstorm`, and five names from another toolkit (`ship`,
+  `canary`, `land-and-deploy`, `investigate`, `cso`). All removed; a test now fails on
+  any listed name that is not shipped here or `superpowers:*`. If you had added your own
+  names to a great_cto agent, check them.
+- **architect, pm and product-owner have the `Skill` tool.** They load the matching
+  `vertical-<industry>`, `product-economics`, `opportunity-solution-tree` and
+  `outcome-roadmap` on demand. architect was told to "apply the matching vertical skill"
+  and had no way to reach one: no tool, no preload, no path inside a user's project.
+
+### Added
+
+- **Sessions that wait for you, on the board's Decisions screen.** A new hook on
+  Notification / Stop / UserPromptSubmit / SessionEnd writes
+  `.great_cto/status/<session>.json`, and the screen shows a session stopped on a
+  permission prompt — with the prompt's own text — above everything else; sessions that
+  only finished a turn are one muted count. A granted prompt fires no event, so the
+  reader checks the session transcript: written after the blocked moment means the
+  session moved on. Idea from fynnfluegge/agtx (Apache-2.0); the code is this project's.
+- **Three skills from what went wrong on real projects:**
+  - `deploy-landed` — a deploy is done when the served revision is the commit you meant,
+    its configuration is in the running process (read from PID 1, not `docker exec`), the
+    product does its job, and the new revision logged no startup errors. With the traps
+    that produced a green exit over a stale product: a failed `git pull` the build ignored,
+    `nohup` exiting 0 twice, `sed -i` replacing a bind-mounted file's inode, a prod behind
+    SSO answering 401 to every path.
+  - `secrets-rotation` — an exposed key is spent; deleting the message does not un-expose
+    it. One tracked task with an escalation instead of a reminder carried through seven
+    session logs, and it is done when a call with the old value is refused.
+  - `signing-preflight` — a bounded test signature before the first commit, and one
+    question if the key is locked. Never `--no-gpg-sign` silently, never re-sign history
+    unasked. (121 commits were re-signed after the fact on one project.)
+
+  They are preloaded into devops, l3-support, infra-provisioner, security-officer,
+  senior-dev and mobile-app-builder, and named in the session operating rules so the main
+  session loads them too.
+
+### Fixed
+
+- **A verdict log line `2026-07-12 15:47:00 PASS`** — a date and time separated by a
+  space — read the time as the verdict, so a passing QA read as no verdict at all.
+
+
 ## v3.31.0 — 2026-09-21
 
 What 28 real projects taught the pipeline. The session-end learner now actually runs
