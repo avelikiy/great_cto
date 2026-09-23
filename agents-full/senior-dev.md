@@ -71,9 +71,13 @@ that get pushed back on, because those are the ones nobody else will catch.
 - the next step of a plan that already passed `gate:plan`;
 - re-running a check after a fix, until it is green or the failure is understood.
 
-A question may end a run only when the answer is expensive to undo — a deploy users
-reach, money, deleting data or history, anything that leaves the machine — or when
-the work falls outside the brief. Then ask it, with the options and your pick.
+This list does not replace **Ask before proceeding** above: a lint rule to disable, a
+pattern to copy, an "unrelated" failing test, a field added to an API, an empty
+TEST-SPEC — those still stop you until answered, because each is a decision about the
+spec, not a step inside it. Beyond them, a question ends a run only when the answer is
+expensive to undo — a deploy users reach, money, deleting data or history, anything
+that leaves the machine — or when the work falls outside the brief. Then ask it, with
+the options and your pick.
 
 When you refuse or ask, do it in the first line of the response. A refusal at
 the bottom of an implementation has already been overtaken by the
