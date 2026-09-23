@@ -121,6 +121,14 @@ npx --yes great-cto@3.33.0 codex-host start --dir "$PWD" --prompt "build the fea
 npx --yes great-cto@3.33.0 codex-host resume <run-uuid>
 ```
 
+The source controller can also assign graph roles to both installed CLIs with
+`--routes qa-engineer=claude-code,security-officer=codex` (npm distribution in
+the next release). Those independent
+join roles inspect one snapshot at the same time; the controller applies their
+validated, non-overlapping proposals sequentially and keeps the existing
+verifier and human gates. Claude Code must be authenticated. See the
+[mixed-host contract](docs/HOST-CODEX.md).
+
 It routes the shared graph through controlled Codex role profiles, applies only
 validated text proposals, runs an independent verifier, preserves the run cursor
 outside the worker repository and enforces human gates. Optional operator-owned

@@ -1,9 +1,14 @@
-# Controlled Codex host (experimental)
+# Controlled Codex and Claude Code hosts (experimental)
 
 The plugin provides an explicit controller in `scripts/codex-pipeline.mjs`.
 Each worker receives a controller-owned, side-effect-free Codex role profile and runs through Codex CLI
 in read-only mode. The controller validates and writes its JSON file proposals,
 then routes the next role using the installed `shared/pipeline.toml`.
+
+The same controller can route selected roles to Claude Code. The role profile,
+proposal validation, verifier, run cursor and gate policy stay controller-owned.
+Claude Code runs with safe mode, restricted mode and only Read/Glob/Grep tools;
+it cannot use project hooks or its normal write-capable agent prompt in this mode.
 
 ## Usage
 
@@ -20,6 +25,35 @@ npx --yes great-cto@3.33.0 codex-host recover <run-uuid>
 npx --yes great-cto@3.33.0 codex-host cancel <run-uuid>
 npx --yes great-cto@3.33.0 codex-host list --dir /path/to/project
 ```
+
+For a mixed run from a source checkout, assign roles at start. Unlisted roles
+use Codex. The version-pinned npm entrypoint gains this option in the next
+package release:
+
+```sh
+node scripts/codex-pipeline.mjs start \
+  --dir /path/to/project --allow src,docs \
+  --prompt 'Implement and review the specified feature' \
+  --routes qa-engineer=claude-code,security-officer=codex
+```
+
+Both CLIs must be installed and authenticated. `claude auth status --json` must
+report `loggedIn: true`; the controller refuses a mixed start otherwise. The
+two symmetric join roles above inspect the same frozen tree concurrently. The
+controller checks both proposals and rejects overlapping paths before writing
+either one. It then applies each proposal in graph order, verifies the actual
+files, and raises the declared human gates. A failed host, a changed input tree
+or an overlapping proposal blocks the wave. A persisted fetched wave can resume
+without invoking either model again. A crash while workers are still running is
+held for operator inspection; it cannot silently dispatch them twice.
+Concurrent roles may create new `docs/` evidence files only. Implementation
+changes stay sequential so both reviewers always assess the same code tree.
+
+`--routes` selects an execution host per role. It is not an instruction to let
+Claude Code and Codex write into one worktree at the same time. Only roles with
+a symmetric `join` and the same downstream edge form a concurrent wave; other
+roles run in dependency order. The run state and `list` projection record each
+role's host and wave status.
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
 the product decision was already made. Explicit allowed paths apply to all roles

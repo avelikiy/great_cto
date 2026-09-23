@@ -24,6 +24,7 @@ npx --yes great-cto@3.33.0 codex-host list --dir /absolute/project
 `doctor.state=blocked` means do not start. Docker may be unavailable when no
 checks/release policy is requested; GitHub CLI may be unavailable when the local
 adapter is used. The run store must not be group/world accessible.
+For mixed-host runs, also require `doctor.checks.claude.state=available`.
 
 ## Start
 
@@ -41,6 +42,14 @@ npx --yes great-cto@3.33.0 codex-host start \
 
 Read the returned `status`, `pending` and `release` object. Never treat exit 2 as
 success: it means a gate, manual action or blocked evidence requires attention.
+
+After the package containing mixed-host routing is published, independent
+graph roles can run on both hosts with
+`--routes qa-engineer=claude-code,security-officer=codex` on `start`. The
+controller dispatches only a symmetric join pair concurrently, checks both
+proposals for overlap, serializes writes and runs the existing verifier and
+human gates. The route map is fixed for the run. An interrupted wave must be
+inspected; never start replacement workers against an uncertain wave.
 
 ## Gates and recovery
 
