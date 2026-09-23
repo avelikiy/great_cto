@@ -282,6 +282,20 @@ Only gates of that disposable project are auto-approved. It retains `run.json`
 and `acceptance.json` outside the worker project for inspection. A blocked or
 unverifiable run is not a successful end-to-end acceptance.
 
+For a mixed-host full-graph source acceptance that does **not** auto-approve
+any gate, run:
+
+```sh
+GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<local-digest> node tests/eval/mixed-host-release-live.mjs
+```
+
+It creates a disposable Git project, isolated run store, local release root
+and operator-owned policies, routes QA to Claude Code and security to Codex,
+then stops at `gate:product`. The printed paths and run ID are retained for
+separate operator approval and resume. The local release adapter still needs
+its own later release approval; this driver does not publish or activate an
+artifact by itself.
+
 ## Related
 
 - [ADR-021: controlled shell inside the offline check container](adr/ADR-021-controlled-shell-inside-offline-check-container.md) —
