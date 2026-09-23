@@ -113,6 +113,27 @@ test('one failed host blocks the whole wave without a write or gate', async t =>
   assert.equal(state.pending, null);
 });
 
+test('invalid second-role contract blocks before the first proposal is applied', async t => {
+  for (const mutate of [
+    proposal => { proposal.verdict = 'NOT_APPROVED'; },
+    proposal => { delete proposal.meta.report; },
+    proposal => { proposal.meta.report = 'docs/unrelated.md'; },
+  ]) {
+    const state = fixture(t);
+    const security = JSON.parse(reply('security').finalText);
+    mutate(security);
+    await runParallelWave(state, { runners: {
+      'claude-code': async () => reply('qa'),
+      codex: async () => ({ ...reply('security'), finalText: JSON.stringify(security) }),
+    }, verify });
+    assert.equal(state.status, 'blocked');
+    assert.equal(existsSync(join(state.root, 'docs/qa.md')), false);
+    assert.equal(existsSync(join(state.root, 'docs/security.md')), false);
+    assert.deepEqual(state.results, {});
+    assert.equal(state.pending, null);
+  }
+});
+
 test('persisted fetched wave resumes without invoking either host again', async t => {
   const state = fixture(t);
   // The controller has already received both model results, then crashed before
@@ -126,6 +147,21 @@ test('persisted fetched wave resumes without invoking either host again', async 
   assert.equal(restored.status, 'awaiting-gate');
   assert.equal(restored.wave, null);
   assert.equal(restored.waveHistory[0].id, 'saved');
+});
+
+test('resumed fetched wave revalidates both contracts before applying either', async t => {
+  const state = fixture(t);
+  const invalid = JSON.parse(reply('security').finalText);
+  delete invalid.meta.report;
+  state.wave = { id: 'saved-invalid', roles: ['qa', 'security'], status: 'fetched', receipt: treeReceipt(state.root),
+    hosts: { qa: 'claude-code', security: 'codex' }, context: { record: { mode: 'inline', results: [] }, text: '' },
+    responses: { qa: reply('qa'), security: { ...reply('security'), finalText: JSON.stringify(invalid) } } };
+  await runParallelWave(state, { runners: { 'claude-code': async () => assert.fail('duplicate dispatch'),
+    codex: async () => assert.fail('duplicate dispatch') }, verify });
+  assert.equal(state.status, 'blocked');
+  assert.match(state.reason, /missing artifact/);
+  assert.equal(existsSync(join(state.root, 'docs/qa.md')), false);
+  assert.deepEqual(state.results, {});
 });
 
 test('fetched wave refuses changed tree on resume', async t => {

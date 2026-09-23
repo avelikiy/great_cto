@@ -591,6 +591,35 @@ export function parallelPair(state) {
   return [a, b];
 }
 
+/** Validate the entire frozen wave, including each role's evidence contract, before any write. */
+function preflightParallelProposals(state, roles, responses) {
+  const owned = new Set();
+  for (const role of roles) {
+    const proposal = cleanResponse(responses[role]);
+    const files = validateProposal(state, proposal);
+    const rule = state.graph[`${role}.${proposal.verdict}`] || state.graph[role];
+    if (!rule?.on?.includes(proposal.verdict)) throw Error(`${role} returned ${proposal.verdict}: ${proposal.summary}`);
+    for (const key of list(rule.produces)) {
+      if (key === 'receipt') continue;
+      const name = proposal.meta?.[key];
+      if (typeof name !== 'string') throw Error(`${role} missing artifact: ${key}`);
+      const evidence = name.endsWith('/')
+        ? files.some(file => file.path.startsWith(name) && file.content.trim())
+        : files.some(file => file.path === name && file.content.trim());
+      if (!evidence) throw Error(`${role} missing proposed artifact: ${key} (${name})`);
+    }
+    for (const file of files) {
+      // Parallel review may create evidence, but cannot change any file
+      // the other reviewer could have read from the frozen input tree.
+      if (!file.path.startsWith('docs/') || file.before !== null)
+        throw Error(`parallel role may only create a new docs/ artifact: ${file.path}`);
+      if ([...owned].some(path => file.path === path || file.path.startsWith(`${path}/`) || path.startsWith(`${file.path}/`)))
+        throw Error(`parallel roles propose overlapping paths: ${file.path}`);
+      owned.add(file.path);
+    }
+  }
+}
+
 /** Dispatch two read-only workers together, then apply their proposals one by one. */
 export async function runParallelWave(state, { runners = { codex: runCodexExec, 'claude-code': runClaudeExec },
   verify = verifyStage, checks = runChecks, save = () => {}, contextStore = null } = {}) {
@@ -623,23 +652,12 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     try {
       if (JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(receipt)) throw Error('working tree changed during parallel dispatch');
       const responses = {};
-      const owned = new Set();
       for (let i = 0; i < roles.length; i++) {
         const role = roles[i], item = settled[i];
         if (item.status !== 'fulfilled') throw Error(`${role} failed: ${String(item.reason?.message || item.reason)}`);
-        const proposal = cleanResponse(item.value);
-        const files = validateProposal(state, proposal);
-        for (const file of files) {
-          // Parallel review may create evidence, but cannot change any file
-          // the other reviewer could have read from the frozen input tree.
-          if (!file.path.startsWith('docs/') || file.before !== null)
-            throw Error(`parallel role may only create a new docs/ artifact: ${file.path}`);
-          if ([...owned].some(path => file.path === path || file.path.startsWith(`${path}/`) || path.startsWith(`${file.path}/`)))
-            throw Error(`parallel roles propose overlapping paths: ${file.path}`);
-          owned.add(file.path);
-        }
         responses[role] = item.value;
       }
+      preflightParallelProposals(state, roles, responses);
       state.wave.responses = responses;
       state.wave.status = 'fetched';
       save(state);
@@ -649,6 +667,13 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     }
   }
   if (state.wave.status !== 'fetched') throw Error('parallel wave is incomplete; inspect before recovery');
+  if (!state.wave.roles.some(role => state.results[role])) {
+    try { preflightParallelProposals(state, state.wave.roles, state.wave.responses); }
+    catch (error) {
+      state.wave.status = 'blocked'; state.status = 'blocked'; state.reason = error.message;
+      save(state); return state;
+    }
+  }
   for (const role of state.wave.roles) {
     if (state.results[role]) continue; // Already applied before an interruption.
     if (state.active) throw Error('interrupted parallel application; inspect partial writes');
