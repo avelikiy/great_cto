@@ -189,3 +189,31 @@ it must produce, the failure a reviewer of its output would catch.
 
 After R1–E1, so the numbers reflect the fixed runner and prompts. Not started
 without an explicit go on the spend.
+
+## Re-measure on 3.33 (2026-09-23)
+
+One sample, `--actor-tools --actor-max-tokens 16000`, ~$41 of OpenRouter credit until it
+ran out. 32 of 87 evals in file order, then the twelve evals of agents whose prompts
+changed in 3.30–3.33 by priority; six of those ran before the $6 floor stopped the run.
+Evals not re-run keep their 16.09 result.
+
+| | 16.09 (M2/M3) | 23.09 |
+|---|---|---|
+| Agents passing their own eval | 61 of 70 | **67 of 70** |
+| Agents that ran and did not pass | 3 | 3 — coordinator, devops, product-owner |
+| Agents with an eval never run | 6 | 0 |
+| Evals passing | — | 68 of 87 (17 failing, 2 unscored) |
+
+- Changed prompts held: security-officer finding-gate 21/25, qa-engineer
+  boilerplate-rejection 7/7, mobile-app-builder 14/14, pm 19/24, l3-support 26/29.
+- **senior-dev regressed, and the cause was this series.** 3.31's "do it without asking"
+  ended with a sentence that cancelled the ask-first list above it. Tuning fell to 4/5 and
+  the empty-TEST-SPEC holdout case (PASS on 16.09) failed. Fixed in fa6524c2; re-run:
+  tuning 5/5, holdout 17/19, passing. The empty-TEST-SPEC case failed again in that one
+  run — n=1 each way, noted, not settled.
+- Still below bar: coordinator 7/8 (withheld the authorization phrase it was asked to
+  emit), devops (one split: refused a hotfix ordering but missed prod-ahead-of-main
+  divergence, flag enablement, replica lag), product-owner (not re-run; 16.09 result).
+- Not re-run for want of credit: security-officer adversarial-prompt, qa-engineer
+  severity-accuracy and gherkin-mutation, infra-provisioner, architect gate-compliance,
+  product-owner brief, and the 49 evals after `enterprise-saas` in file order.
