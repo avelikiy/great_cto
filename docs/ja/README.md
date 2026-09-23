@@ -113,7 +113,7 @@ init 後、ホストが本当にプラグインを読み込んだか確認して
 **OpenAI Codex では**（`npx great-cto init --host codex`）スキルと MCP サーバーを利用
 できます。ネイティブのフック、スラッシュコマンド、ロールエージェントは依然として
 ありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
-サポートされる経路は `npx --yes great-cto@3.33.0 codex-host` で、
+サポートされる経路は `npx --yes great-cto@3.34.0 codex-host` で、
 制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
 実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。
 [Codex ホストガイド](../HOST-CODEX.md)を参照してください。

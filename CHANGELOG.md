@@ -9,6 +9,44 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.34.0 — 2026-09-23
+
+great_cto stops leaving its own state in your repository's history, reads its pipeline
+contracts from the plugin instead of re-copying them into every project, and writes at
+the project root however far a session wanders into subdirectories.
+
+### Changed behaviour — read before upgrading
+
+- **SessionStart no longer copies `shared/pipeline.toml` and `shared/orchestrator.toml`
+  into your project.** Hooks read the plugin's contract. A project file is used only when
+  its first lines say `great_cto: project override`; an unmarked `shared/*.toml` — what
+  every earlier version copied in — is ignored, so it cannot pin your project to an old
+  contract. If you had edited one deliberately, add that line. Otherwise the copies can be
+  deleted.
+- **Every hook starts in the project root** — the nearest directory with
+  `.great_cto/PROJECT.md` — so `.great_cto/` directories stop appearing inside `backend/`,
+  `docs/`, `infra/` and other subdirectories a session `cd`s into.
+- **`.great_cto/.gitignore` is written at session start** with a managed block of
+  great_cto's machine-local state: turn markers, event and cost logs, the per-session copy
+  of the plugin's `SKILL.md`, `env.sh`, session stubs, `status/`, `cache/`. Lines you add
+  outside the block are kept; your root `.gitignore` is not touched. Project records stay in
+  git: `PROJECT.md`, `verdicts/`, `brain.md`, `FLOW.md`, `CODEBASE.md`, `lessons.md`,
+  `decisions.md`, and the logs `/save` writes. Files you already committed stay tracked
+  until you untrack them (`git rm --cached`).
+
+### Fixed
+
+- **senior-dev's autonomy rule overrode "ask before proceeding".** The 3.31 paragraph ended
+  with a sentence that cancelled the ask-first list above it (a lint rule to disable, an
+  "unrelated" failing test, an empty TEST-SPEC). Found by the fleet re-measure; tuning fell
+  to 4/5, and is 5/5 again with the list restored.
+
+### Measured
+
+Fleet re-measured on 3.33/3.34 — see docs/plans/PLAN-2026-09-16-agent-quality.md.
+
+
 ## v3.33.0 — 2026-09-23
 
 Parallel work merges only after a check that touches nothing, orchestrators wait on the

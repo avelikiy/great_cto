@@ -11,14 +11,14 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.33.0 codex-host doctor
-npx --yes great-cto@3.33.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.33.0 codex-host status <run-uuid>
-npx --yes great-cto@3.33.0 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.33.0 codex-host resume <run-uuid>
-npx --yes great-cto@3.33.0 codex-host recover <run-uuid>
-npx --yes great-cto@3.33.0 codex-host cancel <run-uuid>
-npx --yes great-cto@3.33.0 codex-host list --dir /path/to/project
+npx --yes great-cto@3.34.0 codex-host doctor
+npx --yes great-cto@3.34.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.34.0 codex-host status <run-uuid>
+npx --yes great-cto@3.34.0 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.34.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.34.0 codex-host recover <run-uuid>
+npx --yes great-cto@3.34.0 codex-host cancel <run-uuid>
+npx --yes great-cto@3.34.0 codex-host list --dir /path/to/project
 ```
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
