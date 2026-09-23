@@ -114,7 +114,7 @@ sozinhos. Depois do init, confira se o host de fato carregou o plugin —
 **No OpenAI Codex** (`npx great-cto init --host codex`) você recebe skills e o
 servidor MCP. Hooks, slash commands e agentes de papel nativos continuam
 indisponíveis. A instalação do plugin não adiciona um binário npm ao `PATH`; o
-pipeline suportado usa `npx --yes great-cto@3.32.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery
+pipeline suportado usa `npx --yes great-cto@3.33.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery
 e releases locais ou do GitHub opcionais. Não emula hooks nativos nem ativa
 serviços de produção arbitrários. Veja o
 [guia do host Codex](../HOST-CODEX.md).

@@ -8,6 +8,46 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.33.0 — 2026-09-23
+
+Parallel work merges only after a check that touches nothing, orchestrators wait on the
+project instead of polling it, a re-review reads what changed, and a session with nothing
+to learn from no longer starts a paid learner.
+
+### Changed behaviour — read before upgrading
+
+- **Auto-learn skips a session it cannot learn from.** With `"auto_learn": true`, every
+  ended session started a paid learner — including a one-shot `claude -p` from a script,
+  which has no transcript at all. The runner now skips, without calling the model, when
+  there is no transcript or the operator wrote fewer than two messages, and
+  `.great_cto/.last-auto-learn` says which: `skipped: no transcript`,
+  `skipped: 1 operator message(s)`.
+
+### Added
+
+- **`merge-preflight`: a lane's branch merges only after a check that touches nothing.**
+  `clean` / `conflict` (with the files named) / `nothing-to-merge` / `refused-dirty` /
+  `refused-not-on-base` / `not-checked`, from `git merge-tree --write-tree`. It changes no
+  tree, index, ref or stash — stashing or switching branches to make a merge possible takes
+  another session's uncommitted work with it, and that work is in no commit. An empty lane
+  branch is a finding, not a success: the work is somewhere else. coordinator runs it before
+  merging a lane.
+- **`board-watch`: one blocking wait instead of a polling loop.** It returns when an agent
+  writes a verdict (negative ones first) or a session stops on a permission prompt, with a
+  cursor so nothing between calls is missed, and it reads the project's own files — the
+  board need not be running. coordinator's MONITOR phase uses it; under Codex it is the new
+  MCP tool `wait_for_board_change`. 69 agent runs ended at their turn cap on the projects
+  measured, most of them waiting by listing.
+- **`review-range`: a re-review reads what changed since the last one.** code-reviewer
+  reviews `marker..HEAD` plus uncommitted files, says `nothing-new` when nothing changed,
+  and falls back to a full review — with the reason — when the marked commit was rebased
+  away. It ended 6 of 28 runs at its turn cap re-reading whole features after a fix.
+
+All three are mechanisms from [fynnfluegge/agtx](https://github.com/fynnfluegge/agtx)
+(Apache-2.0), written for this project; no code was copied.
+
+
 ## v3.32.0 — 2026-09-22
 
 Skills now reach the agents that need them, the board says which session is waiting for
