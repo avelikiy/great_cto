@@ -60,6 +60,15 @@ the product decision was already made. Explicit allowed paths apply to all roles
 in this run. Review them before starting. Approve only after inspecting the
 stage's artifacts. Approving does not itself execute the next stage.
 
+For an opt-in live source-checkout smoke on a disposable Git fixture, run
+`GREAT_CTO_LIVE_MIXED=1 node --test tests/lib/mixed-host-live.test.mjs` after
+authenticating both CLIs. It routes QA to Claude Code and security to Codex,
+retains the project and run store under a printed temporary path, checks both
+independent verifier results and report hashes, and stops at the first human
+gate. The test never approves a gate. A verified smoke is evidence for this
+source checkout only; it is not evidence that the feature has shipped in npm
+or in an installed plugin.
+
 Run state lives in `~/.great_cto/codex-runs/<uuid>.json`, outside the worker's
 workspace. An exclusive lock prevents concurrent resume or approval. An in-flight
 marker is persisted before spawning: a crash or partial write blocks replay.

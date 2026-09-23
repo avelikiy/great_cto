@@ -213,6 +213,9 @@ test('route validation and Claude auth states fail closed', t => {
   assert.equal(detectClaude({ run: (_bin, args) => args[0] === '--version'
     ? { status: 0, stdout: '2.1' } : { status: 0, stdout: '{"loggedIn":false}' } }).state, 'no-auth');
   assert.equal(parseClaudeResult('{"type":"result","is_error":false,"result":"{\\"verdict\\":\\"PASS\\"}"}').state, 'ok');
+  const structured = parseClaudeResult(JSON.stringify({ type: 'result', is_error: false,
+    result: '**QA report**', structured_output: { verdict: 'PASS', summary: 'checked', meta: {}, files: [] } }));
+  assert.deepEqual(JSON.parse(structured.finalText), { verdict: 'PASS', summary: 'checked', meta: {}, files: [] });
   assert.equal(parseClaudeResult('{"type":"result","is_error":true,"result":"failed"}').state, 'unreadable');
 });
 

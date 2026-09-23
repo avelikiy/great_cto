@@ -29,6 +29,8 @@ test('role -> guarded write -> human gate -> resume -> terminal gate -> done', a
   assert.match(calls[0].prompt, /You are the writer specialist/);
   assert.doesNotMatch(calls[0].prompt, /forbidden-host-task|\.great_cto\/gate\.json/);
   assert.equal(calls[0].sandbox, 'read-only'); assert.ok(calls[0].extraArgs.includes('--ignore-user-config'));
+  assert.ok(calls[0].extraArgs.includes('--strict-config'));
+  assert.ok(calls[0].extraArgs.every(arg => !arg.includes('sandbox_read_only')));
   assert.ok(calls[0].extraArgs.includes('plugins')); assert.ok(calls[0].extraArgs.includes('apps'));
   assert.equal(readFileSync(join(s.root, 'src/app.js'), 'utf8'), 'export const x = 1;\n');
   await runStage(s, { execute: async () => { throw Error('must not run across gate'); } });
@@ -239,12 +241,14 @@ test('exact optional shell snapshot timeout is recoverable; sandbox and other sn
   const safe = fixture(t);
   await runStage(safe, { execute: async () => ({ ...response(), errors: [
     `${timestamp}WARN codex_rollout::list: state db discrepancy during find_thread_path_by_id_str_in_subdir: falling_back\n` +
-    `${timestamp}WARN codex_core::shell_snapshot: Failed to create shell snapshot for zsh: Snapshot command timed out for zsh`,
+    `${timestamp}WARN codex_core::shell_snapshot: Failed to create shell snapshot for zsh: Snapshot command timed out for zsh\n` +
+    `${timestamp}WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/fixture/.codex/shell_snapshots/01a0cdd1-8f93-77d3-bff7-2f6c47976415.1790159458196092000.sh"): Os { code: 2, kind: NotFound, message: "No such file or directory" }`,
   ] }) });
   assert.equal(safe.status, 'awaiting-gate');
 
   for (const warning of [
     'WARN codex_core::shell_snapshot: Failed to create shell snapshot for zsh: validation failed',
+    'WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf("/Users/fixture/.codex/shell_snapshots/file.sh"): Os { code: 13, kind: PermissionDenied, message: "Permission denied" }',
     'WARN codex_sandboxing::violation: command attempted a prohibited write',
   ]) {
     const blocked = fixture(t);

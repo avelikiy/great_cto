@@ -20,9 +20,9 @@ const list = value => value == null ? [] : Array.isArray(value) ? value : [value
 const protectedPart = /^(?:\.git|\.codex|\.claude|\.agents|\.beads|\.great_cto|node_modules)$/i;
 const protectedFile = /^(?:AGENTS\.md|CLAUDE\.md|SKILL\.md|\.env(?:\..*)?)$/i;
 const externalRoles = new Set(['devops', 'infra-provisioner', 'migration-import-engineer']);
-const workerArgs = ['--ignore-user-config', '--ignore-rules', '--disable', 'plugins', '--disable', 'apps', '--disable', 'multi_agent',
+const workerArgs = ['--ignore-user-config', '--ignore-rules', '--strict-config', '--disable', 'plugins', '--disable', 'apps', '--disable', 'multi_agent',
   '--enable', 'skip_host_skill_discovery', '-c', 'suppress_unstable_features_warning=true',
-  '-c', 'approval_policy="never"', '-c', 'sandbox_read_only.network_access=false'];
+  '-c', 'approval_policy="never"'];
 const HOSTS = new Set(['codex', 'claude-code']);
 export function validateRoutes(routes, graph) {
   if (!routes || typeof routes !== 'object' || Array.isArray(routes)) throw Error('host routes must be an object');
@@ -43,7 +43,10 @@ function cleanResponse(response) {
     // shell_snapshot.rs converts the error to None and still runs the command.
     // Admit only that exact timeout. Validation errors, command failures and
     // every sandbox warning remain blocking.
-    /WARN codex_core::shell_snapshot: Failed to create shell snapshot for [^:]+: Snapshot command timed out for [^\s]+$/.test(line.trim())));
+    /WARN codex_core::shell_snapshot: Failed to create shell snapshot for [^:]+: Snapshot command timed out for [^\s]+$/.test(line.trim()) ||
+    // Current Codex can race with its own best-effort cleanup after a completed
+    // turn. Only deletion of an already absent snapshot is non-fatal.
+    /WARN codex_core::shell_snapshot: Failed to delete shell snapshot at AbsolutePathBuf\("[^"]*\/\.codex\/shell_snapshots\/[0-9a-f-]+(?:\.\d+)?\.sh"\): Os \{ code: 2, kind: NotFound, message: "No such file or directory" \}$/.test(line.trim())));
   if (response.code !== 0 || response.state !== 'ok' || errors.length) throw Error(`Host stage did not complete cleanly: ${JSON.stringify(errors)}`);
   return JSON.parse(response.finalText ?? response.text);
 }
