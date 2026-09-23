@@ -149,6 +149,31 @@ test('persisted fetched wave resumes without invoking either host again', async 
   assert.equal(restored.waveHistory[0].id, 'saved');
 });
 
+test('resume after first verified role applies only the retained second response', async t => {
+  const state = fixture(t);
+  const receipt = treeReceipt(state.root);
+  const context = { record: { mode: 'inline', results: [] }, text: '' };
+  state.wave = { id: 'partly-applied', roles: ['qa', 'security'], status: 'fetched', receipt,
+    hosts: { qa: 'claude-code', security: 'codex' }, context,
+    responses: { qa: reply('qa'), security: reply('security') } };
+  await runStage(state, { prepared: { response: state.wave.responses.qa, receipt, context }, verify });
+  assert.equal(state.status, 'ready');
+  assert.deepEqual(Object.keys(state.results), ['qa']);
+  assert.equal(existsSync(join(state.root, 'docs/security.md')), false);
+  const firstAttempt = state.results.qa.attemptId;
+  const restored = JSON.parse(JSON.stringify(state));
+  await runParallelWave(restored, { runners: { 'claude-code': async () => assert.fail('duplicate Claude dispatch'),
+    codex: async () => assert.fail('duplicate Codex dispatch') }, verify });
+  assert.equal(restored.status, 'awaiting-gate');
+  assert.equal(restored.results.qa.attemptId, firstAttempt);
+  assert.deepEqual(restored.attempts.map(attempt => attempt.role), ['qa', 'security']);
+  assert.equal(restored.waveHistory[0].status, 'verified');
+  assert.equal(existsSync(join(state.root, 'docs/security.md')), true);
+  approve(restored, restored.pending.token);
+  approve(restored, restored.pending.token);
+  assert.equal(restored.status, 'done');
+});
+
 test('resumed fetched wave revalidates both contracts before applying either', async t => {
   const state = fixture(t);
   const invalid = JSON.parse(reply('security').finalText);
