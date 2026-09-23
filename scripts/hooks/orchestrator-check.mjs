@@ -16,19 +16,13 @@ import { readFileSync, existsSync } from 'node:fs';
 import { resolve, join } from 'node:path';
 import { cwd } from 'node:process';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { contractPath } from '../lib/contract-path.mjs';
 
 // ─── Locate orchestrator.toml ────────────────────────────────────────────────
-// Walk up from cwd() to find shared/orchestrator.toml (handles worktrees).
+// The plugin's contract, or a project's marked override (scripts/lib/contract-path.mjs).
 function findToml() {
-  let dir = cwd();
-  for (let i = 0; i < 8; i++) {
-    const candidate = join(dir, 'shared', 'orchestrator.toml');
-    if (existsSync(candidate)) return candidate;
-    const parent = resolve(dir, '..');
-    if (parent === dir) break;
-    dir = parent;
-  }
-  return null;
+  const p = contractPath('orchestrator.toml');
+  return existsSync(p) ? p : null;
 }
 
 // ─── Minimal TOML parser (booleans + strings + integers only) ────────────────

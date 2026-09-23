@@ -89,6 +89,10 @@ What a run spends, and what it can hold.
   `cmmc-reviewer`, `adtech-privacy-reviewer`).
 - [NaCl-inspired governance](PLAN-nacl-governance.md)
 - [Borrow from Santander AI Open Source](PLAN-borrow-santander.md)
+- [great_cto's own state stays out of project history](PLAN-2026-09-23-project-state-hygiene.md) —
+  *declares: done · 2026-09-23*. Hooks wrote ~40 kinds of machine-local file into every
+  project's `.great_cto/`, re-copied `shared/*.toml` each session, and scattered state into
+  subdirectories. Now ignored, read from the plugin, and written at the project root.
 - [Five mechanisms from agtx](PLAN-2026-09-22-borrow-agtx.md) — *declares: done · 2026-09-22*.
   A session stopped on a permission prompt is shown on the board; a stale security verdict
   is not evidence; a lane merges only after a no-touch preflight; orchestrators wait on the

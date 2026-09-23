@@ -31,7 +31,7 @@ function project({ journalLines = [], maxStreams = 5 } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'gc-orch-'));
   mkdirSync(join(root, 'shared'), { recursive: true });
   writeFileSync(join(root, 'shared', 'orchestrator.toml'),
-    `[parallelism]\nmax_parallel_streams = ${maxStreams}\n`);
+    '# great_cto: project override\n' + `[parallelism]\nmax_parallel_streams = ${maxStreams}\n`);
   mkdirSync(join(root, '.great_cto'), { recursive: true });
   writeFileSync(join(root, '.great_cto', 'pipeline-runs.jsonl'),
     journalLines.map((o) => JSON.stringify(o)).join('\n') + (journalLines.length ? '\n' : ''));
@@ -78,7 +78,7 @@ test('rows with no start time say NOT MEASURED — never serial', () => {
 test('a project with no journal at all still prints the contract', () => {
   const root = mkdtempSync(join(tmpdir(), 'gc-orch-bare-'));
   mkdirSync(join(root, 'shared'), { recursive: true });
-  writeFileSync(join(root, 'shared', 'orchestrator.toml'), '[parallelism]\nmax_parallel_streams = 5\n');
+  writeFileSync(join(root, 'shared', 'orchestrator.toml'), '# great_cto: project override\n' + '[parallelism]\nmax_parallel_streams = 5\n');
   const out = runHookIn(root);
   assert.match(out, /ORCHESTRATOR CONTRACT/);
   assert.match(out, /Measured so far\s+: parallelism NOT MEASURED/);

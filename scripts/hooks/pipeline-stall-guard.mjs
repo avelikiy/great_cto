@@ -43,6 +43,7 @@ import {
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { contractPath } from '../lib/contract-path.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
@@ -143,7 +144,7 @@ function main() {
 
   let transitions;
   try {
-    transitions = parsePipelineToml(readFileSync(join('shared', 'pipeline.toml'), 'utf8'));
+    transitions = parsePipelineToml(readFileSync(contractPath('pipeline.toml'), 'utf8'));
   } catch { return 0; }
 
   // A cut-off agent has NO verdict, and `newestStage` finds the freshest one —

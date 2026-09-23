@@ -1024,10 +1024,12 @@ test('the pipeline map comes from the plugin, not from each project', () => {
   // said nothing. After: 17 of 17.
   const src = readFileSync(resolve(dirname(fileURLToPath(import.meta.url)),
     '../../scripts/hooks/pipeline-dispatcher.mjs'), 'utf8');
-  assert.match(src, /PLUGIN_PIPELINE = join\(dirname\(fileURLToPath\(import\.meta\.url\)\)/,
-    'resolved from this file, so it works wherever the hook is invoked');
-  assert.match(src, /existsSync\(LOCAL_PIPELINE\) \? LOCAL_PIPELINE : PLUGIN_PIPELINE/,
-    'a project may still override the chain deliberately');
+  // Resolved through contract-path.mjs: the plugin's map, or a project copy only
+  // when it is marked as a deliberate override (tests/lib/project-state.test.mjs
+  // covers both). An unmarked copy — what the old SessionStart left in every
+  // project — no longer pins that project to a stale contract.
+  assert.match(src, /PIPELINE_PATH = contractPath\('pipeline\.toml'\)/,
+    'resolved by contractPath, so it works wherever the hook is invoked');
 });
 
 test('the map the plugin ships is actually there', () => {
