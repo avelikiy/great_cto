@@ -204,5 +204,16 @@ if [ -n "$OLD_PID" ]; then
   fi
 fi
 
+# The registration Claude Code actually LOADS. Until 2026-09-25 the `local`
+# marketplace entry this script feeds had an invalid `source` (an absolute path),
+# so Claude Code stubbed great_cto@local — no hooks — and every session ran the
+# GitHub marketplace registration at 3.29.1. Keep that registration current too;
+# `claude -p ok --debug hooks` + ~/.claude/debug/latest shows which one loads.
+if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q 'great_cto@great-cto'; then
+  claude plugin marketplace update great-cto >/dev/null 2>&1 \
+    && claude plugin update great_cto@great-cto 2>&1 | tail -1 | sed 's/^/  /' \
+    || echo "  ! could not update great_cto@great-cto — run: claude plugin update great_cto@great-cto"
+fi
+
 printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
 echo "  Restart your Claude Code session so the SessionStart hook picks it up."
