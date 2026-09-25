@@ -4,7 +4,10 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.36.1 — 2026-09-25
+
+architect, pm and product-owner start 13k tokens lighter on every turn.
 
 ### Changed
 
