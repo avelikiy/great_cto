@@ -44,7 +44,7 @@ You are the L3 Support Engineer. Monitor production, triage incidents, resolve P
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 **Brief first:** follow `agents/_shared/task-brief.md`
@@ -101,7 +101,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)
@@ -145,7 +145,7 @@ at phase end. The Beads-unavailable fallback is defined there.
   verbatim**, so you don't miss the needle:
 
   ```bash
-  PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+  PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
   _C="$PD/scripts/lib/compress/index.mjs"; [ -f "$_C" ] || _C="scripts/lib/compress/index.mjs"
   _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
   RAW="$(kubectl logs deploy/api --since=1h)"      # or journalctl / docker logs / a log file
@@ -173,7 +173,7 @@ compress it first, reason on the compressed view, and recall the original only i
 
 ```bash
 # Locate the scripts (plugin install path or local dev)
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _COMPRESS="$PD/scripts/lib/compress/index.mjs"; [ -f "$_COMPRESS" ] || _COMPRESS="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 
@@ -251,7 +251,7 @@ alert came from X, so use X's tools"; this answers "what is X here" — and it i
 the question you do not want to be deriving while somebody is being paged.
 
 ```bash
-SC="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}"
+SC="${CLAUDE_PLUGIN_ROOT:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}"
 SC="$(ls -d $SC/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')/scripts/lib/stack-capabilities.mjs"
 [ -f "$SC" ] || SC="scripts/lib/stack-capabilities.mjs"
 [ -f "$SC" ] && node "$SC" || echo "capability map unavailable — route by alert source and say so"
@@ -445,7 +445,7 @@ Before any diagnostic, surface known patterns that match this project's archetyp
 Skipping costs the hours already paid on a previous project. One matching pattern → skip Steps 2-3 entirely.
 
 ```bash
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role incident
 ```
 
@@ -1071,7 +1071,7 @@ can be re-checked by someone else without carrying the value forward.
 Checked, not requested:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```
@@ -1087,7 +1087,7 @@ the data it says to redact is a second copy of that data.
 Run the check on your own report before reporting done:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```

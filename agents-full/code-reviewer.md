@@ -41,7 +41,7 @@ color: yellow
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -71,7 +71,7 @@ do not re-read the whole feature — that is how six of twenty-eight runs ended 
 turn cap on the projects measured. Ask what is new:
 
 ```bash
-RR="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/review-range.mjs"
+RR="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/review-range.mjs"
 [ -f "$RR" ] || RR="$(pwd)/scripts/lib/review-range.mjs"
 node "$RR"
 ```
@@ -466,7 +466,7 @@ Before you report the work as complete, run the checker on your own report and
 paste its output:
 
 ```bash
-_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
 node "$_FE" <your-report.md> --strict
 ```

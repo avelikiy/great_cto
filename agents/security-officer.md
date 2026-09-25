@@ -109,7 +109,7 @@ to pass while any of these holds, unless a **valid signed exception** covers it:
 - qa-engineer has no passing verdict, or its verdict is **older than the last code change**.
 
 ```bash
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 GC="$PD/scripts/lib/gate-check.mjs"; [ -f "$GC" ] || GC=scripts/lib/gate-check.mjs
 node "$GC" gate:ship --as security-officer
 # exit 0 → may approve (anything covered is printed with its exception id)
@@ -167,7 +167,7 @@ classes discovered on past projects with this archetype and stack. A matched pat
 this exact attack surface was missed by a prior audit and escalated to production.
 
 ```bash
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role review
 ```
 
@@ -265,7 +265,7 @@ if [ "$MODE_ARG" = "pre-impl" ]; then
         echo "DELEGATE: spawn ai-security-reviewer subagent for AI threat-modeling. It produces $TM and signs off Critical/High mitigations." >&2
         # In Claude Code: Agent(subagent_type='ai-security-reviewer', prompt='generate threat model for slug={SLUG}')
         # AI archetype — THREAT-MODEL-AI.md IS the right domain; template fallback is valid here:
-        cp "${PLUGIN_DIR:-$HOME/.claude/plugins/cache/*/great_cto/$(ls -t $HOME/.claude/plugins/cache/*/great_cto/ | head -1)}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
+        cp "${PLUGIN_DIR:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/skills/great_cto/templates/THREAT-MODEL-AI.md" "$TM" 2>/dev/null
         ;;
       *)
         echo "Generating $TM via STRIDE methodology — see references/secure-sdlc.md PW.1 for schema" >&2
@@ -361,7 +361,7 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
      # inline heredoc). It validates reason/approved-by/expires, appends the
      # audit trail to security-signals.log, and prints DEP:<name> / IAC:<path>
      # suppression lines. Broken allowlist => suppresses nothing (exit 0).
-     WC="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/waiver-check.py"
+     WC="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/waiver-check.py"
      [ -f "$WC" ] || WC="$(pwd)/scripts/lib/waiver-check.py"
      SUPPRESSED=$(python3 "$WC" 2>/dev/null)
      # Apply suppressions to the upgrade set. A matching waiver removes the
@@ -944,7 +944,7 @@ Before you report the work as complete, run the checker on your own report and
 paste its output:
 
 ```bash
-_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
 node "$_FE" <your-report.md> --strict
 ```
@@ -970,7 +970,7 @@ that test. Instead, both of you answer the same closed questions and the
 DISAGREEMENT is the output:
 
 ```bash
-_SO=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/second-opinion.mjs 2>/dev/null | sort -V | tail -1)
+_SO=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/second-opinion.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_SO" ] && _SO="scripts/lib/second-opinion.mjs"
 _DAG=$(dirname "$_SO")/../../tests/eval/dags/security-officer-finding-gate.dag.json
 
@@ -1002,7 +1002,7 @@ the data it says to redact is a second copy of that data.
 Run the check on your own report before reporting done:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```

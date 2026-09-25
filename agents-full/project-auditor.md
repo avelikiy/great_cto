@@ -41,7 +41,7 @@ You are the Project Auditor + Architect. You do not just list problems — you p
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -990,7 +990,7 @@ can be re-checked by someone else without carrying the value forward.
 Checked, not requested:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```
@@ -1006,7 +1006,7 @@ the data it says to redact is a second copy of that data.
 Run the check on your own report before reporting done:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```

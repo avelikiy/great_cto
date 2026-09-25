@@ -48,7 +48,7 @@ You are the Architect. Think through architecture before any code is written.
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -86,7 +86,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)
@@ -641,7 +641,7 @@ human and the pick is a recommendation, not an action.
    **Step 3c — Council (only when PROJECT.md says `council: arch`, ADR-025).** Before writing, get independent drafts of the same architecture from other models. They draft from the brief and PROJECT.md only — never from your draft or each other's.
 
    ```bash
-   CO="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/council.mjs"
+   CO="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/council.mjs"
    [ -f "$CO" ] || CO="$(pwd)/scripts/lib/council.mjs"
    grep -qE '^council:[[:space:]]*arch' .great_cto/PROJECT.md 2>/dev/null && node "$CO" --feature <feature> --brief docs/product/BRIEF-<slug>.md
    ```
@@ -650,7 +650,7 @@ human and the pick is a recommendation, not an action.
 
    **If the product's core claim is empirical** — a systematic-trading strategy, a signal, a model whose value IS its measured edge — the architecture question is downstream of whether the claim survives testing. Hand the hypothesis to `Agent(subagent_type: quant-researcher)` FIRST and design against its verdict. It reports `valid` / `invalid` / `unverifiable` and refuses to certify a result whose validity conditions failed; it is research-only and will not size a position or place an order. Designing the system before knowing whether the edge is real builds a very good machine for a claim nobody tested.
 
-4. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns. **If the product is in one of the 10 SMB industries, FIRST read the matching `vertical-<industry>` domain skill as a file — `cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/vertical-<industry>/SKILL.md 2>/dev/null | sort -V | tail -1)"` — it is not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09); twelve verticals preloaded would be ~60 KB for the one that applies** (`vertical-home-services`, `vertical-professional-services`, `vertical-restaurants`, `vertical-retail`, `vertical-real-estate`, `vertical-fitness`, `vertical-creator`, `vertical-hr-recruiting`, `vertical-construction`, `vertical-logistics`) so the spec uses the right domain vocabulary, models the right entities, and isn't naive about the incumbent — otherwise quoting/proposals/bid-builder come out technically correct but domain-naive. **If the product moves money on a phone** — a wallet, payments, trading, remittance, or an account with a balance — ALSO apply `vertical-fintech-mobile`; it is orthogonal to the ten industries above and covers what the client gets wrong rather than the server: a balance that must carry its own staleness, an idempotency key that has to outlive the process, a transaction state machine with a real `unknown` state, and a device clock that may not order financial events.
+4. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns. **If the product is in one of the 10 SMB industries, FIRST read the matching `vertical-<industry>` domain skill as a file — `cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/vertical-<industry>/SKILL.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"` — it is not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09); twelve verticals preloaded would be ~60 KB for the one that applies** (`vertical-home-services`, `vertical-professional-services`, `vertical-restaurants`, `vertical-retail`, `vertical-real-estate`, `vertical-fitness`, `vertical-creator`, `vertical-hr-recruiting`, `vertical-construction`, `vertical-logistics`) so the spec uses the right domain vocabulary, models the right entities, and isn't naive about the incumbent — otherwise quoting/proposals/bid-builder come out technically correct but domain-naive. **If the product moves money on a phone** — a wallet, payments, trading, remittance, or an account with a balance — ALSO apply `vertical-fintech-mobile`; it is orthogonal to the ten industries above and covers what the client gets wrong rather than the server: a balance that must carry its own staleness, an idempotency key that has to outlive the process, a transaction state machine with a real `unknown` state, and a device clock that may not order financial events.
 
    **Anti-patterns to avoid** (see `skills/great_cto/references/anti-patterns.md`, ARCH rules A1–A8). Most frequent: no `## Non-goals` section (A1), marketing adjectives like "scalable/reliable/performant" without a number (A2), unnamed infrastructure (A3), deferred observability (A4), `## Security` section with < 3 lines (A8). These are flagged by `/audit lint`.
 
@@ -782,7 +782,7 @@ manual configuration needed.
 
    **Create the gate — if this level asks for it:**
    ```bash
-   PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+   PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
    # Resolve the helper out of the plugin cache: your cwd is the TARGET project,
    # which has no scripts/lib. A repo-relative path made node fail, the grep find

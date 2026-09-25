@@ -41,7 +41,7 @@ skills:
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -113,7 +113,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)
@@ -146,7 +146,7 @@ calls or repeat a killed idea:
 ```bash
 # Cross-project decisions + project lessons, filtered to this idea
 TASK="<the idea in 6 words>"
-MF="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/memory-filter.mjs"
+MF="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/memory-filter.mjs"
 [ -f "$MF" ] || MF="$(pwd)/scripts/memory-filter.mjs"
 node "$MF" decisions "$TASK" 2>/dev/null | head -40
 node "$MF" lessons "$TASK" 2>/dev/null | head -40
@@ -155,7 +155,7 @@ cat .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null
 ```
 
 ## The four steps
-**Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | sort -V | tail -1)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
+**Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
 `product-economics` for the Economics section (contribution margin, price basis);
 `opportunity-solution-tree` when the idea is a solution looking for its problem;
 `vertical-<industry>` when the product sits in one of the SMB verticals.

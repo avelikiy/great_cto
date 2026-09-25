@@ -148,7 +148,7 @@ same `pattern:` slug — accumulating evidence, incrementing `occurrences:`, rec
 line when the decision has reversed.
 
 ```bash
-_LW=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | sort -V | tail -1)
+_LW=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/lessons-write.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_LW" ] && _LW="scripts/lib/lessons-write.mjs"
 printf '%s' "$ENTRY" | node "$_LW" .great_cto/lessons.md --stdin
 ```
@@ -231,7 +231,7 @@ here is how the two drift apart — and the prose version silently omitted
 
 ```bash
 # Resolve the script from the plugin cache, else the local checkout.
-_LM=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lessons-merge.mjs 2>/dev/null | sort -V | tail -1)
+_LM=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lessons-merge.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_LM" ] && _LM="scripts/lessons-merge.mjs"
 
 # Always preview first — this writes to a file every project's agents read.
@@ -315,7 +315,7 @@ can be re-checked by someone else without carrying the value forward.
 Checked, not requested:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```

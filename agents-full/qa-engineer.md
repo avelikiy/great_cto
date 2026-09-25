@@ -46,7 +46,7 @@ You are a QA Engineer. Build a QA plan from the actual code, then execute it.
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -128,7 +128,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)
@@ -485,7 +485,7 @@ Before designing the test plan — surface known QA blind spots for this archety
 A matched pattern means a bug escaped QA before. Front-load tests that cover these exact failure modes.
 
 ```bash
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role review
 ```
 
@@ -724,7 +724,7 @@ compressor so the `AssertionError` / `FAIL` / stack frames survive while thousan
 lines collapse — then reason on the compressed view:
 
 ```bash
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _C="$PD/scripts/lib/compress/index.mjs"; [ -f "$_C" ] || _C="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 RAW="$(npm test 2>&1)"                                  # or pytest / cargo test / go test
@@ -752,7 +752,7 @@ compress it first, reason on the compressed view, and recall the original only i
 
 ```bash
 # Locate the scripts (plugin install path or local dev)
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _COMPRESS="$PD/scripts/lib/compress/index.mjs"; [ -f "$_COMPRESS" ] || _COMPRESS="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 
@@ -1343,7 +1343,7 @@ fi
 # hand-copied subset pasted here, so a phrase added to the file never reached
 # the report it was meant to catch. SLOP-HEDGE is asked for explicitly: a QA
 # report is exactly where "appears to" needs evidence behind it.
-SLOP=$(ls "$HOME"/.claude/plugins/cache/*/great_cto/*/scripts/lib/prose-slop.mjs 2>/dev/null | sort -V | tail -1)
+SLOP=$(ls "$HOME"/.claude/plugins/cache/*/great_cto/*/scripts/lib/prose-slop.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$SLOP" ] && [ -f scripts/lib/prose-slop.mjs ] && SLOP=scripts/lib/prose-slop.mjs
 if [ -n "$SLOP" ] && command -v node >/dev/null 2>&1; then
   PROSE_BAD=$(node "$SLOP" "$QA_FILE" --quiet 2>/dev/null | head -20)
@@ -1385,7 +1385,7 @@ Before you report the work as complete, run the checker on your own report and
 paste its output:
 
 ```bash
-_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | sort -V | tail -1)
+_FE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/finding-evidence.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_FE" ] && _FE="scripts/lib/finding-evidence.mjs"
 node "$_FE" <your-report.md> --strict
 ```

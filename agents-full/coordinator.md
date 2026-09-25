@@ -36,7 +36,7 @@ timeout: 900
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -329,7 +329,7 @@ measured). Wait on the project instead — it returns when an agent writes a ver
 (negative ones first) or a session stops on a permission prompt:
 
 ```bash
-BW="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/board-watch.mjs"
+BW="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/board-watch.mjs"
 [ -f "$BW" ] || BW="$(pwd)/scripts/lib/board-watch.mjs"
 C=$(node "$BW" | python3 -c 'import json,sys;print(json.load(sys.stdin)["cursor"])')   # once
 node "$BW" --since "$C" --timeout 300    # → {cursor, changes, timedOut}; pass the new cursor next time
@@ -443,7 +443,7 @@ tables — one WPL, referenced from the orchestrator, is the single source.
 # Feed the WPL itself — no hand-built lanes.json. Building that intermediate by
 # hand was the step that got skipped, and a check nobody runs is a check that
 # does not exist.
-WPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/wpl.mjs"
+WPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/wpl.mjs"
 [ -f "$WPL" ] || WPL="$(pwd)/scripts/lib/wpl.mjs"
 node "$WPL" wpl.md        # exit 0 = disjoint (safe to fan out), 1 = overlap or no matrix
 ```
@@ -471,7 +471,7 @@ is committed. After the commit the diff has no author and this can no longer be
 answered.
 
 ```bash
-LD="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/lane-diff.mjs"
+LD="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/lane-diff.mjs"
 [ -f "$LD" ] || LD="$(pwd)/scripts/lib/lane-diff.mjs"
 # --cwd: the builder's worktree · --base: the commit the worktree branched from
 node "$LD" wpl.md --lane "Implement auth" --cwd "$WORKTREE" --base "$BRANCH_POINT"
@@ -496,7 +496,7 @@ to make the merge possible takes those edits with it — they are in no commit. 
 first, without touching anything:
 
 ```bash
-MP="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/lib/merge-preflight.mjs"
+MP="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/merge-preflight.mjs"
 [ -f "$MP" ] || MP="$(pwd)/scripts/lib/merge-preflight.mjs"
 node "$MP" "$LANE_BRANCH" --base main
 ```

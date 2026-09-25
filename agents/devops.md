@@ -52,7 +52,7 @@ never reached that far.
 is not checking them. Run the preflight and refuse on a non-zero exit:
 
 ```bash
-_PF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | sort -V | tail -1)
+_PF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_PF" ] && _PF="scripts/lib/deploy-preflight.mjs"
 node "$_PF" --target "${TARGET_ENV:-staging}" || { echo "STOP: deploy refused — required configuration is not set."; exit 1; }
 ```
@@ -341,7 +341,7 @@ patterns for this stack. A matched pattern means this exact failure sequence cau
 on a previous deploy and the fix is already documented.
 
 ```bash
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role deploy
 ```
 
@@ -480,7 +480,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    loudly — it connects to whatever the default turns out to be.
 
    ```bash
-   _PF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | sort -V | tail -1)
+   _PF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/deploy-preflight.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
    [ -z "$_PF" ] && _PF="scripts/lib/deploy-preflight.mjs"
    node "$_PF" --target "$TARGET_ENV" || {
      echo "STOP: deploy refused — required configuration is not set."

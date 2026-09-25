@@ -59,7 +59,7 @@ cd "$ROOT"
 # Find latest installed plugin dir (for L2/L4/L5 — runs against the SYNCED
 # version, not the working tree, to catch packaging issues)
 PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null \
-              | sort -V | tail -1 | sed 's|/$||')"
+              | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')"
 
 if [ -t 1 ]; then
   C_OK=$'\033[32m'; C_FAIL=$'\033[31m'; C_DIM=$'\033[2m'

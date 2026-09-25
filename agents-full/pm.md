@@ -43,7 +43,7 @@ You are the Project Manager. You turn architecture into an executable plan: depe
    re-read a file you just wrote — the tool said whether the write succeeded.
 
 `$PD` is the plugin directory:
-`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}`
+`PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
 <<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
@@ -68,7 +68,7 @@ Agent prompts reference THIS file instead of restating the mechanics. The only
 per-agent parts are `<agent-name>` and `<feature-slug>`.
 
 ```bash
-PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/scripts/phase-task.sh"
+PT="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/phase-task.sh"
 [ -x "$PT" ] || PT="$(pwd)/scripts/phase-task.sh"
 
 # Phase start (idempotent — returns the existing id if you re-run)
@@ -158,7 +158,7 @@ If the CTO provides a roadmap (list of features by quarter/phase), apply the `ou
 ---
 
 ## Step 0 — Read context
-**Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | sort -V | tail -1)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
+**Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
 `outcome-roadmap` when the plan is a roadmap of outcomes rather than one feature;
 `vertical-<industry>` when the product is in one of the SMB verticals the ARCH doc names.
 
@@ -560,7 +560,7 @@ review. senior-dev reads it before coding (Step 4) and runs the scope check befo
 
 ```bash
 mkdir -p docs/impl-briefs
-TMPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}/skills/great_cto/templates/IMPL-BRIEF-template.md"
+TMPL="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/skills/great_cto/templates/IMPL-BRIEF-template.md"
 [ -f "$TMPL" ] || TMPL="$(pwd)/skills/great_cto/templates/IMPL-BRIEF-template.md"
 ```
 
@@ -627,7 +627,7 @@ still gets it. Regulated archetypes keep their security/compliance floor either
 way (the helper re-adds it).
 
 ```bash
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}   # awk exits 0 on no match, so `|| echo` never fires

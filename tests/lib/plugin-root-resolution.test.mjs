@@ -17,6 +17,8 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -109,4 +111,147 @@ test('stale copies are found by a rule, not by a list somebody must remember to 
   }
   const lib = fs.readFileSync(path.join(ROOT, 'scripts/lib/sync-managed.mjs'), 'utf8');
   assert.match(lib, /great_cto-managed/, 'the sync must touch only files great_cto wrote');
+});
+
+// ── Which version, when two marketplaces hold one ───────────────────────────
+//
+// The fallback walked every marketplace — and then picked among them with
+// `… | sort -V | tail -1`. `sort -V` orders the WHOLE path, so the marketplace
+// name decides before the version is ever compared: with the git marketplace at
+// `cache/great-cto/great_cto/3.37.0` and a stale `cache/local/great_cto/3.36.0`
+// left by install-local.sh, 'l' > 'g' and every agent, command and hook ran
+// 3.36.0. Both marketplaces exist on real machines, so this was not a corner.
+//
+// The one lookup, for a directory or for a file inside it:
+//
+//   ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | <CANON> | sed 's|/$||'
+//   ls ~/.claude/plugins/cache/*/great_cto/*/<path> 2>/dev/null | <CANON>
+//
+// CANON puts the version directory — the third component after plugins/cache/ —
+// in front of each line, sorts on that, and takes the path back off. It is
+// inline shell rather than a helper because the helper would live in the very
+// directory being looked for.
+const CANON = `awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-`;
+const OLD = 'sort -V | tail -1';
+
+/** Every string that ships and could be executed — JSON decoded, continuations joined. */
+function shippedTexts() {
+  const out = [];
+  const add = (rel, text) => out.push({ rel, text: text.replace(/[ \t]*\\\n\s*/g, ' ') });
+  const walk = (rel) => {
+    const abs = path.join(ROOT, rel);
+    let st;
+    try { st = fs.statSync(abs); } catch { return; }
+    if (st.isDirectory()) {
+      for (const e of fs.readdirSync(abs)) if (e !== 'node_modules') walk(path.join(rel, e));
+      return;
+    }
+    if (!/\.(md|mjs|js|sh|json|py|toml)$/.test(rel)) return;
+    const raw = fs.readFileSync(abs, 'utf8');
+    if (rel.endsWith('.json')) {
+      let doc;
+      try { doc = JSON.parse(raw); } catch { add(rel, raw); return; }
+      const strings = [];
+      const visit = (v) => {
+        if (typeof v === 'string') strings.push(v);
+        else if (v && typeof v === 'object') Object.values(v).forEach(visit);
+      };
+      visit(doc);
+      add(rel, strings.join('\n'));
+    } else add(rel, raw);
+  };
+  for (const p of ['agents', 'agents-full', 'commands', 'scripts', 'skills', 'shared',
+    '.claude-plugin', 'settings.json']) walk(p);
+  return out;
+}
+
+const LOOKUP_START = /ls (?:-d )?"?(?:~|\$HOME)"?\/\.claude\/plugins\/cache\/\*\/great_cto\//g;
+const LOOKUP = new RegExp(
+  String.raw`ls (?:-d )?"?(?:~|\$HOME)"?\/\.claude\/plugins\/cache\/\*\/great_cto\/\*\/(\S*?)"? 2>\/dev\/null \| `
+  + CANON.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  + String.raw`(?: \| sed (['"])s\|\/\$\|\|\2)?`, 'g');
+
+/** Two marketplaces, the stale one alphabetically last — the machine that broke. */
+function fakeHome(files = []) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-plugin-root-'));
+  const versions = [
+    'great-cto/great_cto/3.37.0',
+    'great-cto/great_cto/3.9.0', // numeric, not lexical: 3.9 < 3.37
+    'local/great_cto/3.36.0',
+  ];
+  for (const v of versions) {
+    const dir = path.join(home, '.claude/plugins/cache', v);
+    fs.mkdirSync(dir, { recursive: true });
+    for (const f of files) {
+      fs.mkdirSync(path.dirname(path.join(dir, f)), { recursive: true });
+      fs.writeFileSync(path.join(dir, f), '');
+    }
+  }
+  return home;
+}
+
+function resolveIn(home, expr) {
+  const r = spawnSync('bash', ['-c', `printf %s "$(${expr})"`],
+    { env: { ...process.env, HOME: home, CLAUDE_PLUGIN_ROOT: '' }, encoding: 'utf8' });
+  return r.stdout;
+}
+
+test('the lookup picks the newest VERSION, not the alphabetically-last marketplace', () => {
+  const home = fakeHome(['scripts/lib/report-pii.mjs']);
+  try {
+    const want = path.join(home, '.claude/plugins/cache/great-cto/great_cto/3.37.0');
+    // The fixture reproduces the bug: the old form lands on `local`.
+    assert.match(resolveIn(home,
+      `ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | ${OLD} | sed 's|/$||'`),
+    /\/local\/great_cto\/3\.36\.0$/);
+    assert.equal(resolveIn(home,
+      `ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | ${CANON} | sed 's|/$||'`), want);
+    assert.equal(resolveIn(home,
+      `ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | ${CANON}`),
+    path.join(want, 'scripts/lib/report-pii.mjs'));
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
+});
+
+test('every plugin lookup that ships is the canonical one', () => {
+  const offenders = [];
+  let total = 0;
+  for (const { rel, text } of shippedTexts()) {
+    const starts = (text.match(LOOKUP_START) || []).length;
+    const canon = (text.match(LOOKUP) || []).length;
+    total += canon;
+    if (starts !== canon) offenders.push(`${rel}: ${starts - canon} of ${starts}`);
+  }
+  assert.deepEqual(offenders, [],
+    'these list the plugin cache without the version-sorting lookup — copy CANON from this test');
+  assert.ok(total > 50, `found only ${total} lookups — the scan is not seeing the repository`);
+});
+
+test('nothing still sorts the full cache path — the marketplace name would pick the version', () => {
+  const FULL_PATH_SORT = /\bls\b[^|\n]*plugins\/cache\/[^|\n]*\|\s*(?:sort|head|tail)\b/;
+  const offenders = [];
+  for (const { rel, text } of shippedTexts()) {
+    text.split('\n').forEach((l, i) => {
+      if (FULL_PATH_SORT.test(l)) offenders.push(`${rel}:${i + 1}`);
+    });
+  }
+  assert.deepEqual(offenders, [],
+    '`ls …/plugins/cache/… | sort -V | tail -1` ranks `local/…/3.36.0` above `great-cto/…/3.37.0`');
+});
+
+test('every shipped lookup resolves to the newest version on a two-marketplace machine', () => {
+  const lookups = [];
+  for (const { rel, text } of shippedTexts()) {
+    // `skills/<name>/SKILL.md` is a template the agent fills in; fill it the same way.
+    const fill = (x) => x.replace(/<[a-z-]+>/g, 'sample');
+    for (const m of text.matchAll(LOOKUP)) lookups.push({ rel, expr: fill(m[0]), file: fill(m[1]) });
+  }
+  assert.ok(lookups.length > 50, `only ${lookups.length} lookups found`);
+  const home = fakeHome([...new Set(lookups.map((l) => l.file).filter(Boolean))]);
+  try {
+    const wrong = lookups
+      .map((l) => ({ ...l, got: resolveIn(home, l.expr) }))
+      .filter((l) => !l.got.includes('/great-cto/great_cto/3.37.0'))
+      .map((l) => `${l.rel}: ${l.expr.slice(0, 70)} → ${l.got || '(nothing)'}`);
+    assert.deepEqual(wrong, []);
+  } finally { fs.rmSync(home, { recursive: true, force: true }); }
 });

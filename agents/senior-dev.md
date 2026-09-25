@@ -210,7 +210,7 @@ approaches in the current archetype:
 # e.g.  TASK=$(cat .great_cto/tasks.md | grep "in_progress" | head -1 | sed 's/.*title: //')
 
 # Locate memory-filter script (plugin install path or local dev path)
-_MF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | sort -V | tail -1)
+_MF=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/memory-filter.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_MF" ] && _MF="scripts/memory-filter.mjs"
 
 # This project's own gate decisions (ADR-008: gate approvals are project-scoped —
@@ -400,7 +400,7 @@ for this stack. A matched pattern means a past agent already hit this bug and do
 Apply it rather than re-discovering it.
 
 ```bash
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role implement
 ```
 

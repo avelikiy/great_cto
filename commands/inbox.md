@@ -13,7 +13,7 @@ attention right now. Keep the response **under 30 lines**.
 
 ```bash
 HOURS="${1:-24}"
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 HELPER="${PLUGIN_DIR}/scripts/cmd-data/inbox-data.sh"
 [ -f "$HELPER" ] || HELPER="$(pwd)/scripts/cmd-data/inbox-data.sh"
 
@@ -74,7 +74,7 @@ Surface the audited gate-bypass trail so nothing expires silently. Active except
 sanctioned overrides; expired/revoked ones are debt to remediate.
 
 ```bash
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 node "$PD/scripts/lib/exceptions.mjs" list 2>/dev/null || node scripts/lib/exceptions.mjs list 2>/dev/null || true
 ```
 
