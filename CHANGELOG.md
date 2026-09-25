@@ -4,6 +4,21 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Changed behaviour — read before upgrading
+
+- **Commands that destroy uncommitted work are refused** (`scripts/hooks/shared-tree-guard.mjs`,
+  PreToolUse on Bash): `git stash` (all but `list`/`show`), `git checkout -- <path>` / `.` /
+  `-f`, `git restore <path>` (unstaging with `--staged` stays allowed), `git reset --hard`,
+  `git clean -f`. Several sessions often share one working tree, and another session's
+  uncommitted edits are in neither the index nor the history. The refusal tells the agent
+  the safe route: a patch (`git diff > /tmp/x.patch`) or a separate `git worktree`. The
+  command is parsed, not grepped — a commit message that mentions `git stash` passes;
+  `a && git stash -u`, `$(…)`, `bash -c` and `eval` are seen. Measured cause: at effort
+  MEDIUM, senior-dev ran `git stash -u && npm test; git stash pop` in 2 of 3 runs. It also
+  refuses `git reset --hard` inside an agent's own isolated worktree; in a tree nobody else
+  uses, set `GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1`.
 
 ## v3.36.1 — 2026-09-25
 
