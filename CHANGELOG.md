@@ -4,7 +4,10 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.37.1 — 2026-09-25
+
+Every main session starts about 4.6k tokens lighter.
 
 ### Changed
 
