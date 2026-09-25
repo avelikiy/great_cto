@@ -9,6 +9,7 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `SessionStart` | — | inline (plugin.json) | Loads PROJECT.md, syncs agents/commands, primes context |
 | `SessionEnd` | — | `session-end.mjs` | Writes session snapshot to `.great_cto/logs/` |
 | `PreToolUse` | `Bash` | inline | Blocks dangerous bash (rm -rf, force push, DROP TABLE, etc.) |
+| `PreToolUse` | `Bash` | `shared-tree-guard.mjs` | Refuses `git stash`, `checkout -- <path>`, `restore <path>`, `reset --hard`, `clean -f` — they destroy other sessions' uncommitted work in a shared tree |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
 | `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` + `docs-reference-sync.mjs` | Logs writes + auto-formats by extension + regenerates `docs/reference/` |
 | `UserPromptSubmit` | — | `user-prompt-submit.py` + `cost-guard.mjs` | Sets session title + warns on expensive prompts |
@@ -66,6 +67,37 @@ const TOK = "ghp_realToken...";  // intentional, e.g. tutorial code
 ```
 
 See **ADR-014** for the full pattern catalogue.
+
+### `shared-tree-guard.mjs`
+
+Several Claude Code sessions often work in **one** working tree. Their uncommitted edits are in
+neither the index nor the history, so a command that resets the tree destroys them for good.
+This hook refuses, at the tool layer:
+
+| Command | Allowed forms |
+|---|---|
+| `git stash` — any form, incl. `-u`, `push`, `pop`, `apply`, `drop` | `git stash list`, `git stash show` |
+| `git checkout -- <path>`, `git checkout <ref> -- <path>`, `git checkout .`, `git checkout -f` | branch switches: `git checkout main`, `-b feat/x` |
+| `git restore <path>` | `git restore --staged <path>` (index only) |
+| `git reset --hard` | `git reset`, `--soft`, `--mixed` |
+| `git clean -f` (any cluster with `f`) | `git clean -n` (dry run) |
+
+The command is **parsed, not grepped**: text inside quotes, comments and heredoc bodies is a
+word, so a commit message that *mentions* `git stash` passes; the command itself is caught
+inside `a && …`, `( … )`, `$( … )`, backticks, `bash -c '…'`, `eval`, and behind `VAR=1`,
+`env`, `git -C <dir>`.
+
+The refusal tells the agent what to do instead: save a patch (`git diff > /tmp/x.patch`,
+reversible with `git apply` / `git apply -R`) or test the baseline in a separate tree
+(`git worktree add "$(mktemp -d)" HEAD`).
+
+Why: in the S3 effort A/B (`docs/plans/PLAN-2026-09-23-agent-speed.md`) senior-dev at effort
+MEDIUM ran `git stash -u && npm test; git stash pop` in 2 of 3 runs to check its baseline.
+
+**Opt-out** (a tree nobody else works in):
+```bash
+export GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1
+```
 
 ### `format-check.mjs`
 
