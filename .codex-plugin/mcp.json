@@ -4,7 +4,7 @@
       "command": "npx",
       "args": [
         "-y",
-        "great-cto@3.35.0",
+        "great-cto@3.36.0",
         "mcp"
       ]
     }

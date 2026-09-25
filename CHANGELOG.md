@@ -4,7 +4,12 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.36.0 — 2026-09-25
+
+The proposal you approve with one word now says how the work counts as done, a bug is
+reproduced before it is fixed, and there is a tool to see whether that lowered the rate at
+which you correct the work. senior-dev also starts a third lighter.
 
 ### Added
 
