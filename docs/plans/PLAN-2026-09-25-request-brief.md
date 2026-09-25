@@ -1,6 +1,6 @@
 # Plan — a short request becomes a task brief before any work starts
 
-Status: B3 shipped (baseline below), B1–B2 in progress · 2026-09-25
+Status: B1–B3 shipped (f7f0d0ac); B4, B5 open · 2026-09-25
 
 ## Why (measured)
 
@@ -95,8 +95,11 @@ no private names in public artefacts) come from the operator's rules as they are
   adds a short instruction: write the brief, sized, before the first edit; plus the project's
   invariants. For a 1–3-word continuation it adds nothing — the brief already exists in the
   proposal being approved. `*` prefix bypasses, as in prompt-improver.
-- **Agents**: senior-dev, devops and l3-support refuse to start without a `Done when` they can
-  run themselves; a brief without one goes back.
+- **Agents** (shipped): senior-dev, devops and l3-support follow `agents/_shared/task-brief.md`.
+  Dispatched without a `Done when`, they write one and open the report with it; if they cannot
+  name a check they can run themselves, that is the report's first line, not "done". Softer
+  than refusing to start — a refusal would cost a round trip on every under-specified dispatch,
+  and the measurement will say whether the softer form is enough.
 - **Questions** go through AskUserQuestion with the recommended option first — answerable
   with one click.
 
