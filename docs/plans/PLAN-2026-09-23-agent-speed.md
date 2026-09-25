@@ -1,6 +1,6 @@
 # Plan — agents that finish sooner, and work that runs side by side
 
-Status: proposed · Started 2026-09-23
+Status: partly shipped — S3, S7 open · Started 2026-09-23
 
 ## Where the time goes (measured)
 
@@ -59,3 +59,31 @@ A faster model for senior-dev by default: its pass rate is what the evals protec
 tests the cheaper lever — effort — first. Running more agents than the machine and the
 provider's rate limits carry: parallel evals on 23.09 ran six at once without errors; that is
 the measured ceiling so far, not a target.
+
+## What shipped, and what the benchmark said (2026-09-25)
+
+Shipped: S1 (review fans out; code-reviewer's edge carries gate:ship), S2+S5
+(`agents/_shared/work-fast.md` in 14 agents), S4 (`scripts/lib/affected-tests.mjs`), S6
+(coordinator dispatches disjoint packets in one message, pm plans in waves), S8
+(`scripts/lib/agent-speed.mjs`). Not done: S3 (effort A/B — next), S7.
+
+Controlled benchmark: one TDD task (`applyDiscount`, IMPL-BRIEF given), senior-dev with the
+3.34 prompt vs this one, three runs each, pipeline hooks disabled.
+
+| | 3.34 prompt | with work-fast |
+|---|---|---|
+| Runs that finished | 1 of 3 (two streams ended mid-task) | 3 of 3 |
+| Minutes | 2.8 | 3.4 / 3.8 / 4.9 |
+| Messages with 2+ tool calls | 6–8% | 0–8% |
+| Full-suite test runs | 3–6 | 5–6 |
+| Result | tests green, inside the brief | tests green, inside the brief |
+
+**The prompt rules did not change behaviour.** Batching and targeted testing stayed where
+they were; the text is in the prompt and the model did not follow it on this task. S2 and S4
+are shipped as harmless but **unproven**; enforcing them would take a hook, not a sentence.
+S1 and S6 are structural: the review stage's wall time falls from the sum of the reviewers
+(8.3 min by median) to the slowest (5.7, −31%), which needs no model cooperation.
+
+The benchmark found something larger: `great_cto@local` had never loaded — an invalid
+marketplace `source` made Claude Code stub it — so every session ran 3.29.1's hook list.
+Fixed on this machine by moving to the GitHub marketplace registration (see the release flow).
