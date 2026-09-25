@@ -17,8 +17,8 @@ transition.
 ## Preflight
 
 ```sh
-npx --yes great-cto@3.34.0 codex-host doctor
-npx --yes great-cto@3.34.0 codex-host list --dir /absolute/project
+npx --yes great-cto@3.35.0 codex-host doctor
+npx --yes great-cto@3.35.0 codex-host list --dir /absolute/project
 ```
 
 `doctor.state=blocked` means do not start. Docker may be unavailable when no
@@ -31,7 +31,7 @@ Policies must be operator-owned absolute files outside the worker project.
 Allowed paths are explicit controller write boundaries.
 
 ```sh
-npx --yes great-cto@3.34.0 codex-host start \
+npx --yes great-cto@3.35.0 codex-host start \
   --dir /absolute/project \
   --prompt "the requested outcome" \
   --allow src,tests,docs \
@@ -49,9 +49,9 @@ Then pass back the controller-issued token; never synthesize or persist one in a
 project file.
 
 ```sh
-npx --yes great-cto@3.34.0 codex-host approve RUN_UUID --token GATE_TOKEN
-npx --yes great-cto@3.34.0 codex-host approve-release RUN_UUID --token RELEASE_TOKEN
-npx --yes great-cto@3.34.0 codex-host resume RUN_UUID
+npx --yes great-cto@3.35.0 codex-host approve RUN_UUID --token GATE_TOKEN
+npx --yes great-cto@3.35.0 codex-host approve-release RUN_UUID --token RELEASE_TOKEN
+npx --yes great-cto@3.35.0 codex-host resume RUN_UUID
 ```
 
 Use `recover` only after inspecting the recorded reason. Recovery reuses the

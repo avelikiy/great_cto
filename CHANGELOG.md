@@ -10,6 +10,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.35.0 — 2026-09-25
+
+The review stage runs side by side, orchestrators hand out independent work in one message,
+and agent speed can be measured. A benchmark also showed that the plugin most machines
+registered from the local marketplace never loaded at all — see *Fixed*.
+
+### Changed behaviour — read before upgrading
+
+- **Review fans out.** After senior-dev, code-reviewer, qa-engineer and security-officer are
+  dispatched together, and each waits for the other two before devops (`shared/pipeline.toml`
+  `join`). The stage takes as long as the slowest reviewer instead of their sum — by the
+  measured medians, 8.3 → 5.7 min. code-reviewer's edge now carries `gate:ship` too, so
+  whichever reviewer finishes last cannot reach devops without the ship decision. If one
+  reviewer blocks and the code changes, the others' verdicts predate the change and
+  `gate:ship` refuses them — a fan-out cannot ship a stale pass.
+- **coordinator dispatches disjoint packets in one message; pm plans in waves.**
+
+### Added
+
+- **`scripts/lib/agent-speed.mjs`** — per agent: median and p90 minutes, tool calls, the
+  share of turns that carried more than one tool call, and the share of time spent in the
+  model, from Claude Code's own subagent transcripts. `--since` / `--until` compare windows.
+- **`scripts/lib/affected-tests.mjs`** — the test command for the files you changed (JS/TS,
+  Rust, Dart/Flutter, Python, Go), or `full` when nothing maps.
+- **`agents/_shared/work-fast.md`** in 14 working agents: batch independent calls, never poll,
+  targeted tests while iterating and the full suite once. **Measured and not effective yet:**
+  in a controlled benchmark (one TDD task, three runs per prompt) the rules did not change how
+  often senior-dev batched calls or re-ran the full suite. They are shipped as harmless;
+  making them hold will take enforcement, not a sentence.
+
+### Fixed
+
+- **`great_cto@local` never loaded.** The `local` marketplace entry `install-local.sh` feeds
+  gave `source` as an absolute path, which Claude Code rejects and replaces with a stub that
+  has no hooks. Machines with both registrations ran the GitHub marketplace one — on the
+  measuring machine, 3.29.1's hook list — so hooks added in 3.30–3.34 never registered there,
+  and `shared/*.toml` kept being copied into projects. `install-local.sh` now also updates
+  `great_cto@great-cto`. To check yours: `claude plugin list`; one great_cto enabled, current
+  version. `claude -p ok --debug hooks` then `~/.claude/debug/latest` shows what loads.
+
+
 ## v3.34.0 — 2026-09-23
 
 great_cto stops leaving its own state in your repository's history, reads its pipeline
