@@ -128,8 +128,9 @@ Measured on the path the pipeline uses — senior-dev dispatched as a subagent; 
 
 The middle row is the finding: giving an agent the Skill tool puts the list of every
 installed skill into its prompt — +13k tokens a turn on the measuring machine, more than
-the skill it would load. architect, pm and product-owner have carried that since 3.32.
-Whether their on-demand verticals are worth it is a separate measurement.
+the skill it would load. architect, pm and product-owner carried it since 3.32; it came off in 3.36.1 — architect's
+first-turn prompt 78.4k → 65.5k tokens as a subagent — and their on-demand skills are read as
+files.
 
 Guards: `prompt-size` now counts preloaded skills (it stopped at the file and its
 contracts); a test refuses a subagent-dispatch guide on an agent without the Agent tool,

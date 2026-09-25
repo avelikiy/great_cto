@@ -4,6 +4,17 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- **architect, pm and product-owner no longer carry the Skill tool.** The tool puts the name
+  and description of every installed skill into the agent's prompt on every turn. Measured
+  as a dispatched subagent, architect's first-turn prompt fell 78.4k → 65.5k tokens (−16.5%)
+  — on Opus, every turn. The skills they loaded on demand (the `vertical-*` industries,
+  `outcome-roadmap`, `product-economics`, `opportunity-solution-tree`) are now read as files
+  from the installed plugin when they apply. The tool had shipped in 3.32 but only reached
+  sessions with 3.36, when the stubbed local plugin was fixed — no run had used it.
 
 ## v3.36.0 — 2026-09-25
 

@@ -64,7 +64,7 @@ test('only an agent that dispatches subagents preloads the guides to dispatching
 });
 
 // A skill over 20 KB is preloaded only by the agents whose job it is; everyone
-// else loads it with the Skill tool when the task needs it.
+// else reads it as a file when the task needs it (see the Skill-tool test below).
 const HEAVY_OWNERS = {
   'ui-ux-pro-max': ['design-advisor', 'mobile-app-builder'], // the design contract and the mobile UI build
 };
@@ -78,5 +78,21 @@ test('a heavy skill is preloaded only where it is the job', () => {
       if (!(HEAVY_OWNERS[s] || []).includes(f.replace(/\.md$/, ''))) bad.push(`${f}: ${s}`);
     }
   }
-  assert.deepEqual(bad, [], 'load it on demand with the Skill tool, or name the agent in HEAVY_OWNERS with the reason');
+  assert.deepEqual(bad, [], 'read it on demand as a file, or name the agent in HEAVY_OWNERS with the reason');
+});
+
+// The Skill tool puts the name and description of every installed skill into the
+// agent's prompt — measured 25.09 as a dispatched subagent: +13k tokens a turn on
+// a machine with a few hundred skills, more than the one skill it would load.
+// On-demand skills are read as files instead.
+test('no agent carries the Skill tool; on-demand skills are read as files', () => {
+  const withTool = []; const bad = [];
+  for (const f of readdirSync(join(ROOT, 'agents')).filter((n) => n.endsWith('.md'))) {
+    const file = join(ROOT, 'agents', f);
+    if (/\bSkill\b/.test(toolsOf(file))) withTool.push(f);
+    const body = readFileSync(file, 'utf8');
+    if (/Skills on demand/.test(body) && !/skills\/<name>\/SKILL\.md/.test(body)) bad.push(f);
+  }
+  assert.deepEqual(withTool, [], 'drop the Skill tool; read the skill file when it applies');
+  assert.deepEqual(bad, [], 'an on-demand list must say how to read the file');
 });
