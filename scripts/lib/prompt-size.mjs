@@ -70,31 +70,61 @@ function stripFrontmatter(text) {
 }
 
 /**
- * One agent's EFFECTIVE prompt — the file plus the `_shared` contracts it points
- * at, which is what the model actually receives.
+ * The skills an agent's frontmatter preloads. Claude Code injects each one in
+ * full at the start of every run of the agent — measured 25.09 in a senior-dev
+ * transcript: six skill messages, 96 KB, before the task was read.
+ *
+ * Bare names resolve to this repo's `skills/<name>/SKILL.md`. A plugin-qualified
+ * name (`superpowers:x`) lives in another plugin's install on the user's machine;
+ * it is listed and counted as external, never sized, so the number does not
+ * depend on what happens to be installed where it runs.
+ */
+export function preloadedSkills(frontmatter, { skillsRoot }) {
+  const block = String(frontmatter).match(/^skills:\n((?:[ \t]+-[^\n]*\n?)+)/m);
+  if (!block) return [];
+  return [...block[1].matchAll(/-\s*(\S+)/g)].map(([, name]) => {
+    if (name.includes(':')) return { name, tokens: null, external: true };
+    try {
+      return { name, tokens: estimateTokens(stripFrontmatter(readFileSync(join(skillsRoot, name, 'SKILL.md'), 'utf8'))), external: false };
+    } catch {
+      return { name, tokens: null, external: false, missing: true };
+    }
+  });
+}
+
+/**
+ * One agent's EFFECTIVE prompt — the file, the `_shared` contracts it points at,
+ * and the skills it preloads, which is what the model actually receives.
  *
  * Reporting the file alone is the measurement that missed the 39% growth: the
- * file did not change size, the prompt did.
+ * file did not change size, the prompt did. Leaving out the preloaded skills
+ * missed more: senior-dev carried a 46 KB UI-design skill into every backend task.
  */
-export function promptProfile(agentName, { root = AGENTS_DIR } = {}) {
-  let raw;
+export function promptProfile(agentName, { root = AGENTS_DIR, skillsRoot = join(root, '..', 'skills') } = {}) {
+  let file;
   try {
-    raw = stripFrontmatter(readFileSync(join(root, `${agentName}.md`), 'utf8'));
+    file = readFileSync(join(root, `${agentName}.md`), 'utf8');
   } catch {
     return null;
   }
+  const raw = stripFrontmatter(file);
+  const frontmatter = (file.match(/^---\n([\s\S]*?)\n---/) || [, ''])[1];
   const { text, expanded } = expandSharedRefs(raw, { root });
   const own = estimateTokens(raw);
-  const total = estimateTokens(text);
+  const withShared = estimateTokens(text);
+  const skills = preloadedSkills(frontmatter, { skillsRoot });
+  const skillTokens = skills.reduce((a, k) => a + (k.tokens || 0), 0);
   return {
     agent: agentName,
     chars: text.length,
-    tokens: total,
+    tokens: withShared + skillTokens,
     ownTokens: own,
     // What the shared contracts add. A prompt can be small on disk and large in
     // context, and only this column tells them apart.
-    sharedTokens: total - own,
+    sharedTokens: withShared - own,
     shared: expanded,
+    skillTokens,
+    skills,
   };
 }
 
@@ -130,7 +160,7 @@ const usd = (n) => `$${n.toFixed(2)}`;
 
 export function formatFleet(rows, { maxTokens = null } = {}) {
   const lines = [
-    `${'agent'.padEnd(28)}${'tokens'.padStart(8)}${'shared'.padStart(9)}  contracts`,
+    `${'agent'.padEnd(28)}${'tokens'.padStart(8)}${'shared'.padStart(9)}${'skills'.padStart(8)}  contracts`,
     '─'.repeat(78),
   ];
   for (const r of rows) {
@@ -138,7 +168,8 @@ export function formatFleet(rows, { maxTokens = null } = {}) {
     lines.push(
       r.agent.padEnd(28) +
       String(r.tokens).padStart(8) +
-      String(r.sharedTokens || 0).padStart(9) + '  ' +
+      String(r.sharedTokens || 0).padStart(9) +
+      String(r.skillTokens || 0).padStart(8) + '  ' +
       (r.shared.length ? r.shared.map((s) => s.replace(/\.md$/, '')).join(' ') : '—') +
       over,
     );
@@ -169,8 +200,11 @@ function main(argv) {
     if (!p) { console.error(`no agents/${one}.md`); return 2; }
     const c = runCost({ tokens: p.tokens, cases: Number(arg('--cases') || 40), turns: Number(arg('--turns') || 2) });
     if (argv.includes('--json')) { console.log(JSON.stringify({ ...p, cost: c }, null, 2)); return 0; }
-    console.log(`${p.agent}: ~${p.tokens} tokens (${p.ownTokens} own + ${p.sharedTokens} shared)`);
+    console.log(`${p.agent}: ~${p.tokens} tokens (${p.ownTokens} own + ${p.sharedTokens} shared + ${p.skillTokens} preloaded skills)`);
     console.log(`  contracts: ${p.shared.length ? p.shared.join(', ') : '—'}`);
+    const ext = p.skills.filter((k) => k.external).map((k) => k.name);
+    console.log(`  skills: ${p.skills.filter((k) => !k.external).map((k) => `${k.name} ${k.tokens ?? 'missing'}`).join(', ') || '—'}`
+      + (ext.length ? ` · not sized (other plugins): ${ext.join(', ')}` : ''));
     if (c) {
       console.log(`  a run of ${c.sends} sends: ${usd(c.uncached)} uncached, ${usd(c.cached)} cached`
         + ` — ${usd(c.saved)} (${(c.savedPct * 100).toFixed(0)}%)`);

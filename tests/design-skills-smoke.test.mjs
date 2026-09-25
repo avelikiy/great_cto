@@ -48,11 +48,18 @@ test('design-advisor mounts ui-ux-pro-max + anydesign and is plan-altitude', () 
   assert.match(md, /never.*implement|plan.*only|do not implement/i, 'must state the no-impl boundary');
 });
 
-test('senior-dev mounts the build skills and reads the DESIGN contract', () => {
+test('senior-dev builds to the DESIGN contract without carrying the design skill', () => {
   const md = read('agents/senior-dev.md');
-  assert.match(md, /^\s*-\s*ui-ux-pro-max\s*$/m);
-  assert.match(md, /web-artifacts-builder/);
-  assert.match(md, /theme-factory/);
+  // Preloaded, ui-ux-pro-max put 46 KB into every senior-dev run, backend tasks
+  // included. The design choices live in the DESIGN doc design-advisor wrote with
+  // it. Nor does senior-dev get the Skill tool to load it on demand: the tool
+  // brings the list of every installed skill into the prompt — +13k tokens a
+  // turn on the measuring machine (25.09), more than the skill it would load.
+  assert.doesNotMatch(md, /^\s*-\s*ui-ux-pro-max\s*$/m, 'not preloaded');
+  assert.doesNotMatch(md.split('---')[1], /^tools:.*\bSkill\b/m, 'and no Skill tool');
+  // web-artifacts-builder and theme-factory were named here as available; neither
+  // ships with great_cto nor was installed on the measuring machine, so the
+  // sentence promised the agent nothing.
   assert.match(md, /DESIGN-\{slug\}\.md/, 'must point the implementer at the design contract');
 });
 

@@ -1,6 +1,6 @@
 # Plan — agents that finish sooner, and work that runs side by side
 
-Status: partly shipped — S3 measured and not taken, S7 open · Started 2026-09-23
+Status: shipped — S3 measured and not taken, S7 for senior-dev · Started 2026-09-23
 
 ## Where the time goes (measured)
 
@@ -108,3 +108,29 @@ difference is the wrong way: at medium effort the agent reached for `git stash` 
 working tree another session shares, it removes that session's uncommitted work. senior-dev
 stays at XHIGH. Separately, no agent prompt forbids `git stash` today — that belongs in a
 hook, not a sentence (the S2 lesson), and is filed as its own item.
+
+## S7: what the prompt carries, not how long the file is (2026-09-25)
+
+The file was never the heavy part. A senior-dev transcript showed six skill messages
+injected before the task — 96 KB — because the agent's `skills:` list preloads each one in
+full into every run. Two were for work senior-dev does not do: `ui-ux-pro-max` (46 KB; the
+design choices are already in the DESIGN doc design-advisor writes with it) and
+`subagent-driven-development` (29 KB; senior-dev has no Agent tool).
+
+Measured on the path the pipeline uses — senior-dev dispatched as a subagent; `claude -p
+--agent` does not preload skills and shows nothing:
+
+| senior-dev | first-turn prompt | minutes (median) | cost (median) | correct |
+|---|---|---|---|---|
+| 3.35 | 83.4k tokens | 5.4 | $1.87 | 3 of 3 |
+| without the two preloads, **with** the Skill tool to load on demand | 68.6k | — | — | — |
+| without the two preloads (shipped) | **55.5k (−33%)** | **4.6 (−15%)** | **$1.63 (−13%)** | 3 of 3 |
+
+The middle row is the finding: giving an agent the Skill tool puts the list of every
+installed skill into its prompt — +13k tokens a turn on the measuring machine, more than
+the skill it would load. architect, pm and product-owner have carried that since 3.32.
+Whether their on-demand verticals are worth it is a separate measurement.
+
+Guards: `prompt-size` now counts preloaded skills (it stopped at the file and its
+contracts); a test refuses a subagent-dispatch guide on an agent without the Agent tool,
+and a skill over 20 KB preloaded by any agent not named as its owner.

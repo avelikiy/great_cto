@@ -4,6 +4,19 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- **senior-dev starts a third lighter.** It no longer preloads `ui-ux-pro-max` (46 KB — UI
+  choices come from the DESIGN doc, written with that skill) or
+  `superpowers:subagent-driven-development` (29 KB — senior-dev dispatches no subagents).
+  Measured as a dispatched subagent: first-turn prompt 83.4k → 55.5k tokens, median run
+  5.4 → 4.6 min, cost $1.87 → $1.63, same results. The sentence naming
+  `web-artifacts-builder` and `theme-factory` is gone — neither skill ships or was installed.
+- **`prompt-size` counts preloaded skills**, which Claude Code injects in full into every
+  run of the agent. Skills from other plugins are listed, not sized.
+
 
 
 

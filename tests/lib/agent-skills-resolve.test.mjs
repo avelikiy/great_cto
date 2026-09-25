@@ -43,3 +43,40 @@ test('the three field-lesson skills reach the agents that do that work', () => {
   for (const a of ['security-officer', 'l3-support']) assert.ok(has(a, 'secrets-rotation'), `${a} → secrets-rotation`);
   for (const a of ['senior-dev', 'devops', 'mobile-app-builder']) assert.ok(has(a, 'signing-preflight'), `${a} → signing-preflight`);
 });
+
+// A preloaded skill is injected in full into every run of the agent and re-read
+// on every turn. Measured 25.09 in a senior-dev transcript: 96 KB of skills
+// before the task, 75 KB of it for work senior-dev does not do — a UI-design
+// skill on backend tasks, and a guide to dispatching subagents for an agent with
+// no Agent tool.
+const toolsOf = (file) => (readFileSync(file, 'utf8').match(/^---\n([\s\S]*?)\n---/)[1].match(/^tools:(.*)$/m) || [, ''])[1];
+
+test('only an agent that dispatches subagents preloads the guides to dispatching them', () => {
+  const bad = [];
+  for (const f of readdirSync(join(ROOT, 'agents')).filter((n) => n.endsWith('.md'))) {
+    const file = join(ROOT, 'agents', f);
+    const dispatches = /\b(Agent|Task)\b/.test(toolsOf(file));
+    for (const s of skillsOf(file)) {
+      if (/^superpowers:(subagent-driven-development|dispatching-parallel-agents)$/.test(s) && !dispatches) bad.push(`${f}: ${s}`);
+    }
+  }
+  assert.deepEqual(bad, [], 'no Agent tool, so the guide is dead weight on every turn');
+});
+
+// A skill over 20 KB is preloaded only by the agents whose job it is; everyone
+// else loads it with the Skill tool when the task needs it.
+const HEAVY_OWNERS = {
+  'ui-ux-pro-max': ['design-advisor', 'mobile-app-builder'], // the design contract and the mobile UI build
+};
+
+test('a heavy skill is preloaded only where it is the job', () => {
+  const bad = [];
+  for (const f of readdirSync(join(ROOT, 'agents')).filter((n) => n.endsWith('.md'))) {
+    for (const s of skillsOf(join(ROOT, 'agents', f))) {
+      const p = join(ROOT, 'skills', s, 'SKILL.md');
+      if (!existsSync(p) || readFileSync(p).length <= 20_000) continue;
+      if (!(HEAVY_OWNERS[s] || []).includes(f.replace(/\.md$/, ''))) bad.push(`${f}: ${s}`);
+    }
+  }
+  assert.deepEqual(bad, [], 'load it on demand with the Skill tool, or name the agent in HEAVY_OWNERS with the reason');
+});

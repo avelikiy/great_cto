@@ -17,10 +17,8 @@ memory: project
 color: blue
 skills:
   - superpowers:test-driven-development
-  - superpowers:subagent-driven-development
   - superpowers:requesting-code-review
   - done-blocked
-  - ui-ux-pro-max
   - stack-baseline
   - signing-preflight
 ---
@@ -127,9 +125,9 @@ runner (Vitest/Jest default to parallel). Concretely:
 ## UI tasks — build to the design contract
 
 For any UI-bearing task, read `docs/design/DESIGN-{slug}.md` first (the design-advisor's
-contract) and implement to it — do not re-decide design choices. The `ui-ux-pro-max`,
-`web-artifacts-builder` (React/Tailwind/shadcn), and `theme-factory` skills are available
-for the build; they activate on their own when the task is visual. For React Native,
+contract) and implement to it — do not re-decide design choices. The design choices were
+made with `ui-ux-pro-max` when that contract was written; it is not preloaded here, because
+most tasks are not visual and it put 46 KB into every turn of every run. For React Native,
 honour the Critical/High a11y rules in `skills/ui-ux-pro-max/data/app-interface.csv`. If no
 DESIGN doc exists for a non-trivial UI surface, flag it (the design-advisor phase was
 skipped) rather than inventing the design yourself.
