@@ -26,6 +26,8 @@ import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, basename, extname, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+// Dependency, build and tool-state directories: they hold no test of the project's
+// own code, and walking them (node_modules alone can be 100k files) is the slow part.
 const SKIP_DIRS = new Set(['node_modules', '.git', 'dist', 'build', 'target', '.dart_tool', '.venv', 'venv', '__pycache__', '.great_cto']);
 
 function changedFiles(cwd) {
