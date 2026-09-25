@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /** Prepare and start a disposable full-graph mixed-host release run. Never auto-approve gates. */
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
+import { createFixtureBase } from './lib/mixed-host-fixture-store.mjs';
 
 const image = process.env.GREAT_CTO_LIVE_DOCKER_IMAGE;
 if (!/^node@sha256:[0-9a-f]{64}$/.test(image || '')) {
   throw Error('GREAT_CTO_LIVE_DOCKER_IMAGE must be a pinned node@sha256 digest');
 }
 const repo = resolve(import.meta.dirname, '../..');
-const base = mkdtempSync(join(tmpdir(), 'great-cto-mixed-release-'));
+const base = createFixtureBase();
 const root = join(base, 'project'), store = join(base, 'runs');
 const operator = join(base, 'operator'), releaseRoot = join(base, 'releases');
 mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(operator, { mode: 0o700 }); mkdirSync(releaseRoot);

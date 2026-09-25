@@ -290,11 +290,15 @@ GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<local-digest> node tests/eval/mixed-hos
 ```
 
 It creates a disposable Git project, isolated run store, local release root
-and operator-owned policies, routes QA to Claude Code and security to Codex,
-then stops at `gate:product`. The printed paths and run ID are retained for
-separate operator approval and resume. The local release adapter still needs
-its own later release approval; this driver does not publish or activate an
-artifact by itself.
+and operator-owned policies under the private, persistent macOS directory
+`/Users/Shared/great-cto-acceptance-<uid>/` (or an absolute, private
+`GREAT_CTO_LIVE_BASE_DIR`; required on non-macOS hosts). The base must have no
+ancestor `.codex/config.toml`. This avoids losing a human-gated run to OS temp
+cleanup or inheriting a project Codex config. It routes QA to Claude Code and
+security to Codex, then stops at `gate:product`. The printed paths and run ID
+are retained for separate operator approval and resume. The local release
+adapter still needs its own later release approval; this driver does not
+publish or activate an artifact by itself.
 
 ## Related
 
