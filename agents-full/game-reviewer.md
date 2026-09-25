@@ -1,6 +1,6 @@
 ---
 name: game-reviewer
-description: Game / interactive-entertainment pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off age-rating + COPPA decisions before senior-dev claims tasks.
+description: "Game / interactive-entertainment pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

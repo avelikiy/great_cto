@@ -1,6 +1,6 @@
 ---
 name: library-reviewer
-description: Library / SDK pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off API stability decisions before senior-dev claims tasks.
+description: "Library / SDK pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

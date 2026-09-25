@@ -1,6 +1,6 @@
 ---
 name: decision-scorer
-description: Scores 2+ architectural alternatives against PROJECT.md criteria. Called by architect after proposing variants. Outputs a weighted scoring table and recommended choice.
+description: "md criteria. Called by architect after proposing variants."
 model: claude-sonnet-5
 authority: autonomous
 tools: Read, Glob, Grep, Bash(git:*), Bash(ls:*), Bash(cat:*)

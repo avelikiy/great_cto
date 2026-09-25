@@ -1,6 +1,6 @@
 ---
 name: media-pipeline-engineer
-description: Media-pipeline specialist for content-platform Product-Builder products (on-demand video, coaching, online-ordering imagery, storefronts). Owns the media contract — upload, transcode/HLS/ABR, storage tiers, signed CDN delivery, image optimization (AVIF/WebP/responsive srcset), access-tier gating, and processing-job idempotency. Runs after architect/design-advisor, before senior-dev. Writes docs/media/MEDIA-{slug}.md.
+description: "Media-pipeline specialist for content-platform Product-Builder products (on-demand…"
 model: sonnet
 authority: proposes
 advisor-model: claude-opus-5

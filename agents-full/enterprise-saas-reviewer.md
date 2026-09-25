@@ -1,6 +1,6 @@
 ---
 name: enterprise-saas-reviewer
-description: B2B / enterprise-SaaS pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off tenant-isolation decisions before senior-dev claims tasks.
+description: "B2B / enterprise-SaaS pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

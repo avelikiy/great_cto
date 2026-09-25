@@ -1,6 +1,6 @@
 ---
 name: firmware-reviewer
-description: IoT/embedded specialist pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "IoT/embedded specialist pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

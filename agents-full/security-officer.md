@@ -1,6 +1,6 @@
 ---
 name: security-officer
-description: Use after QA passes. Runs security audit by project type, writes report, controls gate:ship.
+description: "Use after QA passes. Runs security audit by project type, writes report, controls…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

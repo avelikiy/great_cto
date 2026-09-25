@@ -1,6 +1,6 @@
 ---
 name: app-scaffolder
-description: Project-scaffolding builder that stands up a working base application from the pinned stack-baseline so senior-dev implements FEATURES, not boilerplate. Creates the Next.js + TypeScript + Tailwind/shadcn skeleton, wires Drizzle + Postgres, Auth.js (to the auth-engineer contract), env template, folder structure, CI, and a passing smoke test — a deployable empty app. Runs first in the build, after gate:plan, before senior-dev. Writes the scaffold + docs/SCAFFOLD-{slug}.md. Without a pinned starter every build reinvents the skeleton; this makes the first hour of every product identical and correct.
+description: "Project-scaffolding builder that stands up a working base application from the pinned…"
 model: sonnet
 authority: proposes
 advisor-model: claude-opus-5

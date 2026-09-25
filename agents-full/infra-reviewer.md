@@ -1,6 +1,6 @@
 ---
 name: infra-reviewer
-description: Infrastructure-as-code pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off destructive changes before senior-dev claims tasks.
+description: "Infrastructure-as-code pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

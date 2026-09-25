@@ -1,6 +1,6 @@
 ---
 name: mcp-server-reviewer
-description: MCP (Model Context Protocol) server pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off the tool surface before senior-dev claims tasks.
+description: "MCP (Model Context Protocol) server pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

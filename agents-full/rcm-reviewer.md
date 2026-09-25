@@ -1,6 +1,6 @@
 ---
 name: rcm-reviewer
-description: Healthcare Revenue Cycle Management (RCM) / medical-billing specialist pre-implementation reviewer for the healthcare archetype. Outputs threat model TM-rcm-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Healthcare Revenue Cycle Management (RCM) / medical-billing specialist…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

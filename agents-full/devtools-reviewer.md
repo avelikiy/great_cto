@@ -1,6 +1,6 @@
 ---
 name: devtools-reviewer
-description: Devtools (CLI plugin / IDE extension / dev SDK) pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off supply-chain decisions before senior-dev claims tasks.
+description: "Devtools (CLI plugin / IDE extension / dev SDK) pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

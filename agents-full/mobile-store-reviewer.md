@@ -1,6 +1,6 @@
 ---
 name: mobile-store-reviewer
-description: Mobile-app pre-implementation reviewer for App Store / Play Store policy compliance. Outputs threat model TM-{slug}.md and signs off store-policy decisions before senior-dev claims tasks.
+description: "Mobile-app pre-implementation reviewer for App Store / Play Store policy compliance."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

@@ -1,6 +1,6 @@
 ---
 name: ai-security-reviewer
-description: AI-specific pre-implementation threat modelling for ai-system / agent-product archetypes. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "AI-specific pre-implementation threat modelling for ai-system / agent-product archetypes."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

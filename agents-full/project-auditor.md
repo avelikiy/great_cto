@@ -1,6 +1,6 @@
 ---
 name: project-auditor
-description: Use for /audit or when no PROJECT.md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis, outdated dependency scan, architectural debt, and a concrete refactoring plan.
+description: "md exists. Auditor + Architect hybrid — stack detection, vulnerability analysis,…"
 model: sonnet
 authority: proposes
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent, WebSearch, WebFetch, advisor_20260301, memory_20250929

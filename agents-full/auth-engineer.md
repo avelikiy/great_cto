@@ -1,6 +1,6 @@
 ---
 name: auth-engineer
-description: Authentication and access-control specialist for SMB Product-Builder products. Owns the auth contract — provider choice (Auth.js default / Clerk fast-path), session model, RBAC, multi-tenant row-level isolation, the protected-route map, account lifecycle (signup/login/reset/invite), and OAuth/magic-link/password flows. Runs after architect, before senior-dev. Writes docs/auth/AUTH-{slug}.md.
+description: "Authentication and access-control specialist for SMB Product-Builder products."
 model: sonnet
 authority: proposes
 advisor-model: claude-opus-5

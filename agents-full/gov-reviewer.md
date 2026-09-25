@@ -1,6 +1,6 @@
 ---
 name: gov-reviewer
-description: Government / public-sector specialist pre-implementation reviewer for gov-public archetype. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Government / public-sector specialist pre-implementation reviewer for gov-public…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

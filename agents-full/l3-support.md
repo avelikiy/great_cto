@@ -1,6 +1,6 @@
 ---
 name: l3-support
-description: Production support. Monitors logs, triages incidents, creates Beads tasks. For P0 — immediate investigation + postmortem.
+description: "Production support. Monitors logs, triages incidents, creates Beads tasks."
 model: sonnet
 authority: autonomous
 tools: Read, Write, Edit, Bash, Glob, Grep, WebSearch, advisor_20260301, memory_20250929, mcp__great_cto_llm_router__ask_kimi, mcp__grafana__search_alerts, mcp__grafana__query_loki, mcp__grafana__query_tempo, mcp__grafana__get_panel, mcp__grafana__list_dashboards

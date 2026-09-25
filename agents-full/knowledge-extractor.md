@@ -1,6 +1,6 @@
 ---
 name: knowledge-extractor
-description: Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md.
+description: "Deep-analysis agent spawned by /crystallize."
 model: claude-opus-5
 authority: proposes
 tools: Read, Write, Glob, Grep, Bash(git:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(grep:*), Bash(wc:*), Bash(echo:*), Bash(mkdir:*), Bash(date:*)

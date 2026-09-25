@@ -1,6 +1,6 @@
 ---
 name: msp-reviewer
-description: Managed Service Provider (MSP) / IT-services specialist pre-implementation reviewer for enterprise-saas and devtools archetypes. Outputs threat model TM-msp-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Managed Service Provider (MSP) / IT-services specialist pre-implementation reviewer for…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

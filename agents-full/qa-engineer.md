@@ -1,6 +1,6 @@
 ---
 name: qa-engineer
-description: Use after senior-dev completes implementation. Analyzes actual code, then runs type-appropriate QA, writes report, files bugs in Beads.
+description: "Use after senior-dev completes implementation."
 model: haiku
 authority: autonomous
 advisor-model: claude-sonnet-5

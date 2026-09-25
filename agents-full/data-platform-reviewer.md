@@ -1,6 +1,6 @@
 ---
 name: data-platform-reviewer
-description: Data-platform pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off retention + lineage decisions before senior-dev claims tasks.
+description: "Data-platform pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

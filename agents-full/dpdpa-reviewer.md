@@ -1,6 +1,6 @@
 ---
 name: dpdpa-reviewer
-description: India DPDPA 2023 + IT Act + RBI specialist pre-implementation reviewer. Auto-invoked on `in` jurisdiction signal. Covers DPDPA consent obligations, Data Fiduciary duties, Data Principal rights, cross-border transfer restrictions, and RBI data localisation for fintech. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "India DPDPA 2023 + IT Act + RBI specialist pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

@@ -1,6 +1,6 @@
 ---
 name: devops
-description: Use after gate:ship is approved. Deploys using the method matching the project type.
+description: "Use after gate:ship is approved. Deploys using the method matching the project type."
 model: haiku
 authority: escalates
 advisor-model: claude-sonnet-5

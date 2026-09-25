@@ -1,6 +1,6 @@
 ---
 name: oracle-reviewer
-description: Web3-DeFi specialist pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Web3-DeFi specialist pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

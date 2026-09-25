@@ -1,6 +1,6 @@
 ---
 name: e2e-test-engineer
-description: Use after qa-engineer passes and before/around devops deploy. Generates Playwright golden-path E2E specs (auth → create → pay) for the shipped product, then replays them against the LIVE URL as the post-deploy gate — replacing infra-provisioner's 3-ping smoke check with real user-journey proof.
+description: "Use after qa-engineer passes and before/around devops deploy."
 model: haiku
 authority: proposes
 advisor-model: claude-sonnet-5

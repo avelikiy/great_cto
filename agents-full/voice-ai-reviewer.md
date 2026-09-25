@@ -1,6 +1,6 @@
 ---
 name: voice-ai-reviewer
-description: Voice-AI / telephony pre-implementation reviewer. Specialises in TCPA prior-express-consent, STIR/SHAKEN attestation, state recording-consent matrix (one-/two-party), CRTC CASL (Canada), Ofcom CLI rules (UK), EU AI Act Article 50 synth-voice disclosure, deepfake laws (CA AB-2655, TN ELVIS Act), and PII redaction in transcripts/recordings. Outputs threat model TM-voice-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Voice-AI / telephony pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

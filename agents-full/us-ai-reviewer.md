@@ -1,6 +1,6 @@
 ---
 name: us-ai-reviewer
-description: US AI-governance pre-implementation reviewer — the US analogue of the EU AI Act coverage. Outputs threat model TM-usai-{slug}.md and signs off the AI-governance gate before senior-dev claims tasks.
+description: "US AI-governance pre-implementation reviewer — the US analogue of the EU AI Act coverage."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

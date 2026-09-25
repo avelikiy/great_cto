@@ -1,6 +1,6 @@
 ---
 name: web-store-reviewer
-description: Pre-implementation Web Store policy reviewer for browser-extension archetype. Validates manifest.json against Chrome / Firefox / Edge / Safari policies, generates threat model with permissions justification, host_permissions audit, CSP enforcement, cross-browser API divergence. Outputs TM-{slug}.md and pre-flight checklist.
+description: "Pre-implementation Web Store policy reviewer for browser-extension archetype."
 model: sonnet
 authority: autonomous
 tools: Read, Write, Edit, Bash, Glob, Grep, WebFetch, WebSearch, advisor_20260301

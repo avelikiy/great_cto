@@ -1,6 +1,6 @@
 ---
 name: procurement-reviewer
-description: Purchasing / source-to-pay specialist pre-implementation reviewer for enterprise-saas and enterprise archetypes. Outputs threat model TM-procurement-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Purchasing / source-to-pay specialist pre-implementation reviewer for enterprise-saas…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

@@ -1,6 +1,6 @@
 ---
 name: api-platform-reviewer
-description: API platform / dev-API pre-implementation reviewer. Outputs threat model TM-{slug}.md.
+description: "API platform / dev-API pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

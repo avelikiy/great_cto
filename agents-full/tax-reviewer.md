@@ -1,6 +1,6 @@
 ---
 name: tax-reviewer
-description: Tax preparation / filing specialist pre-implementation reviewer for the fintech archetype. Outputs threat model TM-tax-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Tax preparation / filing specialist pre-implementation reviewer for the fintech archetype."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

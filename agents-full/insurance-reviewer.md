@@ -1,6 +1,6 @@
 ---
 name: insurance-reviewer
-description: Insurance / InsurTech specialist pre-implementation reviewer for insurance archetype. Specialises in NAIC Model Acts (50-state filing matrix), the NAIC AI Model Bulletin 2023 (AIS Program, unfair-discrimination testing, DOI market-conduct readiness), Colorado SB 21-169 + NY DFS AI circular (insurance-specific algorithmic-discrimination testing), Solvency II (EU capital adequacy), IFRS 17 insurance contracts, ACORD standards, actuarial model auditability (ASOPs), anti-discrimination pricing analysis (disparate impact), claims fraud detection patterns, bordereau reporting for re-insurance. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Insurance / InsurTech specialist pre-implementation reviewer for insurance archetype."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

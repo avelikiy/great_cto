@@ -1,6 +1,6 @@
 ---
 name: code-reviewer
-description: Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict.
+description: "Use after senior-dev completes a task and before gate:ship."
 model: haiku
 authority: autonomous
 advisor-model: claude-sonnet-5

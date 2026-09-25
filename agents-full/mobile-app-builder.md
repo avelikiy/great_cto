@@ -1,6 +1,6 @@
 ---
 name: mobile-app-builder
-description: React Native implementer for Product-Builder products whose users work in the field (home-services dispatch, construction field-docs, field-booking, delivery). Builds the mobile app to the design-advisor's RN contract with TDD — offline-first sync, camera/photo + location capture, push notifications, and store-submission readiness — then hands off to mobile-store-reviewer for policy sign-off. Activated when a product's design contract specifies a React Native target. Field crews live on a phone; we had a mobile-store-reviewer (policy) but no builder — this is the builder.
+description: "React Native implementer for Product-Builder products whose users work in the field…"
 model: sonnet
 authority: proposes
 advisor-model: claude-opus-5

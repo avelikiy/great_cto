@@ -1,6 +1,6 @@
 ---
 name: mlops-reviewer
-description: MLOps / model lifecycle pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off training-pipeline + serving-strategy decisions before senior-dev claims tasks.
+description: "MLOps / model lifecycle pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

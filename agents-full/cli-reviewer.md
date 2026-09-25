@@ -1,6 +1,6 @@
 ---
 name: cli-reviewer
-description: CLI tool pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off CLI surface decisions before senior-dev claims tasks.
+description: "CLI tool pre-implementation reviewer. md and signs off CLI surface decisions before…"
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

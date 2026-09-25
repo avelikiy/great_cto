@@ -4,6 +4,16 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Changed
+
+- **Each main session starts ~4.6k tokens lighter.** Every agent is registered twice — as
+  `senior-dev` (the installed copy, 96% of dispatches) and as `great-cto:senior-dev` (the
+  plugin's). Both keep their full prompts; the plugin's copy now lists a one-line description
+  instead of repeating the full one. Measured on the first turn of a main session: 108.0k /
+  109.8k → 102.9k / 105.7k tokens. ADR-027, amended with option E.
+
 
 ## v3.37.0 — 2026-09-25
 

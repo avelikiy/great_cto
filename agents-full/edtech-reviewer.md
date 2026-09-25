@@ -1,6 +1,6 @@
 ---
 name: edtech-reviewer
-description: Education-technology specialist pre-implementation reviewer for edtech archetype. Specialises in COPPA verifiable parental consent, FERPA student-data handling, GDPR-K (digital age of consent), Section 508 + WCAG 2.2 AA accessibility, child-safety content moderation (CSAM hash, NCMEC reporting), and US state student-privacy laws (SOPIPA-CA, NY 2-D). Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks.
+description: "Education-technology specialist pre-implementation reviewer for edtech archetype."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

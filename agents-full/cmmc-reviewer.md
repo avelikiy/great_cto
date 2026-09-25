@@ -1,6 +1,6 @@
 ---
 name: cmmc-reviewer
-description: US defense-contractor (GovCon) pre-implementation reviewer. Outputs threat model TM-cmmc-{slug}.md and signs off the CMMC-assessment gate before senior-dev claims tasks.
+description: "US defense-contractor (GovCon) pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5

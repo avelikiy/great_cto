@@ -1,6 +1,6 @@
 ---
 name: cms-reviewer
-description: CMS / content-platform pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off SEO + a11y + content-policy decisions before senior-dev claims tasks.
+description: "CMS / content-platform pre-implementation reviewer."
 model: sonnet
 authority: autonomous
 advisor-model: claude-opus-5
