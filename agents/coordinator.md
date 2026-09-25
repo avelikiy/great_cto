@@ -108,7 +108,7 @@ Your task:          <specific deliverable — file:line references, exact change
 Verify command:     <command that must exit 0 after your work — tests, lint, etc.>
 
 ### Completion
-Acceptance criterion: <one verifiable outcome — test pass, file exists, output matches format>
+Acceptance criterion: <the brief's `Done when` (agents/_shared/task-brief.md) — one outcome the worker checks itself on what ships>
 Stop rule:          <when to stop if you discover scope exceeds this contract — escalate, don't expand>
 
 ### Do NOT

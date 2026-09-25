@@ -14,3 +14,7 @@
 5. Load the skill before these three: after a deploy or restart → great-cto:deploy-landed;
    a key or token seen where it should not be → great-cto:secrets-rotation; before the
    first commit of a session → great-cto:signing-preflight.
+6. Before the first edit of a change or a fix, your proposal carries `Done when:` — the
+   check you will run yourself on what ships — plus guesses marked [A1] and at most 3
+   questions, each with your pick. A bug: reproduce it first; done is that repro passing
+   where the operator saw it. Format: agents/_shared/task-brief.md.

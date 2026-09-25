@@ -1,6 +1,6 @@
 # Plan — a short request becomes a task brief before any work starts
 
-Status: proposed · 2026-09-25
+Status: B3 shipped (baseline below), B1–B2 in progress · 2026-09-25
 
 ## Why (measured)
 
@@ -106,6 +106,16 @@ The session study becomes a tool (`scripts/lib/request-quality.mjs`, read-only, 
 `agent-speed`): correction rate within three turns, "it doesn't work" reports per week, share
 of openers with `Done when`. Baseline above. Taken only if corrections fall and turns to "done"
 do not rise — a brief that slows every small task is not a win.
+
+## Baseline — `node scripts/lib/request-quality.mjs` (25.09, scripted sessions excluded)
+
+| Window | Requests | Corrected within 3 turns | "It doesn't work" | Approvals of a proposal with "Done when" |
+|---|---|---|---|---|
+| 27.07–25.09 | 4,219 | 7.0% | 83 | 0 of 965 |
+| 11.09–25.09 | 653 | 8.7% | 23 | 0 of 168 |
+
+The last column is what B1 moves directly; the first two are what it is for. Re-measure the
+same windows' length after B1 has run for two weeks.
 
 ## Order
 

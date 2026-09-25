@@ -6,6 +6,20 @@ All notable changes to great_cto are documented here.
 
 ## Unreleased
 
+### Added
+
+- **A task brief before the first edit** (`agents/_shared/task-brief.md`, operating rule 6).
+  The proposal an operator approves with one word now carries `Done when:` — a check the
+  agent runs itself on what ships — with guesses marked `[A1]` and at most three questions,
+  each with a recommended answer. A bug is reproduced before it is fixed, and is done when
+  that repro passes where the operator saw it. senior-dev, devops and l3-support follow it;
+  the coordinator's Worker Contract takes its acceptance criterion from it. Sized: a tiny
+  task gets one line.
+- **`scripts/lib/request-quality.mjs`** — how often requests get corrected, from your own
+  session logs; local, read-only, numbers only. Baseline on the measuring machine: 7.0% of
+  requests corrected within three turns, 83 "it doesn't work" reports in 60 days, 0 of 965
+  approvals of a proposal that said when it would be done.
+
 ### Changed
 
 - **senior-dev starts a third lighter.** It no longer preloads `ui-ux-pro-max` (46 KB — UI
