@@ -4,7 +4,13 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.37.0 — 2026-09-25
+
+Three guards turn rules the agents were told into refusals the tools enforce: no destroying
+another session's uncommitted work, no skipping the git hooks, no switching a check off to
+make it green. The two gate guards yield to a signed, expiring exception; the tree guard to an
+opt-out for a tree nobody else works in.
 
 ### Changed behaviour — read before upgrading
 
@@ -32,6 +38,10 @@ All notable changes to great_cto are documented here.
 
 ### Fixed
 
+- **Locating the installed plugin could pick a stale version.** Every lookup sorted the whole
+  path with `sort -V`, so with two marketplaces installed `cache/local/…/3.36.0` beat
+  `cache/great-cto/…/3.37.0` ("l" > "g"). Lookups now sort by the version segment, and a test
+  refuses any lookup written the old way.
 - **The README's Fleet screenshot showed an empty fleet since 3.28** — the capture fixture had
   no installed agents. It installs them now, and the capture refuses to photograph an empty
   panel.
