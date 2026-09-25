@@ -1,6 +1,6 @@
 # Plan — agents that finish sooner, and work that runs side by side
 
-Status: partly shipped — S3, S7 open · Started 2026-09-23
+Status: partly shipped — S3 measured and not taken, S7 open · Started 2026-09-23
 
 ## Where the time goes (measured)
 
@@ -87,3 +87,24 @@ S1 and S6 are structural: the review stage's wall time falls from the sum of the
 The benchmark found something larger: `great_cto@local` had never loaded — an invalid
 marketplace `source` made Claude Code stub it — so every session ran 3.29.1's hook list.
 Fixed on this machine by moving to the GitHub marketplace registration (see the release flow).
+
+## S3: effort A/B (2026-09-25)
+
+Same task and harness, senior-dev with the work-fast prompt, `effort: XHIGH` vs `MEDIUM`,
+three runs each.
+
+| | XHIGH | MEDIUM |
+|---|---|---|
+| Runs that finished | 3 of 3 | 2 of 3 (one stream ended mid-task, work already green) |
+| Minutes (median) | 2.7 | 2.7 |
+| Turns (median) | 22 | 17.5 |
+| Cost (median) | $0.53 | $0.49 |
+| Tests green, inside the brief | 3 of 3 | 3 of 3 |
+| Ran `git stash` to check the baseline | 0 of 3 | **2 of 3** |
+
+**Not taken.** Wall time did not move; turns and cost fell a little. The one behavioural
+difference is the wrong way: at medium effort the agent reached for `git stash` / `git stash
+-u` to see whether tests passed before its change. In a sandbox that is harmless; in a
+working tree another session shares, it removes that session's uncommitted work. senior-dev
+stays at XHIGH. Separately, no agent prompt forbids `git stash` today — that belongs in a
+hook, not a sentence (the S2 lesson), and is filed as its own item.
