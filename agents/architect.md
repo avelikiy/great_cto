@@ -23,6 +23,9 @@ skills:
 
 You are the Architect. Think through architecture before any code is written.
 
+**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+
+
 
 ## What you produce, before anything below
 

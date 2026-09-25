@@ -27,8 +27,9 @@ test('parsePipelineToml reads the shipped pipeline.toml', () => {
   const t = parsePipelineToml(PIPELINE_TOML);
   assert.deepEqual(t.architect.next, ['pm']);
   assert.equal(t.architect.gate, 'gate:arch');
-  assert.deepEqual(t['qa-engineer'].join, ['security-officer']);
-  assert.deepEqual(t['code-reviewer'].next, ['qa-engineer', 'security-officer']);
+  assert.deepEqual(t['qa-engineer'].join, ['security-officer', 'code-reviewer']);
+  assert.deepEqual(t['senior-dev'].next, ['code-reviewer', 'qa-engineer', 'security-officer']);
+  assert.deepEqual(t['code-reviewer'].next, ['devops']);
   assert.deepEqual(t['l3-support'].next, []);
 });
 
@@ -114,12 +115,11 @@ test('success verdict with gate → gate directive naming next agent', () => {
 });
 
 test('success verdict without gate → immediate spawn directive', () => {
-  // code-reviewer → qa+security is the ungated edge; senior-dev is behind
-  // gate:code, which only some approval levels activate.
-  const d = decideNext({ agent: 'code-reviewer', transitions: TRANSITIONS, verdict: v('code-reviewer', 'APPROVED') });
+  // devops → l3-support is an ungated edge. (The review stage fans out from
+  // senior-dev, which sits behind gate:code — only some approval levels activate it.)
+  const d = decideNext({ agent: 'devops', transitions: TRANSITIONS, verdict: v('devops', 'DEPLOYED') });
   assert.equal(d.kind, 'next');
-  assert.match(d.text, /qa-engineer/);
-  assert.match(d.text, /security-officer/);
+  assert.match(d.text, /l3-support/);
 });
 
 test('an edge guarded by several gates waits for every ACTIVE one', () => {
@@ -129,7 +129,7 @@ test('an edge guarded by several gates waits for every ACTIVE one', () => {
   const d = decideNext({
     agent: 'security-officer', transitions: TRANSITIONS,
     verdict: v('security-officer', 'APPROVED'),
-    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS') },
+    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS'), 'code-reviewer': v('code-reviewer', 'APPROVED') },
     activeGates: ['security', 'compliance', 'ship'],
   });
   assert.equal(d.kind, 'gate');
@@ -141,7 +141,7 @@ test('a multi-gate edge honours only the gates the level activates', () => {
   const d = decideNext({
     agent: 'security-officer', transitions: TRANSITIONS,
     verdict: v('security-officer', 'APPROVED'),
-    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS') },
+    joinVerdicts: { 'qa-engineer': v('qa-engineer', 'PASS'), 'code-reviewer': v('code-reviewer', 'APPROVED') },
     activeGates: ['arch', 'ship'],           // gates-only
   });
   assert.equal(d.kind, 'gate');
@@ -201,7 +201,7 @@ test('join quorum satisfied → gate directive to devops', () => {
   const d = decideNext({
     agent: 'qa-engineer', transitions: TRANSITIONS,
     verdict: v('qa-engineer', 'PASS'),
-    joinVerdicts: { 'security-officer': v('security-officer', 'APPROVED') },
+    joinVerdicts: { 'security-officer': v('security-officer', 'APPROVED'), 'code-reviewer': v('code-reviewer', 'APPROVED') },
   });
   assert.equal(d.kind, 'gate');
   assert.match(d.text, /gate:ship/);
@@ -581,7 +581,7 @@ test('on a multi-gate edge one approval is not enough', () => {
   const d = decideNext({
     agent: 'security-officer', transitions: TRANSITIONS,
     verdict: { verdict: 'APPROVED', ts: '2026-08-06T10:00:00Z' },
-    joinVerdicts: { 'qa-engineer': { verdict: 'PASS' } },
+    joinVerdicts: { 'qa-engineer': { verdict: 'PASS' }, 'code-reviewer': { verdict: 'APPROVED' } },
     activeGates: ['security', 'compliance', 'ship'],
     gateStates: {
       'gate:security': { state: 'approved' },

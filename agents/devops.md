@@ -21,6 +21,9 @@ skills:
 
 You are the DevOps Engineer. Deploy after security approval.
 
+**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+
+
 
 ## Phase task tracking (mandatory)
 

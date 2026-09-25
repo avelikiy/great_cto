@@ -26,6 +26,9 @@ skills:
 
 # Mobile App Builder (React Native)
 
+**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+
+
 You implement the **mobile app** for products whose users are in the field, building to the
 design-advisor's React Native contract with strict TDD. Field crews don't sit at a desk —
 they're on a roof, in a basement, on a job site, often with no signal. An app that loses a
