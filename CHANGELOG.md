@@ -8,6 +8,16 @@ All notable changes to great_cto are documented here.
 
 ### Changed behaviour — read before upgrading
 
+- **Skipping the git hooks is refused** (`scripts/hooks/gate-bypass-guard.mjs`, PreToolUse on
+  Bash): `--no-verify`, `git commit -n`, `git -c core.hooksPath=…`, setting or unsetting
+  `core.hooksPath`, `HUSKY=0` and `SKIP=` before git. pre-push is what keeps private names out
+  of a public push, and its own advice named the flag that switched it off. A bypass the
+  operator agrees to is a signed, expiring exception for gate `git-hooks` (`/exception`).
+- **An edit that switches a check off is refused** (`scripts/hooks/gate-weakening-guard.mjs`,
+  PreToolUse on Edit/Write/MultiEdit): an added test skip (`.skip`, `.only`, `xit`,
+  `@pytest.mark.skip`, `t.Skip`, `#[ignore]`, Dart `skip:`) or CI allow-failure
+  (`continue-on-error: true`, `allow_failure: true`, `*SKIP*: 1`). Existing skips and
+  removals pass; a quarantine goes through an exception for gate `gate-weakening`.
 - **Commands that destroy uncommitted work are refused** (`scripts/hooks/shared-tree-guard.mjs`,
   PreToolUse on Bash): `git stash` (all but `list`/`show`), `git checkout -- <path>` / `.` /
   `-f`, `git restore <path>` (unstaging with `--staged` stays allowed), `git reset --hard`,
@@ -19,6 +29,12 @@ All notable changes to great_cto are documented here.
   MEDIUM, senior-dev ran `git stash -u && npm test; git stash pop` in 2 of 3 runs. It also
   refuses `git reset --hard` inside an agent's own isolated worktree; in a tree nobody else
   uses, set `GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1`.
+
+### Fixed
+
+- **The README's Fleet screenshot showed an empty fleet since 3.28** — the capture fixture had
+  no installed agents. It installs them now, and the capture refuses to photograph an empty
+  panel.
 
 ## v3.36.1 — 2026-09-25
 

@@ -10,7 +10,9 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `SessionEnd` | — | `session-end.mjs` | Writes session snapshot to `.great_cto/logs/` |
 | `PreToolUse` | `Bash` | inline | Blocks dangerous bash (rm -rf, force push, DROP TABLE, etc.) |
 | `PreToolUse` | `Bash` | `shared-tree-guard.mjs` | Refuses `git stash`, `checkout -- <path>`, `restore <path>`, `reset --hard`, `clean -f` — they destroy other sessions' uncommitted work in a shared tree |
+| `PreToolUse` | `Bash` | `gate-bypass-guard.mjs` | Refuses skipping the git hooks: `--no-verify`, `commit -n`, `-c core.hooksPath=`, setting `core.hooksPath`, `HUSKY=0`, `SKIP=` |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
+| `PreToolUse` | `Edit\|Write\|MultiEdit` | `gate-weakening-guard.mjs` | Refuses an edit that adds a test skip or a CI allow-failure |
 | `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` + `docs-reference-sync.mjs` | Logs writes + auto-formats by extension + regenerates `docs/reference/` |
 | `UserPromptSubmit` | — | `user-prompt-submit.py` + `cost-guard.mjs` | Sets session title + warns on expensive prompts |
 | `UserPromptSubmit` | — | `classify-telemetry.mjs` **(opt-in)** | Records request-class metadata to a local log — off unless `GREAT_CTO_CLASS_TELEMETRY=1` |
@@ -98,6 +100,44 @@ MEDIUM ran `git stash -u && npm test; git stash pop` in 2 of 3 runs to check its
 ```bash
 export GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1
 ```
+
+### `gate-bypass-guard.mjs`
+
+The pre-push hook keeps private project names out of a public push and a push off a red
+gate — and one flag switched it off. This refuses, from an agent's shell:
+
+| Refused | Passes |
+|---|---|
+| `git … --no-verify` (commit, push, merge, rebase, am …) | `git push -n` (on push, `-n` is `--dry-run`) |
+| `git commit -n`, incl. clusters like `-anm` | `git commit -am "…"` — letters after `-m` are the message |
+| `git -c core.hooksPath=… <cmd>` | `git config --get core.hooksPath`, `git config core.hooksPath` (a read) |
+| `git config [--local…] core.hooksPath <value>`, `--unset core.hooksPath` | a commit message or `echo` that mentions `--no-verify` |
+| `HUSKY=0 git …`, `SKIP=… git …` (husky's and pre-commit's off switches) | |
+
+Parsed with the same `scripts/lib/shell-commands.mjs` as `shared-tree-guard`. The sanctioned
+route is a signed, expiring exception for gate `git-hooks` (`/exception`). It is an audit
+trail, not a lock: an agent that creates one has done it in the open, dated and attributed.
+An env prefix inside the agent's own command does not switch the guard off.
+
+**Opt-out** for a whole session (operator's environment): `GREAT_CTO_DISABLE_GATE_BYPASS_GUARD=1`.
+
+### `gate-weakening-guard.mjs`
+
+The cheapest way to turn a red check green is to stop it checking. This refuses an
+`Edit`/`Write`/`MultiEdit` that **adds**, compared with what was there:
+
+| Where | Refused additions |
+|---|---|
+| JS/TS tests (`*.test.*`, `*.spec.*`, `__tests__/`) | `it/test/describe.skip(`, `.only(`, `xit(`, `xdescribe(` |
+| Python tests (`test_*.py`, `*_test.py`) | `@pytest.mark.skip[if]`, `@unittest.skip…`, `pytest.skip(` |
+| Go / Rust / Dart | `t.Skip(` · `#[ignore]` · `skip: true` |
+| CI (`.github/workflows`, `.gitlab-ci.yml`, `cloudbuild*`, CircleCI, Azure, Bitbucket) | `continue-on-error: true`, `allow_failure: true`, `*SKIP*: 1\|true` |
+
+Existing skips are not re-reported, removing one passes, docs and ordinary source may say
+the words, and a commented line is not a setting. A quarantined flaky test goes through a
+signed exception for gate `gate-weakening` with its ticket in the reason.
+
+**Opt-out** for a whole session: `GREAT_CTO_DISABLE_GATE_WEAKENING_GUARD=1`.
 
 ### `format-check.mjs`
 

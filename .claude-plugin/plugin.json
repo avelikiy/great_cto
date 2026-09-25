@@ -153,6 +153,12 @@
           },
           {
             "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/gate-bypass-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking git hooks are not skipped..."
+          },
+          {
+            "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; INPUT=$(cat 2>/dev/null); if [ -z \"$INPUT\" ]; then exit 0; fi; CMD=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('command',''))\" 2>/dev/null); if [ -z \"$CMD\" ]; then exit 0; fi; if echo \"$CMD\" | grep -qiE '(^|[;&|[:space:]])rm[[:space:]]+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r|--recursive)|(^|[;&|[:space:]])git[[:space:]]+(push[[:space:]].*(--force(-with-lease)?|-f([[:space:]]|$))|reset[[:space:]]+--hard)|(DROP[[:space:]]+(TABLE|DATABASE|SCHEMA))|(^|[;&|[:space:]])truncate[[:space:]]+--all|(^|[;&|[:space:]])(mkfs|dd)[[:space:]]|(^|[;&|[:space:]])chmod[[:space:]]+[0-7]*0{3}[[:space:]]|curl[[:space:]]+.*[|][[:space:]]*(sudo|sh|bash|zsh|python[23]?|perl|ruby)'; then echo \"BLOCKED: Dangerous command pattern detected.\"; exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Safety check..."
@@ -173,6 +179,12 @@
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/frozen-gates-guard.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking frozen gates..."
+          },
+          {
+            "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/gate-weakening-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 5,
+            "statusMessage": "Checking no check is switched off..."
           },
           {
             "type": "command",

@@ -34,113 +34,9 @@
  */
 
 import { readFileSync } from 'node:fs';
-
-// ── Lexer: shell text → simple commands (arrays of words) ────────────────────
-
-const SUBST = '\u0000'; // stands in for a $(…) inside a word; its body is lexed on its own
-
-/**
- * Split `src` into simple commands. Quoting is honoured; `$(…)`, backticks and
- * `( … )` are lexed recursively and their commands returned alongside; heredoc
- * bodies and comments are skipped. `closer` ends a nested call at an unmatched
- * `)` or backtick.
- */
-function lex(src, start = 0, closer = null) {
-  const commands = [];
-  let words = [];
-  let word = null; // null = between words
-  let pendingHeredocs = [];
-  let i = start;
-
-  const endWord = () => { if (word !== null) { words.push(word); word = null; } };
-  const endCommand = () => { endWord(); if (words.length) commands.push(words); words = []; };
-  const append = (s) => { word = (word ?? '') + s; };
-  const nested = (from, close) => {
-    const r = lex(src, from, close);
-    commands.push(...r.commands);
-    return r.end;
-  };
-  const skipHeredocBodies = () => {
-    for (const { delim, dash } of pendingHeredocs) {
-      for (;;) {
-        if (i >= src.length) return;
-        let nl = src.indexOf('\n', i);
-        if (nl === -1) nl = src.length;
-        let line = src.slice(i, nl);
-        if (dash) line = line.replace(/^\t+/, '');
-        i = nl + 1;
-        if (line === delim) break;
-      }
-    }
-    pendingHeredocs = [];
-  };
-
-  while (i < src.length) {
-    const c = src[i];
-    const next = src[i + 1];
-
-    if (closer === ')' && c === ')') { endCommand(); return { commands, end: i + 1 }; }
-    if (closer === '`' && c === '`') { endCommand(); return { commands, end: i + 1 }; }
-
-    if (c === '\\') {
-      if (next === '\n') { i += 2; continue; } // line continuation
-      append(next ?? ''); i += 2; continue;
-    }
-    if (c === "'") {
-      const close = src.indexOf("'", i + 1);
-      const end = close === -1 ? src.length : close;
-      append(src.slice(i + 1, end)); i = end + 1; continue;
-    }
-    if (c === '"') {
-      append('');
-      i += 1;
-      while (i < src.length && src[i] !== '"') {
-        if (src[i] === '\\' && i + 1 < src.length) { append(src[i + 1]); i += 2; continue; }
-        if (src[i] === '$' && src[i + 1] === '(') { append(SUBST); i = nested(i + 2, ')'); continue; }
-        if (src[i] === '`') { append(SUBST); i = nested(i + 1, '`'); continue; }
-        append(src[i]); i += 1;
-      }
-      i += 1; continue;
-    }
-    if (c === '$' && next === '(') { append(SUBST); i = nested(i + 2, ')'); continue; }
-    if (c === '`') { append(SUBST); i = nested(i + 1, '`'); continue; }
-    if (c === '#' && word === null) { // comment to end of line
-      const nl = src.indexOf('\n', i);
-      i = nl === -1 ? src.length : nl; continue;
-    }
-    if (c === '<' && next === '<' && src[i + 2] !== '<') { // heredoc: note delimiter, body skipped at newline
-      endWord();
-      i += 2;
-      const dash = src[i] === '-';
-      if (dash) i += 1;
-      while (src[i] === ' ' || src[i] === '\t') i += 1;
-      let delim = '';
-      while (i < src.length && !/[\s;&|()<>]/.test(src[i])) {
-        if (src[i] !== "'" && src[i] !== '"' && src[i] !== '\\') delim += src[i];
-        i += 1;
-      }
-      if (delim) pendingHeredocs.push({ delim, dash });
-      continue;
-    }
-    if (c === '\n') { endCommand(); i += 1; skipHeredocBodies(); continue; }
-    if (c === ' ' || c === '\t') { endWord(); i += 1; continue; }
-    if (c === '&' && (src[i - 1] === '>' || src[i - 1] === '<' || next === '>')) { append(c); i += 1; continue; } // 2>&1, &>f
-    if (c === ';' || c === '&' || c === '|') { endCommand(); i += 1; continue; }
-    if (c === '(') { endCommand(); i = nested(i + 1, ')'); continue; }
-    if (c === ')') { endCommand(); i += 1; continue; }
-    append(c); i += 1;
-  }
-  endCommand();
-  return { commands, end: i };
-}
+import { simpleCommands, gitParts } from '../lib/shell-commands.mjs';
 
 // ── Classifier: one simple command → the rule it breaks, if any ──────────────
-
-const PREFIX_WORDS = new Set(['!', '{', '}', 'then', 'do', 'else', 'elif', 'if', 'while', 'until', 'time', 'nohup', 'command', 'builtin', 'exec']);
-const ASSIGNMENT = /^[A-Za-z_][A-Za-z0-9_]*=/;
-const SHELLS = new Set(['sh', 'bash', 'zsh', 'dash', 'ksh']);
-const GIT_OPTS_WITH_ARG = new Set(['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--exec-path', '--config-env']);
-const base = (w) => w.slice(w.lastIndexOf('/') + 1);
 
 /** Returns a rule name if `args` (after `git <sub>`) destroy uncommitted work. */
 function gitRule(sub, args) {
@@ -170,39 +66,11 @@ function gitRule(sub, args) {
   }
 }
 
-function classify(words, depth) {
-  let w = words.filter((x) => x !== SUBST);
-  for (;;) { // strip what runs a command rather than being one
-    if (!w.length) return null;
-    if (PREFIX_WORDS.has(w[0]) || ASSIGNMENT.test(w[0])) { w = w.slice(1); continue; }
-    if (w[0] === 'env' || w[0] === 'sudo') {
-      w = w.slice(1);
-      while (w.length && (w[0].startsWith('-') || ASSIGNMENT.test(w[0]))) w = w.slice(1);
-      continue;
-    }
-    break;
-  }
-  const cmd = base(w[0]);
-  if (SHELLS.has(cmd)) {
-    const c = w.findIndex((a, k) => k > 0 && /^-[A-Za-z]*c[A-Za-z]*$/.test(a));
-    return c !== -1 && w[c + 1] !== undefined ? inspect(w[c + 1], depth + 1) : null;
-  }
-  if (cmd === 'eval') return inspect(w.slice(1).join(' '), depth + 1);
-  if (cmd !== 'git') return null;
-
-  let k = 1;
-  while (k < w.length && w[k].startsWith('-')) {
-    k += GIT_OPTS_WITH_ARG.has(w[k]) ? 2 : 1;
-  }
-  const rule = k < w.length ? gitRule(w[k], w.slice(k + 1)) : null;
-  return rule ? { rule, command: w.join(' ') } : null;
-}
-
-function inspect(src, depth) {
-  if (depth > 4) return null;
-  for (const words of lex(src).commands) {
-    const hit = classify(words, depth);
-    if (hit) return hit;
+function inspect(src) {
+  for (const { words } of simpleCommands(src)) {
+    const git = gitParts(words);
+    const rule = git && git.sub ? gitRule(git.sub, git.args) : null;
+    if (rule) return { rule, command: words.join(' ') };
   }
   return null;
 }
@@ -210,7 +78,7 @@ function inspect(src, depth) {
 /** Pure decision: the first simple command in `cmd` that destroys uncommitted work, or null. */
 export function findDestructive(cmd) {
   if (typeof cmd !== 'string' || !cmd.trim()) return null;
-  return inspect(cmd, 0);
+  return inspect(cmd);
 }
 
 // ── Hook ─────────────────────────────────────────────────────────────────────
