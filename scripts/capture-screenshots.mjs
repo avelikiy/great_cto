@@ -72,6 +72,14 @@ async function main() {
   // anything the operator would not want photographed.
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'projects.json'),
     JSON.stringify({ projects: [{ name: 'acme-storefront', path: projectRoot }] }, null, 2));
+  // Fleet reads the installed agents from ~/.claude/agents. With HOME redirected
+  // and nothing there, the README's Fleet shot showed "No agents match this view"
+  // from v3.28 to v3.36. Install the repo's own agents the way install-local does.
+  const agentsDir = path.join(fakeHome, '.claude', 'agents');
+  fs.mkdirSync(agentsDir, { recursive: true });
+  for (const f of fs.readdirSync(path.join(ROOT, 'agents')).filter((n) => n.endsWith('.md'))) {
+    fs.copyFileSync(path.join(ROOT, 'agents', f), path.join(agentsDir, `great_cto-${f}`));
+  }
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'decisions.md'),
     '# Decisions\n\n- 2026-08-18 — checkout stays off our origin (PCI SAQ-A).\n');
 
@@ -146,6 +154,10 @@ async function main() {
         + 'so this script is photographing a screen that no longer exists');
       await nav.click();
       await sleep(shot.settle);
+      // Refuse to photograph an empty panel. The Fleet shot said "No agents match
+      // this view" from v3.28 to v3.36 because the fixture HOME had no agents.
+      const empty = await page.evaluate(() => /No agents match this view|Nothing here yet/.test(document.body.innerText));
+      if (empty) throw new Error(`the ${shot.tab} panel is empty in the fixture, so ${shot.file} would ship a blank screen`);
       const raw = await page.screenshot({ type: 'png' });
       const stamped = [
         ['great_cto.version', version],
