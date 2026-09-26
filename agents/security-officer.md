@@ -490,6 +490,10 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    ```
    If any history findings: flag as P0 — secret must be rotated even if removed from code.
 
+   **4b′. CI workflows:** run the checker, don't read the YAML by eye —
+   `WS="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/workflow-security.mjs"; node "$WS" --cwd . --json`.
+   Every HIGH (pwn-request checkout, script injection in `run:`) blocks gate:ship, cited by file:line; MEDIUM goes to the risk register; no `.github/workflows` means nothing to check.
+
    **4c. Dependency audit:**
    ```bash
    npm audit --audit-level=high 2>/dev/null || \
