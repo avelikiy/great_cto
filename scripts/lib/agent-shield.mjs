@@ -17,12 +17,18 @@
  *   parse error on every turn — so a hook command that cannot be parsed is a
  *   finding, not a shrug
  *
+ *   ~100 shipped prompt files reach the model on every install and /crystallize
+ *   writes new ones; a zero-width or bidi character renders as nothing in review
+ *   and on GitHub — so agents, skills, commands and hook commands are scanned
+ *   for invisible Unicode, and a hit blocks
+ *
  * THREE states per check, never two. `unscannable` is the one that earns its
  * keep: a file that could not be read or parsed must not report as clean.
  */
 import { readFileSync, existsSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { PATTERNS } from './secret-patterns.mjs';
+import { scanText } from './injection-scan.mjs';
 
 /** Severity of a finding. `block` fails a gate; `warn` is advisory. */
 export const SEVERITIES = Object.freeze(['block', 'warn']);
@@ -56,6 +62,21 @@ export function secretsIn(text) {
 }
 
 /**
+ * The first invisible-Unicode finding in a text, as an agent-shield finding, or
+ * null. One per file: the fix is to open the file, and N findings for N
+ * characters would bury everything else in the report.
+ */
+function invisibleFinding(text, at) {
+  const hits = scanText(String(text ?? '')).filter((f) => f.kind === 'invisible-unicode');
+  if (!hits.length) return null;
+  return {
+    severity: 'block', at: at(hits[0].line), rule: 'invisible-unicode',
+    detail: `${hits.length} line(s) carry invisible characters (first: ${hits[0].excerpt}) — `
+      + 'they render as nothing in review and still reach the model',
+  };
+}
+
+/**
  * Scan hook commands.
  *
  * @param {object|null} hooks the manifest's `hooks` object, or null if absent
@@ -79,6 +100,8 @@ export function scanHooks(hooks) {
       if (FETCH_EXEC.test(cmd)) {
         findings.push({ severity: 'block', at, rule: 'fetch-exec', detail: 'downloads and pipes into an interpreter — whatever that URL serves runs on every session' });
       }
+      const inv = invisibleFinding(cmd, () => at);
+      if (inv) findings.push(inv);
       for (const s of secretsIn(cmd)) {
         findings.push({ severity: 'block', at, rule: 'secret-in-hook', detail: `${s.name} appears literally in a hook command` });
       }
@@ -148,6 +171,8 @@ export function scanAgentFiles(dir, { read = readFileSync, list = readdirSync } 
     try { src = String(read(path.join(dir, f), 'utf8')); }
     catch (e) { findings.push({ severity: 'warn', at: f, rule: 'unreadable', detail: e.message }); continue; }
     scanned += 1;
+    const inv = invisibleFinding(src, (line) => `${f}:${line}`);
+    if (inv) findings.push(inv);
     const fm = /^---\r?\n([\s\S]*?)\r?\n---/.exec(src);
     if (!fm) { findings.push({ severity: 'warn', at: f, rule: 'no-frontmatter', detail: 'no frontmatter block' }); continue; }
     for (const s of secretsIn(fm[1])) {
@@ -158,10 +183,46 @@ export function scanAgentFiles(dir, { read = readFileSync, list = readdirSync } 
 }
 
 /**
+ * Scan every `.md` under the given directories (skills, commands) for invisible
+ * Unicode. These are prompts too: a skill body is read by the model the moment
+ * it loads. `at` is relative to the directory's parent (`skills/x/SKILL.md:3`),
+ * so a gate log carries no home path.
+ */
+export function scanPromptFiles(dirs, { read = readFileSync, list = readdirSync } = {}) {
+  const findings = [];
+  let scanned = 0;
+  const unlisted = [];
+  const walk = (dir, rel, top) => {
+    let entries;
+    try { entries = list(dir, { withFileTypes: true }); }
+    catch (e) {
+      if (top) unlisted.push(`cannot list ${dir}: ${e.message}`);
+      else findings.push({ severity: 'warn', at: rel, rule: 'unreadable', detail: e.message });
+      return;
+    }
+    for (const ent of [...entries].sort((a, b) => a.name.localeCompare(b.name))) {
+      const full = path.join(dir, ent.name);
+      const r = `${rel}/${ent.name}`;
+      if (ent.isDirectory()) { walk(full, r, false); continue; }
+      if (!ent.isFile() || !ent.name.endsWith('.md')) continue;
+      let src;
+      try { src = String(read(full, 'utf8')); }
+      catch (e) { findings.push({ severity: 'warn', at: r, rule: 'unreadable', detail: e.message }); continue; }
+      scanned += 1;
+      const inv = invisibleFinding(src, (line) => `${r}:${line}`);
+      if (inv) findings.push(inv);
+    }
+  };
+  for (const d of dirs) walk(d, path.basename(d), true);
+  if (unlisted.length) return { state: 'unscannable', findings, scanned, why: unlisted.join('; ') };
+  return { state: findings.length ? 'findings' : 'ok', findings, scanned, why: '' };
+}
+
+/**
  * The whole surface. Each section keeps its own state, so one unscannable file
  * cannot make the rest report clean and cannot make them report broken.
  */
-export function shieldReport({ manifestPath, agentsDir }) {
+export function shieldReport({ manifestPath, agentsDir, promptDirs }) {
   const sections = {};
   let manifest = null;
   try { manifest = JSON.parse(readFileSync(manifestPath, 'utf8')); }
@@ -175,6 +236,8 @@ export function shieldReport({ manifestPath, agentsDir }) {
   sections.agents = existsSync(agentsDir)
     ? scanAgentFiles(agentsDir)
     : { state: 'unscannable', findings: [], scanned: 0, why: `${agentsDir} does not exist` };
+  // Optional: absent means "not asked", not "unscannable".
+  if (Array.isArray(promptDirs)) sections.prompts = scanPromptFiles(promptDirs);
 
   const all = Object.values(sections).flatMap((s) => s.findings);
   const blocking = all.filter((f) => f.severity === 'block');
