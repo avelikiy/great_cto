@@ -4,7 +4,15 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.38.0 — 2026-09-26
+
+Two hooks that looked like protection never ran — the destructive-command check and the write
+log both read the wrong field of the hook payload. Both are fixed, and a test now runs every
+inline hook against the payload Claude Code sends. With them: a guard against weakened
+lint and type checks, a contract that fetched text is data, injection screening of memory,
+a `ci-resolver` agent, duplicate-finding merge in `/review`, a loop detector, opt-in
+typecheck at Stop, a GitHub Actions checker, and skill measurement.
 
 ### Fixed
 
