@@ -201,7 +201,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; INPUT=$(cat 2>/dev/null); FILE=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('file_path',''))\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))\" 2>/dev/null); if [ -n \"$FILE\" ]; then mkdir -p .great_cto 2>/dev/null; printf '%s %s %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" \"$FILE\" >> .great_cto/agent-writes.log 2>/dev/null; fi; true",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; INPUT=$(cat 2>/dev/null); FILE=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print((d.get('tool_input') or {}).get('file_path') or d.get('file_path',''))\" 2>/dev/null); TOOL=$(echo \"$INPUT\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(d.get('tool_name',''))\" 2>/dev/null); if [ -n \"$FILE\" ]; then mkdir -p .great_cto 2>/dev/null; printf '%s %s %s\\n' \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\" \"$TOOL\" \"$FILE\" >> .great_cto/agent-writes.log 2>/dev/null; fi; true",
             "timeout": 3,
             "async": true
           },
