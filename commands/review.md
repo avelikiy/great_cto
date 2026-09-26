@@ -474,6 +474,24 @@ Findings: P0:N P1:N P2:N
 [If no P0/P1: "No design system violations found." OR "SKIPPED — not mobile-app or web-service archetype."]
 ```
 
+## Merge duplicates (before triage)
+
+Several angles often report the same bug (Security, SQL Safety and Data Privacy all flag one
+string-built query). Merge them first so each bug is triaged **once**. Write the in-scope P0/P1
+findings (scope below) as a JSON array — one object per angle finding:
+`{"file","line","severity","title","evidence","angle"}` (`evidence` = the quoted code line, if any) — then:
+
+```bash
+PD=${CLAUDE_PLUGIN_ROOT:-.}
+node "$PD/scripts/lib/findings-dedupe.mjs" .great_cto/review-findings.json > .great_cto/review-groups.json
+# stderr: findings-dedupe: N raw → M unique
+```
+
+Same file + lines within ±3 + same normalised evidence (or title overlap ≥ 0.6) → one group,
+carrying the max severity and every angle that raised it. Triage each **group** below, not each
+raw finding; list its `sources` in the triage output (`[ANGLE]` → `[security, sql-safety]`).
+Report `N raw → M unique` in the Triage Summary. Never merges across files.
+
 ## Skeptical Triage
 
 **This is the filter stage.** The angles above optimise for coverage (surface everything); this
@@ -518,7 +536,8 @@ Apply hard rules from the skill (absence of defense → VALID; code quality ≠ 
 ```
 ## Triage Summary
 Scope: [security/reliability only | --deep: all angles]
-Triaged: N findings
+Deduped: N raw → M unique (findings-dedupe)
+Triaged: M groups
   ✅ VALID:     M  (🔥≥90% ✅≥70% 🤔≥50%)
   ❌ INVALID:   K  (filtered from gate)
   ❓ UNCERTAIN: L  (kept at original severity, manual review)
