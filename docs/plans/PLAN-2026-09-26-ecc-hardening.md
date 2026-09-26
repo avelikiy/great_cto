@@ -1,6 +1,7 @@
 # Plan — two dead hooks, and what the ECC comparison says is missing
 
 Status: in progress · 2026-09-26 · target release 3.38.0
+Related: [HOOKS.md](../HOOKS.md) · [ADR-027](../adr/ADR-027-one-agent-registration.md) · [agent speed](PLAN-2026-09-23-agent-speed.md)
 
 ## Why
 
