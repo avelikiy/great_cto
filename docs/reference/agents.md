@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**70 agents** · 30 core & specialists · 40 domain reviewers.
+**71 agents** · 31 core & specialists · 40 domain reviewers.
 
 Grouped by **team role** — after Boris Cherny's (Anthropic, Claude Code) five roles of the
 IT team of the future (Prototyper · Builder · Sweeper · Grower · Maintainer), plus the two
@@ -66,6 +66,7 @@ Ships, provisions, and keeps a mature system healthy — deploys, infra, inciden
 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
+| `ci-resolver` | sonnet | HIGH | Use when CI or a build is red. Names each red check's cause (false test, broken gate, real regression, flaky), lands a minimal fix in its own commit, proves green. Never skips a check. |
 | `devops` | haiku | MEDIUM | Use after gate:ship is approved. Deploys using the method matching the project type. |
 | `infra-provisioner` | sonnet | HIGH | Provisions the real backing infrastructure for a Product-Builder product so it reaches a live URL — managed Postgres (Neon default), the hosting project (Vercel default), env/secret wiring, and the custom domain + DNS + TLS. Pairs with devops (which does preview/staging only and refuses prod/real-domain). Runs after gate:ship is approved, before the production deploy. Plan-first and human-gated: it shows a provisioning plan with cost and waits for CTO approval before creating anything, is idempotent (re-running never duplicates resources), and records teardown. Writes docs/infra/PROVISION-{slug}.md. |
 | `l3-support` | sonnet | MEDIUM | Production support. Monitors logs, triages incidents, creates Beads tasks. For P0 — immediate investigation + postmortem. |

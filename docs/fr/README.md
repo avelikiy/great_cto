@@ -250,7 +250,7 @@ peut reprendre.
 
 ## Ce qui le distingue
 
-- **Des spécialistes, pas un généraliste** — 70 agents aux rôles étroits, chacun
+- **Des spécialistes, pas un généraliste** — 71 agents aux rôles étroits, chacun
   avec ses propres gates de revue, plutôt qu'un assistant qui tape plus vite
   qu'il ne pense. [L'effectif →](../reference/agents.md)
 - **Des critiques avant le code** — les critiques d'architecture, de spec et de

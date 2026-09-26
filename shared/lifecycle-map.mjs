@@ -97,6 +97,7 @@ export const AGENT_ROLE = {
   'l3-support': 'maintainer',
   'devops': 'maintainer',
   'infra-provisioner': 'maintainer',
+  'ci-resolver': 'maintainer',
   // Orchestration & Meta
   'coordinator': 'orchestration',
   'pm': 'orchestration',

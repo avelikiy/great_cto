@@ -243,7 +243,7 @@ Postgres y Stripe corrientes que cualquier ingeniero puede retomar.
 
 ## Qué lo hace distinto
 
-- **Especialistas, no un generalista** — 70 agentes con trabajos acotados y sus
+- **Especialistas, no un generalista** — 71 agentes con trabajos acotados y sus
   propios gates de revisión, en vez de un asistente que teclea más rápido de lo
   que piensa. [La plantilla →](../reference/agents.md)
 - **Críticos antes del código** — críticos de arquitectura, spec y esquema

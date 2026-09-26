@@ -56,6 +56,7 @@ pipeline gets bypassed.
 | Deploy / canary / rollback / SLO (preview/staging) | `devops` |
 | Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
+| CI red / build failing / pipeline broken / checks failing — name each red check's cause, minimal fix, never skip | `ci-resolver` |
 | Third-party API integration: OAuth flows, webhook signatures, idempotency, retries, sandbox→prod | `integrations-engineer` |
 | Read-side data connectors: cursors, dedup, backfill, freshness SLA (dashboards) | `connector-builder` |
 | Route optimization: VRP, geocoding, distance matrix, re-optimization | `geo-routing-engineer` |
@@ -323,6 +324,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "approve" / "looks good" / "yes" | Close gate:arch |
 | "ship it" / "deploy" | Confirm gate:ship → devops |
 | "incident" / "prod issue" / "broken" | Spawn `great_cto-l3-support` agent |
+| "CI red" / "build failing" / "pipeline broken" / "checks failing" | Spawn `great_cto-ci-resolver` agent — before any build or deploy |
 | "show report" / "show QA" / "show security" | Find latest matching file: `ls docs/qa-reports/ docs/security/ docs/architecture/ 2>/dev/null \| sort \| tail -1` → read and display |
 | "update agents" | `/update` command |
 | "capture this process" / "save as skill" | `/capture` — interview → SKILL.md |

@@ -249,7 +249,7 @@ weiterarbeiten kann.
 
 ## Was es anders macht
 
-- **Spezialisten statt Generalist** — 70 Agenten mit engen Aufgaben und eigenen
+- **Spezialisten statt Generalist** — 71 Agenten mit engen Aufgaben und eigenen
   Review-Gates, statt eines Assistenten, der schneller tippt als denkt.
   [Die Besetzung →](../reference/agents.md)
 - **Kritiker vor dem Code** — Architektur-, Spezifikations- und Schema-Kritiker

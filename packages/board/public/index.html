@@ -5929,7 +5929,7 @@ async function renderHarnesses() {
 
   body.innerHTML = `
     <div class="mp-card harness-hosts">
-      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="70 agents · commands · skills · hooks">full pipeline</span></div>
+      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="71 agents · commands · skills · hooks">full pipeline</span></div>
       <div><span class="${codexDot}"></span><b>OpenAI Codex</b> <span class="mono cap">${codexState}</span>${cx.version ? `<span class="mono cap muted">${esc(cx.version)}</span>` : ''}${cx.model ? `<span class="mono cap muted" style="margin-left:auto">${esc(cx.model)}</span>` : ''}</div>
     </div>
     <div class="mp-card" style="margin-top:12px">

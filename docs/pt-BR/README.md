@@ -244,7 +244,7 @@ Next.js, Postgres e Stripe comuns, que qualquer engenheiro assume.
 
 ## O que o torna diferente
 
-- **Especialistas, não um generalista** — 70 agentes com funções estreitas e seus
+- **Especialistas, não um generalista** — 71 agentes com funções estreitas e seus
   próprios gates de revisão, em vez de um assistente que digita mais rápido do
   que pensa. [O elenco →](../reference/agents.md)
 - **Críticos antes do código** — críticos de arquitetura, spec e schema rodam

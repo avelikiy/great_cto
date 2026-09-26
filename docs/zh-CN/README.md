@@ -223,7 +223,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 
 ## 不同之处
 
-- **专家，而不是通才** —— 70 个职责狭窄、各带自己评审门禁的 agent，而不是一个
+- **专家，而不是通才** —— 71 个职责狭窄、各带自己评审门禁的 agent，而不是一个
   打字比思考快的助手。[名册 →](../reference/agents.md)
 - **批评者先于代码** —— 架构、规格和 schema 三个批评者在规划之前运行，那时候
   错误的代价还是几小时，而不是几天。
