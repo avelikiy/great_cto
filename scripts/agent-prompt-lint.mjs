@@ -190,6 +190,18 @@ function canWrite(tools) {
   return list.trim() === '*' || /\b(Write|Edit|MultiEdit|NotebookEdit)\b/.test(list);
 }
 
+// ── Untrusted content (SEC-001) ─────────────────────────────────────────────
+// An agent that can fetch from the web reads text somebody else wrote, and many of
+// them can also Write, Edit or run Bash. The shared contract says that text is data.
+const SHARED_UNTRUSTED = 'agents/_shared/untrusted-content.md';
+
+/** The web tools an agent's `tools:` grants (`*` grants both). */
+function webTools(tools) {
+  const list = Array.isArray(tools) ? tools.join(',') : String(tools ?? '');
+  if (list.trim() === '*') return ['WebFetch', 'WebSearch'];
+  return ['WebFetch', 'WebSearch'].filter((t) => new RegExp(`\\b${t}\\b`).test(list));
+}
+
 // ── Rule definitions ────────────────────────────────────────────────────────
 
 const RULES = [
@@ -544,6 +556,31 @@ const RULES = [
       // Reviewer must mention sign-off / gate so handoff to senior-dev is unambiguous
       if (/sign[- ]?off|signs off|gate:|hand[- ]?off|HANDOFF/i.test(file.text)) return [];
       return ['reviewer body missing `sign-off` / `gate:` / `HANDOFF` semantics — handoff to senior-dev unclear'];
+    },
+  },
+
+  // ── Security ──
+  {
+    // Prompt injection arrives through what an agent reads, not what it is told:
+    // a fetched page, an issue body, a log line. Every agent that can fetch points
+    // at the one contract that says such text is data, never instructions.
+    // Like PHASE-002, a pointer at a fragment nobody can open is an error that
+    // says so — it must not read as a clean pass.
+    id: 'SEC-001',
+    severity: SEVERITY.error,
+    desc: 'agents with WebFetch/WebSearch reference the untrusted-content contract',
+    appliesTo(file) { return webTools((file.frontmatter || {}).tools).length > 0; },
+    test(file) {
+      const granted = webTools((file.frontmatter || {}).tools).join('/');
+      if (!file.text.includes(SHARED_UNTRUSTED)) {
+        return [`agent has ${granted} but does not reference \`${SHARED_UNTRUSTED}\` — fetched text must be treated as data, not instructions`];
+      }
+      try {
+        readFileSync(resolve(REPO_ROOT, SHARED_UNTRUSTED), 'utf8');
+      } catch (err) {
+        return [`agent references \`${SHARED_UNTRUSTED}\`, which could not be read (${err.code ?? err.message})`];
+      }
+      return [];
     },
   },
 
