@@ -4,6 +4,61 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Fixed
+
+- **The inline "Dangerous command" check never blocked anything.** It read `command` from the
+  top of the hook payload; Claude Code sends `tool_input.command`, so `rm -rf ~`, force pushes
+  and `DROP TABLE` all passed. It is replaced by `scripts/hooks/destructive-guard.mjs`, which
+  parses the command and refuses only what cannot be undone — `rm -rf node_modules` passes,
+  `rm -rf ~` does not — and names a safe alternative. A signed `destructive-command`
+  exception is the sanctioned bypass.
+- **The write log never wrote a line.** The same mistake (`file_path` read from the top) meant
+  `.great_cto/agent-writes.log` was never created in any project. A new test runs every inline
+  hook against the payload shape Claude Code sends.
+
+### Changed behaviour — read before upgrading
+
+- **Destructive commands are refused** (see Fixed) — this is new behaviour for every session,
+  because the old check never ran.
+- **gate-weakening-guard also refuses added lint/type suppressions and weakened configs:**
+  `@ts-ignore`, `@ts-nocheck`, `@ts-expect-error`, `eslint-disable*`, `noqa`, `type: ignore`,
+  `pylint: disable`, `#[allow(`, `//nolint`, `@SuppressWarnings`; `"strict": false`,
+  `skipLibCheck: true`, an ESLint rule set to `"off"`, more Python-lint ignores. Moving a
+  suppression nets zero and passes; edits are checked against the whole file.
+
+### Added
+
+- **`ci-resolver` agent** — owns a red pipeline: names each red check's cause (real
+  regression, false test, broken gate, flaky) with evidence, lands one minimal fix per cause
+  and proves green. It never skips a test, marks a check allow-failure or uses `--no-verify`.
+  71 agents.
+- **Fetched text is data** (`agents/_shared/untrusted-content.md`): all 65 agents with
+  WebFetch/WebSearch now treat web pages, issue/PR text, logs and third-party files as data,
+  never instructions, and report injection attempts. Lint rule SEC-001 enforces the pointer.
+- **Memory and shipped prompts are screened for injection.** Global memory entries carrying
+  invisible Unicode, instructions hidden in HTML comments or injection phrases are dropped
+  before they reach a session (one notice, never the text); `agent-shield` blocks invisible
+  Unicode in agents, skills, commands and hook commands.
+- **`/review` merges duplicate findings before triage** (`scripts/lib/findings-dedupe.mjs`):
+  each bug is verified once, with every angle that found it listed.
+- **`loop-detector`** — an agent repeating the same call 5× or churning one file against red
+  tests gets one nudge to change approach or report BLOCKED.
+- **Typecheck at Stop (opt-in)** — the files edited this turn are typechecked once with the
+  project's own `tsc` (or pyright/mypy); errors send the model back. 60 s budget, process-group
+  kill. Enable with `GREAT_CTO_TYPECHECK_AT_STOP=1` or `typecheck_at_stop: true`.
+- **`workflow-security`** — security-officer checks a project's GitHub Actions (pwn-request
+  checkouts, script injection in `run:`, broad permissions, mutable action refs) with file:line;
+  any HIGH blocks gate:ship.
+- **Skills are measured and checked like agents.** `scripts/lib/skill-usage.mjs` counts from
+  local transcripts how often each skill is invoked, preloaded or read (16 of 44 were not seen
+  in 30 days on the measuring machine); `scripts/skill-lint.mjs` checks every SKILL.md and runs
+  in the gate.
+
+Ideas from a component-by-component comparison with affaan-m/ECC (MIT); every mechanism is
+rebuilt on great_cto's own parser, exceptions and hooks. Plan: `docs/plans/PLAN-2026-09-26-ecc-hardening.md`.
+
 
 ## v3.37.1 — 2026-09-25
 

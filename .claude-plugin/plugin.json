@@ -213,6 +213,11 @@
           },
           {
             "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/typecheck-accumulate.mjs\" 2>/dev/null; true",
+            "timeout": 5
+          },
+          {
+            "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/summary-enforce.mjs\" 2>/dev/null; true",
             "timeout": 5,
             "async": true
@@ -331,6 +336,11 @@
           {
             "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/cross-review-gate.mjs\" 2>/dev/null || true"
+          },
+          {
+            "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/stop-typecheck.mjs\" 2>/dev/null || true",
+            "timeout": 90
           },
           {
             "type": "command",
