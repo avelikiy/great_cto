@@ -78,6 +78,7 @@ step "structural validation" python3 tests/structural/validate.py
 # files are excluded — they carry the hunted shapes as fixtures.
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
+step "skill-lint (every SKILL.md: frontmatter, size, dead references)" node scripts/skill-lint.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # agents-full/ is what the plugin registers (ADR-027); stale output would ship an
 # agent without the shared contracts its source points at.
