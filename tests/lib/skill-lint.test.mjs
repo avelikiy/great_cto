@@ -1,7 +1,7 @@
 // skill-lint — skills/*/SKILL.md are checked like agents are (agent-prompt-lint):
 // frontmatter that loads, a name that matches its directory, a description the
 // model can route on, a size budget, no dangling repo references, no private paths.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -10,11 +10,15 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { lintSkills, parseFrontmatter } from '../../scripts/skill-lint.mjs';
 
+const made = [];
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DESC = 'A description long enough for the model to route on, well over forty characters.';
 
 function repo(skills, extraFiles = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-lint-'));
+  made.push(root);
   for (const [name, text] of Object.entries(skills)) {
     fs.mkdirSync(path.join(root, 'skills', name), { recursive: true });
     fs.writeFileSync(path.join(root, 'skills', name, 'SKILL.md'), text);

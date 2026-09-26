@@ -50,6 +50,7 @@ export const NO_EDGE_BY_DESIGN = Object.freeze([
   { agent: 'app-scaffolder', why: 'runs once at project start, before there is a pipeline to be in' },
   { agent: 'quant-researcher', why: 'called by architect when a product\'s core claim is empirical; it returns a verdict on whether the edge survives testing, and that feeds the architecture decision rather than a next stage. Research-only by contract — it places no order and holds no execution credential — so it is deliberately not a node in a chain that ends in devops' },
   { agent: 'claude', why: 'the catch-all for work that matched no specialist' },
+  { agent: 'ci-resolver', why: 'entered when a pipeline is red, before any build or deploy — its verdict hands the green pipeline back to whoever the red check blocked, not to a next stage' },
 ]);
 
 /**

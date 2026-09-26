@@ -6,7 +6,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -134,8 +134,9 @@ test('helpers: evidence normalisation, title Jaccard, location parse', () => {
   assert.deepEqual(parseLocation('src/a.js'), { file: 'src/a.js', line: null, endLine: null });
 });
 
-test('CLI prints groups as JSON on stdout and `N raw → M unique` on stderr', () => {
+test('CLI prints groups as JSON on stdout and `N raw → M unique` on stderr', (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'dedupe-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const f = join(dir, 'findings.json');
   writeFileSync(f, JSON.stringify(sqlBug));
   const r = spawnSync(process.execPath, [CLI, f], { encoding: 'utf8' });

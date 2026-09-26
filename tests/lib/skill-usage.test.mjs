@@ -1,12 +1,15 @@
 // skill-usage — which great_cto skills are really used, read from Claude Code's own
 // session logs. Agents had agent-usage; skills had nothing, so ~47 skills shipped
 // with no signal whether any session ever loaded them.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { skillUsage, skillOf } from '../../scripts/lib/skill-usage.mjs';
+
+const made = [];
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 
 const SKILLS = ['done-blocked', 'prose-style', 'test-strategy', 'pre-mortem', 'brainstorming', 'well-architected'];
 const SECRET = 'PRIVATE-MESSAGE-TEXT-must-not-leak';
@@ -31,6 +34,7 @@ const assistantText = (ts) => ({ type: 'assistant', timestamp: ts, message: { id
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-usage-'));
+  made.push(root);
   write(root, '-Users-x-work-great-cto/s1.jsonl', [
     prompt('2026-09-10T09:00:00Z'),
     skillCall('great-cto:done-blocked', '2026-09-10T10:00:00Z'),
