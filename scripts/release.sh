@@ -120,11 +120,11 @@ ok "working tree clean"
 
 # 2. on main branch
 BRANCH=$(git branch --show-current)
+# Not a question any more. Step 5 pushes the local `main` ref, not HEAD: answering
+# "y" on another branch tagged that branch and pushed a stale main beside it, and
+# without a terminal the prompt waited forever (3.40.0, 2026-09-27).
 if [ "$BRANCH" != "main" ]; then
-  warn "not on main (currently: $BRANCH)"
-  printf "    continue anyway? [y/N] "
-  read -r reply
-  [ "$reply" = "y" ] || [ "$reply" = "Y" ] || fail "aborted"
+  fail "not on main (currently: ${BRANCH:-detached HEAD}) — release from main: git checkout main && git merge --ff-only ${BRANCH:-<commit>}"
 fi
 ok "on branch: $BRANCH"
 

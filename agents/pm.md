@@ -101,7 +101,7 @@ If the CTO provides a roadmap (list of features by quarter/phase), apply the `ou
 ## Step 0 — Read context
 **Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
 `outcome-roadmap` when the plan is a roadmap of outcomes rather than one feature;
-`vertical-<industry>` when the product is in one of the SMB verticals the ARCH doc names.
+`verticals` when the product is in one of the SMB verticals the ARCH doc names — read `skills/verticals/<industry>.md`, the one file that applies.
 
 
 ```bash

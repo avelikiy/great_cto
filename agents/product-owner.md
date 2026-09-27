@@ -99,7 +99,7 @@ cat .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null
 **Skills on demand** — read the file when it applies (`cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/<name>/SKILL.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"`); not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09):
 `product-economics` for the Economics section (contribution margin, price basis);
 `opportunity-solution-tree` when the idea is a solution looking for its problem;
-`vertical-<industry>` when the product sits in one of the SMB verticals.
+`verticals` when the product sits in one of the SMB verticals — its SKILL.md maps the product to one file, `skills/verticals/<industry>.md`; read that file, not the directory.
 
 
 ### Step 1 — Frame the problem

@@ -100,7 +100,7 @@ that reality.
 2. `docs/architecture/ARCH-{slug}.md` — the data model + API the app syncs against.
 3. `docs/integrations/INTEGRATE-{slug}.md` (if present) — any device-side third-party SDK.
 4. **If any screen shows or moves money** — a balance, a transfer, a signature, a
-   verification state — apply the `vertical-fintech-mobile` skill before writing
+   verification state — read `verticals/fintech-mobile.md` (the `verticals` skill) before writing
    the first test. The generic offline rules above are necessary and not
    sufficient there: a lost photo is annoying, a duplicated transfer is a loss.
 

@@ -17,7 +17,7 @@
  *
  * Rules:
  *  - Read-only on the logs, streamed line by line (they are gigabytes); only lines
- *    that mention `"Skill"`, `command-name` or `SKILL.md` are parsed, and a file
+ *    that mention `"Skill"`, `command-name` or `skills/` are parsed, and a file
  *    last modified before --since is not opened.
  *  - Scripted sessions (project dir under a temp directory: benchmarks, eval
  *    sandboxes, `claude -p` probes) are excluded unless includeScripted — the same
@@ -41,7 +41,10 @@ export const DEFAULT_ROOT = path.join(os.homedir(), '.claude', 'projects');
 const SCRIPTED = /^-(private-tmp|private-var-folders|tmp|var-folders)-/;
 const OUR_PREFIX = /^(great-cto|great_cto):/;
 const READER = /(^|[\s;&|(])(cat|head|tail|sed|less|more|bat|awk)\s/;
-const SKILL_PATH = /(?:^|[\s"'`=/(])skills\/([A-Za-z0-9_.-]+)\/SKILL\.md\b/g;
+// A read of any markdown file inside a skill directory counts for that skill: `verticals`
+// keeps one brief per industry beside its SKILL.md, and reading `verticals/retail.md` IS
+// using it.
+const SKILL_PATH = /(?:^|[\s"'`=/(])skills\/([A-Za-z0-9_.-]+)\/[A-Za-z0-9_.-]+\.md\b/g;
 
 const ts = (s) => { const t = Date.parse(s); return Number.isFinite(t) ? t : null; };
 
@@ -106,7 +109,7 @@ async function readTranscript({ file, subagent }, known, hit) {
     if (leading && line.includes('"type":"assistant"')) {
       try { if (JSON.parse(line).type === 'assistant') leading = false; } catch { /* not JSON */ }
     }
-    if (!line.includes('"Skill"') && !line.includes('command-name') && !line.includes('SKILL.md')) continue;
+    if (!line.includes('"Skill"') && !line.includes('command-name') && !line.includes('skills/')) continue;
     let d;
     try { d = JSON.parse(line); } catch { continue; }
     const t = typeof d.timestamp === 'string' ? d.timestamp : null;

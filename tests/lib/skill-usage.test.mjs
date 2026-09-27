@@ -11,7 +11,7 @@ import { skillUsage, skillOf } from '../../scripts/lib/skill-usage.mjs';
 const made = [];
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 
-const SKILLS = ['done-blocked', 'prose-style', 'test-strategy', 'pre-mortem', 'brainstorming', 'well-architected'];
+const SKILLS = ['done-blocked', 'prose-style', 'test-strategy', 'pre-mortem', 'brainstorming', 'well-architected', 'verticals'];
 const SECRET = 'PRIVATE-MESSAGE-TEXT-must-not-leak';
 
 function write(root, rel, lines) {
@@ -43,6 +43,8 @@ function fixture() {
     toolUse('Read', { file_path: '/work/great_cto/skills/prose-style/SKILL.md' }, '2026-09-11T10:00:00Z'),
     toolUse('Bash', { command: 'cat skills/well-architected/SKILL.md | head -20' }, '2026-09-11T11:00:00Z'),
     toolUse('Bash', { command: 'git log -- skills/pre-mortem/SKILL.md' }, '2026-09-11T12:00:00Z'), // not a read
+    // a skill's reference file is that skill: verticals keeps one brief per industry
+    toolUse('Bash', { command: 'cat "/Users/x/.claude/plugins/cache/great-cto/great_cto/3.40.1/skills/verticals/retail.md"' }, '2026-09-11T12:30:00Z'),
     // a user slash command in the main thread is not a preload
     preload('great-cto:pre-mortem', '2026-09-11T13:00:00Z'),
   ]);
@@ -87,6 +89,7 @@ test('counts Skill-tool invocations, subagent preloads and SKILL.md reads per sk
   assert.equal(u.skills['prose-style'].read, 1);
   assert.equal(u.skills['prose-style'].preloaded, 0, 'a command-name after the first model turn is not a preload');
   assert.equal(u.skills['well-architected'].read, 1, '`cat` via Bash is a read');
+  assert.equal(u.skills['verticals'].read, 1, 'reading verticals/retail.md is using the verticals skill');
   assert.deepEqual(u.never, ['brainstorming'], 'only the skill nobody used is listed');
 });
 
@@ -102,7 +105,7 @@ test('--since/--until bound the window; unseen skills are listed as never seen',
   const u = await skillUsage({ root: fixture(), skills: SKILLS, since: '2026-09-12', until: '2026-09-13' });
   assert.equal(u.skills['done-blocked'].invoked, 1);
   assert.equal(u.skills['prose-style'].read, 0);
-  assert.deepEqual(u.never.sort(), ['brainstorming', 'pre-mortem', 'prose-style', 'test-strategy', 'well-architected']);
+  assert.deepEqual(u.never.sort(), ['brainstorming', 'pre-mortem', 'prose-style', 'test-strategy', 'verticals', 'well-architected']);
 });
 
 test('output carries numbers and skill names only — never message text or paths', async () => {
