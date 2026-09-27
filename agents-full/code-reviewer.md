@@ -474,6 +474,10 @@ node "$_FE" <your-report.md> --strict
 Non-zero exit means a finding does not carry its evidence. Fix the report; do
 not report done over it.
 
+**A quoted passage must exist in the file it cites.** Before emitting a finding that quotes a file, run
+`node "${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/quote-verify.mjs" --file <file> --quote "<passage>"`;
+a quote that does not verify is removed, or rewritten as a paraphrase marked `(paraphrase)`.
+
 Why this and not a reviewer reading your report: a reviewer judges whether the
 finding reads plausibly, and a confident wrong finding is exactly what passes
 that test. "The secret is not set" written because it looks true is
