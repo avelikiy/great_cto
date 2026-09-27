@@ -92,7 +92,7 @@ export function operatorMessages(jsonl) {
 
 // Sessions started in a temp directory are scripted — benchmarks, eval sandboxes,
 // `claude -p` probes — and their "operator" is a script. Counted only when asked for.
-const SCRIPTED = /^-(private-tmp|private-var-folders|tmp|var-folders)-/;
+export const SCRIPTED = /^-(private-tmp|private-var-folders|tmp|var-folders)-/;
 
 function sessionFiles(root, project) {
   const files = [];

@@ -1,6 +1,6 @@
 ---
 description: "Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, ROI per shipped feature, WoW/MoM delta. Pairs with /digest (delivery+DORA) and /burn (reliability)."
-argument-hint: "[period_days] | feature <slug> | agent <name> — default: /cost 30. Examples: /cost 7 | /cost feature stripe-subscriptions | /cost agent architect"
+argument-hint: "[period_days] | feature <slug> | agent <name> | sessions [days] — default: /cost 30. Examples: /cost 7 | /cost feature stripe-subscriptions | /cost agent architect | /cost sessions 30"
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep
 model: haiku
@@ -18,6 +18,9 @@ You are the Cost & Capacity aggregator. Multiple modes:
    - Cross-reference to similar past features in same archetype
 3. **`/cost agent <name>`** — Per-agent cost (NEW in v2.3.0)
    - Same as `/agent-review <name>` but cost-focused
+4. **`/cost sessions [days]`** — Session shape: how the operator's OWN sessions spend
+   - Length, active time, cache rebuilds, read:create, main-thread model vs subagent models
+   - Traffic-light signals with thresholds, then the three habits with the largest estimated saving
 
 ## Mode dispatch
 
@@ -38,10 +41,16 @@ case "${1:-}" in
     # → jump to "Agent mode" section below
     MODE=agent
     ;;
+  sessions)
+    DAYS="${2:-30}"
+    case "$DAYS" in ''|*[!0-9]*) echo "Usage: /cost sessions [days]"; exit 2 ;; esac
+    # → jump to "Sessions mode" section below
+    MODE=sessions
+    ;;
   *)
     MODE=aggregate
     PERIOD=${1:-30}
-    case "$PERIOD" in ''|*[!0-9]*) echo "Usage: /cost [period_days] | feature <slug> | agent <name>"; exit 2 ;; esac
+    case "$PERIOD" in ''|*[!0-9]*) echo "Usage: /cost [period_days] | feature <slug> | agent <name> | sessions [days]"; exit 2 ;; esac
     ;;
 esac
 
@@ -174,6 +183,27 @@ if [ "$MODE" = "agent" ]; then
   exit 0
 fi
 ```
+
+## Sessions mode — `/cost sessions [days]`
+
+Reads `~/.claude/projects` locally (read-only, nothing is sent): each main session plus its
+subagent transcripts, turns deduplicated by `message.id`, priced by `cost-meter`. Scripted
+temp-dir projects are excluded. Projects print as `p1, p2…`; message text is never read into it.
+
+```bash
+if [ "$MODE" = "sessions" ]; then
+  SS="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/session-shape.mjs"
+  [ -f "$SS" ] || SS="$(pwd)/scripts/lib/session-shape.mjs"
+  SINCE=$(date -v-"${DAYS}"d +%F 2>/dev/null || date -d "-${DAYS} days" +%F)
+  node "$SS" --since "$SINCE" --top 10
+  exit 0
+fi
+```
+
+Relay the report as printed: totals, the signals table with its thresholds, then **Change first**
+(each item's estimated saving and the habit to change). Signals overlap; never add their estimates
+into one number. Pass `--show-projects` only when the operator asks which project is which, and
+never quote message text — the report has none to quote.
 
 ## Aggregate mode (default — original behaviour)
 
