@@ -1529,7 +1529,10 @@ async function main(): Promise<void> {
     }
   }
   if (args.command === "chat-only-hint") {
-    const tried = (args as unknown as { _slashTried?: string })._slashTried || "<command>";
+    const typed = (args as unknown as { _slashTried?: string })._slashTried || "<command>";
+    // 3.40 folded these into modes of another command — quote the one that exists.
+    const folded: Record<string, string> = { burn: "digest slo", learn: "crystallize learn" };
+    const tried = folded[typed] ?? typed;
     error(`'${tried}' is a chat slash command, not a CLI subcommand.`);
     log("");
     log(`To run it, open Claude Code, Cursor, or any AI assistant that has`);

@@ -504,7 +504,7 @@ _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 RAW="$(npm test 2>&1)"                                  # or pytest / cargo test / go test
 CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source qa-output)   # full output, recoverable
 printf '%s' "$RAW" | node "$_C" --budget 10000 --stats                 # keeps FAIL + stack, elides passes
-# need the full run?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+# need the full run?  node "$_CCR" recall "$CCR_ID"   (or /recall ccr:<id>)
 ```
 
 Full contract: `agents/_shared/compress-prompt.md`. Use this for any large test/build/lint output.

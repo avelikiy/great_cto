@@ -114,7 +114,7 @@ test('formatRecallFooter: empty → empty string', () => {
 test('formatRecallFooter: lists ids + /recall hint', () => {
   const f = formatRecallFooter([{ id: 'abc123', preview: 'Lesson A' }]);
   assert.match(f, /ccr: 1 item/);
-  assert.match(f, /\/ccr <id>/);
+  assert.match(f, /\/recall ccr:<id>/);
   assert.match(f, /`abc123`/);
 });
 

@@ -391,7 +391,7 @@ if [ -f "$SLO" ] && [ -f "$LOG" ]; then
   } > "$CACHE"
   echo "slo-budget-current.md recomputed → $CACHE"
 
-  # Snapshot for burn-rate trend (consumed by /burn).
+  # Snapshot for burn-rate trend (consumed by /digest slo).
   HISTORY=.great_cto/slo-burn-history.log
   [ ! -f "$HISTORY" ] && printf '# SLO burn history — append only. Format: ISO8601 | service | sli | used_min | budget_min | pct\n' > "$HISTORY"
   TS_ISO=$(date -u +%Y-%m-%dT%H:%M:%SZ)

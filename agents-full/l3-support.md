@@ -171,7 +171,7 @@ at phase end. The Beads-unavailable fallback is defined there.
   RAW="$(kubectl logs deploy/api --since=1h)"      # or journalctl / docker logs / a log file
   CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source l3-log)   # full original, recoverable
   printf '%s' "$RAW" | node "$_C" --budget 12000 --stats              # compressed view to reason on
-  # need a detail the compressed view elided?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+  # need a detail the compressed view elided?  node "$_CCR" recall "$CCR_ID"   (or /recall ccr:<id>)
   ```
 
   Full contract: `agents/_shared/compress-prompt.md`
@@ -217,7 +217,7 @@ If the compressed view elided something you need (you'll see `… N lines elided
 `<!-- ccr: … -->` footer from memory-filter), pull the full original back:
 
 ```bash
-node "$_CCR" recall "$CCR_ID"     # or, interactively: /ccr <id>
+node "$_CCR" recall "$CCR_ID"     # or, interactively: /recall ccr:<id>
 ```
 
 This is the discipline that lets us compress **aggressively**: nothing is ever lost, only moved

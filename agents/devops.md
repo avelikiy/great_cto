@@ -565,7 +565,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
        >> .great_cto/perf-baseline.log
      ```
      **Do NOT append if deploy was rolled back** — a failed deploy must not corrupt the baseline.
-   - **Actual vs. estimated cost** check — append to structured cost log for `/cost` aggregation:
+   - **Actual vs. estimated cost** check — append to structured cost log for `/digest cost` aggregation:
      ```bash
      ARCH_DOC=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
      ESTIMATED_RAW=$(grep "Total estimated addition:" "$ARCH_DOC" 2>/dev/null | grep -oE '\$[0-9]+' | head -1 | tr -d '$')
@@ -581,7 +581,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
        >> "$COST_LOG"
      echo "cost-history: appended estimate=\$${ESTIMATED}/mo for $FEATURE"
      ```
-     Report in step 13: `Cost estimate: \$${ESTIMATED}/mo → verify actual in cloud console [CONSOLE_URL if set]. After 30d run /cost to see actual vs estimated drift.`
+     Report in step 13: `Cost estimate: \$${ESTIMATED}/mo → verify actual in cloud console [CONSOLE_URL if set]. After 30d run /digest cost to see actual vs estimated drift.`
 
 9. **Type drift check** (every 5th deploy):
    ```bash

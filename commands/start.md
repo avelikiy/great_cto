@@ -448,7 +448,7 @@ team-size: <N engineers — ask if not mentioned in description>
 senior-dev: <N>
 review_mode: auto
 ## Budget
-monthly-budget: <optional — USD/mo infrastructure ceiling. Leave commented to disable /cost headroom signal>
+monthly-budget: <optional — USD/mo infrastructure ceiling. Leave commented to disable /digest cost headroom signal>
 monthly-budget-llm-usd: <required for ai-system / agent-product — LLM API spend cap; project-auditor flags P0 when sum(cost_usd) > cap>
 budget-alert-threshold: 80
 ## Owners

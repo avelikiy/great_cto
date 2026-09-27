@@ -124,7 +124,7 @@ Coordinates multi-stream work, decomposes plans, audits existing codebases, and 
 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
-| `continuous-learner` | claude-haiku-4-5 | LOW | Use at session end (auto-triggered by SessionEnd hook) or via /learn command. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences. |
+| `continuous-learner` | claude-haiku-4-5 | LOW | Use at session end (auto-triggered by SessionEnd hook) or via /crystallize learn. Extracts repeatable patterns, decisions, and cost outliers from the session and writes structured entries to .great_cto/lessons.md. Promotes high-confidence patterns to ~/.great_cto/decisions.md after ≥3 occurrences. |
 | `coordinator` | sonnet | — | Multi-agent coordinator. Use when a CTO request spans 3+ independent work streams, requires parallel research before implementation, or the task graph is complex enough that sequencing matters. Orchestrates agents across the full DECOMPOSE→CLASSIFY→DISPATCH→MONITOR→SYNTHESIZE→VERIFY lifecycle. |
 | `knowledge-extractor` | claude-opus-5 | HIGH | Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md. |
 | `pm` | sonnet | HIGH | Use after architect produces the ARCH doc. Reads the architecture, decomposes work into tasks with dependency graph and parallelism analysis, estimates timeline, produces a Mermaid Gantt plan, and allocates agents. Creates gate:plan for human approval before any senior-dev starts. |

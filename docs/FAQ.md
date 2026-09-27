@@ -30,7 +30,7 @@ Three layers:
 2. [Kimi K2 router](https://github.com/avelikiy/great_cto/blob/main/agents/llm-router.md) for triage (60–80% savings)
 3. `cost-guard` hook warns before expensive prompts
 
-See `/cost` for live spend.
+See `/digest cost` for live spend.
 
 ## What happens to my data when I uninstall?
 

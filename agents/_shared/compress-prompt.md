@@ -38,7 +38,7 @@ If the compressed view elided something you need (you'll see `… N lines elided
 `<!-- ccr: … -->` footer from memory-filter), pull the full original back:
 
 ```bash
-node "$_CCR" recall "$CCR_ID"     # or, interactively: /ccr <id>
+node "$_CCR" recall "$CCR_ID"     # or, interactively: /recall ccr:<id>
 ```
 
 This is the discipline that lets us compress **aggressively**: nothing is ever lost, only moved

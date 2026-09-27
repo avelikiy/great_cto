@@ -31,7 +31,7 @@ You make 2 decisions per feature; agents do the rest.
 
 Daily        /inbox · /digest · /doctor · /resume · /save
 Pipeline     /start · /audit · /review · /poc
-Ops          /ownership · /rfc · /release · /sec · /cost · /burn
+Ops          /ownership · /rfc · /release · /sec · /digest cost · /digest slo
 Help         /help                    full command reference
 
 Admin board  great-cto board     →    http://localhost:3141

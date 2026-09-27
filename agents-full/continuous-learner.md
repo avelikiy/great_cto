@@ -1,6 +1,6 @@
 ---
 name: continuous-learner
-description: "Use at session end (auto-triggered by SessionEnd hook) or via /learn command."
+description: "Use at session end (auto-triggered by SessionEnd hook) or via /crystallize learn."
 model: claude-haiku-4-5
 authority: proposes
 tools: Read, Write, Edit, Glob, Grep, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(grep:*), Bash(head:*), Bash(tail:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), Bash(node:*), WebFetch, WebSearch, memory_20250929

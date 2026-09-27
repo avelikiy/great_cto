@@ -58,7 +58,7 @@ at phase end. The Beads-unavailable fallback is defined there.
   RAW="$(kubectl logs deploy/api --since=1h)"      # or journalctl / docker logs / a log file
   CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source l3-log)   # full original, recoverable
   printf '%s' "$RAW" | node "$_C" --budget 12000 --stats              # compressed view to reason on
-  # need a detail the compressed view elided?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+  # need a detail the compressed view elided?  node "$_CCR" recall "$CCR_ID"   (or /recall ccr:<id>)
   ```
 
   Full contract: `agents/_shared/compress-prompt.md`. This is what lets you triage a 200k-token

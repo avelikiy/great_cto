@@ -190,7 +190,7 @@ emit WAIVERS "$(_s_waivers)"
 # ── block 16 ────────────────────────
 _s_slo_burn() {
 # Cheap check: only compute for the most-burning service+SLI in latest snapshot.
-# Full breakdown lives in /burn.
+# Full breakdown lives in /digest slo.
 if [ -f .great_cto/slo-burn-history.log ]; then
   python3 - <<'PY' 2>/dev/null
 import datetime, collections, sys
@@ -338,7 +338,7 @@ emit GATE_DRIFT "$(_s_gate_drift)"
 # ── block 19 ────────────────────────
 _s_cost_alert() {
 # Fires when run-rate crosses alert_threshold of budget OR any service +30% MoM.
-# Cheap version — full breakdown lives in /cost.
+# Cheap version — full breakdown lives in /digest cost.
 if [ -f .great_cto/cost-history.log ]; then
   python3 - <<'PY' 2>/dev/null
 import datetime, collections

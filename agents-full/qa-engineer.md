@@ -750,7 +750,7 @@ _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 RAW="$(npm test 2>&1)"                                  # or pytest / cargo test / go test
 CCR_ID=$(printf '%s' "$RAW" | node "$_CCR" store --source qa-output)   # full output, recoverable
 printf '%s' "$RAW" | node "$_C" --budget 10000 --stats                 # keeps FAIL + stack, elides passes
-# need the full run?  node "$_CCR" recall "$CCR_ID"   (or /ccr <id>)
+# need the full run?  node "$_CCR" recall "$CCR_ID"   (or /recall ccr:<id>)
 ```
 
 Full contract: `agents/_shared/compress-prompt.md`
@@ -796,7 +796,7 @@ If the compressed view elided something you need (you'll see `… N lines elided
 `<!-- ccr: … -->` footer from memory-filter), pull the full original back:
 
 ```bash
-node "$_CCR" recall "$CCR_ID"     # or, interactively: /ccr <id>
+node "$_CCR" recall "$CCR_ID"     # or, interactively: /recall ccr:<id>
 ```
 
 This is the discipline that lets us compress **aggressively**: nothing is ever lost, only moved

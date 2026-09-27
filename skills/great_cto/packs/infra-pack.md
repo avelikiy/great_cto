@@ -237,7 +237,7 @@ Don't use for:
 
 Run a quarterly review: are commits utilised > 90%? Adjust at renewal.
 
-`/cost` command surfaces commit utilisation if `cost-history.log` is configured.
+`/digest cost` surfaces commit utilisation if `cost-history.log` is configured.
 
 ## Edge runtime
 

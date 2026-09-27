@@ -1,6 +1,6 @@
 ---
-description: "Search what this project knows about a concept — session history, and the documents written about it. Usage: /recall <keyword>"
-argument-hint: "<keyword> — e.g. 'jwt', 'quota', 'board', 'npm'"
+description: "When you half-remember something, find what this project already knows — session history and the documents written about it by keyword; `ccr:<id>` brings back the full original of context compression elided."
+argument-hint: "<keyword> | ccr:<id> | --id <id> | ccr — e.g. 'jwt', 'quota', 'ccr:a1b2c3d4e5f6'; bare `ccr` lists recoverable items"
 user-invocable: true
 allowed-tools: Bash, Read
 model: haiku
@@ -9,6 +9,22 @@ model: haiku
 <!-- great_cto-managed -->
 
 You are the great_cto `/recall` command. Answer "what does this project already know about `$ARGUMENTS`?" from two places: what HAPPENED (session logs) and what is WRITTEN DOWN (the `docs/` tree). A concept the operator half-remembers is as likely to live in an ADR as in a session.
+
+One more place, by id rather than keyword: context great_cto compressed out (see
+**Mode: ccr** below). Keyword search stays the default.
+
+## Step 0 — Dispatch
+
+```bash
+case "${ARGUMENTS:-}" in
+  ccr:*)        MODE=ccr; ID="${ARGUMENTS#ccr:}"; ID="${ID%% *}" ;;   # /recall ccr:<id>
+  --id\ *)      MODE=ccr; ID="${ARGUMENTS#--id }"; ID="${ID%% *}" ;;  # /recall --id <id>
+  ccr|--id)     MODE=ccr; ID="" ;;                                    # list recoverable items
+  *)            MODE=keyword ;;                                       # default: Steps 1–3
+esac
+```
+
+`MODE=ccr` → skip to **Mode: ccr**. Otherwise continue with Step 1.
 
 ## Step 1 — Search session logs
 
@@ -94,6 +110,51 @@ After results, offer 2–3 related searches:
 ```
 Related: /recall <synonym1>  |  /recall <synonym2>
 ```
+
+## Mode: ccr — retrieve compressed context by id
+
+The retrieval half of **CCR (Compressed Context with Retrieval)**. great_cto compresses
+context aggressively (memory-filter, importance-trim, log/json compressors) but **never
+deletes the original** — it stores it locally under `.great_cto/ccr/`. When you realise
+you need something that was filtered out, `/recall ccr:<id>` brings the full original
+back. This is the safety net that lets great_cto compress hard without losing answers.
+This was `/ccr` until 3.40.
+
+### ccr — list recoverable items (no id)
+
+```bash
+node scripts/lib/ccr.mjs list --limit 20
+```
+
+Rows: `id  bytes  source  preview`. `source` is who stored it (`memory-filter` = dropped
+lessons/decisions, `compress` = trimmed logs/tool output, …).
+
+### ccr — recall the original (id given)
+
+```bash
+node scripts/lib/ccr.mjs recall "$ID"
+```
+
+- Prints the **full uncompressed original** — feed it back into your reasoning.
+- Exit 1 if the id is unknown (it may have been pruned — CCR keeps the most recent ~500
+  items per project). Try `/recall ccr` (list) to see what's still available.
+
+### Where ids come from
+
+Compression components append a footer when they drop something:
+
+```
+<!-- ccr: 2 item(s) elided but recoverable. Run `/recall ccr:<id>`:
+  - `a1b2c3d4e5f6` — ## Lesson: rate-limit Stripe webhooks
+  - `0f9e8d7c6b5a` — ## Decision: pin model versions in ADR-LLM
+-->
+```
+
+If an elided item looks relevant to the task, recall it instead of guessing.
+
+- Project-local (`.great_cto/ccr/`); content-addressed (identical content → one id, auto-dedup).
+- Keyword search (the default) finds session history by concept; `ccr:<id>` retrieves one
+  specific compressed-out artifact by id.
 
 ## Notes
 - Session search is grep-based; document search is BM25-ranked. Both are zero-dep

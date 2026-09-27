@@ -11,7 +11,7 @@ Claude Code or OpenAI Codex.
 | **Build (pipeline)** | `/start` describe a product · `/audit` audit existing code · `/review` PR review · `/poc` proof of concept (`/poc promote` POC → prod) · `/release` release notes |
 | **Compliance reviewers** (build-time gate) | `/review --domain <name>` — tax · legal · hr-ai · api · accounting · rcm · msp · procurement · voice (also auto-attached on the code paths that carry the obligation) |
 | **Daily** | `/inbox` attention · `/digest` weekly · `/doctor` health · `/resume` continue · `/save` snapshot |
-| **Admin / ops** | `/ownership` (+ `oncall`) · `/rfc` · `/sec` · `/cost` · `/burn` · `/learn` · `/crystallize` · `/migrate` · `/agent` |
+| **Admin / ops** | `/ownership` (+ `oncall`) · `/rfc` · `/sec` · `/digest cost` · `/digest slo` · `/crystallize` (+ `learn`) · `/migrate` · `/agent` |
 | **Help** | `/help` this card · `/help commands` table · `/help board` admin URL |
 
 Every command works standalone — no global state required.
