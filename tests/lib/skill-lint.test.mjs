@@ -8,7 +8,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { lintSkills, parseFrontmatter } from '../../scripts/skill-lint.mjs';
+import { lintSkills, parseFrontmatter, strictYamlIssues } from '../../scripts/skill-lint.mjs';
 
 const made = [];
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
@@ -101,4 +101,28 @@ test('the real repo lints with 0 errors', () => {
   const r = lintSkills({ repoRoot: REPO });
   assert.ok(r.skills >= 40, `expected the repo's skills, saw ${r.skills}`);
   assert.deepEqual(r.errors, [], r.errors.map((e) => `${e.skill} ${e.rule} ${e.msg}`).join('\n'));
+});
+
+// SK-007: frontmatter the lenient parser accepts but strict YAML reads differently —
+// the file "works" in the linter and fails to load in the host.
+test('an unquoted value strict YAML would misread is an error; quoting it fixes it', () => {
+  const fm = (line) => `---\nname: x\n${line}\n---\nbody\n`;
+  assert.match(strictYamlIssues(fm('description: Use when: the build is red')).join(), /nested mapping/);
+  assert.match(strictYamlIssues(fm('description: checks CI #1 and more')).join(), /starts a comment/);
+  assert.match(strictYamlIssues(fm('argument-hint: `name` of the skill')).join(), /may not start/);
+  assert.deepEqual(strictYamlIssues(fm('description: "Use when: the build is red"')), []);
+  assert.deepEqual(strictYamlIssues(fm("description: 'checks CI #1'")), []);
+  assert.deepEqual(strictYamlIssues(fm('description: |\n  Use when: anything')), []);
+  assert.deepEqual(strictYamlIssues(fm('description: Plain words, no traps.')), []);
+});
+
+test('every agent and command frontmatter also reads the same under strict YAML', () => {
+  const root = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
+  const bad = [];
+  for (const dir of ['agents', 'commands']) {
+    for (const f of fs.readdirSync(path.join(root, dir)).filter((n) => n.endsWith('.md'))) {
+      for (const issue of strictYamlIssues(fs.readFileSync(path.join(root, dir, f), 'utf8'))) bad.push(`${dir}/${f}: ${issue}`);
+    }
+  }
+  assert.deepEqual(bad, []);
 });

@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `commands/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**44 user-invocable commands.**
+**43 user-invocable commands.**
 
 | Command | Model | Arguments | What it does |
 |---|---|---|---|
@@ -18,7 +18,7 @@
 | `/close-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Month-end close / GL compliance check — invokes accounting-reviewer to produce TM-accounting-{slug}.md with double-entry integrity, ASC 606 revenue-recognition, period-lock, and SOX ITGC gaps. |
 | `/coding-audit` | sonnet | [slug] | Medical-coding / revenue-cycle compliance audit. Invokes rcm-reviewer to assess autonomous ICD-10-CM / CPT / HCPCS coding for False Claims Act exposure (upcoding/unbundling), NCCI edits + MUEs, medical necessity (LCD/NCD), modifier discipline, HIPAA minimum-necessary — and force a certified-coder (CPC/CCS) sign-off. |
 | `/cost` | haiku | [period_days] \| feature <slug> \| agent <name> — default: /cost 30. Examples: /cost 7 \| /cost feature stripe-subscriptions \| /cost agent architect | Cost & capacity health — LLM router savings, run-rate, cost-per-deploy, ROI per shipped feature, WoW/MoM delta. Pairs with /digest (delivery+DORA) and /burn (reliability). |
-| `/crystallize` | sonnet | [approve GP-NNNN [--no-eval "reason"] \| reject GP-NNNN <reason> \| rollback GP-NNNN \| prune \| status] | Promote extracted incident knowledge into global patterns and agent improvements. |
+| `/crystallize` | sonnet | [approve GP-NNNN [--no-eval "reason"] \| reject GP-NNNN <reason> \| rollback GP-NNNN \| prune \| status \| skill [name]] | Turn repeated experience into reusable knowledge — incident knowledge into global patterns and agent improvements (review/approve), or a repeating procedure into a skill (`skill`). |
 | `/digest` | haiku | [days] [board] — e.g. '30 board' or 'Q2 board' | Weekly engineering digest. Velocity, incident trend, tech debt, ADR decisions, open gates, and a CTO recommendation. Add 'board' flag for board-report format. |
 | `/discover` | sonnet | <product area, metric to improve, or 'what should we build next?'> | Run a full product discovery cycle — from outcome definition through opportunity mapping, prioritisation, and experiment design. Use when the team isn't sure what to build next, or before writing a PRD for a complex feature space. |
 | `/doctor` | haiku | [--fix] — optional, emits remediation commands | Health check for great_cto. Shows pipeline state, missing artefacts, hook status, last run per agent, and permission-denied tail. |
@@ -44,7 +44,6 @@
 | `/rfc` | sonnet | new \"title\" \| list \| show <id> \| close <id> accept\|reject [reason] \| comment <id> \"text\" | RFC process for cross-team decisions. Create, track, and close RFCs. Accepted RFCs auto-create ADRs. |
 | `/save` | haiku | [description] — e.g. 'implemented auth flow' (auto-inferred if omitted) | Save current session. Writes a session log with what was done, decisions made, and what's pending. Optional: commit & push. |
 | `/sec` | sonnet | [subcommand] [args...] — default: status. Examples: /sec \| /sec status 7 \| /sec threat stripe-subscriptions \| /sec sbom \| /sec incident \"creds leaked\" | Security umbrella: posture metrics, threat model, SBOM, incident workflow. Subcommands: status (default) \| threat \| sbom \| incident \| rotate. |
-| `/skillify` | sonnet | [name] — e.g. 'incident-review' or 'api-contract-gen' (auto-prompted if omitted) | Capture a repeating pattern as a reusable skill. Run when you notice the same 5+ steps appearing 3+ times across sessions or agents. Produces a skills/<name>/SKILL.md file. |
 | `/spec` | sonnet | [project description or 'retrofit' for existing codebases] | Spec Driven Development: interview → requirements.md + design.md + tasks.md. Run before writing any code. |
 | `/start` | sonnet | [free-form project description] | Set up a new project. Describe what you're building — agents do the rest. |
 | `/tax-review` | sonnet | [slug] — optional ARCH slug to review (defaults to latest) | Tax-filing compliance check — invokes tax-reviewer to produce TM-tax-{slug}.md with MeF e-file schema, Form 8879, PTIN/Circular 230, and IRC §7216 consent gaps. |

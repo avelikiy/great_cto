@@ -13,6 +13,7 @@
  *   SK-004 warn   SKILL.md over 20 KB (loaded whole into context) — HEAVY_ALLOWED exempts
  *   SK-005 error  a relative link or backticked repo path points at a file that does not exist
  *   SK-006 error  a private absolute path (/Users/<name>/…, /home/<name>/…)
+ *   SK-007 error  an unquoted frontmatter value strict YAML reads differently (`: `, ` #`, a reserved first character)
  *
  * Usage:
  *   node scripts/skill-lint.mjs [--root <repo>] [--json]
@@ -43,6 +44,31 @@ const PRIVATE_PATH = /(?<![\w.~$}])\/(?:Users|home)\/[A-Za-z0-9][A-Za-z0-9._-]*\
  * (`|` / `>`), and indented continuation (lists, nested maps) kept as text.
  * Throws on a top-level line that is not a key.
  */
+/**
+ * Unquoted top-level values that a strict YAML parser reads differently from how
+ * this file's lenient parser reads them — so the frontmatter "works" here and the
+ * skill (or agent, or command) silently fails to load elsewhere. ECC shipped a
+ * preflight for exactly this after a release did (techwolf-ai/ai-first-toolkit
+ * preflight.py, v1.12.2). Quote the value to fix it.
+ */
+export function strictYamlIssues(text) {
+  const t = String(text).replace(/\r\n/g, '\n');
+  if (!t.startsWith('---\n')) return [];
+  const end = t.indexOf('\n---', 3);
+  if (end === -1) return [];
+  const out = [];
+  for (const line of t.slice(4, end).split('\n')) {
+    const m = line.match(/^([A-Za-z_][A-Za-z0-9_-]*)\s*:\s+(.+)$/);
+    if (!m) continue;
+    const v = m[2].trim();
+    if (/^["'|>\[{]/.test(v)) continue;            // quoted, block scalar or flow collection
+    if (/:\s/.test(v) || /:$/.test(v)) out.push(`\`${m[1]}\`: an unquoted value containing ": " is read as a nested mapping`);
+    else if (/\s#/.test(v)) out.push(`\`${m[1]}\`: an unquoted " #" starts a comment — the value is cut there`);
+    else if (/^[@`%&*!]/.test(v)) out.push(`\`${m[1]}\`: an unquoted value may not start with ${v[0]}`);
+  }
+  return out;
+}
+
 export function parseFrontmatter(text) {
   const t = String(text).replace(/\r\n/g, '\n');
   if (!t.startsWith('---\n')) return null;
@@ -116,6 +142,7 @@ function lintOne(name, file, repoRoot) {
   }
   for (const msg of danglingRefs(text, path.dirname(file), repoRoot)) push(errors, 'SK-005', msg);
   for (const m of text.matchAll(PRIVATE_PATH)) push(errors, 'SK-006', `private absolute path \`${m[0]}…\``);
+  for (const msg of strictYamlIssues(text)) push(errors, 'SK-007', msg);
   return { errors, warnings };
 }
 
