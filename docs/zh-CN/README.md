@@ -280,7 +280,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [门禁与批准级别](../GATES.md) ·
 [Agents](../reference/agents.md) · [命令](../reference/commands.md) ·
 [原型](../ARCHETYPES.md) · [架构](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [其余一切](../DETAILS.md) —— 批评者、司法辖区、成本明细、CI、告警
 
 ## 社区

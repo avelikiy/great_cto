@@ -315,7 +315,7 @@ telemetria vem **desligada por padrão** ([docs/PRIVACY.md](../PRIVACY.md)).
 [Gates e níveis de aprovação](../GATES.md) ·
 [Agentes](../reference/agents.md) · [Comandos](../reference/commands.md) ·
 [Arquétipos](../ARCHETYPES.md) · [Arquitetura](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Todo o resto](../DETAILS.md) — críticos, jurisdições, detalhamento de custos, CI, alertas
 
 ## Comunidade

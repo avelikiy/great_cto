@@ -311,7 +311,7 @@ machine; prompts go to your LLM provider and nowhere else. Telemetry is
 [Gates & approval levels](docs/GATES.md) ·
 [Agents](docs/reference/agents.md) · [Commands](docs/reference/commands.md) ·
 [Archetypes](docs/ARCHETYPES.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[MCP](docs/MCP.md) · [FAQ](docs/FAQ.md) ·
+[MCP](docs/MCP.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) ·
 [Everything else](docs/DETAILS.md) — critics, jurisdictions, cost breakdown, CI, alerts
 
 ## Community

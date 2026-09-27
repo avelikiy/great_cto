@@ -301,7 +301,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [게이트와 승인 레벨](../GATES.md) ·
 [에이전트](../reference/agents.md) · [커맨드](../reference/commands.md) ·
 [아키타입](../ARCHETYPES.md) · [아키텍처](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [그 밖의 모든 것](../DETAILS.md) — 비평가, 관할권, 비용 내역, CI, 알림
 
 ## 커뮤니티

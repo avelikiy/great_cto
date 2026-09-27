@@ -295,7 +295,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [ゲートと承認レベル](../GATES.md) ·
 [エージェント](../reference/agents.md) · [コマンド](../reference/commands.md) ·
 [アーキタイプ](../ARCHETYPES.md) · [アーキテクチャ](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [その他すべて](../DETAILS.md) — 批評家、法域、コスト内訳、CI、アラート
 
 ## コミュニティ

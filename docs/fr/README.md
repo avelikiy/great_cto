@@ -327,7 +327,7 @@ ailleurs. La télémétrie est **désactivée par défaut**
 [Gates et niveaux d'approbation](../GATES.md) ·
 [Agents](../reference/agents.md) · [Commandes](../reference/commands.md) ·
 [Archétypes](../ARCHETYPES.md) · [Architecture](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Tout le reste](../DETAILS.md) — critiques, juridictions, détail des coûts, CI, alertes
 
 ## Communauté

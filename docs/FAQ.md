@@ -16,7 +16,7 @@ great_cto runs *before* CI. Catches issues at architecture, review, and pre-merg
 
 ## Cursor / Copilot / Aider support?
 
-All five hosts work via `npx great-cto adapt --platform <host>` — Claude Code, Cursor, OpenAI Codex CLI, Aider, Continue. Same archetype + compliance machinery generates platform-native config (CLAUDE.md, AGENTS.md, .cursorrules, .aider.conf.yml, .continue/rules.md). Daily Canary verifies adapt for all 5 every 06:00 UTC.
+All five hosts work via `npx great-cto adapt --platform <host>` — Claude Code, Cursor, OpenAI Codex CLI, Aider, Continue. Same archetype + compliance machinery generates platform-native config (CLAUDE.md, AGENTS.md, .cursorrules, .aider.conf.yml, .continue/rules.md). The release gate (`scripts/ci-local.sh`, run before every publish) tests the Claude Code output (`tests/multi-platform-parity.test.mjs`); the other four are generated but not verified on each release — file an issue if one is wrong.
 
 ## Can I disable hooks if they're getting in the way?
 
@@ -48,7 +48,7 @@ You can still use great_cto with one cofounder via shared git repo + Beads throu
 
 ## Does it work on Windows?
 
-Daily Canary runs Ubuntu + macOS only. Windows isn't actively tested — file an issue if you hit something specific. WSL2 should work fine.
+Releases are gated on macOS (`scripts/ci-local.sh` before every publish). Linux and Windows are not tested on each release — the hooks are bash, so native Windows is unlikely to work; WSL2 should. File an issue if you hit something specific. See also [Troubleshooting](TROUBLESHOOTING.md).
 
 
 ## Can I read recent decisions / lessons / patterns?

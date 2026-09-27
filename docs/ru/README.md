@@ -316,7 +316,7 @@ LLM-аккаунтом. Удалите great_cto — и построенный �
 [Гейты и уровни одобрения](../GATES.md) ·
 [Агенты](../reference/agents.md) · [Команды](../reference/commands.md) ·
 [Архетипы](../ARCHETYPES.md) · [Архитектура](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Всё остальное](../DETAILS.md) — критики, юрисдикции, разбор стоимости, CI, алерты
 
 ## Сообщество

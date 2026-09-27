@@ -313,7 +313,7 @@ telemetría está **desactivada por defecto** ([docs/PRIVACY.md](../PRIVACY.md))
 [Gates y niveles de aprobación](../GATES.md) ·
 [Agentes](../reference/agents.md) · [Comandos](../reference/commands.md) ·
 [Arquetipos](../ARCHETYPES.md) · [Arquitectura](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Todo lo demás](../DETAILS.md) — críticos, jurisdicciones, desglose de costes, CI, alertas
 
 ## Comunidad

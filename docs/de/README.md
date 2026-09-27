@@ -324,7 +324,7 @@ sonst hin. Telemetrie ist **standardmäßig aus** ([docs/PRIVACY.md](../PRIVACY.
 [Gates & Genehmigungsstufen](../GATES.md) ·
 [Agenten](../reference/agents.md) · [Befehle](../reference/commands.md) ·
 [Archetypen](../ARCHETYPES.md) · [Architektur](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Alles Weitere](../DETAILS.md) — Kritiker, Jurisdiktionen, Kostenaufschlüsselung, CI, Alerts
 
 ## Community

@@ -282,7 +282,7 @@ prompt 只送到你的 LLM 供應商，別處不去。遙測**預設關閉**
 [閘門與批准層級](../GATES.md) ·
 [代理](../reference/agents.md) · [指令](../reference/commands.md) ·
 [原型](../ARCHETYPES.md) · [架構](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [其餘一切](../DETAILS.md) — 批評者、司法管轄區、成本明細、CI、警示
 
 ## 社群
