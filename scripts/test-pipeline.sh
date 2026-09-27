@@ -509,8 +509,11 @@ else
   check "plugin.json is valid JSON" \
     bash -c "python3 -c 'import json; json.load(open(\"$ROOT/.claude-plugin/plugin.json\"))'"
 
-  check "all 19 great_cto commands present in ~/.claude/commands/" \
-    bash -c "missing=0; for cmd in start audit inbox digest review ownership rfc release doctor burn cost sec poc crystallize migrate resume save learn agent; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
+  # Was a hard-coded list of 19 names; 3.40 folded four of them into modes of
+  # other commands and the list kept asking for the files that were removed.
+  # Parity with commands/, the same property the agents check below holds.
+  check "every command in commands/ is synced into ~/.claude/commands/" \
+    bash -c "missing=0; for f in \"$ROOT\"/commands/*.md; do cmd=\$(basename \"\$f\" .md); [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
 
   # Was `-eq 34`. The repository ships seventy agents, so this had been failing
   # for every agent added since the number was written down — and the fix it

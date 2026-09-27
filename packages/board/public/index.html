@@ -180,13 +180,17 @@
   --accent-soft: rgba(0, 217, 126, 0.12);
   --accent-strong: rgba(0, 168, 98, 0.20);
   --accent-text: #097547;
-  /* The light theme's status colours are dark (#0a7d4d, #b45309, #c43030),
-     so the ink that reads on the dark theme's bright ones fails here: 3.45,
-     3.56, 3.24. White gives 5.18, 5.02, 5.51. */
+  /* The light theme's status colours are dark (#0a7d4d, #a64c08, #c43030),
+     so the ink that reads on the dark theme's bright ones fails here. White
+     gives 5.18, 5.74, 5.51. --status-progress was #b45309 until 3.40: as ink
+     on a tinted panel (#eef2f0, the harness judge scores) it measured 4.45:1,
+     under the 4.5 floor; #a64c08 is the --p1-fg ink and gives 5.08 there. */
   --on-status: #fff;
-  --status-backlog: #6b7280;
-  --status-todo: #6b7280;
-  --status-progress: #b45309;
+  /* #6b7280 until 3.40: the backlog pill tints its own bed (slate at 18%) and
+     the grey on it measured 4.17:1. #5f6672 gives 4.99 there, 5.78 on white. */
+  --status-backlog: #5f6672;
+  --status-todo: #5f6672;
+  --status-progress: #a64c08;
   --status-review: #0a7d4d;
   /* Same split as --accent / --accent-text: this colour is a BED for tier
      badges and a dot, and INK for approve buttons and budget chips. As ink it
@@ -1284,7 +1288,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pill-gate        { background: rgba(124, 58, 237, 0.12); color: var(--status-gate); }
 .pill-backlog     { background: rgba(148, 163, 184, 0.18); color: var(--status-todo); }
 .pill-in_progress { background: rgba(245, 158, 11, 0.16);  color: var(--status-progress); }
-.pill-done        { background: rgba(37, 99, 235, 0.14);   color: var(--status-done); }
+.pill-done        { background: rgba(10, 125, 77, 0.12);   color: var(--status-review-text); } /* was a blue bed under green ink: 4.26:1 on light; done is green, bed and ink agree now (4.94) */
 .pill-blocked     { background: rgba(220, 38, 38, 0.12);   color: var(--status-blocked); }
 .result-box {
   margin-top: 14px;
