@@ -36,9 +36,9 @@ See `/cost` for live spend.
 
 Plugin state lives in `~/.great_cto/` (global decisions) and `.great_cto/` (per-project). Both are plain markdown — `rm -rf` clears everything. No external services to deauthorize.
 
-## Why not auto-pilot? Why "two decisions per feature"?
+## Why not auto-pilot? Why three human decisions?
 
-LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human at `gate:plan` and `gate:ship` catches the 5% of bad calls that account for 95% of cost. See [ADR-015 — Learning loop architecture](architecture/ADR-015-learning-loop-architecture.md).
+LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human at three points — what gets built (`gate:product`), how (`gate:arch`), and the deploy (`gate:ship`) — catches the 5% of bad calls that account for 95% of cost. Three is the default, not the floor: `approval-level: ship-only` in `PROJECT.md` keeps only the deploy, and shows the brief as a one-screen notice instead of a stop. See [ADR-015 — Learning loop architecture](architecture/ADR-015-learning-loop-architecture.md).
 
 ## Is great_cto for teams?
 
