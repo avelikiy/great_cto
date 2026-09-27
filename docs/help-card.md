@@ -9,7 +9,7 @@ Claude Code or OpenAI Codex.
 | Group | Commands |
 |---|---|
 | **Build (pipeline)** | `/start` describe a product · `/audit` audit existing code · `/review` PR review · `/poc` proof of concept · `/promote` POC → prod · `/release` release notes |
-| **Compliance reviewers** (build-time gate) | `/coding-audit` · `/fair-lending-audit` · `/part11-audit` · `/clinical-compliance` · `/voice-compliance` · `/api-contract-review` · … (fires on the code paths that carry the obligation) |
+| **Compliance reviewers** (build-time gate) | `/review --domain <name>` — tax · legal · hr-ai · api · accounting · rcm · msp · procurement · voice (also auto-attached on the code paths that carry the obligation) |
 | **Daily** | `/inbox` attention · `/digest` weekly · `/doctor` health · `/resume` continue · `/save` snapshot |
 | **Admin / ops** | `/oncall` · `/ownership` · `/rfc` · `/sec` · `/cost` · `/burn` · `/learn` · `/crystallize` · `/migrate` · `/agent-review` · `/agent-retire` |
 | **Help** | `/help` this card · `/help commands` table · `/help board` admin URL |

@@ -1,52 +1,145 @@
 ---
-description: "12-angle code review + skeptical triage (3-round + arbiter) for security/reliability P0/P1 findings, OR traceability tree. Default: review current branch vs main. `--deep`: triage ALL P0/P1 angles (not just security). With `trace <id>`: render REQ → IMPL → TEST tree for impact analysis. Creates or closes gate:code for approval-level: strict."
-argument-hint: "[PR/branch name | --deep | trace <bd-id> | trace <feature-slug>]"
+description: "Before merging a branch: a code review with evidence for every finding and no false alarms — or a domain compliance review (`--domain tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice`). Code review = 12 angles + skeptical triage (3 rounds + arbiter); `--deep` triages every P0/P1 angle, not just security/reliability; creates or closes gate:code. Domain review = the matching compliance reviewer writes docs/sec-threats/TM-<domain>-<slug>.md and raises its gate."
+argument-hint: "[PR/branch name | --deep | --domain <tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice> [arch-slug]]"
 user-invocable: true
 disable-model-invocation: true
-allowed-tools: Read, Bash, Glob, Grep, advisor_20260301
+allowed-tools: Read, Write, Bash, Glob, Grep, Agent, advisor_20260301
 model: sonnet
 advisor-model: claude-opus-5
 advisor-max-uses: 2
 beta: advisor-tool-2026-03-01
 ---
 
-You are a senior engineering team conducting a 12-angle code review. Each angle is independent and focuses exclusively on its domain.
+You are the great_cto `/review` command. Two modes:
 
-## Trace mode (early branch — exits before review runs)
+- **Code review** (default) — 12 independent angles over the branch diff, then skeptical triage.
+- **Domain compliance review** (`--domain <name>`) — one regulated-domain reviewer against the ARCH doc.
 
-If `$1 = trace` → render the requirement → use-case → task → test traceability for the
-supplied bd id or feature slug, then stop. This is a thin alias for the canonical **`/trace`**
-command (governance Phase 4) — one engine (`scripts/lib/trace.mjs`): layered rationale +
-impact + coverage gaps, not a raw `bd dep tree` dump.
+Traceability (REQ → use-case → task → test) is **`/trace`**, not `/review`.
+
+## Domain mode (`--domain` — early branch, exits before the code review)
+
+| Domain | Also accepts | Reviewer agent | Writes | What it checks | Gate · signs off |
+|--------|--------------|----------------|--------|----------------|------------------|
+| `tax` | `tax-review` | `tax-reviewer` | `TM-tax-{slug}.md` | IRS MeF e-file schema, Form 8879, PTIN / Circular 230, IRC §7216 consent | `gate:tax-filing-signoff` · EA/CPA compliance lead |
+| `legal` | `upl`, `upl-check` | `legal-reviewer` | `TM-legal-{slug}.md` | Unauthorized practice of law gating, IOLTA/trust accounting, privilege, conflict screening, e-filing redaction | `gate:upl-review` |
+| `hr-ai` | `hrai`, `aedt`, `aedt-bias-audit` | `hr-ai-reviewer` | `TM-hrai-{slug}.md` | AEDT scope; NYC LL 144, EEOC, Illinois AIVIA, Colorado SB 205, EU AI Act Annex III; bias-audit pipeline (4/5 rule, intersectional) | `gate:aedt-audit` |
+| `api` | `api-platform`, `api-contract-review` | `api-platform-reviewer` | `TM-api-{slug}.md` | Rate limits, OAuth scopes, webhook signing, idempotency, Sunset/deprecation, pagination, error envelope, versioning — critical before v1 GA | `gate:api-contract` |
+| `accounting` | `close`, `close-review` | `accounting-reviewer` | `TM-accounting-{slug}.md` | Double-entry integrity, ASC 606 revenue recognition, period lock, SOX ITGC | `gate:close-signoff` · controller / finance lead |
+| `rcm` | `coding`, `coding-audit` | `rcm-reviewer` | `TM-rcm-{slug}.md` | ICD-10-CM/CPT/HCPCS autonomous coding: False Claims Act exposure (upcoding/unbundling), NCCI PTP + MUE, LCD/NCD medical necessity, modifiers, HIPAA minimum-necessary | `gate:coding-signoff` · certified coder (CPC/CCS) |
+| `msp` | `msp-review` | `msp-reviewer` | `TM-msp-{slug}.md` | Client isolation, credential vaulting, SLA tracking, incident escalation | `gate:msp-controls` · security lead / MSP operations |
+| `procurement` | `procurement-review` | `procurement-reviewer` | `TM-procurement-{slug}.md` | Three-way match, segregation of duties, OFAC screening, SOX procurement controls | `gate:procurement-controls` · finance / controller |
+| `voice` | `voice-compliance` | `voice-ai-reviewer` | `TM-voice-{slug}.md` | TCPA, STIR/SHAKEN, state recording consent, EU AI Act Art. 50, synthetic-voice deepfake laws | `gate:voice-compliance` · regulatory lead |
+
+The "Also accepts" names are the former standalone commands (`/tax-review`, `/upl-check`, …),
+kept as aliases so `/review --domain upl-check` still means `legal`. A leading `/` is ignored.
+
+### Step D1 — Resolve the domain and the ARCH doc
 
 ```bash
-if [ "$1" = "trace" ]; then
-  bd --help >/dev/null 2>&1 || { echo "bd not installed — traceability requires Beads."; echo "Fallback: grep '^- \\[ \\] REQ-' docs/architecture/ARCH-*.md"; exit 1; }
+DOMAIN=""; SLUG=""; _prev=""
+for arg in "$@"; do
+  case "$arg" in
+    --domain=*) DOMAIN="${arg#--domain=}" ;;
+    --*) ;;
+    *) if [ "$_prev" = "--domain" ]; then DOMAIN="$arg"; elif [ -z "$SLUG" ]; then SLUG="$arg"; fi ;;
+  esac
+  _prev="$arg"
+done
 
-  TARGET="${2:-}"
-  if [ -z "$TARGET" ]; then
-    echo "Usage: /review trace <bd-id|feature-slug>   (alias of /trace)"
-    echo "  /review trace bd-xyz              # rationale + impact for this node"
-    echo "  /review trace feature-checkout    # coverage audit for the feature"
-    exit 0
+# >>> resolve_domain
+resolve_domain() {
+  D="${1#/}"; D=$(printf '%s' "$D" | tr '[:upper:]' '[:lower:]')
+  SKIP_WITHOUT_SIGNALS=true
+  case "$D" in
+    tax|tax-review)
+      D=tax; AGENT=tax-reviewer; TM=tax; GATE=gate:tax-filing-signoff
+      SIGNALS='\bptin\b|circular 230|form 8879|\bmef\b|pub(lication)? 4557|section 7216|tax prep|e-file|irs|1040|efin' ;;
+    legal|upl|upl-check)
+      D=legal; AGENT=legal-reviewer; TM=legal; GATE=gate:upl-review
+      SIGNALS='matter|docket|litigation|retainer|iolta|clio|mycase|pacer|ecf|conflict.?check|engagement.?letter|paralegal|law.?firm|attorney' ;;
+    hr-ai|hrai|aedt|aedt-bias-audit)
+      D=hr-ai; AGENT=hr-ai-reviewer; TM=hrai; GATE=gate:aedt-audit
+      SIGNALS='recruit|hiring|candidate|resume|interview|ats|talent|performance review|workforce scheduling' ;;
+    api|api-platform|api-contract-review)
+      D=api; AGENT=api-platform-reviewer; TM=api; GATE=gate:api-contract
+      SIGNALS='openapi|graphql|grpc|webhook|public api|partner api|developer portal|api key|oauth|sdk' ;;
+    accounting|close|close-review)
+      D=accounting; AGENT=accounting-reviewer; TM=accounting; GATE=gate:close-signoff
+      SIGNALS='general ledger|\bgaap\b|asc.?606|journal entry|month.?end close|chart of accounts|1099|three.?way reconciliation|revenue recognition|sox.itgc' ;;
+    rcm|coding|coding-audit)
+      # An explicit rcm review runs even without signals — medical billing hides behind generic words.
+      D=rcm; AGENT=rcm-reviewer; TM=rcm; GATE=gate:coding-signoff; SKIP_WITHOUT_SIGNALS=false
+      SIGNALS='medical coding|icd-?10|cpt|hcpcs|drg|revenue cycle|\brcm\b|claim scrub|837|835|cms-?1500|ub-?04|e/m level|prior auth|charge capture|denial management|ncci|modifier|upcoding|payer' ;;
+    msp|msp-review)
+      D=msp; AGENT=msp-reviewer; TM=msp; GATE=gate:msp-controls
+      SIGNALS='\bmsa\b|\bsla\b|\brmm\b|\bpsa\b|multi.?tenant|managed service|credential vault|managed service provider' ;;
+    procurement|procurement-review)
+      D=procurement; AGENT=procurement-reviewer; TM=procurement; GATE=gate:procurement-controls
+      SIGNALS='purchase order|three.?way match|procurement|requisition|\brfp\b|\brfq\b|vendor onboarding|\bofac\b|punchout|cxml|spend analytics|maverick spend' ;;
+    voice|voice-compliance)
+      D=voice; AGENT=voice-ai-reviewer; TM=voice; GATE=gate:voice-compliance
+      SIGNALS='twilio|vonage|livekit|deepgram|elevenlabs|whisper|ivr|telephony|outbound call|inbound call|voice agent|tts|stt' ;;
+    *) AGENT=""; return 1 ;;
+  esac
+}
+# <<< resolve_domain
+
+if [ -n "$DOMAIN" ]; then
+  if ! resolve_domain "$DOMAIN"; then
+    echo "Unknown domain: $DOMAIN"
+    echo "Use one of: tax · legal · hr-ai · api · accounting · rcm · msp · procurement · voice"
+    exit 1
   fi
-
-  PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
-  TRACE() { node "$PD/scripts/lib/trace.mjs" "$@" 2>/dev/null || node scripts/lib/trace.mjs "$@"; }
-
-  # feature-<slug> → coverage audit; otherwise node-centric trace.
-  if echo "$TARGET" | grep -q "^feature-"; then
-    TRACE feature "${TARGET#feature-}"
+  if [ -z "$SLUG" ]; then
+    ARCH=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1)
+    [ -z "$ARCH" ] && echo "BLOCKED: no ARCH doc; run /architect first" && exit 1
+    SLUG=$(basename "$ARCH" .md | sed 's/^ARCH-//')
   else
-    TRACE "$TARGET"
+    ARCH="docs/architecture/ARCH-${SLUG}.md"
+    [ ! -f "$ARCH" ] && echo "BLOCKED: $ARCH not found" && exit 1
   fi
-  exit $?
+  echo "Domain review: $D → $AGENT on $ARCH"
+
+  HITS=$(grep -ciE "$SIGNALS" "$ARCH" .great_cto/PROJECT.md 2>/dev/null | awk -F: '{s+=$NF} END {print s+0}')
+  echo "$D signal hits: $HITS"
+  if [ "$HITS" -eq 0 ]; then
+    if [ "$SKIP_WITHOUT_SIGNALS" = true ]; then
+      echo "No $D signals in ARCH or PROJECT.md — skipping $D review."
+      exit 0
+    fi
+    echo "No $D signals found — running anyway (explicit --domain $D)."
+  fi
 fi
 ```
+
+### Step D2 — Invoke the reviewer
+
+Use the Agent tool with `subagent_type: $AGENT` and prompt:
+
+> Review `docs/architecture/ARCH-${SLUG}.md` and `.great_cto/PROJECT.md`.
+> Produce `docs/sec-threats/TM-${TM}-${SLUG}.md` using the template at
+> `skills/great_cto/templates/TM-${TM}.md`. Report critical/high findings,
+> raise `${GATE}` when a human sign-off is due, and append the HANDOFF block.
+> Verdict: signed-off or blocked.
+
+For `rcm` add: every autonomously assigned code needs a documentation-evidence trace (the
+False Claims Act defence); set the confidence floor and the FCA-high patterns that escalate to a
+certified coder.
+
+### Step D3 — Report, then stop
+
+In ≤ 6 lines: the TM file path, Critical / High counts, verdict (signed-off | blocked), gates
+raised, and the next action — blocked → fix the critical items and re-run; signed-off → the
+sign-off owner from the table approves the gate. Add the one domain-specific line the table's
+"What it checks" column implies (AEDT in/out of scope for `hr-ai`, UPL-gated surfaces and
+conflict-check status for `legal`, FCA-high paths needing a coder for `rcm`, SLA targets for
+`api`). Do not restate the threat model. **Do not continue into the code review below.**
 
 ## Setup
 
 ```bash
+[ "$1" = "trace" ] && { echo "Traceability moved to /trace — run: /trace ${2:-<bd-id|feature slug>}"; exit 0; }
 source .great_cto/env.sh 2>/dev/null || export PATH="/opt/homebrew/bin:$HOME/.local/bin:/usr/local/bin:$PATH"
 REVIEW_MODE=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); REVIEW_MODE=${REVIEW_MODE:-auto}
 TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
@@ -58,7 +151,7 @@ DIFF_TARGET=""
 for arg in "$@"; do
   case "$arg" in
     --deep) DEEP_TRIAGE=true ;;
-    --*) ;;  # unknown flag, ignore
+    --*) ;;  # unknown flag, ignore (--domain never reaches here: domain mode exited above)
     *) [ -z "$DIFF_TARGET" ] && DIFF_TARGET="$arg" ;;
   esac
 done
