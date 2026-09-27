@@ -99,13 +99,17 @@ Reinicia Claude Code y luego:
 /start "construye una app de despacho y agenda para un negocio de HVAC"
 ```
 
-El pipeline se encarga desde ahí. En el día a día tocas tres cosas:
+Un día con great_cto:
 
-| | |
-|---|---|
-| `/start "…"` | describe un producto o feature — el pipeline lo ejecuta |
-| `/inbox` | lo que te espera: gates pendientes, P0, tareas bloqueadas |
-| `/digest` | métricas DORA semanales + coste por feature |
+| Cuándo | Comando | Qué obtienes |
+|---|---|---|
+| Tienes una idea o un código existente | `/start "…"` | un brief, un plan y código funcionando — tú tomas dos decisiones: qué construir y si se publica |
+| Terminas por hoy | `/save` | qué se hizo, cómo se verificó cada «hecho», qué sigue |
+| Vuelves | `/resume` | justo donde lo dejaste — y un aviso si el código cambió desde entonces |
+| Algo te necesita | `/inbox` | solo las decisiones que esperan por ti: gates, bloqueos, P0 |
+| Viernes | `/digest` | qué se publicó, qué se rompió, cuánto costó cada funcionalidad |
+
+**Cuando lo necesites:** `/review` una rama antes de fusionar · `/spec` una funcionalidad antes del código · `/poc` una idea arriesgada con plazo fijo · `/crystallize` una lección para que no se repita · `/sec` postura de seguridad · `/doctor` si algo no cuadra. Todos los comandos: [referencia](../reference/commands.md).
 
 Requiere Node ≥ 18.17. Los plugins compañeros (Superpowers, Beads) se instalan
 solos. Tras el init, verifica que el host cargó el plugin de verdad:

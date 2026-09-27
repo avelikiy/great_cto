@@ -101,13 +101,17 @@ Claude Code neu starten, dann:
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-Ab da übernimmt die Pipeline. Im Alltag berührst du drei Dinge:
+Ein Tag mit great_cto:
 
-| | |
-|---|---|
-| `/start "…"` | Produkt oder Feature beschreiben — die Pipeline führt es aus |
-| `/inbox` | was auf dich wartet: offene Gates, P0s, blockierte Aufgaben |
-| `/digest` | wöchentliche DORA-Metriken + Kosten pro Feature |
+| Wann | Befehl | Was du bekommst |
+|---|---|---|
+| Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — du triffst zwei Entscheidungen: was gebaut wird und ob es ausgeliefert wird |
+| Du hörst für heute auf | `/save` | was erledigt ist, wie jedes „fertig“ geprüft wurde, was als Nächstes kommt |
+| Du kommst zurück | `/resume` | genau dort, wo du aufgehört hast — mit Warnung, falls sich der Code inzwischen geändert hat |
+| Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |
+| Freitag | `/digest` | was ausgeliefert wurde, was kaputtging, was jedes Feature gekostet hat |
+
+**Wenn du es brauchst:** `/review` einen Branch vor dem Merge · `/spec` ein Feature vor dem Code · `/poc` eine riskante Idee mit hartem Zeitlimit · `/crystallize` eine Lektion, damit sie sich nicht wiederholt · `/sec` Sicherheitslage · `/doctor` wenn etwas nicht stimmt. Alle Befehle: [Referenz](../reference/commands.md).
 
 Benötigt Node ≥ 18.17. Begleit-Plugins (Superpowers, Beads) installieren sich
 selbst. Prüfe nach dem init, ob der Host das Plugin wirklich geladen hat —

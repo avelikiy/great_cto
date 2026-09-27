@@ -97,13 +97,17 @@ npx great-cto init
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-之后由流水线接管。日常你只碰三样东西：
+用 great_cto 的一天：
 
-| | |
-|---|---|
-| `/start "…"` | 描述一个产品或功能 —— 流水线把它跑完 |
-| `/inbox` | 需要你处理的：待批门禁、P0、被阻塞的任务 |
-| `/digest` | 每周 DORA 指标 + 单功能成本汇总 |
+| 何时 | 命令 | 你得到什么 |
+|---|---|---|
+| 你有一个想法，或一个现有代码库 | `/start "…"` | 简报、计划和可运行的代码 —— 你只做两个决定：做什么，以及是否发布 |
+| 今天到此为止 | `/save` | 做了什么、每个“完成”如何验证、下一步做什么 |
+| 你回来了 | `/resume` | 从你停下的地方继续 —— 如果代码之后有变化会提醒你 |
+| 有事需要你 | `/inbox` | 只列出等你决定的事：门禁、阻塞、P0 |
+| 周五 | `/digest` | 发布了什么、坏了什么、每个功能花了多少钱 |
+
+**需要时：** `/review` 合并前审查分支 · `/spec` 写代码前定义功能 · `/poc` 有硬性期限的高风险想法 · `/crystallize` 把教训变成规则，不再重犯 · `/sec` 安全状况 · `/doctor` 出问题时。全部命令：[参考](../reference/commands.md)。
 
 需要 Node ≥ 18.17。伴生插件（Superpowers、Beads）自动安装。init 之后，确认宿主
 真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。

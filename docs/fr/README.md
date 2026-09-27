@@ -101,13 +101,17 @@ Redémarrez Claude Code, puis :
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-Le pipeline prend le relais. Au quotidien, vous touchez à trois choses :
+Une journée avec great_cto :
 
-| | |
-|---|---|
-| `/start "…"` | décrivez un produit ou une feature — le pipeline l'exécute |
-| `/inbox` | ce qui vous attend : gates en attente, P0, tâches bloquées |
-| `/digest` | métriques DORA hebdomadaires + coût par feature |
+| Quand | Commande | Ce que vous obtenez |
+|---|---|---|
+| Vous avez une idée ou un code existant | `/start "…"` | un brief, un plan et du code qui tourne — vous prenez deux décisions : quoi construire, et si ça part en production |
+| Vous arrêtez pour aujourd'hui | `/save` | ce qui a été fait, comment chaque « terminé » a été vérifié, la suite |
+| Vous revenez | `/resume` | exactement là où vous en étiez — avec une alerte si le code a changé depuis |
+| Quelque chose vous attend | `/inbox` | seulement les décisions qui vous reviennent : gates, blocages, P0 |
+| Vendredi | `/digest` | ce qui est sorti, ce qui a cassé, ce que chaque fonctionnalité a coûté |
+
+**Quand vous en avez besoin :** `/review` une branche avant la fusion · `/spec` une fonctionnalité avant le code · `/poc` une idée risquée avec une échéance ferme · `/crystallize` une leçon pour qu'elle ne se répète pas · `/sec` posture de sécurité · `/doctor` quand quelque chose cloche. Toutes les commandes : [référence](../reference/commands.md).
 
 Node ≥ 18.17 requis. Les plugins compagnons (Superpowers, Beads) s'installent
 seuls. Après l'init, vérifiez que l'hôte a réellement chargé le plugin :
