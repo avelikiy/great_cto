@@ -4,7 +4,12 @@ All notable changes to great_cto are documented here.
 
 ---
 
-## Unreleased
+
+## v3.39.0 — 2026-09-27
+
+See where your sessions spend, with 1-hour cache writes priced correctly; reviewers can no
+longer invent a quote; `/save` and `/resume` carry the proof and the state; one command,
+`/crystallize`, for turning experience into knowledge.
 
 ### Changed behaviour — read before upgrading
 
