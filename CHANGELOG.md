@@ -6,6 +6,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.40.1 — 2026-09-27
+
+A lighter skill list and a release script that cannot push the wrong branch.
+
+### Changed
+
+- **Twelve domain briefs are files of one `verticals` skill** (−3.0k tokens in every
+  session: 44 skills / ~9.0k tokens of descriptions → 33 / ~6.0k). The eleven `vertical-*`
+  industry skills and `local-seo` were read by architect as files, never through the Skill
+  tool, yet each description sat in every session's skill list. They now live in
+  `skills/verticals/`, beside a SKILL.md whose one short description maps a product to its
+  file — so Codex, where skills are the whole surface, still finds them. `vertical-onboarding`
+  stays a skill (migration-import-engineer preloads it).
+- **`local-seo` has a caller.** It was the one skill nothing read; architect now reads it for
+  public pages that must rank, and the orphan cap drops from 1 to 0.
+- `skill-usage` counts a read of any file in a skill's directory as that skill.
+
+### Fixed
+
+- **`release.sh` refuses a branch other than `main`** instead of asking "continue anyway?".
+  It pushes the local `main` ref, not HEAD: answering yes on a release branch tagged that
+  branch and pushed a stale `main`; without a terminal the question waited forever.
+
 ## v3.40.0 — 2026-09-27
 
 Twenty-one commands instead of forty-three. Each job now has one command, and a mode of it
