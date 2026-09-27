@@ -54,7 +54,7 @@ export const DEV_PORTS = new Set([
 ]);
 
 /** OS daemons that squat on dev ports (macOS AirPlay holds :5000 and :7000). Not a server you left running. */
-const OS_DAEMONS = /^(ControlCe|ControlCenter|rapportd|AirPlayXPC|launchd|mDNSRespo|sharingd)/;
+const OS_DAEMONS = /^(ControlCe|ControlCenter|rapportd|AirPlayXPC|launc|mDNSRespo|sharingd)/;
 
 function runGit(args, { cwd, env }) {
   try {
