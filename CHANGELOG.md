@@ -5,6 +5,53 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v3.40.0 — 2026-09-27
+
+Twenty-one commands instead of forty-three. Each job now has one command, and a mode of it
+where two used to overlap; the README, `/help` and the landing page describe them by the
+moment you reach for them, not as a feature list. Old names map in the table below and in
+`/help renamed`.
+
+### Changed behaviour — read before upgrading
+
+| Old | Now |
+|---|---|
+| `/audit` | `/start audit` — and `/start` in a repo with code but no great_cto config takes the audit path itself. `/audit` stays as an alias. |
+| `/discover` · `/prd` | `/spec discover` · `/spec prd` (`/spec <description>` still builds the spec) |
+| `/migrate [--dry-run]` | `/doctor --fix` (plain `/doctor` shows the preview) |
+| `/promote <slug>` | `/poc promote <slug>` |
+| `/oncall <action>` | `/ownership oncall <action>` |
+| `/learn [focus]` | `/crystallize learn [focus]` |
+| `/ccr <id>` | `/recall ccr:<id>` |
+| `/cost …` · `/cost sessions` | `/digest cost …` · `/digest sessions` |
+| `/burn [service]` | `/digest slo [service]` |
+| `/gov-metrics …` | `/digest gov …` |
+| `/agent-review` · `/gen-evals` · `/prompt-evolve` · `/agent-retire` | `/agent review` · `/agent evals` · `/agent evolve` · `/agent retire` |
+| `/tax-review` · `/upl-check` · `/aedt-bias-audit` · `/api-contract-review` · `/close-review` · `/coding-audit` · `/msp-review` · `/procurement-review` · `/voice-compliance` | `/review --domain tax` · `legal` · `hr-ai` · `api` · `accounting` · `rcm` · `msp` · `procurement` · `voice` (old names accepted as aliases of the domain) |
+| `/review trace <id>` | `/trace <id>` |
+
+- Removed command files leave `~/.claude/commands` at the next session start (managed copies
+  only; a file you wrote yourself is kept).
+- **Model per command.** `/agent` runs on sonnet for all four modes; three of the old commands
+  ran on haiku, so a review or an eval generation costs more per run. `/crystallize learn`
+  runs on sonnet where `/learn` ran on haiku.
+- **`/digest` modes are user-invoked only** (`disable-model-invocation`), like `/digest`
+  itself; the model could previously call `/cost` and `/burn` on its own.
+- The CLI's hint for `great-cto learn`, `burn` and `migrate` quotes the new command.
+
+### Changed
+
+- **README, translations, `/help` and the landing page** open with "a day with great_cto":
+  five commands by moment — `/start`, `/save`, `/resume`, `/inbox`, `/digest` — and the
+  rest by when you need them. Command descriptions lead with when to run and what you get.
+- **The default is three decisions, and the docs now say so everywhere.** `/start`'s
+  description, the `/help` card ("the one gate … `gate:plan`") and the FAQ ("two decisions")
+  disagreed with `approval-level.mjs`, which stops at `gate:product`, `gate:arch` and
+  `gate:ship` by default.
+
+Tests: four new command-surface suites (`review-domains`, `command-subcommands-b|c|d`).
+
 ## v3.39.0 — 2026-09-27
 
 See where your sessions spend, with 1-hour cache writes priced correctly; reviewers can no
