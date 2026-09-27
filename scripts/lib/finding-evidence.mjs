@@ -36,11 +36,19 @@
  *   - **Why it matters**: …
  *   - **Recommended fix**: …
  *
+ * A quoted passage is evidence too, and the cheapest kind to invent. Given a
+ * working directory (the CLI always passes one), every "quoted passage" or
+ * `> …` block paired with a file citation is looked up in that file by
+ * scripts/lib/quote-verify.mjs. A quote that is not there makes the finding
+ * invalid — under Hypotheses as well, because an invented quotation is not an
+ * open question. The honest alternative is a paraphrase marked `(paraphrase)`.
+ *
  * CLI:
- *   node scripts/lib/finding-evidence.mjs <report.md>... [--strict] [--json]
+ *   node scripts/lib/finding-evidence.mjs <report.md>... [--strict] [--json] [--no-quotes]
  */
 
 import { PROOF, PROOF_VALUES, isProofStatus } from './proof-status.mjs';
+import { verifyQuotesInText, isVerified, QUOTE_STATUS } from './quote-verify.mjs';
 
 /** A heading that opens a finding: `### [Severity] Title`. */
 const FINDING_HEAD = /^#{2,4}\s*\[([^\]]+)\]\s*(.+?)\s*$/;
@@ -140,11 +148,45 @@ export function evidenceBlock(body) {
 }
 
 /**
- * Check one finding.
- * @returns {{ok: boolean, problems: string[], status: string|null, hypothesis: boolean}}
+ * Look up every quoted passage in the file it cites.
+ *
+ * `status` is in the proof vocabulary: `passed` / `failed` when quotes were
+ * checked, `not_run` when there was no working directory or nothing quoted —
+ * which says nothing about the finding either way.
+ *
+ * @returns {{status: string, results: object[], problems: string[]}}
  */
-export function checkFinding(finding) {
+export function checkQuotes(body, { cwd, ci = false } = {}) {
+  if (!cwd) return { status: PROOF.NOT_RUN, results: [], problems: [] };
+  const results = verifyQuotesInText(body, { cwd, ci });
+  if (!results.length) return { status: PROOF.NOT_RUN, results, problems: [] };
   const problems = [];
+  for (const r of results.filter((x) => !isVerified(x.status))) {
+    const q = r.quote.replace(/\s+/g, ' ').trim();
+    const shown = q.length > 60 ? `${q.slice(0, 57)}...` : q;
+    if (r.status === QUOTE_STATUS.FILE_MISSING) {
+      problems.push(`the quote "${shown}" cites \`${r.file}\`, which does not exist here` +
+        (r.reason && r.reason !== 'no such file' ? ` (${r.reason})` : '') +
+        ' — cite the file you copied it from');
+    } else {
+      problems.push(`the quote "${shown}" is not in \`${r.file}\`` +
+        (r.nearest ? ` (nearest: line ${r.nearest.line}: ${r.nearest.text})` : '') +
+        ' — an unverified quote is not evidence: copy the real passage, or rewrite it as a ' +
+        'paraphrase marked (paraphrase)');
+    }
+  }
+  return { status: problems.length ? PROOF.FAILED : PROOF.PASSED, results, problems };
+}
+
+/**
+ * Check one finding. Pass `{cwd}` to also verify its quoted passages.
+ * @returns {{ok: boolean, problems: string[], status: string|null, hypothesis: boolean,
+ *            quotes: {status: string, results: object[]}}}
+ */
+export function checkFinding(finding, opts = {}) {
+  const q = checkQuotes(finding.body, opts);
+  const quotes = { status: q.status, results: q.results };
+  const problems = [...q.problems];
   const status = evidenceStatus(finding.body);
   const block = evidenceBlock(finding.body);
 
@@ -153,12 +195,12 @@ export function checkFinding(finding) {
       'no `**Evidence**` field — a claim about live state carries the command that ' +
       `established it. If nothing was run, say so: ${PROOF.NOT_RUN}.`,
     );
-    return { ok: false, problems, status: null, hypothesis: false };
+    return { ok: false, problems, status: null, hypothesis: false, quotes };
   }
 
   if (!isProofStatus(status)) {
     problems.push(`\`${status}\` is not a proof status — use one of: ${PROOF_VALUES.join(', ')}`);
-    return { ok: false, problems, status, hypothesis: false };
+    return { ok: false, problems, status, hypothesis: false, quotes };
   }
 
   const settled = status === PROOF.PASSED || status === PROOF.FAILED;
@@ -203,19 +245,19 @@ export function checkFinding(finding) {
     );
   }
 
-  return { ok: problems.length === 0, problems, status, hypothesis };
+  return { ok: problems.length === 0, problems, status, hypothesis, quotes };
 }
 
 /**
  * Check a whole report.
  * @returns {{findings: number, hypotheses: number, problems: Array<{line, title, problem}>}}
  */
-export function checkReport(text) {
+export function checkReport(text, opts = {}) {
   const findings = parseFindings(text);
   const problems = [];
   let hypotheses = 0;
   for (const f of findings) {
-    const r = checkFinding(f);
+    const r = checkFinding(f, opts);
     if (r.hypothesis) hypotheses++;
     for (const p of r.problems) problems.push({ line: f.line, title: f.title, problem: p });
   }
@@ -228,14 +270,15 @@ async function main(argv) {
   const { readFileSync } = await import('node:fs');
   const files = argv.filter((a) => !a.startsWith('--'));
   if (!files.length) {
-    console.error('usage: finding-evidence.mjs <report.md>... [--strict] [--json]');
+    console.error('usage: finding-evidence.mjs <report.md>... [--strict] [--json] [--no-quotes]');
     return 2;
   }
   const all = [];
   for (const f of files) {
     let text;
     try { text = readFileSync(f, 'utf8'); } catch { console.error(`cannot read ${f}`); continue; }
-    const r = checkReport(text);
+    // Citations in a report are repo-relative; the reviewer runs from the root.
+    const r = checkReport(text, argv.includes('--no-quotes') ? {} : { cwd: process.cwd() });
     all.push({ file: f, ...r });
   }
   if (argv.includes('--json')) {
