@@ -105,7 +105,7 @@ Ein Tag mit great_cto:
 
 | Wann | Befehl | Was du bekommst |
 |---|---|---|
-| Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — du triffst zwei Entscheidungen: was gebaut wird und ob es ausgeliefert wird |
+| Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — drei Entscheidungen bleiben bei dir: was gebaut wird, wie, und ob es ausgeliefert wird |
 | Du hörst für heute auf | `/save` | was erledigt ist, wie jedes „fertig“ geprüft wurde, was als Nächstes kommt |
 | Du kommst zurück | `/resume` | genau dort, wo du aufgehört hast — mit Warnung, falls sich der Code inzwischen geändert hat |
 | Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |

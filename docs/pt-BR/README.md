@@ -103,7 +103,7 @@ Um dia com o great_cto:
 
 | Quando | Comando | O que você recebe |
 |---|---|---|
-| Você tem uma ideia ou um código existente | `/start "…"` | um brief, um plano e código funcionando — você toma duas decisões: o que construir e se vai para produção |
+| Você tem uma ideia ou um código existente | `/start "…"` | um brief, um plano e código funcionando — três decisões continuam suas: o que construir, como e se vai para produção |
 | Você encerrou por hoje | `/save` | o que foi feito, como cada "pronto" foi verificado, o que vem depois |
 | Você volta | `/resume` | exatamente onde parou — e um aviso se o código mudou desde então |
 | Algo precisa de você | `/inbox` | só as decisões esperando por você: gates, bloqueios, P0 |
