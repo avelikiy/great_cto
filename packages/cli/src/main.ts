@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "telemetry" | "task" | "worker" | "codex-host" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "telemetry" | "task" | "worker" | "codex-host" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -73,6 +73,8 @@ interface CliArgs {
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
   upgradeSelf: boolean;   // `upgrade --self` / `upgrade self`: upgrade the CLI itself, not companion plugins
+  purgeData: boolean;     // `uninstall --purge-data`: move ~/.great_cto aside too
+  projects: boolean;      // `uninstall --projects`: also remove the pre-push hooks init wrote into projects
 }
 
 function parseArgs(argv: string[]): CliArgs {
@@ -92,6 +94,8 @@ function parseArgs(argv: string[]): CliArgs {
     noLlm: false,
     host: null,
     upgradeSelf: false,
+    purgeData: false,
+    projects: false,
     positional: [],
   };
 
@@ -126,6 +130,9 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "webhook") args.command = "webhook";
     else if (a === "report") args.command = "report";
     else if (a === "upgrade") args.command = "upgrade";
+    else if (a === "uninstall") args.command = "uninstall";
+    else if (a === "--purge-data") args.purgeData = true;
+    else if (a === "--projects") args.projects = true;
     else if (a === "--self") args.upgradeSelf = true;
     else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
@@ -581,6 +588,89 @@ async function runBoardUninstallDaemon(args: CliArgs): Promise<number> {
   return 0;
 }
 
+/**
+ * `great-cto uninstall` — plan by default, act on --yes. See uninstall.ts for what
+ * counts as an artefact, as user data and as host-owned; this function adds the two
+ * steps that need the platform: stopping the board and unloading its service.
+ */
+async function runUninstall(args: CliArgs): Promise<number> {
+  const { planUninstall, applyUninstall } = await import("./uninstall.js");
+  const { spawnSync } = await import("node:child_process");
+  const home = homedir();
+  const spec = daemonSpec(process.platform as Platform, { nodePath: process.execPath, cliPath: cliEntryPath(), port: args.boardPort, home });
+  let psText = "";
+  try { psText = execFileSync("ps", ["eww", "-A", "-o", "command="], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"], maxBuffer: 64 * 1024 * 1024 }); } catch { /* no ps: nothing is known live */ }
+  // The nightly loop's agent is written by scripts/nightly-loop.sh (a maintainer tool), not by an install — but it is ours.
+  const nightly = process.platform === "darwin" ? join(home, "Library", "LaunchAgents", "systems.greatcto.nightly-loop.plist") : "";
+  const plan = planUninstall({ home, psText, daemonUnitPaths: [spec.unitPath, nightly].filter(Boolean), includeProjects: args.projects });
+  const short = (p: string) => p.replace(home, "~");
+  const group = (title: string, items: string[]) => {
+    if (!items.length) return;
+    log(`  ${bold(title)} ${dim(`(${items.length})`)}`);
+    for (const i of items.slice(0, 8)) log(`    ${short(i)}`);
+    if (items.length > 8) log(dim(`    … and ${items.length - 8} more`));
+  };
+
+  log(`${bold("great-cto uninstall")} ${args.yes ? "" : dim("— plan only; nothing is changed without --yes")}`);
+  log("");
+  log(green("Removes") + dim(" — what an install wrote"));
+  group("plugin versions", plan.pluginVersions);
+  group("agents (marked great_cto-managed)", plan.agents);
+  group("commands (marked great_cto-managed)", plan.commands);
+  if (plan.settingsKeys.length) log(`  ${bold("~/.claude/settings.json")} enabledPlugins: ${plan.settingsKeys.join(", ")} ${dim("(backed up first)")}`);
+  if (plan.installedKeys.length) log(`  ${bold("installed_plugins.json")}: ${plan.installedKeys.join(", ")} ${dim("(backed up first)")}`);
+  group("background services", plan.daemonUnits);
+  log(`  ${bold("board")} ${dim("— the running board process, if any, is stopped")}`);
+  const welcomed = plan.caches.filter((c) => /\/\.welcomed-/.test(c));
+  group("caches in ~/.great_cto (clones, registries, runtime files)", [
+    ...(welcomed.length ? [`~/.great_cto/.welcomed-* (${welcomed.length} markers)`] : []),
+    ...plan.caches.filter((c) => !welcomed.includes(c)),
+  ]);
+  group("pre-push hooks init wrote into projects", plan.projectHooks);
+  const nothing = !plan.pluginVersions.length && !plan.agents.length && !plan.commands.length && !plan.settingsKeys.length
+    && !plan.installedKeys.length && !plan.daemonUnits.length && !plan.caches.length && !plan.projectHooks.length;
+  if (nothing) log(dim("  nothing installed by great_cto was found"));
+
+  log("");
+  log(yellow("Keeps") + dim(" — yours, or used by something else"));
+  if (plan.keptVersions.length) for (const k of plan.keptVersions) log(`  ${short(k.dir)} ${dim(`— ${k.why}`)}`);
+  if (plan.userData.length) {
+    const named = ["lessons.md", "decisions.md", "verdicts", "global-patterns", "cost-history.log", "secrets.env"]
+      .filter((n) => plan.userData.some((d) => d.endsWith(`/${n}`)));
+    log(`  ~/.great_cto ${dim(`— ${plan.userData.length} entries of your data${named.length ? `: ${named.join(", ")}` : ""}`)}`);
+    log(dim(`    --purge-data moves it to ~/.great_cto.removed-<date> (reversible; nothing is deleted)`));
+  }
+  if (plan.projects.length) log(`  ${plan.projects.length} project(s)' .great_cto/ ${dim("— project records; delete per project if you want")}`);
+  if (!args.projects && plan.projects.length) log(dim(`    --projects also removes the pre-push hooks great_cto installed in them`));
+  if (plan.companions.length) log(`  ${plan.companions.join(", ")} ${dim("— companion plugins other tools may use; disable with `claude plugin disable <name>`")}`);
+
+  log("");
+  log(cyan("Yours to run") + dim(" — owned by the host, not edited from here"));
+  if (plan.settingsKeys.includes("great_cto@great-cto") || plan.marketplaces.length) log(`  claude plugin uninstall great_cto@great-cto`);
+  for (const m of plan.marketplaces) log(`  claude plugin marketplace remove ${m}`);
+  try { execFileSync("codex", ["--version"], { stdio: "ignore" }); log(`  codex plugin remove great-cto@great-cto   ${dim("# if you installed it for Codex")}`); } catch { /* no codex */ }
+  log(`  npm uninstall -g great-cto   ${dim("# last: this command is running from it")}`);
+
+  if (!args.yes) {
+    log("");
+    log(`Nothing changed. Run ${bold("great-cto uninstall --yes")} to remove the list above.`);
+    return 0;
+  }
+
+  await killExistingBoard();
+  await killExistingBoard("console");
+  for (const cmd of spec.uninstallCmds) spawnSync(cmd[0]!, cmd.slice(1), { stdio: "ignore" });
+  if (nightly && plan.daemonUnits.includes(nightly)) spawnSync("launchctl", ["unload", "-w", nightly], { stdio: "ignore" });
+  const r = applyUninstall(plan, { purgeData: args.purgeData });
+  log("");
+  success(`removed ${r.removed.length} item(s)`);
+  for (const b of r.backups) log(dim(`  backup: ${short(b)}`));
+  if (r.movedData) log(`  ~/.great_cto moved to ${short(r.movedData)} ${dim("— delete it yourself once you are sure")}`);
+  for (const f of r.failed) warn(`could not remove ${short(f)}`);
+  if (plan.keptVersions.length) warn(`${plan.keptVersions.length} plugin version(s) kept — a running session uses them; run uninstall again after closing it`);
+  return r.failed.length ? 1 : 0;
+}
+
 function printHelp(): void {
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
@@ -597,6 +687,7 @@ ${bold("Usage:")}
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
   npx great-cto upgrade --self                Upgrade the great-cto CLI itself, in place
+  npx great-cto uninstall [--yes]             Show what great_cto installed; --yes removes it (your data stays)
   npx great-cto help
   npx great-cto version
 
@@ -633,6 +724,10 @@ ${bold("Upgrade:")}
   great-cto upgrade superpowers  Upgrade superpowers only
   great-cto upgrade beads        Upgrade beads only
   great-cto upgrade --self       Upgrade the great-cto CLI itself (also: upgrade self)
+  great-cto uninstall            Plan: what would be removed, what is kept (changes nothing)
+  great-cto uninstall --yes      Remove plugin, agents, commands, board service, caches
+      --purge-data               Also move ~/.great_cto aside (reversible, never deleted)
+      --projects                 Also remove the pre-push hooks init wrote into your projects
   ${dim("(Safe to run any time — idempotent if already on latest)")}
 
 ${bold("CI gate:")}
@@ -1514,6 +1609,14 @@ async function main(): Promise<void> {
       }
       const code = await runWebhookCli(parsed);
       await finish(code);
+    } catch (e) {
+      error((e as Error).message);
+      await finish(2);
+    }
+  }
+  if (args.command === "uninstall") {
+    try {
+      await finish(await runUninstall(args));
     } catch (e) {
       error((e as Error).message);
       await finish(2);

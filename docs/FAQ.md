@@ -34,7 +34,9 @@ See `/digest cost` for live spend.
 
 ## What happens to my data when I uninstall?
 
-Plugin state lives in `~/.great_cto/` (global decisions) and `.great_cto/` (per-project). Both are plain markdown — `rm -rf` clears everything. No external services to deauthorize.
+Run `great-cto uninstall` first: it prints what an install wrote and what is yours, and changes nothing. `great-cto uninstall --yes` then removes the plugin versions, the agents and commands marked `great_cto-managed`, the plugin entries in `~/.claude/settings.json` (backed up before the edit), the board service and the caches in `~/.great_cto/`. A version an open Claude Code session still loads is left in place, with the reason.
+
+Your data stays: `~/.great_cto/` (decisions, lessons, verdicts, cost history, `secrets.env`) and each project's `.great_cto/`. Add `--purge-data` to move `~/.great_cto/` to `~/.great_cto.removed-<date>` — moved, not deleted, so it can be restored. `--projects` also removes the pre-push hook `init` put into your repositories. The command prints the host steps it does not take itself — `claude plugin uninstall`, `claude plugin marketplace remove`, `npm uninstall -g great-cto`. No external services to deauthorize.
 
 ## Why not auto-pilot? Why three human decisions?
 
