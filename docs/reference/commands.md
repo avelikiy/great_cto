@@ -3,12 +3,11 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `commands/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**34 user-invocable commands.**
+**29 user-invocable commands.**
 
 | Command | Model | Arguments | What it does |
 |---|---|---|---|
-| `/agent-retire` | haiku | <agent-name> [--archive-only] [--reason 'text'] \| --list-candidates (idle agents) | Gracefully retire an LLM agent from the workforce. Archives prompt, removes from sync list, keeps verdicts for audit. Like firing a human — but reversible. |
-| `/agent-review` | haiku | [agent-name] — empty = list all agents with summary \| <name> = drill into one agent. Flags: --since 30d (default) \| --top-cost \| --idle | Performance review for an LLM agent (or all agents). Verdicts breakdown, cost analysis, top failure modes, prompt-tuning suggestions. Like a human '1:1' but for AI workforce. |
+| `/agent` | sonnet | review [<name>\|all] [--since 30d \| --top-cost \| --idle] \| evals <name> [--count N] \| evolve <name> [--lesson "text"] \| retire <name> [--reason "text"] [--archive-only] \| retire --list-candidates | Manage an agent like an employee — review its record, generate its evals, evolve its prompt against held-out evals, or retire it. |
 | `/audit` | sonnet | [optional: 'eval' \| 'lint' \| focus area, e.g. 'focus on security'] | Audit an existing codebase. Detects stack, finds gaps, creates tasks, generates PROJECT.md. |
 | `/board` | haiku | [--port N] [--no-open] [--restart] | Open the great_cto admin board at http://localhost:3141 (Kanban, cost, pipeline, inbox, memory). Starts it in background if not running. |
 | `/burn` | haiku | [service] — optional, filters to one service. Examples: /burn \| /burn api | SLO burn rate — multi-window alerting that catches budget exhaustion before it happens. Uses .great_cto/slo-burn-history.log written by /digest. |
@@ -19,18 +18,14 @@
 | `/discover` | sonnet | <product area, metric to improve, or 'what should we build next?'> | Run a full product discovery cycle — from outcome definition through opportunity mapping, prioritisation, and experiment design. Use when the team isn't sure what to build next, or before writing a PRD for a complex feature space. |
 | `/doctor` | haiku | [--fix] — optional, emits remediation commands | Health check for great_cto. Shows pipeline state, missing artefacts, hook status, last run per agent, and permission-denied tail. |
 | `/exception` | haiku | create --gate <g> --reason \"<why>\" [--scope S] [--days N] [--risk low\|medium\|high] \| list \| check <gate> | Signed gate-exception registry — replace ad-hoc --admin / --no-verify bypasses with an auditable, signed, expiring record (who · why · gate · scope · expiry). Create / list / check exceptions. |
-| `/gen-evals` | haiku | <agent-name> — e.g. architect, qa-engineer, security-officer | Generate EVAL-*.md test cases for an agent from its prompt. Usage: /gen-evals <agent-name> [--count N] |
 | `/gov-metrics` | haiku | [--since 30d] [--json] | Governance metrics — measure whether the gates actually work. Block rate, override/waiver rate, false-block proxy, R1-textual vs R2-mechanical share, and time-in-gate, computed from the verdict trail. |
 | `/help` | haiku | [optional: topic — e.g. 'commands', 'agents', 'board'] | Show great_cto commands, key concepts, and admin board URL. Use when you don't remember a command or you are new to great_cto. |
 | `/inbox` | haiku | [optional: hours — default 24] | What needs your attention? Shows open gates, recent activity, blocked items, and pending decisions. |
 | `/learn` | haiku | [focus] — optional: 'cost', 'security', 'architecture', etc. — narrows the learner's scope | Manually run the continuous-learner. Extract patterns from this session and write to .great_cto/lessons.md. Use when SessionEnd hook missed something or you want to capture a lesson mid-session. |
 | `/migrate` | haiku | [--dry-run] — show what would change without writing | Migrate existing PROJECT.md to the latest great_cto schema — appends missing fields without touching existing values. |
-| `/oncall` | haiku | who \| handoff \| schedule <team> <member1,member2,...> \| escalate <service> | On-call rotation management. Who's on duty, shift handoff notes, escalation paths. Reads from .great_cto/oncall-schedule.md and OWNERSHIP.md. |
-| `/ownership` | sonnet | map \| show \| set <path> <team> \| verify | Service ownership matrix. Who owns what: team, tech lead, on-call, SLA. Auto-detects from git history. Generates CODEOWNERS. |
-| `/poc` | sonnet | <hypothesis>  \|  decide  \|  extend <days>  \|  status | Start a hypothesis-driven POC with hard timebox. Skips 80% of the production pipeline; forces ship/pivot/kill decision at expiry. |
+| `/ownership` | sonnet | map \| show \| set <path> <team> \| verify \| oncall [who \| handoff \| schedule <team> <member1,member2,...> \| escalate <service>] | When you need to know who owns a path and who answers for it — the service ownership matrix (team, lead, on-call, SLA) auto-detected from git with CODEOWNERS generated, plus on-call rotations, shift handoffs and escalation paths. |
+| `/poc` | sonnet | [start] <hypothesis>  \|  decide  \|  extend <days>  \|  status  \|  promote <poc-slug> [mvp\|production] | Before building on an unproven idea, get a timeboxed yes/no answer — start a hypothesis-driven POC that skips 80% of the production pipeline and forces ship/pivot/kill at expiry, then promote a shipped POC through the audits it skipped. |
 | `/prd` | sonnet | <feature idea, problem statement, or 'upload doc'> | Create a Product Requirements Document — conversational intake, 8-section output. Run BEFORE architect to lock WHAT and WHY before the team decides HOW. |
-| `/promote` | sonnet | <poc-slug> [target: mvp\|production, default: production] | Promote a POC to MVP/production. Runs the full audits that POC-mode skipped. Required before any POC can see production. |
-| `/prompt-evolve` | sonnet | <agent-name> [--lesson \"text\"] — e.g. /prompt-evolve security-officer --lesson \"fewer false positives on TODOs\" | Closed prompt-evolution loop: turn a lesson into a candidate agent prompt, gate it on held-out evals, promote only if it beats the baseline. SIA Meta→Target→Feedback ported to great_cto. |
 | `/recall` | haiku | <keyword> — e.g. 'jwt', 'quota', 'board', 'npm' | Search what this project knows about a concept — session history, and the documents written about it. Usage: /recall <keyword> |
 | `/release` | sonnet | notes [version] \| changelog [from..to] \| docs \| sync | Release manager for frontend and mobile. Writes App Store notes, user-facing changelog, flags stale docs and landing copy. Actions: notes \| changelog \| docs \| sync |
 | `/resume` | haiku | [project-path] — defaults to current directory | Resume a previous session. Reads recent session logs, open tasks, and last decisions — gives Claude full context without re-explaining the project. |

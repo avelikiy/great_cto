@@ -589,8 +589,8 @@ if [ "$MODE" = "poc" ]; then
     prod|production|main|live)
       echo "BLOCKED: cannot deploy POC mode to $TARGET_ENV" >&2
       echo "POC code is throwaway by definition. To ship to production:" >&2
-      echo "  1. Run /promote — runs full rigor (ARCH, SBOM, threat model, CSO, QA)" >&2
-      echo "  2. /promote flips mode: production in PROJECT.md" >&2
+      echo "  1. Run /poc promote — runs full rigor (ARCH, SBOM, threat model, CSO, QA)" >&2
+      echo "  2. /poc promote flips mode: production in PROJECT.md" >&2
       echo "  3. Re-invoke this deploy" >&2
       exit 1
       ;;
@@ -609,8 +609,8 @@ definition and must not serve real user traffic. Allowed targets:
 Refuse: `prod`, `production`, `main` Kubernetes namespace, any environment
 serving real users, any deploy that wires a real custom domain.
 
-If CTO insists on production for a POC → tell them to run `/promote` first.
-`/promote` restores full rigor (ARCH, SBOM, threat model, security-officer CSO,
+If CTO insists on production for a POC → tell them to run `/poc promote` first.
+`/poc promote` restores full rigor (ARCH, SBOM, threat model, security-officer CSO,
 QA) and flips `mode` back to `production` or `mvp`. Only then run production
 deploy.
 

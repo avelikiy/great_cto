@@ -155,8 +155,8 @@ This prevents repeating mistakes the system has already learned. See `docs/LEARN
 If `$MODE` is `poc`, produce a **1-pager ARCH** only: Problem / Decision / Risks.
 Skip: full component diagrams, API contracts, threat model, cost model, vendor
 register, pre-mortem, requirements checklist. Add header: `> POC ARCH — will
-be expanded by /promote. See POC-<slug>.md for hypothesis.` Everything else in
-this agent's workflow operates on the 1-pager. When POC ships, `/promote` will
+be expanded by /poc promote. See POC-<slug>.md for hypothesis.` Everything else in
+this agent's workflow operates on the 1-pager. When POC ships, `/poc promote` will
 re-invoke this agent to produce the full ARCH.
 
 See `skills/great_cto/references/poc-mode.md` for the full skip matrix.

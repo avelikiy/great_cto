@@ -478,11 +478,11 @@ case "$ARCHETYPE" in
     if [ "$MODE" = "poc" ] && [ -n "$POC_DEADLINE" ]; then
       DAYS_LEFT=$(( ( $(date -j -f "%Y-%m-%d" "$POC_DEADLINE" "+%s" 2>/dev/null || date -d "$POC_DEADLINE" "+%s" 2>/dev/null) - $(date +%s) ) / 86400 ))
       if [ "${DAYS_LEFT:-0}" -lt 0 ]; then
-        AI_SIGNALS+="  🚨 P0: PoC deadline overdue by $((0 - DAYS_LEFT))d. Run /promote (poc → mvp/production) or close the experiment.\n"
+        AI_SIGNALS+="  🚨 P0: PoC deadline overdue by $((0 - DAYS_LEFT))d. Run /poc promote (poc → mvp/production) or close the experiment.\n"
       elif [ "${DAYS_LEFT:-0}" -le 1 ]; then
-        AI_SIGNALS+="  🚨 P0: PoC deadline in ${DAYS_LEFT}d. Decide /promote vs close.\n"
+        AI_SIGNALS+="  🚨 P0: PoC deadline in ${DAYS_LEFT}d. Decide /poc promote vs close.\n"
       elif [ "${DAYS_LEFT:-0}" -le 7 ]; then
-        AI_SIGNALS+="  ⚠ PoC deadline in ${DAYS_LEFT}d ($POC_DEADLINE). Plan /promote or extension.\n"
+        AI_SIGNALS+="  ⚠ PoC deadline in ${DAYS_LEFT}d ($POC_DEADLINE). Plan /poc promote or extension.\n"
       fi
     fi
 

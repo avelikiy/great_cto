@@ -581,7 +581,7 @@ if [ "$EVAL_COUNT" -gt 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
   echo "Baseline score: ${BEFORE_SCORE:-no-eval}"
 else
   BEFORE_SCORE="no-eval"
-  [ "$EVAL_COUNT" -eq 0 ] && echo "No EVAL files found for $TARGET_AGENT — run /gen-evals $TARGET_AGENT first for scored PRs"
+  [ "$EVAL_COUNT" -eq 0 ] && echo "No EVAL files found for $TARGET_AGENT — run /agent evals $TARGET_AGENT first for scored PRs"
 fi
 ```
 
@@ -652,7 +652,7 @@ $(grep -A5 '^## pattern:' "$GP_FILE" | head -6)
 ### Eval scores
 | Agent | Before | After | Delta |
 |-------|--------|-------|-------|
-| $TARGET_AGENT | ${BEFORE_SCORE} | ${AFTER_SCORE} | $([ "$BEFORE_SCORE" != "no-eval" ] && echo "computed" || echo "no EVAL files — run /gen-evals $TARGET_AGENT") |
+| $TARGET_AGENT | ${BEFORE_SCORE} | ${AFTER_SCORE} | $([ "$BEFORE_SCORE" != "no-eval" ] && echo "computed" || echo "no EVAL files — run /agent evals $TARGET_AGENT") |
 
 ### Evidence
 $(grep -A10 '^Evidence\|^\*\*Evidence' "$GP_FILE" | head -10)

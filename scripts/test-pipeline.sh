@@ -509,8 +509,8 @@ else
   check "plugin.json is valid JSON" \
     bash -c "python3 -c 'import json; json.load(open(\"$ROOT/.claude-plugin/plugin.json\"))'"
 
-  check "all 22 great_cto commands present in ~/.claude/commands/" \
-    bash -c "missing=0; for cmd in start audit inbox digest review ownership oncall rfc release doctor burn cost sec poc promote crystallize migrate resume save learn agent-review agent-retire; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
+  check "all 19 great_cto commands present in ~/.claude/commands/" \
+    bash -c "missing=0; for cmd in start audit inbox digest review ownership rfc release doctor burn cost sec poc crystallize migrate resume save learn agent; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
 
   # Was `-eq 34`. The repository ships seventy agents, so this had been failing
   # for every agent added since the number was written down — and the fix it
@@ -532,8 +532,8 @@ else
       [ -z "$missing$extra" ]
     '
 
-  check "agent-review + agent-retire commands present" \
-    bash -c "[ -f ~/.claude/commands/agent-review.md ] && [ -f ~/.claude/commands/agent-retire.md ]"
+  check "agent command present (review/evals/evolve/retire)" \
+    bash -c "[ -f ~/.claude/commands/agent.md ]"
 
   check "all 4 new agents synced (continuous-learner + 3 reviewers)" \
     bash -c "for a in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do [ -f ~/.claude/agents/great_cto-\$a.md ] || exit 1; done"

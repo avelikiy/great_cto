@@ -1,6 +1,6 @@
 // What actually failed, for the agent that has to fix it.
 //
-// `/prompt-evolve` asks `ai-prompt-architect` for a better prompt and hands it a
+// `/agent evolve` asks `ai-prompt-architect` for a better prompt and hands it a
 // LESSON — one sentence of prose, written by a human or by continuous-learner.
 // Meanwhile the eval history holds, per case, the actor's full response and the
 // judge's reason for failing it. The candidate generator was working from a
@@ -134,7 +134,7 @@ export function describeFailures(d, { maxAnswer = 600 } = {}) {
 //   node scripts/lib/failure-digest.mjs <agent> [--split holdout] [--samples 3] [--json]
 //
 // "What is this agent getting wrong, in its own words" — the question
-// /prompt-evolve should be answering before it asks for a new prompt.
+// /agent evolve should be answering before it asks for a new prompt.
 
 if (import.meta.url === `file://${process.argv[1]}`) {
   const argv = process.argv.slice(2);

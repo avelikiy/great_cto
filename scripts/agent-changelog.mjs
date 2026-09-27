@@ -60,7 +60,7 @@ export function renderChangelog(agent, generations) {
   lines.push('');
 
   if (!generations || generations.length === 0) {
-    lines.push('_No evolution generations recorded yet. Run `/prompt-evolve <agent>`._');
+    lines.push('_No evolution generations recorded yet. Run `/agent evolve <agent>`._');
     lines.push('');
     return lines.join('\n');
   }

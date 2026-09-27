@@ -171,7 +171,7 @@ Write a one-line verdict to `.great_cto/verdicts/security-officer.log`:
 `<ts> | security-officer | BLOCK | scope:poc credentials_found:<N>`.
 
 Do **not** produce a CSO report in POC mode. Full review happens at
-`/promote`. See `skills/great_cto/references/poc-mode.md`.
+`/poc promote`. See `skills/great_cto/references/poc-mode.md`.
 
 ## Interaction Checkpoints
 

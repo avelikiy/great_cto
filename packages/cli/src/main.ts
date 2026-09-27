@@ -135,9 +135,9 @@ function parseArgs(argv: string[]): CliArgs {
     else if (
       a === "start" || a === "audit" || a === "inbox" || a === "digest" ||
       a === "review" || a === "doctor" || a === "burn" || a === "save" ||
-      a === "resume" || a === "learn" || a === "agent-review" || a === "agent-retire" ||
-      a === "rfc" || a === "release" || a === "ownership" || a === "oncall" ||
-      a === "sec" || a === "poc" || a === "promote" || a === "crystallize" ||
+      a === "resume" || a === "learn" || a === "agent" ||
+      a === "rfc" || a === "release" || a === "ownership" ||
+      a === "sec" || a === "poc" || a === "crystallize" ||
       a === "migrate"
     ) {
       args.command = "chat-only-hint";

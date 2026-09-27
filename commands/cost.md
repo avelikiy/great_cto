@@ -17,7 +17,7 @@ You are the Cost & Capacity aggregator. Multiple modes:
    - ROI multiplier
    - Cross-reference to similar past features in same archetype
 3. **`/cost agent <name>`** — Per-agent cost (NEW in v2.3.0)
-   - Same as `/agent-review <name>` but cost-focused
+   - Same as `/agent review <name>` but cost-focused
 4. **`/cost sessions [days]`** — Session shape: how the operator's OWN sessions spend
    - Length, active time, cache rebuilds, read:create, main-thread model vs subagent models
    - Traffic-light signals with thresholds, then the three habits with the largest estimated saving
@@ -152,7 +152,7 @@ fi
 
 ## Agent mode — `/cost agent <name>`
 
-Quick per-agent cost summary (lighter than /agent-review):
+Quick per-agent cost summary (lighter than /agent review):
 
 ```bash
 if [ "$MODE" = "agent" ]; then
@@ -179,7 +179,7 @@ if [ "$MODE" = "agent" ]; then
   echo "- Total cost: \$$TOTAL"
   echo "- Avg cost/invocation: \$$AVG"
   echo ""
-  echo "_For full performance review: \`/agent-review $AGENT\`_"
+  echo "_For full performance review: \`/agent review $AGENT\`_"
   exit 0
 fi
 ```

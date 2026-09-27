@@ -30,8 +30,8 @@ cat <<EOF
 You make 2 decisions per feature; agents do the rest.
 
 Daily        /inbox · /digest · /doctor · /resume · /save
-Pipeline     /start · /audit · /review · /poc · /promote
-Ops          /oncall · /ownership · /rfc · /release · /sec · /cost · /burn
+Pipeline     /start · /audit · /review · /poc
+Ops          /ownership · /rfc · /release · /sec · /cost · /burn
 Help         /help                    full command reference
 
 Admin board  great-cto board     →    http://localhost:3141

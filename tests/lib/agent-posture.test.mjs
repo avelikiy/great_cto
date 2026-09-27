@@ -168,6 +168,7 @@ test('a grant of nothing is not a grant of everything', () => {
 });
 
 test('the reviewer surface attaches it — a classifier nothing consults is not a classifier', () => {
-  const cmd = readFileSync(path.join(ROOT, 'commands/agent-review.md'), 'utf8');
-  assert.match(cmd, /agent-posture\.mjs/, '/agent-review prints the grant it is reviewing');
+  const cmd = readFileSync(path.join(ROOT, 'commands/agent.md'), 'utf8');
+  const review = cmd.slice(cmd.indexOf('## Subcommand: review'), cmd.indexOf('## Subcommand: evals'));
+  assert.match(review, /agent-posture\.mjs/, '/agent review prints the grant it is reviewing');
 });
