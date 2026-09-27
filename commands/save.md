@@ -1,5 +1,5 @@
 ---
-description: "Save current session. Writes a session log with what was done, decisions made, and what's pending. Optional: commit & push."
+description: "Done for now? Run it — you get a session note with what was done, how each done item was verified, where the work stands (branch, dirty files, running servers) and the next step. Optional: commit & push."
 argument-hint: "[description] — e.g. 'implemented auth flow' (auto-inferred if omitted)"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep

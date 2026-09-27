@@ -1,5 +1,5 @@
 ---
-description: "What needs your attention? Shows open gates, recent activity, blocked items, and pending decisions."
+description: "Something waiting on you? Run it — you get only the decisions that need you: open gates, blockers, P0s and pending approvals, with recent activity for context."
 argument-hint: "[optional: hours — default 24]"
 user-invocable: true
 allowed-tools: Read, Bash, Glob, Grep

@@ -1,5 +1,5 @@
 ---
-description: "Resume a previous session. Reads recent session logs, open tasks, and last decisions — gives Claude full context without re-explaining the project."
+description: "Coming back to a project? Run it — you get exactly where you left off (last session, open tasks, decisions, git state) and a warning when the code moved since the last save."
 argument-hint: "[project-path] — defaults to current directory"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep

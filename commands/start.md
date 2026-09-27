@@ -1,5 +1,5 @@
 ---
-description: "Have an idea or an existing codebase? Describe it — you get a brief, a plan and working code, and you approve two decisions: what to build and whether it ships. Code already here but no great_cto config: you get the audit path instead (stack, gaps, tasks, PROJECT.md) — also `/start audit`."
+description: "Have an idea or an existing codebase? Describe it — you get a brief, a plan and working code; three decisions stay yours: what to build, how, and whether it ships. Code already here but no great_cto config: you get the audit path instead (stack, gaps, tasks, PROJECT.md) — also `/start audit`."
 argument-hint: "[project description] | audit [eval | lint | focus area]"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent
