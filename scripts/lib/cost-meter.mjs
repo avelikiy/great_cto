@@ -161,6 +161,25 @@ export function resolvePrice(model, prices = effectivePrices()) {
  *
  * @returns {{usd:number, priced:boolean, assumed:boolean, source:string, model:string}}
  */
+/**
+ * Cache-write dollars. Anthropic bills a 5-minute cache write at 1.25× the input
+ * price and a 1-hour write at 2×; `usage.cache_creation` splits the tokens by TTL
+ * (`ephemeral_5m_input_tokens` / `ephemeral_1h_input_tokens`). Pricing every write
+ * at 1.25× understated long sessions — Claude Code writes the 1-hour cache — which
+ * session-shape found on 2026-09-27. Without the split, the flat 1.25× stands.
+ */
+export function cacheWriteUsd(usage, inputPrice) {
+  const split = usage?.cache_creation;
+  const total = usage?.cache_creation_input_tokens || 0;
+  if (split && (split.ephemeral_1h_input_tokens != null || split.ephemeral_5m_input_tokens != null)) {
+    const h1 = split.ephemeral_1h_input_tokens || 0;
+    const m5 = split.ephemeral_5m_input_tokens || 0;
+    const rest = Math.max(0, total - h1 - m5); // any write the split does not name
+    return (h1 * 2 + (m5 + rest) * 1.25) * inputPrice;
+  }
+  return total * 1.25 * inputPrice;
+}
+
 export function priceUsage({ model, usage, prices }) {
   const { price, source } = resolvePrice(model, prices || effectivePrices());
   if (!usage || !price) {
@@ -168,10 +187,9 @@ export function priceUsage({ model, usage, prices }) {
   }
   const inTok = usage.input_tokens || 0;
   const outTok = usage.output_tokens || 0;
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
   const cacheRead = usage.cache_read_input_tokens || 0;
   const usd = (inTok * price.input + outTok * price.output
-             + cacheWrite * price.input * 1.25 + cacheRead * price.input * 0.1) / 1_000_000;
+             + cacheWriteUsd(usage, price.input) + cacheRead * price.input * 0.1) / 1_000_000;
   return { usd, priced: true, assumed: source === 'family', source, model: model || '' };
 }
 
@@ -190,13 +208,13 @@ export function costForUsage({ model, usage, prices }) {
   const inTok = usage.input_tokens || 0;
   const outTok = usage.output_tokens || 0;
   // Prompt-caching tokens bill at Anthropic's standard multipliers off the base
-  // input price: cache WRITE = 1.25× input, cache READ = 0.1× input. Ignoring
+  // input price: cache WRITE = 1.25× input (2× for the 1-hour TTL, see
+  // cacheWriteUsd), cache READ = 0.1× input. Ignoring
   // them under-counts real spend badly (a cached turn is often 50k+ cache tokens
   // vs a few hundred fresh input tokens).
-  const cacheWrite = usage.cache_creation_input_tokens || 0;
   const cacheRead = usage.cache_read_input_tokens || 0;
   return (inTok * p.input + outTok * p.output
-        + cacheWrite * p.input * 1.25 + cacheRead * p.input * 0.1) / 1_000_000;
+        + cacheWriteUsd(usage, p.input) + cacheRead * p.input * 0.1) / 1_000_000;
 }
 
 export function round4(n) { return Math.round(n * 10000) / 10000; }

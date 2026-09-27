@@ -4,6 +4,44 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## Unreleased
+
+### Changed behaviour — read before upgrading
+
+- **`/skillify` is now `/crystallize skill [name]`.** One command turns repeated experience
+  into reusable knowledge: `review`/`approve` promote what incidents taught into patterns and
+  agent changes, `skill` captures a procedure you keep walking agents through. The old
+  command file is removed from `~/.claude/commands` at the next session start.
+
+### Added
+
+- **`/cost sessions [days]`** (`scripts/lib/session-shape.mjs`) — how your own sessions spend,
+  not only your agents: turns, active hours, cache rebuilds, main-thread vs subagent models,
+  a traffic-light table with stated thresholds, and the three habits worth most to change.
+  Local and read-only; projects are anonymised and message text is never read. On the
+  measuring machine (30 days): 98% of spend in 15 sessions over 300 turns or 4 active hours,
+  and ~$6.2k of cache rebuilds that a fresh session or `/compact` would have avoided.
+- **Quote verification** (`scripts/lib/quote-verify.mjs`) — a passage a reviewer quotes must
+  exist in the file it cites (exact, then normalised). `finding-evidence` rejects a finding
+  with an invented quote; domain reviewers and code-reviewer check a quote first or mark it
+  as a paraphrase.
+- **`/save` records where the work stands and how to prove it** — branch@sha, dirty files,
+  stash count, running dev servers, a `Verify:` command for each done item, and the next
+  step as the first action. **`/resume` says at the top when the note is stale** (commits
+  since, branch changed) and re-runs only cheap read-only proofs before acting.
+- **skill-lint SK-007** — an unquoted frontmatter value that strict YAML reads differently is
+  an error; agents and commands are held to the same rule.
+
+### Fixed
+
+- **1-hour cache writes were priced at the 5-minute rate.** They bill at 2× the input price,
+  not 1.25×; `cost-meter` now prices each TTL from `usage.cache_creation`. Main Claude Code
+  sessions write the 1-hour cache, so their cost was understated (measured: $27.1k → $29.7k
+  over 30 days on the measuring machine); subagents write the 5-minute cache and are unchanged.
+
+Ideas from techwolf-ai/ai-first-toolkit (MIT): token-doctor, kb-verify, the handoff skill
+and preflight's strict frontmatter check — each rebuilt on great_cto's own libraries.
+
 
 ## v3.38.0 — 2026-09-26
 

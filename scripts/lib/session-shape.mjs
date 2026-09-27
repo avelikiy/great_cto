@@ -42,7 +42,7 @@ import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { priceUsage, resolvePrice, effectivePrices } from './cost-meter.mjs';
+import { priceUsage, resolvePrice, effectivePrices, cacheWriteUsd } from './cost-meter.mjs';
 // Sessions started in a temp directory are scripted (benchmarks, eval sandboxes,
 // `claude -p` probes) — the same exclusion request-quality applies.
 import { SCRIPTED } from './request-quality.mjs';
@@ -77,6 +77,11 @@ function pickUsage(u) {
     input_tokens: x.input_tokens || 0, output_tokens: x.output_tokens || 0,
     cache_read_input_tokens: x.cache_read_input_tokens || 0,
     cache_creation_input_tokens: x.cache_creation_input_tokens || 0,
+    // The TTL split: a 1-hour write bills 2×, a 5-minute one 1.25× (cost-meter.cacheWriteUsd).
+    ...(x.cache_creation ? { cache_creation: {
+      ephemeral_1h_input_tokens: x.cache_creation.ephemeral_1h_input_tokens || 0,
+      ephemeral_5m_input_tokens: x.cache_creation.ephemeral_5m_input_tokens || 0,
+    } } : {}),
   };
 }
 
@@ -231,12 +236,13 @@ export async function scanSession({ id, project, mainPath, subPaths = [] }, { lo
     add(s.main, x, usd);
     const pin = inputPrice(x.model) / MTOK;
     const cc = x.u.cache_creation_input_tokens; const cr = x.u.cache_read_input_tokens;
-    s.main.cacheCreateUsd += cc * pin * 1.25;
+    const ccUsd = cacheWriteUsd(x.u, pin);
+    s.main.cacheCreateUsd += ccUsd;
     s.peakContext = Math.max(s.peakContext, ctx);
     if (i >= THRESHOLDS.rebuildAfterTurn && cc >= THRESHOLDS.rebuildTokens) {
       s.rebuilds.count++; s.rebuilds.tokens += cc;
-      s.rebuilds.usd += cc * pin * 1.25;
-      s.rebuilds.avoidableUsd += cc * pin * (1.25 - 0.1); // the same tokens read from a warm cache
+      s.rebuilds.usd += ccUsd;
+      s.rebuilds.avoidableUsd += ccUsd - cc * pin * 0.1; // the same tokens read from a warm cache
     }
     // Context carried over the line, re-read on every later turn. A fresh session
     // with a brief would not carry it; its own new growth is not counted.
