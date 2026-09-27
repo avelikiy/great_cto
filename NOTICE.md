@@ -52,3 +52,13 @@ factual claims).
     inventory + reconstruction notes) for building UI to a reference.
   - Trimmed: upstream `examples/` (~2.6 MB) and README/CHANGELOG were not vendored.
 - Mounted by: `agents/design-advisor.md` (reverse-engineering a design reference).
+
+## handoff (techwolf-ai/ai-first-toolkit)
+
+- Upstream: https://github.com/techwolf-ai/ai-first-toolkit (`plugins/session-tools/skills/handoff/SKILL.md`)
+- Upstream license: MIT (Copyright (c) 2026 TechWolf)
+- Idea adapted, no text or code copied: a session note should record the run state it
+  leaves behind, a command that proves each "done" claim, and the next step as the first
+  action; the reader should flag a note that is older than the latest commits and read the
+  goal and first step back before acting.
+- Implemented in: `scripts/lib/handoff-state.mjs`, `commands/save.md`, `commands/resume.md`.

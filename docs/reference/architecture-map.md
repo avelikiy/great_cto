@@ -15,7 +15,7 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 674 files in 9 groups.
+Derived from what imports what, across 675 files in 9 groups.
 
 ```mermaid
 flowchart TD

@@ -58,11 +58,21 @@ concepts: [<keyword1>, <keyword2>, <keyword3>]
 
 # Session: <description>
 
+## Goal
+
+<one line: what this work is actually for — the real goal, not the first ask if it shifted>
+
+## Start here
+
+1. <the single most concrete first action for the next session — a command to run or a file:line to open>
+2. <then this, if there is a clear second step>
+
 ## Done
 
 - <bullet: what was actually implemented / fixed / decided>
+  Verify: `<exact command a later session can run to prove it>` → <expected result>
 - <bullet: second thing>
-- <bullet: third thing if applicable>
+  Verify: not verified — <why: e.g. needs prod credentials, nothing runnable for prose>
 
 ## Decisions
 
@@ -82,6 +92,29 @@ concepts: [<keyword1>, <keyword2>, <keyword3>]
 
 <git log --oneline --since="8 hours ago" output, or "no commits this session">
 ```
+
+Then append the run state — branch@sha, dirty files, stash, upstream, dev servers still
+listening. Do NOT type this block by hand: the sha and time in its marker line are what
+`/resume` checks the note against, and a transcription slip makes every later check wrong.
+
+```bash
+HS="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/handoff-state.mjs"
+[ -f "$HS" ] || HS="$(pwd)/scripts/lib/handoff-state.mjs"
+LOG_FILE=".great_cto/logs/session-<date>-<slug>.md"   # the file you just wrote
+{ echo; node "$HS" capture 2>/dev/null || printf '## Run state\n\n- not captured (handoff-state unavailable)\n'; } >> "$LOG_FILE"
+```
+
+It is read-only: the stash is counted, never popped; nothing is staged or committed.
+
+**Verify line rules** (one per Done item — this is what stops "done" being claimed on the note's word):
+- The exact command, in backticks, that proves the item **from a fresh session**, and its expected result after `→`:
+  `` Verify: `node --test tests/lib/auth.test.mjs` → 14 pass ``
+- Prefer the narrowest read-only proof: a targeted test file, `git log --oneline -1 -- <file>`, `grep -n <symbol> <file>`.
+  `/resume` re-runs only cheap read-only commands; a push, deploy, build or full suite is listed, never re-run.
+- If nothing was run, or it cannot be run later, say so: `Verify: not verified — <why>`. Never invent a command you did not run.
+
+**Start here rules:** step 1 is an action, not a topic — `run X`, `open file:line and do Y`,
+`ask the CTO about Z`. If there is no open next action, write `1. ship / merge / deploy <what>`.
 
 **Concepts field rules** (enables `/recall` search):
 - Extract 3–6 lowercased keywords that best describe what was worked on
@@ -138,8 +171,10 @@ Show the CTO:
 ```
 ✅ Session saved → .great_cto/logs/session-<date>-<slug>.md
 
-  Done:    <N> items
+  Done:    <N> items (<M> with a runnable Verify)
   Pending: <N> items
+  Start:   <Start here step 1>
+  State:   <branch>@<sha> · <clean | N dirty>
   Commits: <N> this session
 
 Commit & push? (y/n)
@@ -169,6 +204,7 @@ Next session: run `/resume` to restore this context instantly.
 
 - Keep bullets **concrete** — "added streaming archetype with kafka/flink signals" not "worked on archetypes"
 - Pending should always have **at least one item** — if everything is done, the pending item is "ship / merge / deploy"
+- Every Done item carries a `Verify:` line; the next step is written as `## Start here` step 1, not buried in Pending
 - Do NOT dump raw code or long diffs — just the summary
 - Tone: crisp, factual, no fluff
 
