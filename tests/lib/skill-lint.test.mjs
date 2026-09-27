@@ -99,7 +99,9 @@ test('CLI exits 1 on errors and 0 on warnings only', () => {
 
 test('the real repo lints with 0 errors', () => {
   const r = lintSkills({ repoRoot: REPO });
-  assert.ok(r.skills >= 40, `expected the repo's skills, saw ${r.skills}`);
+  // A floor that proves the walk found the tree, not a count to maintain: 44 until
+  // 3.40.1 folded twelve domain briefs into `verticals` (33 since).
+  assert.ok(r.skills >= 30, `expected the repo's skills, saw ${r.skills}`);
   assert.deepEqual(r.errors, [], r.errors.map((e) => `${e.skill} ${e.rule} ${e.msg}`).join('\n'));
 });
 
