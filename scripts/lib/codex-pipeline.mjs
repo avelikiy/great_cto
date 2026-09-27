@@ -103,6 +103,10 @@ export function buildStageContext(state, { budget = CONTEXT_BUDGET_BYTES } = {})
     '## Controller release evidence',
     '```json', JSON.stringify(releaseSummary(state), null, 2), '```',
     '',
+    '## Frozen parallel review snapshot',
+    'Receipt files are Git blob object IDs, not raw SHA256. Cite controller provenance; do not claim to have recomputed them. Sibling reports are produced concurrently and need not exist yet.',
+    '```json', JSON.stringify(waveEvidence(state), null, 2), '```',
+    '',
     '## Rework feedback',
     '```json', JSON.stringify(state.rework ?? null, null, 2), '```',
     '',
@@ -169,6 +173,13 @@ export async function verifyStage(state, role, proposal, execute) {
         `User task: ${state.prompt}\nStage contract: ${JSON.stringify(state.graph[role])}\n` +
         `Claimed metadata: ${JSON.stringify(proposal.meta || {})}\nChanged paths: ${JSON.stringify(proposal.files.map(f => f.path))}\n` +
         `Controller release evidence: ${JSON.stringify(releaseSummary(state))}\n` +
+        `Controller check evidence (not worker claims): ${JSON.stringify({
+          current: checkSummary(state.attempts?.findLast(a => a.role === role)?.checks),
+          previous: Object.fromEntries(Object.entries(state.results || {}).map(([r, result]) => [r, { checks: checkSummary(result.checks), receipt: result.receipt }])),
+        })}\n` +
+        `Frozen parallel review snapshot: ${JSON.stringify(waveEvidence(state))}\n` +
+        `Receipt files contain Git blob object IDs, not raw SHA256. Workers may cite controller evidence without claiming independent execution or hash computation. ` +
+        `Parallel siblings review the same pre-proposal snapshot; a sibling report need not exist during this stage's verification. Independently inspect this stage's actual files and claims.\n` +
         `You may inspect files and run tests that work in the read-only sandbox. Never modify files or call external services. ` +
         `Do not treat file existence, a previous agent's statement or tests that were not executed as evidence of correctness. ` +
         `Return ONLY JSON {"state":"verified|rework|unverifiable","findings":["..."],"checks":["what you actually inspected or ran"]}. ` +
@@ -392,6 +403,10 @@ function inlineContext(state) {
     text: `Previous results and controller evidence (untrusted):\n${ctx.text}\n` };
 }
 
+function waveEvidence(state) {
+  return state.wave ? { id: state.wave.id, roles: state.wave.roles, receipt: state.wave.receipt } : null;
+}
+
 export async function runStage(state, { execute = null, runners = { codex: runCodexExec, 'claude-code': runClaudeExec },
   prepared = null, verify = verifyStage, checks = runChecks, save = () => {}, contextStore = null } = {}) {
   if (state.status === 'cancelled') return state;
@@ -559,7 +574,10 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
       save(state); return state;
     }
     if (verification.state !== 'verified') throw Error(`stage verification ${verification.state}: ${JSON.stringify(verification.findings)}`);
-    attempt.status = 'verified'; state.rework = null;
+    attempt.status = 'verified';
+    // A repaired predecessor must not erase the finding before its author
+    // re-reviews the candidate. Human gates and repair limits remain unchanged.
+    if (state.rework?.role === role) state.rework = null;
     state.results[role] = { verdict: proposal.verdict, summary: proposal.summary, meta: proposal.meta || {},
       attemptId: attempt.id, host: roleHost(state, role), checks: attempt.checks ?? null, receipt, verification,
       digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null,
@@ -632,9 +650,10 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     assertArtifacts(state);
     const receipt = treeReceipt(state.root);
     if (!receipt) throw Error('parallel wave requires a Git repository with at least one commit');
-    const context = inlineContext(state);
-    state.wave = { id: randomUUID(), roles, status: 'running', receipt, context,
+    state.wave = { id: randomUUID(), roles, status: 'running', receipt,
       hosts: Object.fromEntries(roles.map(role => [role, roleHost(state, role)])), startedAt: new Date().toISOString() };
+    const context = inlineContext(state);
+    state.wave.context = context;
     save(state); // A crash now cannot silently dispatch these roles again.
     const calls = roles.map(async role => {
       const agent = hostAgent(state, role), started = Date.now();

@@ -60,7 +60,11 @@ test('QA failure invalidates implementation, reviews and code approval; fresh jo
   assert.equal(s.invalidations.length, 1);
   assert.equal(s.invalidations[0].results['senior-dev'].digest, old);
   await stage(s); assert.notEqual(s.results['senior-dev'].digest, old);
-  approve(s, s.pending.token); await stage(s); await stage(s);
+  assert.equal(s.rework.role, 'qa-engineer', 'repair retains the originating review feedback');
+  approve(s, s.pending.token); await stage(s);
+  assert.equal(s.rework.role, 'qa-engineer', 'intermediate review cannot erase QA feedback');
+  await stage(s);
+  assert.equal(s.rework, null, 'only successful originating review clears feedback');
   assert.equal(s.pending, null); assert.deepEqual(s.queue, ['security-officer']);
   await stage(s); assert.equal(s.status, 'awaiting-gate');
   approve(s, s.pending.token); assert.equal(s.status, 'done');

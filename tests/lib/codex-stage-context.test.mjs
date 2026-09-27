@@ -11,7 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
-import { newRun, runStage as stage, approve, buildStageContext, CONTEXT_BUDGET_BYTES } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, runStage as stage, approve, buildStageContext, verifyStage, CONTEXT_BUDGET_BYTES } from '../../scripts/lib/codex-pipeline.mjs';
 
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 const sha = (t) => createHash('sha256').update(t).digest('hex');
@@ -112,4 +112,29 @@ test('no attempt ever claims a native resume', async (t) => {
   await runStage(state, { contextStore: store, execute: async () => response() });
   await runStage(state, { contextStore: store, execute: async () => response('PASS', []) });
   for (const a of state.attempts) assert.notEqual(a.context.mode, 'native_resume');
+});
+
+test('worker context identifies frozen review snapshot with explicit hash provenance', () => {
+  const state = { results: {}, wave: { id: 'wave-fixture', roles: ['qa-engineer', 'security-officer'], receipt: { head: 'base', dirty: 'untracked-digest', files: { 'src/app.js': 'git-blob-id' } } } };
+  const context = buildStageContext(state);
+  assert.match(context.text, /wave-fixture/);
+  assert.match(context.text, /untracked-digest/);
+  assert.match(context.text, /Git blob object IDs, not raw SHA256/);
+  assert.match(context.text, /Sibling reports are produced concurrently/);
+});
+
+test('verifier receives controller checks and snapshot separately from worker claims', async t => {
+  const { state } = fixture(t);
+  state.results.writer = { checks: { state: 'passed', inputDigest: 'tested-input', stdout: '44 passed' }, receipt: { head: 'base' } };
+  state.attempts = [{ role: 'reviewer', checks: { state: 'passed', inputDigest: 'current-input' } }];
+  state.wave = { id: 'frozen-wave', roles: ['reviewer', 'security-officer'], receipt: { dirty: 'snapshot-digest' } };
+  let prompt;
+  const result = await verifyStage(state, 'reviewer', { files: [], meta: {} }, async options => {
+    prompt = options.prompt;
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected fixture'] }) };
+  });
+  assert.equal(result.state, 'verified');
+  for (const value of ['tested-input', 'current-input', '44 passed', 'frozen-wave', 'snapshot-digest']) assert.ok(prompt.includes(value));
+  assert.match(prompt, /a sibling report need not exist/);
+  assert.match(prompt, /Independently inspect/);
 });

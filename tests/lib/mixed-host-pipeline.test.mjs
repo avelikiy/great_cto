@@ -41,6 +41,9 @@ test('two hosts execute concurrently, proposals apply once, and gates remain hum
     started.push(role);
     assert.equal(options.sandbox, 'read-only');
     assert.match(options.prompt, new RegExp(`You are the ${role} specialist`));
+    assert.ok(options.prompt.includes(state.wave.id), 'both hosts receive the frozen wave ID');
+    assert.ok(options.prompt.includes(state.wave.receipt.head), 'both hosts receive the frozen receipt');
+    assert.match(options.prompt, /Git blob object IDs, not raw SHA256/);
     await barrier;
     return reply(role);
   };
