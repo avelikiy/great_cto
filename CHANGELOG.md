@@ -7,6 +7,38 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.41.0 — 2026-09-27
+
+A clean way out: `great-cto uninstall` shows what an install wrote and what is yours, and
+removes only the first.
+
+### Added
+
+- **`great-cto uninstall`** — prints a plan and changes nothing; `--yes` carries it out.
+  - **Removes** what an install wrote: plugin versions in `~/.claude/plugins/cache`, the agents
+    and commands marked `great_cto-managed`, the great_cto keys in `settings.json` and
+    `installed_plugins.json` (each file backed up first, every other key kept), the board
+    process and its login service, and the caches in `~/.great_cto` (clones, registries,
+    runtime files).
+  - **Keeps** a plugin version an open Claude Code session loads (and says so), agents and
+    commands without the marker, companion plugins, and your data — `~/.great_cto` with
+    decisions, lessons, verdicts, cost history and `secrets.env`, and each project's `.great_cto/`.
+  - `--purge-data` **moves** `~/.great_cto` to `~/.great_cto.removed-<date>` rather than
+    deleting it: `secrets.env` may hold the only copy of a key. `--projects` also removes the
+    pre-push hook `init` wrote into registered projects.
+  - Host-owned steps are printed, not taken: `claude plugin uninstall`, `claude plugin
+    marketplace remove`, `codex plugin remove`, `npm uninstall -g great-cto`.
+
+### Changed
+
+- The FAQ's uninstall answer ("`rm -rf` clears everything") left the plugin registered, its
+  agents and commands installed and the board service loaded; it now describes the command.
+
+Tests: `packages/cli/tests/uninstall.test.mjs` (8) — built against a temporary HOME, including
+that an unmarked command, `secrets.env`, another plugin's cache and unrelated settings keys
+survive `--yes`.
+
 ## v3.40.1 — 2026-09-27
 
 A lighter skill list and a release script that cannot push the wrong branch.
