@@ -50,6 +50,13 @@ moment you reach for them, not as a feature list. Old names map in the table bel
   disagreed with `approval-level.mjs`, which stops at `gate:product`, `gate:arch` and
   `gate:ship` by default.
 
+### Fixed
+
+- **Three board status colours were under WCAG AA on the light theme**, measured on the
+  surfaces they sit on: in-progress / rework ink 4.45:1 on the harness panel, the backlog
+  pill 4.17:1, the done pill (green ink on a blue bed) 4.26:1. Now 5.08, 4.99 and 4.94; the
+  done pill's bed is green, matching its ink.
+
 Tests: four new command-surface suites (`review-domains`, `command-subcommands-b|c|d`).
 
 ## v3.39.0 — 2026-09-27
