@@ -123,7 +123,11 @@ test('no shipped surface still sends a user to /migrate, /discover or /prd', () 
     'skills/great_cto/templates/README.md', 'docs/help-card.md', 'agents/product-owner.md'];
   const dead = /(^|[\s`(])\/(migrate|discover|prd)\b/m;
   for (const f of files) {
-    const hit = read(f).split('\n').find((l) => dead.test(l) && !/formerly \/migrate|what `\/migrate` used to do/.test(l));
+    // The help card's rename table names the old commands on purpose: it is where
+    // a user who types one learns what replaced it.
+    let text = read(f);
+    if (f === 'docs/help-card.md') text = text.replace(/\n## Renamed in [^\n]*\n[\s\S]*?(?=\n## )/, '\n');
+    const hit = text.split('\n').find((l) => dead.test(l) && !/formerly \/migrate|what `\/migrate` used to do/.test(l));
     assert.equal(hit, undefined, `${f} still names a removed command: ${hit}`);
   }
 });
