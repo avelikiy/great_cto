@@ -1,12 +1,12 @@
 # GAP-REGISTER — governance gap register (NaCl governance Phase 5)
 #
 # name: GAP-REGISTER-template
-# description: Enumerates every governance/gate gap found by /audit or /migrate on an existing
+# description: Enumerates every governance/gate gap found by /audit or /doctor --fix on an existing
 #   codebase, so strict-mode gates (Phase 2) can be adopted incrementally instead of blocking
 #   on day one. Each gap carries a severity, the gate it would block, a remediation wave, and —
 #   while deferred — an interim signed exception id (Phase 1). Machine-checkable via
 #   scripts/lib/gap-waves.mjs.
-# when_to_use: /audit (project-auditor) and /migrate emit this to docs/governance/GAP-REGISTER.yaml
+# when_to_use: /audit (project-auditor) and /doctor --fix emit this to docs/governance/GAP-REGISTER.yaml
 #   when strict gates would otherwise block a legacy repo. Paired with GAP-WAVE-PLAN.yaml.
 # destination: docs/governance/GAP-REGISTER.yaml
 #
@@ -16,8 +16,8 @@
 # (feed it the JSON form, or the agent renders this YAML from the planner output).
 
 feature: <slug>                 # feature / repo area this register covers
-generated: <YYYY-MM-DD>         # when /audit or /migrate produced it
-generated_by: audit             # audit | migrate
+generated: <YYYY-MM-DD>         # when /audit or /doctor --fix produced it
+generated_by: audit             # audit | doctor
 current_wave: 1                 # the wave being actively remediated right now
 
 gaps:

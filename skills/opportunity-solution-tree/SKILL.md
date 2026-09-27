@@ -8,8 +8,8 @@ when_to_use: |
   - CTO asks "what should we build to improve retention / conversion / NPS?"
   - Starting discovery on a new product area
   Guards — do NOT apply when:
-  - The feature and problem are already well-defined (go straight to /prd)
-  - You have a single, validated user story (use /prd directly)
+  - The feature and problem are already well-defined (go straight to /spec prd)
+  - You have a single, validated user story (use /spec prd directly)
   - This is a bug fix or technical debt item
 effort: medium
 allowed-tools: Read, Write, WebFetch, WebSearch
@@ -160,10 +160,10 @@ Write `docs/discovery/OST-<outcome-slug>.md`:
 
 ---
 
-## Integration with /prd
+## Integration with /spec prd
 
 Once an opportunity is validated and a solution is chosen:
-→ Run `/prd` with the validated opportunity as the problem statement
+→ Run `/spec prd` with the validated opportunity as the problem statement
 → The OST's Opportunity Score data feeds directly into PRD §3 (Success Metrics) and §4 (Target Users)
 
 ---

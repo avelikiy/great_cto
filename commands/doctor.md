@@ -1,12 +1,12 @@
 ---
-description: "Health check for great_cto. Shows pipeline state, missing artefacts, hook status, last run per agent, and permission-denied tail."
-argument-hint: "[--fix] — optional, emits remediation commands"
+description: "Something off with great_cto, or just upgraded it? Run it — you get a health report (pipeline state, missing artefacts, hooks, last run per agent, permission denials, an outdated PROJECT.md schema); `--fix` applies the safe fixes, including the schema upgrade."
+argument-hint: "[--fix] [--skills | --skills-refresh] — --fix applies safe fixes incl. the PROJECT.md schema upgrade"
 user-invocable: true
-allowed-tools: Read, Bash, Glob, Grep
+allowed-tools: Read, Bash, Edit, Glob, Grep
 model: haiku
 ---
 
-You are the Doctor. Produce a concise, actionable health report for the great_cto pipeline in this project. Do NOT fix — only diagnose and point. Reports go to stdout; no files written.
+You are the Doctor. Produce a concise, actionable health report for the great_cto pipeline in this project. Without `--fix`: diagnose and point only — reports go to stdout, no files written. With `--fix`: apply the safe, non-destructive fixes in Check 9, including the PROJECT.md schema upgrade (append-only — what `/migrate` used to do).
 
 ## Setup
 
@@ -56,6 +56,28 @@ if [ -f .great_cto/PROJECT.md ]; then
 fi
 ```
 
+## Check 2b — PROJECT.md schema (fields added since v1.0.100)
+
+An install older than the current schema is missing fields agents now read. Diagnosis
+lists exactly what `--fix` would append (this is the preview — nothing is written);
+Check 9 Fix 4b appends them. Existing values are never overwritten.
+
+```bash
+if [ -f .great_cto/PROJECT.md ]; then
+  SCHEMA_MISSING=""
+  for FIELD in archetype_confidence archetype_alternatives archetype_rationale security_tier project_size packs; do
+    grep -q "^${FIELD}:" .great_cto/PROJECT.md 2>/dev/null || SCHEMA_MISSING="$SCHEMA_MISSING $FIELD"
+  done
+  echo "PROJECT.md schema:"
+  if [ -z "$SCHEMA_MISSING" ]; then
+    echo "  ✓ up to date — no fields missing"
+  else
+    echo "  ⚠ outdated schema — missing:${SCHEMA_MISSING}"
+    echo "    → /doctor --fix appends them with safe defaults (existing values untouched)"
+  fi
+fi
+```
+
 ## Check 2c — Archetype confidence
 
 ```bash
@@ -75,8 +97,8 @@ if [ -f .great_cto/PROJECT.md ]; then
       echo "  ✓ archetype_confidence: user-specified — manually confirmed"
       ;;
     "")
-      echo "  ⚠ archetype_confidence: missing — upgrade to v1.0.146+ and re-run bootstrap"
-      echo "    Quick fix: run \`npx great-cto\` in the project directory"
+      echo "  ⚠ archetype_confidence: missing — outdated schema (see Check 2b)"
+      echo "    Quick fix: run /doctor --fix, then /audit to re-detect the archetype"
       ;;
     *)
       echo "  ⚠ archetype_confidence: unknown value '${CONFIDENCE}' — expected high | medium | low | user-specified"
@@ -605,6 +627,50 @@ if [ "$FIX_MODE" = "true" ]; then
     fi
   fi
 
+  # Fix 4b — Upgrade PROJECT.md to the current schema (formerly /migrate).
+  # Append-only: a field already present is never touched.
+  if [ -f .great_cto/PROJECT.md ]; then
+    PROJECT_FILE=.great_cto/PROJECT.md
+    PATCH=""
+    # archetype_confidence / _alternatives / _rationale (v1.0.146+)
+    grep -q "^archetype_confidence:" "$PROJECT_FILE" || { echo "  + archetype_confidence: medium  (re-run /audit or set to 'user-specified' after review)"; PATCH="${PATCH}archetype_confidence: medium\n"; }
+    grep -q "^archetype_alternatives:" "$PROJECT_FILE" || { echo "  + archetype_alternatives: []  (run /audit to populate)"; PATCH="${PATCH}archetype_alternatives: []\n"; }
+    grep -q "^archetype_rationale:" "$PROJECT_FILE" || { echo "  + archetype_rationale: migrated from older install"; PATCH="${PATCH}archetype_rationale: migrated from older install\n"; }
+    # security_tier / project_size (v1.0.100+)
+    grep -q "^security_tier:" "$PROJECT_FILE" || { echo "  + security_tier: standard  (update to 'enhanced' or 'strict' if needed)"; PATCH="${PATCH}security_tier: standard\n"; }
+    grep -q "^project_size:" "$PROJECT_FILE" || { echo "  + project_size: small  (update to nano|small|medium|large|enterprise)"; PATCH="${PATCH}project_size: small\n"; }
+    # packs (v2.8+) — opt-in domain pack overlays, auto-detected when the CLI is built
+    if ! grep -q "^packs:" "$PROJECT_FILE"; then
+      DETECTED=""
+      if [ -n "$PLUGIN_DIR" ] && [ -f "$PLUGIN_DIR/packages/cli/dist/packs.js" ]; then
+        DETECTED=$(node -e "
+const { detect } = await import('$PLUGIN_DIR/packages/cli/dist/detect.js');
+const { suggestPacks } = await import('$PLUGIN_DIR/packages/cli/dist/packs.js');
+console.log(suggestPacks(detect('.')).map(p => p.pack).join(', '));
+" 2>/dev/null)
+      fi
+      echo "  + packs: ${DETECTED}  (${DETECTED:+auto-detected domain overlays — each opens its human gates}${DETECTED:-empty; no domain overlay signals})"
+      PATCH="${PATCH}packs: ${DETECTED}\n"
+    fi
+    if [ -n "$PATCH" ]; then
+      printf "\n# --- schema upgraded by /doctor --fix on $TODAY ---\n%b" "$PATCH" >> "$PROJECT_FILE"
+      echo "  ✓ upgraded PROJECT.md schema — review the added values"
+      echo "    If packs were added: see skills/great_cto/ARCHETYPES.md § Domain Overlays for the reviewers"
+      echo "    and human gates each one brings; remove any you don't want from the packs: line."
+      FIXED=$((FIXED+1))
+      # The upgrade can RAISE what gates demand (security_tier, packs, project_size): a repo
+      # that passed yesterday may fail a strict gate cold. Don't relax the setting — schedule
+      # the catch-up (governance Phase 5):
+      echo "    Gate requirements may have risen. To adopt them incrementally:"
+      echo "      1. List the now-failing checks as gaps → docs/governance/GAP-REGISTER.yaml + .json"
+      echo "         (template: skills/great_cto/templates/GAP-REGISTER-template.yaml)"
+      echo "      2. node scripts/lib/gap-waves.mjs plan docs/governance/GAP-REGISTER.json --current-wave 1"
+      echo "      3. For each deferred gap it flags, run the printed '/exception create …' so strict"
+      echo "         gates stay green while the gap is tracked + expiring (never a silent bypass)."
+      echo "      Criticals go in wave 1 and get no exception."
+    fi
+  fi
+
   # Fix 5 — Rotate permission-denied.log if stale (> 1000 lines or older than 30d)
   if [ -f "$DENY_LOG" ]; then
     LINES=$(wc -l < "$DENY_LOG" | tr -d ' ')
@@ -710,9 +776,9 @@ Emit in order (skip section if nothing to say):
 5. If digest > 8d → `→ /digest 7`
 6. If backlog stalled → `→ /start` or `/audit`
 7. If permission-denied.log > 0 → `→ exit plan mode, retry`
-8. If missing dirs / env.sh / migration needed → `→ /doctor --fix`
+8. If missing dirs / env.sh / outdated PROJECT.md schema (Check 2b) → `→ /doctor --fix`
 
 End with:
 ```
-Run /doctor --fix to auto-remediate safe issues (dirs, env.sh, PROJECT.md stubs).
+Run /doctor --fix to auto-remediate safe issues (dirs, env.sh, PROJECT.md stubs and schema upgrade).
 ```

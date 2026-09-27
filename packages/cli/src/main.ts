@@ -1529,16 +1529,17 @@ async function main(): Promise<void> {
     }
   }
   if (args.command === "chat-only-hint") {
-    const typed = (args as unknown as { _slashTried?: string })._slashTried || "<command>";
-    // 3.40 folded these into modes of another command — quote the one that exists.
-    const folded: Record<string, string> = { burn: "digest slo", learn: "crystallize learn" };
-    const tried = folded[typed] ?? typed;
+    const tried = (args as unknown as { _slashTried?: string })._slashTried || "<command>";
+    // 3.40 folded these into modes of another command — quote the command that
+    // does the job now, not one the plugin no longer ships.
+    const folded: Record<string, string> = { burn: "digest slo", learn: "crystallize learn", migrate: "doctor --fix" };
+    const slash = folded[tried] ?? tried;
     error(`'${tried}' is a chat slash command, not a CLI subcommand.`);
     log("");
     log(`To run it, open Claude Code, Cursor, or any AI assistant that has`);
     log(`great_cto installed and type:`);
     log("");
-    log(`    ${cyan("/" + tried)} ${dim("[args]")}`);
+    log(`    ${cyan("/" + slash)} ${dim("[args]")}`);
     log("");
     log(`The CLI surface (this command) only exposes:`);
     log(`  ${cyan("init")} · ${cyan("ci")} · ${cyan("mcp")} · ${cyan("adapt")} ·`);
