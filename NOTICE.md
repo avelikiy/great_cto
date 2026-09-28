@@ -68,7 +68,11 @@ factual claims).
 - Upstream: https://github.com/agentlas-ai/Agentlas-OS (`codex/plugins/*/hooks/hooks.json`,
   `agentlas_cloud/memory_hook.py`)
 - Upstream license: Apache-2.0 (Copyright 2026 Agentlas)
-- Idea adapted, no text or code copied: a Codex plugin can ship hooks, and a guard can
-  read Codex's `apply_patch` by the file lines in the patch text. Verified on our own
-  probe plugin before relying on it.
-- Implemented in: `.codex-plugin/hooks.json`, `scripts/hooks/codex-adapter.mjs`.
+- Ideas adapted, no text or code copied:
+  - a Codex plugin can ship hooks, and a guard can read Codex's `apply_patch` by the file
+    lines in the patch text (verified on our own probe plugin before relying on it) —
+    `.codex-plugin/hooks.json`, `scripts/hooks/codex-adapter.mjs`;
+  - before an edit, tell the model which files import the one being changed, which tests
+    cover it and what is usually changed with it — `scripts/hooks/edit-impact.mjs`;
+  - a protected-path guard judges the write a shell command makes, not the tool that
+    makes it — `shellWriteTargets()` in `scripts/hooks/frozen-gates-guard.mjs`.
