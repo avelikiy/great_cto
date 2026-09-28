@@ -573,6 +573,25 @@ node -e '
 })()' 2>/dev/null || echo "Installed plugin: check unavailable"
 ```
 
+## Check 8g — Are great_cto's hooks actually running in Codex? (v3.45+)
+
+Only when great_cto is installed for Codex. Codex runs a plugin hook only after the
+user reviews it once in its TUI; until then every guard great_cto ships for Codex is
+off, silently. Found on the maintainer's own machine: installed, not one hook reviewed.
+Reports, never blocks, and never reviews on the user's behalf — trusting a hook is the
+user's security decision.
+
+```bash
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
+_CHT="${PLUGIN_DIR:-.}/scripts/lib/codex-hook-trust.mjs"
+[ -f "$_CHT" ] || _CHT="scripts/lib/codex-hook-trust.mjs"
+[ -f "$_CHT" ] && node "$_CHT" 2>/dev/null || true
+```
+
+If it says NOT reviewed, the fix line it prints is the whole fix: start `codex` in a
+project and choose **Review hooks** or **Trust all and continue** at "Hooks need
+review". Put it in the summary as a WARN, not a FAIL.
+
 ## Check 9 — Auto-remediation (--fix mode)
 
 If `FIX_MODE=true`, perform safe, non-destructive fixes. Skip silently otherwise.

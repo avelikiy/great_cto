@@ -87,7 +87,8 @@ export function payloadsForPatch(payload) {
 
 function runGuard(name, payload) {
   const file = join(HERE, `${name}.mjs`);
-  const r = spawnSync(process.execPath, [file], { input: JSON.stringify(payload), encoding: 'utf8', timeout: 10_000 });
+  const r = spawnSync(process.execPath, [file], { input: JSON.stringify(payload), encoding: 'utf8', timeout: 10_000,
+    env: { ...process.env, GREAT_CTO_HOST: 'codex' } });
   return { code: r.status, stdout: r.stdout || '', stderr: r.stderr || '' };
 }
 

@@ -5815,6 +5815,7 @@ function renderAgentActivity(snap) {
       return `${esc(e.tool || 'tool')}${p}`;
     }
     if (e.kind === 'pipeline') return `pipeline: ${esc(e.outcome || '')}${e.verdict ? ' · ' + esc(e.verdict) : ''}`;
+    if (e.kind === 'hint') return `hint: ${esc(e.hook || '')}${Array.isArray(e.paths) && e.paths.length ? ' ' + esc(e.paths[0]) : ''}${e.host === 'codex' ? ' · codex' : ''}`;
     return esc(e.kind || '');
   };
   const attention = (Array.isArray(snap.attention) ? snap.attention : []).map((e) =>

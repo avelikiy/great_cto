@@ -7,7 +7,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -91,4 +91,14 @@ test('formatImpact says when nothing tests the file, instead of telling the mode
   const text = formatImpact('a.ts', { importers: [{ file: 'b.ts', exact: true }], tests: [], coEdited: [] });
   assert.match(text, /No test covers it/);
   assert.equal(formatImpact('a.ts', { importers: [], tests: [], coEdited: [] }), '');
+});
+
+test('a hint is recorded as a fact in the project events log when the project has .great_cto', () => {
+  const r = repo();
+  mkdirSync(join(r, '.great_cto'), { recursive: true });
+  const out = hook({ tool_name: 'Edit', session_id: `ev${Date.now()}`, cwd: r, tool_input: { file_path: join(r, 'src/lib/runner.ts') } }, { GREAT_CTO_HOST: 'codex' });
+  assert.ok(out.stdout);
+  const e = JSON.parse(readFileSync(join(r, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').at(-1));
+  assert.deepEqual([e.kind, e.hook, e.host, e.paths], ['hint', 'edit-impact', 'codex', ['src/lib/runner.ts']]);
+  assert.ok(e.chars > 0);
 });

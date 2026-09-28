@@ -21,7 +21,8 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { simpleCommands } from '../lib/shell-commands.mjs';
+import { simpleCommands, base } from '../lib/shell-commands.mjs';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 const MAX_LESSONS = 2;
 const MAX_CHARS = 700;
@@ -95,6 +96,27 @@ export function matchCall(index, call) {
   return hits;
 }
 
+// Commands that only read. Their arguments are not what the call is about: a `grep`
+// over the board's index.html tripped the lesson about the board's blocked-session
+// view (2026-09-28, the first noise the tripwire produced).
+const READERS = new Set(['cat', 'head', 'tail', 'less', 'more', 'grep', 'rg', 'ag', 'ls', 'find', 'wc', 'stat',
+  'file', 'diff', 'cmp', 'jq', 'awk', 'sort', 'uniq', 'cut', 'echo', 'printf', 'which', 'readlink', 'realpath', 'du', 'tree']);
+const GIT_READERS = new Set(['log', 'show', 'diff', 'grep', 'blame', 'status', 'ls-files', 'rev-parse', 'cat-file']);
+
+/** The words of a shell command that act on something — reads contribute none. */
+export function shellActionWords(command) {
+  const out = [];
+  for (const c of simpleCommands(command)) {
+    const w = c.words.map((x) => x.replace(/^\.\//, ''));
+    const cmd = base(w[0] || '');
+    if (READERS.has(cmd)) continue;
+    if (cmd === 'sed' && !w.some((x) => /^-[A-Za-z]*i|^--in-place/.test(x))) continue;
+    if (cmd === 'git' && w.slice(1).some((x) => GIT_READERS.has(x)) && !w.some((x) => ['checkout', 'restore', 'reset', 'rm', 'mv'].includes(x))) continue;
+    out.push(...w);
+  }
+  return out;
+}
+
 export function formatHits(hits) {
   if (!hits.length) return '';
   const parts = hits.slice(0, MAX_LESSONS).map(({ lesson, key }) =>
@@ -138,7 +160,7 @@ function main() {
   const ti = p.tool_input || {};
   let call;
   if (p.tool_name === 'Bash') {
-    call = { words: simpleCommands(String(ti.command || '')).flatMap((c) => c.words.map((w) => w.replace(/^\.\//, ''))) };
+    call = { words: shellActionWords(String(ti.command || '')) };
   } else if (['Edit', 'Write', 'MultiEdit'].includes(p.tool_name) && ti.file_path) {
     const abs = isAbsolute(ti.file_path) ? ti.file_path : resolve(cwd, ti.file_path);
     const text = [ti.new_string, ti.content, ...(Array.isArray(ti.edits) ? ti.edits.map((e) => e.new_string) : [])].filter(Boolean).join('\n');
@@ -148,8 +170,13 @@ function main() {
   const seen = seenStore(p.session_id);
   const fresh = matchCall(index, call).filter((h) => !seen.has(h.lesson.title)).slice(0, MAX_LESSONS);
   const out = formatHits(fresh);
-  if (out) seen.add(fresh.map((h) => h.lesson.title));
-  if (out) process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: out } }));
+  if (!out) return;
+  seen.add(fresh.map((h) => h.lesson.title));
+  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: out } }));
+  if (existsSync(join(root, '.great_cto'))) {
+    appendEvent(join(root, '.great_cto'), { kind: 'hint', hook: 'lesson-tripwire', session: p.session_id, tool: p.tool_name,
+      paths: call.file ? [call.file] : [], chars: out.length, host: process.env.GREAT_CTO_HOST === 'codex' ? 'codex' : 'claude' });
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {

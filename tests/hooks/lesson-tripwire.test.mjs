@@ -114,3 +114,35 @@ test('at most two lessons per call, and the output stays short', () => {
   assert.equal((text.match(/^- "/gm) || []).length, 2);
   assert.ok(text.length <= 700);
 });
+
+// ── Noise, measured ─────────────────────────────────────────────────────────
+import { shellActionWords } from '../../scripts/hooks/lesson-tripwire.mjs';
+import { readFileSync as readText, existsSync as exists } from 'node:fs';
+
+test('a command that only reads a file does not trip on it; one that runs or writes it does', () => {
+  // The first noise the tripwire produced (2026-09-28): a grep over the board's
+  // index.html raised the lesson about the board's blocked-session view.
+  for (const reader of ['grep -n x packages/board/public/index.html', 'git log -- scripts/release.sh', 'sed -n 1,5p scripts/release.sh', 'cat scripts/release.sh | head']) {
+    assert.deepEqual(shellActionWords(reader), [], reader);
+  }
+  assert.ok(shellActionWords('bash scripts/release.sh 3.45.0').includes('scripts/release.sh'));
+  assert.ok(shellActionWords('sed -i s/a/b/ scripts/release.sh').includes('scripts/release.sh'));
+  assert.ok(shellActionWords('cat a && node scripts/release.sh').includes('scripts/release.sh'), 'the reader drops out, the runner stays');
+});
+
+test('each hint is recorded in the project events log — facts only — and nothing is created outside a project', () => {
+  const p = project();
+  const r = hook(p, { tool_name: 'Bash', session_id: `ev${Date.now()}`, tool_input: { command: 'bash scripts/release.sh 1.0.0' } });
+  assert.ok(r.stdout, 'it hinted');
+  const events = readText(join(p.dir, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
+  const e = events.at(-1);
+  assert.equal(e.kind, 'hint');
+  assert.equal(e.hook, 'lesson-tripwire');
+  assert.equal(e.host, 'claude');
+  assert.equal(e.chars, JSON.parse(r.stdout).hookSpecificOutput.additionalContext.length);
+  assert.ok(!JSON.stringify(e).includes('from main only'), 'what the hint said is not recorded');
+  const bare = mkdtempSync(join(tmpdir(), 'tripwire-bare-'));
+  made.push(bare);
+  hook({ dir: bare, home: p.home }, { tool_name: 'Bash', session_id: 'b', tool_input: { command: 'bash scripts/release.sh' } });
+  assert.equal(exists(join(bare, '.great_cto')), false, 'no .great_cto is created where there was none');
+});

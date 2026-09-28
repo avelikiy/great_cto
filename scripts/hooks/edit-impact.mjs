@@ -22,6 +22,7 @@ import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { appendEvent } from '../lib/agent-events.mjs';
 
 const JS = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.mts', '.cts', '.tsx']);
 const PY = new Set(['.py']);
@@ -154,6 +155,11 @@ function main() {
   const text = formatImpact(rel, impactFor({ root, rel }));
   if (!text || alreadyShown(payload.session_id, abs)) return;
   process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: text } }));
+  // Measured, not assumed: how often it speaks, on what, how much (never what it said).
+  if (existsSync(join(root, '.great_cto'))) {
+    appendEvent(join(root, '.great_cto'), { kind: 'hint', hook: 'edit-impact', session: payload.session_id, tool: payload.tool_name,
+      paths: [rel], chars: text.length, host: process.env.GREAT_CTO_HOST === 'codex' ? 'codex' : 'claude' });
+  }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
