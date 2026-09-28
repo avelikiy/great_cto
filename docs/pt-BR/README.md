@@ -122,7 +122,7 @@ bloqueiam nada: quem depende de um arquivo antes de editá-lo e uma lição regi
 quando uma chamada toca o assunto dela; o Codex pede para
 revisá-los uma vez na próxima abertura do `codex`. Slash commands e agentes de
 papel continuam indisponíveis. A instalação do plugin não adiciona um binário npm ao `PATH`; o
-pipeline suportado usa `npx --yes great-cto@3.44.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery
+pipeline suportado usa `npx --yes great-cto@3.45.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery
 e releases locais ou do GitHub opcionais. Não emula hooks nativos nem ativa
 serviços de produção arbitrários. Veja o
 [guia do host Codex](../HOST-CODEX.md).

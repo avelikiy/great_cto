@@ -11,6 +11,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.45.0 — 2026-09-28
+
+Measure the hints before adding more, and say when Codex is running none of the guards.
+
+### Added
+
+- **Hints are recorded and can be counted.** `edit-impact` and `lesson-tripwire` write a
+  `hint` event to `<project>/.great_cto/events.jsonl` — which hook, which file, how long,
+  which host; never what it said — and only where `.great_cto` already exists.
+  `node scripts/lib/hint-report.mjs [--since DATE]` reads them back per hook: fires,
+  fires per session, mean length, the files it fires on most. The board shows them as
+  `hint: <hook> <file>`. Local only; nothing is sent anywhere.
+- **`/doctor` Check 8g: are great_cto's hooks running in Codex?** Codex runs a plugin hook
+  only after you review it once, and until then every great_cto guard there is off with
+  no error. The check reads the review marks Codex writes to `~/.codex/config.toml`
+  (format measured on codex-cli 0.153.4), derives the keys the shipped hooks need, and
+  reports reviewed / partly / not, with the one-step fix. It never reviews for you.
+  (`node scripts/lib/codex-hook-trust.mjs` runs it on its own; exit 3 when not reviewed.)
+
+### Fixed
+
+- **`lesson-tripwire` fired on reads.** A `grep` over a file a lesson names raised that
+  lesson — the first noise it produced. Arguments of commands that only read (`cat`,
+  `grep`, `ls`, `sed -n`, `git log`, …) no longer count; running or writing the file does.
+
+Tests: hint events and the reader filter (3), `hint-report` (2), `codex-hook-trust` (3).
+
 ## v3.44.0 — 2026-09-28
 
 The two edit hints reach Codex as well.
