@@ -11,7 +11,7 @@
 //
 // This translates a patch into the payloads the guards already understand — one
 // per file — and runs each named guard on each. The first deny wins and is passed
-// through unchanged. Anything the adapter cannot parse is let through: a guard that
+// through unchanged; context hooks' additionalContext is collected and sent once. Anything the adapter cannot parse is let through: a guard that
 // fails closed on its own bug would stop every edit in every Codex session.
 //
 // Usage (from .codex-plugin/hooks.json):
@@ -97,6 +97,7 @@ function main() {
   try { payload = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { process.exit(0); }
   const tool = payload?.tool_name;
   const payloads = tool === 'apply_patch' ? payloadsForPatch(payload) : [payload];
+  const context = [];
   for (const p of payloads) {
     for (const g of guards) {
       const r = runGuard(g, p);
@@ -105,9 +106,24 @@ function main() {
         process.stderr.write(r.stderr);
         process.exit(2);
       }
+      // A context hook (edit-impact, lesson-tripwire) answers with additionalContext on
+      // exit 0. Codex relays it to the model (verified 2026-09-28); collect, send once.
+      const ctx = additionalContextOf(r.stdout);
+      if (ctx && !context.includes(ctx)) context.push(ctx);
     }
   }
+  if (context.length) {
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: context.join('\n\n') } }));
+  }
   process.exit(0);
+}
+
+/** The additionalContext a hook printed, or null — anything else on stdout is ignored. */
+export function additionalContextOf(stdout) {
+  try {
+    const v = JSON.parse(String(stdout || '').trim())?.hookSpecificOutput?.additionalContext;
+    return typeof v === 'string' && v.trim() ? v : null;
+  } catch { return null; }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();

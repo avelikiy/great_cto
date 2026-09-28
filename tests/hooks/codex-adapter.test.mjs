@@ -82,3 +82,47 @@ test('guard names are restricted to scripts/hooks file names', () => {
   const r = run({ cwd: tmpdir(), tool_name: 'Bash', tool_input: { command: 'ls' } }, ['../../../etc/passwd', 'destructive-guard']);
   assert.equal(r.status, 0, 'a path-shaped name is dropped, not executed');
 });
+
+// ── Context hooks through the adapter ───────────────────────────────────────
+// Codex relays a PreToolUse additionalContext to the model (verified 2026-09-28 on a
+// probe plugin). edit-impact and lesson-tripwire answer that way, on exit 0, so the
+// adapter collects what they print and sends it once — without letting a context
+// hook soften a deny from a guard run on the same call.
+
+import { additionalContextOf } from '../../scripts/hooks/codex-adapter.mjs';
+import { execFileSync } from 'node:child_process';
+
+test('additionalContextOf reads a context answer and ignores anything else', () => {
+  assert.equal(additionalContextOf('{"hookSpecificOutput":{"additionalContext":"see x"}}'), 'see x');
+  assert.equal(additionalContextOf(''), null);
+  assert.equal(additionalContextOf('[great_cto] some log line'), null);
+  assert.equal(additionalContextOf('{"hookSpecificOutput":{"permissionDecision":"deny"}}'), null);
+});
+
+test('an apply_patch on an imported file comes back with edit-impact context', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-ctx-'));
+  made.push(dir);
+  const g = (...a) => execFileSync('git', a, { cwd: dir, stdio: 'ignore' });
+  mkdirSync(join(dir, 'src', 'lib'), { recursive: true });
+  writeFileSync(join(dir, 'src', 'lib', 'runner.ts'), 'export const run = (a: string) => a;\n');
+  writeFileSync(join(dir, 'src', 'job.ts'), "import { run } from './lib/runner';\n");
+  g('init', '-q'); g('config', 'user.email', 't@t'); g('config', 'user.name', 't'); g('add', '-A'); g('commit', '-qm', 'init');
+  const r = run({ cwd: dir, session_id: `c${Date.now()}`, tool_name: 'apply_patch',
+    tool_input: { command: patch('*** Update File: src/lib/runner.ts\n@@\n-export const run = (a: string) => a;\n+export const run = (a: string, n = 1) => a;') } },
+  ['secret-scan', 'edit-impact'], dir);
+  assert.equal(r.status, 0);
+  const ctx = JSON.parse(r.stdout).hookSpecificOutput;
+  assert.equal(ctx.hookEventName, 'PreToolUse');
+  assert.match(ctx.additionalContext, /imported by \(1\): src\/job\.ts/);
+});
+
+test('a deny still wins over context printed by an earlier hook on the same call', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'codex-ctx-deny-'));
+  made.push(dir);
+  mkdirSync(join(dir, '.great_cto'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'lessons.md'), '## pattern: hooks\n\n**Decision/Pattern:** never `--no-verify`.\n');
+  const r = run({ cwd: dir, session_id: `d${Date.now()}`, tool_name: 'Bash', tool_input: { command: 'git commit --no-verify -m x' } },
+    ['lesson-tripwire', 'gate-bypass-guard'], dir);
+  assert.equal(r.status, 2, 'the guard blocks even though the tripwire answered first');
+  assert.match(r.stdout, /"permissionDecision"\s*:\s*"deny"/);
+});

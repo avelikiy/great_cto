@@ -117,7 +117,9 @@ sozinhos. Depois do init, confira se o host de fato carregou o plugin —
 
 **No OpenAI Codex** (`npx great-cto init --host codex`) você recebe skills, o
 servidor MCP e seis guardas como hooks do plugin do Codex (apagar dados, burlar
-gates como `--no-verify`, segredos em arquivos, entre outros); o Codex pede para
+gates como `--no-verify`, segredos em arquivos, entre outros) e duas dicas que não
+bloqueiam nada: quem depende de um arquivo antes de editá-lo e uma lição registrada
+quando uma chamada toca o assunto dela; o Codex pede para
 revisá-los uma vez na próxima abertura do `codex`. Slash commands e agentes de
 papel continuam indisponíveis. A instalação do plugin não adiciona um binário npm ao `PATH`; o
 pipeline suportado usa `npx --yes great-cto@3.43.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery

@@ -114,7 +114,7 @@ npx great-cto init
 
 **在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills、MCP
 服务器，以及作为 Codex 插件 hooks 的 6 个安全防护（删除数据、`--no-verify` 等绕过 gate、
-文件中的密钥等）；下次交互式启动 `codex` 时需审核一次。斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
+文件中的密钥等），以及两个从不阻止任何操作的提示（编辑前依赖该文件的文件、调用涉及的已记录经验）；下次交互式启动 `codex` 时需审核一次。斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
 加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.43.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
 的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
 [Codex host 指南](../HOST-CODEX.md)。

@@ -112,8 +112,10 @@ automatically. After init, verify the host actually loaded the plugin —
 **On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills, the
 MCP server and six safety guards as Codex plugin hooks — destructive commands,
 gate bypasses such as `--no-verify`, a neighbour session's work, secrets written
-into files, frozen gates and weakened checks (verified on codex-cli 0.153.4).
-Codex asks you to review them once, on the next interactive `codex` start; until
+into files, frozen gates and weakened checks — and two hints that never block:
+who depends on a file before it is edited, and a recorded lesson when a call
+touches what it is about (verified on codex-cli 0.153.4). Codex asks you to
+review them once, on the next interactive `codex` start; until
 then they do not run. Codex has no native plugin surface for slash commands or
 role agents, so `/start` does not become a Codex slash command, and the rest of
 the Claude hooks — pipeline dispatch, cost guard, write log — do not run there.

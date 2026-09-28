@@ -60,13 +60,13 @@ export function codexInstallPlan(
       "skills — all of them, the same tree Claude Code reads",
       "the MCP server (great_cto), resolved from npm",
       "the controlled role pipeline — run `npx --yes great-cto codex-host doctor` then `npx --yes great-cto codex-host start`",
-      "six safety guards as Codex plugin hooks (destructive commands, gate bypasses, a neighbour session's work, secrets in files, frozen gates, weakened checks) — Codex asks you to review them once on the next interactive `codex` start; they do not run until you do",
+      "six safety guards as Codex plugin hooks (destructive commands, gate bypasses, a neighbour session's work, secrets in files, frozen gates, weakened checks) and two hints that never block (edit-impact, lesson-tripwire) — Codex asks you to review them once on the next interactive `codex` start; they do not run until you do",
     ],
     // Codex runs plugin hooks (verified 2026-09-28, codex-cli 0.153.4) but has no
     // plugin surface for commands or role agents. Saying "installed" without saying
     // this would promise a pipeline the host cannot run.
     notSupported: [
-      "the rest of the Claude Code hooks — pipeline dispatch, cost guard, write log, format and type checks — only the safety guards are ported",
+      "the rest of the Claude Code hooks — pipeline dispatch, cost guard, write log, format and type checks — only the safety guards and the two edit hints are ported",
       "slash commands — no plugin surface",
       "native role agents — Codex plugins carry interface metadata; controlled roles run only through `npx --yes great-cto codex-host`",
     ],

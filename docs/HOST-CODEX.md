@@ -49,7 +49,7 @@ leaves a lock directory requires operator inspection before removing that lock.
 ## Boundaries
 
 The controller's gates apply only to work executed by this controller; ordinary
-Codex sessions get the six safety guards the plugin ships as Codex hooks
+Codex sessions get the six safety guards and the two edit hints (edit-impact, lesson-tripwire) the plugin ships as Codex hooks
 (`.codex-plugin/hooks.json`, reviewed once in Codex before they run), not the
 pipeline. It trusts
 the local operator and Codex's read-only sandbox; it is not a security boundary
