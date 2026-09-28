@@ -191,6 +191,12 @@
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/edit-scope-guard.mjs\" 2>&1; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
             "timeout": 5,
             "statusMessage": "Checking edit scope..."
+          },
+          {
+            "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/edit-impact.mjs\" 2>/dev/null; exit 0",
+            "timeout": 5,
+            "statusMessage": "Finding what depends on this file..."
           }
         ]
       }
