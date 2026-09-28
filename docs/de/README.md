@@ -122,7 +122,7 @@ MCP-Server und sechs Schutz-Hooks als Codex-Plugin-Hooks (Datenlöschung,
 Gate-Umgehung wie `--no-verify`, Secrets in Dateien u. a.); Codex fragt beim
 nächsten `codex`-Start einmal nach deiner Freigabe. Slash-Befehle und
 Rollen-Agenten gibt es weiterhin nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
-Pipeline-Pfad ist `npx --yes great-cto@3.41.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
+Pipeline-Pfad ist `npx --yes great-cto@3.42.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
 und optional lokale oder GitHub-Releases aus. Das ist kein Ersatz für native
 Hooks und keine beliebige Produktionsaktivierung. Details stehen im
 [Codex-Host-Leitfaden](../HOST-CODEX.md).

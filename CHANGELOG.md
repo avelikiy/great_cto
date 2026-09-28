@@ -8,6 +8,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.42.0 — 2026-09-28
+
+The safety guards reach Codex, the model sees who depends on a file before it edits
+it, and frozen gates can no longer be changed through the shell.
+
+### Added
+
+- **Six safety guards run on OpenAI Codex as plugin hooks.** Codex does run plugin hooks
+  — verified on codex-cli 0.153.4, first with a probe plugin and then with great_cto
+  itself: `git commit --no-verify`, `rm -rf .git` and an `apply_patch` adding an AWS key
+  were each blocked with our reason relayed, even under `danger-full-access`. The 05.09
+  attempt failed on shape, not on surface: Codex wants `{ hooks: { Event: [...] } }`, and
+  honours a path named in `.codex-plugin/plugin.json`, so the file is
+  `.codex-plugin/hooks.json` — not `hooks/hooks.json`, which Claude Code would load too.
+  Shell calls reach the guards unchanged; `scripts/hooks/codex-adapter.mjs` splits an
+  `apply_patch` into one Edit/Write per file. Guards: shared-tree, gate-bypass,
+  destructive, frozen-gates (shell); secret-scan, frozen-gates, gate-weakening (edits).
+  **Codex runs them only after you review them once**, on the next interactive `codex`
+  start; README, HOST-CODEX and the installer's plan now say so.
+- **`edit-impact`** (PreToolUse, Edit/Write/MultiEdit) — before an existing code file is
+  edited, the model is told which files import it (relative imports resolved exactly,
+  an alias marked as a name match), which tests import it or match its name, and which
+  files git shows are changed in the same commits. Context only, never blocks; once per
+  file per session; ~110 ms; ≤2.5k characters. For the failure where a signature changed,
+  the wrapper a background job called did not, and green tests hid it. Opt out:
+  `GREAT_CTO_DISABLE_EDIT_IMPACT=1`.
+
+### Changed
+
+- **`frozen-gates-guard` sees shell writes.** `sed -i`, `>`/`>>`, `tee`, `cp`/`mv`,
+  `perl -pi`, `rm`, `truncate`, `dd of=` and `git checkout|restore --` into `docs/gates/`
+  were caught only afterwards by the git-diff check; the guard now runs on Bash too and
+  reads the targets from the parsed command, so a commit message that mentions a gate is
+  not a write.
+
+Ideas from agentlas-ai/Agentlas-OS (Apache-2.0), rebuilt; see NOTICE.md.
+
+Tests: `codex-adapter` (7, including the real guards through the adapter),
+`edit-impact` (5, on a throwaway repository), frozen-gates shell writes (3), and the
+Codex manifest test now checks the hooks schema instead of forbidding hooks.
+
 ## v3.41.0 — 2026-09-27
 
 A clean way out: `great-cto uninstall` shows what an install wrote and what is yours, and

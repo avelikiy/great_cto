@@ -121,9 +121,9 @@ the Claude hooks — pipeline dispatch, cost guard, write log — do not run the
 The supported pipeline path is the separate controller shipped by the npm CLI:
 
 ```bash
-npx --yes great-cto@3.41.0 codex-host doctor
-npx --yes great-cto@3.41.0 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
-npx --yes great-cto@3.41.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.42.0 codex-host doctor
+npx --yes great-cto@3.42.0 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
+npx --yes great-cto@3.42.0 codex-host resume <run-uuid>
 ```
 
 It routes the shared graph through controlled Codex role profiles, applies only
