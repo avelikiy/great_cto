@@ -10,6 +10,24 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.44.0 — 2026-09-28
+
+The two edit hints reach Codex as well.
+
+### Added
+
+- **`edit-impact` and `lesson-tripwire` run on OpenAI Codex.** Codex relays a PreToolUse
+  `additionalContext` to the model — verified on a probe plugin and then with great_cto
+  itself: an `apply_patch` changing a function's signature came back with
+  "imported by (1): src/job.ts … No test covers it", and Codex quoted it. The Codex
+  adapter now collects what context hooks print and sends it once; a guard's deny still
+  wins over context printed by an earlier hook on the same call. `lesson-tripwire` runs on
+  shell calls, both on `apply_patch`. Like the guards, they run once you have reviewed the
+  great_cto hooks in Codex.
+
+Tests: the adapter's context pass-through, including that a deny is not softened (3 new).
+
 ## v3.43.0 — 2026-09-28
 
 A recorded lesson reaches the model at the moment a call touches what it is about.
