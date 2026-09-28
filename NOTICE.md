@@ -76,3 +76,6 @@ factual claims).
     cover it and what is usually changed with it — `scripts/hooks/edit-impact.mjs`;
   - a protected-path guard judges the write a shell command makes, not the tool that
     makes it — `shellWriteTargets()` in `scripts/hooks/frozen-gates-guard.mjs`.
+  - a recorded lesson is shown when a call touches what it names (its evidence files,
+    paths, flags, identifiers), with keys most lessons share dropped —
+    `scripts/hooks/lesson-tripwire.mjs`.
