@@ -48,8 +48,10 @@ leaves a lock directory requires operator inspection before removing that lock.
 
 ## Boundaries
 
-This is not native Codex plugin hook support and does not affect ordinary Codex
-sessions. Its controls apply only to work executed by this controller. It trusts
+The controller's gates apply only to work executed by this controller; ordinary
+Codex sessions get the six safety guards the plugin ships as Codex hooks
+(`.codex-plugin/hooks.json`, reviewed once in Codex before they run), not the
+pipeline. It trusts
 the local operator and Codex's read-only sandbox; it is not a security boundary
 against another process running as the same OS user.
 
@@ -250,8 +252,10 @@ unverifiable run is not a successful end-to-end acceptance.
 
 - [2026-09-05-codex-phase0-findings](analysis/2026-09-05-codex-phase0-findings.md) —
   what Codex does and does not carry as a plugin, measured against codex-cli
-  0.153.4: skills and MCP work; hooks, slash commands and role agents have no
-  plugin surface (openai/codex#16430, #39895). This controller exists because of
-  that gap.
+  0.153.4: skills and MCP work; slash commands and role agents have no plugin
+  surface, which is why this controller exists. Hooks were listed there too; a
+  probe on 2026-09-28 showed Codex does run plugin hooks — `{ hooks: { Event: [...] } }`
+  at a path named in `.codex-plugin/plugin.json`, Claude's payload shape, `apply_patch`
+  for edits, and a working deny — once the user has reviewed them.
 - [project-capabilities](reference/project-capabilities.md) — `second_opinion`,
   which is how Codex participates in a Claude Code pipeline instead.

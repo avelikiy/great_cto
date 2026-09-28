@@ -43,7 +43,9 @@ test('mentioning --host codex requires saying what it does NOT give', () => {
   // "not the pipeline" is no longer the whole truth either: `great-cto codex-host`
   // now runs the pipeline under its own controller. What stays required is the
   // point of this test — say what carries over, and say what does not.
-  assert.match(s, /skills and\s+(the\s+)?MCP server|skills \+ MCP/i,
+  // 3.42 added a third thing that carries over — the safety guards as Codex plugin
+  // hooks — so the list became "the skills, the MCP server and six safety guards".
+  assert.match(s, /skills,?\s+(and\s+)?(the\s+)?MCP server|skills \+ MCP/i,
     'say what does carry over');
   assert.match(s, /no (native )?plugin surface|do not (silently )?run there|not the pipeline/i,
     'and say plainly what does not');

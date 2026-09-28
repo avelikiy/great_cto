@@ -114,9 +114,10 @@ Node ≥ 18.17 が必要。コンパニオンプラグイン（Superpowers、Bea
 init 後、ホストが本当にプラグインを読み込んだか確認してください —
 `claude plugin list --json` で `great-cto` の `errors` が空であること。
 
-**OpenAI Codex では**（`npx great-cto init --host codex`）スキルと MCP サーバーを利用
-できます。ネイティブのフック、スラッシュコマンド、ロールエージェントは依然として
-ありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
+**OpenAI Codex では**（`npx great-cto init --host codex`）スキル、MCP サーバー、
+そして Codex プラグインフックとしての 6 つの安全ガード（データ削除、`--no-verify` などの
+ゲート回避、ファイル内のシークレットなど）を利用できます。次に `codex` を対話起動したときに
+一度だけ承認を求められます。スラッシュコマンドとロールエージェントは依然としてありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
 サポートされる経路は `npx --yes great-cto@3.41.0 codex-host` で、
 制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
 実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。

@@ -62,3 +62,13 @@ factual claims).
   action; the reader should flag a note that is older than the latest commits and read the
   goal and first step back before acting.
 - Implemented in: `scripts/lib/handoff-state.mjs`, `commands/save.md`, `commands/resume.md`.
+
+## Codex plugin hooks (agentlas-ai/Agentlas-OS)
+
+- Upstream: https://github.com/agentlas-ai/Agentlas-OS (`codex/plugins/*/hooks/hooks.json`,
+  `agentlas_cloud/memory_hook.py`)
+- Upstream license: Apache-2.0 (Copyright 2026 Agentlas)
+- Idea adapted, no text or code copied: a Codex plugin can ship hooks, and a guard can
+  read Codex's `apply_patch` by the file lines in the patch text. Verified on our own
+  probe plugin before relying on it.
+- Implemented in: `.codex-plugin/hooks.json`, `scripts/hooks/codex-adapter.mjs`.

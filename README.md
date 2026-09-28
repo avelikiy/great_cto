@@ -109,13 +109,14 @@ Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —
 `claude plugin list --json` should show no `errors` for `great-cto`.
 
-**On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills and
-MCP server. Codex still has no native plugin surface for hooks, slash commands
-or role agents, so `/start` does not become a Codex slash command and Claude
-hooks do not silently run there. That is a limit of the host, not a setting:
-`hooks` in a plugin manifest is never read
-([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)).
+**On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills, the
+MCP server and six safety guards as Codex plugin hooks — destructive commands,
+gate bypasses such as `--no-verify`, a neighbour session's work, secrets written
+into files, frozen gates and weakened checks (verified on codex-cli 0.153.4).
+Codex asks you to review them once, on the next interactive `codex` start; until
+then they do not run. Codex has no native plugin surface for slash commands or
+role agents, so `/start` does not become a Codex slash command, and the rest of
+the Claude hooks — pipeline dispatch, cost guard, write log — do not run there.
 
 The supported pipeline path is the separate controller shipped by the npm CLI:
 

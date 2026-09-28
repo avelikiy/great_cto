@@ -115,9 +115,11 @@ Requiere Node ≥ 18.17. Los plugins compañeros (Superpowers, Beads) se instala
 solos. Tras el init, verifica que el host cargó el plugin de verdad:
 `claude plugin list --json` no debe mostrar `errors` para `great-cto`.
 
-**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills y el
-servidor MCP. Los hooks, slash commands y agentes con rol nativos siguen sin
-existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
+**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills, el
+servidor MCP y seis guardas como hooks del plugin de Codex (borrado de datos,
+saltarse gates como `--no-verify`, secretos en archivos, entre otros); Codex pide
+revisarlos una vez al siguiente inicio de `codex`. Los slash commands y agentes con
+rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
 pipeline soportada es `npx --yes great-cto@3.41.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
