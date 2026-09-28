@@ -39,6 +39,7 @@ test('the first stage has nothing to carry: fresh, and no file', async (t) => {
   assert.equal(a.context.mode, 'fresh');
   assert.equal(a.context.path, null);
   assert.match(calls[0].prompt, /Stage context: none/);
+  assert.match(calls[0].prompt, /must not use here-documents/);
   assert.doesNotMatch(calls[0].prompt, /Previous results:/);
 });
 
@@ -137,4 +138,5 @@ test('verifier receives controller checks and snapshot separately from worker cl
   for (const value of ['tested-input', 'current-input', '44 passed', 'frozen-wave', 'snapshot-digest']) assert.ok(prompt.includes(value));
   assert.match(prompt, /a sibling report need not exist/);
   assert.match(prompt, /Independently inspect/);
+  assert.match(prompt, /must not use here-documents/);
 });
