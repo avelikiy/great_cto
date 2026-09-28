@@ -9,6 +9,28 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.43.0 — 2026-09-28
+
+A recorded lesson reaches the model at the moment a call touches what it is about.
+
+### Added
+
+- **`lesson-tripwire`** (PreToolUse, Bash and Edit/Write/MultiEdit). Lessons were loaded
+  whole at session start, where forty entries bury the one that matters three hours later.
+  Now a lesson's keys — the files in its Evidence and the paths, flags and identifiers it
+  names in backticks — are matched against each call: the file being edited, the words of
+  the parsed shell command (so a commit message that mentions a path is one word, not the
+  path), or an identifier in the text being written. A key most lessons share points at
+  none of them and is dropped. At most two lessons and 700 characters per call, each lesson
+  once per session; context only, never blocks. Reads the project's `.great_cto/lessons.md`
+  and `~/.great_cto/lessons.md`. Opt out: `GREAT_CTO_DISABLE_LESSON_TRIPWIRES=1`.
+
+Idea from agentlas-ai/Agentlas-OS (Apache-2.0), rebuilt; see NOTICE.md.
+
+Tests: `lesson-tripwire` (6) — parsing the lesson format as written, the shared-key cut,
+matching by file, shell word and identifier, once per session, the two-lesson cap.
+
 ## v3.42.0 — 2026-09-28
 
 The safety guards reach Codex, the model sees who depends on a file before it edits
