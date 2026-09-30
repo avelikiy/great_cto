@@ -111,7 +111,27 @@ Une journée avec great_cto :
 | Quelque chose vous attend | `/inbox` | seulement les décisions qui vous reviennent : gates, blocages, P0 |
 | Vendredi | `/digest` | ce qui est sorti, ce qui a cassé, ce que chaque fonctionnalité a coûté |
 
-**Quand vous en avez besoin :** `/review` une branche avant la fusion · `/spec` une fonctionnalité avant le code · `/poc` une idée risquée avec une échéance ferme · `/crystallize` une leçon pour qu'elle ne se répète pas · `/sec` posture de sécurité · `/doctor` quand quelque chose cloche. Toutes les commandes : [référence](../reference/commands.md).
+Quand vous en avez besoin :
+
+| Commande | Ce que vous obtenez |
+|---|---|
+| `/review` | une branche relue avant la fusion, chaque constat avec sa preuve — ou une revue de conformité (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → spec de build, avant toute ligne de code |
+| `/poc` | un oui/non à échéance fixe sur une idée risquée ; `promote` fait passer la gagnante par les audits sautés |
+| `/release` | notes de store, un changelog pour les utilisateurs, docs et textes de landing périmés signalés |
+| `/trace` | la chaîne exigence → tâche → test pour un élément ou une fonctionnalité entière |
+| `/crystallize` | les leçons et procédures répétées de cette session transformées en savoir réutilisable |
+| `/recall` | ce que ce projet sait déjà d'un mot |
+| `/sec` | posture de sécurité, modèle de menaces, SBOM, workflow d'incident |
+| `/ownership` | à qui appartient un chemin et qui est d'astreinte |
+| `/rfc` | une décision inter-équipes proposée et tranchée ; celles acceptées deviennent des ADR |
+| `/exception` | un enregistrement signé et à expiration pour un contournement délibéré de gate |
+| `/doctor` | un bilan de santé de great_cto lui-même ; `--fix` applique les corrections sûres |
+| `/board` | le tableau local : décisions qui vous attendent, coût, agents |
+| `/agent` | un agent relu, testé, amélioré ou retiré |
+| `/help` | l'aide-mémoire des commandes sur un écran ; `/help renamed` pour les noms d'avant 3.40 |
+
+Chaque commande avec ses modes et exemples : [docs/COMMANDS.md](../COMMANDS.md).
 
 Node ≥ 18.17 requis. Les plugins compagnons (Superpowers, Beads) s'installent
 seuls. Après l'init, vérifiez que l'hôte a réellement chargé le plugin :

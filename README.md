@@ -103,7 +103,27 @@ A day with great_cto:
 | Something needs you | `/inbox` | only the decisions waiting on you: gates, blockers, P0s |
 | Friday | `/digest` | what shipped, what broke, what it cost per feature |
 
-**When you need it:** `/review` a branch before merge · `/spec` a feature before code · `/poc` a risky idea with a hard timebox · `/crystallize` a lesson so it never repeats · `/sec` security posture · `/doctor` when something looks off. All commands: [reference](docs/reference/commands.md).
+When you need it:
+
+| Command | What you get |
+|---|---|
+| `/review` | a branch reviewed before merge, every finding with evidence — or a compliance review (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → build spec, before any code |
+| `/poc` | a timeboxed yes/no on a risky idea; `promote` takes a winner through the audits it skipped |
+| `/release` | store notes, a user-facing changelog, stale docs and landing copy flagged |
+| `/trace` | the requirement → task → test chain for one item or a whole feature |
+| `/crystallize` | this session's lessons and repeated procedures turned into reusable knowledge |
+| `/recall` | what this project already knows about a word |
+| `/sec` | security posture, threat model, SBOM, incident workflow |
+| `/ownership` | who owns a path and who is on call |
+| `/rfc` | a cross-team decision proposed and closed; accepted ones become ADRs |
+| `/exception` | a signed, expiring record for a deliberate gate bypass |
+| `/doctor` | a health check of great_cto itself; `--fix` applies the safe fixes |
+| `/board` | the local board: decisions waiting on you, cost, agents |
+| `/agent` | an agent reviewed, tested, improved or retired |
+| `/help` | the one-screen command card; `/help renamed` for pre-3.40 names |
+
+Every command with its modes and examples: [docs/COMMANDS.md](docs/COMMANDS.md).
 
 Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —

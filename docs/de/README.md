@@ -111,7 +111,27 @@ Ein Tag mit great_cto:
 | Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |
 | Freitag | `/digest` | was ausgeliefert wurde, was kaputtging, was jedes Feature gekostet hat |
 
-**Wenn du es brauchst:** `/review` einen Branch vor dem Merge · `/spec` ein Feature vor dem Code · `/poc` eine riskante Idee mit hartem Zeitlimit · `/crystallize` eine Lektion, damit sie sich nicht wiederholt · `/sec` Sicherheitslage · `/doctor` wenn etwas nicht stimmt. Alle Befehle: [Referenz](../reference/commands.md).
+Wenn du es brauchst:
+
+| Befehl | Was du bekommst |
+|---|---|
+| `/review` | einen Branch vor dem Merge geprüft, jeder Befund mit Beleg — oder ein Compliance-Review (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | Discovery → PRD → Build-Spec, vor jeder Zeile Code |
+| `/poc` | ein zeitlich begrenztes Ja/Nein zu einer riskanten Idee; `promote` führt einen Gewinner durch die übersprungenen Audits |
+| `/release` | Store-Texte, ein Changelog für Nutzer, veraltete Doku und Landing-Texte markiert |
+| `/trace` | die Kette Anforderung → Aufgabe → Test für einen Punkt oder ein ganzes Feature |
+| `/crystallize` | die Lektionen und wiederholten Abläufe dieser Sitzung als wiederverwendbares Wissen |
+| `/recall` | was dieses Projekt über ein Wort bereits weiß |
+| `/sec` | Sicherheitslage, Threat Model, SBOM, Incident-Workflow |
+| `/ownership` | wem ein Pfad gehört und wer Bereitschaft hat |
+| `/rfc` | eine teamübergreifende Entscheidung vorgeschlagen und abgeschlossen; angenommene werden zu ADRs |
+| `/exception` | ein signierter, ablaufender Eintrag für eine bewusste Gate-Umgehung |
+| `/doctor` | ein Gesundheitscheck von great_cto selbst; `--fix` wendet die sicheren Korrekturen an |
+| `/board` | das lokale Board: Entscheidungen, die auf dich warten, Kosten, Agenten |
+| `/agent` | ein Agent geprüft, getestet, verbessert oder ausgemustert |
+| `/help` | die Befehlsübersicht auf einem Bildschirm; `/help renamed` für Namen vor 3.40 |
+
+Jeder Befehl mit seinen Modi und Beispielen: [docs/COMMANDS.md](../COMMANDS.md).
 
 Benötigt Node ≥ 18.17. Begleit-Plugins (Superpowers, Beads) installieren sich
 selbst. Prüfe nach dem init, ob der Host das Plugin wirklich geladen hat —

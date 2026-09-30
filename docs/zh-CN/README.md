@@ -107,7 +107,27 @@ npx great-cto init
 | 有事需要你 | `/inbox` | 只列出等你决定的事：门禁、阻塞、P0 |
 | 周五 | `/digest` | 发布了什么、坏了什么、每个功能花了多少钱 |
 
-**需要时：** `/review` 合并前审查分支 · `/spec` 写代码前定义功能 · `/poc` 有硬性期限的高风险想法 · `/crystallize` 把教训变成规则，不再重犯 · `/sec` 安全状况 · `/doctor` 出问题时。全部命令：[参考](../reference/commands.md)。
+需要时：
+
+| 命令 | 你得到什么 |
+|---|---|
+| `/review` | 合并前的分支审查，每条发现都附证据 — 或合规审查（`--domain tax`、`legal`、`hr-ai`、…） |
+| `/spec` | 写任何代码之前：discovery → PRD → 构建规格 |
+| `/poc` | 对高风险想法给出有时限的是/否；`promote` 让胜出方补过它跳过的审计 |
+| `/release` | 商店说明、面向用户的 changelog，并标出过时的文档和落地页文案 |
+| `/trace` | 单个条目或整个功能的需求 → 任务 → 测试链 |
+| `/crystallize` | 把本次会话的教训和重复流程变成可复用的知识 |
+| `/recall` | 本项目对某个词已经知道些什么 |
+| `/sec` | 安全状况、威胁模型、SBOM、事件处理流程 |
+| `/ownership` | 某个路径归谁负责、谁在值班 |
+| `/rfc` | 跨团队决策的提出与关闭；被接受的成为 ADR |
+| `/exception` | 为有意绕过门禁留下的签名、会过期的记录 |
+| `/doctor` | great_cto 自身的健康检查；`--fix` 应用安全的修复 |
+| `/board` | 本地看板：等你处理的决策、成本、agents |
+| `/agent` | 对 agent 进行审查、测试、改进或下线 |
+| `/help` | 一屏命令卡片；3.40 之前的旧名用 `/help renamed` |
+
+全部命令及其模式和示例：[docs/COMMANDS.md](../COMMANDS.md)。
 
 需要 Node ≥ 18.17。伴生插件（Superpowers、Beads）自动安装。init 之后，确认宿主
 真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。

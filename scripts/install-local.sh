@@ -223,12 +223,16 @@ fi
 CODEX_BIN="$(command -v codex 2>/dev/null || ls -d "$HOME"/.nvm/versions/node/*/bin/codex 2>/dev/null | sort -V | tail -1)"
 if [ -n "$CODEX_BIN" ] && grep -qE '^\[marketplaces\.("great-cto"|great-cto)\]' "$HOME/.codex/config.toml" 2>/dev/null; then
   step "Refresh great_cto in Codex"
-  if "$CODEX_BIN" plugin marketplace upgrade great-cto >/dev/null 2>&1; then
+  # One retry: the first refresh after release.sh pushed the tag failed once (3.46.0,
+  # output discarded, a manual rerun passed) — keep the error this time.
+  cx_refresh() { "$CODEX_BIN" plugin marketplace upgrade great-cto 2>&1 >/dev/null; }
+  if CX_ERR="$(cx_refresh)" || { sleep 5; CX_ERR="$(cx_refresh)"; }; then
     CX_DIR="$HOME/.codex/plugins/cache/great-cto/great-cto"
     CX_VER="$( (cd "$CX_DIR" 2>/dev/null && ls -1) | sort -V | tail -1)"   # bare version names, one market
     echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review at the next \`codex\` start"
   else
-    echo "  ! could not refresh Codex — run: codex plugin marketplace upgrade great-cto"
+    echo "  ! could not refresh Codex: $(printf '%s' "$CX_ERR" | head -1)"
+    echo "    run: codex plugin marketplace upgrade great-cto"
   fi
 fi
 

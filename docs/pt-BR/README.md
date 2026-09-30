@@ -109,7 +109,27 @@ Um dia com o great_cto:
 | Algo precisa de você | `/inbox` | só as decisões esperando por você: gates, bloqueios, P0 |
 | Sexta-feira | `/digest` | o que foi entregue, o que quebrou, quanto custou cada funcionalidade |
 
-**Quando precisar:** `/review` uma branch antes do merge · `/spec` uma funcionalidade antes do código · `/poc` uma ideia arriscada com prazo fixo · `/crystallize` uma lição para não se repetir · `/sec` postura de segurança · `/doctor` quando algo parecer errado. Todos os comandos: [referência](../reference/commands.md).
+Quando precisar:
+
+| Comando | O que você recebe |
+|---|---|
+| `/review` | uma branch revisada antes do merge, cada achado com evidência — ou uma revisão de compliance (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → spec de build, antes de qualquer código |
+| `/poc` | um sim/não com prazo fixo sobre uma ideia arriscada; `promote` leva a vencedora pelas auditorias que pulou |
+| `/release` | notas de loja, um changelog para usuários, docs e textos de landing desatualizados sinalizados |
+| `/trace` | a cadeia requisito → tarefa → teste para um item ou uma funcionalidade inteira |
+| `/crystallize` | as lições e procedimentos repetidos desta sessão transformados em conhecimento reutilizável |
+| `/recall` | o que este projeto já sabe sobre uma palavra |
+| `/sec` | postura de segurança, modelo de ameaças, SBOM, fluxo de incidentes |
+| `/ownership` | de quem é um caminho e quem está de plantão |
+| `/rfc` | uma decisão entre times proposta e fechada; as aceitas viram ADRs |
+| `/exception` | um registro assinado e com validade para um bypass deliberado de gate |
+| `/doctor` | um check-up do próprio great_cto; `--fix` aplica as correções seguras |
+| `/board` | o board local: decisões esperando por você, custo, agentes |
+| `/agent` | um agente revisado, testado, melhorado ou aposentado |
+| `/help` | o cartão de comandos em uma tela; `/help renamed` para nomes anteriores à 3.40 |
+
+Cada comando com seus modos e exemplos: [docs/COMMANDS.md](../COMMANDS.md).
 
 Requer Node ≥ 18.17. Os plugins companheiros (Superpowers, Beads) instalam-se
 sozinhos. Depois do init, confira se o host de fato carregou o plugin —

@@ -108,7 +108,27 @@ npx great-cto init
 | 有事需要你 | `/inbox` | 只列出等你決定的事：關卡、阻塞、P0 |
 | 週五 | `/digest` | 發布了什麼、壞了什麼、每個功能花了多少錢 |
 
-**需要時：** `/review` 合併前審查分支 · `/spec` 寫程式前定義功能 · `/poc` 有硬性期限的高風險想法 · `/crystallize` 把教訓變成規則，不再重犯 · `/sec` 安全狀況 · `/doctor` 出問題時。全部指令：[參考](../reference/commands.md)。
+需要時：
+
+| 指令 | 你得到什麼 |
+|---|---|
+| `/review` | 合併前的分支審查，每項發現都附證據 — 或合規審查（`--domain tax`、`legal`、`hr-ai`、…） |
+| `/spec` | 寫任何程式碼之前：discovery → PRD → 建置規格 |
+| `/poc` | 對高風險想法給出有時限的是/否；`promote` 讓勝出者補過它跳過的稽核 |
+| `/release` | 商店說明、面向使用者的 changelog，並標出過時的文件與登陸頁文案 |
+| `/trace` | 單一項目或整個功能的需求 → 任務 → 測試鏈 |
+| `/crystallize` | 把本次工作階段的教訓與重複流程變成可重用的知識 |
+| `/recall` | 本專案對某個詞已經知道些什麼 |
+| `/sec` | 安全狀況、威脅模型、SBOM、事件處理流程 |
+| `/ownership` | 某個路徑歸誰負責、誰在值班 |
+| `/rfc` | 跨團隊決策的提出與結案；被接受的成為 ADR |
+| `/exception` | 為刻意繞過關卡留下的簽署、會到期的紀錄 |
+| `/doctor` | great_cto 本身的健康檢查；`--fix` 套用安全的修正 |
+| `/board` | 本地看板：等你處理的決策、成本、代理 |
+| `/agent` | 對代理進行審查、測試、改進或退役 |
+| `/help` | 一頁式指令卡；3.40 之前的舊名用 `/help renamed` |
+
+所有指令及其模式與範例：[docs/COMMANDS.md](../COMMANDS.md)。
 
 需要 Node ≥ 18.17。附屬外掛（Superpowers、Beads）自動安裝。init 之後請確認
 宿主真的載入了外掛 —— `claude plugin list --json` 裡 `great-cto` 的 `errors`

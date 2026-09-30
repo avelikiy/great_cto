@@ -109,7 +109,27 @@ Un día con great_cto:
 | Algo te necesita | `/inbox` | solo las decisiones que esperan por ti: gates, bloqueos, P0 |
 | Viernes | `/digest` | qué se publicó, qué se rompió, cuánto costó cada funcionalidad |
 
-**Cuando lo necesites:** `/review` una rama antes de fusionar · `/spec` una funcionalidad antes del código · `/poc` una idea arriesgada con plazo fijo · `/crystallize` una lección para que no se repita · `/sec` postura de seguridad · `/doctor` si algo no cuadra. Todos los comandos: [referencia](../reference/commands.md).
+Cuando lo necesites:
+
+| Comando | Qué obtienes |
+|---|---|
+| `/review` | una rama revisada antes de fusionar, cada hallazgo con evidencia — o una revisión de cumplimiento (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → especificación de construcción, antes de cualquier código |
+| `/poc` | un sí/no con plazo fijo sobre una idea arriesgada; `promote` lleva a la ganadora por las auditorías que se saltó |
+| `/release` | notas para la tienda, un changelog para usuarios, docs y textos de landing obsoletos señalados |
+| `/trace` | la cadena requisito → tarea → test para un elemento o una funcionalidad entera |
+| `/crystallize` | las lecciones y procedimientos repetidos de esta sesión convertidos en conocimiento reutilizable |
+| `/recall` | lo que este proyecto ya sabe sobre una palabra |
+| `/sec` | postura de seguridad, modelo de amenazas, SBOM, flujo de incidentes |
+| `/ownership` | de quién es una ruta y quién está de guardia |
+| `/rfc` | una decisión entre equipos propuesta y cerrada; las aceptadas se convierten en ADR |
+| `/exception` | un registro firmado y con caducidad para un bypass deliberado de un gate |
+| `/doctor` | un chequeo de salud del propio great_cto; `--fix` aplica las correcciones seguras |
+| `/board` | el tablero local: decisiones que te esperan, coste, agentes |
+| `/agent` | un agente revisado, probado, mejorado o retirado |
+| `/help` | la tarjeta de comandos en una pantalla; `/help renamed` para los nombres anteriores a 3.40 |
+
+Cada comando con sus modos y ejemplos: [docs/COMMANDS.md](../COMMANDS.md).
 
 Requiere Node ≥ 18.17. Los plugins compañeros (Superpowers, Beads) se instalan
 solos. Tras el init, verifica que el host cargó el plugin de verdad:
