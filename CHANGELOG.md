@@ -12,6 +12,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.46.0 — 2026-09-30
+
+Codex gets great_cto updates, and the Codex review check reads what Codex actually runs.
+
+### Fixed
+
+- **great_cto in Codex never updated.** Codex installs great_cto from a Git marketplace
+  snapshot and never refreshes it on its own; releases updated only the Claude Code
+  plugin. On the maintainer's machine Codex sat at 3.37.0 while 3.45.0 shipped, so none
+  of the Codex guards of 3.42–3.45 had arrived. `codex plugin marketplace upgrade
+  great-cto` refreshes the snapshot and the installed plugin together (measured), and now:
+  - **`great-cto upgrade`** runs it when Codex has the great-cto marketplace;
+    **`great-cto upgrade codex`** runs only that. `codex` is found on PATH, then under
+    `~/.nvm`, then in Codex.app — a shell that did not load nvm could not see it.
+  - `install-local` refreshes Codex after a release has pushed the tag.
+  - README (+ 9 translations) and the Codex installer say Codex does not update itself.
+- **`/doctor` Check 8g read the wrong hooks.** It derived the review keys from the checkout,
+  so an install that ships no hooks (3.37.0) was reported as "hooks not reviewed". It now
+  reads the hooks the installed Codex plugin declares, says "ships no hooks" for such an
+  install, and says when the install is behind the current version.
+
+Tests: `codex-upgrade` (5, with a fake `codex` and a throwaway CODEX_HOME),
+`codex-hook-trust` rewritten for installed-plugin reading (5).
+
 ## v3.45.0 — 2026-09-28
 
 Measure the hints before adding more, and say when Codex is running none of the guards.

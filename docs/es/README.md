@@ -123,7 +123,7 @@ cuando una llamada toca su tema. Codex nunca actualiza el plugin por sí mismo �
 lo hace `great-cto upgrade`; Codex pide
 revisarlos una vez al siguiente inicio de `codex`. Los slash commands y agentes con
 rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
-pipeline soportada es `npx --yes great-cto@3.45.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+pipeline soportada es `npx --yes great-cto@3.46.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
 [guía del host Codex](../HOST-CODEX.md).

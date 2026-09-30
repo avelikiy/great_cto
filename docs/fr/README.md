@@ -124,7 +124,7 @@ entre autres) et deux indications qui ne bloquent rien : qui dépend d'un fichie
 sa modification, et une leçon enregistrée quand un appel touche son sujet. Codex ne met
 jamais le plugin à jour lui-même — `great-cto upgrade` le fait ; Codex demande de les valider une fois au prochain lancement de
 `codex`. Les commandes slash et agents de rôle restent indisponibles. L'installation du plugin n'ajoute aucun binaire npm au `PATH` ; le
-pipeline pris en charge passe par `npx --yes great-cto@3.45.0 codex-host` : rôles contrôlés, verifier, gates, recovery et, en option,
+pipeline pris en charge passe par `npx --yes great-cto@3.46.0 codex-host` : rôles contrôlés, verifier, gates, recovery et, en option,
 releases locales ou GitHub. Il n'émule pas les hooks natifs et n'active pas
 n'importe quel service de production. Voir le
 [guide de l'hôte Codex](../HOST-CODEX.md).
