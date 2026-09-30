@@ -141,7 +141,7 @@ init 後、ホストが本当にプラグインを読み込んだか確認して
 `great-cto upgrade` で更新します。承認はターミナル版 Codex で一度だけ
 行います：ターミナルで `codex` を起動し、「Hooks need review」で **Trust all and continue** を選択します
 （ChatGPT/Codex アプリにはこの画面が表示されません）。スラッシュコマンドとロールエージェントは依然としてありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
-サポートされる経路は `npx --yes great-cto@3.46.0 codex-host` で、
+サポートされる経路は `npx --yes great-cto@3.46.1 codex-host` で、
 制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
 実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。
 [Codex ホストガイド](../HOST-CODEX.md)を参照してください。

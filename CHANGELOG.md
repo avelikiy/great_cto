@@ -13,6 +13,21 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.46.1 — 2026-09-30
+
+### Fixed
+
+- **Where to approve great_cto's hooks in Codex.** The docs said "on the next interactive
+  `codex` start"; in the ChatGPT/Codex app that screen never appears, so an approval there
+  records nothing and every guard stays off. The terminal UI shows it (verified with the
+  app's own codex-cli 0.159.2). README (+ 9 translations), HOST-CODEX, the installer,
+  `great-cto upgrade`, `install-local` and `/doctor` now say: run `codex` in a terminal and
+  choose **Trust all and continue** at "Hooks need review".
+- Also in this release: `docs/COMMANDS.md`, the guide to all 21 commands the README and
+  the landing's /commands page are built from, and a retry with the error shown when
+  `install-local` refreshes Codex.
+
 ## v3.46.0 — 2026-09-30
 
 Codex gets great_cto updates, and the Codex review check reads what Codex actually runs.

@@ -143,7 +143,7 @@ Codex 플러그인 훅으로 동작하는 6개의 안전 가드(데이터 삭제
 터미널에서 `codex`를 실행하고 "Hooks need review"에서 **Trust all and continue**를 선택하세요
 (ChatGPT/Codex 앱은 이 화면을 보여 주지 않습니다).
 슬래시 커맨드·역할 에이전트는 여전히 없습니다. 플러그인 설치는 npm binary를
-`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.46.0 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
+`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.46.1 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
 로컬 또는 GitHub Release를 실행합니다. 네이티브 훅을 흉내 내거나 임의의 프로덕션
 서비스를 활성화하는 기능은 아닙니다. [Codex 호스트 가이드](../HOST-CODEX.md)를 보세요.
 
