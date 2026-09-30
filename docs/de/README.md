@@ -121,7 +121,8 @@ selbst. Prüfe nach dem init, ob der Host das Plugin wirklich geladen hat —
 MCP-Server und sechs Schutz-Hooks als Codex-Plugin-Hooks (Datenlöschung,
 Gate-Umgehung wie `--no-verify`, Secrets in Dateien u. a.) plus zwei Hinweise, die
 nichts blockieren: wer von einer Datei abhängt, bevor sie geändert wird, und eine
-festgehaltene Lektion, wenn ein Aufruf ihr Thema berührt; Codex fragt beim
+festgehaltene Lektion, wenn ein Aufruf ihr Thema berührt. Codex aktualisiert das Plugin
+nie selbst — `great-cto upgrade` tut es; Codex fragt beim
 nächsten `codex`-Start einmal nach deiner Freigabe. Slash-Befehle und
 Rollen-Agenten gibt es weiterhin nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
 Pipeline-Pfad ist `npx --yes great-cto@3.45.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery

@@ -116,7 +116,8 @@ into files, frozen gates and weakened checks — and two hints that never block:
 who depends on a file before it is edited, and a recorded lesson when a call
 touches what it is about (verified on codex-cli 0.153.4). Codex asks you to
 review them once, on the next interactive `codex` start; until
-then they do not run. Codex has no native plugin surface for slash commands or
+then they do not run. Codex never updates the plugin by itself — `great-cto upgrade`
+does. Codex has no native plugin surface for slash commands or
 role agents, so `/start` does not become a Codex slash command, and the rest of
 the Claude hooks — pipeline dispatch, cost guard, write log — do not run there.
 

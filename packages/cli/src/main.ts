@@ -724,6 +724,7 @@ ${bold("Upgrade:")}
   great-cto upgrade superpowers  Upgrade superpowers only
   great-cto upgrade beads        Upgrade beads only
   great-cto upgrade --self       Upgrade the great-cto CLI itself (also: upgrade self)
+  great-cto upgrade codex        Refresh great_cto in Codex (also part of plain upgrade)
   great-cto uninstall            Plan: what would be removed, what is kept (changes nothing)
   great-cto uninstall --yes      Remove plugin, agents, commands, board service, caches
       --purge-data               Also move ~/.great_cto aside (reversible, never deleted)
@@ -1419,6 +1420,9 @@ async function runUpgrade(rawArgv: string[], args: CliArgs): Promise<number> {
   const pluginArg = firstArgAfterUpgrade;
   const targetPlugin = pluginArg && !pluginArg.startsWith("--") ? pluginArg : undefined;
 
+  // `great-cto upgrade codex` refreshes only the Codex install.
+  if (targetPlugin === "codex") return reportCodexUpgrade();
+
   let results;
   if (targetPlugin) {
     const plugin = COMPANION_PLUGINS.find((p) => p.name === targetPlugin);
@@ -1440,7 +1444,26 @@ async function runUpgrade(rawArgv: string[], args: CliArgs): Promise<number> {
       warn(`${r.name} skipped — ${r.reason ?? "unknown reason"}`);
     }
   }
+  // Codex keeps its own snapshot of great_cto and never refreshes it; without this
+  // step every Codex guard shipped after the first install stays out of reach.
+  if (!targetPlugin) await reportCodexUpgrade();
 
+  return 0;
+}
+
+async function reportCodexUpgrade(): Promise<number> {
+  const { upgradeCodexPlugin } = await import("./codex.js");
+  const r = upgradeCodexPlugin();
+  if (r.status === "upgraded") {
+    success(`codex: great_cto ${r.fromVersion ?? "—"} → ${r.toVersion} — new or changed hooks need one review at the next \`codex\` start`);
+  } else if (r.status === "already_latest") {
+    log(`  ${dim(`codex: great_cto ${r.toVersion} already at latest`)}`);
+  } else if (r.status === "failed") {
+    warn(`codex: upgrade failed — ${r.reason}`);
+    return 1;
+  } else if (r.reason && r.reason !== "great_cto is not installed for Codex") {
+    warn(`codex: ${r.reason}`);
+  }
   return 0;
 }
 

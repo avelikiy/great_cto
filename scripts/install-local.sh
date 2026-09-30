@@ -215,5 +215,22 @@ if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q
     || echo "  ! could not update great_cto@great-cto — run: claude plugin update great_cto@great-cto"
 fi
 
+# Codex keeps its own Git snapshot of great_cto and never refreshes it: on this
+# machine it sat at 3.37.0 while 3.45.0 shipped, so none of the Codex guards had
+# arrived. `codex plugin marketplace upgrade` refreshes the snapshot and the installed
+# plugin together (measured 2026-09-30). It reads GitHub main, so it only picks up a
+# release after release.sh has pushed the tag.
+CODEX_BIN="$(command -v codex 2>/dev/null || ls -d "$HOME"/.nvm/versions/node/*/bin/codex 2>/dev/null | sort -V | tail -1)"
+if [ -n "$CODEX_BIN" ] && grep -qE '^\[marketplaces\.("great-cto"|great-cto)\]' "$HOME/.codex/config.toml" 2>/dev/null; then
+  step "Refresh great_cto in Codex"
+  if "$CODEX_BIN" plugin marketplace upgrade great-cto >/dev/null 2>&1; then
+    CX_DIR="$HOME/.codex/plugins/cache/great-cto/great-cto"
+    CX_VER="$( (cd "$CX_DIR" 2>/dev/null && ls -1) | sort -V | tail -1)"   # bare version names, one market
+    echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review at the next \`codex\` start"
+  else
+    echo "  ! could not refresh Codex — run: codex plugin marketplace upgrade great-cto"
+  fi
+fi
+
 printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
 echo "  Restart your Claude Code session so the SessionStart hook picks it up."

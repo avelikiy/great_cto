@@ -588,9 +588,11 @@ _CHT="${PLUGIN_DIR:-.}/scripts/lib/codex-hook-trust.mjs"
 [ -f "$_CHT" ] && node "$_CHT" 2>/dev/null || true
 ```
 
-If it says NOT reviewed, the fix line it prints is the whole fix: start `codex` in a
-project and choose **Review hooks** or **Trust all and continue** at "Hooks need
-review". Put it in the summary as a WARN, not a FAIL.
+It reads the hooks of the great_cto version Codex actually has installed, and says
+when that version is behind — Codex never refreshes great_cto by itself (`great-cto
+upgrade codex` does). If it says NOT reviewed, the fix is: start `codex` in a project
+and choose **Review hooks** or **Trust all and continue** at "Hooks need review". Put
+either in the summary as a WARN, not a FAIL.
 
 ## Check 9 — Auto-remediation (--fix mode)
 

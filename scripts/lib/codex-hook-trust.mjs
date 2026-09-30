@@ -18,8 +18,8 @@
 // when a hook changes, so a key with a trusted_hash is the fact that matters here.
 //
 // Usage: node scripts/lib/codex-hook-trust.mjs [--codex-home ~/.codex] [--json]
-// Exit 0 when every hook is reviewed or great_cto is not installed for Codex; 3 when
-// some are not.
+// Exit 0 when every hook is reviewed and the install is current, or great_cto is not
+// installed for Codex; 3 otherwise (not reviewed, no hooks installed, or behind).
 
 import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -50,51 +50,97 @@ export function trustedKeys(configToml) {
   return out;
 }
 
-/** Where great_cto is installed for Codex, as plugin ids (`great-cto@<marketplace>`). */
-export function installedPluginIds(codexHome) {
+/** Where great_cto is installed for Codex: plugin id, newest installed version and its directory. */
+export function installedPlugins(codexHome) {
   const cache = join(codexHome, 'plugins', 'cache');
   let markets = [];
   try { markets = readdirSync(cache); } catch { return []; }
-  return markets.filter((m) => existsSync(join(cache, m, 'great-cto'))).map((m) => `great-cto@${m}`);
+  const key = (v) => v.split('.').map((n) => parseInt(n, 10) || 0);
+  const newest = (vs) => vs.sort((a, b) => { const x = key(a), y = key(b); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; }).at(-1);
+  const out = [];
+  for (const m of markets) {
+    let versions = [];
+    try { versions = readdirSync(join(cache, m, 'great-cto')).filter((v) => /^\d+\.\d+\.\d+/.test(v)); } catch { continue; }
+    if (!versions.length) continue;
+    const version = newest(versions);
+    out.push({ id: `great-cto@${m}`, version, dir: join(cache, m, 'great-cto', version) });
+  }
+  return out;
+}
+
+/** The hooks file an installed plugin declares, read from ITS manifest — not from this checkout. */
+function installedHooks(dir) {
+  let manifest;
+  try { manifest = JSON.parse(readFileSync(join(dir, '.codex-plugin', 'plugin.json'), 'utf8')); } catch { return null; }
+  if (typeof manifest.hooks !== 'string') return null;
+  const rel = manifest.hooks.replace(/^\.\//, '');
+  try { return { rel, json: JSON.parse(readFileSync(join(dir, rel), 'utf8')) }; } catch { return null; }
 }
 
 /**
- * @returns {{state:'not-installed'|'reviewed'|'not-reviewed'|'partly-reviewed', plugins:{id:string, expected:number, missing:string[]}[]}}
+ * What Codex actually runs. The 3.45.0 version derived the keys from THIS checkout's
+ * hooks file, so an install stuck at 3.37.0 — which ships no hooks at all — was reported
+ * as "2 hooks not reviewed". It reads the installed plugin now, and says when that
+ * install is behind.
+ * @returns {{state:'not-installed'|'no-hooks'|'reviewed'|'not-reviewed'|'partly-reviewed', plugins:object[]}}
  */
-export function hookTrustStatus({ codexHome, hooksJson, configToml }) {
-  const ids = installedPluginIds(codexHome);
-  if (!ids.length) return { state: 'not-installed', plugins: [] };
+export function hookTrustStatus({ codexHome, configToml, currentVersion = null }) {
+  const installed = installedPlugins(codexHome);
+  if (!installed.length) return { state: 'not-installed', plugins: [] };
   const trusted = trustedKeys(configToml);
-  const plugins = ids.map((id) => {
-    const expected = expectedKeys(hooksJson, id);
-    return { id, expected: expected.length, missing: expected.filter((k) => !trusted.has(k)) };
+  const plugins = installed.map((p) => {
+    const hooks = installedHooks(p.dir);
+    const expected = hooks ? expectedKeys(hooks.json, p.id, hooks.rel) : [];
+    const behind = currentVersion && versionLt(p.version, currentVersion) ? currentVersion : null;
+    return { id: p.id, version: p.version, behind, hasHooks: !!hooks, expected: expected.length, missing: expected.filter((k) => !trusted.has(k)) };
   });
+  if (plugins.every((p) => !p.hasHooks)) return { state: 'no-hooks', plugins };
   const missing = plugins.reduce((a, p) => a + p.missing.length, 0);
   const total = plugins.reduce((a, p) => a + p.expected, 0);
   const state = missing === 0 ? 'reviewed' : missing === total ? 'not-reviewed' : 'partly-reviewed';
   return { state, plugins };
 }
 
+function versionLt(a, b) {
+  const x = a.split('.').map(Number); const y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) < (y[i] || 0);
+  return false;
+}
+
 export function formatStatus(s) {
   if (s.state === 'not-installed') return 'Codex: great_cto is not installed for Codex — nothing to check.';
-  if (s.state === 'reviewed') return `Codex: all great_cto hooks are reviewed (${s.plugins.map((p) => `${p.id}: ${p.expected}`).join(', ')}) — the guards run.`;
+  const lines = [];
+  for (const p of s.plugins.filter((x) => x.behind)) {
+    lines.push(`Codex: great_cto ${p.version} is installed; ${p.behind} is out. Codex does not refresh it by itself.`);
+    lines.push('  Fix: great-cto upgrade codex   (or: codex plugin marketplace upgrade great-cto)');
+  }
+  if (s.state === 'no-hooks') {
+    lines.push('Codex: the installed great_cto ships no hooks — no guard runs in Codex until it is upgraded.');
+    return lines.join('\n');
+  }
+  if (s.state === 'reviewed') {
+    lines.push(`Codex: all great_cto hooks are reviewed (${s.plugins.map((p) => `${p.id} ${p.version}: ${p.expected}`).join(', ')}) — the guards run.`);
+    return lines.join('\n');
+  }
   const n = s.plugins.reduce((a, p) => a + p.missing.length, 0);
-  return [
+  lines.push(
     `Codex: ${n} great_cto hook(s) are NOT reviewed — ${s.state === 'not-reviewed' ? 'none of the guards run' : 'some guards do not run'} in Codex.`,
     '  Fix: start `codex` in a project, and at "Hooks need review" choose Review hooks or Trust all and continue.',
     '  Until then no destructive-command, gate-bypass or secret check runs on Codex calls.',
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const a = process.argv.slice(2);
   const codexHome = a.includes('--codex-home') ? a[a.indexOf('--codex-home') + 1] : join(homedir(), '.codex');
   const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-  let hooksJson = {};
-  try { hooksJson = JSON.parse(readFileSync(join(repo, '.codex-plugin', 'hooks.json'), 'utf8')); } catch { /* no hooks shipped */ }
+  let currentVersion = null;
+  try { currentVersion = JSON.parse(readFileSync(join(repo, '.codex-plugin', 'plugin.json'), 'utf8')).version || null; } catch { /* unknown */ }
   let configToml = '';
   try { configToml = readFileSync(join(codexHome, 'config.toml'), 'utf8'); } catch { /* no config yet */ }
-  const s = hookTrustStatus({ codexHome, hooksJson, configToml });
+  const s = hookTrustStatus({ codexHome, configToml, currentVersion });
   process.stdout.write(a.includes('--json') ? `${JSON.stringify(s, null, 2)}\n` : `${formatStatus(s)}\n`);
-  process.exit(s.state === 'not-reviewed' || s.state === 'partly-reviewed' ? 3 : 0);
+  const behind = s.plugins.some((p) => p.behind);
+  process.exit(s.state === 'not-reviewed' || s.state === 'partly-reviewed' || s.state === 'no-hooks' || behind ? 3 : 0);
 }
