@@ -137,10 +137,19 @@ who depends on a file before it is edited, and a recorded lesson when a call
 touches what it is about (verified on codex-cli 0.153.4). Review them once in
 Codex's terminal UI — run `codex` in a terminal and choose **Trust all and continue**
 at "Hooks need review" (the ChatGPT/Codex app does not show that screen); until
-then they do not run. Codex never updates the plugin by itself — `great-cto upgrade`
-does. Codex has no native plugin surface for slash commands or
-role agents, so `/start` does not become a Codex slash command, and the rest of
-the Claude hooks — pipeline dispatch, cost guard, write log — do not run there.
+then they do not run. `great-cto upgrade codex` refreshes the installed copy
+manually. On macOS, enable automatic refresh from the Git marketplace with
+`sh scripts/codex-auto-update.sh enable`. A per-user macOS timer runs the
+supported `codex plugin marketplace upgrade great-cto` every six hours and at
+login, without writing into Codex's plugin cache itself. Inspect it with
+`sh scripts/codex-auto-update.sh status`; turn it off with `disable`. This
+requires a configured `great-cto` Git marketplace and only affects new Codex
+sessions after the host loads the new plugin. It follows that marketplace's
+configured Git ref (`main` by default), not the npm release schedule; new or
+changed hooks still require Codex review. Codex has no native plugin surface
+for slash commands or role agents, so `/start` does not become a Codex slash
+command, and the rest of the Claude hooks — pipeline dispatch, cost guard,
+write log — do not run there.
 
 The supported pipeline path is the separate controller shipped by the npm CLI:
 
