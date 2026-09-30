@@ -139,7 +139,9 @@ Node ≥ 18.17 필요. 동반 플러그인(Superpowers, Beads)은 자동 설치�
 Codex 플러그인 훅으로 동작하는 6개의 안전 가드(데이터 삭제, `--no-verify` 같은 게이트 우회,
 파일 속 시크릿 등)와 아무것도 막지 않는 두 가지 힌트(편집 전 그 파일에 의존하는 파일, 호출이
 다루는 주제에 대한 기록된 교훈)를 얻습니다. Codex는 플러그인을 스스로 업데이트하지 않으므로
-`great-cto upgrade`로 업데이트합니다. 다음에 `codex`를 대화형으로 실행할 때 한 번 승인하면 됩니다.
+`great-cto upgrade`로 업데이트합니다. 승인은 터미널용 Codex에서 한 번 합니다:
+터미널에서 `codex`를 실행하고 "Hooks need review"에서 **Trust all and continue**를 선택하세요
+(ChatGPT/Codex 앱은 이 화면을 보여 주지 않습니다).
 슬래시 커맨드·역할 에이전트는 여전히 없습니다. 플러그인 설치는 npm binary를
 `PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.46.0 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
 로컬 또는 GitHub Release를 실행합니다. 네이티브 훅을 흉내 내거나 임의의 프로덕션

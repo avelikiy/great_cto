@@ -125,7 +125,7 @@ export function formatStatus(s) {
   const n = s.plugins.reduce((a, p) => a + p.missing.length, 0);
   lines.push(
     `Codex: ${n} great_cto hook(s) are NOT reviewed — ${s.state === 'not-reviewed' ? 'none of the guards run' : 'some guards do not run'} in Codex.`,
-    '  Fix: start `codex` in a project, and at "Hooks need review" choose Review hooks or Trust all and continue.',
+    '  Fix: run `codex` in a terminal (the ChatGPT/Codex app does not show this step) and at "Hooks need review" choose Trust all and continue.',
     '  Until then no destructive-command, gate-bypass or secret check runs on Codex calls.',
   );
   return lines.join('\n');

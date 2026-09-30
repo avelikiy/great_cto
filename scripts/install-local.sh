@@ -229,7 +229,7 @@ if [ -n "$CODEX_BIN" ] && grep -qE '^\[marketplaces\.("great-cto"|great-cto)\]' 
   if CX_ERR="$(cx_refresh)" || { sleep 5; CX_ERR="$(cx_refresh)"; }; then
     CX_DIR="$HOME/.codex/plugins/cache/great-cto/great-cto"
     CX_VER="$( (cd "$CX_DIR" 2>/dev/null && ls -1) | sort -V | tail -1)"   # bare version names, one market
-    echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review at the next \`codex\` start"
+    echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review: run \`codex\` in a terminal, Trust all and continue"
   else
     echo "  ! could not refresh Codex: $(printf '%s' "$CX_ERR" | head -1)"
     echo "    run: codex plugin marketplace upgrade great-cto"

@@ -50,7 +50,7 @@ leaves a lock directory requires operator inspection before removing that lock.
 
 The controller's gates apply only to work executed by this controller; ordinary
 Codex sessions get the six safety guards and the two edit hints (edit-impact, lesson-tripwire) the plugin ships as Codex hooks
-(`.codex-plugin/hooks.json`, reviewed once in Codex before they run), not the
+(`.codex-plugin/hooks.json`, reviewed once in Codex's terminal UI before they run — run `codex` in a terminal and choose Trust all and continue at "Hooks need review"; the ChatGPT/Codex app does not show that screen), not the
 pipeline. It trusts
 the local operator and Codex's read-only sandbox; it is not a security boundary
 against another process running as the same OS user.

@@ -134,8 +134,9 @@ MCP server and six safety guards as Codex plugin hooks — destructive commands,
 gate bypasses such as `--no-verify`, a neighbour session's work, secrets written
 into files, frozen gates and weakened checks — and two hints that never block:
 who depends on a file before it is edited, and a recorded lesson when a call
-touches what it is about (verified on codex-cli 0.153.4). Codex asks you to
-review them once, on the next interactive `codex` start; until
+touches what it is about (verified on codex-cli 0.153.4). Review them once in
+Codex's terminal UI — run `codex` in a terminal and choose **Trust all and continue**
+at "Hooks need review" (the ChatGPT/Codex app does not show that screen); until
 then they do not run. Codex never updates the plugin by itself — `great-cto upgrade`
 does. Codex has no native plugin surface for slash commands or
 role agents, so `/start` does not become a Codex slash command, and the rest of

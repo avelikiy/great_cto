@@ -142,8 +142,9 @@ MCP-Server und sechs Schutz-Hooks als Codex-Plugin-Hooks (Datenlöschung,
 Gate-Umgehung wie `--no-verify`, Secrets in Dateien u. a.) plus zwei Hinweise, die
 nichts blockieren: wer von einer Datei abhängt, bevor sie geändert wird, und eine
 festgehaltene Lektion, wenn ein Aufruf ihr Thema berührt. Codex aktualisiert das Plugin
-nie selbst — `great-cto upgrade` tut es; Codex fragt beim
-nächsten `codex`-Start einmal nach deiner Freigabe. Slash-Befehle und
+nie selbst — `great-cto upgrade` tut es; Freigeben musst du sie einmal
+in Codex' Terminal-Oberfläche: `codex` im Terminal starten und bei „Hooks need review“
+**Trust all and continue** wählen (die ChatGPT/Codex-App zeigt diesen Schritt nicht). Slash-Befehle und
 Rollen-Agenten gibt es weiterhin nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
 Pipeline-Pfad ist `npx --yes great-cto@3.46.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
 und optional lokale oder GitHub-Releases aus. Das ist kein Ersatz für native

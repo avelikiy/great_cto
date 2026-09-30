@@ -590,8 +590,9 @@ _CHT="${PLUGIN_DIR:-.}/scripts/lib/codex-hook-trust.mjs"
 
 It reads the hooks of the great_cto version Codex actually has installed, and says
 when that version is behind — Codex never refreshes great_cto by itself (`great-cto
-upgrade codex` does). If it says NOT reviewed, the fix is: start `codex` in a project
-and choose **Review hooks** or **Trust all and continue** at "Hooks need review". Put
+upgrade codex` does). If it says NOT reviewed, the fix is: run `codex` in a terminal (the
+ChatGPT/Codex app does not show the review) and choose **Review hooks** or **Trust all and
+continue** at "Hooks need review". Put
 either in the summary as a WARN, not a FAIL.
 
 ## Check 9 — Auto-remediation (--fix mode)

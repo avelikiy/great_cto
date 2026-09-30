@@ -140,8 +140,9 @@ servidor MCP y seis guardas como hooks del plugin de Codex (borrado de datos,
 saltarse gates como `--no-verify`, secretos en archivos, entre otros) y dos avisos que
 no bloquean nada: quién depende de un archivo antes de editarlo y una lección registrada
 cuando una llamada toca su tema. Codex nunca actualiza el plugin por sí mismo —
-lo hace `great-cto upgrade`; Codex pide
-revisarlos una vez al siguiente inicio de `codex`. Los slash commands y agentes con
+lo hace `great-cto upgrade`; Hay que aprobarlos
+una vez en la interfaz de terminal de Codex: ejecuta `codex` en una terminal y elige
+**Trust all and continue** en «Hooks need review» (la app de ChatGPT/Codex no muestra esa pantalla). Los slash commands y agentes con
 rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
 pipeline soportada es `npx --yes great-cto@3.46.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa

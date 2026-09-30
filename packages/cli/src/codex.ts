@@ -60,7 +60,7 @@ export function codexInstallPlan(
       "skills — all of them, the same tree Claude Code reads",
       "the MCP server (great_cto), resolved from npm",
       "the controlled role pipeline — run `npx --yes great-cto codex-host doctor` then `npx --yes great-cto codex-host start`",
-      "six safety guards as Codex plugin hooks (destructive commands, gate bypasses, a neighbour session's work, secrets in files, frozen gates, weakened checks) and two hints that never block (edit-impact, lesson-tripwire) — Codex asks you to review them once on the next interactive `codex` start; they do not run until you do. Codex does not update great_cto by itself — `great-cto upgrade` (or `great-cto upgrade codex`) does",
+      "six safety guards as Codex plugin hooks (destructive commands, gate bypasses, a neighbour session's work, secrets in files, frozen gates, weakened checks) and two hints that never block (edit-impact, lesson-tripwire) — review them once in Codex's terminal UI (`codex` in a terminal → Trust all and continue; the ChatGPT/Codex app does not show this step); they do not run until you do. Codex does not update great_cto by itself — `great-cto upgrade` (or `great-cto upgrade codex`) does",
     ],
     // Codex runs plugin hooks (verified 2026-09-28, codex-cli 0.153.4) but has no
     // plugin surface for commands or role agents. Saying "installed" without saying

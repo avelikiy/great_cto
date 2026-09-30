@@ -1455,7 +1455,7 @@ async function reportCodexUpgrade(): Promise<number> {
   const { upgradeCodexPlugin } = await import("./codex.js");
   const r = upgradeCodexPlugin();
   if (r.status === "upgraded") {
-    success(`codex: great_cto ${r.fromVersion ?? "—"} → ${r.toVersion} — new or changed hooks need one review at the next \`codex\` start`);
+    success(`codex: great_cto ${r.fromVersion ?? "—"} → ${r.toVersion} — new or changed hooks need one review: run \`codex\` in a terminal, choose Trust all and continue`);
   } else if (r.status === "already_latest") {
     log(`  ${dim(`codex: great_cto ${r.toVersion} already at latest`)}`);
   } else if (r.status === "failed") {
