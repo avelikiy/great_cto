@@ -135,9 +135,11 @@ npx great-cto init
 **在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills、MCP
 服务器，以及作为 Codex 插件 hooks 的 6 个安全防护（删除数据、`--no-verify` 等绕过 gate、
 文件中的密钥等），以及两个从不阻止任何操作的提示（编辑前依赖该文件的文件、调用涉及的已记录经验）。Codex 不会自行更新插件，需运行 `great-cto upgrade`；需在终端版 Codex 中审核一次：在终端运行 `codex`，在 “Hooks need review” 处选择 **Trust all and continue**（ChatGPT/Codex 应用不显示此界面）。斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
-加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.46.2 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
+加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.47.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
 的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
 [Codex host 指南](../HOST-CODEX.md)。
+
+自 3.47.0 起，在 `start` 时使用 `--routes qa-engineer=claude-code,security-officer=codex`，控制器即可把图中的角色分配给两个已安装的 CLI。两个独立的 join 角色同时检查同一快照；控制器依次应用其经过验证且互不重叠的提案，并保留 verifier 和人工 gate。需要已登录 Claude Code。
 
 **两个宿主，一次评审。**独立于受控 host，Codex 也可以充当**第二意见** —— 从 Claude Code 内部，它读同
 一份 diff，每一行评审都带着它所读那棵树的 `sha`，所以「已评审」可以针对*这一份*

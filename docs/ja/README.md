@@ -141,10 +141,12 @@ init 後、ホストが本当にプラグインを読み込んだか確認して
 `great-cto upgrade` で更新します。承認はターミナル版 Codex で一度だけ
 行います：ターミナルで `codex` を起動し、「Hooks need review」で **Trust all and continue** を選択します
 （ChatGPT/Codex アプリにはこの画面が表示されません）。スラッシュコマンドとロールエージェントは依然としてありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
-サポートされる経路は `npx --yes great-cto@3.46.2 codex-host` で、
+サポートされる経路は `npx --yes great-cto@3.47.0 codex-host` で、
 制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
 実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。
 [Codex ホストガイド](../HOST-CODEX.md)を参照してください。
+
+3.47.0 以降、`start` に `--routes qa-engineer=claude-code,security-officer=codex` を指定すると、コントローラーはグラフのロールを両方のインストール済み CLI に割り当てられます。独立した 2 つの join ロールが同じスナップショットを同時に確認し、コントローラーは検証済みで重複のない提案を順に適用し、verifier と人間の gate はそのまま維持します。Claude Code の認証が必要です。
 
 **ハーネスは 2 つ、レビューは 1 つ。** 制御ホストとは別に、Codex は**セカンドオピニオン**として
 Claude Code の内側から同じ diff を読み、レビュー行はそれぞれ読んだツリーの `sha` を持ち

@@ -144,10 +144,12 @@ quando uma chamada toca o assunto dela. O Codex nunca atualiza o plugin sozinho 
 na interface de terminal do Codex: rode `codex` num terminal e escolha **Trust all and continue**
 em "Hooks need review" (o app ChatGPT/Codex não mostra essa tela). Slash commands e agentes de
 papel continuam indisponíveis. A instalação do plugin não adiciona um binário npm ao `PATH`; o
-pipeline suportado usa `npx --yes great-cto@3.46.2 codex-host`: ele executa papéis controlados, verifier, gates, recovery
+pipeline suportado usa `npx --yes great-cto@3.47.0 codex-host`: ele executa papéis controlados, verifier, gates, recovery
 e releases locais ou do GitHub opcionais. Não emula hooks nativos nem ativa
 serviços de produção arbitrários. Veja o
 [guia do host Codex](../HOST-CODEX.md).
+
+Desde a 3.47.0, o controlador pode distribuir papéis do grafo entre as duas CLIs instaladas com `--routes qa-engineer=claude-code,security-officer=codex` no `start`. Os dois papéis de join independentes examinam o mesmo snapshot ao mesmo tempo; o controlador aplica as propostas validadas e sem sobreposição uma após a outra e mantém o verifier e os gates humanos. O Claude Code precisa estar autenticado.
 
 **Dois harnesses, uma revisão.** Independentemente do host controlado, o Codex pode ser a **segunda
 opinião** — de dentro do Claude Code ele lê o mesmo diff, e cada linha de

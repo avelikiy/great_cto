@@ -17,8 +17,8 @@ transition.
 ## Preflight
 
 ```sh
-npx --yes great-cto@3.46.2 codex-host doctor
-npx --yes great-cto@3.46.2 codex-host list --dir /absolute/project
+npx --yes great-cto@3.47.0 codex-host doctor
+npx --yes great-cto@3.47.0 codex-host list --dir /absolute/project
 ```
 
 `doctor.state=blocked` means do not start. Docker may be unavailable when no
@@ -32,7 +32,7 @@ Policies must be operator-owned absolute files outside the worker project.
 Allowed paths are explicit controller write boundaries.
 
 ```sh
-npx --yes great-cto@3.46.2 codex-host start \
+npx --yes great-cto@3.47.0 codex-host start \
   --dir /absolute/project \
   --prompt "the requested outcome" \
   --allow src,tests,docs \
@@ -43,7 +43,7 @@ npx --yes great-cto@3.46.2 codex-host start \
 Read the returned `status`, `pending` and `release` object. Never treat exit 2 as
 success: it means a gate, manual action or blocked evidence requires attention.
 
-After the package containing mixed-host routing is published, independent
+Since 3.47.0, independent
 graph roles can run on both hosts with
 `--routes qa-engineer=claude-code,security-officer=codex` on `start`. The
 controller dispatches only a symmetric join pair concurrently, checks both
@@ -58,9 +58,9 @@ Then pass back the controller-issued token; never synthesize or persist one in a
 project file.
 
 ```sh
-npx --yes great-cto@3.46.2 codex-host approve RUN_UUID --token GATE_TOKEN
-npx --yes great-cto@3.46.2 codex-host approve-release RUN_UUID --token RELEASE_TOKEN
-npx --yes great-cto@3.46.2 codex-host resume RUN_UUID
+npx --yes great-cto@3.47.0 codex-host approve RUN_UUID --token GATE_TOKEN
+npx --yes great-cto@3.47.0 codex-host approve-release RUN_UUID --token RELEASE_TOKEN
+npx --yes great-cto@3.47.0 codex-host resume RUN_UUID
 ```
 
 Use `recover` only after inspecting the recorded reason. Recovery reuses the

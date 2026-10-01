@@ -145,14 +145,13 @@ the Claude hooks — pipeline dispatch, cost guard, write log — do not run the
 The supported pipeline path is the separate controller shipped by the npm CLI:
 
 ```bash
-npx --yes great-cto@3.46.2 codex-host doctor
-npx --yes great-cto@3.46.2 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
-npx --yes great-cto@3.46.2 codex-host resume <run-uuid>
+npx --yes great-cto@3.47.0 codex-host doctor
+npx --yes great-cto@3.47.0 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
+npx --yes great-cto@3.47.0 codex-host resume <run-uuid>
 ```
 
-The source controller can also assign graph roles to both installed CLIs with
-`--routes qa-engineer=claude-code,security-officer=codex` (npm distribution in
-the next release). Those independent
+Since 3.47.0 the controller can also assign graph roles to both installed CLIs with
+`--routes qa-engineer=claude-code,security-officer=codex` on `start`. Those independent
 join roles inspect one snapshot at the same time; the controller applies their
 validated, non-overlapping proposals sequentially and keeps the existing
 verifier and human gates. Claude Code must be authenticated. See the

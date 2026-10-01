@@ -143,9 +143,11 @@ Codex 플러그인 훅으로 동작하는 6개의 안전 가드(데이터 삭제
 터미널에서 `codex`를 실행하고 "Hooks need review"에서 **Trust all and continue**를 선택하세요
 (ChatGPT/Codex 앱은 이 화면을 보여 주지 않습니다).
 슬래시 커맨드·역할 에이전트는 여전히 없습니다. 플러그인 설치는 npm binary를
-`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.46.2 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
+`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.47.0 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
 로컬 또는 GitHub Release를 실행합니다. 네이티브 훅을 흉내 내거나 임의의 프로덕션
 서비스를 활성화하는 기능은 아닙니다. [Codex 호스트 가이드](../HOST-CODEX.md)를 보세요.
+
+3.47.0부터 `start`에 `--routes qa-engineer=claude-code,security-officer=codex`를 지정하면 컨트롤러가 그래프 역할을 설치된 두 CLI에 나눠 맡길 수 있습니다. 독립된 두 join 역할이 같은 스냅샷을 동시에 검토하고, 컨트롤러는 검증되고 겹치지 않는 제안을 차례로 적용하며 verifier와 사람의 gate는 그대로 유지합니다. Claude Code 인증이 필요합니다.
 
 **하니스 둘, 리뷰 하나.** 통제 호스트와 별개로 Codex는 **세컨드 오피니언**이 될 수 있습니다 — Claude
 Code 안에서 같은 diff를 읽고, 리뷰의 각 줄은 자신이 읽은 트리의 `sha`를 달고

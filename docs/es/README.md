@@ -144,10 +144,12 @@ lo hace `great-cto upgrade`; Hay que aprobarlos
 una vez en la interfaz de terminal de Codex: ejecuta `codex` en una terminal y elige
 **Trust all and continue** en «Hooks need review» (la app de ChatGPT/Codex no muestra esa pantalla). Los slash commands y agentes con
 rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
-pipeline soportada es `npx --yes great-cto@3.46.2 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+pipeline soportada es `npx --yes great-cto@3.47.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
 [guía del host Codex](../HOST-CODEX.md).
+
+Desde 3.47.0 el controlador puede repartir roles del grafo entre ambas CLI instaladas con `--routes qa-engineer=claude-code,security-officer=codex` en `start`. Los dos roles independientes de join revisan la misma instantánea a la vez; el controlador aplica sus propuestas validadas y sin solapamiento una tras otra y mantiene el verifier y los gates humanos. Claude Code debe estar autenticado.
 
 **Dos harnesses, una revisión.** Independientemente del host controlado, Codex puede ser la
 **segunda opinión** — desde dentro de Claude Code lee el mismo diff, y cada línea

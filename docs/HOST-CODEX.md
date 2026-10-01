@@ -16,14 +16,14 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.46.2 codex-host doctor
-npx --yes great-cto@3.46.2 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.46.2 codex-host status <run-uuid>
-npx --yes great-cto@3.46.2 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.46.2 codex-host resume <run-uuid>
-npx --yes great-cto@3.46.2 codex-host recover <run-uuid>
-npx --yes great-cto@3.46.2 codex-host cancel <run-uuid>
-npx --yes great-cto@3.46.2 codex-host list --dir /path/to/project
+npx --yes great-cto@3.47.0 codex-host doctor
+npx --yes great-cto@3.47.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.47.0 codex-host status <run-uuid>
+npx --yes great-cto@3.47.0 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.47.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.47.0 codex-host recover <run-uuid>
+npx --yes great-cto@3.47.0 codex-host cancel <run-uuid>
+npx --yes great-cto@3.47.0 codex-host list --dir /path/to/project
 ```
 
 For a mixed run from a source checkout, assign roles at start. Unlisted roles
@@ -324,6 +324,8 @@ publish or activate an artifact by itself.
   draft, byte verification and rollback semantics for the external adapter.
 - [Codex support contract](CODEX-SUPPORT-CONTRACT.md) — acceptance criteria and
   explicit remaining lifecycle boundaries; not a claim of complete support.
+- [Mixed-host release readiness](analysis/2026-10-01-mixed-host-release-readiness.md) —
+  the source and packaged-candidate evidence behind `--routes` in 3.47.0.
 
 - [2026-09-05-codex-phase0-findings](analysis/2026-09-05-codex-phase0-findings.md) —
   what Codex does and does not carry as a plugin, measured against codex-cli

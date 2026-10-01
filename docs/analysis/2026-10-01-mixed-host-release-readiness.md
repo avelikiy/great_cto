@@ -72,3 +72,11 @@ was produced. The release requires a real successful required check on the PR
 head, then merge, version bump/publication, marketplace refresh and installed
 artifact verification. The release authorization is already recorded; no new
 merge authorization is needed after the checks succeed.
+
+## Outcome
+
+Later the same day the owner removed the HOL scanner workflow instead of paying to
+unlock Actions for it: the check qualified the plugin for a third-party catalogue
+that was abandoned on 2026-09-07 (74/100, 14 high findings), so an unlocked run would
+have failed on content (great_cto-2xuc). The candidate shipped as 3.47.0 through the
+local gate.
