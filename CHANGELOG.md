@@ -14,6 +14,33 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.46.2 — 2026-10-01
+
+Spending caps now see what was actually spent, and `/board` starts on a marketplace install.
+
+### Fixed
+
+- **Cost caps compared against $0.** `cost-guard` looked for `cost_usd=N` in
+  `.great_cto/cost-history.log`, a format no writer emits, so `daily_max_usd` and
+  `monthly_max_usd` could never fire. `/start` and `/digest` printed today's and this
+  month's spend with the same pattern and always showed $0.00. One reader,
+  `scripts/lib/cost-history.mjs`, now holds the row rules for all six places that read
+  the log. **If you set `"enforce": "block"`, caps now really block**; the default
+  (`warn`) is unchanged.
+- **Repeat runs of one agent were under-counted** in the run budget, the bench report and
+  handoff packages: every `turns=` row was treated as a session running total, but since
+  2026-09-11 those rows are one agent run each. Legacy running-total rows still count by
+  their increment.
+- **`/board` failed on marketplace installs.** A marketplace install is a git clone
+  without the CLI build, and every auto-update re-clones it; `/board` ran the plugin copy
+  because `index.mjs` existed and died on "dist/main.js not found" before falling back to
+  a global `great-cto`. It now checks for the build.
+- The local gate builds the CLI before the tests that import it, so a fresh worktree (and
+  `--quick`) no longer fails on `ERR_MODULE_NOT_FOUND`.
+
+---
+
 ## v3.46.1 — 2026-09-30
 
 ### Fixed

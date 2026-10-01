@@ -145,7 +145,7 @@ sa modification, et une leçon enregistrée quand un appel touche son sujet. Cod
 jamais le plugin à jour lui-même — `great-cto upgrade` le fait ; Il faut les valider une fois
 dans l'interface terminal de Codex : lancez `codex` dans un terminal et choisissez
 **Trust all and continue** à « Hooks need review » (l'app ChatGPT/Codex n'affiche pas cet écran). Les commandes slash et agents de rôle restent indisponibles. L'installation du plugin n'ajoute aucun binaire npm au `PATH` ; le
-pipeline pris en charge passe par `npx --yes great-cto@3.46.1 codex-host` : rôles contrôlés, verifier, gates, recovery et, en option,
+pipeline pris en charge passe par `npx --yes great-cto@3.46.2 codex-host` : rôles contrôlés, verifier, gates, recovery et, en option,
 releases locales ou GitHub. Il n'émule pas les hooks natifs et n'active pas
 n'importe quel service de production. Voir le
 [guide de l'hôte Codex](../HOST-CODEX.md).

@@ -144,7 +144,7 @@ quando uma chamada toca o assunto dela. O Codex nunca atualiza o plugin sozinho 
 na interface de terminal do Codex: rode `codex` num terminal e escolha **Trust all and continue**
 em "Hooks need review" (o app ChatGPT/Codex não mostra essa tela). Slash commands e agentes de
 papel continuam indisponíveis. A instalação do plugin não adiciona um binário npm ao `PATH`; o
-pipeline suportado usa `npx --yes great-cto@3.46.1 codex-host`: ele executa papéis controlados, verifier, gates, recovery
+pipeline suportado usa `npx --yes great-cto@3.46.2 codex-host`: ele executa papéis controlados, verifier, gates, recovery
 e releases locais ou do GitHub opcionais. Não emula hooks nativos nem ativa
 serviços de produção arbitrários. Veja o
 [guia do host Codex](../HOST-CODEX.md).

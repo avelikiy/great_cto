@@ -144,7 +144,7 @@ lo hace `great-cto upgrade`; Hay que aprobarlos
 una vez en la interfaz de terminal de Codex: ejecuta `codex` en una terminal y elige
 **Trust all and continue** en «Hooks need review» (la app de ChatGPT/Codex no muestra esa pantalla). Los slash commands y agentes con
 rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
-pipeline soportada es `npx --yes great-cto@3.46.1 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+pipeline soportada es `npx --yes great-cto@3.46.2 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
 [guía del host Codex](../HOST-CODEX.md).
