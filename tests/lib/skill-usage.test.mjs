@@ -12,7 +12,8 @@ const made = [];
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
 
 const SKILLS = ['done-blocked', 'prose-style', 'test-strategy', 'pre-mortem', 'brainstorming', 'well-architected', 'verticals'];
-const SECRET = 'PRIVATE-MESSAGE-TEXT-must-not-leak';
+// Synthetic message marker, not a credential. The output must omit these bytes.
+const MESSAGE_SENTINEL = 'PRIVATE-MESSAGE-TEXT-must-not-leak';
 
 function write(root, rel, lines) {
   const p = path.join(root, rel);
@@ -22,15 +23,15 @@ function write(root, rel, lines) {
 }
 const toolUse = (name, input, ts, cwd = '/work/great_cto') => ({
   type: 'assistant', timestamp: ts, cwd,
-  message: { id: `m-${ts}`, content: [{ type: 'text', text: SECRET }, { type: 'tool_use', id: `t-${ts}`, name, input }] },
+  message: { id: `m-${ts}`, content: [{ type: 'text', text: MESSAGE_SENTINEL }, { type: 'tool_use', id: `t-${ts}`, name, input }] },
 });
-const skillCall = (skill, ts, cwd) => toolUse('Skill', { skill, args: SECRET }, ts, cwd);
+const skillCall = (skill, ts, cwd) => toolUse('Skill', { skill, args: MESSAGE_SENTINEL }, ts, cwd);
 const preload = (name, ts) => ({
   type: 'user', isMeta: true, timestamp: ts,
-  message: { role: 'user', content: [{ type: 'text', text: `<command-message>${name}</command-message>\n<command-name>${name}</command-name>\n<skill-format>true</skill-format>` }, { type: 'text', text: SECRET }] },
+  message: { role: 'user', content: [{ type: 'text', text: `<command-message>${name}</command-message>\n<command-name>${name}</command-name>\n<skill-format>true</skill-format>` }, { type: 'text', text: MESSAGE_SENTINEL }] },
 });
-const prompt = (ts) => ({ type: 'user', timestamp: ts, message: { role: 'user', content: SECRET } });
-const assistantText = (ts) => ({ type: 'assistant', timestamp: ts, message: { id: `a-${ts}`, content: [{ type: 'text', text: SECRET }] } });
+const prompt = (ts) => ({ type: 'user', timestamp: ts, message: { role: 'user', content: MESSAGE_SENTINEL } });
+const assistantText = (ts) => ({ type: 'assistant', timestamp: ts, message: { id: `a-${ts}`, content: [{ type: 'text', text: MESSAGE_SENTINEL }] } });
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'skill-usage-'));
@@ -111,7 +112,7 @@ test('--since/--until bound the window; unseen skills are listed as never seen',
 test('output carries numbers and skill names only — never message text or paths', async () => {
   const u = await skillUsage({ root: fixture(), skills: SKILLS });
   const s = JSON.stringify(u);
-  assert.ok(!s.includes(SECRET), 'message text leaked');
+  assert.ok(!s.includes(MESSAGE_SENTINEL), 'message text leaked');
   assert.ok(!s.includes('/work/'), 'a path leaked');
   assert.ok(!s.includes('Users-x'), 'a project dir leaked');
 });

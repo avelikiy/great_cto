@@ -17,7 +17,8 @@ const CLI = join(ROOT, 'scripts/lib/session-shape.mjs');
 const made = [];
 after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
 
-const SECRET = 'SECRET-PROMPT-TEXT-do-not-print';
+// Synthetic message marker, not a credential. The output must omit these bytes.
+const PROMPT_SENTINEL = 'SECRET-PROMPT-TEXT-do-not-print';
 const PROJECT = '-Users-someone-dev-acme-widgets';
 
 let clock = Date.parse('2026-09-10T10:00:00Z');
@@ -28,9 +29,9 @@ const usage = ({ inp = 10, out = 100, cr = 0, cc = 0 } = {}) => ({
 });
 const asst = (id, u, { model = 'claude-opus-5', ts = at(), side = false } = {}) => ({
   type: 'assistant', timestamp: ts, isSidechain: side,
-  message: { id, model, usage: usage(u), content: [{ type: 'text', text: `${SECRET} answer` }] },
+  message: { id, model, usage: usage(u), content: [{ type: 'text', text: `${PROMPT_SENTINEL} answer` }] },
 });
-const user = (ts = at()) => ({ type: 'user', timestamp: ts, message: { content: `${SECRET} question` } });
+const user = (ts = at()) => ({ type: 'user', timestamp: ts, message: { content: `${PROMPT_SENTINEL} question` } });
 const jsonl = (lines) => lines.map((l) => JSON.stringify(l)).join('\n');
 
 /** { project: { sessionId: { main: [...], subs: { name: [...] } } } } → a projects root. */
@@ -137,7 +138,7 @@ test('the report never prints message text, and names projects only when asked',
   for (const args of [[], ['--json'], ['--top', '5']]) {
     const r = run(...args);
     assert.equal(r.status, 0, r.stderr);
-    assert.ok(!r.stdout.includes(SECRET), `message text leaked with ${args.join(' ') || 'defaults'}`);
+    assert.ok(!r.stdout.includes(PROMPT_SENTINEL), `message text leaked with ${args.join(' ') || 'defaults'}`);
     assert.ok(!r.stdout.includes('acme-widgets'), `project name leaked with ${args.join(' ') || 'defaults'}`);
     assert.ok(!r.stdout.includes('someone'), 'home path leaked');
   }
@@ -149,7 +150,7 @@ test('the report never prints message text, and names projects only when asked',
 
   const shown = run('--show-projects').stdout;
   assert.match(shown, /acme-widgets/);
-  assert.ok(!shown.includes(SECRET));
+  assert.ok(!shown.includes(PROMPT_SENTINEL));
 });
 
 test('change-first lists at most three signals, biggest estimated saving first, each with a habit', async () => {

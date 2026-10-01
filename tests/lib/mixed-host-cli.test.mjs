@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { newRun } from '../../scripts/lib/codex-pipeline.mjs';
 
 const REPO = resolve(import.meta.dirname, '../..');
@@ -22,6 +22,12 @@ process.stdin.on('end', async () => {
   const codex = role === 'security-officer';
   if (codex && prompt.includes('independent verifier')) {
     const text = JSON.stringify({ state: 'verified', findings: [], checks: ['fixture inspected actual report'] });
+    console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } }));
+    process.exit(0);
+  }
+  if (codex && prompt.includes('You are the code-reviewer specialist')) {
+    const text = JSON.stringify({ verdict: 'APPROVED', summary: 'fixture code review', meta: {},
+      files: [{ path: 'docs/code-review.md', before: null, content: 'fixture code review evidence\\n' }] });
     console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } }));
     process.exit(0);
   }
@@ -53,14 +59,28 @@ test('CLI executes both host subprocesses concurrently and clears their gates', 
   writeFileSync(claude, hostSource('qa-engineer')); writeFileSync(codex, hostSource('security-officer'));
   chmodSync(claude, 0o755); chmodSync(codex, 0o755);
   const state = newRun({ root, pluginRoot: REPO, prompt: 'Review this fixture', allowed: ['docs'],
-    entry: 'qa-engineer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' } });
-  state.queue.push('security-officer');
+    entry: 'code-reviewer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' } });
   const file = join(store, `${state.id}.json`);
   writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
   const env = { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_CODEX_BIN: codex,
     GREAT_CTO_CLAUDE_BIN: claude, MIXED_HOST_MARKERS: markers, GREAT_CTO_DISABLE_EVENTS: '1' };
-  const call = (command, ...rest) => JSON.parse(execFileSync(process.execPath,
-    [CONTROLLER, command, state.id, ...rest], { cwd: REPO, env, encoding: 'utf8', timeout: 30000 }));
+  const invoke = (expectedCode, command, ...rest) => {
+    const result = spawnSync(process.execPath, [CONTROLLER, command, state.id, ...rest],
+      { cwd: REPO, env, encoding: 'utf8', timeout: 30000 });
+    assert.equal(result.status, expectedCode,
+      `controller ${command} failed: ${result.error?.message || result.stderr || result.stdout}`);
+    return JSON.parse(result.stdout);
+  };
+  const call = (command, ...rest) => invoke(0, command, ...rest);
+
+  // Complete the third join prerequisite before dispatching the QA/security pair.
+  assert.equal(invoke(2, 'resume').status, 'join-wait');
+  const reviewed = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(reviewed.results['code-reviewer'].verification.state, 'verified');
+  assert.equal(reviewed.pending, null);
+  reviewed.queue.push('qa-engineer', 'security-officer');
+  reviewed.status = 'ready';
+  writeFileSync(file, JSON.stringify(reviewed), { mode: 0o600 });
 
   const first = call('resume');
   assert.equal(first.status, 'awaiting-gate');
@@ -73,13 +93,17 @@ test('CLI executes both host subprocesses concurrently and clears their gates', 
   assert.ok(saved.results['security-officer'].verification.state === 'verified');
   assert.ok(existsSync(join(root, 'docs', 'qa-engineer.md')));
   assert.ok(existsSync(join(root, 'docs', 'security-officer.md')));
-  const firstToken = saved.pending.token;
-  assert.equal(call('approve', '--token', firstToken).status, 'awaiting-gate');
+  const tokens = new Set();
+  while (saved.pending) {
+    assert.ok(!tokens.has(saved.pending.token), 'each role requires its own gate token');
+    tokens.add(saved.pending.token);
+    call('approve', '--token', saved.pending.token);
+    saved = JSON.parse(readFileSync(file, 'utf8'));
+  }
   saved = JSON.parse(readFileSync(file, 'utf8'));
-  assert.notEqual(saved.pending.token, firstToken);
-  assert.equal(call('approve', '--token', saved.pending.token).status, 'ready');
-  saved = JSON.parse(readFileSync(file, 'utf8'));
-  assert.equal(saved.approvals.length, 5); // QA+ship, security+compliance+ship.
-  assert.deepEqual(saved.attempts.map(a => a.host), ['claude-code', 'codex']);
+  assert.equal(saved.status, 'ready');
+  assert.equal(tokens.size, 3);
+  assert.equal(saved.approvals.length, 6); // Code review ship, QA+ship, security+compliance+ship.
+  assert.deepEqual(saved.attempts.map(a => a.host), ['codex', 'claude-code', 'codex']);
   assert.deepEqual(saved.queue, ['devops']); // The shared graph continues into release; this fixture stops before it.
 });

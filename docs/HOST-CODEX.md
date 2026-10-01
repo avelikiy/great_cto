@@ -63,11 +63,25 @@ stage's artifacts. Approving does not itself execute the next stage.
 For an opt-in live source-checkout smoke on a disposable Git fixture, run
 `GREAT_CTO_LIVE_MIXED=1 node --test tests/lib/mixed-host-live.test.mjs` after
 authenticating both CLIs. It routes QA to Claude Code and security to Codex,
-retains the project and run store under a printed temporary path, checks both
+first obtains real code-reviewer evidence required by the three-reviewer join,
+retains the project and run store under a printed private durable path, checks both
 independent verifier results and report hashes, and stops at the first human
 gate. The test never approves a gate. A verified smoke is evidence for this
 source checkout only; it is not evidence that the feature has shipped in npm
 or in an installed plugin.
+
+To check an extracted npm package or installed plugin instead, set
+`GREAT_CTO_LIVE_PLUGIN_ROOT` to its plugin root (the `package/board` directory
+for an npm tarball). Both the controller and graph are loaded from that root:
+
+```sh
+GREAT_CTO_LIVE_MIXED=1 GREAT_CTO_LIVE_PLUGIN_ROOT=/absolute/extracted/package/board \
+  node --test tests/lib/mixed-host-live.test.mjs
+```
+
+An unreleased tarball is package-candidate evidence, not a published-version
+claim. The smoke keeps the normal three-attempt rework limit and never approves
+the resulting human gates.
 
 Run state lives in `~/.great_cto/codex-runs/<uuid>.json`, outside the worker's
 workspace. An exclusive lock prevents concurrent resume or approval. An in-flight
