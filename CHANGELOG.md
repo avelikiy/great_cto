@@ -15,6 +15,39 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.47.0 — 2026-10-01
+
+One pipeline run can now use Claude Code and Codex side by side.
+
+### Added
+
+- **Mixed-host routing.** `npx great-cto codex-host start … --routes
+  qa-engineer=claude-code,security-officer=codex` assigns independent graph roles to
+  both installed CLIs. The two join roles read one snapshot at the same time; the
+  controller checks their proposals for overlap, applies them one after another, and
+  keeps the existing verifier and human gates. The route map is fixed for the run, both
+  role contracts are preflighted before any write, and an interrupted wave must be
+  inspected rather than restarted. Claude Code must be authenticated. Contract:
+  [docs/HOST-CODEX.md](docs/HOST-CODEX.md).
+
+### Fixed
+
+- Codex read-only stages can no longer write through a hidden shell command, and review
+  feedback survives a rework round with the controller's evidence visible.
+- The local gate builds the CLI as its first step and does not sign the commits its own
+  tests make, so it passes in a fresh worktree and with any signing setup.
+
+### Removed
+
+- The HOL catalogue scanner workflow. It qualified the plugin for a third-party
+  catalogue we decided not to join (74/100, 14 high findings on 2026-09-07, three of
+  them the word "eval"), and GitHub Actions has not run it since June. Removed by
+  decision rather than muted; the remaining findings are tracked for triage on their
+  own merits.
+
+---
+
 ## v3.46.2 — 2026-10-01
 
 Spending caps now see what was actually spent, and `/board` starts on a marketplace install.
