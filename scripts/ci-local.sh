@@ -73,6 +73,15 @@ echo "ci-local: node $(node -v) on $(uname -s)"
 
 # ── The privacy guard is actually in force ──
 #
+# The build comes FIRST, before anything that reads it. scripts/lib/gate-plan.mjs
+# (and through it the board) imports packages/cli/dist/archetypes.js, and the
+# "installs for a stranger" step checks dist is complete — both read a gitignored
+# build artefact. With the build at the end of this file a fresh worktree failed
+# them before it ran, and --quick never built at all. 3.46.2 moved it ahead of the
+# unit tests only; the stranger step sits earlier still and kept failing in a
+# fresh worktree. It takes about a second.
+step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
+
 # First, because it is the check that fails silently. The pre-push hook was
 # installed, executable and current for months while `core.hooksPath` pointed at
 # a directory this repository had moved out of — so git ran no hooks at all, and
@@ -346,13 +355,6 @@ step "agent → eval coverage (changed agents)" bash -c '
 step "docs screen classifies more than it shrugs at" bash -c '
   node --test tests/lib/docs-classify.test.mjs
 '
-
-# The build comes BEFORE the tests that import it. scripts/lib/gate-plan.mjs (and
-# through it the board) imports packages/cli/dist/archetypes.js, a gitignored
-# build artefact. With the build at the end of this file, a fresh worktree failed
-# the board and lib tests on ERR_MODULE_NOT_FOUND before the build ever ran —
-# in --quick mode, which skipped the build, every time. It takes about a second.
-step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
 
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
 step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs

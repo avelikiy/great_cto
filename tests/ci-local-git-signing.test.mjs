@@ -23,3 +23,11 @@ test('git honours that environment over a global signing setting', () => {
   }).trim();
   assert.equal(out, 'false');
 });
+
+// Steps read packages/cli/dist (a gitignored build) from early on — the stranger
+// install check among them. 3.46.2 built it ahead of the unit tests only, and a
+// fresh worktree still failed the earlier step. The build is the first step.
+test('the CLI build is the first step the gate runs', () => {
+  const first = /^\s*step "([^"]+)"/m.exec(SRC)?.[1];
+  assert.equal(first, 'cli build (tests import it)');
+});
