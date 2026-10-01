@@ -190,7 +190,7 @@ emit WAIVERS "$(_s_waivers)"
 # ── block 16 ────────────────────────
 _s_slo_burn() {
 # Cheap check: only compute for the most-burning service+SLI in latest snapshot.
-# Full breakdown lives in /burn.
+# Full breakdown lives in /digest slo.
 if [ -f .great_cto/slo-burn-history.log ]; then
   python3 - <<'PY' 2>/dev/null
 import datetime, collections, sys
@@ -338,7 +338,7 @@ emit GATE_DRIFT "$(_s_gate_drift)"
 # ── block 19 ────────────────────────
 _s_cost_alert() {
 # Fires when run-rate crosses alert_threshold of budget OR any service +30% MoM.
-# Cheap version — full breakdown lives in /cost.
+# Cheap version — full breakdown lives in /digest cost.
 if [ -f .great_cto/cost-history.log ]; then
   python3 - <<'PY' 2>/dev/null
 import datetime, collections
@@ -478,11 +478,11 @@ case "$ARCHETYPE" in
     if [ "$MODE" = "poc" ] && [ -n "$POC_DEADLINE" ]; then
       DAYS_LEFT=$(( ( $(date -j -f "%Y-%m-%d" "$POC_DEADLINE" "+%s" 2>/dev/null || date -d "$POC_DEADLINE" "+%s" 2>/dev/null) - $(date +%s) ) / 86400 ))
       if [ "${DAYS_LEFT:-0}" -lt 0 ]; then
-        AI_SIGNALS+="  🚨 P0: PoC deadline overdue by $((0 - DAYS_LEFT))d. Run /promote (poc → mvp/production) or close the experiment.\n"
+        AI_SIGNALS+="  🚨 P0: PoC deadline overdue by $((0 - DAYS_LEFT))d. Run /poc promote (poc → mvp/production) or close the experiment.\n"
       elif [ "${DAYS_LEFT:-0}" -le 1 ]; then
-        AI_SIGNALS+="  🚨 P0: PoC deadline in ${DAYS_LEFT}d. Decide /promote vs close.\n"
+        AI_SIGNALS+="  🚨 P0: PoC deadline in ${DAYS_LEFT}d. Decide /poc promote vs close.\n"
       elif [ "${DAYS_LEFT:-0}" -le 7 ]; then
-        AI_SIGNALS+="  ⚠ PoC deadline in ${DAYS_LEFT}d ($POC_DEADLINE). Plan /promote or extension.\n"
+        AI_SIGNALS+="  ⚠ PoC deadline in ${DAYS_LEFT}d ($POC_DEADLINE). Plan /poc promote or extension.\n"
       fi
     fi
 

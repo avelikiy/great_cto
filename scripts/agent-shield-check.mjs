@@ -14,6 +14,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const r = shieldReport({
   manifestPath: path.join(ROOT, '.claude-plugin/plugin.json'),
   agentsDir: path.join(ROOT, 'agents'),
+  promptDirs: [path.join(ROOT, 'skills'), path.join(ROOT, 'commands')],
 });
 console.log(formatShield(r));
 process.exit(r.state === 'blocked' ? 1 : r.state === 'unscannable' ? 2 : 0);

@@ -76,3 +76,22 @@ test('the accidental five are not mistaken for a build', () => {
   assert.ok(present.length > 5,
     `dist has ${present.length} built file(s) — a non-empty dist is not evidence of a complete one`);
 });
+
+// A marketplace install is a git clone, and Claude Code's auto-update re-clones
+// each new version — so even after `great-cto init` supplied a build once, the
+// next version arrives with the accidental five again. `/board` checked that
+// `packages/cli/index.mjs` existed (it always does: it is in git), ran it, and
+// index.mjs exited on "dist/main.js not found" — the fallback to a global
+// `great-cto` was never reached. Every marketplace version 3.29–3.46 had 5 files.
+test('commands use the plugin CLI only when its build is there', async () => {
+  const { readFileSync, readdirSync: ls } = await import('node:fs');
+  const dir = join(repoRoot, 'commands');
+  for (const f of ls(dir).filter((n) => n.endsWith('.md'))) {
+    const src = readFileSync(join(dir, f), 'utf8');
+    assert.doesNotMatch(src, /-f\s+"?\$PLUGIN_DIR\/packages\/cli\/index\.mjs"?/,
+      `${f}: index.mjs is in git, so its presence says nothing — test for dist/main.js`);
+  }
+  const board = readFileSync(join(dir, 'board.md'), 'utf8');
+  assert.match(board, /-f\s+"\$PLUGIN_DIR\/packages\/cli\/dist\/main\.js"/,
+    'board.md must check for the built CLI before running the plugin copy');
+});

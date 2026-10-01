@@ -60,7 +60,7 @@ function syncOne({ src, dst, isSource, dstName, isOurs, sourceOf, transform = (t
     const existing = readOr(out);
     const body = transform(readFileSync(join(src, f), 'utf8'));
     // Ours: it carries the marker, or it is byte-for-byte the plugin's file. The
-    // second case is real: commands/learn.md says "great_cto-managed" in prose,
+    // second case is real: commands/learn.md (now `/crystallize learn`) said "great_cto-managed" in prose,
     // the old shell loop's substring grep took that for the marker, and the copy
     // never got one — a strict marker test alone would freeze it as a user file.
     if (existing !== null && !existing.includes(MARKER) && existing !== body) { kept += 1; continue; }

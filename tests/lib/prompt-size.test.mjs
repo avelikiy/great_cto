@@ -158,3 +158,21 @@ test('every agent in the repo profiles without throwing', () => {
     assert.ok(r.tokens >= r.ownTokens, `${r.agent}: shared expansion cannot shrink a prompt`);
   }
 });
+
+// ── preloaded skills are part of the prompt ────────────────────────────────
+
+test('preloaded skills are counted; a skill from another plugin is listed, not sized', () => {
+  // senior-dev carried a 46 KB UI skill into every backend task, and nothing
+  // here could see it: the count stopped at the agent file and its contracts.
+  const root = fixture({
+    'agents/x.md': '---\nname: x\nskills:\n  - big\n  - other:thing\n---\nBody.',
+    'skills/big/SKILL.md': '---\nname: big\n---\n' + 'A long skill body. '.repeat(400),
+  });
+  try {
+    const p = promptProfile('x', { root: path.join(root, 'agents') });
+    assert.ok(p.skillTokens > 1000);
+    assert.equal(p.tokens, p.ownTokens + p.sharedTokens + p.skillTokens);
+    assert.deepEqual(p.skills.map((k) => [k.name, k.external]), [['big', false], ['other:thing', true]]);
+    assert.equal(p.skills[1].tokens, null, 'not sized — its size depends on the machine');
+  } finally { clean(root); }
+});

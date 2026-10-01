@@ -22,7 +22,7 @@ stages until one vertical slice produces a real PROMOTE and a real REJECT.
 | **Completion / Acceptance** | three-state completion + acceptance evidence enforced | declared, never enforced | `shared/orchestrator.toml:28,35` `three_state_completion`/`acceptance_evidence_required = true`; **no SubagentStop hook exists** to enforce it; impl-brief only checks acceptance items *exist*, not that they are *satisfied* |
 
 **So-what:** the product's headline value props (`learn → crystallize → recall`, the cost
-dashboard, `/prompt-evolve`) are currently placebo. Every PROMOTE/REJECT is a coin-flip.
+dashboard, `/agent evolve`) are currently placebo. Every PROMOTE/REJECT is a coin-flip.
 
 ## Sharpest reframe
 

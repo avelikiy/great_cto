@@ -1,6 +1,6 @@
 ---
 name: knowledge-extractor
-description: Deep-analysis agent spawned by /crystallize. Reads session logs and lessons.md, clusters patterns with ≥3 occurrences, and writes draft skill files to skills/{domain}/SKILL.md.
+description: "Deep-analysis agent spawned by /crystallize."
 model: claude-opus-5
 authority: proposes
 tools: Read, Write, Glob, Grep, Bash(git:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(grep:*), Bash(wc:*), Bash(echo:*), Bash(mkdir:*), Bash(date:*)
@@ -244,7 +244,7 @@ can be re-checked by someone else without carrying the value forward.
 Checked, not requested:
 
 ```bash
-_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | sort -V | tail -1)
+_RP=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/report-pii.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_RP" ] && _RP="scripts/lib/report-pii.mjs"
 node "$_RP" <your-report.md> --strict
 ```

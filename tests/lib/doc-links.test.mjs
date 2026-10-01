@@ -18,7 +18,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -110,10 +110,22 @@ test('the orphan count is frozen, and only shrinks deliberately', (t) => {
   const docs = g.docs.filter((d) => !ignored.has(d));
   const orphans = g.orphans.filter((d) => !ignored.has(d));
 
+  // Name the documents that are NEW, not the ones that happen to sort last. The
+  // list used to be sliced by position, so on 2026-09-26 it blamed a months-old
+  // file for a plan added that day — and the reader believed the red predated them.
+  const newest = () => orphans
+    .map((d) => {
+      const r = spawnSync('git', ['log', '--diff-filter=A', '--format=%ct', '-1', '--', d], { encoding: 'utf8' });
+      const added = Number(String(r.stdout).trim());
+      return { d, added: Number.isFinite(added) && added > 0 ? added : Infinity }; // uncommitted = newest
+    })
+    .sort((a, b) => b.added - a.added)
+    .slice(0, orphans.length - FROZEN)
+    .map((x) => x.d);
   assert.ok(orphans.length <= FROZEN,
     `${orphans.length} orphaned documents, up from ${FROZEN} of ${docs.length}. ` +
-    `A new document must reference an existing one, or be referenced by one: ` +
-    orphans.slice(FROZEN).join(', '));
+    `A new document must reference an existing one, or be referenced by one — newest orphan(s): ` +
+    newest().join(', '));
   if (orphans.length < FROZEN) {
     assert.fail(`down to ${orphans.length} — lower FROZEN to ${orphans.length} so the ratchet keeps holding`);
   }

@@ -1,0 +1,27 @@
+{
+  "description": "great_cto guards for Codex: destructive commands, gate bypasses, a neighbour session's work, secrets in files, frozen gates and weakened checks \u2014 plus two context hooks that never block: who depends on a file before it is edited (edit-impact) and a recorded lesson when a call touches what it is about (lesson-tripwire). Shell calls go to the guards as they are; apply_patch is split into one Edit/Write per file first (scripts/hooks/codex-adapter.mjs).",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 20,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" shared-tree-guard gate-bypass-guard destructive-guard frozen-gates-guard lesson-tripwire; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+          }
+        ]
+      },
+      {
+        "matcher": "apply_patch",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 20,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" secret-scan frozen-gates-guard gate-weakening-guard edit-impact lesson-tripwire; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -29,7 +29,7 @@ function getMemory(cwd = process.cwd()) {
     { id: 'skill',       scope: 'project', layer: 'L1', name: 'SKILL.md',      desc: 'Pipeline skill — synced from plugin',           path: path.join(cwd, '.great_cto', 'SKILL.md') },
     { id: 'codebase',    scope: 'project', layer: 'L2', name: 'CODEBASE.md',   desc: 'God nodes, entry points, public API, routes',   path: path.join(cwd, '.great_cto', 'CODEBASE.md') },
     { id: 'brain',       scope: 'project', layer: 'L3', name: 'brain.md',      desc: 'Patterns in use, what failed, team patterns',   path: path.join(cwd, '.great_cto', 'brain.md') },
-    { id: 'lessons',     scope: 'project', layer: 'L3', name: 'lessons.md',    desc: 'Per-project lessons (extracted by /learn)',     path: path.join(cwd, '.great_cto', 'lessons.md') },
+    { id: 'lessons',     scope: 'project', layer: 'L3', name: 'lessons.md',    desc: 'Per-project lessons (extracted by /crystallize learn)',     path: path.join(cwd, '.great_cto', 'lessons.md') },
     { id: 'handoff',     scope: 'project', layer: 'L3', name: 'HANDOFF.md',    desc: 'Auto-written on context compaction',            path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
     { id: 'local',       scope: 'project', layer: 'L3', name: 'local.md',      desc: 'Project-local notes (gitignored)',              path: path.join(cwd, '.great_cto', 'local.md') },
     // Cross-project (~/.great_cto/) — L4 global memory shared across all projects

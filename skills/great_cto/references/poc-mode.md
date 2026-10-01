@@ -10,12 +10,12 @@ applies_to:
 
 CTO work has three distinct rigor levels, not one. This reference documents
 what great_cto agents **skip** when `mode:` in `PROJECT.md` is `poc` or
-`mvp`, and what gets restored when `/promote` runs.
+`mvp`, and what gets restored when `/poc promote` runs.
 
 Philosophy: **POCs answer questions; production ships them.** If the mode
 is `poc`, we strip away ceremony that's correct for production but harmful
 for a 3-day experiment. The cost of this optimisation is a **hard
-forbidding line** — POC code cannot see production without `/promote`.
+forbidding line** — POC code cannot see production without `/poc promote`.
 
 ---
 
@@ -72,7 +72,7 @@ The skip matrix above applies to most archetypes. AI archetypes are different be
 
 **Rule of thumb**: in AI PoC mode, you skip ARCH ceremony, TDD strictness, and full pentest — but you do NOT skip the threats that are unique to AI (prompt injection, cost runaway, tool-call abuse, model-jailbreak). Those are baseline risks regardless of project lifetime.
 
-When the AI PoC promotes via `/promote`, the eval set and threat model upgrade to the full schema; the lite versions become the historical record of what the team knew at PoC time.
+When the AI PoC promotes via `/poc promote`, the eval set and threat model upgrade to the full schema; the lite versions become the historical record of what the team knew at PoC time.
 
 ## The `credential-scan` exception
 
@@ -105,7 +105,7 @@ Then branches on `$MODE`:
 
 - **`architect`** — skip threat-model + cost-model + full ARCH sections;
   produce 1-pager instead. Note clearly at top: "POC ARCH — will be
-  expanded by `/promote`."
+  expanded by `/poc promote`."
 - **`senior-dev`** — skip coverage target; write one smoke test per
   hypothesis criterion. Honour the credential-scan exception regardless.
 - **`qa-engineer`** — smoke-only report; explicit line "This is POC QA,
@@ -113,7 +113,7 @@ Then branches on `$MODE`:
 - **`security-officer`** — skip full CSO; run credential-scan only. Write
   a one-line verdict to `.great_cto/verdicts/security-officer.log`.
 - **`devops`** — refuse to deploy to `production` env if `mode: poc`.
-  Preview/dev/local deploys are fine. Halt with: "POC mode — /promote
+  Preview/dev/local deploys are fine. Halt with: "POC mode — /poc promote
   required before production deploy."
 - **`l3-support`** — unchanged. If POC code somehow ends up in production
   and breaks (shouldn't happen, but), l3-support treats it as any other
@@ -135,15 +135,15 @@ When `poc_expires:` date arrives:
   (we don't actually auto-revert — we nag, but the code rots visibly)
 
 This is deliberate. A POC that drifts past its deadline is either (a) not
-a POC, it's a feature — in which case `/poc decide → SHIP → /promote`, or
+a POC, it's a feature — in which case `/poc decide → SHIP → /poc promote`, or
 (b) a zombie — kill it.
 
 ---
 
-## What `/promote` restores
+## What `/poc promote` restores
 
 Promotion runs the steps POC mode skipped. Each is a gate — promotion is
-all-or-nothing. See `commands/promote.md` for the full flow.
+all-or-nothing. See `commands/poc.md` (`## Action: promote`) for the full flow.
 
 | Restored step | Agent / command |
 |---|---|
@@ -162,7 +162,7 @@ all-or-nothing. See `commands/promote.md` for the full flow.
 
 Documented here as negatives — these are ways POC mode gets abused.
 
-1. **"Just ship the POC — we'll clean up later."** No. POC → `/promote` or
+1. **"Just ship the POC — we'll clean up later."** No. POC → `/poc promote` or
    POC → kill. There is no "ship without promotion" path. `devops` blocks it.
 2. **Extending the timebox repeatedly.** Max 1 extension, max 7 days. After
    that, it's not a POC, it's a feature without a plan.

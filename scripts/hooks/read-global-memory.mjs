@@ -16,11 +16,19 @@
  *
  * A file that cannot be read is withheld rather than emitted: "I could not check"
  * must not arrive as "checked and clean" when being wrong is permanent.
+ *
+ * Secrets leak outward; injections steer inward. A file that passes the secret
+ * scan is then screened ENTRY by entry (`injection-scan.mjs`): an entry carrying
+ * invisible Unicode, instructions hidden in an HTML comment, or a prompt-injection
+ * phrase in prose is dropped, the rest of the file still loads, and invisible
+ * characters are stripped from what does. The notice names the file, the entry's
+ * line and the kind — never the text, which is the payload.
  */
 
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { scanMemoryFile } from '../lib/memory-secret-scan.mjs';
+import { screenMemoryText } from '../lib/injection-scan.mjs';
 
 /** The L4 layers, shared by every project — see data-readers.mjs `scope: 'global'`. */
 const LAYERS = ['preferences.md', 'decisions.md', 'lessons.md'];
@@ -32,8 +40,13 @@ function main() {
 
   for (const name of LAYERS) {
     const r = scanMemoryFile(join(dir, name));
-    if (r.state === 'clean' && r.content.trim()) out.push(r.content);
-    else if (r.message) warnings.push(r.message);
+    if (r.state !== 'clean') { if (r.message) warnings.push(r.message); continue; }
+    const { content, dropped } = screenMemoryText(r.content);
+    for (const d of dropped) {
+      warnings.push(`INJECTION GUARD — ${name}: entry at line ${d.line} dropped (${d.kinds.join(', ')}); `
+        + 'it was NOT loaded into this session. Review that entry in the file.');
+    }
+    if (content.trim()) out.push(content);
   }
 
   // Warnings go to stderr so they reach the operator without becoming part of the

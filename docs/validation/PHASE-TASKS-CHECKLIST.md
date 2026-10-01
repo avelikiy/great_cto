@@ -114,7 +114,7 @@ absent, and that re-running with bd later still works.
 |---|---|
 | No phase-* tasks ever created | Agent prompt is too long, helper instruction got context-trimmed. Fix: shorten the instruction in `agents/<name>.md`. |
 | `phase-task.sh: command not found` in agent | PLUGIN_DIR detection failed. Agent should fall back to `$(pwd)/scripts/phase-task.sh`. Check both paths in `agents/<name>.md`. |
-| Tasks created but never closed | Agent doesn't reach the closing block (errored out, context compacted, etc). Acceptable; cleanup via `/agent-retire` later. |
+| Tasks created but never closed | Agent doesn't reach the closing block (errored out, context compacted, etc). Acceptable; cleanup via `/agent retire` later. |
 | Wrong agent label (e.g. `phase-impl` for QA) | `phase_label_for()` mapping bug in `phase-task.sh`. |
 | Bd close fails silently | Verify with `bd close --force` fallback (fixed in v2.5.10). |
 

@@ -44,7 +44,7 @@ export function parseProject(text) {
 //        (qa runs tests, security runs secret/CVE scans, ship gates on CI green).
 //   R1 = text-only judgment — a human/reviewer reads and approves the direction.
 // R2 gates are the moat: an enforced control, not a vibe. Surfacing the split lets
-// /gov-metrics measure how much of the pipeline is actually enforced vs prose.
+// /digest gov measure how much of the pipeline is actually enforced vs prose.
 const R2_GATES = new Set(['qa', 'security', 'ship']);
 export function regimeOfGate(gate) { return R2_GATES.has(gate) ? 'R2' : 'R1'; }
 

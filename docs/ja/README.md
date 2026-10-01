@@ -98,22 +98,50 @@ Claude Code を再起動して：
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-あとはパイプラインが引き継ぎます。日常的に触るのは 3 つだけ：
+great_cto との一日：
 
-| | |
+| いつ | コマンド | 得られるもの |
+|---|---|---|
+| アイデアや既存のコードがある | `/start "…"` | ブリーフ、計画、動くコード — あなたが決めるのは3つ：何を作るか、どう作るか、出荷するか |
+| 今日はここまで | `/save` | やったこと、各「完了」をどう検証したか、次にやること |
+| 戻ってきた | `/resume` | 中断したところからそのまま — その後コードが変わっていれば警告 |
+| あなたの判断が必要 | `/inbox` | あなた待ちの判断だけ：ゲート、ブロッカー、P0 |
+| 金曜日 | `/digest` | 出荷したもの、壊れたもの、機能ごとのコスト |
+
+必要なときに：
+
+| コマンド | 得られるもの |
 |---|---|
-| `/start "…"` | プロダクトや機能を説明 — パイプラインが実行 |
-| `/inbox` | あなた待ちのもの：ゲート、P0、ブロック中タスク |
-| `/digest` | 週次 DORA メトリクス + 機能あたりコスト |
+| `/review` | マージ前のブランチレビュー、すべての指摘に根拠付き — またはコンプライアンスレビュー（`--domain tax`、`legal`、`hr-ai`、…） |
+| `/spec` | コードを書く前に discovery → PRD → ビルド仕様 |
+| `/poc` | リスクあるアイデアへの期限付きの yes/no。`promote` で勝者を省略した監査に通す |
+| `/release` | ストア向けノート、ユーザー向け changelog、古くなったドキュメントとランディング文言の指摘 |
+| `/trace` | 1項目または機能全体の要件 → タスク → テストのつながり |
+| `/crystallize` | このセッションの教訓と繰り返し手順を再利用可能な知識に |
+| `/recall` | このプロジェクトがある語についてすでに知っていること |
+| `/sec` | セキュリティ状況、脅威モデル、SBOM、インシデント対応フロー |
+| `/ownership` | パスの担当者と当番 |
+| `/rfc` | チーム横断の決定を提案して決着。承認されたものは ADR に |
+| `/exception` | 意図的なゲート回避のための、署名付き・期限付きの記録 |
+| `/doctor` | great_cto 自体のヘルスチェック。`--fix` で安全な修正を適用 |
+| `/board` | ローカルボード：あなたを待つ決定、コスト、エージェント |
+| `/agent` | エージェントのレビュー、テスト、改善、または廃止 |
+| `/help` | 1画面のコマンド早見表。3.40 より前の名前は `/help renamed` |
+
+全コマンドのモードと例：[docs/COMMANDS.md](../COMMANDS.md)。
 
 Node ≥ 18.17 が必要。コンパニオンプラグイン（Superpowers、Beads）は自動で入ります。
 init 後、ホストが本当にプラグインを読み込んだか確認してください —
 `claude plugin list --json` で `great-cto` の `errors` が空であること。
 
-**OpenAI Codex では**（`npx great-cto init --host codex`）スキルと MCP サーバーを利用
-できます。ネイティブのフック、スラッシュコマンド、ロールエージェントは依然として
-ありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
-サポートされる経路は `npx --yes great-cto@3.33.0 codex-host` で、
+**OpenAI Codex では**（`npx great-cto init --host codex`）スキル、MCP サーバー、
+そして Codex プラグインフックとしての 6 つの安全ガード（データ削除、`--no-verify` などの
+ゲート回避、ファイル内のシークレットなど）と、何もブロックしない 2 つのヒント（編集前にそのファイルに
+依存するファイル、呼び出しが関係する記録済みの教訓）を利用できます。Codex はプラグインを自動更新しないため、
+`great-cto upgrade` で更新します。承認はターミナル版 Codex で一度だけ
+行います：ターミナルで `codex` を起動し、「Hooks need review」で **Trust all and continue** を選択します
+（ChatGPT/Codex アプリにはこの画面が表示されません）。スラッシュコマンドとロールエージェントは依然としてありません。プラグインのインストールでは npm binary は `PATH` に追加されません。
+サポートされる経路は `npx --yes great-cto@3.46.2 codex-host` で、
 制御されたロール、verifier、gate、recovery、任意のローカルまたは GitHub Release を
 実行します。ネイティブフックの模倣や任意の本番サービス有効化ではありません。
 [Codex ホストガイド](../HOST-CODEX.md)を参照してください。
@@ -234,7 +262,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 
 ## 何が違うか
 
-- **ゼネラリストではなくスペシャリスト** — 役割の狭い 70 エージェントが各自のレビュー
+- **ゼネラリストではなくスペシャリスト** — 役割の狭い 71 エージェントが各自のレビュー
   ゲートを持つ。考えるより速くタイプするアシスタント 1 体ではなく。
   [名簿 →](../reference/agents.md)
 - **コードの前に批評家** — アーキテクチャ・仕様・スキーマの批評家が計画前に走る。誤りの
@@ -295,7 +323,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [ゲートと承認レベル](../GATES.md) ·
 [エージェント](../reference/agents.md) · [コマンド](../reference/commands.md) ·
 [アーキタイプ](../ARCHETYPES.md) · [アーキテクチャ](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [その他すべて](../DETAILS.md) — 批評家、法域、コスト内訳、CI、アラート
 
 ## コミュニティ

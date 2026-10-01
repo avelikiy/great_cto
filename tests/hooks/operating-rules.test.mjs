@@ -34,6 +34,12 @@ test('the rules say: take reversible steps, ask for irreversible ones, prove don
   // The main session does most deploys and commits, and on a machine with hundreds
   // of skills their descriptions do not reach it — so the rules name them.
   for (const s of ['deploy-landed', 'secrets-rotation', 'signing-preflight']) assert.match(t, new RegExp(`great-cto:${s}`));
-  // Paid in every session: keep it short.
-  assert.ok(t.length < 1500, `operating rules are ${t.length} chars`);
+  // The proposal the operator approves with one word is the task statement: 0 of
+  // 965 approvals over 60 days (25.09) were of a proposal that said how the work
+  // counts as done. Rule 6 puts that line in, and reproduces a bug before fixing it.
+  assert.match(t, /Done when:/);
+  assert.match(t, /reproduce it first/);
+  assert.match(t, /agents\/_shared\/task-brief\.md/);
+  // Paid in every session: keep it short. Raised from 1500 for rule 6.
+  assert.ok(t.length < 1700, `operating rules are ${t.length} chars`);
 });

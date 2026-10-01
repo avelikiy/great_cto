@@ -204,5 +204,37 @@ if [ -n "$OLD_PID" ]; then
   fi
 fi
 
+# The registration Claude Code actually LOADS. Until 2026-09-25 the `local`
+# marketplace entry this script feeds had an invalid `source` (an absolute path),
+# so Claude Code stubbed great_cto@local — no hooks — and every session ran the
+# GitHub marketplace registration at 3.29.1. Keep that registration current too;
+# `claude -p ok --debug hooks` + ~/.claude/debug/latest shows which one loads.
+if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q 'great_cto@great-cto'; then
+  claude plugin marketplace update great-cto >/dev/null 2>&1 \
+    && claude plugin update great_cto@great-cto 2>&1 | tail -1 | sed 's/^/  /' \
+    || echo "  ! could not update great_cto@great-cto — run: claude plugin update great_cto@great-cto"
+fi
+
+# Codex keeps its own Git snapshot of great_cto and never refreshes it: on this
+# machine it sat at 3.37.0 while 3.45.0 shipped, so none of the Codex guards had
+# arrived. `codex plugin marketplace upgrade` refreshes the snapshot and the installed
+# plugin together (measured 2026-09-30). It reads GitHub main, so it only picks up a
+# release after release.sh has pushed the tag.
+CODEX_BIN="$(command -v codex 2>/dev/null || ls -d "$HOME"/.nvm/versions/node/*/bin/codex 2>/dev/null | sort -V | tail -1)"
+if [ -n "$CODEX_BIN" ] && grep -qE '^\[marketplaces\.("great-cto"|great-cto)\]' "$HOME/.codex/config.toml" 2>/dev/null; then
+  step "Refresh great_cto in Codex"
+  # One retry: the first refresh after release.sh pushed the tag failed once (3.46.0,
+  # output discarded, a manual rerun passed) — keep the error this time.
+  cx_refresh() { "$CODEX_BIN" plugin marketplace upgrade great-cto 2>&1 >/dev/null; }
+  if CX_ERR="$(cx_refresh)" || { sleep 5; CX_ERR="$(cx_refresh)"; }; then
+    CX_DIR="$HOME/.codex/plugins/cache/great-cto/great-cto"
+    CX_VER="$( (cd "$CX_DIR" 2>/dev/null && ls -1) | sort -V | tail -1)"   # bare version names, one market
+    echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review: run \`codex\` in a terminal, Trust all and continue"
+  else
+    echo "  ! could not refresh Codex: $(printf '%s' "$CX_ERR" | head -1)"
+    echo "    run: codex plugin marketplace upgrade great-cto"
+  fi
+fi
+
 printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
 echo "  Restart your Claude Code session so the SessionStart hook picks it up."

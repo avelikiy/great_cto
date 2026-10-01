@@ -59,7 +59,7 @@ cd "$ROOT"
 # Find latest installed plugin dir (for L2/L4/L5 — runs against the SYNCED
 # version, not the working tree, to catch packaging issues)
 PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null \
-              | sort -V | tail -1 | sed 's|/$||')"
+              | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')"
 
 if [ -t 1 ]; then
   C_OK=$'\033[32m'; C_FAIL=$'\033[31m'; C_DIM=$'\033[2m'
@@ -509,8 +509,11 @@ else
   check "plugin.json is valid JSON" \
     bash -c "python3 -c 'import json; json.load(open(\"$ROOT/.claude-plugin/plugin.json\"))'"
 
-  check "all 22 great_cto commands present in ~/.claude/commands/" \
-    bash -c "missing=0; for cmd in start audit inbox digest review ownership oncall rfc release doctor burn cost sec poc promote crystallize migrate resume save learn agent-review agent-retire; do [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
+  # Was a hard-coded list of 19 names; 3.40 folded four of them into modes of
+  # other commands and the list kept asking for the files that were removed.
+  # Parity with commands/, the same property the agents check below holds.
+  check "every command in commands/ is synced into ~/.claude/commands/" \
+    bash -c "missing=0; for f in \"$ROOT\"/commands/*.md; do cmd=\$(basename \"\$f\" .md); [ -f ~/.claude/commands/\$cmd.md ] || { echo \"missing: \$cmd\" >&2; missing=\$((missing+1)); }; done; [ \"\$missing\" = '0' ]"
 
   # Was `-eq 34`. The repository ships seventy agents, so this had been failing
   # for every agent added since the number was written down — and the fix it
@@ -532,8 +535,8 @@ else
       [ -z "$missing$extra" ]
     '
 
-  check "agent-review + agent-retire commands present" \
-    bash -c "[ -f ~/.claude/commands/agent-review.md ] && [ -f ~/.claude/commands/agent-retire.md ]"
+  check "agent command present (review/evals/evolve/retire)" \
+    bash -c "[ -f ~/.claude/commands/agent.md ]"
 
   check "all 4 new agents synced (continuous-learner + 3 reviewers)" \
     bash -c "for a in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do [ -f ~/.claude/agents/great_cto-\$a.md ] || exit 1; done"

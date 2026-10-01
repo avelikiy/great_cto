@@ -99,22 +99,52 @@ Reinicia Claude Code y luego:
 /start "construye una app de despacho y agenda para un negocio de HVAC"
 ```
 
-El pipeline se encarga desde ahí. En el día a día tocas tres cosas:
+Un día con great_cto:
 
-| | |
+| Cuándo | Comando | Qué obtienes |
+|---|---|---|
+| Tienes una idea o un código existente | `/start "…"` | un brief, un plan y código funcionando — tres decisiones siguen siendo tuyas: qué construir, cómo y si se publica |
+| Terminas por hoy | `/save` | qué se hizo, cómo se verificó cada «hecho», qué sigue |
+| Vuelves | `/resume` | justo donde lo dejaste — y un aviso si el código cambió desde entonces |
+| Algo te necesita | `/inbox` | solo las decisiones que esperan por ti: gates, bloqueos, P0 |
+| Viernes | `/digest` | qué se publicó, qué se rompió, cuánto costó cada funcionalidad |
+
+Cuando lo necesites:
+
+| Comando | Qué obtienes |
 |---|---|
-| `/start "…"` | describe un producto o feature — el pipeline lo ejecuta |
-| `/inbox` | lo que te espera: gates pendientes, P0, tareas bloqueadas |
-| `/digest` | métricas DORA semanales + coste por feature |
+| `/review` | una rama revisada antes de fusionar, cada hallazgo con evidencia — o una revisión de cumplimiento (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → especificación de construcción, antes de cualquier código |
+| `/poc` | un sí/no con plazo fijo sobre una idea arriesgada; `promote` lleva a la ganadora por las auditorías que se saltó |
+| `/release` | notas para la tienda, un changelog para usuarios, docs y textos de landing obsoletos señalados |
+| `/trace` | la cadena requisito → tarea → test para un elemento o una funcionalidad entera |
+| `/crystallize` | las lecciones y procedimientos repetidos de esta sesión convertidos en conocimiento reutilizable |
+| `/recall` | lo que este proyecto ya sabe sobre una palabra |
+| `/sec` | postura de seguridad, modelo de amenazas, SBOM, flujo de incidentes |
+| `/ownership` | de quién es una ruta y quién está de guardia |
+| `/rfc` | una decisión entre equipos propuesta y cerrada; las aceptadas se convierten en ADR |
+| `/exception` | un registro firmado y con caducidad para un bypass deliberado de un gate |
+| `/doctor` | un chequeo de salud del propio great_cto; `--fix` aplica las correcciones seguras |
+| `/board` | el tablero local: decisiones que te esperan, coste, agentes |
+| `/agent` | un agente revisado, probado, mejorado o retirado |
+| `/help` | la tarjeta de comandos en una pantalla; `/help renamed` para los nombres anteriores a 3.40 |
+
+Cada comando con sus modos y ejemplos: [docs/COMMANDS.md](../COMMANDS.md).
 
 Requiere Node ≥ 18.17. Los plugins compañeros (Superpowers, Beads) se instalan
 solos. Tras el init, verifica que el host cargó el plugin de verdad:
 `claude plugin list --json` no debe mostrar `errors` para `great-cto`.
 
-**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills y el
-servidor MCP. Los hooks, slash commands y agentes con rol nativos siguen sin
-existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
-pipeline soportada es `npx --yes great-cto@3.33.0 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
+**En OpenAI Codex** (`npx great-cto init --host codex`) obtienes las skills, el
+servidor MCP y seis guardas como hooks del plugin de Codex (borrado de datos,
+saltarse gates como `--no-verify`, secretos en archivos, entre otros) y dos avisos que
+no bloquean nada: quién depende de un archivo antes de editarlo y una lección registrada
+cuando una llamada toca su tema. Codex nunca actualiza el plugin por sí mismo —
+lo hace `great-cto upgrade`; Hay que aprobarlos
+una vez en la interfaz de terminal de Codex: ejecuta `codex` en una terminal y elige
+**Trust all and continue** en «Hooks need review» (la app de ChatGPT/Codex no muestra esa pantalla). Los slash commands y agentes con
+rol siguen sin existir. La instalación del plugin no añade un binario npm a `PATH`; la ruta de
+pipeline soportada es `npx --yes great-cto@3.46.2 codex-host`: ejecuta roles controlados, verifier, gates, recovery y,
 opcionalmente, releases locales o de GitHub. No emula hooks nativos ni activa
 servicios de producción arbitrarios. Consulta la
 [guía del host Codex](../HOST-CODEX.md).
@@ -243,7 +273,7 @@ Postgres y Stripe corrientes que cualquier ingeniero puede retomar.
 
 ## Qué lo hace distinto
 
-- **Especialistas, no un generalista** — 70 agentes con trabajos acotados y sus
+- **Especialistas, no un generalista** — 71 agentes con trabajos acotados y sus
   propios gates de revisión, en vez de un asistente que teclea más rápido de lo
   que piensa. [La plantilla →](../reference/agents.md)
 - **Críticos antes del código** — críticos de arquitectura, spec y esquema
@@ -313,7 +343,7 @@ telemetría está **desactivada por defecto** ([docs/PRIVACY.md](../PRIVACY.md))
 [Gates y niveles de aprobación](../GATES.md) ·
 [Agentes](../reference/agents.md) · [Comandos](../reference/commands.md) ·
 [Arquetipos](../ARCHETYPES.md) · [Arquitectura](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Todo lo demás](../DETAILS.md) — críticos, jurisdicciones, desglose de costes, CI, alertas
 
 ## Comunidad

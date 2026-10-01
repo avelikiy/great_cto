@@ -99,21 +99,51 @@ Claude Code를 재시작한 뒤:
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-이후는 파이프라인이 이어받습니다. 일상적으로 만지는 것은 세 가지뿐입니다:
+great_cto와 함께하는 하루:
 
-| | |
+| 언제 | 명령 | 얻는 것 |
+|---|---|---|
+| 아이디어나 기존 코드베이스가 있을 때 | `/start "…"` | 브리프, 계획, 동작하는 코드 — 당신이 내리는 결정은 세 가지: 무엇을 만들지, 어떻게 만들지, 출시할지 |
+| 오늘은 여기까지 | `/save` | 한 일, 각 '완료'를 어떻게 검증했는지, 다음 할 일 |
+| 돌아왔을 때 | `/resume` | 멈춘 곳 그대로 — 그 사이 코드가 바뀌었다면 경고 |
+| 당신의 결정이 필요할 때 | `/inbox` | 당신을 기다리는 결정만: 게이트, 블로커, P0 |
+| 금요일 | `/digest` | 무엇이 출시됐고, 무엇이 깨졌고, 기능마다 비용이 얼마였는지 |
+
+필요할 때:
+
+| 명령 | 얻는 것 |
 |---|---|
-| `/start "…"` | 제품이나 기능을 설명 — 파이프라인이 실행 |
-| `/inbox` | 당신을 기다리는 것: 대기 중인 게이트, P0, 블로킹된 작업 |
-| `/digest` | 주간 DORA 지표 + 기능당 비용 요약 |
+| `/review` | 머지 전 브랜치 리뷰, 모든 지적에 근거 포함 — 또는 컴플라이언스 리뷰(`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | 코드 전에 discovery → PRD → 빌드 스펙 |
+| `/poc` | 위험한 아이디어에 대한 기한이 정해진 예/아니오; `promote`는 채택된 안을 건너뛴 감사에 통과시킵니다 |
+| `/release` | 스토어 노트, 사용자용 changelog, 오래된 문서와 랜딩 문구 표시 |
+| `/trace` | 항목 하나 또는 기능 전체의 요구사항 → 작업 → 테스트 연결 |
+| `/crystallize` | 이번 세션의 교훈과 반복 절차를 재사용 가능한 지식으로 |
+| `/recall` | 이 프로젝트가 어떤 단어에 대해 이미 알고 있는 것 |
+| `/sec` | 보안 상태, 위협 모델, SBOM, 인시던트 워크플로 |
+| `/ownership` | 경로의 소유자와 당번 |
+| `/rfc` | 팀 간 결정을 제안하고 마무리; 채택된 것은 ADR이 됩니다 |
+| `/exception` | 의도적인 게이트 우회에 대한 서명된, 만료되는 기록 |
+| `/doctor` | great_cto 자체의 상태 점검; `--fix`는 안전한 수정을 적용합니다 |
+| `/board` | 로컬 보드: 당신을 기다리는 결정, 비용, 에이전트 |
+| `/agent` | 에이전트 리뷰, 테스트, 개선 또는 은퇴 |
+| `/help` | 한 화면짜리 명령 카드; 3.40 이전 이름은 `/help renamed` |
+
+모든 명령의 모드와 예시: [docs/COMMANDS.md](../COMMANDS.md).
 
 Node ≥ 18.17 필요. 동반 플러그인(Superpowers, Beads)은 자동 설치됩니다. init 후
 호스트가 플러그인을 실제로 로드했는지 확인하세요 — `claude plugin list --json`에
 `great-cto`의 `errors`가 없어야 합니다.
 
-**OpenAI Codex에서는**(`npx great-cto init --host codex`) 스킬과 MCP 서버를 얻습니다.
-네이티브 훅·슬래시 커맨드·역할 에이전트는 여전히 없습니다. 플러그인 설치는 npm binary를
-`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.33.0 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
+**OpenAI Codex에서는**(`npx great-cto init --host codex`) 스킬, MCP 서버, 그리고
+Codex 플러그인 훅으로 동작하는 6개의 안전 가드(데이터 삭제, `--no-verify` 같은 게이트 우회,
+파일 속 시크릿 등)와 아무것도 막지 않는 두 가지 힌트(편집 전 그 파일에 의존하는 파일, 호출이
+다루는 주제에 대한 기록된 교훈)를 얻습니다. Codex는 플러그인을 스스로 업데이트하지 않으므로
+`great-cto upgrade`로 업데이트합니다. 승인은 터미널용 Codex에서 한 번 합니다:
+터미널에서 `codex`를 실행하고 "Hooks need review"에서 **Trust all and continue**를 선택하세요
+(ChatGPT/Codex 앱은 이 화면을 보여 주지 않습니다).
+슬래시 커맨드·역할 에이전트는 여전히 없습니다. 플러그인 설치는 npm binary를
+`PATH`에 추가하지 않습니다. 지원되는 경로는 `npx --yes great-cto@3.46.2 codex-host`이며, 통제된 역할, verifier, gate, recovery와 선택적
 로컬 또는 GitHub Release를 실행합니다. 네이티브 훅을 흉내 내거나 임의의 프로덕션
 서비스를 활성화하는 기능은 아닙니다. [Codex 호스트 가이드](../HOST-CODEX.md)를 보세요.
 
@@ -236,7 +266,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 
 ## 무엇이 다른가
 
-- **제너럴리스트가 아닌 스페셜리스트** — 좁은 역할과 자체 리뷰 게이트를 가진 70개
+- **제너럴리스트가 아닌 스페셜리스트** — 좁은 역할과 자체 리뷰 게이트를 가진 71개
   에이전트. 생각보다 타이핑이 빠른 어시스턴트 하나가 아니라.
   [명단 →](../reference/agents.md)
 - **코드 전에 비평가** — 아키텍처·스펙·스키마 비평가가 계획 전에 실행됩니다. 실수의
@@ -301,7 +331,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [게이트와 승인 레벨](../GATES.md) ·
 [에이전트](../reference/agents.md) · [커맨드](../reference/commands.md) ·
 [아키타입](../ARCHETYPES.md) · [아키텍처](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [그 밖의 모든 것](../DETAILS.md) — 비평가, 관할권, 비용 내역, CI, 알림
 
 ## 커뮤니티

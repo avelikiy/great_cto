@@ -9,7 +9,7 @@
 
 set -o pipefail
 
-PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}
+PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
 [ -z "$PLUGIN_DIR" ] && exit 0
 
 VERSION=$(grep '"version"' "${PLUGIN_DIR}/.claude-plugin/plugin.json" 2>/dev/null \
@@ -30,8 +30,8 @@ cat <<EOF
 You make 2 decisions per feature; agents do the rest.
 
 Daily        /inbox · /digest · /doctor · /resume · /save
-Pipeline     /start · /audit · /review · /poc · /promote
-Ops          /oncall · /ownership · /rfc · /release · /sec · /cost · /burn
+Pipeline     /start · /audit · /review · /poc
+Ops          /ownership · /rfc · /release · /sec · /digest cost · /digest slo
 Help         /help                    full command reference
 
 Admin board  great-cto board     →    http://localhost:3141

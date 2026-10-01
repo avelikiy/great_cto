@@ -16,7 +16,7 @@ great_cto runs *before* CI. Catches issues at architecture, review, and pre-merg
 
 ## Cursor / Copilot / Aider support?
 
-All five hosts work via `npx great-cto adapt --platform <host>` — Claude Code, Cursor, OpenAI Codex CLI, Aider, Continue. Same archetype + compliance machinery generates platform-native config (CLAUDE.md, AGENTS.md, .cursorrules, .aider.conf.yml, .continue/rules.md). Daily Canary verifies adapt for all 5 every 06:00 UTC.
+All five hosts work via `npx great-cto adapt --platform <host>` — Claude Code, Cursor, OpenAI Codex CLI, Aider, Continue. Same archetype + compliance machinery generates platform-native config (CLAUDE.md, AGENTS.md, .cursorrules, .aider.conf.yml, .continue/rules.md). The release gate (`scripts/ci-local.sh`, run before every publish) tests the Claude Code output (`tests/multi-platform-parity.test.mjs`); the other four are generated but not verified on each release — file an issue if one is wrong.
 
 ## Can I disable hooks if they're getting in the way?
 
@@ -30,15 +30,17 @@ Three layers:
 2. [Kimi K2 router](https://github.com/avelikiy/great_cto/blob/main/agents/llm-router.md) for triage (60–80% savings)
 3. `cost-guard` hook warns before expensive prompts
 
-See `/cost` for live spend.
+See `/digest cost` for live spend.
 
 ## What happens to my data when I uninstall?
 
-Plugin state lives in `~/.great_cto/` (global decisions) and `.great_cto/` (per-project). Both are plain markdown — `rm -rf` clears everything. No external services to deauthorize.
+Run `great-cto uninstall` first: it prints what an install wrote and what is yours, and changes nothing. `great-cto uninstall --yes` then removes the plugin versions, the agents and commands marked `great_cto-managed`, the plugin entries in `~/.claude/settings.json` (backed up before the edit), the board service and the caches in `~/.great_cto/`. A version an open Claude Code session still loads is left in place, with the reason.
 
-## Why not auto-pilot? Why "two decisions per feature"?
+Your data stays: `~/.great_cto/` (decisions, lessons, verdicts, cost history, `secrets.env`) and each project's `.great_cto/`. Add `--purge-data` to move `~/.great_cto/` to `~/.great_cto.removed-<date>` — moved, not deleted, so it can be restored. `--projects` also removes the pre-push hook `init` put into your repositories. The command prints the host steps it does not take itself — `claude plugin uninstall`, `claude plugin marketplace remove`, `npm uninstall -g great-cto`. No external services to deauthorize.
 
-LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human at `gate:plan` and `gate:ship` catches the 5% of bad calls that account for 95% of cost. See [ADR-015 — Learning loop architecture](architecture/ADR-015-learning-loop-architecture.md).
+## Why not auto-pilot? Why three human decisions?
+
+LLMs are powerful but lose product judgment on ambiguous specs. Keeping a human at three points — what gets built (`gate:product`), how (`gate:arch`), and the deploy (`gate:ship`) — catches the 5% of bad calls that account for 95% of cost. Three is the default, not the floor: `approval-level: ship-only` in `PROJECT.md` stops only at the deploy, and shows the brief as a one-screen notice instead. See [ADR-015 — Learning loop architecture](architecture/ADR-015-learning-loop-architecture.md).
 
 ## Is great_cto for teams?
 
@@ -48,7 +50,7 @@ You can still use great_cto with one cofounder via shared git repo + Beads throu
 
 ## Does it work on Windows?
 
-Daily Canary runs Ubuntu + macOS only. Windows isn't actively tested — file an issue if you hit something specific. WSL2 should work fine.
+Releases are gated on macOS (`scripts/ci-local.sh` before every publish). Linux and Windows are not tested on each release — the hooks are bash, so native Windows is unlikely to work; WSL2 should. File an issue if you hit something specific. See also [Troubleshooting](TROUBLESHOOTING.md).
 
 
 ## Can I read recent decisions / lessons / patterns?

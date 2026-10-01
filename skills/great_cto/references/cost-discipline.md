@@ -8,7 +8,7 @@ applies_to:
 
 # Cost Discipline — reference
 
-The third axis of engineering health: economics. Reliability says "does it stay up?", delivery says "do we ship?", cost says "can we afford what we just shipped?" Read by `architect` when sizing new features and by anyone responding to a `/cost` or `/inbox` cost alert.
+The third axis of engineering health: economics. Reliability says "does it stay up?", delivery says "do we ship?", cost says "can we afford what we just shipped?" Read by `architect` when sizing new features and by anyone responding to a `/digest cost` or `/inbox` cost alert.
 
 ## Why cost is a real engineering signal, not finance's problem
 
@@ -20,7 +20,7 @@ Three fundamental numbers:
 2. **Derivative** — how run-rate changes week over week. A stable-but-wrong run-rate is less dangerous than a stable-then-accelerating one.
 3. **Cost-per-deploy** — how much infrastructure each feature adds, amortized. Rising cost-per-deploy means features are growing more expensive to ship.
 
-`/cost` computes all three from `.great_cto/cost-history.log`.
+`/digest cost` computes all three from `.great_cto/cost-history.log`.
 
 ## How rows land in cost-history.log
 
@@ -45,9 +45,9 @@ Once a month, budget 15 minutes:
 1. Open AWS Cost Explorer / GCP Billing / Azure Cost Management (whichever applies)
 2. For each service in `.great_cto/PROJECT.md` `## Stack`, read last month's actual cost
 3. Append a row per service to `.great_cto/cost-history.log` with `source=cloud-console`
-4. Run `/cost 90` — compare actual vs earlier estimates. Drift > 30% is the signal.
+4. Run `/digest cost 90` — compare actual vs earlier estimates. Drift > 30% is the signal.
 
-If you skip this reconcile, `/cost` still runs on estimates — but you'll never catch the cases where the team consistently estimates 2× under actual.
+If you skip this reconcile, `/digest cost` still runs on estimates — but you'll never catch the cases where the team consistently estimates 2× under actual.
 
 ## Budget and headroom
 
@@ -59,7 +59,7 @@ monthly-budget: 2000
 budget-alert-threshold: 80
 ```
 
-When run-rate crosses the threshold, `/inbox` surfaces a warning with a pointer to `/cost`. When it crosses 100%, the warning becomes blocking in spirit — new feature deploys should pause until a budget conversation happens.
+When run-rate crosses the threshold, `/inbox` surfaces a warning with a pointer to `/digest cost`. When it crosses 100%, the warning becomes blocking in spirit — new feature deploys should pause until a budget conversation happens.
 
 The alert threshold is not arbitrary. 80% is chosen so that a single bad MoM mover (say, a new service landing at ~30% of budget) doesn't immediately push you over.
 
@@ -69,9 +69,9 @@ The alert threshold is not arbitrary. 80% is chosen so that a single bad MoM mov
 - **"The bill is fine, it's been stable for months."** Stable in dollars ≠ stable in unit economics. If users doubled but bill stayed flat, your infra is under-provisioned. If users stayed flat but bill doubled, something leaked.
 - **"Reserved instances / committed spend will fix it."** Financial instruments move the cost curve, they don't fix oversized architecture. Buying 3-year reserved on a service that shouldn't exist is worse than paying on-demand.
 - **"The team is small, cost doesn't matter yet."** The habits you build at $2k/mo are the habits you have at $200k/mo. Start the reconcile loop at $100/mo.
-- **"Let's ignore the top-mover alert, it's a one-off."** `/cost` only flags movers ≥ 30% MoM. If it's a one-off, appending a note explaining that (an ADR or a comment in the cost log header) is a 30-second cost. Ignoring the alert trains the process to ignore real movers later.
+- **"Let's ignore the top-mover alert, it's a one-off."** `/digest cost` only flags movers ≥ 30% MoM. If it's a one-off, appending a note explaining that (an ADR or a comment in the cost log header) is a 30-second cost. Ignoring the alert trains the process to ignore real movers later.
 
-## When `/cost` flags a top mover
+## When `/digest cost` flags a top mover
 
 Workflow:
 
@@ -84,7 +84,7 @@ Workflow:
 
 Workflow:
 
-1. Open `/cost 90` to see the 90-day curve, not just point-in-time
+1. Open `/digest cost 90` to see the 90-day curve, not just point-in-time
 2. Rank services by absolute dollars, not percentage — you're looking for where the money actually is
 3. Ask: for the top 3 services, is the cost justified by the traffic/value they carry? If no, that's the optimization.
 4. If the top 3 are justified → the budget is too low. Either raise it via ADR with revenue justification, or cut scope on the next feature to fit.
@@ -95,7 +95,7 @@ Raising the budget is a legitimate answer. Silently going over it is not.
 
 - `.great_cto/cost-history.log` — append-only cost log (devops + monthly reconcile)
 - `.great_cto/deploys.log` — DORA deploy log (drives cost-per-deploy denominator)
-- `/cost [days]` — run-rate / cost-per-deploy / WoW / top movers / headroom
+- `/digest cost [days]` — run-rate / cost-per-deploy / WoW / top movers / headroom
 - `/inbox` — cheap alerts when run-rate > threshold or a service spikes +30% MoM
 - `monthly-budget` / `budget-alert-threshold` in `.great_cto/PROJECT.md` — configuration
 
@@ -106,8 +106,8 @@ With v1.0.90 shipped, great_cto covers the three engineering axes:
 | Axis | Command | Question answered |
 |---|---|---|
 | Delivery | `/digest` (DORA section) | Do we ship often and safely? |
-| Reliability | `/burn` | Are we burning SLO budget faster than we should? |
-| Cost | `/cost` | Can we afford what we ship? |
+| Reliability | `/digest slo` | Are we burning SLO budget faster than we should? |
+| Cost | `/digest cost` | Can we afford what we ship? |
 | Process | `/inbox` (gate drift alert) | Are our quality gates still real gates? |
 
 One number per axis, all feeding `/inbox` for at-a-glance triage.

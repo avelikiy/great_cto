@@ -14,7 +14,7 @@ compress it first, reason on the compressed view, and recall the original only i
 
 ```bash
 # Locate the scripts (plugin install path or local dev)
-PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')}; [ -z "$PD" ] && PD=.
+PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; [ -z "$PD" ] && PD=.
 _COMPRESS="$PD/scripts/lib/compress/index.mjs"; [ -f "$_COMPRESS" ] || _COMPRESS="scripts/lib/compress/index.mjs"
 _CCR="$PD/scripts/lib/ccr.mjs"; [ -f "$_CCR" ] || _CCR="scripts/lib/ccr.mjs"
 
@@ -38,7 +38,7 @@ If the compressed view elided something you need (you'll see `… N lines elided
 `<!-- ccr: … -->` footer from memory-filter), pull the full original back:
 
 ```bash
-node "$_CCR" recall "$CCR_ID"     # or, interactively: /ccr <id>
+node "$_CCR" recall "$CCR_ID"     # or, interactively: /recall ccr:<id>
 ```
 
 This is the discipline that lets us compress **aggressively**: nothing is ever lost, only moved

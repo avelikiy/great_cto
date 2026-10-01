@@ -106,6 +106,6 @@ When initializing a new project, copy this template and clear the "Key decisions
 ```bash
 # During great-cto init (run by bootstrap.ts):
 mkdir -p .great_cto/memory
-cp ~/.claude/plugins/cache/*/great_cto/*/skills/great_cto/memory-index.md .great_cto/memory/MEMORY.md
+cp "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/great_cto/memory-index.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)" .great_cto/memory/MEMORY.md
 # Update the project-specific sections
 ```

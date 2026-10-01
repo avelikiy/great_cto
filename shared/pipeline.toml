@@ -125,7 +125,13 @@ on = ["TASK_DONE", "DONE"]
 # makes "the code that was reviewed is the code that shipped" answerable.
 produces = ["receipt"]
 gate = ["gate:code"]
-next = ["code-reviewer"]
+# The review stage fans out (PLAN-2026-09-23-agent-speed S1): code-reviewer, QA
+# and security all read the same finished diff and none reads another's output,
+# yet they ran one after another. Measured medians: code-reviewer 2.6 min, QA
+# 5.7, security 4.3 — sequential, the sum; side by side, the slowest. If one of
+# them blocks and the code changes, the others' verdicts predate the change and
+# gate:ship refuses them (ship-evidence), so a fan-out cannot ship a stale pass.
+next = ["code-reviewer", "qa-engineer", "security-officer"]
 
 # The mid-build escape hatch, and it escaped into nothing.
 #
@@ -144,13 +150,18 @@ on = ["APPROVED", "DONE"]
 # See senior-dev above: a reviewer's evidence is the tree it reviewed, recorded
 # as a receipt, not a document it may or may not have written.
 produces = ["receipt"]
-next = ["qa-engineer", "security-officer"]
+join = ["qa-engineer", "security-officer"]
+# Whichever of the three reviewers finishes last opens the edge to devops, so this
+# edge carries the ship gate too — without it, a code-reviewer finishing after QA
+# and security would reach devops with no human decision.
+gate = ["gate:ship"]
+next = ["devops"]
 
 [transitions.qa-engineer]
 on = ["PASS", "DONE"]
 # the QA report its verdict rests on
 produces = ["report"]
-join = ["security-officer"]
+join = ["security-officer", "code-reviewer"]
 gate = ["gate:qa", "gate:ship"]
 next = ["devops"]
 
@@ -158,7 +169,7 @@ next = ["devops"]
 on = ["APPROVED", "DONE"]
 # the security audit report
 produces = ["report"]
-join = ["qa-engineer"]
+join = ["qa-engineer", "code-reviewer"]
 gate = ["gate:security", "gate:compliance", "gate:ship"]
 next = ["devops"]
 

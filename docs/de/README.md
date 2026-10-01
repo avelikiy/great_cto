@@ -101,22 +101,52 @@ Claude Code neu starten, dann:
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-Ab da übernimmt die Pipeline. Im Alltag berührst du drei Dinge:
+Ein Tag mit great_cto:
 
-| | |
+| Wann | Befehl | Was du bekommst |
+|---|---|---|
+| Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — drei Entscheidungen bleiben bei dir: was gebaut wird, wie, und ob es ausgeliefert wird |
+| Du hörst für heute auf | `/save` | was erledigt ist, wie jedes „fertig“ geprüft wurde, was als Nächstes kommt |
+| Du kommst zurück | `/resume` | genau dort, wo du aufgehört hast — mit Warnung, falls sich der Code inzwischen geändert hat |
+| Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |
+| Freitag | `/digest` | was ausgeliefert wurde, was kaputtging, was jedes Feature gekostet hat |
+
+Wenn du es brauchst:
+
+| Befehl | Was du bekommst |
 |---|---|
-| `/start "…"` | Produkt oder Feature beschreiben — die Pipeline führt es aus |
-| `/inbox` | was auf dich wartet: offene Gates, P0s, blockierte Aufgaben |
-| `/digest` | wöchentliche DORA-Metriken + Kosten pro Feature |
+| `/review` | einen Branch vor dem Merge geprüft, jeder Befund mit Beleg — oder ein Compliance-Review (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | Discovery → PRD → Build-Spec, vor jeder Zeile Code |
+| `/poc` | ein zeitlich begrenztes Ja/Nein zu einer riskanten Idee; `promote` führt einen Gewinner durch die übersprungenen Audits |
+| `/release` | Store-Texte, ein Changelog für Nutzer, veraltete Doku und Landing-Texte markiert |
+| `/trace` | die Kette Anforderung → Aufgabe → Test für einen Punkt oder ein ganzes Feature |
+| `/crystallize` | die Lektionen und wiederholten Abläufe dieser Sitzung als wiederverwendbares Wissen |
+| `/recall` | was dieses Projekt über ein Wort bereits weiß |
+| `/sec` | Sicherheitslage, Threat Model, SBOM, Incident-Workflow |
+| `/ownership` | wem ein Pfad gehört und wer Bereitschaft hat |
+| `/rfc` | eine teamübergreifende Entscheidung vorgeschlagen und abgeschlossen; angenommene werden zu ADRs |
+| `/exception` | ein signierter, ablaufender Eintrag für eine bewusste Gate-Umgehung |
+| `/doctor` | ein Gesundheitscheck von great_cto selbst; `--fix` wendet die sicheren Korrekturen an |
+| `/board` | das lokale Board: Entscheidungen, die auf dich warten, Kosten, Agenten |
+| `/agent` | ein Agent geprüft, getestet, verbessert oder ausgemustert |
+| `/help` | die Befehlsübersicht auf einem Bildschirm; `/help renamed` für Namen vor 3.40 |
+
+Jeder Befehl mit seinen Modi und Beispielen: [docs/COMMANDS.md](../COMMANDS.md).
 
 Benötigt Node ≥ 18.17. Begleit-Plugins (Superpowers, Beads) installieren sich
 selbst. Prüfe nach dem init, ob der Host das Plugin wirklich geladen hat —
 `claude plugin list --json` darf für `great-cto` keine `errors` zeigen.
 
-**Auf OpenAI Codex** (`npx great-cto init --host codex`) bekommst du Skills und
-den MCP-Server. Native Hooks, Slash-Befehle und Rollen-Agenten gibt es weiterhin
-nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
-Pipeline-Pfad ist `npx --yes great-cto@3.33.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
+**Auf OpenAI Codex** (`npx great-cto init --host codex`) bekommst du Skills, den
+MCP-Server und sechs Schutz-Hooks als Codex-Plugin-Hooks (Datenlöschung,
+Gate-Umgehung wie `--no-verify`, Secrets in Dateien u. a.) plus zwei Hinweise, die
+nichts blockieren: wer von einer Datei abhängt, bevor sie geändert wird, und eine
+festgehaltene Lektion, wenn ein Aufruf ihr Thema berührt. Codex aktualisiert das Plugin
+nie selbst — `great-cto upgrade` tut es; Freigeben musst du sie einmal
+in Codex' Terminal-Oberfläche: `codex` im Terminal starten und bei „Hooks need review“
+**Trust all and continue** wählen (die ChatGPT/Codex-App zeigt diesen Schritt nicht). Slash-Befehle und
+Rollen-Agenten gibt es weiterhin nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
+Pipeline-Pfad ist `npx --yes great-cto@3.46.2 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
 und optional lokale oder GitHub-Releases aus. Das ist kein Ersatz für native
 Hooks und keine beliebige Produktionsaktivierung. Details stehen im
 [Codex-Host-Leitfaden](../HOST-CODEX.md).
@@ -249,7 +279,7 @@ weiterarbeiten kann.
 
 ## Was es anders macht
 
-- **Spezialisten statt Generalist** — 70 Agenten mit engen Aufgaben und eigenen
+- **Spezialisten statt Generalist** — 71 Agenten mit engen Aufgaben und eigenen
   Review-Gates, statt eines Assistenten, der schneller tippt als denkt.
   [Die Besetzung →](../reference/agents.md)
 - **Kritiker vor dem Code** — Architektur-, Spezifikations- und Schema-Kritiker
@@ -324,7 +354,7 @@ sonst hin. Telemetrie ist **standardmäßig aus** ([docs/PRIVACY.md](../PRIVACY.
 [Gates & Genehmigungsstufen](../GATES.md) ·
 [Agenten](../reference/agents.md) · [Befehle](../reference/commands.md) ·
 [Archetypen](../ARCHETYPES.md) · [Architektur](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [Alles Weitere](../DETAILS.md) — Kritiker, Jurisdiktionen, Kostenaufschlüsselung, CI, Alerts
 
 ## Community

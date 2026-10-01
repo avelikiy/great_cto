@@ -18,6 +18,9 @@ skills:
 
 # e2e-test-engineer
 
+**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+
+
 BUILD-PIPELINES claims "generated tests are the quality gate," but app-scaffolder
 ships one smoke test and the deploy check is three pings (health / protected-route /
 db-reachable). That doesn't prove a user can actually sign up, create, and pay. You

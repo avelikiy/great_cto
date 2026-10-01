@@ -1,6 +1,6 @@
 # ADR-027 — Register each agent and command once
 
-**Status:** Accepted (option D) · **Date:** 2026-09-21 · **Decider:** CTO
+**Status:** Accepted (option D), amended by option E on 2026-09-25 · **Date:** 2026-09-21 · **Decider:** CTO
 **Relates to:** `great_cto-hfr0`, [PLAN-2026-09-21-real-usage](../plans/PLAN-2026-09-21-real-usage.md)
 
 ## Context
@@ -79,3 +79,23 @@ The first-session probe (a SessionStart hook writes an agent file; `claude -p` i
 whether that agent is listed) ran on 2026-09-21: the hook wrote the file, and the CLI
 stopped at `OAuth session expired and could not be refreshed` before any answer. The
 measurement needs a signed-in CLI; until then the recommendation stands unmeasured.
+
+
+## Amendment 2026-09-25 — option E: both registrations, one full description
+
+D kept both registrations with the same full text, so every session listed each agent's
+description twice. E keeps both registrations and both full prompts, and shortens only what
+the plugin copy **lists**: `agents-full/*.md` carries the source's first sentence (at most 90
+characters; a first sentence under 40 characters takes the next one too). The installed copy
+— `senior-dev`, 96% of dispatches — keeps the full description the model routes by.
+
+| | D | E |
+|---|---|---|
+| Registrations | both | both |
+| Prompt of either copy | full, shared fragments inlined | unchanged |
+| Plugin copy's listed description | full (19,349 chars across 70 agents) | one line (4,989 chars) |
+| First-turn prompt, main session (2 runs each, `--plugin-dir`, same machine) | 108.0k / 109.8k | 102.9k / 105.7k — **about −4.6k tokens** |
+| A user's first session (only the plugin copy exists) | full descriptions | one-line descriptions; routing by description slightly weaker, for that one session |
+
+Commands are left as D: a shortened description on `/start` would show in the slash menu a
+user reads. Decided by the CTO on 2026-09-25.

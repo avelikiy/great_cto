@@ -170,7 +170,7 @@ In the **next session** (after Claude Code restart):
 Requires `OPENROUTER_API_KEY` set and `l3-support` or `qa-engineer` triggered at least once.
 
 ```
-/cost 30
+/digest cost 30
 ```
 
 **PASS criteria:**
@@ -180,7 +180,7 @@ Requires `OPENROUTER_API_KEY` set and `l3-support` or `qa-engineer` triggered at
 - Saved % between 40–60% → warn that mostly running Sonnet path
 - Saved % < 40% → router under-utilised
 
-If `llm-router-usage.log` is empty: `/cost` suppresses the section (no false claim). The README badge is still defensible because it describes what *would* happen if the router is enabled.
+If `llm-router-usage.log` is empty: `/digest cost` suppresses the section (no false claim). The README badge is still defensible because it describes what *would* happen if the router is enabled.
 
 ---
 

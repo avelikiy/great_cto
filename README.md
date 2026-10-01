@@ -93,32 +93,61 @@ Restart Claude Code, then:
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-The pipeline takes it from there. Day to day you touch three things:
+A day with great_cto:
 
-| | |
+| When | Command | What you get |
+|---|---|---|
+| You have an idea, or an existing codebase | `/start "…"` | a brief, a plan and working code — three decisions stay yours: what to build, how, and whether it ships |
+| You're done for now | `/save` | what was done, how each "done" was verified, what's next |
+| You come back | `/resume` | exactly where you left off — and a warning if the code moved since |
+| Something needs you | `/inbox` | only the decisions waiting on you: gates, blockers, P0s |
+| Friday | `/digest` | what shipped, what broke, what it cost per feature |
+
+When you need it:
+
+| Command | What you get |
 |---|---|
-| `/start "…"` | describe a product or feature — the pipeline runs it |
-| `/inbox` | what needs you: pending gates, P0s, blocked tasks |
-| `/digest` | weekly DORA metrics + cost-per-feature roll-up |
+| `/review` | a branch reviewed before merge, every finding with evidence — or a compliance review (`--domain tax`, `legal`, `hr-ai`, …) |
+| `/spec` | discovery → PRD → build spec, before any code |
+| `/poc` | a timeboxed yes/no on a risky idea; `promote` takes a winner through the audits it skipped |
+| `/release` | store notes, a user-facing changelog, stale docs and landing copy flagged |
+| `/trace` | the requirement → task → test chain for one item or a whole feature |
+| `/crystallize` | this session's lessons and repeated procedures turned into reusable knowledge |
+| `/recall` | what this project already knows about a word |
+| `/sec` | security posture, threat model, SBOM, incident workflow |
+| `/ownership` | who owns a path and who is on call |
+| `/rfc` | a cross-team decision proposed and closed; accepted ones become ADRs |
+| `/exception` | a signed, expiring record for a deliberate gate bypass |
+| `/doctor` | a health check of great_cto itself; `--fix` applies the safe fixes |
+| `/board` | the local board: decisions waiting on you, cost, agents |
+| `/agent` | an agent reviewed, tested, improved or retired |
+| `/help` | the one-screen command card; `/help renamed` for pre-3.40 names |
+
+Every command with its modes and examples: [docs/COMMANDS.md](docs/COMMANDS.md).
 
 Requires Node ≥ 18.17. Companion plugins (Superpowers, Beads) install
 automatically. After init, verify the host actually loaded the plugin —
 `claude plugin list --json` should show no `errors` for `great-cto`.
 
-**On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills and
-MCP server. Codex still has no native plugin surface for hooks, slash commands
-or role agents, so `/start` does not become a Codex slash command and Claude
-hooks do not silently run there. That is a limit of the host, not a setting:
-`hooks` in a plugin manifest is never read
-([openai/codex#16430](https://github.com/openai/codex/issues/16430),
-[#39895](https://github.com/openai/codex/issues/39895)).
+**On OpenAI Codex** (`npx great-cto init --host codex`) you get the skills, the
+MCP server and six safety guards as Codex plugin hooks — destructive commands,
+gate bypasses such as `--no-verify`, a neighbour session's work, secrets written
+into files, frozen gates and weakened checks — and two hints that never block:
+who depends on a file before it is edited, and a recorded lesson when a call
+touches what it is about (verified on codex-cli 0.153.4). Review them once in
+Codex's terminal UI — run `codex` in a terminal and choose **Trust all and continue**
+at "Hooks need review" (the ChatGPT/Codex app does not show that screen); until
+then they do not run. Codex never updates the plugin by itself — `great-cto upgrade`
+does. Codex has no native plugin surface for slash commands or
+role agents, so `/start` does not become a Codex slash command, and the rest of
+the Claude hooks — pipeline dispatch, cost guard, write log — do not run there.
 
 The supported pipeline path is the separate controller shipped by the npm CLI:
 
 ```bash
-npx --yes great-cto@3.33.0 codex-host doctor
-npx --yes great-cto@3.33.0 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
-npx --yes great-cto@3.33.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.46.2 codex-host doctor
+npx --yes great-cto@3.46.2 codex-host start --dir "$PWD" --prompt "build the feature" --allow src,tests,docs
+npx --yes great-cto@3.46.2 codex-host resume <run-uuid>
 ```
 
 The source controller can also assign graph roles to both installed CLIs with
@@ -256,7 +285,7 @@ Next.js, Postgres and Stripe that any engineer can pick up.
 
 ## What makes it different
 
-- **Specialists, not a generalist** — 70 agents with narrow jobs and their own
+- **Specialists, not a generalist** — 71 agents with narrow jobs and their own
   review gates, instead of one assistant that types faster than it thinks.
   [The roster →](docs/reference/agents.md)
 - **Critics before code** — architecture, spec, and schema critics run before
@@ -319,7 +348,7 @@ machine; prompts go to your LLM provider and nowhere else. Telemetry is
 [Gates & approval levels](docs/GATES.md) ·
 [Agents](docs/reference/agents.md) · [Commands](docs/reference/commands.md) ·
 [Archetypes](docs/ARCHETYPES.md) · [Architecture](docs/ARCHITECTURE.md) ·
-[MCP](docs/MCP.md) · [FAQ](docs/FAQ.md) ·
+[MCP](docs/MCP.md) · [FAQ](docs/FAQ.md) · [Troubleshooting](docs/TROUBLESHOOTING.md) ·
 [Everything else](docs/DETAILS.md) — critics, jurisdictions, cost breakdown, CI, alerts
 
 ## Community

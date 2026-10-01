@@ -97,20 +97,45 @@ npx great-cto init
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-之后由流水线接管。日常你只碰三样东西：
+用 great_cto 的一天：
 
-| | |
+| 何时 | 命令 | 你得到什么 |
+|---|---|---|
+| 你有一个想法，或一个现有代码库 | `/start "…"` | 简报、计划和可运行的代码 —— 你只做三个决定：做什么、怎么做，以及是否发布 |
+| 今天到此为止 | `/save` | 做了什么、每个“完成”如何验证、下一步做什么 |
+| 你回来了 | `/resume` | 从你停下的地方继续 —— 如果代码之后有变化会提醒你 |
+| 有事需要你 | `/inbox` | 只列出等你决定的事：门禁、阻塞、P0 |
+| 周五 | `/digest` | 发布了什么、坏了什么、每个功能花了多少钱 |
+
+需要时：
+
+| 命令 | 你得到什么 |
 |---|---|
-| `/start "…"` | 描述一个产品或功能 —— 流水线把它跑完 |
-| `/inbox` | 需要你处理的：待批门禁、P0、被阻塞的任务 |
-| `/digest` | 每周 DORA 指标 + 单功能成本汇总 |
+| `/review` | 合并前的分支审查，每条发现都附证据 — 或合规审查（`--domain tax`、`legal`、`hr-ai`、…） |
+| `/spec` | 写任何代码之前：discovery → PRD → 构建规格 |
+| `/poc` | 对高风险想法给出有时限的是/否；`promote` 让胜出方补过它跳过的审计 |
+| `/release` | 商店说明、面向用户的 changelog，并标出过时的文档和落地页文案 |
+| `/trace` | 单个条目或整个功能的需求 → 任务 → 测试链 |
+| `/crystallize` | 把本次会话的教训和重复流程变成可复用的知识 |
+| `/recall` | 本项目对某个词已经知道些什么 |
+| `/sec` | 安全状况、威胁模型、SBOM、事件处理流程 |
+| `/ownership` | 某个路径归谁负责、谁在值班 |
+| `/rfc` | 跨团队决策的提出与关闭；被接受的成为 ADR |
+| `/exception` | 为有意绕过门禁留下的签名、会过期的记录 |
+| `/doctor` | great_cto 自身的健康检查；`--fix` 应用安全的修复 |
+| `/board` | 本地看板：等你处理的决策、成本、agents |
+| `/agent` | 对 agent 进行审查、测试、改进或下线 |
+| `/help` | 一屏命令卡片；3.40 之前的旧名用 `/help renamed` |
+
+全部命令及其模式和示例：[docs/COMMANDS.md](../COMMANDS.md)。
 
 需要 Node ≥ 18.17。伴生插件（Superpowers、Beads）自动安装。init 之后，确认宿主
 真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。
 
-**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills 和 MCP
-服务器。原生 hooks、斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
-加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.33.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
+**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills、MCP
+服务器，以及作为 Codex 插件 hooks 的 6 个安全防护（删除数据、`--no-verify` 等绕过 gate、
+文件中的密钥等），以及两个从不阻止任何操作的提示（编辑前依赖该文件的文件、调用涉及的已记录经验）。Codex 不会自行更新插件，需运行 `great-cto upgrade`；需在终端版 Codex 中审核一次：在终端运行 `codex`，在 “Hooks need review” 处选择 **Trust all and continue**（ChatGPT/Codex 应用不显示此界面）。斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
+加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.46.2 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
 的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
 [Codex host 指南](../HOST-CODEX.md)。
 
@@ -223,7 +248,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 
 ## 不同之处
 
-- **专家，而不是通才** —— 70 个职责狭窄、各带自己评审门禁的 agent，而不是一个
+- **专家，而不是通才** —— 71 个职责狭窄、各带自己评审门禁的 agent，而不是一个
   打字比思考快的助手。[名册 →](../reference/agents.md)
 - **批评者先于代码** —— 架构、规格和 schema 三个批评者在规划之前运行，那时候
   错误的代价还是几小时，而不是几天。
@@ -280,7 +305,7 @@ ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
 [门禁与批准级别](../GATES.md) ·
 [Agents](../reference/agents.md) · [命令](../reference/commands.md) ·
 [原型](../ARCHETYPES.md) · [架构](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [其余一切](../DETAILS.md) —— 批评者、司法辖区、成本明细、CI、告警
 
 ## 社区

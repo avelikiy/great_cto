@@ -15,20 +15,20 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 654 files in 9 groups.
+Derived from what imports what, across 662 files in 9 groups.
 
 ```mermaid
 flowchart TD
   contracts["Contracts<br/><small>3 files</small>"]
-  agents["Agents<br/><small>70 files</small>"]
-  commands["Commands<br/><small>44 files</small>"]
-  skills["Skills<br/><small>156 files</small>"]
-  hooks["Hooks<br/><small>29 files</small>"]
-  libs["Libraries<br/><small>153 files</small>"]
+  agents["Agents<br/><small>71 files</small>"]
+  commands["Commands<br/><small>21 files</small>"]
+  skills["Skills<br/><small>157 files</small>"]
+  hooks["Hooks<br/><small>39 files</small>"]
+  libs["Libraries<br/><small>170 files</small>"]
   board["Board<br/><small>76 files</small>"]
-  cli["CLI<br/><small>34 files</small>"]
-  evals["Evals<br/><small>89 files</small>"]
-  hooks -->|34| libs
+  cli["CLI<br/><small>35 files</small>"]
+  evals["Evals<br/><small>90 files</small>"]
+  hooks -->|51| libs
   board -->|29| libs
   libs -->|3| hooks
   libs -->|1| evals
@@ -37,14 +37,14 @@ flowchart TD
 | Group | Files | What it holds |
 |---|---:|---|
 | `contracts` | 3 | the pipeline map, orchestrator rules |
-| `agents` | 70 | the specialists the pipeline dispatches |
-| `commands` | 44 | what a human can invoke directly |
-| `skills` | 156 | knowledge agents load on demand |
-| `hooks` | 29 | what fires on session, tool and stop events |
-| `libs` | 153 | the logic hooks and commands share |
+| `agents` | 71 | the specialists the pipeline dispatches |
+| `commands` | 21 | what a human can invoke directly |
+| `skills` | 157 | knowledge agents load on demand |
+| `hooks` | 39 | what fires on session, tool and stop events |
+| `libs` | 170 | the logic hooks and commands share |
 | `board` | 76 | the admin view, zero runtime dependencies |
-| `cli` | 34 | the published npm package |
-| `evals` | 89 | what each agent is measured against |
+| `cli` | 35 | the published npm package |
+| `evals` | 90 | what each agent is measured against |
 
 ## How a feature moves
 
@@ -64,14 +64,19 @@ flowchart TD
   code_reviewer["code-reviewer"]
   senior_dev -->|gate:code| code_reviewer
   qa_engineer["qa-engineer"]
-  code_reviewer --> qa_engineer
+  senior_dev -->|gate:code| qa_engineer
   security_officer["security-officer"]
-  code_reviewer --> security_officer
+  senior_dev -->|gate:code| security_officer
   devops["devops"]
+  code_reviewer -->|gate:ship| devops
+  qa_engineer -.->|join| code_reviewer
+  security_officer -.->|join| code_reviewer
   qa_engineer -->|gate:qa + gate:ship| devops
   security_officer -.->|join| qa_engineer
+  code_reviewer -.->|join| qa_engineer
   security_officer -->|gate:security + gate:compliance + gate:ship| devops
   qa_engineer -.->|join| security_officer
+  code_reviewer -.->|join| security_officer
   l3_support["l3-support"]
   devops --> l3_support
   project_auditor["project-auditor"]

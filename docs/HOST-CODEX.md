@@ -16,14 +16,14 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.33.0 codex-host doctor
-npx --yes great-cto@3.33.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.33.0 codex-host status <run-uuid>
-npx --yes great-cto@3.33.0 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.33.0 codex-host resume <run-uuid>
-npx --yes great-cto@3.33.0 codex-host recover <run-uuid>
-npx --yes great-cto@3.33.0 codex-host cancel <run-uuid>
-npx --yes great-cto@3.33.0 codex-host list --dir /path/to/project
+npx --yes great-cto@3.46.2 codex-host doctor
+npx --yes great-cto@3.46.2 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.46.2 codex-host status <run-uuid>
+npx --yes great-cto@3.46.2 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.46.2 codex-host resume <run-uuid>
+npx --yes great-cto@3.46.2 codex-host recover <run-uuid>
+npx --yes great-cto@3.46.2 codex-host cancel <run-uuid>
+npx --yes great-cto@3.46.2 codex-host list --dir /path/to/project
 ```
 
 For a mixed run from a source checkout, assign roles at start. Unlisted roles
@@ -91,8 +91,10 @@ leaves a lock directory requires operator inspection before removing that lock.
 
 ## Boundaries
 
-This is not native Codex plugin hook support and does not affect ordinary Codex
-sessions. Its controls apply only to work executed by this controller. It trusts
+The controller's gates apply only to work executed by this controller; ordinary
+Codex sessions get the six safety guards and the two edit hints (edit-impact, lesson-tripwire) the plugin ships as Codex hooks
+(`.codex-plugin/hooks.json`, reviewed once in Codex's terminal UI before they run — run `codex` in a terminal and choose Trust all and continue at "Hooks need review"; the ChatGPT/Codex app does not show that screen), not the
+pipeline. It trusts
 the local operator and Codex's read-only sandbox; it is not a security boundary
 against another process running as the same OS user.
 
@@ -311,8 +313,10 @@ publish or activate an artifact by itself.
 
 - [2026-09-05-codex-phase0-findings](analysis/2026-09-05-codex-phase0-findings.md) —
   what Codex does and does not carry as a plugin, measured against codex-cli
-  0.153.4: skills and MCP work; hooks, slash commands and role agents have no
-  plugin surface (openai/codex#16430, #39895). This controller exists because of
-  that gap.
+  0.153.4: skills and MCP work; slash commands and role agents have no plugin
+  surface, which is why this controller exists. Hooks were listed there too; a
+  probe on 2026-09-28 showed Codex does run plugin hooks — `{ hooks: { Event: [...] } }`
+  at a path named in `.codex-plugin/plugin.json`, Claude's payload shape, `apply_patch`
+  for edits, and a working deny — once the user has reviewed them.
 - [project-capabilities](reference/project-capabilities.md) — `second_opinion`,
   which is how Codex participates in a Claude Code pipeline instead.

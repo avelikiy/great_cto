@@ -13,6 +13,8 @@ A timeless genre: write first, find out *what* you should have written later. Un
 
 The PM agent also finally learned to **prioritize features** when there's more than one and they're all "urgent": pick from Opportunity Score / ICE / RICE / MoSCoW. The full new route: `/discover → /prd → /architect → /pm → senior-dev`.
 
+> Since 3.40 both live under one command: `/discover` is `/spec discover`, `/prd` is `/spec prd`.
+
 ---
 
 ## 2. Quota warning at session start

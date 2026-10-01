@@ -134,6 +134,9 @@ the repro must pass now. Those are checked, not merely asked for.
 VERDICT: {APPROVED|BLOCKED} reason="{specific reason}"
 ```
 
+**Quotes must exist.** Before a finding quotes a file, run `node "${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/quote-verify.mjs" --file <file> --quote "<passage>"` (or `--scan <report>`).
+A quote that does not verify is removed, or rewritten as a paraphrase marked `(paraphrase)`.
+
 ## Severity scale (DOMAIN-anchored)
 
 Severity is graded against THIS DOMAIN's regulatory or

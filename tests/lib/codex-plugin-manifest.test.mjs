@@ -78,30 +78,39 @@ test('the marketplace points at the repo root, not a vendored copy', () => {
   assert.equal(mk.plugins[0].source.path, '.');
 });
 
-test('no hooks file ships in a format Codex rejects', () => {
-  // Four passes on this capability, and the last two came from RUNNING it:
-  //   3. "Codex fires no hooks" — it fires none from our file, but the reason
-  //      was not what I assumed.
-  //   4. Codex READS the file and REJECTS it:
-  //        unknown field `SessionStart`, expected `description` or `hooks`
-  //      Its hooks.json is a different shape from Claude Code's — an object with
-  //      `description` and a `hooks` SEQUENCE, not an event-keyed map.
-  //
-  // Worse than not working: the rejected file surfaced as an error item on
-  // EVERY Codex turn, in every project, for anyone with the plugin installed.
-  // A broken integration that degrades the host is not a partial feature.
-  //
-  // So nothing hooks-shaped ships until it is written to Codex's schema and a
-  // run shows a hook firing. The Claude-format file is kept, disabled and named
-  // for what it is, so the work is not lost.
-  const dir = join(REPO, '.codex-plugin');
-  const shipped = readdirSync(dir).filter((f) => /^hooks.*\.json$/.test(f));
-  assert.deepEqual(shipped, [],
-    `these would be read and rejected by Codex on every turn: ${shipped.join(', ')}`);
-
-  assert.ok(existsSync(join(dir, 'hooks.claude-format.json.disabled')),
-    'the Claude-format file is kept, disabled, for when the Codex schema is implemented');
-
+test('the Codex hooks file is in the schema Codex accepts, and every guard it names exists', () => {
+  // Five passes on this capability. The fourth found Codex READS plugin hooks and
+  // rejected ours (`unknown field SessionStart, expected description or hooks`) —
+  // a Claude-format event map at the top level, which surfaced as an error on every
+  // Codex turn. The fifth (2026-09-28, codex-cli 0.153.4) ran a probe plugin:
+  //   - the file is `{ description?, hooks: { <Event>: [ { matcher, hooks: [ { type,
+  //     command } ] } ] } }` — Claude's event map, one level down;
+  //   - a path declared as `hooks` in .codex-plugin/plugin.json is honoured, so the
+  //     file need not sit at hooks/hooks.json, where Claude Code would load it too;
+  //   - PreToolUse fires for `Bash` and `apply_patch`, and a deny stops the call.
+  // Codex runs a plugin hook only after the user approves it once in its TUI.
   const m = read('.codex-plugin/plugin.json');
-  assert.equal(m.hooks, undefined, 'and the manifest declares none');
+  assert.equal(m.hooks, './.codex-plugin/hooks.json');
+  assert.ok(!existsSync(join(REPO, 'hooks', 'hooks.json')),
+    'a root hooks/hooks.json would be loaded by Claude Code as well — every guard twice');
+
+  const h = read('.codex-plugin/hooks.json');
+  assert.deepEqual(Object.keys(h).sort(), ['description', 'hooks'], 'top level: description and hooks only');
+  const events = Object.keys(h.hooks);
+  assert.ok(events.length > 0);
+  for (const ev of events) {
+    assert.match(ev, /^(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop)$/, `event ${ev}`);
+    for (const entry of h.hooks[ev]) {
+      for (const hook of entry.hooks) {
+        assert.equal(hook.type, 'command');
+        assert.match(hook.command, /codex-adapter\.mjs/, 'every call goes through the adapter');
+        assert.match(hook.command, /EXIT -eq 2 \]; then exit 2; fi; exit 0$/, 'a crash lets the call through; only a deny blocks');
+        const guards = hook.command.split('codex-adapter.mjs"')[1].split(';')[0].trim().split(/\s+/);
+        assert.ok(guards.length > 0);
+        for (const g of guards) assert.ok(existsSync(join(REPO, 'scripts', 'hooks', `${g}.mjs`)), `guard ${g} exists`);
+      }
+    }
+  }
+  const matchers = h.hooks.PreToolUse.map((e) => e.matcher).sort();
+  assert.deepEqual(matchers, ['Bash', 'apply_patch'], 'Codex names its shell and edit tools this way');
 });

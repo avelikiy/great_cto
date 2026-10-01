@@ -52,3 +52,30 @@ factual claims).
     inventory + reconstruction notes) for building UI to a reference.
   - Trimmed: upstream `examples/` (~2.6 MB) and README/CHANGELOG were not vendored.
 - Mounted by: `agents/design-advisor.md` (reverse-engineering a design reference).
+
+## handoff (techwolf-ai/ai-first-toolkit)
+
+- Upstream: https://github.com/techwolf-ai/ai-first-toolkit (`plugins/session-tools/skills/handoff/SKILL.md`)
+- Upstream license: MIT (Copyright (c) 2026 TechWolf)
+- Idea adapted, no text or code copied: a session note should record the run state it
+  leaves behind, a command that proves each "done" claim, and the next step as the first
+  action; the reader should flag a note that is older than the latest commits and read the
+  goal and first step back before acting.
+- Implemented in: `scripts/lib/handoff-state.mjs`, `commands/save.md`, `commands/resume.md`.
+
+## Codex plugin hooks (agentlas-ai/Agentlas-OS)
+
+- Upstream: https://github.com/agentlas-ai/Agentlas-OS (`codex/plugins/*/hooks/hooks.json`,
+  `agentlas_cloud/memory_hook.py`)
+- Upstream license: Apache-2.0 (Copyright 2026 Agentlas)
+- Ideas adapted, no text or code copied:
+  - a Codex plugin can ship hooks, and a guard can read Codex's `apply_patch` by the file
+    lines in the patch text (verified on our own probe plugin before relying on it) —
+    `.codex-plugin/hooks.json`, `scripts/hooks/codex-adapter.mjs`;
+  - before an edit, tell the model which files import the one being changed, which tests
+    cover it and what is usually changed with it — `scripts/hooks/edit-impact.mjs`;
+  - a protected-path guard judges the write a shell command makes, not the tool that
+    makes it — `shellWriteTargets()` in `scripts/hooks/frozen-gates-guard.mjs`.
+  - a recorded lesson is shown when a call touches what it names (its evidence files,
+    paths, flags, identifiers), with keys most lessons share dropped —
+    `scripts/hooks/lesson-tripwire.mjs`.

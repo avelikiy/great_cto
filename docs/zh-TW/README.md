@@ -98,21 +98,46 @@ npx great-cto init
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-之後由流水線接手。日常你只碰三樣東西：
+用 great_cto 的一天：
 
-| | |
+| 何時 | 指令 | 你得到什麼 |
+|---|---|---|
+| 你有一個想法，或一個既有程式碼庫 | `/start "…"` | 簡報、計畫與可運作的程式碼 —— 你只做三個決定：做什麼、怎麼做，以及是否發布 |
+| 今天到此為止 | `/save` | 做了什麼、每個「完成」如何驗證、下一步做什麼 |
+| 你回來了 | `/resume` | 從你停下的地方繼續 —— 若程式碼之後有變動會提醒你 |
+| 有事需要你 | `/inbox` | 只列出等你決定的事：關卡、阻塞、P0 |
+| 週五 | `/digest` | 發布了什麼、壞了什麼、每個功能花了多少錢 |
+
+需要時：
+
+| 指令 | 你得到什麼 |
 |---|---|
-| `/start "…"` | 描述一個產品或功能 — 流水線執行它 |
-| `/inbox` | 等你處理的：待批閘門、P0、被阻塞的任務 |
-| `/digest` | 每週 DORA 指標 + 單功能成本彙總 |
+| `/review` | 合併前的分支審查，每項發現都附證據 — 或合規審查（`--domain tax`、`legal`、`hr-ai`、…） |
+| `/spec` | 寫任何程式碼之前：discovery → PRD → 建置規格 |
+| `/poc` | 對高風險想法給出有時限的是/否；`promote` 讓勝出者補過它跳過的稽核 |
+| `/release` | 商店說明、面向使用者的 changelog，並標出過時的文件與登陸頁文案 |
+| `/trace` | 單一項目或整個功能的需求 → 任務 → 測試鏈 |
+| `/crystallize` | 把本次工作階段的教訓與重複流程變成可重用的知識 |
+| `/recall` | 本專案對某個詞已經知道些什麼 |
+| `/sec` | 安全狀況、威脅模型、SBOM、事件處理流程 |
+| `/ownership` | 某個路徑歸誰負責、誰在值班 |
+| `/rfc` | 跨團隊決策的提出與結案；被接受的成為 ADR |
+| `/exception` | 為刻意繞過關卡留下的簽署、會到期的紀錄 |
+| `/doctor` | great_cto 本身的健康檢查；`--fix` 套用安全的修正 |
+| `/board` | 本地看板：等你處理的決策、成本、代理 |
+| `/agent` | 對代理進行審查、測試、改進或退役 |
+| `/help` | 一頁式指令卡；3.40 之前的舊名用 `/help renamed` |
+
+所有指令及其模式與範例：[docs/COMMANDS.md](../COMMANDS.md)。
 
 需要 Node ≥ 18.17。附屬外掛（Superpowers、Beads）自動安裝。init 之後請確認
 宿主真的載入了外掛 —— `claude plugin list --json` 裡 `great-cto` 的 `errors`
 應該是空的。
 
-**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你會得到技能與 MCP
-server。原生 hooks、斜線指令與角色代理仍然不存在。安裝插件不會把 npm binary
-加入 `PATH`；受支援的路徑是 `npx --yes great-cto@3.33.0 codex-host`：它執行受控角色、verifier、gate、recovery，以及
+**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你會得到技能、MCP
+server，以及作為 Codex 插件 hooks 的 6 個安全防護（刪除資料、`--no-verify` 等繞過 gate、
+檔案中的密鑰等），以及兩個從不阻擋任何操作的提示（編輯前依賴該檔案的檔案、呼叫涉及的已記錄經驗）。Codex 不會自行更新插件，需執行 `great-cto upgrade`；需在終端版 Codex 中審核一次：在終端執行 `codex`，於「Hooks need review」選擇 **Trust all and continue**（ChatGPT/Codex 應用程式不顯示此畫面）。斜線指令與角色代理仍然不存在。安裝插件不會把 npm binary
+加入 `PATH`；受支援的路徑是 `npx --yes great-cto@3.46.2 codex-host`：它執行受控角色、verifier、gate、recovery，以及
 可選的本機或 GitHub Release。它不模擬原生 hooks，也不執行任意 production
 服務啟用。詳見 [Codex host 指南](../HOST-CODEX.md)。
 
@@ -224,7 +249,7 @@ Next.js、Postgres 和 Stripe。
 
 ## 不同之處
 
-- **專家，而不是通才** —— 70 個職責狹窄、各自帶審查閘門的代理，而不是
+- **專家，而不是通才** —— 71 個職責狹窄、各自帶審查閘門的代理，而不是
   一個打字比思考快的助手。[名冊 →](../reference/agents.md)
 - **批評者先於程式碼** —— 架構、規格與 schema 批評者在規劃之前執行，
   此時一個錯誤還只值幾小時，而不是幾天。
@@ -282,7 +307,7 @@ prompt 只送到你的 LLM 供應商，別處不去。遙測**預設關閉**
 [閘門與批准層級](../GATES.md) ·
 [代理](../reference/agents.md) · [指令](../reference/commands.md) ·
 [原型](../ARCHETYPES.md) · [架構](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) ·
+[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
 [其餘一切](../DETAILS.md) — 批評者、司法管轄區、成本明細、CI、警示
 
 ## 社群

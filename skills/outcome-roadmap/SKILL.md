@@ -9,7 +9,7 @@ when_to_use: |
   - a roadmap review reveals it lists outputs (features) but not outcomes (results)
   Guards — do NOT apply when:
   - The input already states outcomes with metrics
-  - This is a single-feature PRD (use /prd instead)
+  - This is a single-feature PRD (use /spec prd instead)
 effort: low
 allowed-tools: Read, Write
 paths:

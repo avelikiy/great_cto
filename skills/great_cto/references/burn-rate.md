@@ -8,7 +8,7 @@ applies_to:
 
 # SLO Burn Rate — reference
 
-Multi-window multi-burn-rate alerting. Catches budget exhaustion 6+ hours before it happens. Read by `architect` and `devops` when `/burn` fires.
+Multi-window multi-burn-rate alerting. Catches budget exhaustion 6+ hours before it happens. Read by `architect` and `devops` when `/digest slo` fires.
 
 ## The problem with point-in-time SLO checks
 
@@ -35,7 +35,7 @@ great_cto doesn't have real-time monitoring — by design, the data source is th
 
 1. `/digest` recomputes `slo-budget-current.md` from the incident log
 2. `/digest` appends a snapshot row to `.great_cto/slo-burn-history.log`
-3. `/burn` reads the snapshot series, computes deltas across 24h / 7d / 30d windows
+3. `/digest slo` reads the snapshot series, computes deltas across 24h / 7d / 30d windows
 4. `/inbox` runs the cheap version of step 3 and surfaces an alert if any service crosses threshold
 
 The finer the cadence of `/digest`, the finer the burn-rate resolution. Default is weekly via scheduled task; running `/digest 1` daily makes 24h burn meaningful.
@@ -65,4 +65,4 @@ The finer the cadence of `/digest`, the finer the burn-rate resolution. Default 
 - `docs/reliability/SLO.md` — SLO targets per service (manual, owned by architect)
 - `docs/reliability/INCIDENT-LOG.md` — append-only incident reality log (written by `l3-support`)
 - `.great_cto/slo-budget-current.md` — point-in-time cache, recomputed by `/digest`
-- `.great_cto/slo-burn-history.log` — snapshot series, appended by `/digest`, consumed by `/burn`
+- `.great_cto/slo-burn-history.log` — snapshot series, appended by `/digest`, consumed by `/digest slo`

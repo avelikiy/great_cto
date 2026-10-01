@@ -46,3 +46,26 @@ test('every agent source has a bundled twin — none is dropped by the glob', ()
   const sources = readdirSync(join(ROOT, 'agents')).filter((f) => f.endsWith('.md') && !f.startsWith('_')).sort();
   assert.deepEqual([...built.keys()], sources);
 });
+
+// ADR-027 option E (2026-09-25): both registrations stay, but only the installed
+// copy (`senior-dev`, 96% of dispatches) carries the full description. The plugin's
+// `great-cto:senior-dev` lists one short line, so a session does not pay for every
+// agent's description twice. The agent's identity and its prompt are untouched.
+const front = (t) => t.match(/^---\n([\s\S]*?)\n---\n/)[1];
+const descOf = (fm) => (fm.match(/^description:\s*(.*)$/m) || [, ''])[1];
+
+test('the plugin copy lists a one-line description; the rest of the frontmatter is the source, byte for byte', () => {
+  for (const [f, text] of built) {
+    const src = front(readFileSync(join(ROOT, 'agents', f), 'utf8'));
+    const out = front(text);
+    const d = descOf(out).replace(/^"|"$/g, '');
+    assert.ok(d.length > 10 && d.length <= 100, `${f}: plugin description is ${d.length} chars`);
+    assert.equal(out.replace(/^description:.*$/m, ''), src.replace(/^description:.*$/m, ''), `${f}: only the description may differ`);
+  }
+});
+
+test('the source keeps its full description — the installed copy is made from it', () => {
+  const src = front(readFileSync(join(ROOT, 'agents', 'senior-dev.md'), 'utf8'));
+  assert.ok(descOf(src).length > 60);
+  assert.ok(descOf(front(built.get('senior-dev.md'))).length < descOf(src).length || descOf(src).length <= 100);
+});

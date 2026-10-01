@@ -58,3 +58,13 @@ test('every npx pin file the bump rewrites is one release.sh stages and allows',
       || src.includes(f.replace(/[.]/g, '\\.')), `bump rewrites ${f} but release.sh's stray filter does not allow it`);
   }
 });
+
+test('release.sh refuses a branch other than main instead of asking', () => {
+  // It pushes the local `main` ref, not HEAD — "continue anyway? y" on a release
+  // branch tagged that branch and pushed a stale main; with no terminal the
+  // prompt hung (3.40.0).
+  const block = src.slice(src.indexOf('BRANCH=$(git branch --show-current)'));
+  const check = block.slice(0, block.indexOf('ok "on branch'));
+  assert.match(check, /if \[ "\$BRANCH" != "main" \]; then\s*\n\s*fail /, 'off main → fail, first statement');
+  assert.doesNotMatch(check, /\bread\b/, 'no interactive prompt');
+});

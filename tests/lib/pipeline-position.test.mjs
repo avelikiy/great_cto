@@ -70,11 +70,13 @@ test('success->gate: architect succeeded, gate:arch is active → awaiting-gate'
 
 // ─── pipelinePosition: success -> dispatch (no active gate) ──────────────
 
-test('success->dispatch: code-reviewer succeeded, edge has no gate → ready-to-dispatch', () => {
-  const verdicts = { 'code-reviewer': mkV('code-reviewer', 'APPROVED') };
+test('success->dispatch: devops succeeded, edge has no gate → ready-to-dispatch', () => {
+  // (code-reviewer's edge is gated since the review stage fans out: whichever of
+  // the three reviewers finishes last reaches devops, so each edge carries gate:ship.)
+  const verdicts = { devops: mkV('devops', 'DEPLOYED') };
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['arch', 'ship'], now: NOW });
   assert.equal(r.position, 'ready-to-dispatch');
-  assert.deepEqual(r.next.sort(), ['qa-engineer', 'security-officer'].sort());
+  assert.deepEqual(r.next, ['l3-support']);
   assert.deepEqual(r.gates, []);
 });
 
@@ -108,19 +110,20 @@ test('S1 holds for every blocking token, not just BLOCKED', () => {
 
 // ─── pipelinePosition: join-wait ──────────────────────────────────────────
 
-test('join-wait: qa-engineer succeeded but security-officer has not → join-wait naming the partner', () => {
+test('join-wait: qa-engineer succeeded but its review partners have not → join-wait naming them', () => {
   const verdicts = { 'qa-engineer': mkV('qa-engineer', 'PASS') };
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['qa', 'ship'], now: NOW });
   assert.equal(r.position, 'join-wait');
-  assert.deepEqual(r.next, ['security-officer']);
+  assert.deepEqual(r.next.sort(), ['code-reviewer', 'security-officer']);
 });
 
 test('join-wait resolves to a gate once the join partner also succeeds', () => {
   const verdicts = {
+    'code-reviewer': mkV('code-reviewer', 'APPROVED', { ageMs: 180_000 }),
     'qa-engineer': mkV('qa-engineer', 'PASS', { ageMs: 120_000 }),
     'security-officer': mkV('security-officer', 'APPROVED', { ageMs: 60_000 }),
   };
-  // cursor = newest event = security-officer (it also has qa-engineer as its own join partner)
+  // cursor = newest event = security-officer (its join partners: qa-engineer, code-reviewer)
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates: ['security', 'compliance', 'ship'], now: NOW });
   assert.equal(r.cursor.agent, 'security-officer');
   assert.equal(r.position, 'awaiting-gate');
@@ -189,7 +192,7 @@ test('an unrecognized verdict token does not crash — reads as no-verdict rathe
 
 test('S3: pipelinePosition agrees with decideNext on the same fixture', () => {
   const verdict = { agent: 'security-officer', verdict: 'APPROVED', canonical: true, hasCost: true };
-  const joinVerdicts = { 'qa-engineer': { agent: 'qa-engineer', verdict: 'PASS' } };
+  const joinVerdicts = { 'qa-engineer': { agent: 'qa-engineer', verdict: 'PASS' }, 'code-reviewer': { agent: 'code-reviewer', verdict: 'APPROVED' } };
   const activeGates = ['security', 'compliance', 'ship'];
 
   const decision = decideNext({ agent: 'security-officer', transitions: TRANSITIONS, verdict, joinVerdicts, activeGates });
@@ -197,6 +200,7 @@ test('S3: pipelinePosition agrees with decideNext on the same fixture', () => {
   const verdicts = {
     'security-officer': mkV('security-officer', 'APPROVED', { ageMs: 60_000 }),
     'qa-engineer': mkV('qa-engineer', 'PASS', { ageMs: 120_000 }),
+    'code-reviewer': mkV('code-reviewer', 'APPROVED', { ageMs: 180_000 }),
   };
   const r = pipelinePosition({ transitions: TRANSITIONS, verdicts, activeGates, now: NOW });
 

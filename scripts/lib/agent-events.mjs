@@ -28,8 +28,10 @@ import { appendFileSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync
 import { join } from 'node:path';
 
 export const EVENTS_FILE = 'events.jsonl';
-export const EVENT_KINDS = Object.freeze(['agent-start', 'agent-stop', 'tool', 'denied', 'stop', 'pipeline']);
-export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict']);
+// `hint`: a context hook (edit-impact, lesson-tripwire) put text in front of the model.
+// Recorded so its noise can be measured — how often, on what, how long — not what it said.
+export const EVENT_KINDS = Object.freeze(['agent-start', 'agent-stop', 'tool', 'denied', 'stop', 'pipeline', 'hint']);
+export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict', 'hook', 'chars', 'host']);
 export const MAX_BYTES = 5 * 1024 * 1024;
 
 const MAX_PATHS = 10;
@@ -55,6 +57,9 @@ export function makeEvent(input, { now = Date.now() } = {}) {
   if (Number.isFinite(input.duration_ms) && input.duration_ms >= 0) e.duration_ms = Math.round(input.duration_ms);
   if (typeof input.outcome === 'string' && /^[a-z][a-z-]{0,39}$/.test(input.outcome)) e.outcome = input.outcome;
   if (typeof input.verdict === 'string' && /^[A-Z][A-Z_-]{0,39}$/.test(input.verdict)) e.verdict = input.verdict;
+  if (typeof input.hook === 'string' && /^[a-z][a-z-]{0,39}$/.test(input.hook)) e.hook = input.hook;
+  if (Number.isInteger(input.chars) && input.chars >= 0) e.chars = input.chars;
+  if (input.host === 'claude' || input.host === 'codex') e.host = input.host;
   return e;
 }
 

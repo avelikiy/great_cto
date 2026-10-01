@@ -8,9 +8,10 @@ For each reviewer in NEW_REVIEWERS, verifies:
   2. A TM-template at skills/great_cto/templates/TM-{slug}.md exists.
   3. A pack overlay at skills/great_cto/packs/{pack}.md exists when the
      reviewer is part of a pack.
-  4. The corresponding /command at commands/{cmd}.md exists.
+  4. The reviewer is reachable as `/review --domain {domain}`: the domain table in
+     commands/review.md has a row for the domain naming this agent.
   5. Plugin SessionStart copy-loop in .claude-plugin/plugin.json registers
-     the agent + command.
+     the agent.
 
 Exit 0 on success, 1 with a human-readable error report otherwise.
 
@@ -33,18 +34,18 @@ PACKS = ROOT / "skills" / "great_cto" / "packs"
 COMMANDS = ROOT / "commands"
 PLUGIN_JSON = ROOT / ".claude-plugin" / "plugin.json"
 
-# Reviewer registry: (agent name, TM slug, pack name, /command name)
+# Reviewer registry: (agent name, TM slug, pack name, /review --domain name)
 # pack may be None if the reviewer has no domain-specific pack overlay yet.
 NEW_REVIEWERS: list[tuple[str, str, str | None, str | None]] = [
-    ("voice-ai-reviewer",                "voice",    "voice-pack",            "voice-compliance"),
-    ("hr-ai-reviewer",                   "hrai",     "hr-ai-pack",            "aedt-bias-audit"),
-    ("api-platform-reviewer",            "api",      "api-platform-pack",     "api-contract-review"),
-    ("legal-reviewer",                   "legal",    "legaltech-pack",        "upl-check"),
-    ("rcm-reviewer",                     "rcm",      "rcm-pack",              "coding-audit"),
-    ("procurement-reviewer",             "procurement", "procurement-pack",   "procurement-review"),
-    ("accounting-reviewer",              "accounting",  "accounting-pack",    "close-review"),
-    ("msp-reviewer",                     "msp",         "msp-pack",           "msp-review"),
-    ("tax-reviewer",                     "tax",         "tax-pack",           "tax-review"),
+    ("voice-ai-reviewer",                "voice",    "voice-pack",            "voice"),
+    ("hr-ai-reviewer",                   "hrai",     "hr-ai-pack",            "hr-ai"),
+    ("api-platform-reviewer",            "api",      "api-platform-pack",     "api"),
+    ("legal-reviewer",                   "legal",    "legaltech-pack",        "legal"),
+    ("rcm-reviewer",                     "rcm",      "rcm-pack",              "rcm"),
+    ("procurement-reviewer",             "procurement", "procurement-pack",   "procurement"),
+    ("accounting-reviewer",              "accounting",  "accounting-pack",    "accounting"),
+    ("msp-reviewer",                     "msp",         "msp-pack",           "msp"),
+    ("tax-reviewer",                     "tax",         "tax-pack",           "tax"),
 ]
 
 REQUIRED_AGENT_FIELDS = {"name", "description", "model", "tools", "maxTurns", "timeout", "applies_to"}
@@ -103,34 +104,42 @@ def check_pack(pack: str | None, errors: list[str]) -> None:
         errors.append(f"pack overlay missing: {p}")
 
 
-def check_command(cmd: str | None, errors: list[str]) -> None:
-    if cmd is None:
+REVIEW_CMD = COMMANDS / "review.md"
+DOMAIN_ROW_RE = re.compile(r"^\|\s*`([a-z0-9-]+)`\s*\|[^|]*\|\s*`([a-z0-9-]+)`\s*\|", re.MULTILINE)
+
+
+def check_domain(agent: str, domain: str | None, errors: list[str]) -> None:
+    """The reviewer must be reachable as `/review --domain <domain>`."""
+    if domain is None:
         return
-    p = COMMANDS / f"{cmd}.md"
-    if not p.exists():
-        errors.append(f"/command missing: {p}")
+    if not REVIEW_CMD.exists():
+        errors.append(f"/review command missing: {REVIEW_CMD}")
+        return
+    rows = dict(DOMAIN_ROW_RE.findall(REVIEW_CMD.read_text(encoding="utf-8")))
+    if domain not in rows:
+        errors.append(f"/review --domain {domain}: no row in the domain table of {REVIEW_CMD}")
+    elif rows[domain] != agent:
+        errors.append(f"/review --domain {domain} routes to {rows[domain]}, expected {agent}")
 
 
-def check_plugin_registration(items: Iterable[tuple[str, str | None]], errors: list[str]) -> None:
+def check_plugin_registration(items: Iterable[str], errors: list[str]) -> None:
     text = PLUGIN_JSON.read_text(encoding="utf-8", errors="replace")
-    # Two whitelist loops live in the SessionStart command — for AGENT and CMD.
-    # We just look for substring presence.
-    for agent_name, cmd_name in items:
+    # The SessionStart whitelist names every agent. Domain reviews have no command of
+    # their own any more — they run as `/review --domain <name>` (checked above).
+    for agent_name in items:
         if agent_name not in text:
             errors.append(f"plugin.json SessionStart loop missing agent: {agent_name}")
-        if cmd_name and cmd_name not in text:
-            errors.append(f"plugin.json SessionStart loop missing command: {cmd_name}")
 
 
 def main() -> int:
     errors: list[str] = []
-    plugin_items: list[tuple[str, str | None]] = []
-    for agent, slug, pack, cmd in NEW_REVIEWERS:
+    plugin_items: list[str] = []
+    for agent, slug, pack, domain in NEW_REVIEWERS:
         check_agent(agent, errors)
         check_tm_template(slug, errors)
         check_pack(pack, errors)
-        check_command(cmd, errors)
-        plugin_items.append((agent, cmd))
+        check_domain(agent, domain, errors)
+        plugin_items.append(agent)
     check_plugin_registration(plugin_items, errors)
 
     if errors:
@@ -139,7 +148,7 @@ def main() -> int:
             print(f"  • {e}")
         return 1
     n = len(NEW_REVIEWERS)
-    print(f"OK — all {n} new reviewers wired (agent + TM-template + pack + /command + plugin.json)")
+    print(f"OK — all {n} new reviewers wired (agent + TM-template + pack + /review --domain + plugin.json)")
     return 0
 
 

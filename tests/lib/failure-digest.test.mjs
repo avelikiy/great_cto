@@ -1,6 +1,6 @@
 // What actually failed, for the agent that has to fix it.
 //
-// `/prompt-evolve` hands `ai-prompt-architect` a one-sentence LESSON while the
+// `/agent evolve` hands `ai-prompt-architect` a one-sentence LESSON while the
 // eval history holds, per case, the actor's full response and the judge's reason
 // for rejecting it. The candidate generator was working from a summary with the
 // evidence sitting on disk.

@@ -21,8 +21,8 @@ import { fileURLToPath } from 'node:url';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
-/** Frozen 2026-08-29: `local-seo`. May shrink. */
-const ORPHAN_CAP = 1;
+/** Was 1 (`local-seo`, frozen 2026-08-29); 0 since 3.40.1 — local-seo is a file of `verticals`, which architect reads. May not grow. */
+const ORPHAN_CAP = 0;
 
 function readAll(dir) {
   const out = [];

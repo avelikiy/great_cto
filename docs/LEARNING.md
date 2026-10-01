@@ -80,10 +80,10 @@ export GREAT_CTO_DISABLE_SESSION_LEARNING=1
 ### Manual trigger
 
 ```
-/learn                  # extract lessons from this session
-/learn cost             # focus on cost-outlier patterns (shape B)
-/learn security         # focus on reviewer-catch patterns (shape A)
-/learn architecture     # focus on tool/library decisions (shape E)
+/crystallize learn                  # extract lessons from this session
+/crystallize learn cost             # focus on cost-outlier patterns (shape B)
+/crystallize learn security         # focus on reviewer-catch patterns (shape A)
+/crystallize learn architecture     # focus on tool/library decisions (shape E)
 ```
 
 ### Inspect state
@@ -168,4 +168,4 @@ See **ADR-017** for skill-promotion criteria.
 - **ADR-017** — skill candidate promotion criteria (what becomes a skill in v1.4.0)
 - **`agents/continuous-learner.md`** — the agent itself
 - **`scripts/lessons-merge.mjs`** — the cross-project promotion script
-- **`commands/learn.md`** — manual trigger
+- **`commands/crystallize.md`** — manual trigger (`/crystallize learn`)

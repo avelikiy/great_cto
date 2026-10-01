@@ -127,7 +127,7 @@ export function registerDrops(items, { source = 'memory-filter', query = null, r
 export function formatRecallFooter(stubs) {
   if (!stubs || stubs.length === 0) return '';
   const lines = stubs.map((s) => `  - \`${s.id}\` — ${s.preview}`);
-  return `\n\n<!-- ccr: ${stubs.length} item(s) elided but recoverable. Run \`/ccr <id>\` (or node scripts/lib/ccr.mjs recall <id>):\n${lines.join('\n')}\n-->`;
+  return `\n\n<!-- ccr: ${stubs.length} item(s) elided but recoverable. Run \`/recall ccr:<id>\` (or node scripts/lib/ccr.mjs recall <id>):\n${lines.join('\n')}\n-->`;
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────────

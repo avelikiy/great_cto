@@ -33,9 +33,10 @@ import { worktreesWithChanges, explainWorktrees } from '../lib/worktree-state.mj
 import { stopTranscript, stopAgent, requestedModel, modelCheck, costLine } from '../lib/subagent-cost.mjs';
 import { fileURLToPath } from 'node:url';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { contractPath } from '../lib/contract-path.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
-const ORCH_PATH = join('shared', 'orchestrator.toml');
+const ORCH_PATH = contractPath('orchestrator.toml');
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
 const RECENT_MS = 5 * 60 * 1000; // a verdict written in the last 5 min counts as "this stop"
 // Where an agent's `model:` is declared. Overridable so a test can hand the hook its own agents.

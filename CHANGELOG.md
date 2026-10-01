@@ -9,6 +9,579 @@ All notable changes to great_cto are documented here.
 
 
 
+
+
+
+
+
+
+## v3.46.2 — 2026-10-01
+
+Spending caps now see what was actually spent, and `/board` starts on a marketplace install.
+
+### Fixed
+
+- **Cost caps compared against $0.** `cost-guard` looked for `cost_usd=N` in
+  `.great_cto/cost-history.log`, a format no writer emits, so `daily_max_usd` and
+  `monthly_max_usd` could never fire. `/start` and `/digest` printed today's and this
+  month's spend with the same pattern and always showed $0.00. One reader,
+  `scripts/lib/cost-history.mjs`, now holds the row rules for all six places that read
+  the log. **If you set `"enforce": "block"`, caps now really block**; the default
+  (`warn`) is unchanged.
+- **Repeat runs of one agent were under-counted** in the run budget, the bench report and
+  handoff packages: every `turns=` row was treated as a session running total, but since
+  2026-09-11 those rows are one agent run each. Legacy running-total rows still count by
+  their increment.
+- **`/board` failed on marketplace installs.** A marketplace install is a git clone
+  without the CLI build, and every auto-update re-clones it; `/board` ran the plugin copy
+  because `index.mjs` existed and died on "dist/main.js not found" before falling back to
+  a global `great-cto`. It now checks for the build.
+- The local gate builds the CLI before the tests that import it, so a fresh worktree (and
+  `--quick`) no longer fails on `ERR_MODULE_NOT_FOUND`.
+
+---
+
+## v3.46.1 — 2026-09-30
+
+### Fixed
+
+- **Where to approve great_cto's hooks in Codex.** The docs said "on the next interactive
+  `codex` start"; in the ChatGPT/Codex app that screen never appears, so an approval there
+  records nothing and every guard stays off. The terminal UI shows it (verified with the
+  app's own codex-cli 0.159.2). README (+ 9 translations), HOST-CODEX, the installer,
+  `great-cto upgrade`, `install-local` and `/doctor` now say: run `codex` in a terminal and
+  choose **Trust all and continue** at "Hooks need review".
+- Also in this release: `docs/COMMANDS.md`, the guide to all 21 commands the README and
+  the landing's /commands page are built from, and a retry with the error shown when
+  `install-local` refreshes Codex.
+
+## v3.46.0 — 2026-09-30
+
+Codex gets great_cto updates, and the Codex review check reads what Codex actually runs.
+
+### Fixed
+
+- **great_cto in Codex never updated.** Codex installs great_cto from a Git marketplace
+  snapshot and never refreshes it on its own; releases updated only the Claude Code
+  plugin. On the maintainer's machine Codex sat at 3.37.0 while 3.45.0 shipped, so none
+  of the Codex guards of 3.42–3.45 had arrived. `codex plugin marketplace upgrade
+  great-cto` refreshes the snapshot and the installed plugin together (measured), and now:
+  - **`great-cto upgrade`** runs it when Codex has the great-cto marketplace;
+    **`great-cto upgrade codex`** runs only that. `codex` is found on PATH, then under
+    `~/.nvm`, then in Codex.app — a shell that did not load nvm could not see it.
+  - `install-local` refreshes Codex after a release has pushed the tag.
+  - README (+ 9 translations) and the Codex installer say Codex does not update itself.
+- **`/doctor` Check 8g read the wrong hooks.** It derived the review keys from the checkout,
+  so an install that ships no hooks (3.37.0) was reported as "hooks not reviewed". It now
+  reads the hooks the installed Codex plugin declares, says "ships no hooks" for such an
+  install, and says when the install is behind the current version.
+
+Tests: `codex-upgrade` (5, with a fake `codex` and a throwaway CODEX_HOME),
+`codex-hook-trust` rewritten for installed-plugin reading (5).
+
+## v3.45.0 — 2026-09-28
+
+Measure the hints before adding more, and say when Codex is running none of the guards.
+
+### Added
+
+- **Hints are recorded and can be counted.** `edit-impact` and `lesson-tripwire` write a
+  `hint` event to `<project>/.great_cto/events.jsonl` — which hook, which file, how long,
+  which host; never what it said — and only where `.great_cto` already exists.
+  `node scripts/lib/hint-report.mjs [--since DATE]` reads them back per hook: fires,
+  fires per session, mean length, the files it fires on most. The board shows them as
+  `hint: <hook> <file>`. Local only; nothing is sent anywhere.
+- **`/doctor` Check 8g: are great_cto's hooks running in Codex?** Codex runs a plugin hook
+  only after you review it once, and until then every great_cto guard there is off with
+  no error. The check reads the review marks Codex writes to `~/.codex/config.toml`
+  (format measured on codex-cli 0.153.4), derives the keys the shipped hooks need, and
+  reports reviewed / partly / not, with the one-step fix. It never reviews for you.
+  (`node scripts/lib/codex-hook-trust.mjs` runs it on its own; exit 3 when not reviewed.)
+
+### Fixed
+
+- **`lesson-tripwire` fired on reads.** A `grep` over a file a lesson names raised that
+  lesson — the first noise it produced. Arguments of commands that only read (`cat`,
+  `grep`, `ls`, `sed -n`, `git log`, …) no longer count; running or writing the file does.
+
+Tests: hint events and the reader filter (3), `hint-report` (2), `codex-hook-trust` (3).
+
+## v3.44.0 — 2026-09-28
+
+The two edit hints reach Codex as well.
+
+### Added
+
+- **`edit-impact` and `lesson-tripwire` run on OpenAI Codex.** Codex relays a PreToolUse
+  `additionalContext` to the model — verified on a probe plugin and then with great_cto
+  itself: an `apply_patch` changing a function's signature came back with
+  "imported by (1): src/job.ts … No test covers it", and Codex quoted it. The Codex
+  adapter now collects what context hooks print and sends it once; a guard's deny still
+  wins over context printed by an earlier hook on the same call. `lesson-tripwire` runs on
+  shell calls, both on `apply_patch`. Like the guards, they run once you have reviewed the
+  great_cto hooks in Codex.
+
+Tests: the adapter's context pass-through, including that a deny is not softened (3 new).
+
+## v3.43.0 — 2026-09-28
+
+A recorded lesson reaches the model at the moment a call touches what it is about.
+
+### Added
+
+- **`lesson-tripwire`** (PreToolUse, Bash and Edit/Write/MultiEdit). Lessons were loaded
+  whole at session start, where forty entries bury the one that matters three hours later.
+  Now a lesson's keys — the files in its Evidence and the paths, flags and identifiers it
+  names in backticks — are matched against each call: the file being edited, the words of
+  the parsed shell command (so a commit message that mentions a path is one word, not the
+  path), or an identifier in the text being written. A key most lessons share points at
+  none of them and is dropped. At most two lessons and 700 characters per call, each lesson
+  once per session; context only, never blocks. Reads the project's `.great_cto/lessons.md`
+  and `~/.great_cto/lessons.md`. Opt out: `GREAT_CTO_DISABLE_LESSON_TRIPWIRES=1`.
+
+Idea from agentlas-ai/Agentlas-OS (Apache-2.0), rebuilt; see NOTICE.md.
+
+Tests: `lesson-tripwire` (6) — parsing the lesson format as written, the shared-key cut,
+matching by file, shell word and identifier, once per session, the two-lesson cap.
+
+## v3.42.0 — 2026-09-28
+
+The safety guards reach Codex, the model sees who depends on a file before it edits
+it, and frozen gates can no longer be changed through the shell.
+
+### Added
+
+- **Six safety guards run on OpenAI Codex as plugin hooks.** Codex does run plugin hooks
+  — verified on codex-cli 0.153.4, first with a probe plugin and then with great_cto
+  itself: `git commit --no-verify`, `rm -rf .git` and an `apply_patch` adding an AWS key
+  were each blocked with our reason relayed, even under `danger-full-access`. The 05.09
+  attempt failed on shape, not on surface: Codex wants `{ hooks: { Event: [...] } }`, and
+  honours a path named in `.codex-plugin/plugin.json`, so the file is
+  `.codex-plugin/hooks.json` — not `hooks/hooks.json`, which Claude Code would load too.
+  Shell calls reach the guards unchanged; `scripts/hooks/codex-adapter.mjs` splits an
+  `apply_patch` into one Edit/Write per file. Guards: shared-tree, gate-bypass,
+  destructive, frozen-gates (shell); secret-scan, frozen-gates, gate-weakening (edits).
+  **Codex runs them only after you review them once**, on the next interactive `codex`
+  start; README, HOST-CODEX and the installer's plan now say so.
+- **`edit-impact`** (PreToolUse, Edit/Write/MultiEdit) — before an existing code file is
+  edited, the model is told which files import it (relative imports resolved exactly,
+  an alias marked as a name match), which tests import it or match its name, and which
+  files git shows are changed in the same commits. Context only, never blocks; once per
+  file per session; ~110 ms; ≤2.5k characters. For the failure where a signature changed,
+  the wrapper a background job called did not, and green tests hid it. Opt out:
+  `GREAT_CTO_DISABLE_EDIT_IMPACT=1`.
+
+### Changed
+
+- **`frozen-gates-guard` sees shell writes.** `sed -i`, `>`/`>>`, `tee`, `cp`/`mv`,
+  `perl -pi`, `rm`, `truncate`, `dd of=` and `git checkout|restore --` into `docs/gates/`
+  were caught only afterwards by the git-diff check; the guard now runs on Bash too and
+  reads the targets from the parsed command, so a commit message that mentions a gate is
+  not a write.
+
+Ideas from agentlas-ai/Agentlas-OS (Apache-2.0), rebuilt; see NOTICE.md.
+
+Tests: `codex-adapter` (7, including the real guards through the adapter),
+`edit-impact` (5, on a throwaway repository), frozen-gates shell writes (3), and the
+Codex manifest test now checks the hooks schema instead of forbidding hooks.
+
+## v3.41.0 — 2026-09-27
+
+A clean way out: `great-cto uninstall` shows what an install wrote and what is yours, and
+removes only the first.
+
+### Added
+
+- **`great-cto uninstall`** — prints a plan and changes nothing; `--yes` carries it out.
+  - **Removes** what an install wrote: plugin versions in `~/.claude/plugins/cache`, the agents
+    and commands marked `great_cto-managed`, the great_cto keys in `settings.json` and
+    `installed_plugins.json` (each file backed up first, every other key kept), the board
+    process and its login service, and the caches in `~/.great_cto` (clones, registries,
+    runtime files).
+  - **Keeps** a plugin version an open Claude Code session loads (and says so), agents and
+    commands without the marker, companion plugins, and your data — `~/.great_cto` with
+    decisions, lessons, verdicts, cost history and `secrets.env`, and each project's `.great_cto/`.
+  - `--purge-data` **moves** `~/.great_cto` to `~/.great_cto.removed-<date>` rather than
+    deleting it: `secrets.env` may hold the only copy of a key. `--projects` also removes the
+    pre-push hook `init` wrote into registered projects.
+  - Host-owned steps are printed, not taken: `claude plugin uninstall`, `claude plugin
+    marketplace remove`, `codex plugin remove`, `npm uninstall -g great-cto`.
+
+### Changed
+
+- The FAQ's uninstall answer ("`rm -rf` clears everything") left the plugin registered, its
+  agents and commands installed and the board service loaded; it now describes the command.
+
+Tests: `packages/cli/tests/uninstall.test.mjs` (8) — built against a temporary HOME, including
+that an unmarked command, `secrets.env`, another plugin's cache and unrelated settings keys
+survive `--yes`.
+
+## v3.40.1 — 2026-09-27
+
+A lighter skill list and a release script that cannot push the wrong branch.
+
+### Changed
+
+- **Twelve domain briefs are files of one `verticals` skill** (−3.0k tokens in every
+  session: 44 skills / ~9.0k tokens of descriptions → 33 / ~6.0k). The eleven `vertical-*`
+  industry skills and `local-seo` were read by architect as files, never through the Skill
+  tool, yet each description sat in every session's skill list. They now live in
+  `skills/verticals/`, beside a SKILL.md whose one short description maps a product to its
+  file — so Codex, where skills are the whole surface, still finds them. `vertical-onboarding`
+  stays a skill (migration-import-engineer preloads it).
+- **`local-seo` has a caller.** It was the one skill nothing read; architect now reads it for
+  public pages that must rank, and the orphan cap drops from 1 to 0.
+- `skill-usage` counts a read of any file in a skill's directory as that skill.
+
+### Fixed
+
+- **`release.sh` refuses a branch other than `main`** instead of asking "continue anyway?".
+  It pushes the local `main` ref, not HEAD: answering yes on a release branch tagged that
+  branch and pushed a stale `main`; without a terminal the question waited forever.
+
+## v3.40.0 — 2026-09-27
+
+Twenty-one commands instead of forty-three. Each job now has one command, and a mode of it
+where two used to overlap; the README, `/help` and the landing page describe them by the
+moment you reach for them, not as a feature list. Old names map in the table below and in
+`/help renamed`.
+
+### Changed behaviour — read before upgrading
+
+| Old | Now |
+|---|---|
+| `/audit` | `/start audit` — and `/start` in a repo with code but no great_cto config takes the audit path itself. `/audit` stays as an alias. |
+| `/discover` · `/prd` | `/spec discover` · `/spec prd` (`/spec <description>` still builds the spec) |
+| `/migrate [--dry-run]` | `/doctor --fix` (plain `/doctor` shows the preview) |
+| `/promote <slug>` | `/poc promote <slug>` |
+| `/oncall <action>` | `/ownership oncall <action>` |
+| `/learn [focus]` | `/crystallize learn [focus]` |
+| `/ccr <id>` | `/recall ccr:<id>` |
+| `/cost …` · `/cost sessions` | `/digest cost …` · `/digest sessions` |
+| `/burn [service]` | `/digest slo [service]` |
+| `/gov-metrics …` | `/digest gov …` |
+| `/agent-review` · `/gen-evals` · `/prompt-evolve` · `/agent-retire` | `/agent review` · `/agent evals` · `/agent evolve` · `/agent retire` |
+| `/tax-review` · `/upl-check` · `/aedt-bias-audit` · `/api-contract-review` · `/close-review` · `/coding-audit` · `/msp-review` · `/procurement-review` · `/voice-compliance` | `/review --domain tax` · `legal` · `hr-ai` · `api` · `accounting` · `rcm` · `msp` · `procurement` · `voice` (old names accepted as aliases of the domain) |
+| `/review trace <id>` | `/trace <id>` |
+
+- Removed command files leave `~/.claude/commands` at the next session start (managed copies
+  only; a file you wrote yourself is kept).
+- **Model per command.** `/agent` runs on sonnet for all four modes; three of the old commands
+  ran on haiku, so a review or an eval generation costs more per run. `/crystallize learn`
+  runs on sonnet where `/learn` ran on haiku.
+- **`/digest` modes are user-invoked only** (`disable-model-invocation`), like `/digest`
+  itself; the model could previously call `/cost` and `/burn` on its own.
+- The CLI's hint for `great-cto learn`, `burn` and `migrate` quotes the new command.
+
+### Changed
+
+- **README, translations, `/help` and the landing page** open with "a day with great_cto":
+  five commands by moment — `/start`, `/save`, `/resume`, `/inbox`, `/digest` — and the
+  rest by when you need them. Command descriptions lead with when to run and what you get.
+- **The default is three decisions, and the docs now say so everywhere.** `/start`'s
+  description, the `/help` card ("the one gate … `gate:plan`") and the FAQ ("two decisions")
+  disagreed with `approval-level.mjs`, which stops at `gate:product`, `gate:arch` and
+  `gate:ship` by default.
+
+### Fixed
+
+- **Three board status colours were under WCAG AA on the light theme**, measured on the
+  surfaces they sit on: in-progress / rework ink 4.45:1 on the harness panel, the backlog
+  pill 4.17:1, the done pill (green ink on a blue bed) 4.26:1. Now 5.08, 4.99 and 4.94; the
+  done pill's bed is green, matching its ink.
+
+Tests: four new command-surface suites (`review-domains`, `command-subcommands-b|c|d`).
+
+## v3.39.0 — 2026-09-27
+
+See where your sessions spend, with 1-hour cache writes priced correctly; reviewers can no
+longer invent a quote; `/save` and `/resume` carry the proof and the state; one command,
+`/crystallize`, for turning experience into knowledge.
+
+### Changed behaviour — read before upgrading
+
+- **`/skillify` is now `/crystallize skill [name]`.** One command turns repeated experience
+  into reusable knowledge: `review`/`approve` promote what incidents taught into patterns and
+  agent changes, `skill` captures a procedure you keep walking agents through. The old
+  command file is removed from `~/.claude/commands` at the next session start.
+
+### Added
+
+- **`/cost sessions [days]`** (`scripts/lib/session-shape.mjs`) — how your own sessions spend,
+  not only your agents: turns, active hours, cache rebuilds, main-thread vs subagent models,
+  a traffic-light table with stated thresholds, and the three habits worth most to change.
+  Local and read-only; projects are anonymised and message text is never read. On the
+  measuring machine (30 days): 98% of spend in 15 sessions over 300 turns or 4 active hours,
+  and ~$6.2k of cache rebuilds that a fresh session or `/compact` would have avoided.
+- **Quote verification** (`scripts/lib/quote-verify.mjs`) — a passage a reviewer quotes must
+  exist in the file it cites (exact, then normalised). `finding-evidence` rejects a finding
+  with an invented quote; domain reviewers and code-reviewer check a quote first or mark it
+  as a paraphrase.
+- **`/save` records where the work stands and how to prove it** — branch@sha, dirty files,
+  stash count, running dev servers, a `Verify:` command for each done item, and the next
+  step as the first action. **`/resume` says at the top when the note is stale** (commits
+  since, branch changed) and re-runs only cheap read-only proofs before acting.
+- **skill-lint SK-007** — an unquoted frontmatter value that strict YAML reads differently is
+  an error; agents and commands are held to the same rule.
+
+### Fixed
+
+- **1-hour cache writes were priced at the 5-minute rate.** They bill at 2× the input price,
+  not 1.25×; `cost-meter` now prices each TTL from `usage.cache_creation`. Main Claude Code
+  sessions write the 1-hour cache, so their cost was understated (measured: $27.1k → $29.7k
+  over 30 days on the measuring machine); subagents write the 5-minute cache and are unchanged.
+
+Ideas from techwolf-ai/ai-first-toolkit (MIT): token-doctor, kb-verify, the handoff skill
+and preflight's strict frontmatter check — each rebuilt on great_cto's own libraries.
+
+
+## v3.38.0 — 2026-09-26
+
+Two hooks that looked like protection never ran — the destructive-command check and the write
+log both read the wrong field of the hook payload. Both are fixed, and a test now runs every
+inline hook against the payload Claude Code sends. With them: a guard against weakened
+lint and type checks, a contract that fetched text is data, injection screening of memory,
+a `ci-resolver` agent, duplicate-finding merge in `/review`, a loop detector, opt-in
+typecheck at Stop, a GitHub Actions checker, and skill measurement.
+
+### Fixed
+
+- **The inline "Dangerous command" check never blocked anything.** It read `command` from the
+  top of the hook payload; Claude Code sends `tool_input.command`, so `rm -rf ~`, force pushes
+  and `DROP TABLE` all passed. It is replaced by `scripts/hooks/destructive-guard.mjs`, which
+  parses the command and refuses only what cannot be undone — `rm -rf node_modules` passes,
+  `rm -rf ~` does not — and names a safe alternative. A signed `destructive-command`
+  exception is the sanctioned bypass.
+- **The write log never wrote a line.** The same mistake (`file_path` read from the top) meant
+  `.great_cto/agent-writes.log` was never created in any project. A new test runs every inline
+  hook against the payload shape Claude Code sends.
+
+### Changed behaviour — read before upgrading
+
+- **Destructive commands are refused** (see Fixed) — this is new behaviour for every session,
+  because the old check never ran.
+- **gate-weakening-guard also refuses added lint/type suppressions and weakened configs:**
+  `@ts-ignore`, `@ts-nocheck`, `@ts-expect-error`, `eslint-disable*`, `noqa`, `type: ignore`,
+  `pylint: disable`, `#[allow(`, `//nolint`, `@SuppressWarnings`; `"strict": false`,
+  `skipLibCheck: true`, an ESLint rule set to `"off"`, more Python-lint ignores. Moving a
+  suppression nets zero and passes; edits are checked against the whole file.
+
+### Added
+
+- **`ci-resolver` agent** — owns a red pipeline: names each red check's cause (real
+  regression, false test, broken gate, flaky) with evidence, lands one minimal fix per cause
+  and proves green. It never skips a test, marks a check allow-failure or uses `--no-verify`.
+  71 agents.
+- **Fetched text is data** (`agents/_shared/untrusted-content.md`): all 65 agents with
+  WebFetch/WebSearch now treat web pages, issue/PR text, logs and third-party files as data,
+  never instructions, and report injection attempts. Lint rule SEC-001 enforces the pointer.
+- **Memory and shipped prompts are screened for injection.** Global memory entries carrying
+  invisible Unicode, instructions hidden in HTML comments or injection phrases are dropped
+  before they reach a session (one notice, never the text); `agent-shield` blocks invisible
+  Unicode in agents, skills, commands and hook commands.
+- **`/review` merges duplicate findings before triage** (`scripts/lib/findings-dedupe.mjs`):
+  each bug is verified once, with every angle that found it listed.
+- **`loop-detector`** — an agent repeating the same call 5× or churning one file against red
+  tests gets one nudge to change approach or report BLOCKED.
+- **Typecheck at Stop (opt-in)** — the files edited this turn are typechecked once with the
+  project's own `tsc` (or pyright/mypy); errors send the model back. 60 s budget, process-group
+  kill. Enable with `GREAT_CTO_TYPECHECK_AT_STOP=1` or `typecheck_at_stop: true`.
+- **`workflow-security`** — security-officer checks a project's GitHub Actions (pwn-request
+  checkouts, script injection in `run:`, broad permissions, mutable action refs) with file:line;
+  any HIGH blocks gate:ship.
+- **Skills are measured and checked like agents.** `scripts/lib/skill-usage.mjs` counts from
+  local transcripts how often each skill is invoked, preloaded or read (16 of 44 were not seen
+  in 30 days on the measuring machine); `scripts/skill-lint.mjs` checks every SKILL.md and runs
+  in the gate.
+
+Ideas from a component-by-component comparison with affaan-m/ECC (MIT); every mechanism is
+rebuilt on great_cto's own parser, exceptions and hooks. Plan: `docs/plans/PLAN-2026-09-26-ecc-hardening.md`.
+
+
+## v3.37.1 — 2026-09-25
+
+Every main session starts about 4.6k tokens lighter.
+
+### Changed
+
+- **Each main session starts ~4.6k tokens lighter.** Every agent is registered twice — as
+  `senior-dev` (the installed copy, 96% of dispatches) and as `great-cto:senior-dev` (the
+  plugin's). Both keep their full prompts; the plugin's copy now lists a one-line description
+  instead of repeating the full one. Measured on the first turn of a main session: 108.0k /
+  109.8k → 102.9k / 105.7k tokens. ADR-027, amended with option E.
+
+
+## v3.37.0 — 2026-09-25
+
+Three guards turn rules the agents were told into refusals the tools enforce: no destroying
+another session's uncommitted work, no skipping the git hooks, no switching a check off to
+make it green. The two gate guards yield to a signed, expiring exception; the tree guard to an
+opt-out for a tree nobody else works in.
+
+### Changed behaviour — read before upgrading
+
+- **Skipping the git hooks is refused** (`scripts/hooks/gate-bypass-guard.mjs`, PreToolUse on
+  Bash): `--no-verify`, `git commit -n`, `git -c core.hooksPath=…`, setting or unsetting
+  `core.hooksPath`, `HUSKY=0` and `SKIP=` before git. pre-push is what keeps private names out
+  of a public push, and its own advice named the flag that switched it off. A bypass the
+  operator agrees to is a signed, expiring exception for gate `git-hooks` (`/exception`).
+- **An edit that switches a check off is refused** (`scripts/hooks/gate-weakening-guard.mjs`,
+  PreToolUse on Edit/Write/MultiEdit): an added test skip (`.skip`, `.only`, `xit`,
+  `@pytest.mark.skip`, `t.Skip`, `#[ignore]`, Dart `skip:`) or CI allow-failure
+  (`continue-on-error: true`, `allow_failure: true`, `*SKIP*: 1`). Existing skips and
+  removals pass; a quarantine goes through an exception for gate `gate-weakening`.
+- **Commands that destroy uncommitted work are refused** (`scripts/hooks/shared-tree-guard.mjs`,
+  PreToolUse on Bash): `git stash` (all but `list`/`show`), `git checkout -- <path>` / `.` /
+  `-f`, `git restore <path>` (unstaging with `--staged` stays allowed), `git reset --hard`,
+  `git clean -f`. Several sessions often share one working tree, and another session's
+  uncommitted edits are in neither the index nor the history. The refusal tells the agent
+  the safe route: a patch (`git diff > /tmp/x.patch`) or a separate `git worktree`. The
+  command is parsed, not grepped — a commit message that mentions `git stash` passes;
+  `a && git stash -u`, `$(…)`, `bash -c` and `eval` are seen. Measured cause: at effort
+  MEDIUM, senior-dev ran `git stash -u && npm test; git stash pop` in 2 of 3 runs. It also
+  refuses `git reset --hard` inside an agent's own isolated worktree; in a tree nobody else
+  uses, set `GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1`.
+
+### Fixed
+
+- **Locating the installed plugin could pick a stale version.** Every lookup sorted the whole
+  path with `sort -V`, so with two marketplaces installed `cache/local/…/3.36.0` beat
+  `cache/great-cto/…/3.37.0` ("l" > "g"). Lookups now sort by the version segment, and a test
+  refuses any lookup written the old way.
+- **The README's Fleet screenshot showed an empty fleet since 3.28** — the capture fixture had
+  no installed agents. It installs them now, and the capture refuses to photograph an empty
+  panel.
+
+## v3.36.1 — 2026-09-25
+
+architect, pm and product-owner start 13k tokens lighter on every turn.
+
+### Changed
+
+- **architect, pm and product-owner no longer carry the Skill tool.** The tool puts the name
+  and description of every installed skill into the agent's prompt on every turn. Measured
+  as a dispatched subagent, architect's first-turn prompt fell 78.4k → 65.5k tokens (−16.5%)
+  — on Opus, every turn. The skills they loaded on demand (the `vertical-*` industries,
+  `outcome-roadmap`, `product-economics`, `opportunity-solution-tree`) are now read as files
+  from the installed plugin when they apply. The tool had shipped in 3.32 but only reached
+  sessions with 3.36, when the stubbed local plugin was fixed — no run had used it.
+
+## v3.36.0 — 2026-09-25
+
+The proposal you approve with one word now says how the work counts as done, a bug is
+reproduced before it is fixed, and there is a tool to see whether that lowered the rate at
+which you correct the work. senior-dev also starts a third lighter.
+
+### Added
+
+- **A task brief before the first edit** (`agents/_shared/task-brief.md`, operating rule 6).
+  The proposal an operator approves with one word now carries `Done when:` — a check the
+  agent runs itself on what ships — with guesses marked `[A1]` and at most three questions,
+  each with a recommended answer. A bug is reproduced before it is fixed, and is done when
+  that repro passes where the operator saw it. senior-dev, devops and l3-support follow it;
+  the coordinator's Worker Contract takes its acceptance criterion from it. Sized: a tiny
+  task gets one line.
+- **`scripts/lib/request-quality.mjs`** — how often requests get corrected, from your own
+  session logs; local, read-only, numbers only. Baseline on the measuring machine: 7.0% of
+  requests corrected within three turns, 83 "it doesn't work" reports in 60 days, 0 of 965
+  approvals of a proposal that said when it would be done.
+
+### Changed
+
+- **senior-dev starts a third lighter.** It no longer preloads `ui-ux-pro-max` (46 KB — UI
+  choices come from the DESIGN doc, written with that skill) or
+  `superpowers:subagent-driven-development` (29 KB — senior-dev dispatches no subagents).
+  Measured as a dispatched subagent: first-turn prompt 83.4k → 55.5k tokens, median run
+  5.4 → 4.6 min, cost $1.87 → $1.63, same results. The sentence naming
+  `web-artifacts-builder` and `theme-factory` is gone — neither skill ships or was installed.
+- **`prompt-size` counts preloaded skills**, which Claude Code injects in full into every
+  run of the agent. Skills from other plugins are listed, not sized.
+
+
+
+
+
+
+
+
+## v3.35.0 — 2026-09-25
+
+The review stage runs side by side, orchestrators hand out independent work in one message,
+and agent speed can be measured. A benchmark also showed that the plugin most machines
+registered from the local marketplace never loaded at all — see *Fixed*.
+
+### Changed behaviour — read before upgrading
+
+- **Review fans out.** After senior-dev, code-reviewer, qa-engineer and security-officer are
+  dispatched together, and each waits for the other two before devops (`shared/pipeline.toml`
+  `join`). The stage takes as long as the slowest reviewer instead of their sum — by the
+  measured medians, 8.3 → 5.7 min. code-reviewer's edge now carries `gate:ship` too, so
+  whichever reviewer finishes last cannot reach devops without the ship decision. If one
+  reviewer blocks and the code changes, the others' verdicts predate the change and
+  `gate:ship` refuses them — a fan-out cannot ship a stale pass.
+- **coordinator dispatches disjoint packets in one message; pm plans in waves.**
+
+### Added
+
+- **`scripts/lib/agent-speed.mjs`** — per agent: median and p90 minutes, tool calls, the
+  share of turns that carried more than one tool call, and the share of time spent in the
+  model, from Claude Code's own subagent transcripts. `--since` / `--until` compare windows.
+- **`scripts/lib/affected-tests.mjs`** — the test command for the files you changed (JS/TS,
+  Rust, Dart/Flutter, Python, Go), or `full` when nothing maps.
+- **`agents/_shared/work-fast.md`** in 14 working agents: batch independent calls, never poll,
+  targeted tests while iterating and the full suite once. **Measured and not effective yet:**
+  in a controlled benchmark (one TDD task, three runs per prompt) the rules did not change how
+  often senior-dev batched calls or re-ran the full suite. They are shipped as harmless;
+  making them hold will take enforcement, not a sentence.
+
+### Fixed
+
+- **`great_cto@local` never loaded.** The `local` marketplace entry `install-local.sh` feeds
+  gave `source` as an absolute path, which Claude Code rejects and replaces with a stub that
+  has no hooks. Machines with both registrations ran the GitHub marketplace one — on the
+  measuring machine, 3.29.1's hook list — so hooks added in 3.30–3.34 never registered there,
+  and `shared/*.toml` kept being copied into projects. `install-local.sh` now also updates
+  `great_cto@great-cto`. To check yours: `claude plugin list`; one great_cto enabled, current
+  version. `claude -p ok --debug hooks` then `~/.claude/debug/latest` shows what loads.
+
+
+## v3.34.0 — 2026-09-23
+
+great_cto stops leaving its own state in your repository's history, reads its pipeline
+contracts from the plugin instead of re-copying them into every project, and writes at
+the project root however far a session wanders into subdirectories.
+
+### Changed behaviour — read before upgrading
+
+- **SessionStart no longer copies `shared/pipeline.toml` and `shared/orchestrator.toml`
+  into your project.** Hooks read the plugin's contract. A project file is used only when
+  its first lines say `great_cto: project override`; an unmarked `shared/*.toml` — what
+  every earlier version copied in — is ignored, so it cannot pin your project to an old
+  contract. If you had edited one deliberately, add that line. Otherwise the copies can be
+  deleted.
+- **Every hook starts in the project root** — the nearest directory with
+  `.great_cto/PROJECT.md` — so `.great_cto/` directories stop appearing inside `backend/`,
+  `docs/`, `infra/` and other subdirectories a session `cd`s into.
+- **`.great_cto/.gitignore` is written at session start** with a managed block of
+  great_cto's machine-local state: turn markers, event and cost logs, the per-session copy
+  of the plugin's `SKILL.md`, `env.sh`, session stubs, `status/`, `cache/`. Lines you add
+  outside the block are kept; your root `.gitignore` is not touched. Project records stay in
+  git: `PROJECT.md`, `verdicts/`, `brain.md`, `FLOW.md`, `CODEBASE.md`, `lessons.md`,
+  `decisions.md`, and the logs `/save` writes. Files you already committed stay tracked
+  until you untrack them (`git rm --cached`).
+
+### Fixed
+
+- **senior-dev's autonomy rule overrode "ask before proceeding".** The 3.31 paragraph ended
+  with a sentence that cancelled the ask-first list above it (a lint rule to disable, an
+  "unrelated" failing test, an empty TEST-SPEC). Found by the fleet re-measure; tuning fell
+  to 4/5, and is 5/5 again with the list restored.
+
+### Measured
+
+Fleet re-measured on 3.33/3.34 — see docs/plans/PLAN-2026-09-16-agent-quality.md.
+
+
 ## v3.33.0 — 2026-09-23
 
 Parallel work merges only after a check that touches nothing, orchestrators wait on the

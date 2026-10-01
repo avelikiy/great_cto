@@ -41,6 +41,7 @@ import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { latestScore as _latestScore, readScores as _readScores } from '../lib/scores.mjs';
 import { appendEvent } from '../lib/agent-events.mjs';
 import { parsePipelineToml } from '../lib/pipeline-toml.mjs';
+import { contractPath, PLUGIN_SHARED } from '../lib/contract-path.mjs';
 export { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -61,9 +62,9 @@ const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
  * this file's own location first-and-last, with a project-local copy taking
  * precedence so a project can still override the chain deliberately.
  */
-const PLUGIN_PIPELINE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'shared', 'pipeline.toml');
-const LOCAL_PIPELINE = join('shared', 'pipeline.toml');
-const PIPELINE_PATH = existsSync(LOCAL_PIPELINE) ? LOCAL_PIPELINE : PLUGIN_PIPELINE;
+// A project copy counts only when marked as a deliberate override — see
+// scripts/lib/contract-path.mjs; unmarked copies were left by the old SessionStart.
+const PIPELINE_PATH = contractPath('pipeline.toml');
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
 // A verdict is "fresh" if written in the last 30 min — long enough for a slow
 // subagent's closing writes, short enough not to resurrect yesterday's run.
@@ -972,7 +973,7 @@ async function main() {
   // The project root, for the journal. PROJ_DIR is `.great_cto` by default and
   // may be an absolute override.
   const PROJECT_ROOT = PROJ_DIR.replace(/\/?\.great_cto\/?$/, '') || '.';
-  const MAP_SOURCE = PIPELINE_PATH === LOCAL_PIPELINE ? 'project' : 'plugin';
+  const MAP_SOURCE = PIPELINE_PATH.startsWith(PLUGIN_SHARED) ? 'plugin' : 'project';
   // Never able to fail a dispatch: a journal whose failure stops the pipeline is
   // very much worse than no journal.
   // `startedAt` comes from the agent's own transcript, so the interval does not

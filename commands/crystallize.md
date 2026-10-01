@@ -1,8 +1,8 @@
 ---
-description: "Promote extracted incident knowledge into global patterns and agent improvements."
-argument-hint: '[approve GP-NNNN [--no-eval "reason"] | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status]'
+description: "After a session or an incident, turn what happened into reusable knowledge — `learn` captures this session's lessons, review/approve promotes incident patterns into agent improvements, `skill` turns a repeating procedure into a skill."
+argument-hint: '[learn [focus] | approve GP-NNNN [--no-eval "reason"] | reject GP-NNNN <reason> | rollback GP-NNNN | prune | status | skill [name]]'
 user-invocable: true
-allowed-tools: Read, Write, Edit, Bash, Glob, Grep
+allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Task
 model: sonnet
 ---
 <!-- great_cto-managed -->
@@ -10,6 +10,8 @@ model: sonnet
 You are the great_cto knowledge crystallization command. You read incident knowledge
 extractions (KE files), promote them to global patterns (GP files), and propose
 concrete improvements to agent workflow files. Human approves every agent change.
+`learn` feeds this flow from the current session (continuous-learner → `lessons.md`);
+`skill` captures a repeating procedure as a skill.
 
 **Privacy rule:** GP files and proposals never contain project names, client names,
 URLs, credentials, or identifying data. Generic technology descriptors only.
@@ -50,6 +52,8 @@ case "$ARG" in
   rollback)  SUBCOMMAND=rollback; GP_ID="$2" ;;
   propose)   SUBCOMMAND=propose; GP_ID="$2" ;;   # NEW: Sprint 3 — PR-gate
   prune)     SUBCOMMAND=prune ;;
+  skill)     SUBCOMMAND=skill; SKILL_ARG="${*:2}" ;;   # a repeating procedure → skills/<name>/SKILL.md (was /skillify)
+  learn)     SUBCOMMAND=learn; FOCUS="${*:2}" ;;       # run continuous-learner on this session → .great_cto/lessons.md (was /learn)
   status)    SUBCOMMAND=status ;;
   *)         SUBCOMMAND=review ;;  # default: show pending KEs + proposals
 esac
@@ -359,7 +363,7 @@ grep -q "PENDING_APPROVAL" "$PROP_FILE" || { echo "ERROR: $GP_ID is not pending"
 #   • no evidence        → blocked unless --no-eval "<reason>" (recorded)
 #   • improvement/noisy  → allowed
 GP_FILE_PRE=$(ls "$GP_DIR"/"${GP_ID}"-*.md 2>/dev/null | head -1)
-_GATE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/gp-approve-gate.mjs 2>/dev/null | sort -V | tail -1)
+_GATE=$(ls ~/.claude/plugins/cache/*/great_cto/*/scripts/lib/gp-approve-gate.mjs 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)
 [ -z "$_GATE" ] && _GATE="scripts/lib/gp-approve-gate.mjs"
 if [ -n "$GP_FILE_PRE" ] && [ -f "$_GATE" ]; then
   if [ -n "$NO_EVAL_REASON" ]; then
@@ -580,7 +584,7 @@ if [ "$EVAL_COUNT" -gt 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
   echo "Baseline score: ${BEFORE_SCORE:-no-eval}"
 else
   BEFORE_SCORE="no-eval"
-  [ "$EVAL_COUNT" -eq 0 ] && echo "No EVAL files found for $TARGET_AGENT — run /gen-evals $TARGET_AGENT first for scored PRs"
+  [ "$EVAL_COUNT" -eq 0 ] && echo "No EVAL files found for $TARGET_AGENT — run /agent evals $TARGET_AGENT first for scored PRs"
 fi
 ```
 
@@ -651,7 +655,7 @@ $(grep -A5 '^## pattern:' "$GP_FILE" | head -6)
 ### Eval scores
 | Agent | Before | After | Delta |
 |-------|--------|-------|-------|
-| $TARGET_AGENT | ${BEFORE_SCORE} | ${AFTER_SCORE} | $([ "$BEFORE_SCORE" != "no-eval" ] && echo "computed" || echo "no EVAL files — run /gen-evals $TARGET_AGENT") |
+| $TARGET_AGENT | ${BEFORE_SCORE} | ${AFTER_SCORE} | $([ "$BEFORE_SCORE" != "no-eval" ] && echo "computed" || echo "no EVAL files — run /agent evals $TARGET_AGENT") |
 
 ### Evidence
 $(grep -A10 '^Evidence\|^\*\*Evidence' "$GP_FILE" | head -10)
@@ -713,3 +717,238 @@ done
 
 echo "Pruned: $PRUNED patterns archived (hits=0, age>90d)"
 ```
+
+---
+
+## Subcommand: learn [focus] — capture this session's lessons
+
+The first step of the knowledge flow: `learn` → `review` → `approve` (and `skill` for a
+procedure). Trigger the **continuous-learner** subagent to extract lessons from the
+current session and write to `.great_cto/lessons.md`. This was `/learn` until 3.40.
+
+### When to use this subcommand
+
+The continuous-learner runs automatically on session end (via the SessionEnd hook). Use
+`/crystallize learn` manually when:
+
+- A session ends without invoking the hook (e.g. force-quit, crash recovery)
+- You just made a notable decision and want to capture it before context drifts
+- You want a focused extraction (e.g. only cost-related lessons): `/crystallize learn cost`
+- You're debugging the learner itself
+
+Optional focus: `cost`, `security`, `architecture`, etc. — narrows the learner's scope.
+
+### Learn step 1 — Validate context
+
+```bash
+# Must be in a great_cto-managed project
+[ -f .great_cto/PROJECT.md ] || { echo "ERROR: no .great_cto/PROJECT.md — not a great_cto project"; exit 1; }
+
+# Need *some* session activity to learn from
+COMMITS=$(git log --oneline --since="8 hours ago" 2>/dev/null | wc -l | tr -d ' ')
+WRITES=$(wc -l < .great_cto/agent-writes.log 2>/dev/null || echo 0)
+[ "$COMMITS" -eq 0 ] && [ "$WRITES" -eq 0 ] && { echo "No session activity detected — nothing to learn from."; exit 0; }
+```
+
+### Learn step 2 — Invoke continuous-learner subagent
+
+Use the Task tool to spawn the subagent. Pass the user's optional focus (`$FOCUS`, the
+words after `learn`):
+
+```
+Task(subagent_type="continuous-learner", description="Extract session lessons", prompt="""
+Extract lessons from the current session. Read recent commits, agent writes,
+cost log, beads activity, and reviewer verdicts. Apply quality gates strictly —
+silence > noise.
+
+Focus: $FOCUS
+
+If the user said "cost", emphasize cost-outlier patterns (shape B).
+If the user said "security", emphasize reviewer-catch patterns (shape A).
+If the user said "architecture", emphasize tool/library decisions (shape E).
+Otherwise apply all 5 shapes.
+
+Output one summary line at the end.
+""")
+```
+
+### Learn step 3 — Surface results
+
+After the subagent completes, show the user:
+
+```
+✓ Continuous-learner finished
+
+  Wrote:    <N> new lessons → .great_cto/lessons.md
+  Rejected: <M> candidates (didn't pass quality gates)
+  Promoted: <P> patterns → ~/.great_cto/decisions.md
+
+  Latest lesson preview:
+  ─────────────────────
+  $(tail -25 .great_cto/lessons.md 2>/dev/null)
+```
+
+If `N=0`:
+```
+No new lessons this session — quality gates rejected all candidates. This is normal.
+
+To inspect what was considered, check the SessionEnd snapshot:
+  ls -t .great_cto/logs/session-*-end.md | head -1 | xargs cat
+```
+
+### Learn notes
+
+- The learner is **append-only** to `lessons.md` — it never edits or removes existing entries
+- De-duplication is by `pattern:` slug — the learner skips slugs already present
+- Promotion to global `~/.great_cto/decisions.md` requires ≥3 occurrences across projects (auto-counted)
+- See `docs/LEARNING.md` for the full architecture
+- See `agents/continuous-learner.md` for the agent's quality gates
+
+---
+
+## Subcommand: skill [name] — capture a repeating procedure as a skill
+
+The other half of the same job. `review`/`approve` promote what incidents taught into
+global patterns; `skill` captures a procedure the operator keeps walking agents through.
+Trigger: the same 5+ steps appearing 3+ times across sessions or agents (look in session
+logs, agent outputs, or the operator saying so). This was `/skillify` until 3.39; one
+command now covers both, so "where does repeated knowledge go" has one answer.
+
+A skill written here is local to the project and reversible (delete the directory), so it
+needs no eval gate; a change to a shipped agent still goes through `review` → `approve`.
+
+### Skill step 1 — Identify the pattern
+
+If a name follows `skill` (`/crystallize skill <name>`), use it as the skill name/topic.
+
+Otherwise, scan for candidates:
+```bash
+# Find repeated patterns in session logs
+grep -h "Step\|1\.\|2\.\|3\." .great_cto/logs/session-*.md 2>/dev/null | sort | uniq -c | sort -rn | head -20
+# Find repeated command sequences in lessons.md
+cat .great_cto/lessons.md 2>/dev/null | head -50
+# Recent agent outputs that looked procedural
+ls .great_cto/verdicts/*.log 2>/dev/null | tail -5 | xargs grep -l "Step\|Procedure\|Checklist" 2>/dev/null
+```
+
+Present top 3 candidates to user. Ask: "Which pattern should I capture?"
+
+### Skill step 2 — Interview (one question at a time)
+
+Ask these questions in order. Wait for an answer before asking the next.
+
+**Q1**: "What triggers this pattern? Describe the situation where you'd reach for it — what keyword or signal in a request would make an agent apply this skill?"
+
+**Q2**: "Walk me through the steps. Number them — I'll turn them into the skill body."
+
+**Q3**: "What's the output? What artifact, verdict, or state change does completing this pattern produce?"
+
+**Q4**: "Who runs this? Which agent(s) in the pipeline would apply it? (architect / pm / senior-dev / qa-engineer / security-officer / l3-support / devops / all)"
+
+**Q5**: "What's the effort level? (low = <10 min of LLM work / medium = 10-30 min / high = >30 min)"
+
+**Q6**: "Any anti-patterns — things this skill should actively prevent agents from doing?"
+
+After all answers: show a draft and ask "Does this look right? Anything to add or change?"
+
+### Skill step 3 — Generate SKILL.md
+
+Derive the skill slug from the name: lowercase, hyphen-separated, no special chars.
+
+```bash
+SKILL_NAME=$(echo "$SKILL_ARG" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | sed 's/[^a-z0-9-]//g')
+SKILL_DIR="skills/$SKILL_NAME"
+mkdir -p "$SKILL_DIR"
+```
+
+Write `skills/<slug>/SKILL.md`:
+
+```markdown
+---
+name: <slug>
+description: <one sentence — what this skill does and when it's needed>
+when_to_use: |
+  Apply when:
+  - <trigger condition 1 from Q1>
+  - <trigger condition 2>
+  Do NOT apply when:
+  - <negative condition — when NOT to use this>
+effort: <low | medium | high>
+allowed-tools: <from Q4 — Read/Write/Bash/Glob/Grep/Agent as needed>
+paths:
+  - "<primary path this skill operates on>"
+---
+
+# <Skill Name>
+
+<Two-sentence description of what this skill accomplishes and why it matters.>
+
+## When to apply
+
+<Expand on the trigger conditions. What signal in a request or situation activates this skill?>
+
+### Skill steps
+
+<Numbered steps from Q2. Be specific — include file paths, commands, and format requirements.>
+
+1. <step 1>
+2. <step 2>
+3. <step 3>
+
+## Output
+
+<What the skill produces — file format, verdict shape, or state change from Q3.>
+
+## Anti-patterns
+
+<From Q6 — what agents must NOT do when this skill is active.>
+
+| Anti-pattern | Why it fails | Correct approach |
+|---|---|---|
+| <bad pattern> | <consequence> | <good pattern> |
+```
+
+### Skill step 4 — Register the skill
+
+Add a routing entry to `skills/great_cto/SKILL.md` under the subagent routing table:
+
+```bash
+# Show the current routing table for context
+grep -A2 "<relevant agent from Q4>" skills/great_cto/SKILL.md | head -5
+```
+
+Propose the routing entry:
+```
+| <trigger keyword or file pattern from Q1> | apply <slug> skill |
+```
+
+Ask: "Should I add this to the routing table in SKILL.md? (yes/no)"
+
+If yes — add it. If no — leave for manual.
+
+### Skill step 5 — Confirm
+
+Show the created file path and content summary:
+
+```
+✅ Skill created → skills/<slug>/SKILL.md
+
+  Trigger:  <when_to_use summary>
+  Agent(s): <from Q4>
+  Effort:   <level>
+  Steps:    <N>
+
+To use: agents will auto-load this skill when the trigger condition is met.
+To test: start a new session and describe a situation matching the trigger — confirm the agent applies it.
+```
+
+---
+
+### Skill quality gates (self-check before writing)
+
+Before writing the file, verify:
+- [ ] `when_to_use` has at least 2 positive triggers AND at least 1 "Do NOT apply" guard
+- [ ] Steps are numbered, specific, and reference actual file paths or commands
+- [ ] Output section describes a concrete artifact (not "the agent will do X")
+- [ ] `effort` is one of: `low`, `medium`, `high`
+- [ ] Skill name slug is `kebab-case`, `[a-z0-9-]` only

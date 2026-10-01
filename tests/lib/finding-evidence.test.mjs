@@ -8,8 +8,13 @@
 // the report was the wrong fix: a fluent wrong finding is exactly what
 // plausibility-checking approves. The check has to ask whether the agent touched
 // the world, not whether the prose reads well.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import {
   parseFindings, evidenceStatus, evidenceBlock, checkFinding, checkReport,
 } from '../../scripts/lib/finding-evidence.mjs';
@@ -207,4 +212,78 @@ test('real output that merely looks terse is accepted', () => {
 test('a real location is accepted', () => {
   const f = parseFindings(withEvidence('failed', '```\n$ grep KEY .env\nnothing\n```', '`packages/board/lib/config.mjs:12`'))[0];
   assert.deepEqual(checkFinding(f).problems, []);
+});
+
+// ─── quoted passages ───────────────────────────────────────────────────────
+//
+// A finding that quotes a regulation, an ADR or the code reads as evidence: the
+// reader assumes somebody copied the passage. The command requirement above
+// never looked at it, so an invented quote attributed to a real file passed.
+// Given a working directory, the check now looks the passage up in the file it
+// cites (scripts/lib/quote-verify.mjs) and refuses the finding when it is not
+// there — under Hypotheses too, because an invented quote is not a question.
+
+const qdir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-fe-quotes-'));
+after(() => fs.rmSync(qdir, { recursive: true, force: true }));
+fs.mkdirSync(path.join(qdir, 'docs/adr'), { recursive: true });
+fs.writeFileSync(path.join(qdir, 'docs/adr/ADR-004.md'),
+  '# ADR-004\n\nSessions are signed with SESSION_SECRET.\nStartup fails when the secret is\nmissing.\n');
+
+const quoting = (line) => finding().replace('- **Why it matters**', `${line}\n- **Why it matters**`);
+
+test('a finding whose quote is in the cited file passes, including across a line break', () => {
+  const f = parseFindings(quoting('- **Rationale**: `docs/adr/ADR-004.md:4` says "Startup fails when the secret is missing."'))[0];
+  const r = checkFinding(f, { cwd: qdir });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.quotes.status, 'passed');
+  assert.equal(r.quotes.results[0].status, 'normalized');
+});
+
+test('a finding whose quote is invented is rejected, with the nearest real line', () => {
+  const f = parseFindings(quoting('- **Rationale**: `docs/adr/ADR-004.md:4` says "Startup must page the on-call engineer when the secret is missing."'))[0];
+  const r = checkFinding(f, { cwd: qdir });
+  assert.equal(r.ok, false);
+  assert.equal(r.quotes.status, 'failed', 'the quote check ran and the quote is not there — a result, in the proof vocabulary');
+  assert.match(r.problems.join(' '), /not in `docs\/adr\/ADR-004\.md`/);
+  assert.match(r.problems.join(' '), /nearest: line \d/);
+  assert.match(r.problems.join(' '), /paraphrase/, 'and it names the honest alternative');
+});
+
+test('a quote that cites a file which does not exist is rejected', () => {
+  const f = parseFindings(quoting('- **Rationale**: `docs/adr/ADR-999.md` says "the secret rotates every thirty days".'))[0];
+  const r = checkFinding(f, { cwd: qdir });
+  assert.equal(r.ok, false);
+  assert.match(r.problems.join(' '), /ADR-999\.md.*does not exist/);
+});
+
+test('an invented quote is refused under Hypotheses too', () => {
+  const text = '## Hypotheses\n' + finding({ status: 'not_run', block: '' })
+    .replace('- **Why it matters**', '- **Rationale**: `docs/adr/ADR-004.md` says "rotation is handled by the vault".\n- **Why it matters**');
+  const r = checkFinding(parseFindings(text)[0], { cwd: qdir });
+  assert.equal(r.ok, false);
+});
+
+test('a passage marked as a paraphrase is not checked as a quote', () => {
+  const f = parseFindings(quoting('- **Rationale**: `docs/adr/ADR-004.md` requires "the app to refuse to boot without a secret" (paraphrase).'))[0];
+  const r = checkFinding(f, { cwd: qdir });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.quotes.status, 'not_run');
+});
+
+test('without a working directory the quote check does not run — and says so', () => {
+  const f = parseFindings(quoting('- **Rationale**: `docs/adr/ADR-004.md` says "an invented sentence goes here".'))[0];
+  const r = checkFinding(f);
+  assert.equal(r.ok, true, 'the pure text check is unchanged for callers that pass no cwd');
+  assert.equal(r.quotes.status, 'not_run');
+});
+
+test('the CLI checks quotes against the directory it runs in', () => {
+  const report = path.join(qdir, 'REVIEW.md');
+  fs.writeFileSync(report, quoting('- **Rationale**: `docs/adr/ADR-004.md:4` says "Startup must page the on-call engineer."'));
+  const bin = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../scripts/lib/finding-evidence.mjs');
+  const r = spawnSync(process.execPath, [bin, 'REVIEW.md', '--strict'], { cwd: qdir, encoding: 'utf8' });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /not in `docs\/adr\/ADR-004\.md`/);
+  const off = spawnSync(process.execPath, [bin, 'REVIEW.md', '--strict', '--no-quotes'], { cwd: qdir, encoding: 'utf8' });
+  assert.equal(off.status, 0, off.stdout + off.stderr);
 });

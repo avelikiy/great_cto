@@ -32,6 +32,7 @@
 
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { contractPath } from '../lib/contract-path.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.pipeline-tick');
@@ -172,7 +173,7 @@ async function main() {
     }
   } catch { /* never block a session start on a diagnostic */ }
 
-  if (!existsSync(PROJ_DIR) || !existsSync(join('shared', 'pipeline.toml'))) return 0;
+  if (!existsSync(PROJ_DIR) || !existsSync(contractPath('pipeline.toml'))) return 0;
 
   // Cheapest question first: is anything in flight at all? A stat per verdict
   // log, before any import or subprocess.
@@ -215,7 +216,7 @@ async function main() {
   const { gatesForApprovalLevel, levelFromProjectMd } = await import('../lib/approval-level.mjs');
 
   let transitions;
-  try { transitions = parsePipelineToml(readFileSync(join('shared', 'pipeline.toml'), 'utf8')); } catch { return 0; }
+  try { transitions = parsePipelineToml(readFileSync(contractPath('pipeline.toml'), 'utf8')); } catch { return 0; }
 
   let activeGates = null;
   try { activeGates = gatesForApprovalLevel(levelFromProjectMd(readFileSync(join(PROJ_DIR, 'PROJECT.md'), 'utf8'))); } catch { /* honour every declared gate */ }

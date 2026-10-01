@@ -69,7 +69,7 @@ async function toolEstimateCost(args: {
   archetype?: string;
   scale?: "quick" | "standard" | "deep";
 }): Promise<any> {
-  // Rough heuristic — for production, agents call /cost feature directly.
+  // Rough heuristic — for production, agents call /digest cost feature directly.
   // This is the LLM-host-friendly summary.
   const scale = args.scale ?? "standard";
   const minutesByScale: Record<string, number> = {

@@ -53,6 +53,8 @@ test('and it names what DOES carry over, so the result is not read as nothing', 
   assert.match(text, /skill/, 'skills carry over');
   assert.match(text, /mcp/, 'so does the MCP server');
   assert.match(text, /controlled role pipeline/, 'the packaged controller is a supported replacement path');
+  assert.match(text, /safety guards as codex plugin hooks/, 'the guards carry over as plugin hooks');
+  assert.match(text, /review them once/, 'and the one step they need is said, not left to be discovered');
 });
 
 test('the repo directory is what gets registered', () => {

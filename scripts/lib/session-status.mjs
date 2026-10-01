@@ -23,6 +23,7 @@
  */
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { projectRoot } from './project-root.mjs';
 
 export const STALE_WORKING_MS = 5 * 60 * 1000;
 export const MOVED_ON_SLACK_MS = 2000;
@@ -34,7 +35,8 @@ const safeId = (id) => String(id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 
 
 /** Apply one hook payload. Returns what was written, or null when nothing applies. */
 export function recordHookEvent(payload, { now = Date.now() } = {}) {
-  const cwd = payload?.cwd || process.cwd();
+  // The session's cwd wanders into subdirectories; state belongs at the project root.
+  const cwd = projectRoot(payload?.cwd || process.cwd());
   const id = safeId(payload?.session_id);
   if (!id) return null;
   const dir = join(cwd, '.great_cto', 'status');
