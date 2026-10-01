@@ -91,13 +91,14 @@ test('empty or missing text is zero spend, not an error', () => {
   assert.deepEqual(spendWindows(null, new Date()), { spentToday: 0, spentMonth: 0, spentAll: 0 });
 });
 
-test('CLI prints one window as a two-decimal figure, and $0.00 with no log', async () => {
+test('CLI prints one window as a two-decimal figure, and $0.00 with no log', async (t) => {
   const { execFileSync } = await import('node:child_process');
-  const { mkdtempSync, writeFileSync } = await import('node:fs');
+  const { mkdtempSync, writeFileSync, rmSync } = await import('node:fs');
   const { tmpdir } = await import('node:os');
   const { join } = await import('node:path');
   const cli = new URL('../../scripts/lib/cost-history.mjs', import.meta.url).pathname;
   const dir = mkdtempSync(join(tmpdir(), 'cost-history-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const log = join(dir, 'cost-history.log');
   const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
   writeFileSync(log, `${now} qa 1.5\n${now} architect 2 turns=9 model=match\n`);
