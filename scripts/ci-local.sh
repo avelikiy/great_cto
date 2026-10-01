@@ -96,6 +96,13 @@ step "structural validation" python3 tests/structural/validate.py
 # files are excluded — they carry the hunted shapes as fixtures.
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
+
+# The plugin read the way a stranger installing it would — manifest, permissions,
+# MCP commands, secrets — by the same pinned HOL scanner the removed GitHub
+# workflow ran (Actions is billing-locked, so that workflow never did). Score
+# >= 80 and no critical/high finding; no python3.12 or no network on the first
+# install reports "not measured" as a skipped check, never as a pass.
+step "HOL plugin scanner (a stranger's read of the plugin)" bash scripts/hol-scan.sh
 step "skill-lint (every SKILL.md: frontmatter, size, dead references)" node scripts/skill-lint.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # agents-full/ is what the plugin registers (ADR-027); stale output would ship an
