@@ -18,6 +18,15 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
+# Tests build throwaway repositories and commit into them. Those commits inherit
+# the operator's global `commit.gpgsign` / `tag.gpgSign`, so one unreachable
+# signing agent hung `ssh-keygen` for 16 minutes and failed a release gate on
+# code that had passed twice (2026-10-01). Sixteen test files commit; this turns
+# signing off for every git the gate starts, without touching anyone's config.
+export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
+
 E2E=0; QUICK=0
 for a in "$@"; do
   case "$a" in
