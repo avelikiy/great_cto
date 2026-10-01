@@ -51,6 +51,7 @@ function transcript() {
     { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Agent', input: { subagent_type: 'devops', description: 'deploy preview' } }] } },
     { type: 'user', message: { content: [{ type: 'tool_result', is_error: true, content: 'Error: wrangler: functions/ not deployed\nstack…' }] } },
     { type: 'user', message: { content: [{ type: 'tool_result', content: 'ok output that is not an operator message' }] } },
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Root cause: the gate test inherited commit.gpgsign and ssh-keygen hung.' }] } },
   ];
   writeFileSync(f, lines.map((l) => JSON.stringify(l)).join('\n'));
   return f;
@@ -70,9 +71,9 @@ test('secrets are redacted by kind, never kept', () => {
   assert.match(out, /\[REDACTED GitHub PAT/);
 });
 
-test('the digest keeps what the operator said, what was dispatched and what failed — and nothing else', () => {
+test('the digest keeps what the operator said, what was dispatched, what failed and what was concluded — and nothing else', () => {
   const { text, counts } = digestTranscript(readFileSync(transcript(), 'utf8'));
-  assert.deepEqual(counts, { operator: 2, dispatches: 1, failures: 1 });
+  assert.deepEqual(counts, { operator: 2, dispatches: 1, failures: 1, conclusions: 1 });
   assert.match(text, /проверь на проде/);
   assert.match(text, /devops: deploy preview/);
   assert.match(text, /functions\/ not deployed/);
@@ -133,4 +134,56 @@ test('no transcript, or a session the operator barely spoke in, is skipped — t
   writeFileSync(one, JSON.stringify({ type: 'user', message: { content: 'ok' } }));
   assert.equal(runLearner({ cwd, transcript: one, claude: fake.bin }).state, 'skipped');
   assert.match(readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8'), /skipped: 1 operator message/);
+});
+
+// 2026-10-01: a 270 MB session ended with "lessons+0". The digest held 19
+// operator messages (1.4k chars); the lessons of that day — a hung signing agent,
+// a plugin install with no build — were found in the assistant's own conclusions,
+// which the digest dropped. They are kept now, newest first within a budget.
+test('the assistant\'s conclusions reach the learner, newest kept when they overflow', () => {
+  const lines = [];
+  for (let i = 0; i < 400; i++) lines.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `conclusion ${i} ${'x'.repeat(300)}` }] } }));
+  const { text, counts } = digestTranscript(lines.join('\n'));
+  assert.equal(counts.conclusions, 400);
+  assert.match(text, /## What the assistant concluded/);
+  assert.match(text, /conclusion 399 /, 'the newest conclusion is kept');
+  assert.doesNotMatch(text, /conclusion 0 /, 'the oldest goes first when the budget is spent');
+  assert.ok(text.length <= 62_000, `digest ${text.length} chars`);
+});
+
+test('a conclusion carrying a secret is redacted like everything else', () => {
+  const l = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `use sk-or-v1-${'b'.repeat(40)} for the router` }] } });
+  assert.doesNotMatch(digestTranscript(l).text, /sk-or-v1-b/);
+});
+
+test('a window run reads the transcript from its offset, not the whole tail', async () => {
+  const { readWindow } = await import('../../scripts/lib/run-learner.mjs');
+  const f = join(tmp('learn-win-'), 't.jsonl');
+  const early = JSON.stringify({ type: 'user', message: { content: 'early message' } });
+  const late = JSON.stringify({ type: 'user', message: { content: 'late message' } });
+  writeFileSync(f, `${early}\n`);
+  const offset = Buffer.byteLength(`${early}\n`);
+  writeFileSync(f, `${early}\n${late}\n`);
+  const w = readWindow(f, offset, 8 * 1024 * 1024);
+  assert.match(w, /late message/);
+  assert.doesNotMatch(w, /early message/);
+  assert.match(readWindow(f, 0, 8 * 1024 * 1024), /early message/);
+});
+
+test('a window of mostly autonomous work is learned from when it has conclusions', () => {
+  const cwd = project();
+  const fake = fakeClaude({ addLesson: true });
+  const f = join(tmp('learn-auto-'), 't.jsonl');
+  const lines = [JSON.stringify({ type: 'user', message: { content: 'делай' } })];
+  for (let i = 0; i < 6; i++) lines.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `finding ${i}: the gate inherited commit signing` }] } }));
+  writeFileSync(f, lines.join('\n'));
+  const r = runLearner({ cwd, transcript: f, reason: 'window', claude: fake.bin });
+  assert.equal(r.state, 'done', 'one operator message and six conclusions is something to learn from');
+});
+
+test('a window with neither operator messages nor conclusions is still skipped', () => {
+  const cwd = project();
+  const f = join(tmp('learn-empty-'), 't.jsonl');
+  writeFileSync(f, JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'ok' }] } }));
+  assert.equal(runLearner({ cwd, transcript: f, reason: 'window', claude: '/nonexistent' }).state, 'skipped');
 });

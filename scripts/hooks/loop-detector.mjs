@@ -38,6 +38,7 @@ import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tick as learnWindowTick } from '../lib/learn-window.mjs';
 
 export const MAX_ENTRIES = 30;
 export const NOTICE_MAX = 200;
@@ -199,10 +200,13 @@ function statePath(payload) {
 }
 
 function main() {
-  if (process.env.GREAT_CTO_DISABLE_LOOP_DETECTOR === '1') return;
   let payload;
   try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { return; }
   if (!payload || typeof payload !== 'object') return;
+  // Rides along on this hook because it already runs on every tool call: the
+  // session learner's window counter (off unless learn_every_n is set; fail-open).
+  learnWindowTick(payload);
+  if (process.env.GREAT_CTO_DISABLE_LOOP_DETECTOR === '1') return;
   const file = statePath(payload);
   if (!file) return;
 

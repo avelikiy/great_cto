@@ -24,6 +24,7 @@
 
 import { readFileSync, mkdirSync, writeFileSync, existsSync, symlinkSync, unlinkSync, readdirSync } from 'node:fs';
 import { learnWorthIt, autoLearnEnabled } from '../lib/learn-worth-it.mjs';
+import { windowStart, forget as forgetWindow } from '../lib/learn-window.mjs';
 import { spawnSync, spawn } from 'node:child_process';
 import { homedir } from 'node:os';
 import { join, resolve, basename, dirname } from 'node:path';
@@ -129,8 +130,12 @@ function spawnLearner(git, payload = {}) {
       return;
     }
     const runner = resolve(import.meta.dirname || '.', '..', 'lib', 'run-learner.mjs');
+    // With learn_every_n set, windows already read the start of the session;
+    // read only what they have not (learn-window.mjs), then drop their state.
+    const fromOffset = windowStart(payload.session_id || '');
+    forgetWindow(payload.session_id || '');
     const child = spawn(process.execPath, [runner, JSON.stringify({
-      cwd: process.cwd(), transcript: payload.transcript_path || null, reason: payload.reason || null,
+      cwd: process.cwd(), transcript: payload.transcript_path || null, reason: payload.reason || null, fromOffset,
     })], { detached: true, stdio: 'ignore' });
     child.unref();
     mkdirSync('.great_cto', { recursive: true });
