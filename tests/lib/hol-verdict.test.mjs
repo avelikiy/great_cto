@@ -45,6 +45,19 @@ test('the local gate runs the scanner, and a missing scanner is a skip, not a pa
   assert.match(gate, /^step "HOL plugin scanner[^"]*" bash scripts\/hol-scan\.sh$/m);
   const scan = readFileSync(new URL('../../scripts/hol-scan.sh', import.meta.url), 'utf8');
   assert.match(scan, /echo "# skip 1"/, 'not measured must reach count-skips');
-  assert.match(scan, /--require-hashes/);
+  assert.match(scan, /-c scripts\/hol-scanner\/constraints\.txt/);
   assert.match(scan, /does not match the pin/);
+});
+
+// 2026-10-01: a local scan without the Cisco skill scanner said "0 high, pass";
+// the catalogue, which runs it, found 35 high. A report in which the skill scan
+// did not run is not the catalogue's verdict, so it is not a pass.
+test('a report whose Cisco skill scan did not run is not a pass', () => {
+  const r = report(90);
+  r.summary.integrations = [{ name: 'codex:. / cisco-skill-scanner', status: 'unavailable' }];
+  const v = judge(r);
+  assert.equal(v.pass, false);
+  assert.match(v.reasons.join(' '), /skill scan did not run/);
+  r.summary.integrations[0].status = 'enabled';
+  assert.equal(judge(r).pass, true);
 });

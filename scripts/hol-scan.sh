@@ -4,14 +4,14 @@
 #
 # Why here: Actions on the account is billing-locked, so the workflow never ran;
 # it was removed on 2026-10-01. The scanner reads the plugin the way a stranger
-# installing it would — manifest, permissions, MCP commands, secrets — which no
-# other gate step asks. Same pinned build as the action: the wheel's sha256 and
-# every dependency's hash are checked before anything is installed.
+# installing it would — manifest, permissions, MCP commands, secrets, and (via the
+# Cisco skill scanner) the skills themselves — which no other gate step asks.
+# Same build as the catalogue's own check: the wheel's sha256 is verified against
+# scripts/hol-scanner/PIN, dependency versions are fixed by constraints.txt.
 #
 # The scanner is installed once, under ~/.great_cto/tools/ (override with
-# GREAT_CTO_TOOLS) with python3.12 — the version the action set up, and the one
-# requirements.txt was locked for (3.11 pulls a dependency the lock does not
-# carry). With no python3.12, or no network on the first run, the scan is
+# GREAT_CTO_TOOLS) with python3.12, as the action sets up. With no python3.12,
+# no network on the first run, or no Cisco skill scanner, the scan is
 # NOT MEASURED: it prints `# skip 1`, which the gate counts as a skipped check —
 # never as a pass.
 set -uo pipefail
@@ -28,8 +28,6 @@ if [ ! -f "$TOOLS/.installed" ]; then
   command -v python3.12 >/dev/null 2>&1 || not_measured "python3.12 is not installed (the version the scanner's lock targets)"
   rm -rf "${TOOLS:?}"; mkdir -p "$TOOLS/dist"
   python3.12 -m venv "$TOOLS/venv" >/dev/null 2>&1 || not_measured "could not create a venv"
-  "$PY" -m pip -q install --require-hashes --only-binary=:all: -r scripts/hol-scanner/requirements.txt >/dev/null 2>&1 \
-    || not_measured "could not install the hash-locked dependencies (offline?)"
   "$PY" -m pip -q download --only-binary=:all: --no-deps --dest "$TOOLS/dist" "plugin-scanner==$VER" >/dev/null 2>&1 \
     || not_measured "could not download plugin-scanner==$VER (offline?)"
   WHEEL=$(ls "$TOOLS"/dist/plugin_scanner-*.whl 2>/dev/null | head -1)
@@ -38,7 +36,10 @@ if [ ! -f "$TOOLS/.installed" ]; then
     echo "HOL plugin scanner: wheel sha256 $GOT does not match the pin $SHA — refusing to install"
     rm -rf "${TOOLS:?}"; exit 1
   fi
-  "$PY" -m pip -q install --no-deps "$WHEEL" >/dev/null 2>&1 || not_measured "could not install the verified wheel"
+  "$PY" -m pip -q install -c scripts/hol-scanner/constraints.txt "$WHEEL" >/dev/null 2>&1 \
+    || not_measured "could not install the verified wheel and its pinned dependencies (offline?)"
+  "$PY" -m pip show cisco-ai-skill-scanner >/dev/null 2>&1 \
+    || not_measured "the Cisco skill scanner did not install — the catalogue runs it, so a scan without it is not the catalogue's verdict"
   touch "$TOOLS/.installed"
 fi
 
