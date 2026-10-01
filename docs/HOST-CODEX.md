@@ -21,6 +21,28 @@ npx --yes great-cto@3.46.2 codex-host cancel <run-uuid>
 npx --yes great-cto@3.46.2 codex-host list --dir /path/to/project
 ```
 
+## Keeping the installed Codex plugin current
+
+The Codex plugin cache and the npm CLI are separate artifacts. A configured
+Git marketplace can be refreshed manually with
+`codex plugin marketplace upgrade great-cto`. On macOS, the opt-in updater can
+schedule that supported command every six hours and at login:
+
+```sh
+sh scripts/codex-auto-update.sh enable
+sh scripts/codex-auto-update.sh status
+sh scripts/codex-auto-update.sh disable
+```
+
+The per-user scheduling agent lives at
+`~/Library/LaunchAgents/com.great-cto.codex-auto-update.plist`. It only runs
+when the `great-cto` marketplace points to this project's GitHub repository;
+it does not edit Codex's cache directly. The updater follows the marketplace's
+configured Git ref (`main` by default), which can move ahead of the npm release.
+Codex must load the refreshed plugin in a new session; new or changed hooks
+still need the host's review. The updater does not auto-approve gates, publish
+artifacts, merge code, deploy a service, or update the npm CLI.
+
 The entry role defaults to `product-owner`. `--entry architect` can be used when
 the product decision was already made. Explicit allowed paths apply to all roles
 in this run. Review them before starting. Approve only after inspecting the
