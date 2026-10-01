@@ -15,27 +15,16 @@
  * nothing was promised, so nothing is broken, and stopping would punish a
  * configuration the operator never asked for.
  *
- * Spend is the DIFFERENCE across the run, computed with the increment rule that
- * `sumCostHistory` learned the hard way — cost-history holds per-run rows and
- * session running totals, and adding the snapshots together over-counted by 23x
- * once already.
+ * Spend is the DIFFERENCE across the run, computed by `sumCostHistory` (./cost-history.mjs) — cost-history holds per-run
+ * rows and session running totals, and adding the snapshots together over-counted
+ * by 23x once already.
  */
 
-/** Sum a cost-history log, counting `turns=` rows by their increment. */
+import { sumCostHistory } from './cost-history.mjs';
+
+/** Sum a cost-history log (rules in ./cost-history.mjs); null when there is no text. */
 function total(text) {
-  if (typeof text !== 'string') return null;
-  let sum = 0;
-  const running = new Map();
-  for (const line of text.split('\n')) {
-    const parts = line.trim().split(/\s+/);
-    const usd = Number(parts[2]);
-    if (parts.length < 3 || !Number.isFinite(usd)) continue;
-    if (!parts.slice(3).some((p) => p.startsWith('turns='))) { sum += usd; continue; }
-    const prev = running.get(parts[1]);
-    sum += prev === undefined || usd < prev ? usd : usd - prev;
-    running.set(parts[1], usd);
-  }
-  return Math.round(sum * 100) / 100;
+  return typeof text === 'string' ? sumCostHistory(text).sum : null;
 }
 
 /**

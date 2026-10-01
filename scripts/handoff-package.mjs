@@ -16,6 +16,7 @@
 import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { sumCostHistory } from './lib/cost-history.mjs';
 
 /**
  * Assemble the handoff markdown from already-gathered, structured inputs.
@@ -120,9 +121,8 @@ function gatherVerdicts(cwd, feature) {
  * Three states, named rather than collapsed: `measured` with a figure, `absent`
  * when there is no file, `unreadable` when the file is there and yields nothing.
  *
- * Rows tagged `turns=` are the SESSION's running total, not one run's cost, so
- * they count by their increment — see sumCostHistory in scripts/bench-collect.mjs
- * for the same rule and the 23x over-count that made it necessary.
+ * Row rules (per-run rows, and legacy `turns=` running totals counted by their
+ * increment) live in scripts/lib/cost-history.mjs, shared with every reader.
  *
  * No feature filter: the file records a timestamp, an agent and an amount, and
  * nothing about which feature the spend belongs to. Filtering on a substring
@@ -135,20 +135,9 @@ export function gatherCost(cwd) {
   const path = join(cwd, '.great_cto', 'cost-history.log');
   if (!existsSync(path)) return { state: 'absent', usd: null };
 
-  let sum = 0, rows = 0;
-  const running = new Map();
-  for (const line of readLines(path)) {
-    const parts = line.trim().split(/\s+/);
-    const usd = Number(parts[2]);
-    if (parts.length < 3 || !Number.isFinite(usd)) continue;
-    rows++;
-    if (!parts.slice(3).some((p) => p.startsWith('turns='))) { sum += usd; continue; }
-    const prev = running.get(parts[1]);
-    sum += prev === undefined || usd < prev ? usd : usd - prev;
-    running.set(parts[1], usd);
-  }
+  const { sum, rows } = sumCostHistory(readLines(path).join('\n'));
   if (!rows) return { state: 'unreadable', usd: null };
-  return { state: 'measured', usd: Math.round(sum * 100) / 100 };
+  return { state: 'measured', usd: sum };
 }
 
 function main() {

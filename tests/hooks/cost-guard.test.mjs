@@ -103,8 +103,8 @@ test('no caps configured → nag-free hint, exit 0', () => {
 test('daily_max_usd shows today vs cap', () => {
   const sb = sandbox({
     config: { daily_max_usd: 5 },
-    costLog: `${new Date().toISOString()} agent=senior-dev cost_usd=1.20\n` +
-             `${new Date().toISOString()} agent=qa cost_usd=0.80\n`,
+    costLog: `${new Date().toISOString()} senior-dev 1.20\n` +
+             `${new Date().toISOString()} qa 0.80\n`,
   });
   try {
     const r = run('/start small feature', { homeDir: sb.homeDir, projectDir: sb.projectDir });
@@ -116,7 +116,7 @@ test('daily_max_usd shows today vs cap', () => {
 test('enforce=block exits 2 when cap would be exceeded', () => {
   const sb = sandbox({
     config: { daily_max_usd: 5, enforce: 'block' },
-    costLog: `${new Date().toISOString()} agent=senior-dev cost_usd=3.50\n`,  // $3.50 spent → $1.50 left
+    costLog: `${new Date().toISOString()} senior-dev 3.50\n`,  // $3.50 spent → $1.50 left
   });
   try {
     // /start estimated at $8 — over $1.50 remaining
@@ -131,7 +131,7 @@ test('enforce=block exits 2 when cap would be exceeded', () => {
 test('enforce=warn (default) returns exit 0 even when over cap', () => {
   const sb = sandbox({
     config: { daily_max_usd: 5 },  // enforce defaults to "warn"
-    costLog: `${new Date().toISOString()} agent=senior-dev cost_usd=4.50\n`,
+    costLog: `${new Date().toISOString()} senior-dev 4.50\n`,
   });
   try {
     const r = run('/start anything', { homeDir: sb.homeDir, projectDir: sb.projectDir });
@@ -143,7 +143,7 @@ test('enforce=warn (default) returns exit 0 even when over cap', () => {
 test('GREAT_CTO_BUMP_CAP lifts cap for one prompt', () => {
   const sb = sandbox({
     config: { daily_max_usd: 5, enforce: 'block' },
-    costLog: `${new Date().toISOString()} agent=senior-dev cost_usd=4.00\n`,
+    costLog: `${new Date().toISOString()} senior-dev 4.00\n`,
   });
   try {
     // /start est $8 — without bump would block. With +$10 bump, total $15 - $4 = $11 left.
@@ -159,7 +159,7 @@ test('GREAT_CTO_BUMP_CAP lifts cap for one prompt', () => {
 test('monthly_max_usd is also honored', () => {
   const sb = sandbox({
     config: { monthly_max_usd: 50, enforce: 'block' },
-    costLog: `${new Date().toISOString()} agent=senior-dev cost_usd=48.00\n`,
+    costLog: `${new Date().toISOString()} senior-dev 48.00\n`,
   });
   try {
     const r = run('/start big', { homeDir: sb.homeDir, projectDir: sb.projectDir });
@@ -173,12 +173,28 @@ test('past-day spend does NOT count toward today', () => {
   const yesterday = new Date(Date.now() - 86_400_000).toISOString();
   const sb = sandbox({
     config: { daily_max_usd: 5, enforce: 'block' },
-    costLog: `${yesterday} agent=senior-dev cost_usd=10.00\n`,
+    costLog: `${yesterday} senior-dev 10.00\n`,
   });
   try {
     // Yesterday spent $10, but today's bucket is fresh → $0 spent today
     const r = run('/start feature', { homeDir: sb.homeDir, projectDir: sb.projectDir });
     // /start est $8 > today's $5 remaining → still blocks, but for fresh cap
     assert.match(r.stderr, /today:\s+\$0\.00\s*\/\s*\$5/);
+  } finally { sb.cleanup(); }
+});
+
+// Regression (great_cto-601c): the parser looked for `cost_usd=N`, which no writer
+// emits, so measured spend was always $0 and a cap could never fire. This is the
+// row subagent-stop-completion actually writes.
+test('measured rows from subagent-stop count toward the cap', () => {
+  const now = new Date().toISOString().replace(/\.\d+Z$/, 'Z');
+  const sb = sandbox({
+    config: { daily_max_usd: 10, enforce: 'block' },
+    costLog: `${now} general-purpose 6.403 turns=54 in=108 out=10733 cache_r=7080131 cache_w=415046 model=unverifiable served=claude-opus-5-5\n`,
+  });
+  try {
+    const r = run('/start big feature', { homeDir: sb.homeDir, projectDir: sb.projectDir });
+    assert.match(r.stderr, /today:\s+\$6\.40\s*\/\s*\$10/);
+    assert.equal(r.exit, 2, '$6.40 spent + $8 estimated exceeds the $10 cap');
   } finally { sb.cleanup(); }
 });

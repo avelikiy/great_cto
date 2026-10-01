@@ -402,24 +402,12 @@ if [ -n "$DAILY_CAP" ] || [ -n "$MONTHLY_BUDGET" ]; then
   echo "## Bill-shock protection"
   echo ""
 
-  TODAY=$(date -u +%Y-%m-%d)
-  MONTH=$(date -u +%Y-%m)
-
-  # Today's spend
-  TODAY_SPENT=$(awk -v d="$TODAY" '
-    $0 ~ "^" d {
-      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
-    }
-    END { printf "%.2f", s+0 }
-  ' "$COST_LOG" 2>/dev/null)
-
-  # Month's spend
-  MONTH_SPENT=$(awk -v m="$MONTH" '
-    $0 ~ "^" m {
-      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
-    }
-    END { printf "%.2f", s+0 }
-  ' "$COST_LOG" 2>/dev/null)
+  # Measured spend — one reader for every row kind (scripts/lib/cost-history.mjs).
+  # Until 2026-10-01 this looked for `cost_usd=`, which no writer emits: always $0.00.
+  CH="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/cost-history.mjs"
+  [ -f "$CH" ] || CH="$(pwd)/scripts/lib/cost-history.mjs"
+  TODAY_SPENT=$(node "$CH" today "$COST_LOG" 2>/dev/null || echo "0.00")
+  MONTH_SPENT=$(node "$CH" month "$COST_LOG" 2>/dev/null || echo "0.00")
 
   if [ -n "$DAILY_CAP" ]; then
     REMAIN_DAY=$(awk "BEGIN{printf \"%.2f\", $DAILY_CAP - $TODAY_SPENT}")

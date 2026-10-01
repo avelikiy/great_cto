@@ -370,8 +370,10 @@ if [ -f "$GLOBAL_CFG" ]; then
   DAILY_CAP=$(jq -r '.daily_max_usd // empty' "$GLOBAL_CFG" 2>/dev/null)
   ENFORCE=$(jq -r '.enforce // "warn"' "$GLOBAL_CFG" 2>/dev/null)
 fi
-TODAY=$(date -u +%Y-%m-%d)
-TODAY_SPENT=$(awk -v d="$TODAY" '$0 ~ "^"d { for(i=1;i<=NF;i++) if($i~/^cost_usd=/){split($i,a,"=");s+=a[2]} } END{printf "%.2f",s+0}' .great_cto/cost-history.log 2>/dev/null)
+# Measured spend — one reader for every row kind (scripts/lib/cost-history.mjs).
+CH="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/cost-history.mjs"
+[ -f "$CH" ] || CH="$(pwd)/scripts/lib/cost-history.mjs"
+TODAY_SPENT=$(node "$CH" today .great_cto/cost-history.log 2>/dev/null || echo "0.00")
 ```
 
 **Print panel (always — even if no cap, just shows estimate):**
