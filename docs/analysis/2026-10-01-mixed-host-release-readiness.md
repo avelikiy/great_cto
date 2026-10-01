@@ -77,6 +77,12 @@ merge authorization is needed after the checks succeed.
 
 Later the same day the owner removed the HOL scanner workflow instead of paying to
 unlock Actions for it: the check qualified the plugin for a third-party catalogue
-that was abandoned on 2026-09-07 (74/100, 14 high findings), so an unlocked run would
-have failed on content (great_cto-2xuc). The candidate shipped as 3.47.0 through the
-local gate.
+that was abandoned on 2026-09-07 (74/100, 14 high findings then; great_cto-2xuc).
+The candidate shipped as 3.47.0 through the local gate.
+
+**Correction, same evening.** The removal was argued partly on "an unlocked run
+would fail on content". That rested on the 07.09 measurement and was wrong: the
+same pinned scanner (`plugin-scanner==3.0.113`, sha256 verified) run locally on
+main gave **90/100, grade A, 0 critical/high, policy pass** — two medium findings
+are CHANGELOG prose, one is the Codex marketplace `source.path` being `.` rather
+than `./` (great_cto-tzfg).
