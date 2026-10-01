@@ -4,6 +4,7 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { detectCodex } from './codex-exec.mjs';
+import { detectClaude } from './claude-exec.mjs';
 
 export const codexRunStore = ({ home = homedir(), env = process.env } = {}) =>
   env.GREAT_CTO_CODEX_RUNS_DIR || join(home, '.great_cto', 'codex-runs');
@@ -17,9 +18,11 @@ export function projectCodexState(state) {
     reason: state.reason ?? null,
     active: state.active,
     queue: state.queue || [],
+    hostRoutes: state.hostRoutes || {},
+    wave: state.wave ? { id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results || {}),
-    attempts: (state.attempts || []).map(({ id, role, number, phase, status, startedAt, finishedAt }) =>
-      ({ id, role, number, phase, status, startedAt, finishedAt })),
+    attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt }) =>
+      ({ id, role, host: host || 'codex', number, phase, status, startedAt, finishedAt })),
     pending: state.pending ? { role: state.pending.role, gates: state.pending.gates || [], createdAt: state.pending.createdAt } : null,
     release: state.release ? {
       adapter: state.release.adapter,
@@ -66,7 +69,8 @@ const commandStatus = (bin, args, run = spawnSync) => {
   } catch (error) { return { state: 'absent', detail: String(error.message || error) }; }
 };
 
-export function codexHostDoctor({ pluginRoot, store = codexRunStore(), run = spawnSync, codex = detectCodex() } = {}) {
+export function codexHostDoctor({ pluginRoot, store = codexRunStore(), run = spawnSync,
+  codex = detectCodex(), claude = detectClaude() } = {}) {
   const graph = pluginRoot && existsSync(join(pluginRoot, 'shared', 'pipeline.toml'))
     ? { state: 'available', detail: join(pluginRoot, 'shared', 'pipeline.toml') }
     : { state: 'absent', detail: 'shared/pipeline.toml is missing' };
@@ -84,6 +88,7 @@ export function codexHostDoctor({ pluginRoot, store = codexRunStore(), run = spa
   }
   const checks = {
     codex,
+    claude,
     graph,
     stateStore,
     docker: commandStatus('docker', ['version', '--format', '{{.Server.Version}}'], run),

@@ -2,14 +2,26 @@
 import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
 import { join, resolve, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage, approve, recover, cancel } from './lib/codex-pipeline.mjs';
+import { newRun, runStage, runParallelWave, parallelPair, approve, recover, cancel } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
+import { detectClaude } from './lib/claude-exec.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
 const command = args.shift();
 const value = name => { const i = args.indexOf(name); return i < 0 ? null : args[i + 1]; };
+const routes = raw => {
+  if (raw == null) return {};
+  if (!raw || raw.startsWith('--')) throw Error('--routes requires role=codex|claude-code pairs');
+  const out = Object.create(null);
+  for (const part of raw.split(',')) {
+    const [role, host, extra] = part.split('=');
+    if (!role || !host || extra || out[role]) throw Error('routes must be unique role=codex|claude-code pairs');
+    out[role] = host;
+  }
+  return out;
+};
 const store = codexRunStore();
 mkdirSync(store, { recursive: true, mode: 0o700 });
 const save = state => {
@@ -30,6 +42,12 @@ try {
   let state;
   if (command === 'start') {
     const root = realpathSync(resolve(value('--dir') || '.'));
+    if (args.includes('--routes') && value('--routes') == null) throw Error('--routes requires a value');
+    const hostRoutes = routes(value('--routes'));
+    if (Object.values(hostRoutes).includes('claude-code')) {
+      const claude = detectClaude();
+      if (claude.state !== 'available') throw Error(`Claude Code host unavailable: ${claude.why}`);
+    }
     let checkPolicy = null;
     if (value('--checks-policy')) {
       const policyPath = realpathSync(value('--checks-policy'));
@@ -46,7 +64,7 @@ try {
     }
     state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
       allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner',
-      maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')) });
+      maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')), hostRoutes });
     save(state);
   } else {
     const id = args[0];
@@ -66,13 +84,18 @@ try {
     else if (command === 'cancel') { cancel(state); save(state); }
     // ADR-026: each stage's context goes to <store>/<run-id>/context/, outside the
     // worker workspace like the state file itself.
-    else while (state.status === 'ready') await runStage(state, { save, contextStore: store });
+    else while (state.status === 'ready') {
+      if (state.wave || parallelPair(state)) await runParallelWave(state, { save, contextStore: store });
+      else await runStage(state, { save, contextStore: store });
+    }
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
       artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
       activation: state.release.activation, rollback: state.release.rollback } : null,
-    pending: state.pending, queue: state.queue, rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
+    pending: state.pending, queue: state.queue, hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
+      id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
+    rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;
 } catch (error) {
   console.error(`codex-pipeline: ${error.message}`);

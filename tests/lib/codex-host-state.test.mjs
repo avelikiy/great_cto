@@ -56,7 +56,13 @@ test('doctor distinguishes required readiness from optional adapter availability
 });
 
 test('projectCodexState keeps only bounded operational evidence', () => {
-  const projected = projectCodexState({ id: 'x', version: 1, root: '/p', status: 'ready', results: {}, attempts: [{ id: 'a', role: 'pm', secret: 'no' }] });
+  const projected = projectCodexState({ id: 'x', version: 1, root: '/p', status: 'ready', results: {},
+    hostRoutes: { qa: 'claude-code' },
+    wave: { id: 'w', roles: ['qa'], hosts: { qa: 'claude-code' }, status: 'fetched',
+      responses: { qa: { finalText: 'secret proposal bytes' } }, context: { text: 'secret context' } },
+    attempts: [{ id: 'a', role: 'pm', host: 'claude-code', secret: 'no' }] });
   assert.equal(JSON.stringify(projected).includes('secret'), false);
   assert.equal(projected.project, 'p');
+  assert.equal(projected.attempts[0].host, 'claude-code');
+  assert.equal(projected.wave.status, 'fetched');
 });
