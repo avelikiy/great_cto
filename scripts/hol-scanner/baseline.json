@@ -1,0 +1,151 @@
+{
+  "scanner": "plugin-scanner 2.0.1116 + cisco-ai-skill-scanner 2.0.14 (ai-plugin-scanner-action@55616c96)",
+  "reviewed": "2026-10-01",
+  "note": "Each entry was read in context and is a false positive. A pair beyond its count, or one not listed, fails the gate. Remove an entry when the scan stops reporting it.",
+  "entries": [
+    {
+      "ruleId": "ASSET_PROMPT_INJECTION",
+      "filePath": "skills/great_cto/references/agent-security.md",
+      "count": 1,
+      "reason": "a defensive document quotes the injection string it teaches agents to detect"
+    },
+    {
+      "ruleId": "ASSET_PROMPT_INJECTION",
+      "filePath": "skills/great_cto/templates/THREAT-MODEL-AI.md",
+      "count": 1,
+      "reason": "a defensive document quotes the injection string it teaches agents to detect"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "packages/cli/src/installer.ts",
+      "count": 2,
+      "reason": "a version string precedes spawnSync(\"git\", [...]); argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "packages/cli/src/main.ts",
+      "count": 2,
+      "reason": "a log line precedes spawnSync(\"git\", [...]); argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "packages/cli/src/self-upgrade.ts",
+      "count": 2,
+      "reason": "an error message followed by a comment containing \"spawn\""
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/hooks/codex-adapter.mjs",
+      "count": 2,
+      "reason": "a path join precedes spawnSync(process.execPath, [file]); argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/hooks/docs-reference-sync.mjs",
+      "count": 2,
+      "reason": "a log line precedes spawnSync(process.execPath, [gen]); argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/hooks/pipeline-dispatcher.mjs",
+      "count": 2,
+      "reason": "prompt text says \"Re-spawn\" / \"Do NOT spawn\"; no process is started there"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/hooks/summary-enforce.mjs",
+      "count": 2,
+      "reason": "a log line followed by a comment containing the word \"spawn\""
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/lib/css-classes.mjs",
+      "count": 2,
+      "reason": "RegExp(...).exec() \u2014 a regex match, not a process"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/record-demo.mjs",
+      "count": 2,
+      "reason": "a log message precedes spawn(); argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "tests/lib/review-domains.test.mjs",
+      "count": 2,
+      "reason": "the test builds its own fixed bash script for spawnSync; no external input"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "tests/lib/turn-snapshot.test.mjs",
+      "count": 2,
+      "reason": "test fixture writes, then spawn() with an argv array"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/anydesign/references/analysis-framework.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/anydesign/references/capture-flows.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/anydesign/references/output-template.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/packs/agent-pack.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/packs/browser-extension-pack.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/packs/mobile-pack.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/references/agent-style.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/references/llm-router.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/great_cto/references/pm-planning.md",
+      "count": 1,
+      "reason": "typographic characters in prose (em dash, arrows, box drawing) read as confusables"
+    },
+    {
+      "ruleId": "UNICODE_OBFUSCATED_INSTRUCTION",
+      "filePath": "skills/signing-preflight/SKILL.md",
+      "count": 1,
+      "reason": "Russian trigger phrases in the description, on purpose (the skill fires on Russian requests)"
+    },
+    {
+      "ruleId": "YARA_jailbreak_generic",
+      "filePath": "skills/great_cto/packs/agent-pack.md",
+      "count": 1,
+      "reason": "a defensive document quotes the jailbreak string it teaches agents to detect"
+    }
+  ]
+}

@@ -61,3 +61,34 @@ test('a report whose Cisco skill scan did not run is not a pass', () => {
   r.summary.integrations[0].status = 'enabled';
   assert.equal(judge(r).pass, true);
 });
+
+// Baseline: the catalogue's scanner reports 35 high that are all false positives
+// (reviewed 2026-10-01). Each (rule, file) pair is recorded with its count and a
+// reason; anything beyond that still fails.
+const high = (ruleId, filePath) => ({ ruleId, filePath, severity: 'high' });
+const withFindings = (findings) => ({ ...report(82, { high: findings.length }), findings });
+const BASE = { entries: [{ ruleId: 'SHELL_INJECTION_PATTERN', filePath: 'a.mjs', count: 2, reason: 'log line next to spawnSync' }] };
+
+test('reviewed high findings in the baseline do not fail the scan', () => {
+  const v = judge(withFindings([high('SHELL_INJECTION_PATTERN', 'a.mjs'), high('SHELL_INJECTION_PATTERN', 'a.mjs')]), BASE);
+  assert.equal(v.pass, true, v.reasons.join('; '));
+  assert.match(v.line, /2 high reviewed/);
+});
+
+test('a high finding in a file the baseline does not name fails', () => {
+  const v = judge(withFindings([high('SHELL_INJECTION_PATTERN', 'b.mjs')]), BASE);
+  assert.equal(v.pass, false);
+  assert.match(v.reasons.join(' '), /new high.*SHELL_INJECTION_PATTERN b\.mjs/);
+});
+
+test('more findings of a baselined pair than were reviewed fails', () => {
+  const v = judge(withFindings([1, 2, 3].map(() => high('SHELL_INJECTION_PATTERN', 'a.mjs'))), BASE);
+  assert.equal(v.pass, false);
+  assert.match(v.reasons.join(' '), /3 > 2 reviewed/);
+});
+
+test('a baseline entry the scan no longer finds is reported, so the list shrinks', () => {
+  const v = judge(withFindings([]), BASE);
+  assert.equal(v.pass, true);
+  assert.match(v.stale.join(' '), /SHELL_INJECTION_PATTERN a\.mjs/);
+});

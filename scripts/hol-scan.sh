@@ -47,4 +47,6 @@ REPORT=$(mktemp "${TMPDIR:-/tmp}/hol-report.XXXXXX")
 trap 'rm -f "$REPORT"' EXIT
 "$TOOLS/venv/bin/plugin-scanner" scan . --format json --output "$REPORT" >/dev/null 2>&1 \
   || { [ -s "$REPORT" ] || not_measured "the scanner produced no report"; }
-node scripts/lib/hol-verdict.mjs "$REPORT"
+# Findings reviewed as false positives live in baseline.json, each with its reason;
+# anything new still fails.
+node scripts/lib/hol-verdict.mjs "$REPORT" scripts/hol-scanner/baseline.json
