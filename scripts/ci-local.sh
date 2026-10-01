@@ -11,7 +11,7 @@
 # Usage:
 #   bash scripts/ci-local.sh            # full gate
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
-#   bash scripts/ci-local.sh --quick    # skip cli build/pack (fast inner-loop)
+#   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
 # Exit 0 = all gates green. Non-zero = first failing gate (fail-fast).
 
@@ -338,6 +338,13 @@ step "docs screen classifies more than it shrugs at" bash -c '
   node --test tests/lib/docs-classify.test.mjs
 '
 
+# The build comes BEFORE the tests that import it. scripts/lib/gate-plan.mjs (and
+# through it the board) imports packages/cli/dist/archetypes.js, a gitignored
+# build artefact. With the build at the end of this file, a fresh worktree failed
+# the board and lib tests on ERR_MODULE_NOT_FOUND before the build ever ran —
+# in --quick mode, which skipped the build, every time. It takes about a second.
+step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
+
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
 step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
@@ -429,9 +436,8 @@ else
   step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
 fi
 
-# ── CLI build + tests + pack (cli-ci + release) ──
+# ── CLI tests + pack (cli-ci + release); the build ran before the unit tests ──
 if [ "$QUICK" -eq 0 ]; then
-  step "cli build" bash -c 'cd packages/cli && npm run build'
   step "cli unit tests" bash -c 'cd packages/cli && node --test tests/*.test.mjs'
   step "cli pack (release readiness)" bash -c 'cd packages/cli && npm pack >/dev/null'
 fi
