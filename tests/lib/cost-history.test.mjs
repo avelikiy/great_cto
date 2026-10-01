@@ -107,3 +107,16 @@ test('CLI prints one window as a two-decimal figure, and $0.00 with no log', asy
   assert.deepEqual(JSON.parse(execFileSync('node', [cli, '--json', log], { encoding: 'utf8' })),
     { spentToday: 3.5, spentMonth: 3.5, spentAll: 3.5 });
 });
+
+// devops appends a fourth kind of row to the same file: monthly INFRASTRUCTURE
+// estimates, pipe-delimited, read by /digest cost and /inbox. They are not LLM
+// spend. A numeric service name put one in the LLM total until 2026-10-01.
+test('pipe-delimited infrastructure rows are not LLM spend, whatever the service is called', () => {
+  const r = sumCostHistory([
+    '# Cost history — append only. Format: ISO8601 | service | estimated_usd_month | actual_usd_month | source | feature',
+    '2026-10-01T10:00:00Z | api | 120 | - | arch-estimate | checkout',
+    '2026-10-01T10:00:00Z | 42 | 120 | 95 | console | checkout',
+    '2026-10-01T11:00:00Z qa 1.5',
+  ].join('\n'));
+  assert.deepEqual(r, { sum: 1.5, rows: 1 });
+});

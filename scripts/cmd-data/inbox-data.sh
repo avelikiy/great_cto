@@ -490,8 +490,12 @@ case "$ARCHETYPE" in
     BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '$')
     if [ -n "$BUDGET" ] && [ "$BUDGET" != "0" ]; then
       MONTH_PREFIX=$(date -u +"%Y-%m")
-      SPEND=0
-      for SOURCE in .great_cto/cost-history.log logs/llm-cost.log logs/cost.log logs/audit.jsonl; do
+      # great_cto's own measured spend: one reader for every row kind. It used to
+      # grep JSON "cost_usd" here, which cost-history.log has never held: $0.
+      _CH="$(cd "$(dirname "${BASH_SOURCE[0]:-$0}")/../lib" 2>/dev/null && pwd)/cost-history.mjs"
+      SPEND=$(node "$_CH" month .great_cto/cost-history.log 2>/dev/null || echo 0)
+      # Other tools' JSON logs, if a project keeps them.
+      for SOURCE in logs/llm-cost.log logs/cost.log logs/audit.jsonl; do
         if [ -f "$SOURCE" ]; then
           SUM=$(grep "$MONTH_PREFIX" "$SOURCE" 2>/dev/null | grep -oE '"cost_usd"[[:space:]]*:[[:space:]]*[0-9.]+' | awk -F: '{s += $2} END {printf "%.2f", s}')
           SPEND=$(echo "$SPEND + ${SUM:-0}" | bc 2>/dev/null || echo "$SPEND")
@@ -567,7 +571,7 @@ case "$ARCHETYPE" in
 
     if [ -n "$AI_SIGNALS" ]; then
       echo "--- AI HEALTH ---"
-      printf "$AI_SIGNALS"
+      printf '%b' "$AI_SIGNALS"   # %b: the signals hold "85%" — as a format string that printed "850f"
       echo "  → details: project-auditor Phase 4D + /digest board mode"
     fi
     ;;

@@ -216,10 +216,21 @@ if [ "$MODE" = "feature" ]; then
   fi
 
   # Filter cost-history.log entries tagged with this feature slug
-  # Format: <timestamp> agent=<name> feature=<slug> cost_usd=<n> [other tags]
+  # Rows tagged `feature=<slug>` (no writer emits them yet — see the message below)
   ENTRIES=$(grep -E "feature=$SLUG\b" "$COST_LOG" 2>/dev/null)
 
   if [ -z "$ENTRIES" ]; then
+    # Say "not measured", never "$0": the measured rows are `<ts> <agent> <usd>`
+    # and carry no feature, so a feature's LLM cost cannot be read from them.
+    if ! grep -q "feature=" "$COST_LOG" 2>/dev/null; then
+      echo "_Not measured: \`.great_cto/cost-history.log\` records LLM spend per agent run, not per feature,"
+      echo "so the cost of \`$SLUG\` cannot be separated from the rest. This is not \$0._"
+      echo ""
+      CH="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/cost-history.mjs"
+      [ -f "$CH" ] || CH="$(pwd)/scripts/lib/cost-history.mjs"
+      echo "Project LLM spend this month: \$$(node "$CH" month "$COST_LOG" 2>/dev/null || echo '?') — per agent: \`/digest cost agent <name>\`."
+      exit 0
+    fi
     echo "_No cost entries tagged with feature=$SLUG. Either:_"
     echo "1. Feature not yet implemented (run \`/start \"feature description\"\`)"
     echo "2. Feature uses different slug — check \`docs/architecture/ARCH-*.md\` filenames"

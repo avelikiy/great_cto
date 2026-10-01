@@ -11,6 +11,10 @@
  *                                             subagent-stop-completion on a legacy
  *                                             host, and its `(unattributed)` rows
  *
+ * A fourth writer, devops, appends `ts | service | est | actual | source | feature`
+ * monthly INFRASTRUCTURE estimates to the same file; they are not LLM spend and are
+ * skipped here (/digest cost and /inbox read them).
+ *
  * Readers used to carry their own rules and each got one wrong. cost-guard looked
  * for `cost_usd=N`, which no writer emits, so every daily and monthly cap compared
  * against $0 and could never fire. The summing readers treated every `turns=` row
@@ -35,7 +39,9 @@ export function costRows(text) {
   const running = new Map();   // agent → last running-total reading
   for (const line of text.split('\n')) {
     const parts = line.trim().split(/\s+/);
-    if (parts.length < 3) continue;
+    // `ts | service | est | actual | …` is devops's infrastructure estimate, not
+    // LLM spend; /digest cost reads those rows itself.
+    if (parts.length < 3 || parts[1] === '|') continue;
     const usd = Number(parts[2]);
     if (parts[2] === '' || !Number.isFinite(usd)) continue;
     const fields = parts.slice(3);
