@@ -86,3 +86,9 @@ same pinned scanner (`plugin-scanner==3.0.113`, sha256 verified) run locally on
 main gave **90/100, grade A, 0 critical/high, policy pass** — two medium findings
 are CHANGELOG prose, one is the Codex marketplace `source.path` being `.` rather
 than `./` (great_cto-tzfg).
+
+That run used the scanner the removed workflow pinned. The release the catalogue
+reviews with today, `plugin-scanner==3.15.5`, scored the same tree 82 with four
+high findings — one false positive counted four times (an environment read in
+`agents/l3-support.md` shaped like a quoted key assignment). After rewriting that
+line: score 90, 0 critical, 0 high. The local gate now runs 3.15.5 on every push.
