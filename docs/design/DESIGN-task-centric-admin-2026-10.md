@@ -1,3 +1,11 @@
+---
+surface: web
+feature: task-centric-admin
+status: proposed
+date: 2026-10-02
+beads: great_cto-3ae3.5
+---
+
 # Админка вокруг задачи: design handoff
 
 **Дата:** 2026-10-02. **Статус:** предложенный контракт; UI и API ниже ещё не реализованы.
@@ -226,3 +234,36 @@ fixtures и browser tests не заменяют проверку реально�
 стадии, human decision count по причине, resume success, time-to-result и дефекты.
 QA failures и осмысленные approvals считаются отдельно от технических остановок.
 Baseline пока не измерен; снижение кликов и остановок не выдаём за доказанный эффект.
+
+## 8. Component inventory
+
+| Компонент | Обязательные состояния | Взаимодействие |
+| --- | --- | --- |
+| TaskComposer | empty, editing, validating, submitting, rejected | Goal, host и authority; один submit, inline errors |
+| TaskSummary | partial, current, stale, unavailable | Один подтверждённый next action; переход к details |
+| DecisionCard | pending, submitting, resolved, expired, stale | Scoped approve/reject с binding; обновление evidence |
+| EvidenceList | absent, recorded, unreadable, outdated | Verdict, revision, источник и безопасная ссылка |
+| OperationStatus | accepted, running, succeeded, failed, unknown | Reconcile после timeout; не выдавать 202 за completion |
+| ToolsDisclosure | collapsed, expanded | Agents, native stage, receipts, costs; keyboard focus |
+| SourceHealth | current, stale, degraded, unavailable | Видимые причина, timestamp и recovery path |
+
+## 9. Numeric contract
+
+Счётчик решений показывает число actionable pending decisions в выбранном проекте,
+а не число всех gate issues. При partial source выводим «не менее N» и источник
+неполноты; unavailable не отображается как 0. Счётчик runs считает runId, не agents.
+Cost хранится числом с currency и scope, форматируется для locale; отсутствие значения
+равно null, не 0. В истории сортировка по явному timestamp, UUID не хронология.
+Суммы используют tabular numerals существующей шкалы; суммы разных валют не складываем.
+ETA и процент готовности отсутствуют до появления обоснованной модели измерения.
+
+## 10. Destructive actions and cost of recovery
+
+Publish раскрывает среду, scope и последствия до одобрения; rollback не обещается,
+если backend не предоставляет проверенный путь. Cancel объясняет, что будет остановлено
+и что уже могло произойти. Recover раскрывает причину сбоя и возможный повтор side effects.
+Ни одна из этих операций не маскируется универсальным Continue. В будущем их capability
+должен содержать recovery guidance, а при отсутствии пути восстановления интерфейс
+явно показывает это до действия. Не вводим blanket confirmation для просмотра,
+копирования команды или обычного раскрытия деталей. Existing required gate confirmation
+сохраняется. История содержит подтверждённый outcome и operationId для расследования.
