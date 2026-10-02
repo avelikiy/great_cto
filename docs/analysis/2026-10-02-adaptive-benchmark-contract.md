@@ -3,6 +3,8 @@
 Date: 2026-10-02. Beads: great_cto-p4o9.4.1 under great_cto-p4o9.4.
 Status: protocol implementation, not a live benchmark result or run-ready corpus.
 
+Corpus evidence: [tenant authorization recipe](2026-10-02-tenant-auth-benchmark.md) adds the second executable case; this does not make the complete corpus or live benchmark run-ready.
+
 ## Experiment boundary
 
 The [existing phased pipeline](../architecture/ADR-phased-specialist-workflow.md)
