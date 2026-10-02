@@ -21,69 +21,17 @@ npx great-cto init
 
 </div>
 
-> 本文翻译自英文 [README](../../README.md) 的 **v3.28.9**（2026-09-14）版本。
-> 两者如有出入，以英文版为准。
+> 本文译自英文 [README](../../README.md) **v3.47.0**（2026-10-02）。
+> 如有出入，以英文版为准。
 
 ---
 
-**你的编码 agent 交付代码。这个东西负责检查它。**
+**你的编码代理负责交付代码。它负责检查。**
 
-你写下一份规格。你的 Claude Code 照着它构建，另一个模型家族的第二个模型读同
-一份 diff；两边不一致的地方，你看到分歧，并由你决定。三个决定始终属于你 ——
-造什么、怎么造、以及是否上线。最后落地的是一个**属于你的仓库**和一个**已经能
-用的 URL**。
-
-公开基准测试里以这种方式构建的七个产品：token 成本**中位数 $171**，测量于
-2026-07-10。你付给自己的 LLM 提供商；great_cto 是 MIT，不向你收一分钱。
-
-```
-   描述一个产品
-        │
-   🤖  界定问题 · 权衡方案 · 写出简报
-        ▼
-   👤  检查点 1 —— 批准要构建什么
-        │
-   🤖  架构 · 数据模型 · 页面 · 计划
-        ▼
-   👤  检查点 2 —— 批准如何构建
-        │
-   🤖  脚手架 → 后端 → 前端 → 测试 → 评审 → 安全
-        ▼
-   👤  检查点 3 —— 批准部署
-        │
-   🤖  已部署 · 仓库 · 可访问的 URL
-```
-
-三次停顿是默认值，不是下限。一行就能把它降到一次：
-
-```
-approval-level: ship-only
-```
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="看板的 Decisions 屏 —— 每个等待中的门禁都是一行：它的撤销成本、两位评审者的裁决，以及一个在撤销代价高昂时会要求你输入门禁名称的 Approve" width="900" />
-</p>
-
-<p align="center">
-  <img src="../tapes/ci.gif" alt="终端：npx great-cto register 把项目加入看板的切换器，然后 npx great-cto ci 用代码和月度预算核对声明的原型，并通过" width="900" />
-</p>
-
-`localhost:3141` 上的看板会自己填满 —— **Decisions**（什么需要你）、**Ledger**
-（花了多少）、**Fleet**（该停止信任哪个 agent）、**Harness**（谁给的第二意见，
-以及它到底做了什么）。上面没有任何东西会把「缺失」呈现成「通过」：从未运行的
-扫描是 `n/a`，绝不是一个绿色的零。
-
-## 实测数字
-
-| | |
-|---|---|
-| 一个功能，端到端，完整可追溯 | **1h 26m · $3.40** token 费用 —— [凭证](https://greatcto.systems/proof) |
-| 一个完整产品 —— 公开基准测试里构建了 7 个 | 中位数 **$171** token 费用 · 质量 **70/100**（58–86），测量于 **2026-07-10** —— [自行复现](../benchmarks/BENCH-2026-07-batch1.md) |
-| 典型月份，20 次流水线运行 | **~$34** —— 你只付给自己的 LLM 提供商，别无其他 |
-| 它知道怎么构建的产品 | **60** 个，横跨 15 个美国行业，通过 [6 条可复用流水线](https://greatcto.systems/pipelines) |
-
-质量分是通过运行每个产品自己的测试得出的，不是数文件 —— 所以它写的是 70，
-而不是一个更圆、更好看的数字。
+描述一个产品或功能。**71 agents** 各司其职，带它走完简报、架构、构建、评审和安全；
+另一家族的第二个模型阅读同一份 diff。三个决定始终由你做出——做什么、怎么做、是否
+发布——最终交付的是**属于你的仓库**和**可用的 URL**。LLM 费用由你直接付给提供商；
+great_cto 采用 MIT 许可，不收取任何费用。
 
 ## 快速开始
 
@@ -91,240 +39,78 @@ approval-level: ship-only
 npx great-cto init
 ```
 
-重启 Claude Code，然后：
+重启 Claude Code。日常只需要三件事：
+
+| | 在 Claude Code 中 | 在终端中 |
+|---|---|---|
+| **开始工作** | `/start "add Google login"` | `great-cto run "add Google login"` |
+| **等待你处理的事** | `/inbox` | `great-cto status` |
+| **继续** | `/resume` | `great-cto resume` |
+
+`/start` 接受新产品，也接受现有项目中的任务，并自行选择流程。`/resume` 只继续你已
+批准的内容；待定的决定仍会等你。其余的——`/review`、`/spec`、`/save`、`/digest`
+等——需要时随时可用：[全部命令](../COMMANDS.md)。
+
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
+</p>
+
+`localhost:3141` 上的面板默认打开 **Work**——你的任务、等你决定的事项，以及已经
+发布的内容。成本、代理和评审者位于 **Tools**。它从不把缺失显示为成功：无法判断的
+检查显示 `unverifiable`，无人计量的成本显示 `unmeasured`，无法运行的评审者显示
+`unavailable`。
+
+## 在 OpenAI Codex 上
+
+`npx great-cto init --host codex` 为 Codex 提供技能、MCP 服务器和六个安全钩子（只需
+批准一次：在终端运行 `codex`，选择 **Trust all and continue**）。Codex 没有用于斜杠
+命令或角色代理的原生插件界面，因此流水线通过 CLI 运行：
 
 ```bash
-/start "build a dispatch & scheduling app for an HVAC business"
+great-cto run "add Google login" --host codex --allow src,tests,docs
+great-cto status --host codex
+great-cto resume --host codex
 ```
 
-用 great_cto 的一天：
+Codex 不会自行更新插件——由 `great-cto upgrade` 完成。详情、Claude + Codex 混合
+运行以及将 Codex 作为第二评审者：[Codex host 指南](../HOST-CODEX.md)。
 
-| 何时 | 命令 | 你得到什么 |
+## 何时会停下来
+
+`.great_cto/PROJECT.md` 中的一行：
+
+| `approval-level` | 停在 | 次数 |
 |---|---|---|
-| 你有一个想法，或一个现有代码库 | `/start "…"` | 简报、计划和可运行的代码 —— 你只做三个决定：做什么、怎么做，以及是否发布 |
-| 今天到此为止 | `/save` | 做了什么、每个“完成”如何验证、下一步做什么 |
-| 你回来了 | `/resume` | 从你停下的地方继续 —— 如果代码之后有变化会提醒你 |
-| 有事需要你 | `/inbox` | 只列出等你决定的事：门禁、阻塞、P0 |
-| 周五 | `/digest` | 发布了什么、坏了什么、每个功能花了多少钱 |
-
-需要时：
-
-| 命令 | 你得到什么 |
-|---|---|
-| `/review` | 合并前的分支审查，每条发现都附证据 — 或合规审查（`--domain tax`、`legal`、`hr-ai`、…） |
-| `/spec` | 写任何代码之前：discovery → PRD → 构建规格 |
-| `/poc` | 对高风险想法给出有时限的是/否；`promote` 让胜出方补过它跳过的审计 |
-| `/release` | 商店说明、面向用户的 changelog，并标出过时的文档和落地页文案 |
-| `/trace` | 单个条目或整个功能的需求 → 任务 → 测试链 |
-| `/crystallize` | 把本次会话的教训和重复流程变成可复用的知识 |
-| `/recall` | 本项目对某个词已经知道些什么 |
-| `/sec` | 安全状况、威胁模型、SBOM、事件处理流程 |
-| `/ownership` | 某个路径归谁负责、谁在值班 |
-| `/rfc` | 跨团队决策的提出与关闭；被接受的成为 ADR |
-| `/exception` | 为有意绕过门禁留下的签名、会过期的记录 |
-| `/doctor` | great_cto 自身的健康检查；`--fix` 应用安全的修复 |
-| `/board` | 本地看板：等你处理的决策、成本、agents |
-| `/agent` | 对 agent 进行审查、测试、改进或下线 |
-| `/help` | 一屏命令卡片；3.40 之前的旧名用 `/help renamed` |
-
-全部命令及其模式和示例：[docs/COMMANDS.md](../COMMANDS.md)。
-
-需要 Node ≥ 18.17。伴生插件（Superpowers、Beads）自动安装。init 之后，确认宿主
-真的加载了插件 —— `claude plugin list --json` 里 `great-cto` 的 `errors` 应为空。
-
-**在 OpenAI Codex 上**（`npx great-cto init --host codex`）你会得到 skills、MCP
-服务器，以及作为 Codex 插件 hooks 的 6 个安全防护（删除数据、`--no-verify` 等绕过 gate、
-文件中的密钥等），以及两个从不阻止任何操作的提示（编辑前依赖该文件的文件、调用涉及的已记录经验）。Codex 不会自行更新插件，需运行 `great-cto upgrade`；需在终端版 Codex 中审核一次：在终端运行 `codex`，在 “Hooks need review” 处选择 **Trust all and continue**（ChatGPT/Codex 应用不显示此界面）。斜杠命令和角色 agent 仍然不存在。安装插件不会把 npm binary
-加入 `PATH`；受支持的路径是 `npx --yes great-cto@3.47.0 codex-host`：它执行受控角色、verifier、gate、recovery，以及可选
-的本地或 GitHub Release。它不模拟原生 hooks，也不执行任意生产服务激活。详见
-[Codex host 指南](../HOST-CODEX.md)。
-
-自 3.47.0 起，在 `start` 时使用 `--routes qa-engineer=claude-code,security-officer=codex`，控制器即可把图中的角色分配给两个已安装的 CLI。两个独立的 join 角色同时检查同一快照；控制器依次应用其经过验证且互不重叠的提案，并保留 verifier 和人工 gate。需要已登录 Claude Code。
-
-**两个宿主，一次评审。**独立于受控 host，Codex 也可以充当**第二意见** —— 从 Claude Code 内部，它读同
-一份 diff，每一行评审都带着它所读那棵树的 `sha`，所以「已评审」可以针对*这一份*
-diff 被证明，而不只是被断言。日志目前有 **4 条记录，其中 1 条带 sha**；不会据此
-宣称任何捕获率，也不该有。
-
-从 3.26.0 起，Codex 作为那位第二评审者参与流水线。只需声明一次：
-
-```yaml
-# .great_cto/PROJECT.md
-capabilities:
-  second_opinion: codex      # or: openrouter · none
-```
-
-之后每一次高风险改动，Claude 的 `code-reviewer` 和 **`codex exec`**（只读沙箱、
-用你自己的 Codex 登录、不需要 API key）会**同时评审同一份 diff**。发现会合并；
-任何一边的 P0 都会阻塞；两边不一致时，两套结论都会在门禁处送到人面前 —— 更严格
-的那一方决定裁决，没有人取平均。看板的 **Harness** 屏检测 Codex、保存这个选择，
-并在旁边展示第二意见*做了什么*：来自 `.great_cto/cross-review.log` 的每一次运行，
-包括被跳过的那些。四种状态，而第四种才是关键 —— *已声明但不可用*绝不会被显示成
-*关闭*。
-
-它到底有多大帮助，是在那里被测量的，不是在这里被断言的。日志目前记下的是：第一次
-真实的 Codex 评审 —— 评审的正是把 Codex 接进来的那个提交 —— 发现了一个作者和
-测试套件都漏掉的 P1；对修复的评审则一无所获。两次运行是机制存在的证据，不是一个
-比率。比率是那张卡片的活。
-
-## 什么时候会问你
-
-`.great_cto/PROJECT.md` 里的一个设置决定流水线在哪里停下：
-
-| `approval-level` | 在哪里拦下你 | 拦下次数 |
-|---|---|---|
-| **`ship-only`** | **部署 —— 并就要构建什么向你做一次简报** | **1** |
-| `product-only` | 造什么 · 是否上线 | 2 |
-| `gates-only` *(默认)* | 造什么 · 设计 · 部署 | 3 |
+| **`ship-only`** | **部署——并向你简报要构建的内容** | **1** |
+| `product-only` | 做什么 · 是否发布 | 2 |
+| `gates-only` *(默认)* | 做什么 · 设计 · 部署 | 3 |
 | `strict` | 设计 · 代码评审 · 部署 | 3 |
-| `auto` | 流水线里什么都不拦 | 0 |
+| `auto` | 流水线中不停 | 0 |
 
-计数指的是流水线里的停顿。每一个级别还都带着一道不属于流程选择的护栏：把数据
-导入覆盖已有记录，在**每一个**级别都会拦下你，`auto` 也不例外 —— 因为那一个会
-毁掉原本存在的东西。
+受监管的产品——金融科技、医疗、政务——在任何级别都保留安全、合规和发布关口。
+[关口如何运作](../GATES.md)。
 
-**`ship-only` 是仍然诚实的最小值。**一次停顿 —— 部署，唯一一个后果会离开你机器
-的决定。*造什么*这个决定并没有消失，因为一条流水线花一整天做错的东西才是那种
-昂贵的失败：它以一屏的形式出现在你的控制台里，在构建开始之前打印一次。
+## 实测数字
 
-```
-ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
-
-  What gets built:  the offline-first checkout; ship the queue before the UI
-  Why:              reliability wins this segment, not features
-  Stop if:          under 20% of orders are created offline after four weeks
-  Left open:        which conflict rule for a re-submitted order
-
-  Full brief: docs/product/BRIEF-checkout.md
-```
-
-沉默即同意，而这屏话把这一点说明白了。如果简报读不出来，门禁会回来 ——
-「我没能给你看」绝不会被当作「已经给你看过，而你没说话」交付。
-
-`gates-only` 在 v3.0.0 里获得了产品门禁。它过去只在*怎么构建*和*是否发布*上
-停下，从不在*造什么*上停 —— 而那正是那种错了六个阶段之后才有人发现的决定。它
-的代价是每个**产品**一次暂停，不是每个功能一次：`product-owner` 是一个入口点，
-只从 `/start` 运行。
-
-受监管的原型 —— 金融、医疗、政务 —— 在**每一个级别，包括 `auto`**，都保留它
-的安全、合规和上线门禁。更轻的级别是委托判断；它绝不跳过合规。完整表格：
-[docs/GATES.md](../GATES.md)。
-
-## 它拒绝说的四件事
-
-同一条规则，在四个坚持起来有代价的地方：**没有发生过的事，绝不能看起来像发生
-过的事。**
-
-| 什么时候 | 什么最容易被显示出来 | 它实际显示什么 |
-|---|---|---|
-| 声明了第二意见，但它的宿主不在 | *关闭* | **`unavailable`** —— 已声明且连不上，不是你做出的选择 |
-| 一项检查跑过了，但无法判定 | *通过* | **`unverifiable`** —— 而且阶段不会据此往下走 |
-| 一次运行的成本从未被测量 | **`$0.00`** | **`unmeasured`** —— 而且预算不会据此触发 |
-| 一个阶段没有被任何人评估过 | *0* | **`null`** —— 通过率只除以真正被评估过的部分 |
-
-这每一处，诚实的答案都更长、更难看，也比那个自信的答案更难做出来。这就是整个
-产品。
-
-证据是做减法。v3.27.0 和 v3.27.1 删掉了本项目自己那些好看的数字 ——「相比全职
-员工节省的成本」、与人类团队的开销对比、一个预测出来的月度数字 —— 因为它们
-都无法被证明为真。
-
-## 值得有的三个疑虑
-
-**「我没法信任我没有亲眼看着写出来的代码。」**
-我们也不信，所以没有任何东西是听 agent 自我陈述就算数的。每个阶段都拿它实际
-产出的东西来核对 —— 点名的文件是否存在、冻结的验收标准运行时是否通过，只有到
-这一步之后，才会请一个独立的模型判断每条需求是否被处理。当这项检查无法判断时，
-它返回 `unverifiable`，那**不是**通过。
-
-**「它会在我睡觉的时候花钱。」**
-按 agent 的预算会拒绝在超出上限后派发，并报出那个数字。一次成本无法被测量的
-运行显示为 `unmeasured`，并且不拦住任何东西 —— 一个基于没人测量过的数字触发的
-限额，比没有限额更糟；而给未测量的工作一个自信的 `$0.00`，正是开销无声溜走的
-方式。
-
-**「然后我就被锁死了。」**
-一条命令安装，MIT，跑在你自己的机器上、用你自己的 LLM 账号。删掉 great_cto，
-它构建出来的仓库仍然是你的 —— 普通的 Next.js、Postgres 和 Stripe，任何工程师
-都能接手。
-
-## 不同之处
-
-- **专家，而不是通才** —— 71 个职责狭窄、各带自己评审门禁的 agent，而不是一个
-  打字比思考快的助手。[名册 →](../reference/agents.md)
-- **批评者先于代码** —— 架构、规格和 schema 三个批评者在规划之前运行，那时候
-  错误的代价还是几小时，而不是几天。
-- **写入时强制边界** —— agent 在物理上就无法碰它任务范围之外的文件。不是评审时
-  标记；是写入时拒绝。
-- **不信任自己的 QA** —— 关键路径先写成 Gherkin，再写测试代码，然后用变异测试
-  追问一句：这套测试到底能不能抓住任何东西。
-- **跨会话的记忆** —— 决策、经验和被晋升的模式按项目和全局持久化；被中断的运行
-  恢复时知道哪些阶段已经跑过。
-- **看得见的成本** —— 按 agent 的开销、估算与实际的偏差、每次被接受变更的成本，
-  都在看板上，而不是在某张表格里。
-- **会拒绝的支出上限** —— PROJECT.md 里的 `agent-budgets:` 限定一个阶段能花
-  多少；流水线拒绝在超出之后派发，并报出那个数字。估算永远不会拒绝 —— 见上面
-  那张表。
-- **一个阶段在下一个往上盖之前先被核对** —— 裁决点名的文件必须存在，冻结的
-  `## ACCEPTANCE` 标准运行时必须通过，只有在这之后才会请第二个模型判断每条需求
-  是否被处理。最便宜的问题问在最前面，而且是三个答案而不是两个：`verified`、
-  `rework`、或 `unverifiable`。一个什么都不声称、也不冻结任何标准的 agent 会被
-  报出来 —— 否则最便宜的通过方式就是什么都不声称。
-- **工作会被退回，而退回有次数上限** —— 失败的阶段返回 `REWORK`，findings 原文
-  附上，由同一个 agent 修；`BLOCKED` 意味着必须由人来决定。三轮之后它变成人的
-  问题，因为两台机器把活儿推来推去是不会觉得腻的。
-- **质量与发生了什么分开记** —— 裁决说一次运行做了什么，*评分*说做得多好，记在
-  它自己的只追加存储里，由不同的执行者在不同的时间给出。评分者之间可以不一致，
-  而每个分数都写明是谁给的。
-- **沉默会被记录** —— 派发器把它决定了什么写进
-  `.great_cto/pipeline-runs.jsonl`，*包括它决定什么都不做的时候*，以及为什么。
-  今年发现的每一个流水线缺陷，都藏在「本来什么都不该发生」和「本来什么都发生
-  不了」之间的缝里。
-
-一切都在本地运行，MIT 许可，用你自己的密钥。你的代码留在你的机器上；prompt 只
-发给你的 LLM 提供商，别处不去。遥测**默认关闭**（[docs/PRIVACY.md](../PRIVACY.md)）。
+| | |
+|---|---|
+| 一个功能端到端，完整追踪 | **1h 26m · $3.40** — [凭证](https://greatcto.systems/proof) |
+| 一个完整产品——开放基准中构建了 7 个 | **$171** · **70/100**, **2026-07-10** — [复现](../benchmarks/BENCH-2026-07-batch1.md) |
+| 典型月份，20 次运行 | **~$34** — 只付给你自己的 LLM 提供商 |
 
 ## 局限
 
-- **不是托管式的应用生成器** —— 它不替代你的编码 agent；没有 agent，它就没有
-  可编排的对象。
-- **面向单人构建者** —— 独立创始人或 CTO。两名以上工程师共用同一条流水线，就已经
-  超出了它。
-- **不是 CI/CD 系统** —— 门禁在本地运行；你仍然通过 GitHub Actions 合并。
-- **不是认证审计** —— PCI/HIPAA/SOC2 脚手架是起点，不是认证。
-- **不是确定性的** —— LLM 输出。门禁裁决值得人工复核一下。
-- **开销被测量了，但归因还没有细到 agent** —— 成本是从宿主自己的会话记录里读出来
-  的，而不是从某个 agent 的自我汇报里，所以 token 是真的。但钩子拿到的那份记录
-  覆盖的是整个会话，而不是某一个子 agent，所以一次运行的成本可能被归到最后结束的
-  那个阶段头上 —— 高出几个数量级。在这一点修好之前，把按 agent 的数字当成上限。
-  完全没有测量到的阶段仍然显示 `unmeasured`，而不是一个自信的 `$0.00`，并且预算
-  不会为它触发。
+面向单人开发者，而非团队；不是托管式应用构建器——需要你的编码代理；不是 CI/CD
+系统；合规模板是起点，不是认证；LLM 输出不具确定性。每一项的如实说明以及它拒绝
+声称的内容：[docs/DETAILS.md](../DETAILS.md)。
 
-## 文档
+## 了解更多
 
-**[文档中心 →](../README.md)** ·
-[入门](../tutorials/getting-started.md) ·
-[门禁与批准级别](../GATES.md) ·
-[Agents](../reference/agents.md) · [命令](../reference/commands.md) ·
-[原型](../ARCHETYPES.md) · [架构](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
-[其余一切](../DETAILS.md) —— 批评者、司法辖区、成本明细、CI、告警
+[文档](../README.md) · [入门](../tutorials/getting-started.md) ·
+[命令](../COMMANDS.md) · [关口](../GATES.md) · [代理](../reference/agents.md) ·
+[FAQ](../FAQ.md) · [其他一切](../DETAILS.md) ·
+[Issues](https://github.com/avelikiy/great_cto/issues) · [安全](../../SECURITY.md) ·
+[贡献](../../CONTRIBUTING.md) · [隐私——遥测默认关闭](../PRIVACY.md)
 
-## 社区
-
-[Issues](https://github.com/avelikiy/great_cto/issues) ·
-[Discussions](https://github.com/avelikiy/great_cto/discussions) ·
-[博客](https://greatcto.systems/blog/) ·
-[安全政策](../../SECURITY.md) · [贡献指南](../../CONTRIBUTING.md)
-
-MIT —— [LICENSE](../../LICENSE)。由 [@avelikiy](https://github.com/avelikiy)
-构建：一名构建 AI-native 交易与金融平台的 CTO；great_cto 是我自己的工作循环，
-一次一个 agent 地自动化而成。
-
-如果它帮你省下了时间，一颗星能帮其他独立构建者找到它。
-
-<div align="center">
-
-*别再做唯一一个能上线的人。*
-
-</div>
+MIT — [LICENSE](../../LICENSE)。作者 [@avelikiy](https://github.com/avelikiy)。
+如果它为你节省了时间，一颗星能帮助其他独立开发者找到它。

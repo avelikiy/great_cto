@@ -90,6 +90,8 @@ test('the npm bundle seeds the controlled Codex host and its dependency closure'
   const direct = [...controller.matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)].map(match => match[1]);
   assert.ok(direct.length > 0, 'the controller must have runtime dependencies for this test to protect');
   assert.match(bundler, /const codexController =/);
+  assert.match(bundler, /readFileSync\(taskController/);
+  assert.match(bundler, /copyFileSync\(taskController/);
   assert.match(bundler, /copyFileSync\(codexController/);
   assert.match(bundler, /shared["'], ["']pipeline\.toml/);
   assert.match(bundler, /readFileSync\(codexController/,

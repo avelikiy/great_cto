@@ -23,6 +23,7 @@
  */
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
+import { observeWorkSession } from './work-tasks.mjs';
 import { projectRoot } from './project-root.mjs';
 
 export const STALE_WORKING_MS = 5 * 60 * 1000;
@@ -37,6 +38,7 @@ const safeId = (id) => String(id || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 
 export function recordHookEvent(payload, { now = Date.now() } = {}) {
   // The session's cwd wanders into subdirectories; state belongs at the project root.
   const cwd = projectRoot(payload?.cwd || process.cwd());
+  try { observeWorkSession({ ...payload, cwd }); } catch { /* native hook status remains available independently */ }
   const id = safeId(payload?.session_id);
   if (!id) return null;
   const dir = join(cwd, '.great_cto', 'status');

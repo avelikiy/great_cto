@@ -20,6 +20,34 @@ That's it. The CLI detects your stack, picks the right archetype, clones the plu
 
 After install, restart Claude Code and run `/inbox` or `/audit`.
 
+## Everyday use (source version)
+
+```bash
+great-cto run "build, fix or investigate something"
+great-cto status
+great-cto resume
+```
+
+Run launches interactive Claude Code through `/start`; resume targets its exact
+pre-bound session through `/resume`. The plugin must be loaded. Status reads
+private task metadata without launching a model. `/start` handles existing projects without resetting
+their configuration. For the controlled Codex runtime use `--host codex` and,
+when starting, an explicit scope such as `--allow src,tests,docs`.
+`status --json` works for both hosts. `--task UUID` selects persisted task identity;
+Codex status also includes its sanitized run listing. Optional repeated `--accept`
+criteria are stored and passed to execution and verification. `--operation UUID`
+provides idempotent launch receipts, and `resume --revision N` rejects stale intent.
+See [the shared task contract](../../docs/WORK-TASK-CONTRACT.md) for ownership and recovery.
+`resume --host codex` selects only one unfinished run in the target project;
+ambiguity requires a UUID. Pending gates, runtime locks and verifier checks remain
+in force. `--dir PATH` targets another project; `--dry-run` previews without agents.
+Advanced policies, recovery and approvals stay under `codex-host`.
+Research uses explicit `run --intent research`; controlled research writes reports
+only and preserves its bounded stage retry budget. Advanced host approvals, outcome
+attestations and cohort reports are under `task work`, documented in the shared
+contract. Resume progress is measured from bound stage evidence, not exit zero.
+Published npm versions may not include these source additions yet.
+
 ## What the plugin gives you
 
 The CLI installs it; these are what it installs.

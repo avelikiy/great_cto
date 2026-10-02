@@ -24,11 +24,9 @@ cat "$CARD" 2>/dev/null || echo "MISSING_CARD"
 
 ## Step 2 — Render
 
-If the file loaded and there is no topic argument, print it **verbatim** from
-the header through the `**When you need it**` table — stop before
-`## Renamed in 3.40` — with the version substituted into the header
-(`{{VERSION}}` → value of `VERSION`), then one line:
-`Old command name? /help renamed · Board: /help board`.
+If the file loaded and there is no topic argument, print it verbatim through
+`## Details when needed`, stopping before `## Renamed in 3.40`. Substitute the
+version (`{{VERSION}}` → value of VERSION). Keep the default card under 40 lines.
 
 If the file is missing or `MISSING_CARD` was printed, fall back to this
 minimal card (no extra commentary):
@@ -36,11 +34,10 @@ minimal card (no extra commentary):
 ```
 great_cto · type /<command> in Claude Code
 
-Every day   /start · /save · /resume · /inbox · /digest
-Build       /review · /spec · /poc · /release · /trace
-Knowledge   /crystallize · /recall
-Ops         /sec · /ownership · /rfc · /exception · /doctor · /board
-Agents      /agent review|evals|evolve|retire
+Task        /start "describe the task"
+Progress    /inbox
+Continue    /resume
+Details     /help commands · /help agents · /help renamed · /help board
 
 Admin board   great-cto board   →   http://localhost:3141
 Docs          https://github.com/avelikiy/great_cto
@@ -51,8 +48,8 @@ Docs          https://github.com/avelikiy/great_cto
 If `$ARGUMENTS` contains a known topic, append the matching subsection
 **only** (don't dump everything):
 
-- `commands` → just the two command tables from the card
-- `agents`   → grep the card for the `## Agents` section
+- `commands` → read `docs/reference/commands.md` from the same plugin root; group existing commands by purpose within 40 lines
+- `agents` → read `docs/reference/agents.md`; summarize specialist groups and link the full catalog
 - `board`    → just the board / admin URL block + how to start it
 - `renamed`  → just the `## Renamed in 3.40` table (old command → new)
 - `all`      → the whole card, verbatim

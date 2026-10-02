@@ -21,73 +21,19 @@ npx great-cto init
 
 </div>
 
-> Übersetzung des englischen [README](../../README.md), Stand **v3.28.9** (2026-09-14).
+> Übersetzung des englischen [README](../../README.md), Version **v3.47.0** (2026-10-02).
 > Bei Abweichungen gilt die englische Fassung.
 
 ---
 
-**Dein Coding-Agent liefert Code. Das hier ist das, was ihn prüft.**
+**Dein Coding-Agent liefert Code. Das hier prüft ihn.**
 
-Du schreibst eine Spezifikation. Dein Claude Code baut dagegen, ein zweites
-Modell aus einer anderen Familie liest denselben Diff, und wo die beiden sich
-uneinig sind, siehst du die Uneinigkeit und entscheidest. Drei Entscheidungen
-bleiben deine — was gebaut wird, wie, und ob es live geht. Was am Ende dasteht,
-ist ein **Repository, das dir gehört**, und eine **URL, die funktioniert**.
-
-Sieben Produkte, im offenen Benchmark so gebaut: **Median $171** an Tokens,
-gemessen 2026-07-10. Du zahlst deinen eigenen LLM-Anbieter; great_cto ist MIT und
-stellt dir nichts in Rechnung.
-
-```
-   describe a product
-        │
-   🤖  problem framed · options weighed · brief written
-        ▼
-   👤  checkpoint 1 — approve WHAT gets built
-        │
-   🤖  architecture · data model · screens · plan
-        ▼
-   👤  checkpoint 2 — approve HOW it gets built
-        │
-   🤖  scaffold → backend → frontend → tests → review → security
-        ▼
-   👤  checkpoint 3 — approve the deploy
-        │
-   🤖  deployed · repo · live URL
-```
-
-Drei Stopps sind der Standard, nicht die Untergrenze. Eine Zeile macht daraus einen:
-
-```
-approval-level: ship-only
-```
-
-<p align="center">
-  <img src="../screenshots/board.png" alt="Der Decisions-Bildschirm des Boards — jedes wartende Gate als eine Zeile: seine Rückabwicklungskosten, die Urteile beider Reviewer und ein Approve, das nach dem Namen des Gates fragt, wenn das Rückgängigmachen teuer wäre" width="900" />
-</p>
-
-<p align="center">
-  <img src="../tapes/ci.gif" alt="Terminal: npx great-cto register fügt das Projekt dem Umschalter des Boards hinzu, dann prüft npx great-cto ci den deklarierten Archetyp gegen den Code und das Monatsbudget — und besteht" width="900" />
-</p>
-
-Das Board auf `localhost:3141` füllt sich selbst — **Decisions** (was dich
-braucht), **Ledger** (was es gekostet hat), **Fleet** (welchem Agenten du das
-Vertrauen entziehen solltest), **Harness** (wer die zweite Meinung geliefert hat
-und was sie tatsächlich getan hat). Nichts darauf stellt eine Abwesenheit als
-Bestanden dar: ein Scan, der nie lief, ist `n/a`, nie eine grüne Null.
-
-## Gemessene Zahlen
-
-| | |
-|---|---|
-| Ein Feature, Ende zu Ende, voll nachvollziehbar | **1h 26m · $3.40** in Tokens — [die Belege](https://greatcto.systems/proof) |
-| Ein ganzes Produkt — 7 im offenen Benchmark gebaut | Median **$171** in Tokens · Qualität **70/100** (58–86), gemessen **2026-07-10** — [selbst reproduzieren](../benchmarks/BENCH-2026-07-batch1.md) |
-| Typischer Monat, 20 Pipeline-Läufe | **~$34** — du zahlst deinen eigenen LLM-Anbieter, sonst nichts |
-| Produkte, die es bauen kann | **60**, in 15 US-Branchen, über [6 wiederverwendbare Pipelines](https://greatcto.systems/pipelines) |
-
-Der Qualitätswert entsteht durch das Ausführen der Tests jedes Produkts, nicht
-durch das Zählen von Dateien — deshalb lautet er 70 und nicht eine rundere,
-hübschere Zahl.
+Beschreibe ein Produkt oder ein Feature. **71 Agenten** mit eng umrissenen Aufgaben
+führen es durch Brief, Architektur, Build, Review und Security; ein zweites Modell
+aus einer anderen Familie liest denselben Diff. Drei Entscheidungen bleiben deine —
+was gebaut wird, wie, und ob es ausgeliefert wird — und am Ende steht ein
+**Repository, das dir gehört**, und eine **URL, die funktioniert**. Du bezahlst
+deinen eigenen LLM-Anbieter; great_cto ist MIT und berechnet nichts.
 
 ## Schnellstart
 
@@ -95,286 +41,84 @@ hübschere Zahl.
 npx great-cto init
 ```
 
-Claude Code neu starten, dann:
+Claude Code neu starten. Im Alltag brauchst du drei Dinge:
+
+| | In Claude Code | Im Terminal |
+|---|---|---|
+| **Arbeit starten** | `/start "add Google login"` | `great-cto run "add Google login"` |
+| **Was auf dich wartet** | `/inbox` | `great-cto status` |
+| **Weitermachen** | `/resume` | `great-cto resume` |
+
+`/start` nimmt ein neues Produkt oder eine Aufgabe in einem bestehenden Projekt an
+und wählt den Ablauf selbst. `/resume` setzt nur fort, was du schon freigegeben hast;
+eine offene Entscheidung wartet weiter auf dich. Alles andere — `/review`, `/spec`,
+`/save`, `/digest` und der Rest — ist da, wenn du es brauchst:
+[alle Befehle](../COMMANDS.md).
+
+<p align="center">
+  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
+</p>
+
+Das Board auf `localhost:3141` öffnet mit **Work** — deine Aufgaben, die
+Entscheidungen, die auf dich warten, und was schon ausgeliefert ist. Kosten, Agenten
+und Reviewer liegen unter **Tools**. Nichts dort zeigt ein Fehlen als Erfolg: eine
+Prüfung, die nicht entscheiden konnte, steht auf `unverifiable`, nicht gemessene
+Kosten auf `unmeasured`, ein Reviewer, der nicht laufen konnte, auf `unavailable`.
+
+## Auf OpenAI Codex
+
+`npx great-cto init --host codex` gibt Codex die Skills, den MCP-Server und sechs
+Sicherheits-Hooks (einmal freigeben: `codex` im Terminal starten und
+**Trust all and continue** wählen). Codex hat keine native Plugin-Oberfläche für
+Slash-Befehle oder Rollen-Agenten, daher läuft die Pipeline über die CLI:
 
 ```bash
-/start "build a dispatch & scheduling app for an HVAC business"
+great-cto run "add Google login" --host codex --allow src,tests,docs
+great-cto status --host codex
+great-cto resume --host codex
 ```
 
-Ein Tag mit great_cto:
-
-| Wann | Befehl | Was du bekommst |
-|---|---|---|
-| Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — drei Entscheidungen bleiben bei dir: was gebaut wird, wie, und ob es ausgeliefert wird |
-| Du hörst für heute auf | `/save` | was erledigt ist, wie jedes „fertig“ geprüft wurde, was als Nächstes kommt |
-| Du kommst zurück | `/resume` | genau dort, wo du aufgehört hast — mit Warnung, falls sich der Code inzwischen geändert hat |
-| Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |
-| Freitag | `/digest` | was ausgeliefert wurde, was kaputtging, was jedes Feature gekostet hat |
-
-Wenn du es brauchst:
-
-| Befehl | Was du bekommst |
-|---|---|
-| `/review` | einen Branch vor dem Merge geprüft, jeder Befund mit Beleg — oder ein Compliance-Review (`--domain tax`, `legal`, `hr-ai`, …) |
-| `/spec` | Discovery → PRD → Build-Spec, vor jeder Zeile Code |
-| `/poc` | ein zeitlich begrenztes Ja/Nein zu einer riskanten Idee; `promote` führt einen Gewinner durch die übersprungenen Audits |
-| `/release` | Store-Texte, ein Changelog für Nutzer, veraltete Doku und Landing-Texte markiert |
-| `/trace` | die Kette Anforderung → Aufgabe → Test für einen Punkt oder ein ganzes Feature |
-| `/crystallize` | die Lektionen und wiederholten Abläufe dieser Sitzung als wiederverwendbares Wissen |
-| `/recall` | was dieses Projekt über ein Wort bereits weiß |
-| `/sec` | Sicherheitslage, Threat Model, SBOM, Incident-Workflow |
-| `/ownership` | wem ein Pfad gehört und wer Bereitschaft hat |
-| `/rfc` | eine teamübergreifende Entscheidung vorgeschlagen und abgeschlossen; angenommene werden zu ADRs |
-| `/exception` | ein signierter, ablaufender Eintrag für eine bewusste Gate-Umgehung |
-| `/doctor` | ein Gesundheitscheck von great_cto selbst; `--fix` wendet die sicheren Korrekturen an |
-| `/board` | das lokale Board: Entscheidungen, die auf dich warten, Kosten, Agenten |
-| `/agent` | ein Agent geprüft, getestet, verbessert oder ausgemustert |
-| `/help` | die Befehlsübersicht auf einem Bildschirm; `/help renamed` für Namen vor 3.40 |
-
-Jeder Befehl mit seinen Modi und Beispielen: [docs/COMMANDS.md](../COMMANDS.md).
-
-Benötigt Node ≥ 18.17. Begleit-Plugins (Superpowers, Beads) installieren sich
-selbst. Prüfe nach dem init, ob der Host das Plugin wirklich geladen hat —
-`claude plugin list --json` darf für `great-cto` keine `errors` zeigen.
-
-**Auf OpenAI Codex** (`npx great-cto init --host codex`) bekommst du Skills, den
-MCP-Server und sechs Schutz-Hooks als Codex-Plugin-Hooks (Datenlöschung,
-Gate-Umgehung wie `--no-verify`, Secrets in Dateien u. a.) plus zwei Hinweise, die
-nichts blockieren: wer von einer Datei abhängt, bevor sie geändert wird, und eine
-festgehaltene Lektion, wenn ein Aufruf ihr Thema berührt. Codex aktualisiert das Plugin
-nie selbst — `great-cto upgrade` tut es; Freigeben musst du sie einmal
-in Codex' Terminal-Oberfläche: `codex` im Terminal starten und bei „Hooks need review“
-**Trust all and continue** wählen (die ChatGPT/Codex-App zeigt diesen Schritt nicht). Slash-Befehle und
-Rollen-Agenten gibt es weiterhin nicht. Die Plugin-Installation legt kein npm-Binary in `PATH`; der unterstützte
-Pipeline-Pfad ist `npx --yes great-cto@3.47.0 codex-host`: Er führt kontrollierte Rollen, Verifier, Gates, Recovery
-und optional lokale oder GitHub-Releases aus. Das ist kein Ersatz für native
-Hooks und keine beliebige Produktionsaktivierung. Details stehen im
+Codex aktualisiert das Plugin nie selbst — das macht `great-cto upgrade`. Details,
+gemischte Claude-+-Codex-Läufe und Codex als zweiter Reviewer:
 [Codex-Host-Leitfaden](../HOST-CODEX.md).
 
-Seit 3.47.0 kann der Controller Graph-Rollen mit `--routes qa-engineer=claude-code,security-officer=codex` beim `start` auf beide installierten CLIs verteilen. Die zwei unabhängigen Join-Rollen prüfen denselben Snapshot gleichzeitig; der Controller übernimmt ihre validierten, überschneidungsfreien Vorschläge nacheinander und behält Verifier und menschliche Gates bei. Claude Code muss angemeldet sein.
+## Wann es dich stoppt
 
-**Zwei Harnesses, ein Review.** Unabhängig vom kontrollierten Host kann Codex die
-**zweite Meinung** sein — aus Claude Code heraus liest es denselben Diff, und jede
-Review-Zeile trägt den `sha` des Baums, den sie gelesen hat, sodass sich
-„reviewt" über *diesen* Diff beweisen lässt, statt behauptet zu werden. Das Log
-enthält **bisher 4 Zeilen, 1 davon mit einem sha**; daraus wird keine
-Trefferquote abgeleitet, und das sollte auch niemand tun.
+Eine Zeile in `.great_cto/PROJECT.md`:
 
-Seit 3.26.0 nimmt Codex als dieser zweite Reviewer an der Pipeline teil. Einmal
-deklarieren:
-
-```yaml
-# .great_cto/PROJECT.md
-capabilities:
-  second_opinion: codex      # or: openrouter · none
-```
-
-und bei jeder Änderung mit hohem Einsatz reviewen der Claude-`code-reviewer` und
-**`codex exec`** (Read-only-Sandbox, dein Codex-Login, kein API-Key) **denselben
-Diff zur selben Zeit**. Die Befunde werden zusammengeführt; ein P0 von einer der
-beiden Seiten blockiert; wo sie sich uneinig sind, erreichen beide Sätze den
-Menschen am Gate — die strengere Seite bestimmt das Urteil, und niemand bildet
-einen Mittelwert. Der **Harness**-Bildschirm des Boards erkennt Codex, hält die
-Wahl fest und zeigt daneben, was die zweite Meinung *getan* hat: jeden Lauf,
-übersprungene eingeschlossen, aus `.great_cto/cross-review.log`. Vier Zustände,
-und der vierte ist der Punkt — *deklariert, aber nicht verfügbar* wird nie als
-*aus* angezeigt.
-
-Wie viel es hilft, wird dort gemessen und nicht hier behauptet. Was das Log
-bisher enthält: das erste echte Codex-Review — über den Commit, der Codex
-angebunden hat — fand einen P1, den der Autor und die Testsuite beide übersehen
-hatten; das Review des Fixes fand nichts. Zwei Läufe sind ein Beleg für den
-Mechanismus, keine Quote. Die Quote ist die Aufgabe der Karte.
-
-## Wann es dich fragt
-
-Eine Einstellung in `.great_cto/PROJECT.md` bestimmt, wo die Pipeline anhält:
-
-| `approval-level` | Hält dich an bei | Stopps |
+| `approval-level` | Stoppt dich bei | Stopps |
 |---|---|---|
-| **`ship-only`** | **dem Deploy — und informiert dich darüber, was gebaut wird** | **1** |
-| `product-only` | was wir bauen · ob es live geht | 2 |
-| `gates-only` *(Standard)* | was wir bauen · dem Design · dem Deploy | 3 |
-| `strict` | dem Design · dem Code-Review · dem Deploy | 3 |
+| **`ship-only`** | **dem Deployment — und gibt dir einen Brief, was gebaut wird** | **1** |
+| `product-only` | was wir bauen · ob es ausgeliefert wird | 2 |
+| `gates-only` *(Standard)* | was wir bauen · das Design · das Deployment | 3 |
+| `strict` | das Design · Code-Review · das Deployment | 3 |
 | `auto` | nichts in der Pipeline | 0 |
 
-Gezählt werden Pipeline-Stopps. Jede Stufe trägt zusätzlich eine Sicherung, die
-keine Prozessentscheidung ist: der Import von Daten über bestehende Datensätze
-hält dich auf **jeder** Stufe an, `auto` eingeschlossen, weil genau der zerstört,
-was vorher da war.
+Regulierte Produkte — Fintech, Gesundheit, Behörden — behalten ihre Security-,
+Compliance- und Ship-Gates auf jeder Stufe. [Wie die Gates funktionieren](../GATES.md).
 
-**`ship-only` ist das Minimum, das noch ehrlich ist.** Ein Stopp — der Deploy,
-die einzige Entscheidung, deren Folge deine Maschine verlässt. Die Entscheidung
-*was gebaut wird* verschwindet dabei nicht, denn eine Pipeline, die einen Tag
-lang das Falsche baut, ist der teure Fehlschlag: Sie kommt als ein Bildschirm in
-deiner Konsole, einmal ausgegeben, bevor der Build startet.
+## Zahlen, gemessen
 
-```
-ABOUT TO BUILD — say nothing and this proceeds, say something and it stops.
-
-  What gets built:  the offline-first checkout; ship the queue before the UI
-  Why:              reliability wins this segment, not features
-  Stop if:          under 20% of orders are created offline after four weeks
-  Left open:        which conflict rule for a re-submitted order
-
-  Full brief: docs/product/BRIEF-checkout.md
-```
-
-Schweigen ist Zustimmung, und der Bildschirm sagt das auch. Lässt sich das
-Briefing nicht lesen, kommt das Gate zurück — „ich konnte es dir nicht zeigen"
-wird nie als „dir wurde es gezeigt und du hast nichts gesagt" ausgeliefert.
-
-`gates-only` hat das Produkt-Gate in v3.0.0 bekommen. Früher hielt es beim *wie*
-gebaut wird und beim *ob* released wird an, nie beim *was* gebaut wird — der
-Entscheidung, die sechs Stufen lang falsch ist, bevor es irgendwem auffällt. Es
-kostet eine Pause pro **Produkt**, nicht pro Feature: `product-owner` ist ein
-Einstiegspunkt und läuft nur aus `/start`.
-
-Ein regulierter Archetyp — Fintech, Gesundheit, Behörden — behält seine
-Security-, Compliance- und Ship-Gates **auf jeder Stufe, auch bei `auto`**. Eine
-leichtere Stufe delegiert Urteilsvermögen; sie umgeht niemals Compliance.
-Vollständige Tabelle: [docs/GATES.md](../GATES.md).
-
-## Vier Dinge, die es sich weigert zu sagen
-
-Dieselbe Regel, an den vier Stellen, an denen sie etwas kostet: **etwas, das
-nicht passiert ist, darf nie aussehen wie etwas, das passiert ist.**
-
-| Wann | Was leicht zu zeigen wäre | Was es stattdessen zeigt |
-|---|---|---|
-| Eine zweite Meinung ist deklariert, aber ihr Harness fehlt | *aus* | **`unavailable`** — deklariert und nicht erreichbar ist keine Entscheidung, die du getroffen hast |
-| Eine Prüfung lief und konnte nicht entscheiden | *bestanden* | **`unverifiable`** — und die Stufe läuft darauf nicht weiter |
-| Die Kosten eines Laufs wurden nie gemessen | **`$0.00`** | **`unmeasured`** — und Budgets lösen darauf nicht aus |
-| Eine Stufe wurde von niemandem bewertet | *0* | **`null`** — eine Bestehensquote teilt durch das, was tatsächlich bewertet wurde |
-
-Jede dieser Stellen ist eine, an der die ehrliche Antwort länger, hässlicher und
-schwerer zu bauen ist als die selbstsichere. Das ist das ganze Produkt.
-
-Der Beweis ist Subtraktion. v3.27.0 und v3.27.1 haben die eigenen günstigen
-Zahlen dieses Projekts gelöscht — „Kostenersparnis gegenüber einer Vollzeitkraft",
-einen Ausgabenvergleich mit einem menschlichen Team, einen hochgerechneten Monat
-— weil sich für keine davon zeigen ließ, dass sie stimmt.
-
-## Die drei Zweifel, die sich lohnen
-
-**„Ich kann Code nicht trauen, bei dessen Entstehung ich nicht zugesehen habe."**
-Wir auch nicht, deshalb wird einem Agenten nichts über sich selbst geglaubt. Jede
-Stufe wird gegen das geprüft, was sie tatsächlich produziert hat — existieren die
-genannten Dateien, bestehen die eingefrorenen Akzeptanzkriterien beim Ausführen,
-und erst dann wird ein separates Modell gefragt, ob jede Anforderung adressiert
-ist. Wo diese Prüfung es nicht entscheiden kann, liefert sie `unverifiable`, und
-das ist **kein** Bestanden.
-
-**„Es gibt Geld aus, während ich schlafe."**
-Budgets pro Agent verweigern die Beauftragung jenseits ihrer Obergrenze und
-nennen die Zahl. Ein Lauf, dessen Kosten sich nicht messen ließen, steht als
-`unmeasured` da und hält nichts auf — ein Limit, das auf einer Zahl auslöst, die
-niemand gemessen hat, ist schlimmer als kein Limit, und ein selbstsicheres
-`$0.00` für ungemessene Arbeit ist genau der Weg, auf dem Ausgaben unbemerkt
-bleiben.
-
-**„Und dann hänge ich fest."**
-Ein Befehl zur Installation, MIT, läuft auf deiner Maschine gegen deinen eigenen
-LLM-Account. Lösche great_cto, und das Repository, das es gebaut hat, gehört
-weiterhin dir — gewöhnliches Next.js, Postgres und Stripe, mit dem jeder Engineer
-weiterarbeiten kann.
-
-## Was es anders macht
-
-- **Spezialisten statt Generalist** — 71 Agenten mit engen Aufgaben und eigenen
-  Review-Gates, statt eines Assistenten, der schneller tippt als denkt.
-  [Die Besetzung →](../reference/agents.md)
-- **Kritiker vor dem Code** — Architektur-, Spezifikations- und Schema-Kritiker
-  laufen vor der Planung, wo ein Fehler noch Stunden statt Tage kostet.
-- **Scope beim Schreiben erzwungen** — ein Agent kann Dateien außerhalb seines
-  Auftrags physisch nicht anfassen. Nicht im Review markiert; beim Schreiben
-  verweigert.
-- **QA, das sich selbst misstraut** — kritische Pfade werden vor dem Testcode in
-  Gherkin geschrieben, dann fragt Mutationstesten, ob die Suite überhaupt etwas
-  fangen würde.
-- **Gedächtnis über Sessions** — Entscheidungen, Lektionen und beförderte Muster
-  bleiben pro Projekt und global erhalten; ein unterbrochener Lauf setzt fort und
-  weiß, welche Stufen schon liefen.
-- **Sichtbare Kosten** — Ausgaben pro Agent, Abweichung Schätzung-gegen-Ist und
-  Kosten pro akzeptierter Änderung auf dem Board, nicht in einer Tabelle.
-- **Ausgabengrenzen, die verweigern** — `agent-budgets:` in PROJECT.md deckelt,
-  was eine Stufe ausgeben darf; die Pipeline verweigert die Beauftragung darüber
-  hinaus und nennt die Zahl. Eine Schätzung verweigert nie — siehe die Tabelle
-  oben.
-- **Eine Stufe wird geprüft, bevor die nächste darauf aufbaut** — die vom Urteil
-  genannten Dateien müssen existieren, eingefrorene `## ACCEPTANCE`-Kriterien
-  müssen beim Ausführen bestehen, und erst dann wird ein zweites Modell gefragt,
-  ob jede Anforderung adressiert ist. Die billigste Frage zuerst, und drei
-  Antworten statt zwei: `verified`, `rework` oder `unverifiable`. Ein Agent, der
-  nichts behauptet und keine Kriterien einfriert, wird gemeldet — sonst wäre der
-  billigste Weg zu bestehen, nichts zu behaupten.
-- **Arbeit geht zurück, und die Rückgabe hat eine Obergrenze** — eine gescheiterte
-  Stufe kommt als `REWORK` zurück, mit zitierten Befunden, und derselbe Agent
-  behebt es; `BLOCKED` heißt, ein Mensch muss entscheiden. Nach drei Durchgängen
-  wird es zum Problem des Menschen, denn zwei Maschinen, die sich Arbeit hin- und
-  herreichen, werden nicht müde.
-- **Qualität getrennt von dem, was passiert ist** — das Urteil sagt, was ein Lauf
-  getan hat, ein *Score* sagt, wie gut, in einem eigenen, nur anhängenden
-  Speicher, von einem anderen Akteur zu einer anderen Zeit. Scorer dürfen sich
-  uneinig sein, und jeder Score nennt seinen Urheber.
-- **Schweigen wird protokolliert** — der Dispatcher schreibt nach
-  `.great_cto/pipeline-runs.jsonl`, was er entschieden hat, *auch wenn er nichts
-  entschieden hat*, und warum. Jeder in diesem Jahr gefundene Pipeline-Defekt
-  versteckte sich in der Lücke zwischen „nichts sollte passieren" und „nichts
-  konnte passieren".
-
-Alles läuft lokal, MIT-lizenziert, mit deinen eigenen Schlüsseln. Dein Code
-bleibt auf deiner Maschine; Prompts gehen an deinen LLM-Anbieter und nirgendwo
-sonst hin. Telemetrie ist **standardmäßig aus** ([docs/PRIVACY.md](../PRIVACY.md)).
+| | |
+|---|---|
+| Ein Feature komplett, voll nachverfolgt | **1h 26m · $3.40** — [die Belege](https://greatcto.systems/proof) |
+| Ein ganzes Produkt — 7 im offenen Benchmark gebaut | **$171** · **70/100**, **2026-07-10** — [nachstellen](../benchmarks/BENCH-2026-07-batch1.md) |
+| Typischer Monat, 20 Pipeline-Läufe | **~$34** — du bezahlst deinen eigenen LLM-Anbieter, sonst nichts |
 
 ## Grenzen
 
-- **Kein gehosteter App-Builder** — es ersetzt deinen Coding-Agenten nicht; ohne
-  einen gibt es nichts zu orchestrieren.
-- **Für eine Person** — Solo-Gründer oder CTO. Zwei oder mehr Engineers an einer
-  Pipeline sind ihr entwachsen.
-- **Kein CI/CD-System** — Gates laufen lokal; gemergt wird weiterhin über GitHub
-  Actions.
-- **Kein Zertifizierungsaudit** — PCI/HIPAA/SOC2-Gerüste sind Startpunkte, keine
-  Zertifizierungen.
-- **Nicht deterministisch** — LLM-Ausgabe. Gate-Urteile verdienen einen zweiten
-  Blick.
-- **Ausgaben werden gemessen, die Zuordnung noch nicht pro Agent** — die Kosten
-  werden aus dem Session-Transkript des Hosts gelesen und nicht aus dem
-  Selbstbericht eines Agenten, die Tokens sind also echt. Aber das Transkript,
-  das der Hook bekommt, deckt die Session ab und nicht einen Subagenten, also
-  können die Kosten eines Laufs derjenigen Stufe zugeordnet werden, die zuletzt
-  fertig wurde — um Größenordnungen aufgebläht. Behandle Zahlen pro Agent als
-  Obergrenze, bis das behoben ist. Eine Stufe ganz ohne Messung zeigt weiterhin
-  `unmeasured` statt eines selbstsicheren `$0.00`, und Budgets lösen für sie
-  nicht aus.
+Für eine Person, nicht für ein Team; kein gehosteter App-Builder — es braucht deinen
+Coding-Agenten; kein CI/CD-System; Compliance-Gerüste sind Ausgangspunkte, keine
+Zertifizierungen; LLM-Ausgaben sind nicht deterministisch. Die ehrliche Fassung jedes
+Punkts und was es zu behaupten ablehnt: [docs/DETAILS.md](../DETAILS.md).
 
-## Dokumentation
+## Mehr erfahren
 
-**[Doku-Hub →](../README.md)** ·
-[Erste Schritte](../tutorials/getting-started.md) ·
-[Gates & Genehmigungsstufen](../GATES.md) ·
-[Agenten](../reference/agents.md) · [Befehle](../reference/commands.md) ·
-[Archetypen](../ARCHETYPES.md) · [Architektur](../ARCHITECTURE.md) ·
-[MCP](../MCP.md) · [FAQ](../FAQ.md) · [Troubleshooting](../TROUBLESHOOTING.md) ·
-[Alles Weitere](../DETAILS.md) — Kritiker, Jurisdiktionen, Kostenaufschlüsselung, CI, Alerts
+[Doku](../README.md) · [Erste Schritte](../tutorials/getting-started.md) ·
+[Befehle](../COMMANDS.md) · [Gates](../GATES.md) · [Agenten](../reference/agents.md) ·
+[FAQ](../FAQ.md) · [Alles andere](../DETAILS.md) ·
+[Issues](https://github.com/avelikiy/great_cto/issues) · [Sicherheit](../../SECURITY.md) ·
+[Mitwirken](../../CONTRIBUTING.md) · [Datenschutz — Telemetrie ist standardmäßig aus](../PRIVACY.md)
 
-## Community
-
-[Issues](https://github.com/avelikiy/great_cto/issues) ·
-[Discussions](https://github.com/avelikiy/great_cto/discussions) ·
-[Blog](https://greatcto.systems/blog/) ·
-[Sicherheitsrichtlinie](../../SECURITY.md) · [Mitwirken](../../CONTRIBUTING.md)
-
-MIT — [LICENSE](../../LICENSE). Gebaut von [@avelikiy](https://github.com/avelikiy):
-CTO für AI-native Trading- und Fintech-Plattformen; great_cto sind meine eigenen
-Abläufe, automatisiert — ein Agent nach dem anderen.
-
-Wenn es dir Zeit gespart hat: Ein Stern hilft anderen Solo-Buildern, es zu
-finden.
-
-<div align="center">
-
-*Hör auf, die einzige Person zu sein, die shippen kann.*
-
-</div>
+MIT — [LICENSE](../../LICENSE). Gebaut von [@avelikiy](https://github.com/avelikiy).
+Wenn es dir Zeit gespart hat, hilft ein Stern anderen Solo-Buildern, es zu finden.

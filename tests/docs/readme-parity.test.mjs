@@ -43,15 +43,12 @@ const tableRows = (s) => (s.match(/^\|/gm) || []).length;
 // the README says to what their terminal shows.
 const TOKENS = [
   'ship-only', 'product-only', 'gates-only', 'strict', 'auto',
-  'unverifiable', 'unmeasured', 'unavailable', 'null',
+  'unverifiable', 'unmeasured', 'unavailable',
   'approval-level', 'PROJECT.md',
-  // Literal console output, not prose. Eight of nine translators left it in
-  // English unprompted and one rendered it in Spanish — a screen the tool does
-  // not print, in a README whose subject is not showing things that did not
-  // happen. The ASCII pipeline diagram beside it is deliberately NOT listed
-  // here: that one is illustrative, several languages have always translated
-  // it, and this check does not have an opinion about it.
-  'ABOUT TO BUILD',
+  // 2026-10-02: the README was cut to its first screen (394 → 120 lines). The
+  // "Four things it refuses to say" table (`null`) and the ABOUT TO BUILD console
+  // screen moved to docs/DETAILS.md, so they are no longer README tokens; the
+  // three states the board shows still are.
 ];
 
 const english = read('README.md');

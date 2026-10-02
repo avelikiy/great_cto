@@ -205,7 +205,7 @@ the orchestrator needs to choose one.
 
 ## Approval Level
 
-Single control for pipeline depth. Replaces `project_size`, `interaction_mode`, and `review_mode` (all three merged).
+Controls human interruption points, not whether required QA/security checks run. Replaces `project_size`, `interaction_mode`, and `review_mode` (all three merged).
 
 ```bash
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
@@ -321,7 +321,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "status" / "what's happening" | git log + bd stats + artifacts |
 | "what needs me" / "inbox" | Gates + blocked + PRs |
 | "audit" / "review codebase" / "scan repo" | `/audit` command |
-| "approve" / "looks good" / "yes" | Close gate:arch |
+| "approve" / "looks good" / "yes" | Resolve the pending decision in this run; apply the existing approval protocol only when its identity and scope are unambiguous. Never assume gate:arch. |
 | "ship it" / "deploy" | Confirm gate:ship → devops |
 | "incident" / "prod issue" / "broken" | Spawn `great_cto-l3-support` agent |
 | "CI red" / "build failing" / "pipeline broken" / "checks failing" | Spawn `great_cto-ci-resolver` agent — before any build or deploy |
@@ -334,9 +334,10 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "review code" / "code review" / "check the PR" | `/review` — 3-angle code review (perf / security / readability) |
 | "log decision" / "we decided X" / "decision:" | Append entry to `docs/decisions/DECISION-LOG.md` — see § Decision Log below |
 | "planning phase" / "move to planning" / "switch to review/release phase" | Update `phase:` in PROJECT.md — see § Phases below |
-| "status" / "pipeline status" / "where are we" | `/status` — pipeline dashboard: stage, verdicts, gates |
+| "pipeline status" / "where are we" | `/inbox` — task progress, evidence and pending decisions |
 | "strict mode" / "I want to review code" / "add code review gate" | Set `approval-level: strict` in PROJECT.md → gate:code added after senior-dev |
-| "auto mode" / "remove code gate" / "full auto" | Set `approval-level: gates-only` in PROJECT.md → gate:code removed |
+| "remove code gate" | Set `approval-level: gates-only` in PROJECT.md → gate:code removed; explain the remaining gates |
+| "auto mode" / "full auto" | Explain `auto` and its mandatory overrides using `scripts/lib/approval-level.mjs`; change to `auto` only if the user requested that policy. This is not blanket authorization for external actions. |
 | "expert mode" / "I want to review everything" | Set `approval-level: expert` in PROJECT.md → 2 checkpoints per agent |
 
 ## Pipeline Rule Enforcement (Archetype-Based)
