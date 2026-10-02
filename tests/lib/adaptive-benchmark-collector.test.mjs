@@ -188,12 +188,16 @@ test('actual controller CLI saves trial binding before an intentionally failed n
   const env = { ...process.env, GREAT_CTO_TASKS_DIR: tasks, GREAT_CTO_CODEX_RUNS_DIR: runs,
     GREAT_CTO_CODEX_BIN: '/usr/bin/false' };
   delete env.GREAT_CTO_AGENT_BUDGET_FILE; delete env.GREAT_CTO_AGENT_BUDGET_STORE;
+  let launchFailure;
   assert.throws(() => execFileSync(process.execPath, [cli, 'start', '--dir', f.root, '--entry', 'senior-dev',
     '--prompt', state.prompt, '--allow', 'docs', '--task-id', work.task.taskId,
-    '--benchmark-trial', f.options.registrationFile], { env, stdio: 'pipe', timeout: 15000 }));
+    '--benchmark-trial', f.options.registrationFile], { env, stdio: 'pipe', timeout: 15000 }), error => {
+      launchFailure = error; return true;
+    });
   const files = readdirSync(runs).filter(name => name.endsWith('.json')); assert.equal(files.length, 1);
   const saved = JSON.parse(readFileSync(join(runs, files[0]), 'utf8'));
-  assert.equal(saved.status, 'blocked'); assert.equal(saved.benchmarkBinding.task, scenarios[0].id);
+  assert.equal(saved.status, 'blocked', String(launchFailure.stderr || launchFailure.message).slice(0, 2000));
+  assert.equal(saved.benchmarkBinding.task, scenarios[0].id);
   assert.equal(saved.approvals.length, 0); assert.equal(saved.attempts.length, 1);
   assert.equal(saved.dispatchEvidence.records.length, 1);
   assert.equal(saved.dispatchEvidence.records[0].kind, 'worker');

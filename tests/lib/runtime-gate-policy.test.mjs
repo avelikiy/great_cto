@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { assessChange, pinChangeBase, runtimeGatePolicy, nativeRuntimePolicy } from '../../scripts/lib/runtime-gate-policy.mjs';
 import { newRun, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { recordStandDown } from '../../scripts/lib/stand-down.mjs';
+import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'runtime-gates-'));
@@ -83,18 +84,18 @@ function controlled(f, gatePolicy) {
 
 test('Codex legacy enforces all gates; adaptive mode skips arch but still stops at ship', t => {
   const f = fixture(t); f.put('README.md');
-  const s = controlled(f, null); s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a' }; advance(s);
+  const s = controlled(f, null); s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a', receipt: treeReceipt(f.root) }; advance(s);
   assert.deepEqual(s.pending.gates, ['gate:arch']);
   s.pending = null; s.released = []; s.gatePolicy = { mode: 'adaptive', ...f.options, skipped: [] }; advance(s);
   assert.equal(s.status, 'ready'); assert.deepEqual(s.queue, ['senior-dev']);
-  s.queue = []; s.results['senior-dev'] = { verdict: 'DONE', digest: 'b' }; advance(s);
+  s.queue = []; s.results['senior-dev'] = { verdict: 'DONE', digest: 'b', receipt: treeReceipt(f.root) }; advance(s);
   assert.deepEqual(s.pending.gates, ['gate:ship']);
 });
 
 test('Codex blocks escalation after bypass and rejects invalid opt-in configuration', t => {
   const f = fixture(t); f.put('README.md');
   const s = controlled(f, { mode: 'adaptive', level: 'gates-only', archetype: 'web-service', base: f.base });
-  s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a' }; advance(s);
+  s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a', receipt: treeReceipt(f.root) }; advance(s);
   f.put('src/auth/login.js'); advance(s);
   assert.equal(s.status, 'blocked'); assert.match(s.reason, /risk escalated/);
   assert.throws(() => newRun({ root: f.root, pluginRoot: s.pluginRoot, prompt: 'x', allowed: ['docs'], entry: 'architect', gatePolicy: { mode: 'adaptive', level: 'typo', base: f.base, archetype: 'web-service' } }), /invalid adaptive/);
@@ -104,7 +105,7 @@ test('Codex blocks escalation after bypass and rejects invalid opt-in configurat
 test('custom gates cannot vanish and graphs without the high-risk floor cannot advance', t => {
   const f = fixture(t); f.put('README.md');
   const s = controlled(f, { mode: 'adaptive', level: 'gates-only', archetype: 'web-service', base: f.base });
-  s.graph.architect.gate = 'gate:custom-authorization'; s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a' };
+  s.graph.architect.gate = 'gate:custom-authorization'; s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a', receipt: treeReceipt(f.root) };
   advance(s); assert.deepEqual(s.pending.gates, ['gate:custom-authorization']);
   s.pending = null; f.put('src/auth/login.js'); delete s.graph['security-officer'];
   advance(s); assert.equal(s.status, 'blocked'); assert.match(s.reason, /high-risk gate floor/);
@@ -114,7 +115,7 @@ test('a disconnected floor declaration is not approval of a high-risk terminal r
   const f = fixture(t); f.put('src/auth/login.js');
   const s = controlled(f, { mode: 'adaptive', level: 'gates-only', archetype: 'web-service', base: f.base });
   s.queue = []; s.graph.architect.gate = []; s.graph.architect.next = [];
-  s.results.architect = { verdict: 'DONE', digest: 'a' }; advance(s);
+  s.results.architect = { verdict: 'DONE', digest: 'a', receipt: treeReceipt(f.root) }; advance(s);
   assert.equal(s.status, 'blocked'); assert.match(s.reason, /without approved/);
 });
 

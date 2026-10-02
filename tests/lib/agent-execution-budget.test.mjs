@@ -7,10 +7,12 @@ import { spawn, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { readExecutionBudget, requireAgents, reserveAgents, releaseAgent, reconcileAgent, reconcileBudgetLock, budgetSnapshot, withAgentBudget } from '../../scripts/lib/agent-execution-budget.mjs';
 import { newRun, runStage, parallelPair } from '../../scripts/lib/codex-pipeline.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 
 function fixture(t, limits = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'agent-admission-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
   const root = join(dir, 'project'); mkdirSync(root);
+  commitFixture(root);
   const file = join(dir, 'policy.json');
   writeFileSync(file, JSON.stringify({ maxConcurrent: 3, maxDepth: 1, maxCallsPerRun: 24, runId: 'test', ...limits }), { mode: 0o600 });
   const env = { GREAT_CTO_AGENT_BUDGET_FILE: file, GREAT_CTO_AGENT_BUDGET_STORE: join(dir, 'store') };

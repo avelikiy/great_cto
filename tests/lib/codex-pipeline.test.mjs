@@ -8,15 +8,17 @@ import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 
-function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\ngate = "gate:code"\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\ngate = "gate:ship"\nnext = []') {
+function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\ngate = "gate:code"\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\ngate = "gate:ship"\nnext = []', { git = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'codex-host-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const pluginRoot = join(root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), graph);
   for (const role of ['writer', 'reviewer', 'qa', 'security']) writeFileSync(join(pluginRoot, `agents/${role}.md`), `You are ${role}.\nRun bd close forbidden-host-task and write .great_cto/gate.json.`);
+  if (git) commitFixture(root);
   return newRun({ root, pluginRoot, prompt: 'Build a fixture', allowed: ['src', 'docs'], entry: 'writer' });
 }
 const response = (verdict = 'DONE', files = [{ path: 'src/app.js', before: null, content: 'export const x = 1;\n' }]) =>
@@ -426,16 +428,16 @@ import { listTurns as listTurnRefs } from '../../scripts/lib/turn-snapshot.mjs';
 
 test('a stage in a git project leaves one turn snapshot under the run id', async t => {
   const s = fixture(t);
-  execSync('git init -q && git config user.email t@t && git config user.name t && git add -A && git commit -q -m init', { cwd: s.root });
+  commitFixture(s.root);
   await runStage(s, { execute: async () => response() });
   const turns = listTurnRefs(s.root, { session: s.id });
   assert.equal(turns.length, 1, 'the stage that just ran is one turn');
   assert.equal(s.status, 'awaiting-gate', 'recording it changed nothing about the run');
 });
 
-test('a stage outside git runs exactly as before, with no snapshot', async t => {
-  const s = fixture(t);
-  await runStage(s, { execute: async () => response() });
-  assert.equal(s.status, 'awaiting-gate');
+test('delivery outside git cannot dispatch or mint a gate or snapshot', async t => {
+  const s = fixture(t, undefined, { git: false });
+  await assert.rejects(runStage(s, { execute: async () => { assert.fail('worker must not launch'); } }), /complete Git receipt/);
+  assert.equal(s.pending, null); assert.equal(s.attempts.length, 0);
   assert.deepEqual(listTurnRefs(s.root, { session: s.id }), []);
 });

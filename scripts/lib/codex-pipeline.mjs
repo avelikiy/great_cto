@@ -313,11 +313,12 @@ export function recover(state) {
   if (!['blocked', 'ready'].includes(state.status) || !state.active) throw Error('no recoverable interrupted stage');
   const attempt = state.attempts?.at(-1);
   const expected = attempt?.phase === 'worker' ? attempt.inputReceipt : attempt?.receipt;
-  if (!attempt || attempt.role !== state.active || !['worker', 'checking', 'verifying'].includes(attempt.phase) || !expected || expected.truncated) {
+  if (!attempt || attempt.role !== state.active || !['worker', 'checking', 'verifying'].includes(attempt.phase) || !completeReceipt(expected)) {
     throw Error('automatic recovery unavailable: inspect partial writes; only unchanged pre-write or fully applied Git stages can recover');
   }
   assertArtifacts(state);
-  if (JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(expected)) throw Error('recovery refused: working tree changed');
+  const currentReceipt = treeReceipt(state.root);
+  if (!completeReceipt(currentReceipt) || JSON.stringify(currentReceipt) !== JSON.stringify(expected)) throw Error('recovery refused: working tree changed or receipt unavailable');
   if (state.attempts.filter(a => a.role === state.active).length >= (state.maxAttempts ?? 1)) throw Error('recovery attempt limit reached');
   attempt.status = 'recovered'; attempt.recoveredAt = new Date().toISOString();
   state.active = null; state.status = 'ready'; delete state.reason;
@@ -356,6 +357,11 @@ export function validateProposal(state, proposal) {
 export function advance(state) {
   try { assertSpecialistEpoch(state); schedulePreparation(state); scheduleSpecialists(state); }
   catch (error) { state.status = 'blocked'; state.reason = error.message; return; }
+  if (state.intent !== 'research' && Object.entries(state.results).some(([role, result]) =>
+    !(role === 'devops' && state.releasePolicy && state.release?.status === 'verified' && result.verification?.state === 'verified')
+    && !completeReceipt(result.receipt))) {
+    state.status = 'blocked'; state.reason = 'delivery transitions require complete verified-result Git receipts'; return;
+  }
   if (state.pending) { state.status = 'awaiting-gate'; return; }
   let policy = null;
   if (state.gatePolicy) {
@@ -390,6 +396,10 @@ export function advance(state) {
     }
     const gates = applicable.filter(gate => !state.approvals.some(a => a.role === role && a.gate === gate && a.result === result.digest));
     if (gates.length) {
+      const receipt = treeReceipt(state.root);
+      if (!completeReceipt(receipt) || !completeReceipt(result.receipt)) {
+        state.status = 'blocked'; state.reason = 'gate requires complete current and verified-result Git receipts'; return;
+      }
       // The receipt the gate is guarded by is taken HERE, at the moment the gate is
       // raised — not reused from the end of the role's own stage. Those are
       // different moments, and on a join they diverge: qa-engineer finishes,
@@ -399,7 +409,7 @@ export function advance(state) {
       // tampering, and gate:ship could never be approved on the shipped graph.
       // Found by walking shared/pipeline.toml end to end; the two-role fixture
       // has no join and could not see it.
-      state.pending = { token: randomUUID(), role, gates, result: result.digest, receipt: treeReceipt(state.root) };
+      state.pending = { token: randomUUID(), role, gates, result: result.digest, receipt };
       state.status = 'awaiting-gate'; return;
     }
     state.released.push(role);
@@ -428,14 +438,35 @@ export function approve(state, token) {
     if (!existsSync(path) || hash(readFileSync(path)) !== expected) throw Error(`artifact changed since gate was raised: ${name}`);
   }
   const { role, gates, result } = state.pending;
+  if (state.results[role]?.digest !== result) throw Error('gate refers to a stale result');
   // Compared against the receipt taken when THIS gate was raised, so the check
   // means what its message says. A pending record without one is from before
   // this fix and must not be approved on a guess.
-  if (!('receipt' in state.pending)) throw Error('gate was raised without a receipt — re-raise it');
-  if (state.pending.receipt && JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(state.pending.receipt)) throw Error('working tree changed since gate was raised');
+  if (!completeReceipt(state.pending.receipt)) throw Error('gate was raised without a complete receipt — reassess in a fresh run');
+  if (!completeReceipt(state.results[role]?.receipt)) throw Error('gate result has no complete receipt — reassess in a fresh run');
+  const currentReceipt = treeReceipt(state.root);
+  if (!completeReceipt(currentReceipt)) throw Error('gate approval requires a readable complete Git receipt');
+  if (JSON.stringify(currentReceipt) !== JSON.stringify(state.pending.receipt)) throw Error('working tree changed since gate was raised');
   for (const gate of gates) state.approvals.push({ role, gate, result, at: new Date().toISOString() });
   state.pending = null;
   advance(state);
+}
+
+function completeReceipt(receipt) {
+  const objectId = value => typeof value === 'string' && /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(value);
+  return !!receipt && !receipt.truncated && objectId(receipt.head)
+    && (receipt.base === 'HEAD' || objectId(receipt.base))
+    && ['head', 'merge-base', 'task', 'explicit'].includes(receipt.base_from)
+    && (receipt.dirty === null || /^[a-f0-9]{64}$/.test(receipt.dirty || ''))
+    && receipt.files && typeof receipt.files === 'object' && !Array.isArray(receipt.files)
+    && Object.keys(receipt.files).length <= 200
+    && Object.entries(receipt.files).every(([name, digest]) => name && !isAbsolute(name) && !name.includes('\\')
+      && !name.split('/').some(part => !part || part === '.' || part === '..') && objectId(digest));
+}
+function stageReceipt(state, receipt, phase) {
+  if ((state.intent !== 'research' || state.benchmarkBinding || receipt) && !completeReceipt(receipt))
+    throw Error(`${phase} requires a readable complete Git receipt`);
+  return receipt;
 }
 
 function workerHead(state, role) {
@@ -500,7 +531,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
   state.attempts ??= [];
   const attempt = { id: randomUUID(), role, number: state.attempts.filter(a => a.role === role).length + 1,
     host: roleHost(state, role), status: 'running', phase: 'worker', startedAt: new Date().toISOString(),
-    inputReceipt: prepared?.receipt ?? treeReceipt(state.root) };
+    inputReceipt: stageReceipt(state, prepared ? prepared.receipt : treeReceipt(state.root), 'stage input') };
   if (attempt.number > (state.maxAttempts ?? 1)) throw Error('stage attempt limit reached');
   state.attempts.push(attempt);
   state.active = role; state.steps++; save(state);
@@ -569,6 +600,8 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     const proposal = cleanResponse(response);
     validateReviewFiles(state, role, proposal);
     const files = validateProposal(state, proposal);
+    const afterWorker = stageReceipt(state, treeReceipt(state.root), 'worker output');
+    if (!prepared && JSON.stringify(afterWorker) !== JSON.stringify(attempt.inputReceipt)) throw Error('working tree changed during worker dispatch');
     if (state.release?.status === 'verified' && files.length) throw Error('post-release workers are read-only; report an incident to reopen implementation');
     const rule = state.graph[`${role}.${proposal.verdict}`] || state.graph[role];
     if (['FAIL', 'REJECTED'].includes(proposal.verdict) && repairTarget(state, role) !== role) {
@@ -622,7 +655,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     for (const name of evidence) {
       state.writes[name] = hash(readFileSync(safePath(state.root, name, state.allowed)));
     }
-    const receipt = treeReceipt(state.root);
+    const receipt = stageReceipt(state, treeReceipt(state.root), 'stage output');
     if (list(rule.produces).includes('receipt') && !Object.keys(receipt?.files || {}).length) throw Error('receipt has no changed files');
     attempt.receipt = receipt;
     if (state.checkPolicy && ['senior-dev', 'qa-engineer'].includes(role)) {
@@ -632,6 +665,8 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
       save(state);
     }
     attempt.phase = 'verifying'; save(state);
+    const beforeVerifier = stageReceipt(state, treeReceipt(state.root), 'verifier input');
+    if (JSON.stringify(beforeVerifier) !== JSON.stringify(receipt)) throw Error('working tree changed before verification');
     let verification = attempt.checks && attempt.checks.state !== 'passed'
       ? { state: attempt.checks.state === 'failed' ? 'rework' : 'unverifiable', findings: [`Required checks ${attempt.checks.state}: ${JSON.stringify(checkSummary(attempt.checks))}`], checks: ['controller executed mandatory checks'] }
       : await withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier' }, () =>
@@ -640,7 +675,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     if (!['verified', 'rework', 'unverifiable'].includes(verification?.state) || !Array.isArray(verification.findings) ||
         !Array.isArray(verification.checks) || !verification.checks.length) throw Error('invalid or empty verifier evidence');
     assertArtifacts(state);
-    if (JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(receipt)) throw Error('working tree changed during verification');
+    if (JSON.stringify(stageReceipt(state, treeReceipt(state.root), 'verifier output')) !== JSON.stringify(receipt)) throw Error('working tree changed during verification');
     if (attempt.reuse && !completeScopeAttestation(verification, attempt.scopedInput)) {
       verification = { state: 'rework', findings: ['Reused report lacks fresh complete dependency/current-task attestation; perform full review'], checks: verification.checks };
     }
@@ -669,7 +704,8 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // re-reviews the candidate. Human gates and repair limits remain unchanged.
     if (state.rework?.role === role) state.rework = null;
     state.results[role] = { verdict: proposal.verdict, summary: proposal.summary, meta: proposal.meta || {},
-      attemptId: attempt.id, host: roleHost(state, role), checks: attempt.checks ?? null, receipt, verification,
+      attemptId: attempt.id, host: roleHost(state, role), checks: attempt.checks ?? null, receipt,
+      receiptEvidence: receipt ? 'git-tree' : 'report-artifacts-only', verification,
       digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null,
       diagnostics: response.errors || [], at: new Date().toISOString() };
     if (attempt.scopedInput && !attempt.reuse) {
@@ -751,7 +787,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     if (!roles) throw Error('no mixed-host independent pair is ready');
     assertArtifacts(state);
     const receipt = treeReceipt(state.root);
-    if (!receipt) throw Error('parallel wave requires a Git repository with at least one commit');
+    if (!completeReceipt(receipt)) throw Error('parallel wave requires a readable complete Git receipt');
     const waveId = randomUUID();
     const leases = requireAgents(state.executionBudget, roles.map(role => ({ callId: `${waveId}:${role}`, host: roleHost(state, role), role, depth: 1 })));
     state.wave = { id: waveId, roles, status: 'running', receipt,
@@ -779,7 +815,8 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     });
     const settled = await Promise.allSettled(calls);
     try {
-      if (JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(receipt)) throw Error('working tree changed during parallel dispatch');
+      const currentReceipt = treeReceipt(state.root);
+      if (!completeReceipt(currentReceipt) || JSON.stringify(currentReceipt) !== JSON.stringify(receipt)) throw Error('working tree changed during parallel dispatch');
       const responses = {};
       for (let i = 0; i < roles.length; i++) {
         const role = roles[i], item = settled[i];
@@ -796,6 +833,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     }
   }
   if (state.wave.status !== 'fetched') throw Error('parallel wave is incomplete; inspect before recovery');
+  if (!completeReceipt(state.wave.receipt)) throw Error('parallel wave has no complete input receipt — reassess in a fresh run');
   if (!state.wave.roles.some(role => state.results[role])) {
     try { preflightParallelProposals(state, state.wave.roles, state.wave.responses); }
     catch (error) {
@@ -809,7 +847,8 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     if (state.queue[0] !== role || state.status !== 'ready') break;
     const prior = state.wave.roles.find(candidate => state.results[candidate]);
     const expected = prior ? state.results[prior].receipt : state.wave.receipt;
-    if (JSON.stringify(treeReceipt(state.root)) !== JSON.stringify(expected)) {
+    const currentReceipt = treeReceipt(state.root);
+    if (!completeReceipt(expected) || !completeReceipt(currentReceipt) || JSON.stringify(currentReceipt) !== JSON.stringify(expected)) {
       state.wave.status = 'blocked'; state.status = 'blocked';
       state.reason = 'working tree changed after parallel workers read it';
       save(state); return state;

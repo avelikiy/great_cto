@@ -70,7 +70,11 @@ export function snapshotTurn(cwd, { session, env = process.env } = {}) {
   const index = { GIT_INDEX_FILE: join(scratch, 'index') };
   try {
     git(root, ['read-tree', head || EMPTY_TREE], { env: index });
-    git(root, ['add', '-A', '--', '.', ...ACTIVITY_LOGS.map((p) => `:(exclude)${p}`)], { env: index });
+    // Negative pathspecs under ignored directories make Git refuse the add.
+    // Stage normally, then restore activity's baseline in the PRIVATE index.
+    // --no-refresh avoids reading the worktree; neither HEAD nor the user's index moves.
+    git(root, ['add', '-A', '--', '.'], { env: index });
+    git(root, ['reset', '--no-refresh', head || EMPTY_TREE, '--', ...ACTIVITY_LOGS], { env: index });
     const tree = git(root, ['write-tree'], { env: index }).trim();
     // Stop and SubagentStop can fire together for one session. Both would read
     // "the next turn is n", and a plain update-ref lets the second silently replace

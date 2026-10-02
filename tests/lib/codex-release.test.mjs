@@ -8,6 +8,7 @@ import { validateArtifacts, bundleDigest, digest } from '../../scripts/lib/codex
 import { prepareRelease, approveRelease, executeRelease, recoverRelease, validateReleasePolicy } from '../../scripts/lib/codex-release.mjs';
 import { safePath, runStage, cancel, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { runChecks } from '../../scripts/lib/codex-checks.mjs';
+import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 const image = process.env.GREAT_CTO_LIVE_DOCKER_IMAGE || `node@sha256:${'a'.repeat(64)}`;
 const content = 'export const x = 2;\n';
 const artifacts = () => validateArtifacts([{ path: 'dist/index.mjs', base64: Buffer.from(content).toString('base64') }]);
@@ -25,7 +26,7 @@ function fixture(t) {
   const releasePolicy = validateReleasePolicy({ adapter: 'local', releaseRoot, image,
     smokeCommands: [['node', '--input-type=module', '-e', "import assert from 'node:assert/strict';import {x} from './dist/index.mjs';assert.equal(x,2)"]], timeoutMs: 60000 }, root);
   const roles = ['senior-dev', 'code-reviewer', 'qa-engineer', 'security-officer'];
-  const results = Object.fromEntries(roles.map(role => [role, { verification: { state: 'verified' } }]));
+  const results = Object.fromEntries(roles.map(role => [role, { receipt: treeReceipt(root), verification: { state: 'verified' } }]));
   results['qa-engineer'].checks = { state: 'passed', files: { 'src/index.mjs': digest(content) },
     policyDigest: digest(JSON.stringify(checkPolicy)), artifacts: artifacts(), artifactDigest: bundleDigest(artifacts()) };
   return { root, allowed: ['src'], checkPolicy, releasePolicy, results, released: roles, status: 'ready' };
@@ -81,7 +82,7 @@ test('post-release incident invalidates release identity and dependent approvals
   Object.assign(s, { graph: {
     'senior-dev': { on: ['DONE'], next: ['devops'] }, devops: { on: ['DEPLOYED'], next: ['l3-support'] },
     'l3-support': { on: ['OK'], next: [] }, 'l3-support.INCIDENT': { on: ['INCIDENT'], next: ['senior-dev'] },
-  }, results: { 'senior-dev': { verdict: 'DONE' }, devops: { verdict: 'DEPLOYED' }, 'l3-support': { verdict: 'INCIDENT' } },
+  }, results: Object.fromEntries([['senior-dev', 'DONE'], ['devops', 'DEPLOYED'], ['l3-support', 'INCIDENT']].map(([role, verdict]) => [role, { verdict, receipt: treeReceipt(s.root) }])),
   released: ['senior-dev', 'devops'], queue: [], pending: null, approvals: [], attempts: [], maxAttempts: 3 });
   advance(s); assert.equal(s.release, null); assert.deepEqual(s.queue, ['senior-dev']);
   assert.equal(s.invalidations[0].release.id, id);

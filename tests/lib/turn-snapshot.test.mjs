@@ -17,13 +17,34 @@ function repo(t) {
   const root = mkdtempSync(join(tmpdir(), 'gcto-turns-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-  git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
+  git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't'); git('config', 'commit.gpgsign', 'false');
   writeFileSync(join(root, 'app.js'), 'export const x = 1;\n');
   writeFileSync(join(root, '.gitignore'), 'node_modules/\n');
   git('add', '.'); git('commit', '-q', '-m', 'init');
   return { root, git };
 }
 
+test('ignored activity directory does not disable snapshot or force-stage private runtime files', t => {
+  const { root, git } = repo(t);
+  writeFileSync(join(root, '.gitignore'), 'node_modules/\n.great_cto/\n');
+  mkdirSync(join(root, '.great_cto')); writeFileSync(join(root, '.great_cto/events.jsonl'), 'activity\n');
+  writeFileSync(join(root, '.great_cto/operator-notes'), 'private fixture note\n');
+  const before = git('ls-files', '--stage'), status = git('status', '--porcelain');
+  const r = snapshotTurn(root, { session: 'ignored-runtime' });
+  assert.equal(r.state, 'recorded', r.why);
+  const paths = git('ls-tree', '-r', '--name-only', r.commit);
+  assert.ok(!paths.includes('.great_cto/'));
+  assert.equal(git('ls-files', '--stage'), before); assert.equal(git('status', '--porcelain'), status);
+});
+test('tracked activity keeps its prior HEAD bytes even after the directory becomes ignored', t => {
+  const { root, git } = repo(t);
+  mkdirSync(join(root, '.great_cto')); writeFileSync(join(root, '.great_cto/events.jsonl'), 'baseline activity\n');
+  git('add', '.great_cto/events.jsonl'); git('commit', '-qm', 'tracked activity baseline');
+  writeFileSync(join(root, '.gitignore'), '.great_cto/\n'); writeFileSync(join(root, '.great_cto/events.jsonl'), 'new activity\n');
+  const r = snapshotTurn(root, { session: 'tracked-runtime' });
+  assert.equal(r.state, 'recorded', r.why);
+  assert.equal(git('show', `${r.commit}:.great_cto/events.jsonl`), 'baseline activity\n');
+});
 test('a snapshot leaves the index and working tree exactly as they were', (t) => {
   const { root, git } = repo(t);
   writeFileSync(join(root, 'app.js'), 'export const x = 2;\n');
