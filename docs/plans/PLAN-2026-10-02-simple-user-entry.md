@@ -107,3 +107,13 @@ stateDiagram-v2
 чат-сценарии и не объединяются с Codex JSON state; helper не создаёт общий lock
 проекта поверх controller per-run lock, поэтому защита от двух одновременно
 создаваемых запусков требует отдельного решения в durable task contract.
+
+## Изменения админки
+
+[Design handoff админки](../design/DESIGN-task-centric-admin-2026-10.md) закрепляет
+Work / Decisions / History как основные экраны, технические разделы в Tools,
+различия task/run/issue/decision и независимое качество данных. Навигация и
+карточки не меняют права исполнения. Read projection поставляется раньше UI;
+кнопки start/resume включаются только после controlled action contract.
+Текущий Beads create и GET resume не являются запуском задачи. Спецификация
+подготовлена в `.5`; реализация остаётся в `.2` и `.3`.
