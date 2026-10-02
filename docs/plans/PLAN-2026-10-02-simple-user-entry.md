@@ -110,7 +110,7 @@ stateDiagram-v2
 
 ## Изменения админки
 
-[Design handoff админки](../design/DESIGN-task-centric-admin-2026-10.md) закрепляет
+[Design handoff админки](../design/DESIGN-work-admin-2026-10.md) закрепляет
 Work / Decisions / History как основные экраны, технические разделы в Tools,
 различия task/run/issue/decision и независимое качество данных. Навигация и
 карточки не меняют права исполнения. Read projection поставляется раньше UI;
@@ -143,4 +143,4 @@ issue и done run не превращается в completed пользоват�
 Следующий этап `.3`: persisted task identity/goal/acceptance и adapter-owned links,
 операции с idempotency/revision, project creation lock и host capability contract.
 После него `.2` включает прямые start/resume и полноформатные decision cards.
-Полная спецификация находится в [admin handoff](../design/DESIGN-task-centric-admin-2026-10.md).
+Полная спецификация находится в [admin handoff](../design/DESIGN-work-admin-2026-10.md).
