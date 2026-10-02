@@ -89,7 +89,15 @@ try {
       if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('gate policy must be operator-owned outside the target workspace');
       gatePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
     }
-    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
+    let specialistPolicy = null;
+    if (args.includes('--specialist-policy')) {
+      if (!value('--specialist-policy')) throw Error('--specialist-policy requires an operator-owned policy file');
+      const policyPath = realpathSync(value('--specialist-policy'));
+      const rel = relative(root, policyPath);
+      if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('specialist policy must be operator-owned outside the target workspace');
+      specialistPolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
       maxAttempts, hostRoutes, gatePolicy });
     state.taskId = taskId || work.task.taskId;
@@ -137,7 +145,9 @@ try {
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
       artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
       activation: state.release.activation, rollback: state.release.rollback } : null,
-    pending: state.pending, queue: state.queue, hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
+    pending: state.pending, queue: state.queue, specialistReview: state.specialistReview ? {
+      roles: state.specialistReview.roles, fingerprint: state.specialistReview.fingerprint, reusablePass: false } : null,
+    hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
       id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;

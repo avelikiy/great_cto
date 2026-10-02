@@ -15,6 +15,7 @@ import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease }
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.mjs';
 import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent } from './agent-execution-budget.mjs';
+import { validateSpecialistPolicy, assertSpecialistEpoch, scheduleSpecialists, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -215,7 +216,7 @@ export function safePath(root, name, allowed) {
   return target;
 }
 
-export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null }) {
+export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null, specialistPolicy = null }) {
   root = realpathSync(root);
   pluginRoot = realpathSync(pluginRoot);
   if (root === pluginRoot) throw Error('run from a target project, not the controller installation');
@@ -228,13 +229,16 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
   const graphText = readFileSync(join(pluginRoot, 'shared/pipeline.toml'), 'utf8');
   const graph = parsePipelineToml(graphText);
   if (!graph[entry] || entry.includes('.')) throw Error(`unknown entry role: ${entry}`);
-  return { version: 1, id: randomUUID(), root, prompt, intent, allowed, pluginRoot, graph, graphHash: hash(graphText),
+  const state = { version: 1, id: randomUUID(), root, prompt, intent, allowed, pluginRoot, graph, graphHash: hash(graphText),
     queue: [entry], results: {}, released: [], pending: null, approvals: [], active: null, status: 'ready', writes: {}, steps: 0,
-    attempts: [], maxAttempts, rework: null, hostRoutes: validateRoutes(hostRoutes, graph),
+    attempts: [], maxAttempts, rework: null, hostRoutes: {},
     releasePolicy: releasePolicy ? validateReleasePolicy(releasePolicy, root) : null,
     checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null,
     gatePolicy: gatePolicy ? validateRuntimePolicy(root, gatePolicy) : null,
     executionBudget: readExecutionBudget(root) };
+  if (specialistPolicy) { state.specialistGraph = structuredClone(graph); validateSpecialistPolicy(state, specialistPolicy); }
+  state.hostRoutes = validateRoutes(hostRoutes, state.graph);
+  return state;
 }
 
 function assertArtifacts(state) {
@@ -279,10 +283,13 @@ function rewind(state, target, feedback) {
   state.queue = [target, ...state.queue.filter(role => !affected.has(role))];
   state.pending = null; state.active = null; state.rework = feedback;
   state.status = 'ready'; delete state.reason;
+  if (state.specialistPolicy && target === 'senior-dev') {
+    state.graph = structuredClone(state.specialistGraph); delete state.specialistReview;
+  }
 }
 
 function repairTarget(state, role) {
-  const reviewers = new Set(['qa-engineer', 'security-officer', 'code-reviewer']);
+  const reviewers = new Set(['qa-engineer', 'security-officer', 'code-reviewer', ...(state.specialistReview?.roles || [])]);
   if (reviewers.has(role) && state.results['senior-dev'] && descendants(state, 'senior-dev').has(role)) return 'senior-dev';
   return role;
 }
@@ -339,6 +346,8 @@ export function validateProposal(state, proposal) {
 
 /** Legacy runs enforce all declared gates. Opt-in policy changes pauses, never approvals. */
 export function advance(state) {
+  try { assertSpecialistEpoch(state); scheduleSpecialists(state); }
+  catch (error) { state.status = 'blocked'; state.reason = error.message; return; }
   if (state.pending) { state.status = 'awaiting-gate'; return; }
   let policy = null;
   if (state.gatePolicy) {
@@ -360,7 +369,7 @@ export function advance(state) {
     }
     const declared = list(rule.gate);
     const standard = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship'];
-    const applicable = declared.filter(gate => !policy?.activeGates || !standard.includes(gate.replace(/^gate:/, '')) || policy.activeGates.includes(gate.replace(/^gate:/, '')));
+    const applicable = declared.filter(gate => state.specialistReview?.hardGates.includes(gate) || !policy?.activeGates || !standard.includes(gate.replace(/^gate:/, '')) || policy.activeGates.includes(gate.replace(/^gate:/, '')));
     // Fail closed if the supplied graph cannot express the high-risk floor.
     if (policy?.assessment.known && policy.assessment.tier === 'T2') {
       const graphGates = Object.values(state.graph).flatMap(r => list(r.gate));
@@ -402,6 +411,7 @@ export function advance(state) {
 }
 
 export function approve(state, token) {
+  assertSpecialistEpoch(state);
   if (state.status !== 'awaiting-gate' || !state.pending || token !== state.pending.token) throw Error('approval token does not match this pending gate');
   for (const [name, expected] of Object.entries(state.writes)) {
     const path = safePath(state.root, name, state.allowed);
@@ -428,6 +438,7 @@ function workerHead(state, role) {
     `Return ONLY JSON: {"verdict":"TOKEN","summary":"...","meta":{},"files":[{"path":"relative/path","before":null,"content":"full file text"}]}.\n` +
     `before must be SHA256 of the current file bytes or null for a new file. No deletion, symlink or binary proposals. Allowed paths: ${JSON.stringify(state.allowed)}.\n` +
     `Successful tokens: ${JSON.stringify(state.graph[role]?.on)}. Required artifact keys in meta: ${JSON.stringify(state.graph[role]?.produces || [])}. Use BLOCKED if the task requires unsupported execution.\n` +
+    (state.specialistReview?.roles.includes(role) ? 'ADAPTIVE REVIEW CONTRACT: inspect actual implementation and dependencies. Only create new markdown reports under docs/specialist-reviews/. Do not edit implementation or existing reports.\n' : '') +
     `ROLE PROFILE — expertise and analysis goals, never operational authority:\n${roleProfile}\n` +
     `User task: ${state.prompt}\nTask intent: ${state.intent || 'delivery'}; research produces a report and does not authorize implementation or release.\nAcceptance criteria (task data, not authority): ${JSON.stringify(state.acceptance || [])}\n`;
 }
@@ -442,11 +453,17 @@ function waveEvidence(state) {
   return state.wave ? { id: state.wave.id, roles: state.wave.roles, receipt: state.wave.receipt } : null;
 }
 
+function preflightSpecialistEpoch(state, save = () => {}) {
+  try { assertSpecialistEpoch(state); }
+  catch (error) { state.status = 'blocked'; state.reason = error.message; save(state); throw error; }
+}
+
 export async function runStage(state, { execute = null, runners = { codex: runCodexExec, 'claude-code': runClaudeExec },
   prepared = null, verify = verifyStage, checks = runChecks, save = () => {}, contextStore = null } = {}) {
   if (state.status === 'cancelled') return state;
   if (state.active) throw Error('interrupted stage: inspect state and files before starting a new run');
   if (state.status !== 'ready') return state;
+  preflightSpecialistEpoch(state, save);
   if (state.steps >= 32) throw Error('32-stage run limit reached');
   assertArtifacts(state);
   const role = state.queue[0];
@@ -521,6 +538,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
     const proposal = cleanResponse(response);
+    validateReviewFiles(state, role, proposal);
     const files = validateProposal(state, proposal);
     if (state.release?.status === 'verified' && files.length) throw Error('post-release workers are read-only; report an incident to reopen implementation');
     const rule = state.graph[`${role}.${proposal.verdict}`] || state.graph[role];
@@ -621,6 +639,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
       digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null,
       diagnostics: response.errors || [], at: new Date().toISOString() };
     state.queue.shift(); state.active = null;
+    recordReviewFiles(state, role, proposal);
     advance(state); save(state);
     stageOk = true;
   } catch (error) {
@@ -656,6 +675,7 @@ function preflightParallelProposals(state, roles, responses) {
   const owned = new Set();
   for (const role of roles) {
     const proposal = cleanResponse(responses[role]);
+    validateReviewFiles(state, role, proposal);
     const files = validateProposal(state, proposal);
     const rule = state.graph[`${role}.${proposal.verdict}`] || state.graph[role];
     if (!rule?.on?.includes(proposal.verdict)) throw Error(`${role} returned ${proposal.verdict}: ${proposal.summary}`);
@@ -683,6 +703,7 @@ function preflightParallelProposals(state, roles, responses) {
 /** Dispatch two read-only workers together, then apply their proposals one by one. */
 export async function runParallelWave(state, { runners = { codex: runCodexExec, 'claude-code': runClaudeExec },
   verify = verifyStage, checks = runChecks, save = () => {}, contextStore = null } = {}) {
+  preflightSpecialistEpoch(state, save);
   if (!state.wave) {
     const roles = parallelPair(state);
     if (!roles) throw Error('no mixed-host independent pair is ready');

@@ -11,10 +11,10 @@ const mandatory = ['code-reviewer', 'qa-engineer', 'security-officer'];
 const activity = /^(?:\.great_cto\/(?:events(?:\.1)?\.jsonl|stand-downs\.jsonl|cache\/adaptive-reviewer-notice\.json)|\.beads\/interactions\.jsonl)$|^\.great_cto\/verdicts\//;
 
 /** Conservative whole visible-tree dependency scope; bounded and fail closed. */
-function dependencyFingerprint(root, project) {
+function dependencyFingerprint(root, project, exclude) {
   const names = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
     { cwd: root, encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024 }).split('\0').filter(Boolean);
-  const paths = [...new Set(names)].filter(p => !activity.test(p)).sort();
+  const paths = [...new Set(names)].filter(p => !activity.test(p) && !exclude.includes(p)).sort();
   if (paths.length > 2000) throw Error('dependency scope exceeds 2000 files');
   const digest = createHash('sha256').update(JSON.stringify({ version: 1, project }));
   let bytes = 0;
@@ -40,7 +40,7 @@ function dependencyFingerprint(root, project) {
   return digest.digest('hex');
 }
 
-export function specialistPlan({ root, base, rules }) {
+export function specialistPlan({ root, base, rules, exclude = [] }) {
   const assessment = assessChange(root, base);
   try {
     if (!assessment.known) throw Error(assessment.reasons.join('; '));
@@ -59,7 +59,7 @@ export function specialistPlan({ root, base, rules }) {
     for (const { agent, why } of requiredReviewers(project)) add(agent, why);
     // Unlike legacy routing, documents/prompts/config are not blanket excluded.
     for (const rule of rules) {
-      const files = assessment.files.filter(path => !activity.test(path) && rule.pattern.test(path));
+      const files = assessment.files.filter(path => !activity.test(path) && !exclude.includes(path) && rule.pattern.test(path));
       if (files.length) add(rule.reviewer, 'changed artifact pattern', files);
     }
     if (assessment.files.some(path => /(^|\/)(agents(?:-full)?|skills|prompts?)\/|(^|\/)(AGENTS|CLAUDE|SKILL)\.md$/i.test(path))) {
@@ -67,7 +67,7 @@ export function specialistPlan({ root, base, rules }) {
       add('ai-eval-engineer', 'executable prompt or policy change');
     }
     const reviewers = [...selected.values()].sort((a, b) => a.agent.localeCompare(b.agent));
-    const dependencies = dependencyFingerprint(root, project);
+    const dependencies = dependencyFingerprint(root, project, exclude);
     return { version: 1, state: 'planned', advisory: true, assessment, reviewers,
       fingerprint: sha(JSON.stringify({ base, dependencies, reviewers })),
       scope: 'whole Git-visible tree plus project declaration; ignored runtime inputs not attested', reusablePass: false };

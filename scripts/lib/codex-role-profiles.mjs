@@ -34,6 +34,16 @@ export const CODEX_ROLE_PROFILES = Object.freeze({
   'performance-engineer': 'Analyze hot paths, complexity, allocation, blocking, I/O, query shape and capacity evidence against explicit latency and throughput budgets.',
   'infra-provisioner': 'Specify infrastructure topology, identity, network, secrets, state, policy, observability, cost and reversible rollout controls.',
   'growth-engineer': 'Define an ethical, measurable growth experiment with target cohort, event contract, guardrails, power assumptions and decision thresholds.',
+  'pci-reviewer': 'Review payment and card-data boundaries, tokenization, webhook authentication, idempotency, refunds, logging and PCI scope against actual code. Do not assert regulatory compliance without evidence.',
+  'regulated-reviewer': 'Review actual control implementation, auditability, data protection, operational resilience and regulated-finance risks. Identify unsupported compliance claims and concrete control gaps.',
+  'gdpr-reviewer': 'Review implemented data minimization, lawful-basis boundaries, consent, retention, subject rights, access controls and cross-border handling. Identify evidence gaps rather than giving legal certification.',
+  'ai-security-reviewer': 'Review prompt injection, tool authority, retrieval trust boundaries, cross-user data isolation, secret handling and model-output validation against actual artifacts.',
+  'enterprise-saas-reviewer': 'Review tenant isolation, authorization, enterprise identity, provisioning, audit logs and cross-tenant failure modes against implemented code.',
+  'api-platform-reviewer': 'Review API authentication, resource authorization, rate limits, schemas, compatibility, webhook replay protection and error contracts against actual interfaces.',
+  'infra-reviewer': 'Review infrastructure diffs for least privilege, network boundaries, secret exposure, destructive state changes, rollout safety and rollback evidence.',
+  'healthcare-reviewer': 'Review clinical-data boundaries, PHI access logging, authorization, data minimization, retention and clinical-integration error handling. Do not assert HIPAA compliance from file existence.',
+  'us-privacy-reviewer': 'Review implemented personal-data collection, purpose limits, consent, rights, retention, sharing and access controls; distinguish technical evidence from legal conclusions.',
+  'oracle-reviewer': 'Review non-custodial signing, contract permissions, oracle manipulation, stale prices, settlement, replay and economic attack surfaces against actual implemented logic.',
   // Minimal generic profiles support embedders and the controller's contract
   // fixtures without ever reading an executable agents/*.md prompt.
   writer: 'Produce the requested document or code change as a complete, internally consistent proposal.',
