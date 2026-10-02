@@ -1,0 +1,130 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
+import { join } from 'node:path';
+import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { docsBenchmarkFixture } from '../../scripts/lib/docs-benchmark-fixture.mjs';
+import { runPinnedBenchmarkScorer } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
+import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { specialistPlan } from '../../scripts/lib/specialist-plan.mjs';
+import { RULES } from '../../scripts/hooks/auto-attach-reviewers.mjs';
+
+const sha = value => createHash('sha256').update(value).digest('hex');
+const scorer = readFileSync(new URL('../../scripts/benchmark-scorers/docs-low-risk.mjs', import.meta.url));
+function fixture(t) {
+  const temp = realpathSync(mkdtempSync(join(tmpdir(), 'pinned-docs-scorer-')));
+  t.after(() => rmSync(temp, { recursive: true, force: true }));
+  const root = join(temp, 'candidate'), operator = join(temp, 'operator');
+  mkdirSync(root); mkdirSync(operator, { mode: 0o700 });
+  const recipe = docsBenchmarkFixture();
+  const put = (name, bytes) => { mkdirSync(join(root, name, '..'), { recursive: true }); writeFileSync(join(root, name), bytes); };
+  for (const [name, bytes] of Object.entries(recipe.files)) put(name, bytes);
+  execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
+  execFileSync('git', ['-C', root, '-c', 'commit.gpgsign=false', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'defective documentation baseline']);
+  const scorerFile = join(operator, 'scorer.mjs'), oracleFile = join(operator, 'oracle.json');
+  writeFileSync(scorerFile, scorer, { mode: 0o600 }); writeFileSync(oracleFile, JSON.stringify(recipe.oracle), { mode: 0o600 });
+  const options = { root, scorerFile, oracleFile, scorerSha256: sha(scorer), oracleSha256: sha(readFileSync(oracleFile)) };
+  const score = overrides => runPinnedBenchmarkScorer({ ...options, expectedReceipt: treeReceipt(root), ...overrides });
+  const repair = () => put('docs/README.md', recipe.files['docs/README.md'].replace('guides/getting-started.md', 'guides/quickstart.md').replace('reference/old-api.md', 'reference/api.md'));
+  const custom = text => { writeFileSync(scorerFile, text, { mode: 0o600 }); options.scorerSha256 = sha(text); };
+  return { root, recipe, options, score, repair, put, custom };
+}
+
+test('real defective fixture fails, repaired candidate passes in separate pinned process', t => {
+  const f = fixture(t), broken = f.score();
+  assert.equal(broken.accepted, false);
+  assert.deepEqual(broken.criteria.map(c => c.state), ['failed', 'passed']);
+  f.repair(); const before = treeReceipt(f.root), fixed = f.score();
+  assert.equal(fixed.accepted, true); assert.notEqual(fixed.process.pid, process.pid);
+  assert.equal(fixed.process.exitCode, 0); assert.equal(fixed.scorerSha256, sha(scorer));
+  assert.equal(fixed.benchmarkEligible, false); assert.deepEqual(fixed.receipt, before);
+  assert.deepEqual(treeReceipt(f.root), before);
+  assert.ok(!JSON.stringify(fixed).includes('guides/getting-started'));
+});
+
+test('fixture creates a T0 documentation diff and independently mandatory review plan', t => {
+  const f = fixture(t); f.repair();
+  const base = execFileSync('git', ['-C', f.root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+  const plan = specialistPlan({ root: f.root, base, rules: RULES });
+  assert.equal(plan.state, 'planned'); assert.equal(plan.assessment.tier, 'T0');
+  assert.deepEqual(plan.reviewers.map(r => r.agent).sort(), ['code-reviewer', 'qa-engineer', 'security-officer']);
+  assert.deepEqual(plan.assessment.files, ['docs/README.md']);
+});
+
+for (const mutation of ['delete navigation', 'delete target', 'external target', 'parent escape', 'source drift', 'project drift', 'extra executable', 'symlink', 'oversized']) {
+  test(`hidden docs oracle refuses ${mutation}`, t => {
+    const f = fixture(t); f.repair();
+    if (mutation === 'delete navigation') f.put('docs/README.md', '# No links left\n');
+    if (mutation === 'delete target') rmSync(join(f.root, 'docs/reference/api.md'));
+    if (mutation === 'external target') f.put('docs/README.md', '[Quick start](https://example.invalid)\n[API reference](reference/api.md)\n');
+    if (mutation === 'parent escape') f.put('docs/README.md', '[Quick start](../../operator/scorer.mjs)\n');
+    if (mutation === 'source drift') f.put('src/status.mjs', 'export const changed = true;\n');
+    if (mutation === 'project drift') f.put('.great_cto/PROJECT.md', 'archetype: greenfield\n');
+    if (mutation === 'extra executable') f.put('src/additional.mjs', 'throw Error("not documentation");\n');
+    if (mutation === 'symlink') { rmSync(join(f.root, 'docs/reference/api.md')); symlinkSync(f.options.scorerFile, join(f.root, 'docs/reference/api.md')); }
+    if (mutation === 'oversized') f.put('docs/reference/api.md', 'x'.repeat(65537));
+    assert.equal(f.score().accepted, false);
+  });
+}
+
+test('pinned runner refuses changed code/oracle, inside-project evidence, symlinks and public files', t => {
+  const f = fixture(t); f.repair();
+  assert.throws(() => f.score({ scorerSha256: 'a'.repeat(64) }), /pin/);
+  assert.throws(() => f.score({ oracleSha256: 'a'.repeat(64) }), /pin/);
+  f.put('docs/scorer.mjs', scorer);
+  assert.throws(() => f.score({ scorerFile: join(f.root, 'docs/scorer.mjs') }), /external/);
+  const link = join(f.options.scorerFile, '..', 'linked.mjs'); symlinkSync(f.options.scorerFile, link);
+  assert.throws(() => f.score({ scorerFile: link }), /canonical/);
+  chmodSync(f.options.scorerFile, 0o644); assert.throws(() => f.score(), /private/);
+});
+
+test('stale or missing candidate receipt never starts assessment', t => {
+  const f = fixture(t), prior = treeReceipt(f.root); f.repair();
+  assert.throws(() => f.score({ expectedReceipt: prior }), /receipt differs/);
+  assert.throws(() => f.score({ expectedReceipt: null }), /receipt differs/);
+  assert.throws(() => f.score({ expectedReceipt: { ...treeReceipt(f.root), truncated: true } }), /receipt differs/);
+});
+test('invalid private oracle shape or payload produces controlled errors without echo', t => {
+  const f = fixture(t);
+  for (const text of ['null', '"PRIVATE_PAYLOAD_MUST_NOT_LEAK"', '{"PRIVATE_PAYLOAD_MUST_NOT_LEAK":']) {
+    writeFileSync(f.options.oracleFile, text, { mode: 0o600 });
+    assert.throws(() => f.score({ oracleSha256: sha(text) }), error => {
+      assert.doesNotMatch(error.message, /PRIVATE_PAYLOAD/);
+      return /oracle JSON|scenario or criteria/.test(error.message);
+    });
+  }
+});
+
+test('scorer receives no inherited preload, credentials or worker package imports', t => {
+  const f = fixture(t); f.repair();
+  const keys = ['NODE_OPTIONS', 'BENCHMARK_TEST_SECRET'];
+  const old = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+  t.after(() => { for (const key of keys) if (old[key] == null) delete process.env[key]; else process.env[key] = old[key]; });
+  process.env.NODE_OPTIONS = '--this-invalid-node-option-must-not-be-inherited';
+  process.env.BENCHMARK_TEST_SECRET = 'unit sentinel, not a credential';
+  f.custom(`if (process.env.NODE_OPTIONS || process.env.BENCHMARK_TEST_SECRET) throw Error('ambient env leaked');\n${scorer}`);
+  assert.equal(f.score().accepted, true);
+});
+
+for (const kind of ['throw', 'timeout', 'oversized output', 'malformed JSON', 'wrong PID', 'wrong criteria', 'mutate candidate', 'mutate ignored project']) {
+  test(`failed scorer ${kind} is unavailable, not an acceptance failure or pass`, t => {
+    const f = fixture(t); f.repair();
+    const code = {
+      throw: "throw Error('PRIVATE_PAYLOAD_MUST_NOT_LEAK');",
+      timeout: 'while (true) {}',
+      'oversized output': "process.stdout.write('x'.repeat(70000));",
+      'malformed JSON': "process.stdout.write('PRIVATE_PAYLOAD_MUST_NOT_LEAK');",
+      'wrong PID': `${scorer}`.replace('pid: process.pid', 'pid: -1'),
+      'wrong criteria': `${scorer}`.replace("text: 'all target links resolve'", "text: 'wrong criterion'"),
+      'mutate candidate': "import {writeFileSync} from 'node:fs'; writeFileSync(process.argv[2]+'/src/status.mjs', 'modified during scorer'); process.stdout.write('{}');",
+      'mutate ignored project': "import {writeFileSync} from 'node:fs'; writeFileSync(process.argv[2]+'/.great_cto/PROJECT.md', 'ignored policy mutation'); process.stdout.write('{}');",
+    }[kind];
+    f.custom(code);
+    assert.throws(() => f.score({ timeoutMs: 250 }), error => {
+      assert.doesNotMatch(error.message, /PRIVATE_PAYLOAD/);
+      return /process did not complete|invalid JSON|invalid identity|changed during scoring/.test(error.message);
+    });
+  });
+}

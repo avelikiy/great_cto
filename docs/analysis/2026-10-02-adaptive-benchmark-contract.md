@@ -84,3 +84,10 @@ provider requests, billing or independently scored outcomes. Then execute the ma
 experiment and calculate task-cluster uncertainty with explicit failures/missing
 costs. Parent benchmark remains open and depends on scoped/native validation.
 The protocol is an implementation increment, not completion of those requirements.
+
+## Representative corpus development
+
+The [docs fixture and separate pinned scorer](2026-10-02-docs-benchmark-fixture.md)
+implement the first task cluster as an actual defective repository and bounded
+oracle process. This does not replace the remaining seven clusters or make the
+registered experiment run-ready.
