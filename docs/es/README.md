@@ -21,7 +21,7 @@ npx great-cto init
 
 </div>
 
-> Traducción del [README](../../README.md) en inglés, versión **v3.47.0** (2026-10-02).
+> Traducción del [README](../../README.md) en inglés, versión **v3.48.0** (2026-10-02).
 > Si hay discrepancias, prevalece la versión en inglés.
 
 ---

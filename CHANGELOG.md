@@ -16,6 +16,54 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.48.0 — 2026-10-02
+
+Three commands carry the day, from Claude Code or the terminal, on either host.
+
+### Added
+
+- **`great-cto run "…"`, `great-cto status`, `great-cto resume`** — the three daily entry
+  points from the terminal: they open Claude Code on `/start`, `/inbox`, `/resume`, or with
+  `--host codex` drive the controlled Codex runtime (`--dir`, `--dry-run`). Resume never
+  grants an approval, widens write scope or recovers a failed stage on its own.
+- **The board opens on Work** — your tasks, the decisions waiting on you, and History of
+  what shipped; Ledger, Fleet, Harness and Settings move under **Tools**. Approval and
+  resume are prepared as revision-bound commands you run; the browser executes nothing.
+- **Shared tasks across Claude Code and Codex** — one durable task identity, goal and
+  acceptance criteria per task, explicit run/session links, project leases against
+  concurrent launches, and operator-attested outcomes (docs/WORK-TASK-CONTRACT.md).
+- **Session learner, in windows** (opt-in) — with `learn_every_n` in
+  `~/.great_cto/config.json`, every N tool calls the learner reads the part of the session
+  written since the last window, so a long session is read whole instead of its last 8 MB.
+  Each window is a learner run capped at $0.5. A line at session start says what the
+  learner did last time.
+- **HOL plugin scanner in the local gate** — the exact build the awesome-codex-plugins
+  catalogue judges with (Cisco skill scanner included), with a reviewed false-positive
+  baseline; a new finding fails the gate.
+- A released-host quality benchmark (tests/eval) comparing Codex-only, Claude-only and
+  mixed runs. First result: no difference on two simple tasks — too simple to tell.
+
+### Changed
+
+- **README cut to its first screen** (394 → 120 lines) in all ten languages: what it does,
+  install, the three daily commands, the board, Codex, when it stops you, numbers. The rest
+  moved to docs/DETAILS.md. docs/COMMANDS.md lists three daily commands; `/save` and
+  `/digest` move to When you need it.
+- The session learner now reads what the assistant concluded, not only what the operator
+  typed — the lessons of a long working session were in its conclusions.
+
+### Fixed
+
+- `/inbox` LLM-budget alert read JSON the cost log never held and never fired; it reads the
+  measured spend now (and prints `85%`, not `850f`). Infrastructure-estimate rows are no
+  longer counted as LLM spend.
+- `l3-support` read its Grafana key in a shape scanners flag as a hardcoded secret.
+- The release title is the entry's lead sentence, not its first heading.
+- An empty-state hint on the board rendered at 10.83px, off the type scale.
+
+---
+
 ## v3.47.0 — 2026-10-01
 
 One pipeline run can now use Claude Code and Codex side by side.
