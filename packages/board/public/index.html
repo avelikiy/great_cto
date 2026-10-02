@@ -378,7 +378,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* The budgets panel. A cap with no consumption beside it cannot answer the only
    question worth asking of it, so every row carries the state and the spend. */
-.ab-title { font-weight: 600; margin-bottom: 8px; }
+.ab-title { font-weight: 500; margin-bottom: 8px; }
 .ab-row {
   display: flex; align-items: center; gap: 10px;
   padding: 4px 0; border-top: 1px solid var(--border);
@@ -2565,7 +2565,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 /* ── Agents installed list (legacy — kept for fallback) ───────────────── */
 .agents-installed { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
 /* Agent budget bars (Paperclip cascading budget pattern) */
-.ab-title { font-weight: 600; color: var(--text2); margin-bottom: 6px; }
+.ab-title { font-weight: 500; color: var(--text2); margin-bottom: 6px; }
 .ab-row { display: flex; justify-content: space-between; padding: 2px 0; }
 .ab-name { font-family: var(--mono, monospace); color: var(--accent-text); }
 .ab-cap { color: var(--text3); }
@@ -3261,9 +3261,27 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(15, 17, 21, 0.22); border: 2px solid transparent; background-clip: content-box; }
+/* Task read-side: reuse the board's measured typography and colour tokens. */
+.nav-views[hidden], #nav-views-label[hidden], #work-allow-row[hidden] { display: none; }
+.work-page { padding: 24px; max-width: 1000px; }
+.work-card, #work-compose { padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; background: var(--bg-card); }
+.work-page h1 { font-size: var(--fs-title-l); font-weight: 500; }
+.work-page .gate-btn { padding: 8px 12px; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 4px; background: var(--bg-solid); color: var(--on-solid); cursor: pointer; }
+.work-page .gate-btn:hover { background: var(--bg-solid-hover); }
+.work-card a { color: var(--text); text-decoration: underline; }
+.work-card h2 { font-size: var(--fs-title-s); }
+.work-card p, #work-compose p { margin: 8px 0; font-size: var(--fs-body); }
+.work-meta { color: var(--text2); font-size: var(--fs-caption); }
+.work-warning { color: var(--absent-warn-fg); background: var(--bg-card); border: 1px solid var(--absent-warn-fg); padding: 12px; }
+.work-page pre { font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
+#work-compose textarea, #work-compose input, #work-compose select { display: block; width: 100%; margin: 8px 0 12px; padding: 8px; background: var(--bg-muted); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; }
+#tools-nav summary { padding: 12px 16px; cursor: pointer; }
+@media (min-width: 768px) and (max-width: 1199px) { .nav-item[data-tab="work"] > span, .nav-item[data-tab="history"] > span { display: inline; font-size: var(--fs-caption); } #tools-nav summary { padding: 12px 4px; } }
+@media (max-width: 767px) { .work-page { padding: 12px; } .work-page button, #work-compose select { min-height: 44px; } }
 </style>
 </head>
 <body>
+<script src="/assets/work-view.js"></script>
 <div class="board">
   <!-- Subtle emerald glow background -->
   <div class="board-bg" aria-hidden="true"></div>
@@ -3299,21 +3317,17 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <div id="proj-menu-list"></div>
       </div>
     </div>
-    <!-- Nav shell cutover (great_cto-ki1x.5): eight tabs (+ a topbar share
-         button and bell) become four destinations. Tasks/kanban, Metrics/
-         dashboard, Docs, Activity/logs, Notifications and Share lose their
-         entry point here — their panels and functions are untouched, so nothing
-         that already linked to `#dashboard`/`switchTab('budgets', …)`/etc. goes
-         dead; a bookmark just stops appearing in the menu. Settings — the
-         future home for the Share/Notifications rows this detaches — is
-         reachable from the topbar gear, not a fifth item here (kept under the
-         ≤5 ceiling `ui-ux-pro-max` sets for the same nav to also serve mobile). -->
     <nav class="nav" id="nav-tablist" role="tablist" aria-orientation="vertical">
-      <div class="nav-item active" data-tab="decisions" role="tab" tabindex="0" aria-label="Decisions" title="Decisions" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
+      <div class="nav-item active" data-tab="work" role="tab" tabindex="0" aria-label="Work" title="Work" onkeydown="navTabKeydown(event, this)" onclick="switchTab('work', this)"><span>Work</span></div>
+      <div class="nav-item" data-tab="decisions" role="tab" tabindex="0" aria-label="Decisions" title="Decisions" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
         <span>Decisions</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
+      <div class="nav-item" data-tab="history" role="tab" tabindex="0" aria-label="History" title="History" onkeydown="navTabKeydown(event, this)" onclick="switchTab('history', this)"><span>History</span></div>
+    </nav>
+    <details id="tools-nav"><summary>Tools</summary>
+    <nav class="nav" role="tablist" aria-label="Technical tools" aria-orientation="vertical">
       <div class="nav-item" data-tab="ledger" role="tab" tabindex="0" aria-label="Ledger" title="Ledger" onkeydown="navTabKeydown(event, this)" onclick="switchTab('ledger', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         <span>Ledger</span>
@@ -3336,14 +3350,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <span class="count" id="nav-harness-count"></span>
       </div>
     </nav>
+    </details>
     <div class="nav-divider"></div>
-    <div class="nav-views-label" id="nav-views-label">Views</div>
+    <div class="nav-views-label" id="nav-views-label" hidden>Views</div>
     <!-- Saved views over Fleet (DESIGN §5 point 2). Static for this shell —
          filtering the fleet list is the Fleet screen body's job (.8), not this
          task's; deliberately not `.nav-item`/`role="tab"`, since they neither
          switch a top-level destination nor do anything yet, and a control that
          looks live and isn't fails `ui-ux-pro-max` empty-nav-state. -->
-    <div class="nav-views">
+    <div class="nav-views" hidden>
       <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
       <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
       <div class="nav-view-item" id="nav-view-never" role="button" tabindex="0" onclick="setFleetView('never')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('never')}">Never observed</div>
@@ -3398,8 +3413,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
     </div>
 
+    <div class="panel active" id="panel-work" role="tabpanel">
+      <div class="work-page"><h1>Work</h1>
+        <form id="work-compose">
+          <label for="work-goal">What result do you need?</label>
+          <textarea id="work-goal" rows="3" required placeholder="Add CSV export with permission checks"></textarea>
+          <label for="work-host">Execution host</label>
+          <select id="work-host"><option value="claude-code">Claude Code</option><option value="codex">Controlled Codex</option></select>
+          <div id="work-allow-row" hidden><label for="work-allow">Codex write scope (comma-separated paths)</label><input id="work-allow" placeholder="src,tests,docs" /></div>
+          <p>Prepares a command. Run it in a terminal in the selected project. The board does not start a host session.</p>
+          <button type="submit" class="gate-btn">Copy command</button><pre id="work-command"></pre>
+        </form>
+        <p id="work-feedback" role="status" aria-live="polite"></p>
+        <div id="work-list">Loading project work…</div>
+      </div>
+    </div>
+    <div class="panel" id="panel-history" role="tabpanel"><div class="work-page"><h1>History</h1><p>Closed issues and terminal runs. Closing a record does not prove task acceptance.</p><div id="history-list">Loading project work…</div></div></div>
     <!-- Inbox -->
-    <div class="panel active" id="panel-inbox">
+    <div class="panel" id="panel-inbox">
       <div class="inbox-page">
         <!-- Fidelity pass (v3.27.1): the design's header is the screen's name and
              its count; the sentence the board used to shout in 52px display
@@ -3937,7 +3968,13 @@ const PRIORITY_LABEL = ['Urgent','High','Medium','Low'];
 let allTasks = [];
 let metrics = {};
 let shareState = { enabled: false, url: null };
-let currentTab = 'inbox';
+let currentTab = 'work';
+window.GctoWork.bind({
+  project: () => new URLSearchParams(location.search).get('project') || '',
+  visible: () => currentTab === 'work' || currentTab === 'history',
+  read: url => api(url),
+  openIssue: (id, decision) => { if (decision) switchTab('decisions'); openSideById(id); },
+});
 let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
@@ -7003,6 +7040,7 @@ async function switchProject(slug) {
   // Close existing SSE so it doesn't push the wrong project's data
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
   currentProject = slug;
+  window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
   renderKanban([]);
@@ -7069,6 +7107,7 @@ function filterTasks(q) {
 }
 
 function onSearch(q) {
+  window.GctoWork.search(q);
   searchQuery = q;
   renderKanban(filterTasks(q));
   document.getElementById('topbar-task-count').textContent =
@@ -7184,12 +7223,13 @@ async function init() {
   // Build version badge (fire-and-forget — never blocks the board).
   api('/api/version').then(v => { const el = document.getElementById('build-version'); if (el && v && v.version) el.textContent = 'v' + v.version; }).catch(() => {});
 
-  const [tasks, met, share, projs, inbox] = await Promise.all([
+  const [tasks, met, share, projs, inbox, serverWork] = await Promise.all([
     api(`/api/tasks${qs}`),
     api(`/api/metrics${qs}`),
     api(`/api/share${qs}`),
     api('/api/projects'),
     api(`/api/inbox${qs}`),
+    api(`/api/work${qs}`),
   ]);
   allTasks = tasks || [];
   metrics = met || {};
@@ -7206,11 +7246,13 @@ async function init() {
   const fromTaskId = (allTasks[0]?.id || '').split('-')[0];
   const registered = (allProjects || []).some((p) => p.slug === fromTaskId) ? fromTaskId : '';
   const proj = urlProject
+    || serverWork?.projectName
     || registered
     || (allProjects[0]?.slug)
     || fromTaskId
     || 'project';
   currentProject = proj;
+  window.GctoWork.reset();
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
   document.title = `${proj} · great_cto`;
@@ -7388,6 +7430,7 @@ function connectSSE() {
     try { renderKanban(filterTasks(searchQuery)); } catch (e) { console.warn('SSE renderKanban failed', e); }
     checkBoardFreshness();
     refreshInbox();
+    if (currentTab === 'work' || currentTab === 'history') window.GctoWork.refresh();
   };
   es.addEventListener('tasks', e => {
     const newTasks = JSON.parse(e.data);
@@ -8285,6 +8328,8 @@ let cmdkIndex = 0;
 
 function cmdkActions() {
   const out = [
+    { group: 'Go', label: 'Work — goals and execution', run: () => switchTab('work') },
+    { group: 'Go', label: 'History — recorded outcomes', run: () => switchTab('history') },
     { group: 'Go', label: 'Decisions — what needs you', run: () => switchTab('decisions') },
     { group: 'Go', label: 'Ledger — what it cost, what is running', run: () => switchTab('ledger') },
     { group: 'Go', label: 'Fleet — the agents and what they may do', run: () => switchTab('fleet') },
@@ -8481,13 +8526,17 @@ try {
 // panels, not keys.
 const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', dashboard: 'budgets', share: 'settings', notifications: 'settings' };
 const NAV = { inbox: 'decisions', budgets: 'ledger', agents: 'fleet', dashboard: 'ledger', share: 'settings', notifications: 'settings' };
-const ROUTES = { decisions: 1, ledger: 1, fleet: 1, harness: 1, settings: 1, kanban: 1 };
+const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, settings: 1, kanban: 1 };
 function switchTab(id, el) {
   const lid = DEST[id] || id;          // the panel's own name
   const navKey = NAV[id] || id;        // the destination to highlight
   if (!el) el = document.querySelector(`.nav-item[data-tab="${navKey}"]`)
     || document.querySelector('.nav-item[data-tab="decisions"]');
   currentTab = lid;
+  document.getElementById('nav-views-label').hidden = lid !== 'agents';
+  document.querySelector('.nav-views').hidden = lid !== 'agents';
+  if (['agents', 'budgets', 'harness'].includes(lid)) document.getElementById('tools-nav').open = true;
+  if (lid === 'work' || lid === 'history') window.GctoWork.refresh();
   if (ROUTES[id]) {
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
     // BRD-R9: one local line per destination open, never blocking, never surfaced.
@@ -8507,7 +8556,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
+  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || TAB_LABELS[lid] || 'Board';
   // Budgets render on Metrics, so the heartbeat that feeds them has to be
   // fetched when Metrics opens — not only from the agents drill-in it used to
@@ -8544,7 +8593,7 @@ function switchTab(id, el) {
 
 // Sidebar tabs: Enter/Space activate, arrows move (WAI-ARIA tablist).
 function navTabKeydown(event, el) {
-  const items = [...document.querySelectorAll('.nav-item[role="tab"]')];
+  const items = [...document.querySelectorAll('.nav-item[role="tab"]')].filter(item => item.getClientRects().length);
   const i = items.indexOf(el);
   if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); el.click(); return; }
   if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
@@ -8576,7 +8625,7 @@ function routeFromHash() {
   return ROUTES[h] ? h : (LEGACY_ROUTES[h] || null);
 }
 addEventListener('hashchange', () => { const r = routeFromHash(); if (r) switchTab(r); });
-addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); if (r && r !== 'decisions') switchTab(r); });
+addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); if (r && r !== 'work') switchTab(r); });
 
 async function refreshLogs() {
   const data = await api(`/api/logs${pqs()}`);

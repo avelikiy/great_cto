@@ -2,7 +2,7 @@
 
 [← back to README](../README.md)
 
-The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for external integrations and smoke tests. Every route is a top-level `if (pathname === '/api/...')` block in `packages/board/server.mjs` — read the source if a behaviour surprises you.
+The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for external integrations and smoke tests. Routes are dispatched by `packages/board/lib/routes.mjs` from `packages/board/server.mjs` — read the source if a behaviour surprises you.
 
 ## Endpoints
 
@@ -11,6 +11,7 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | Endpoint | Method | Returns |
 |---|---|---|
 | `/api/projects` | GET | `Project[]` — array of `{slug, archetype, path, ...}` |
+| `/api/work?project=<slug>` | GET | `{schemaVersion:1, projectId, projectName, revision, observedAt, health, sources, entries, sessions, decisions, execution}`; read-only run/issue projection. Unknown project: 404; non-GET: 405. `taskId=null` until durable links exist; `execution.enabled=false`. No prompts, approval tokens or artifact bytes. |
 | `/api/tasks?project=<slug>` | GET | `Task[]` — array of `{id, title, status, ...}` |
 | `/api/tasks` | POST | Create task (body: `{title, priority, agent?}`); returns 409 without `.beads/` |
 | `/api/tasks/<id>/history` | GET | `{events: [...]}`; 404 for unknown id |

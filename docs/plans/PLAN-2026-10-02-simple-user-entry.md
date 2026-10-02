@@ -117,3 +117,30 @@ Work / Decisions / History как основные экраны, техниче�
 кнопки start/resume включаются только после controlled action contract.
 Текущий Beads create и GET resume не являются запуском задачи. Спецификация
 подготовлена в `.5`; реализация остаётся в `.2` и `.3`.
+
+## План реализации админки и поставленный инкремент
+
+Последовательность: source projection → Work/History и техническая навигация →
+нормализованные decision proposals → controlled host operations. В каждом этапе
+backend владеет переходами, UI показывает только подтверждённые capabilities.
+Отдельный frontend framework или второе хранилище workflow не требуются.
+
+В `.6` реализованы read-only `GET /api/work`, version/revision, независимое
+качество источников, явные unlinked issues и Codex runs; Work стал стартовым
+экраном, History показывает terminal records, Tools содержит прежние технические
+разделы. Composer готовит shell-quoted команду с явным host и Codex allowlist;
+`--` отделяет текст цели от CLI options. Resume command доступна только для ready
+run без active owner и pending approval. POST work отклоняется. Unknown project
+не подменяется server cwd. Проекция не включает prompt, approval tokens и artifact
+bytes. Проверки состояния обновляются при событиях и видимом экране; поздние
+ответы другого project отбрасываются.
+
+Это адаптер существующих источников, а не завершённый durable task contract:
+`taskId=null` честно отражает отсутствие записанной связи. Claude sessions
+показываются отдельно, без выдуманного goal или общего lifecycle. Статус closed
+issue и done run не превращается в completed пользовательскую задачу.
+
+Следующий этап `.3`: persisted task identity/goal/acceptance и adapter-owned links,
+операции с idempotency/revision, project creation lock и host capability contract.
+После него `.2` включает прямые start/resume и полноформатные decision cards.
+Полная спецификация находится в [admin handoff](../design/DESIGN-task-centric-admin-2026-10.md).

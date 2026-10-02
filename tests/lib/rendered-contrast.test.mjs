@@ -43,7 +43,7 @@ const THEMES = ['dark', 'light'];
 // Since the redesign (great_cto-ki1x.16): Metrics is gone (its live pieces sit
 // in Ledger = budgets); Harness and Settings are panels of their own; share and
 // notifications survive as id'd blocks inside Settings, so they stay listed.
-const PANELS = ['inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
+const PANELS = ['work', 'history', 'inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
   'memory', 'notifications', 'sessions', 'share', 'harness', 'settings'];
 
 /**
