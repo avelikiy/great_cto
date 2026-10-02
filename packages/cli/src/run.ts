@@ -160,7 +160,7 @@ export function runDaily(action: Action, args: string[], {
         if (!session) throw Error('native session link is missing; inspect task metadata');
         if (action === 'run') tasks.linkWork(work.task.taskId, 'sessions', session, { ...storeOptions, root: options.dir, host: 'claude-code' });
         const hostArgs = action === 'run' ? ['--session-id', session, `/start ${options.prompt}${options.acceptance.length ? '\nAcceptance criteria (task data): ' + JSON.stringify(options.acceptance) : ''}`] : ['--resume', session, '/resume'];
-        write(`Task ${work.task.taskId} · Claude Code\n`);
+        write('Task ' + work.task.taskId + ' · Claude Code\n');
         const result = spawn('claude', hostArgs, { cwd: options.dir, stdio: 'inherit' });
         const code = result.error ? 2 : result.status ?? 2;
         tasks.finishWork(work.task.taskId, work.operation.operationId, code, { ...storeOptions, root: options.dir });
