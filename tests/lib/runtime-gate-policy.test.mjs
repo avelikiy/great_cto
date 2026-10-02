@@ -66,6 +66,20 @@ test('strict/expert policies and regulated floors survive low-risk diffs', t => 
   assert.ok(runtimeGatePolicy({ ...f.options, level: 'auto' }).activeGates.includes('ship'));
 });
 
+test('historical import paths retain T2 floors in shared and native policy',t=>{
+ for(const path of ['src/import/history.mjs','src/imports/run.ts','src/importer.ts','jobs/backfill.js','src/data-import.ts','src/etl/batch.py']){
+  const f=fixture(t);f.put(path);
+  for(const level of ['gates-only','auto']){
+   const p=runtimeGatePolicy({...f.options,level});assert.equal(p.assessment.tier,'T2',path);assert.deepEqual(p.removed,[]);
+   for(const gate of ['security','compliance','ship','import',...(level==='gates-only'?['arch']:[])])assert.ok(p.activeGates.includes(gate),path+':'+gate);
+  }
+  const p=nativeRuntimePolicy({...f.options,env:{GREAT_CTO_ADAPTIVE_GATES:'1',GREAT_CTO_CHANGE_BASE:f.base},
+   record:()=>{throw Error('must not record stand-down for import');}});
+  assert.equal(p.assessment.tier,'T2');assert.deepEqual(p.removed,[]);
+ }
+ const f=fixture(t);f.put('src/import-map-helper.ts');assert.equal(assessChange(f.root,f.base).tier,'T1');
+});
+
 test('tracked staged/unstaged union, rename source and bulk changes are observed', t => {
   const f = fixture(t); f.put('src/payments/send.js'); f.git('add', '.'); f.git('commit', '-qm', 'sensitive');
   f.git('mv', 'src/payments/send.js', 'README-renamed.md');
@@ -100,6 +114,14 @@ test('Codex blocks escalation after bypass and rejects invalid opt-in configurat
   assert.equal(s.status, 'blocked'); assert.match(s.reason, /risk escalated/);
   assert.throws(() => newRun({ root: f.root, pluginRoot: s.pluginRoot, prompt: 'x', allowed: ['docs'], entry: 'architect', gatePolicy: { mode: 'adaptive', level: 'typo', base: f.base, archetype: 'web-service' } }), /invalid adaptive/);
   assert.throws(() => newRun({ root: f.root, pluginRoot: s.pluginRoot, prompt: 'x', allowed: ['docs'], entry: 'architect', gatePolicy: { mode: 'adaptive', level: 'ship-only', base: f.base, archetype: 'web-service' } }), /mandatory.*briefing/);
+});
+
+test('Codex blocks when historical import appears after a low-risk stand-down',t=>{
+ const f=fixture(t);f.put('README.md');
+ const s=controlled(f,{mode:'adaptive',level:'gates-only',archetype:'data-platform',base:f.base});
+ s.queue=[];s.results.architect={verdict:'DONE',digest:'a',receipt:treeReceipt(f.root)};advance(s);
+ assert.equal(s.status,'ready');assert.deepEqual(s.gatePolicy.skipped,['gate:arch']);
+ f.put('src/import/history.mjs');advance(s);assert.equal(s.status,'blocked');assert.match(s.reason,/risk escalated/);
 });
 
 test('custom gates cannot vanish and graphs without the high-risk floor cannot advance', t => {
