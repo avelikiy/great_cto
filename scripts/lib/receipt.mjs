@@ -35,7 +35,23 @@ const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
 function git(args, cwd, { maxBuffer = 32 * 1024 * 1024 } = {}) {
   try {
-    return execFileSync('git', args, { cwd, encoding: 'utf8', maxBuffer, stdio: ['ignore', 'pipe', 'ignore'] });
+    // Reading evidence must not execute project-configured diff/filter/monitor helpers.
+    const command = args[0] === 'diff' ? ['diff', '--no-ext-diff', '--no-textconv', ...args.slice(1)] : args;
+    const config = ['-c', 'core.fsmonitor=false'];
+    if (args[0] === 'diff') {
+      // Diff also applies clean/process filters while inspecting working files.
+      // Read names only, not values (which can contain private configuration).
+      let keys = '';
+      try {
+        keys = execFileSync('git', [...config, 'config', '--null', '--name-only', '--get-regexp', '^filter\\..*\\.(clean|process|required)$'],
+          { cwd, encoding: 'utf8', maxBuffer: 65536, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      } catch (error) { if (error.status !== 1) return null; }
+      const filters = [...new Set(keys.split('\0').filter(Boolean).map(key => key.match(/^filter\.([\s\S]+)\.(?:clean|process|required)$/)?.[1]))];
+      if (filters.length > 128 || filters.some(name => !name)) return null;
+      for (const name of filters) config.push('-c', `filter.${name}.clean=`, '-c', `filter.${name}.process=`, '-c', `filter.${name}.required=false`);
+    }
+    return execFileSync('git', [...config, ...command],
+      { cwd, encoding: 'utf8', maxBuffer, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
   } catch { return null; }
 }
 
@@ -96,8 +112,10 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // Pathspecs keep each call's scope as it was — `:/` is the whole repository, as a
   // bare `git diff` is; `.` is this directory, as a bare `ls-files` is — and drop
   // the activity logs, named relative to this directory (the project's own).
-  const diff = git(['diff', 'HEAD', '--', ':/', ...pathspecExclude], cwd) ?? '';
-  const untracked = (git(['ls-files', '--others', '--exclude-standard', '--', '.', ...pathspecExclude], cwd) ?? '')
+  const diff = git(['diff', 'HEAD', '--', ':/', ...pathspecExclude], cwd);
+  const untrackedOutput = git(['ls-files', '--others', '--exclude-standard', '--', '.', ...pathspecExclude], cwd);
+  if (diff === null || untrackedOutput === null) return null;
+  const untracked = untrackedOutput
     .split('\n').map((s) => s.trim()).filter(Boolean);
   const untrackedDigest = untracked.map((p) => `${p}:${fileDigest(cwd, p) ?? '?'}`).join('\n');
   const dirty = (diff.trim() || untrackedDigest) ? sha(`${diff}\n--untracked--\n${untrackedDigest}`) : null;
@@ -134,8 +152,10 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
       ref = mb || 'HEAD'; baseFrom = 'head';
     }
   }
+  const changedOutput = git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...pathspecExclude], cwd);
+  if (changedOutput === null) return null;
   const names = [
-    ...(git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...pathspecExclude], cwd) ?? '')
+    ...changedOutput
       .split('\n').map((s) => s.trim()).filter(Boolean),
     // A new file is part of the change under review, and is exactly the kind a
     // reviewer reads most closely.
@@ -147,7 +167,8 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   for (const p of names) {
     if (Object.keys(files).length >= maxFiles) { truncated = true; break; }
     const blob = fileDigest(cwd, p);
-    if (blob) files[p] = blob;
+    if (!blob) return null;
+    files[p] = blob;
   }
 
   return { head, dirty, base: ref, base_from: baseFrom, files, ...(truncated ? { truncated: true } : {}) };
@@ -161,7 +182,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
  * reviewer actually saw.
  */
 export function fileDigest(cwd, path) {
-  const out = git(['hash-object', '--', path], cwd);
+  const out = git(['hash-object', '--no-filters', '--', path], cwd);
   return out ? out.trim() : null;
 }
 
