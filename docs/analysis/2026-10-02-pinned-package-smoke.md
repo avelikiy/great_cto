@@ -1,6 +1,6 @@
 # Pinned baseline package execution smoke
 
-Date: 2026-10-02. Scope: `great_cto-p4o9.4.3.1.7`. Related: [matched benchmark contract](2026-10-02-adaptive-benchmark-contract.md) and [bound collector](2026-10-02-benchmark-bound-collector.md).
+Date: 2026-10-02. Scope: `great_cto-p4o9.4.3.1.7`. Related: [matched benchmark contract](2026-10-02-adaptive-benchmark-contract.md), [bound collector](2026-10-02-benchmark-bound-collector.md) and [candidate runtime package](2026-10-02-candidate-runtime-package.md).
 
 ## What this verifies
 
