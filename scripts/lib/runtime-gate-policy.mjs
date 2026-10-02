@@ -7,7 +7,7 @@ import { classify } from './change-tier.mjs';
 import { gatesForApprovalLevel, APPROVAL_LEVELS } from './approval-level.mjs';
 import { readStandDowns } from './stand-down.mjs';
 
-const sensitive = /(^|\/)(auth(?:entication)?|migrations?|imports?|importers?|data[_-]?import|backfills?|etl|payments?|billing|pricing|wallets?|signing|secrets?|permissions?|rbac|tenant[_-]?isolation|terraform|infra|agents(?:-full)?|skills|shared|scripts|\.github|\.codex|\.claude|\.great_cto)(\/|\.|$)|(^|\/)(AGENTS|CLAUDE|SKILL)\.md$|(^|\/)(package(?:-lock)?\.json|.*lock.*)$/i;
+const sensitive = /(^|\/)(auth(?:entication)?|migrations?|imports?|importers?|data[_-]?import|backfills?|etl|prompts?|payments?|billing|pricing|wallets?|signing|secrets?|permissions?|rbac|tenant[_-]?isolation|terraform|infra|agents(?:-full)?|skills|shared|scripts|\.github|\.codex|\.claude|\.great_cto)(\/|\.|$)|(^|\/)(AGENTS|CLAUDE|SKILL)\.md$|(^|\/)(package(?:-lock)?\.json|.*lock.*)$/i;
 const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', timeout: 5000, maxBuffer: 8 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
 const activity = new Set(['.great_cto/stand-downs.jsonl', '.great_cto/events.jsonl', '.great_cto/events.1.jsonl', '.great_cto/cache/adaptive-reviewer-notice.json', '.beads/interactions.jsonl']);
 

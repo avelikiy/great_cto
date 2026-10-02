@@ -96,6 +96,19 @@ function controlled(f, gatePolicy) {
   return newRun({ root: f.root, pluginRoot, prompt: 'fixture', allowed: ['docs'], entry: 'architect', gatePolicy });
 }
 
+test('nested prompt authority paths retain shared/native T2 floors',t=>{
+ for(const path of ['src/prompts/boundary.mjs','nested/prompts/system.txt','src/prompt.js']){
+  const f=fixture(t);f.put(path);
+  for(const level of ['gates-only','auto']){
+   const p=runtimeGatePolicy({...f.options,level});assert.equal(p.assessment.tier,'T2',path);assert.deepEqual(p.removed,[]);
+   for(const gate of ['security','compliance','ship','import',...(level==='gates-only'?['arch']:[])])assert.ok(p.activeGates.includes(gate),path+':'+gate);
+  }
+  const p=nativeRuntimePolicy({...f.options,env:{GREAT_CTO_ADAPTIVE_GATES:'1',GREAT_CTO_CHANGE_BASE:f.base},record:()=>{throw Error('no stand-down');}});
+  assert.equal(p.assessment.tier,'T2');assert.deepEqual(p.removed,[]);
+ }
+ const f=fixture(t);f.put('src/prompt-helper.ts');assert.equal(assessChange(f.root,f.base).tier,'T1');
+});
+
 test('Codex legacy enforces all gates; adaptive mode skips arch but still stops at ship', t => {
   const f = fixture(t); f.put('README.md');
   const s = controlled(f, null); s.queue = []; s.results.architect = { verdict: 'DONE', digest: 'a', receipt: treeReceipt(f.root) }; advance(s);
@@ -122,6 +135,12 @@ test('Codex blocks when historical import appears after a low-risk stand-down',t
  s.queue=[];s.results.architect={verdict:'DONE',digest:'a',receipt:treeReceipt(f.root)};advance(s);
  assert.equal(s.status,'ready');assert.deepEqual(s.gatePolicy.skipped,['gate:arch']);
  f.put('src/import/history.mjs');advance(s);assert.equal(s.status,'blocked');assert.match(s.reason,/risk escalated/);
+});
+
+test('Codex blocks when nested prompt authority appears after low-risk stand-down',t=>{
+ const f=fixture(t);f.put('README.md');const s=controlled(f,{mode:'adaptive',level:'gates-only',archetype:'ai-system',base:f.base});
+ s.queue=[];s.results.architect={verdict:'DONE',digest:'a',receipt:treeReceipt(f.root)};advance(s);assert.equal(s.status,'ready');
+ f.put('src/prompts/boundary.mjs');advance(s);assert.equal(s.status,'blocked');assert.match(s.reason,/risk escalated/);
 });
 
 test('custom gates cannot vanish and graphs without the high-risk floor cannot advance', t => {
