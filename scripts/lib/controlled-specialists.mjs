@@ -7,6 +7,7 @@ import { specialistPlan } from './specialist-plan.mjs';
 import { RULES } from '../hooks/auto-attach-reviewers.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateReviewReusePolicy } from './scoped-review-reuse.mjs';
+import { assertReviewGraphFloor, assertPreparationGraphFloor } from './review-graph-floor.mjs';
 
 const mandatory = ['code-reviewer', 'qa-engineer', 'security-officer'];
 const contracts = new Set(['auth-engineer', 'subscription-billing-engineer', 'integrations-engineer', 'connector-builder',
@@ -39,6 +40,7 @@ export function validateSpecialistPolicy(state, policy) {
   const impl = state.graph['senior-dev'];
   if (!impl || mandatory.some(r => !list(impl.next).includes(r) || !state.graph[r] || !list(state.graph[r].next).includes('devops') || mandatory.filter(p => p !== r).some(p => !list(state.graph[r].join).includes(p)))) throw Error('specialist policy requires intact mandatory review graph');
   if (Object.values(state.graph).flatMap(r => list(r.gate)).indexOf('gate:ship') < 0) throw Error('specialist policy requires ship gate');
+  assertReviewGraphFloor(state.graph);
   if (!state.allowed.some(p => p === 'docs' || p === 'docs/specialist-reviews')) throw Error('specialist policy requires explicit docs/specialist-reviews write scope');
   if (policy.workflow !== 'existing-change' && !state.allowed.includes('docs')) throw Error('phased specialist workflow requires explicit docs write scope');
   if (policy.workflow === 'full-cycle' && (list(state.graph['product-owner']?.next).join() !== 'architect' || !list(state.graph['product-owner']?.gate).includes('gate:product')
@@ -76,6 +78,7 @@ export function schedulePreparation(state) {
   const roles = selected.filter(r => r !== 'ai-eval-engineer').map(r => registerPreparationRole(state, r));
   const gates = ['gate:plan', ...(selected.some(r => regulatoryRoles.has(r)) ? ['gate:security', 'gate:compliance'] : [])];
   for (const role of roles) Object.assign(state.graph[role], { join: roles.filter(r => r !== role), gate: gates });
+  assertPreparationGraphFloor(state.graph, roles, gates);
   state.specialistPreparation = { roles, selected, fingerprint: plan.fingerprint, plan, hardGates: gates,
     reports: [], status: roles.length ? 'scheduled' : 'complete', reusablePass: false };
   state.specialistImplementationGraph = structuredClone(state.graph);
@@ -88,9 +91,26 @@ export function assertSpecialistEpoch(state) {
   if (!state.specialistPolicy) return;
   const epoch = state.specialistReview;
   const preparation = state.specialistPreparation;
+  assertReviewGraphFloor(state.graph, epoch?.roles || mandatory);
+  if (preparation) assertPreparationGraphFloor(state.graph, preparation.roles, preparation.hardGates);
   const inspectingPreparation = !epoch && preparation?.status === 'scheduled';
   const plan = planFor(state, inspectingPreparation ? preparation.reports : epoch?.reports || []);
-  selectedRoles(state, plan);
+  const selected = selectedRoles(state, plan);
+  const matches = (actual, expected) => Array.isArray(actual) && actual.length === expected.length
+    && new Set(actual).size === actual.length && expected.every(value => actual.includes(value));
+  if (epoch) {
+    const expected = [...mandatory, ...selected.filter(role => !contracts.has(role))];
+    const gates = selected.some(role => regulatoryRoles.has(role))
+      ? ['gate:security', 'gate:compliance', 'gate:ship'] : ['gate:ship'];
+    if (!matches(epoch.roles, expected) || !matches(epoch.hardGates, gates)) throw Error('review floor: selected domain quorum or hard gates changed');
+  }
+  if (preparation) {
+    // Preparation's stored selection can be wider than a later plan, but never narrower.
+    if (!Array.isArray(preparation.selected) || selected.some(role => !preparation.selected.includes(role))) throw Error('implementation requires new domain/contract assessment; review floor: preparation domain selection narrowed');
+    const expected = preparation.selected.filter(role => role !== 'ai-eval-engineer').map(role => `${role}-prebuild`);
+    const gates = ['gate:plan', ...(preparation.selected.some(role => regulatoryRoles.has(role)) ? ['gate:security', 'gate:compliance'] : [])];
+    if (!matches(preparation.roles, expected) || !matches(preparation.hardGates, gates)) throw Error('review floor: preparation quorum or hard gates changed');
+  }
   if (inspectingPreparation && plan.fingerprint !== preparation.fingerprint) throw Error('specialist preparation input/dependencies changed; pre-build epoch invalidated');
   if (epoch && plan.fingerprint !== epoch.fingerprint) throw Error('specialist review input/dependencies changed; review epoch invalidated');
 }
@@ -112,6 +132,7 @@ export function scheduleSpecialists(state) {
   const regulatory = roles.some(r => regulatoryRoles.has(r));
   const hardGates = regulatory ? ['gate:security', 'gate:compliance', 'gate:ship'] : ['gate:ship'];
   state.graph['security-officer'].gate = [...new Set([...list(state.graph['security-officer'].gate), ...hardGates])];
+  assertReviewGraphFloor(state.graph, all);
   state.specialistReview = { roles: all, fingerprint: plan.fingerprint, plan, hardGates, reports: [], reusablePass: false };
 }
 

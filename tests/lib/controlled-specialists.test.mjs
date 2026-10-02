@@ -31,6 +31,25 @@ function reply(role, files = []) {
     meta: ['senior-dev', 'code-reviewer'].includes(role) ? {} : { report: files[0]?.path } }) };
 }
 async function implement(state) { return runStage(state, { execute: async () => reply('senior-dev'), verify }); }
+test('resumed adaptive controller blocks mutated verdict exits before any dispatch or approval', t => {
+  const f = fixture(t);
+  f.state.graph['qa-engineer.DONE'] = { on: ['DONE'], next: ['devops'] };
+  advance(f.state);
+  assert.equal(f.state.status, 'blocked');
+  assert.match(f.state.reason, /review floor: verdict override/);
+  assert.equal(f.state.attempts.length, 0);
+  assert.equal(f.state.approvals.length, 0);
+});
+test('pending approval cannot release a review boundary altered after the gate was raised', async t => {
+  const f = fixture(t); await implement(f.state);
+  assert.equal(f.state.status, 'awaiting-gate');
+  const token = f.state.pending.token;
+  f.state.graph['qa-engineer'].next.push('l3-support');
+  assert.throws(() => approve(f.state, token), /review floor: unsafe exit/);
+  assert.equal(f.state.pending.token, token);
+  assert.equal(f.state.approvals.length, 0);
+  assert.equal(f.state.results.devops, undefined);
+});
 async function review(state) {
   const role = state.queue[0]; const path = `docs/specialist-reviews/${role}.md`;
   return runStage(state, { execute: async () => reply(role, [{ path, before: null, content: `${role}: actual findings` }]), verify });
@@ -216,6 +235,26 @@ function phased(t, archetype = 'fintech', extra = {}) {
   f.state = newRun({ ...f.args, ...extra, specialistPolicy: { ...f.args.specialistPolicy, workflow: 'phased-change', ...extra.specialistPolicy } });
   return f;
 }
+test('preparation cannot drop its regulatory hard gates from mutable epoch metadata', t => {
+  const f = phased(t);
+  f.state.specialistPreparation.hardGates = ['gate:plan'];
+  advance(f.state);
+  assert.equal(f.state.status, 'blocked');
+  assert.match(f.state.reason, /hard gates changed/);
+  assert.equal(f.state.approvals.length, 0);
+});
+test('post-build domain selection is re-derived from project and actual changed artifacts', async t => {
+  const f = fixture(t); await implement(f.state);
+  f.state.specialistReview.roles = f.state.specialistReview.roles.filter(role => role !== 'pci-reviewer');
+  // Tamper with all graph records too: a self-consistent smaller operator list is not evidence.
+  f.state.graph['senior-dev'].next = f.state.specialistReview.roles;
+  for (const role of f.state.specialistReview.roles) f.state.graph[role].join = f.state.specialistReview.roles.filter(peer => peer !== role);
+  f.state.pending = null;
+  advance(f.state);
+  assert.equal(f.state.status, 'blocked');
+  assert.match(f.state.reason, /selected domain quorum/);
+  assert.equal(f.state.approvals.length, 0);
+});
 async function preReview(state) {
   const role = state.queue[0], path = `docs/specialist-contracts/${role}-${state.steps}.md`;
   return runStage(state, { execute: async () => reply(role, [{ path, before: null, content: `${role}: threat boundaries, controls, acceptance criteria` }]), verify });

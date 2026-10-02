@@ -21,6 +21,9 @@ executionArtifactProvenanceVerified=false, graphFloorCoverageVerified=false and
 benchmarkEligible=false. This prevents a connected-but-unproven observation from
 being described as the matched live benchmark or default-enablement evidence.
 The descriptive protocol continues to leave quality uplift unknown.
+The [structural review boundary audit](2026-10-02-review-graph-floor.md) hardens
+adaptive controller exits and quorum metadata, but is not independent matched
+graph-floor or execution provenance evidence for the collector.
 
 ## Registration and execution
 
