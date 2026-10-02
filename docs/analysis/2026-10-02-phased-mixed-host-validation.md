@@ -86,8 +86,14 @@ UI change was used. The repeated browser suite passed all nine tests, zero skips
 The preceding broad quick gate passed root 1255, library 2536 (five skipped),
 eval 238 and documentation 76 tests, but failed on the original sidebar test.
 It is not a green full gate. A separate CLI suite passed all 356 tests.
-The complete local gate is rerun after the sidebar fix; its final verdict must
-be read together with its explicit skipped-check count.
+The complete local gate was rerun after the sidebar fix: exit zero, GREEN with
+six tests explicitly SKIPPED / NOT CHECKED. All L1-L5 executed checks passed;
+its single skip is the Python board suite absent from this repository. The five
+library skips are three unconfigured live Docker cases and the two opt-in live
+model cases already executed separately above. This broad run passed root 1255,
+library 2536, eval 238, docs 76, browser nine, CLI 356 and CLI package creation.
+The rendered-layout step passed eight checks without skips. No remote CI or
+live Docker build/export/release verdict is inferred from this local result.
 
 ## Limits
 
