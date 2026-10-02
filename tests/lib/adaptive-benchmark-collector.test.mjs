@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { newRun, runStage } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, runStage, runParallelWave } from '../../scripts/lib/codex-pipeline.mjs';
 import { preregisterBenchmark, scenarios } from '../../scripts/lib/adaptive-benchmark-protocol.mjs';
 import { benchmarkPolicySnapshot, bindBenchmarkTrial, collectBenchmarkObservation } from '../../scripts/lib/adaptive-benchmark-collector.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
@@ -15,17 +15,21 @@ import { beginWork } from '../../scripts/lib/work-tasks.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const roles = ['code-reviewer', 'qa-engineer', 'security-officer'];
 
-async function fixture(t, { execute = true } = {}) {
+async function fixture(t, { execute = true, parallel = false } = {}) {
   const base = realpathSync(mkdtempSync(join(tmpdir(), 'benchmark-collector-')));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const root = join(base, 'worker'), outside = join(base, 'operator'), pluginRoot = join(base, 'plugin');
   mkdirSync(root); mkdirSync(outside, { mode: 0o700 }); mkdirSync(join(pluginRoot, 'shared'), { recursive: true });
-  const graph = roles.map((r, i) => `[transitions.${r}]\non=["PASS"]\nproduces=["report"]\nnext=${JSON.stringify(roles[i + 1] ? [roles[i + 1]] : [])}\n`).join('\n');
+  const graph = roles.map((r, i) => `[transitions.${r}]\non=["PASS"]\nproduces=["report"]\n`
+    + (parallel && i < 2 ? `join=${JSON.stringify([roles[1 - i]])}\nnext=["security-officer"]\n`
+      : `next=${JSON.stringify(roles[i + 1] ? [roles[i + 1]] : [])}\n`)).join('\n');
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), graph);
   writeFileSync(join(root, '.gitignore'), '.great_cto/\n');
   execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
   execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'fixture']);
-  const state = newRun({ root, pluginRoot, entry: roles[0], allowed: ['docs'], prompt: scenarios[0].task });
+  const state = newRun({ root, pluginRoot, entry: roles[0], allowed: ['docs'], prompt: scenarios[0].task,
+    hostRoutes: parallel ? { 'qa-engineer': 'claude-code' } : {} });
+  if (parallel) state.queue.push('qa-engineer');
   state.acceptance = scenarios[0].checks;
   const packageBytes = Buffer.from('adaptive package fixture, not a released artifact');
   const scorerBytes = Buffer.from('unit scorer fixture, not a representative hidden harness');
@@ -41,7 +45,11 @@ async function fixture(t, { execute = true } = {}) {
     artifactFile: join(outside, 'package.tgz'), scorerFile: join(outside, 'scorer.mjs'), scoreFile: join(outside, 'score.json') };
   const put = (file, value) => writeFileSync(file, typeof value === 'string' || Buffer.isBuffer(value) ? value : JSON.stringify(value), { mode: 0o600 });
   put(options.registrationFile, registration); put(options.artifactFile, packageBytes); put(options.scorerFile, scorerBytes);
-  if (execute) for (const role of roles) await runStage(state, {
+  const runner = role => async () => ({ state: 'ok', code: 0, errors: [], finalText: JSON.stringify({ verdict: 'PASS', summary: 'fixture only',
+    meta: { report: `docs/${role}.md` }, files: [{ path: `docs/${role}.md`, before: null, content: 'fixture report' }] }) });
+  const verifier = async () => ({ state: 'verified', checks: ['fixture verification callback'], findings: [] });
+  if (execute && parallel) await runParallelWave(state, { runners: { codex: runner('code-reviewer'), 'claude-code': runner('qa-engineer') }, verify: verifier });
+  if (execute) for (const role of (parallel ? ['security-officer'] : roles)) await runStage(state, {
     execute: async () => ({ state: 'ok', code: 0, errors: [], finalText: JSON.stringify({ verdict: 'PASS', summary: 'fixture only',
       meta: { report: `docs/${role}.md` }, files: [{ path: `docs/${role}.md`, before: null, content: 'fixture report' }] }) }),
     verify: async () => ({ state: 'verified', checks: ['fixture verification callback'], findings: [] }) });
@@ -67,6 +75,44 @@ test('actual fixture controller collects bound dispatches and explicit score, wi
   assert.equal(row.evidence.executionArtifactProvenanceVerified, false);
   assert.deepEqual(readFileSync(f.options.stateFile), before);
   assert.ok(!JSON.stringify(row).includes(scenarios[0].task), 'does not expose prompt or score criterion payload');
+});
+
+test('assessed score rejects missing, forged or incomplete required-role dispatch evidence', async t => {
+  const mutations = [
+    s => { s.dispatchEvidence.records = s.dispatchEvidence.records.filter(r => r.id !== `${s.results['code-reviewer'].attemptId}:worker`); },
+    s => { s.dispatchEvidence.records[0].role = 'other-role'; },
+    s => { s.dispatchEvidence.records[0].host = 'claude-code'; },
+    s => { s.dispatchEvidence.records[0].outcome = 'threw'; },
+    s => { s.dispatchEvidence.records[1].role = 'code-reviewer'; },
+    s => { s.dispatchEvidence.records[1].host = 'claude-code'; },
+    s => { s.dispatchEvidence.records.push(structuredClone(s.dispatchEvidence.records[0])); },
+    s => { s.dispatchEvidence.completeHistory = false; },
+    s => { s.dispatchEvidence.records[0].finishedAt = '2099-01-01T00:00:00Z'; },
+    s => { s.attempts[0].inputReceipt = null; },
+    s => { s.attempts[0].inputReceipt.truncated = true; },
+    s => { s.results['code-reviewer'].receipt = null; },
+    s => { s.attempts.splice(1, 0, structuredClone(s.attempts[0])); },
+    s => { s.attempts[0].reuse = {}; },
+  ];
+  const f = await fixture(t), original = structuredClone(f.state);
+  for (const mutate of mutations) {
+    Object.keys(f.state).forEach(key => delete f.state[key]); Object.assign(f.state, structuredClone(original));
+    mutate(f.state); f.save(); assert.throws(() => collectBenchmarkObservation(f.options), /benchmark review dispatch/);
+  }
+});
+
+test('actual mixed-host wave is assessed only through persisted wave worker links', async t => {
+  const f = await fixture(t, { parallel: true }), row = collectBenchmarkObservation(f.options);
+  assert.equal(row.status, 'completed'); assert.equal(row.workerCalls, 3); assert.equal(row.verifierCalls, 3);
+  assert.equal(row.evidence.graphFloorCoverageVerified, false); assert.equal(row.evidence.benchmarkEligible, false);
+  const attempt = f.state.attempts.find(a => a.role === 'qa-engineer');
+  assert.equal(attempt.workerCallId, `${f.state.waveHistory[0].id}:qa-engineer`);
+  for (const mutate of [s => { delete s.attempts[1].workerCallId; }, s => { s.waveHistory[0].status = 'discarded'; },
+    s => { s.waveHistory[0].hosts['qa-engineer'] = 'codex'; }, s => { s.attempts[1].workerCallId = s.attempts[0].workerCallId; }]) {
+    const original = structuredClone(f.state); mutate(f.state); f.save();
+    assert.throws(() => collectBenchmarkObservation(f.options), /benchmark review dispatch/);
+    Object.keys(f.state).forEach(key => delete f.state[key]); Object.assign(f.state, original);
+  }
 });
 
 test('independently assessed acceptance failure is completed false, not a failed launch', async t => {

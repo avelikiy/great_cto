@@ -9,6 +9,7 @@ import { newRun, runStage, runParallelWave, approve, advance } from '../../scrip
 import { assertSpecialistEpoch } from '../../scripts/lib/controlled-specialists.mjs';
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
 import { REVIEWERS_BY_ARCHETYPE, PACK_REVIEWERS, COMPLIANCE_REVIEWERS } from '../../scripts/lib/required-reviewers.mjs';
+import { assertBenchmarkReviewDispatches } from '../../scripts/lib/benchmark-review-dispatch.mjs';
 
 function fixture(t, archetype = 'fintech', policy = true) {
   const root = mkdtempSync(join(tmpdir(), 'controlled-specialists-'));
@@ -95,6 +96,11 @@ test('operator-pinned scoped report skips only domain worker; fresh verifier and
   assert.equal(f.next.results[f.role].reuse.runId, f.state.id);
   assert.equal(f.next.results[f.role].scopedReview, undefined, 'reused result cannot mint recursive reuse');
   assert.notEqual(f.next.results[f.role].digest, f.state.results[f.role].digest);
+  assert.equal(assertBenchmarkReviewDispatches(f.next, [f.role]).providerExecutionVerified, false);
+  const corrupt = structuredClone(f.next);
+  delete corrupt.attempts.at(-1).verification.dependencyAttestation;
+  corrupt.results[f.role].verification = corrupt.attempts.at(-1).verification;
+  assert.throws(() => assertBenchmarkReviewDispatches(corrupt, [f.role]), /reuse lacks fresh scoped attestation/);
   assert.equal(f.next.pending, null, 'unrun regulated reviewer still blocks gate');
   await review(f.next);
   assert.equal(f.next.status, 'awaiting-gate'); assert.ok(f.next.pending.gates.includes('gate:ship'));

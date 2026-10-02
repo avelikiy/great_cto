@@ -7,6 +7,7 @@ import { dispatchEvidenceSummary } from './controller-dispatch-evidence.mjs';
 import { treeReceipt } from './receipt.mjs';
 import { scorerAuthority, verifyScorerReport } from './benchmark-scorer-signature.mjs';
 import { baselineInputDigest, readPinnedScorerOracle } from './pinned-benchmark-scorer.mjs';
+import { assertBenchmarkReviewDispatches } from './benchmark-review-dispatch.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = value => hash(JSON.stringify(value));
@@ -122,6 +123,7 @@ function assertScorable(state, registration, receipt) {
   for (const approval of state.approvals) {
     if (state.results[approval.role]?.digest !== approval.result) throw Error('approval refers to stale result');
   }
+  assertBenchmarkReviewDispatches(state, [...required]);
 }
 
 /** Shared read-only pre/post execution context; not proof of executing this package. */

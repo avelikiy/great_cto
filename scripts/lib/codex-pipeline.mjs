@@ -532,6 +532,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
   const attempt = { id: randomUUID(), role, number: state.attempts.filter(a => a.role === role).length + 1,
     host: roleHost(state, role), status: 'running', phase: 'worker', startedAt: new Date().toISOString(),
     inputReceipt: stageReceipt(state, prepared ? prepared.receipt : treeReceipt(state.root), 'stage input') };
+  if (prepared?.callId) attempt.workerCallId = prepared.callId;
   if (attempt.number > (state.maxAttempts ?? 1)) throw Error('stage attempt limit reached');
   state.attempts.push(attempt);
   state.active = role; state.steps++; save(state);
@@ -854,7 +855,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
       save(state); return state;
     }
     await runStage(state, { prepared: { response: state.wave.responses[role], receipt: state.wave.receipt,
-      context: state.wave.context }, runners, verify, checks, save, contextStore });
+      context: state.wave.context, callId: `${state.wave.id}:${role}` }, runners, verify, checks, save, contextStore });
     if (!state.results[role]) { state.wave.status = 'discarded'; break; } // Other snapshot is invalid.
   }
   const completed = state.wave.roles.every(role => state.results[role]);
