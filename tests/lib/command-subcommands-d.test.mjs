@@ -47,21 +47,16 @@ test('start.md carries the audit path as its own section', () => {
   assert.match(audit, /Write \.great_cto\/PROJECT\.md/);
 });
 
-test('start.md routes an existing codebase without PROJECT.md to the audit path', () => {
+test('start.md routes configured tasks directly and unconfigured code to audit without resetting policy', () => {
   const start = read('commands/start.md');
-  const route = section(start, 'Route: new project, or existing codebase → audit path');
-  // The route runs before the existing-project guard, or `/start audit` on a
-  // configured project would be stopped by it.
-  assert.ok(start.indexOf('## Route: new project') < start.indexOf('## Guard: existing project'),
-    'route precedes the existing-project guard');
-  assert.match(route, /EXISTING_CODE=/, 'detects existing code');
-  assert.match(route, /\.great_cto\/PROJECT\.md/, 'checks for great_cto config');
-  assert.match(route, /`CONFIGURED=false` and `EXISTING_CODE=true`[^\n]*\*\*Audit path\*\*/,
-    'no config + existing code → audit path');
-  assert.match(route, /First word of the argument is `audit`[^\n]*\*\*Audit path\*\*/,
-    '`/start audit` → audit path');
-  assert.match(route, /Anything else \| \*\*New-project setup\*\*/, 'otherwise new-project setup');
-  assert.match(route, /Do NOT run the guards or Steps 0–6/, 'audit path skips new-project setup');
+  const route = section(start, 'Resolve the target and current project');
+  assert.match(route, /Explicit audit request[^\n]*\/start audit/);
+  assert.match(route, /Existing configured project[\s\S]*preserve PROJECT\.md/);
+  assert.match(route, /Do not run the new-project setup steps/);
+  assert.match(route, /Existing code without configuration[\s\S]*audit\/bootstrap path/);
+  assert.match(route, /Empty\/new project[\s\S]*discovery and setup/);
+  assert.ok(!start.includes('If EXISTS → stop'), 'configured tasks must not hit the old command menu');
+  assert.match(start, /create if absent; preserve configured approval policy/);
 });
 
 test('start.md description leads with when + what you get, and hints at audit', () => {

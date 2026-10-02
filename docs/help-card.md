@@ -44,3 +44,7 @@ Docs: https://github.com/avelikiy/great_cto
 | `/tax-review` `/upl-check` `/aedt-bias-audit` `/api-contract-review` `/close-review` `/coding-audit` `/msp-review` `/procurement-review` `/voice-compliance` | `/review --domain tax` · `legal` · `hr-ai` · `api` · `accounting` · `rcm` · `msp` · `procurement` · `voice` |
 | `/review trace <id>` | `/trace <id>` |
 
+
+## Board
+
+`great-cto board` → http://localhost:3141

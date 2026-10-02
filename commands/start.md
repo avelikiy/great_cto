@@ -1,6 +1,6 @@
 ---
-description: "Describe a task: build, fix, investigate, or start a product. Routes new and existing projects automatically."
-argument-hint: "[free-form task or project description]"
+description: "Have an idea or an existing codebase? Describe a task: build, fix, investigate, or start a product. Configured tasks route directly; /start audit maps existing code."
+argument-hint: "[task or project description] | audit [eval | lint | focus area]"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent
 model: sonnet

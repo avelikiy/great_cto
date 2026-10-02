@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { runDaily } from '../dist/run.js';
 
 const id = '11111111-1111-4111-8111-111111111111';
@@ -144,7 +145,8 @@ test('CLI integration: project-scoped status reads real controller state', () =>
   try {
     const project = join(dir, 'project'), unrelated = join(dir, 'unrelated'), store = join(dir, 'runs');
     for (const path of [project, unrelated, store]) mkdirSync(path);
-    writeFileSync(join(store, `${id}.json`), JSON.stringify({ version: 1, id, root: project, status: 'awaiting-gate', pending: { gates: ['gate:arch'], token: 'never-print' }, results: {} }));
+    const privateToken = randomUUID();
+    writeFileSync(join(store, `${id}.json`), JSON.stringify({ version: 1, id, root: project, status: 'awaiting-gate', pending: { gates: ['gate:arch'], token: privateToken }, results: {} }));
     writeFileSync(join(store, `${other}.json`), JSON.stringify({ version: 1, id: other, root: unrelated, status: 'ready', results: {} }));
     const result = spawnSync(process.execPath, ['index.mjs', 'status', '--host', 'codex', '--dir', project, '--json'], {
       encoding: 'utf8', env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, DO_NOT_TRACK: '1' },
@@ -152,6 +154,6 @@ test('CLI integration: project-scoped status reads real controller state', () =>
     assert.equal(result.status, 0, result.stderr);
     const body = JSON.parse(result.stdout);
     assert.deepEqual(body.runs.map(r => r.id), [id]);
-    assert.ok(!result.stdout.includes('never-print'));
+    assert.ok(!result.stdout.includes(privateToken));
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
