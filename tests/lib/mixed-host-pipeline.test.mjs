@@ -8,6 +8,7 @@ import { newRun, parallelPair, runParallelWave, runStage, approve } from '../../
 import { detectClaude, parseClaudeResult } from '../../scripts/lib/claude-exec.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 import { readExecutionBudget, budgetSnapshot, requireAgents, releaseAgent } from '../../scripts/lib/agent-execution-budget.mjs';
+import { dispatchEvidenceSummary } from '../../scripts/lib/controller-dispatch-evidence.mjs';
 
 const graph = `[transitions.qa]\non=["PASS"]\nproduces=["report"]\njoin=["security"]\ngate="gate:qa"\nnext=[]\n` +
   `[transitions.security]\non=["APPROVED"]\nproduces=["report"]\njoin=["qa"]\ngate="gate:security"\nnext=[]`;
@@ -49,6 +50,9 @@ test('budgeted mixed wave shares two slots and charges workers plus separate ver
   assert.equal(state.status, 'awaiting-gate');
   assert.equal(budgetSnapshot(state.executionBudget).calls, 4);
   assert.equal(budgetSnapshot(state.executionBudget).active.length, 0);
+  assert.equal(dispatchEvidenceSummary(state).workerCalls, 2);
+  assert.equal(dispatchEvidenceSummary(state).verifierCalls, 2);
+  assert.equal(state.dispatchEvidence.records.length, 4, 'prepared workers are not counted twice');
 });
 
 test('another host holding one slot prevents partial mixed-wave dispatch', async t => {
@@ -57,6 +61,7 @@ test('another host holding one slot prevents partial mixed-wave dispatch', async
   let calls = 0;
   await assert.rejects(runParallelWave(state, { runners: { codex: async () => { calls++; }, 'claude-code': async () => { calls++; } }, verify }), /concurrency/);
   assert.equal(calls, 0); assert.equal(state.wave, undefined);
+  assert.equal(state.dispatchEvidence.records.length, 0, 'refused admission is not an invocation');
   assert.equal(budgetSnapshot(state.executionBudget).calls, 1);
   releaseAgent(state.executionBudget, other);
 });
@@ -168,6 +173,7 @@ test('invalid second-role contract blocks before the first proposal is applied',
 
 test('persisted fetched wave resumes without invoking either host again', async t => {
   const state = fixture(t);
+  delete state.dispatchEvidence; // Saved legacy run has no invocation telemetry.
   // The controller has already received both model results, then crashed before
   // applying. The saved responses are the only authority for resume.
   state.wave = { id: 'saved', roles: ['qa', 'security'], status: 'fetched', receipt: treeReceipt(state.root),
@@ -179,6 +185,28 @@ test('persisted fetched wave resumes without invoking either host again', async 
   assert.equal(restored.status, 'awaiting-gate');
   assert.equal(restored.wave, null);
   assert.equal(restored.waveHistory[0].id, 'saved');
+  assert.equal(restored.dispatchEvidence.records.length, 2, 'only fresh verifiers are observed');
+  assert.ok(restored.dispatchEvidence.records.every(r => r.kind === 'verifier'));
+  assert.equal(dispatchEvidenceSummary(restored).workerCalls, null, 'legacy worker history is unknown');
+});
+
+test('current fetched wave retains observed workers and adds verifiers once after resume', async t => {
+  const state = fixture(t); let fetched;
+  await runParallelWave(state, { runners: { 'claude-code': async () => reply('qa'), codex: async () => reply('security') },
+    verify: async () => assert.fail('must interrupt before verification'), save: s => {
+      if (s.wave?.status === 'fetched') { fetched = structuredClone(s); throw Error('simulated interruption after fetched snapshot'); }
+    } });
+  assert.equal(state.status, 'blocked');
+  assert.equal(existsSync(join(state.root, 'docs/qa.md')), false);
+  assert.equal(dispatchEvidenceSummary(fetched).workerCalls, 2);
+  const ids = fetched.dispatchEvidence.records.map(r => r.id);
+  await runParallelWave(fetched, { runners: { codex: async () => assert.fail('duplicate worker'),
+    'claude-code': async () => assert.fail('duplicate worker') }, verify });
+  assert.equal(fetched.status, 'awaiting-gate');
+  assert.equal(dispatchEvidenceSummary(fetched).workerCalls, 2);
+  assert.equal(dispatchEvidenceSummary(fetched).verifierCalls, 2);
+  assert.deepEqual(fetched.dispatchEvidence.records.slice(0, 2).map(r => r.id), ids);
+  assert.equal(fetched.approvals.length, 0);
 });
 
 test('resume after first verified role applies only the retained second response', async t => {

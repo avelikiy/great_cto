@@ -7,6 +7,7 @@ import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
 import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
 import { detectClaude } from './lib/claude-exec.mjs';
+import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
@@ -142,6 +143,7 @@ try {
     }
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
+    controllerDispatch: dispatchEvidenceSummary(state),
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
       artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
       activation: state.release.activation, rollback: state.release.rollback } : null,

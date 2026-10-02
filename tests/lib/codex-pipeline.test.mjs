@@ -130,6 +130,9 @@ test('verifier rework survives serialization, carries findings and opens gate on
   assert.deepEqual(s.attempts.map(a => a.status), ['rework', 'verified']);
   assert.notEqual(s.attempts[0].id, s.attempts[1].id);
   assert.equal(s.results.writer.attemptId, s.attempts[1].id);
+  assert.equal(s.dispatchEvidence.records.length, 4, 'rework includes both worker and verifier attempts');
+  assert.equal(new Set(s.dispatchEvidence.records.map(r => r.id)).size, 4);
+  assert.deepEqual(s.dispatchEvidence.records.map(r => r.kind), ['worker', 'verifier', 'worker', 'verifier']);
 });
 
 test('bounded rework cannot dispatch forever or approve failed output', async t => {

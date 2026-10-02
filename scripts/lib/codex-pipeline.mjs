@@ -17,6 +17,7 @@ import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.
 import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent } from './agent-execution-budget.mjs';
 import { validateSpecialistPolicy, assertSpecialistEpoch, schedulePreparation, scheduleSpecialists, specialistRole, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
 import { scopedReviewInput, scopedReviewCandidate, attestScopedReview, completeScopeAttestation } from './scoped-review-reuse.mjs';
+import { observeControllerCall } from './controller-dispatch-evidence.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -238,7 +239,7 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
   if (!graph[entry] || entry.includes('.')) throw Error(`unknown entry role: ${entry}`);
   const state = { version: 1, id: randomUUID(), root, prompt, intent, allowed, pluginRoot, graph, graphHash: hash(graphText),
     queue: [entry], results: {}, released: [], pending: null, approvals: [], active: null, status: 'ready', writes: {}, steps: 0,
-    attempts: [], maxAttempts, rework: null, hostRoutes: {},
+    attempts: [], maxAttempts, rework: null, hostRoutes: {}, dispatchEvidence: { version: 1, completeHistory: true, records: [] },
     releasePolicy: releasePolicy ? validateReleasePolicy(releasePolicy, root) : null,
     checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null,
     gatePolicy: gatePolicy ? validateRuntimePolicy(root, gatePolicy) : null,
@@ -559,9 +560,9 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     if (!prepared && typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
     const response = prepared ? prepared.response : reused || await withAgentBudget(state, { callId: `${attempt.id}:worker`, host: roleHost(state, role), role }, async () => {
       stageStarted = true; emit(state, { kind: 'agent-start', agent });
-      return runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
+      return observeControllerCall(state, { id: `${attempt.id}:worker`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-      timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) });
+      timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) }), save);
     });
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
@@ -633,7 +634,9 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     attempt.phase = 'verifying'; save(state);
     let verification = attempt.checks && attempt.checks.state !== 'passed'
       ? { state: attempt.checks.state === 'failed' ? 'rework' : 'unverifiable', findings: [`Required checks ${attempt.checks.state}: ${JSON.stringify(checkSummary(attempt.checks))}`], checks: ['controller executed mandatory checks'] }
-      : await withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier' }, () => verify(state, role, proposal, execute || runCodexExec));
+      : await withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier' }, () =>
+        observeControllerCall(state, { id: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier', kind: 'verifier' },
+          () => verify(state, role, proposal, execute || runCodexExec), save));
     if (!['verified', 'rework', 'unverifiable'].includes(verification?.state) || !Array.isArray(verification.findings) ||
         !Array.isArray(verification.checks) || !verification.checks.length) throw Error('invalid or empty verifier evidence');
     assertArtifacts(state);
@@ -763,10 +766,10 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
       try {
         const runner = hostRunner(state, role, runners);
         if (typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
-        const result = await runner({ prompt: workerHead(state, role) + context.text, cwd: state.root,
+        const result = await observeControllerCall(state, { id: `${waveId}:${role}`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: workerHead(state, role) + context.text, cwd: state.root,
           sandbox: 'read-only', ephemeral: true, timeoutMs: 300000,
           bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-          extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) });
+          extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) }), save);
         ok = true;
         return result;
       } finally {

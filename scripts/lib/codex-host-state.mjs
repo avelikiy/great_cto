@@ -5,6 +5,7 @@ import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { detectCodex } from './codex-exec.mjs';
 import { detectClaude } from './claude-exec.mjs';
+import { dispatchEvidenceSummary } from './controller-dispatch-evidence.mjs';
 
 export const codexRunStore = ({ home = homedir(), env = process.env } = {}) =>
   env.GREAT_CTO_CODEX_RUNS_DIR || join(home, '.great_cto', 'codex-runs');
@@ -19,6 +20,7 @@ export function projectCodexState(state) {
     active: state.active,
     queue: state.queue || [],
     hostRoutes: state.hostRoutes || {},
+    controllerDispatch: dispatchEvidenceSummary(state),
     wave: state.wave ? { id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results || {}),
     attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt }) =>

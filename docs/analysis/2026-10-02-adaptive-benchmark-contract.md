@@ -63,7 +63,10 @@ No models were called, gates approved or trial results generated. Claude auth
 still reports loggedIn:false, so no live comparative measurement was attempted.
 
 Representative fixtures, hidden scorer, graph-floor validation and attested
-controller observation collection remain required. Then execute the matched
+controller observation collection remain required. The first
+[controller invocation telemetry](2026-10-02-controller-dispatch-evidence.md)
+records actual callback attempts and union elapsed intervals; it does not attest
+provider requests, billing or independently scored outcomes. Then execute the matched
 experiment and calculate task-cluster uncertainty with explicit failures/missing
 costs. Parent benchmark remains open and depends on scoped/native validation.
 The protocol is an implementation increment, not completion of those requirements.

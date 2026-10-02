@@ -66,11 +66,13 @@ async function scopedPrior(t) {
 
 test('operator-pinned scoped report skips only domain worker; fresh verifier and current gate quorum remain', async t => {
   const f = await scopedPrior(t); let workers = 0, verifiers = 0;
+  const before = f.next.dispatchEvidence.records.length;
   await runStage(f.next, { execute: async () => { workers++; throw Error('domain worker must not launch'); },
     verify: async state => { verifiers++; return { state: 'verified', findings: [], checks: ['read current source and copied actual report'],
       dependencyAttestation: { state: 'complete', inputDigest: state.attempts.at(-1).scopedInput.digest,
         checks: ['fresh dependency closure and current task inspection'] } }; } });
   assert.equal(workers, 0); assert.equal(verifiers, 1);
+  assert.deepEqual(f.next.dispatchEvidence.records.slice(before).map(r => r.kind), ['verifier']);
   assert.equal(f.next.results[f.role].reuse.runId, f.state.id);
   assert.equal(f.next.results[f.role].scopedReview, undefined, 'reused result cannot mint recursive reuse');
   assert.notEqual(f.next.results[f.role].digest, f.state.results[f.role].digest);
