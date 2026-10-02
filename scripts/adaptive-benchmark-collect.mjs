@@ -2,7 +2,7 @@
 import { collectBenchmarkObservation } from './lib/adaptive-benchmark-collector.mjs';
 
 const flags = { '--registration': 'registrationFile', '--state': 'stateFile', '--state-sha256': 'stateSha256',
-  '--artifact': 'artifactFile', '--scorer': 'scorerFile', '--score': 'scoreFile', '--score-sha256': 'scoreSha256' };
+  '--artifact': 'artifactFile', '--scorer': 'scorerFile', '--oracle': 'oracleFile', '--score': 'scoreFile', '--score-sha256': 'scoreSha256' };
 try {
   const args = process.argv.slice(2), options = {};
   for (let i = 0; i < args.length; i += 2) {

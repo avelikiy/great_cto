@@ -9,7 +9,7 @@ import { scenarios } from './adaptive-benchmark-protocol.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
-function baselineInputDigest(root, names) {
+export function baselineInputDigest(root, names) {
   const inputs = names.map(name => {
     const path = resolve(root, name);
     try {
@@ -42,12 +42,9 @@ function pinnedExternal(root, file, pin) {
   } finally { closeSync(fd); }
 }
 
-export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracleFile, oracleSha256,
-  expectedReceipt, timeoutMs = 10000 }) {
-  const candidate = realpathSync(root);
-  if (candidate !== resolve(root) || !hex(scorerSha256) || !hex(oracleSha256)
-    || !Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30000) throw Error('invalid pinned scorer invocation');
-  const code = pinnedExternal(candidate, scorerFile, scorerSha256), oracleBytes = pinnedExternal(candidate, oracleFile, oracleSha256);
+export function readPinnedScorerOracle(root, oracleFile, oracleSha256) {
+  if (!hex(oracleSha256)) throw Error('invalid scorer oracle pin');
+  const oracleBytes = pinnedExternal(root, oracleFile, oracleSha256);
   let oracle;
   try { oracle = JSON.parse(oracleBytes); } catch { throw Error('invalid private scorer oracle JSON'); }
   const scenario = scenarios.find(s => s.id === oracle?.scenario);
@@ -55,6 +52,17 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
   const names = Object.keys(oracle.baseline || {}).sort();
   if (!names.length || names.length > 200 || names.some(name => !hex(oracle.baseline[name])
     || isAbsolute(name) || name.includes('\\') || name.split('/').some(part => !part || part === '.' || part === '..'))) throw Error('scorer oracle baseline inventory invalid');
+  return oracle;
+}
+
+export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracleFile, oracleSha256,
+  expectedReceipt, timeoutMs = 10000 }) {
+  const candidate = realpathSync(root);
+  if (candidate !== resolve(root) || !hex(scorerSha256) || !hex(oracleSha256)
+    || !Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30000) throw Error('invalid pinned scorer invocation');
+  const code = pinnedExternal(candidate, scorerFile, scorerSha256);
+  const oracle = readPinnedScorerOracle(candidate, oracleFile, oracleSha256);
+  const scenario = scenarios.find(s => s.id === oracle.scenario), names = Object.keys(oracle.baseline).sort();
   const before = treeReceipt(candidate);
   if (!expectedReceipt || expectedReceipt.truncated || !before || !same(before, expectedReceipt)) throw Error('candidate receipt differs before scoring');
   const candidateInputDigest = baselineInputDigest(candidate, names);

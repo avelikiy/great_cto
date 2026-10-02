@@ -5,6 +5,8 @@ import { createHash } from 'node:crypto';
 import { describeMatchedObservations } from './adaptive-benchmark-protocol.mjs';
 import { dispatchEvidenceSummary } from './controller-dispatch-evidence.mjs';
 import { treeReceipt } from './receipt.mjs';
+import { scorerAuthority, verifyScorerReport } from './benchmark-scorer-signature.mjs';
+import { baselineInputDigest, readPinnedScorerOracle } from './pinned-benchmark-scorer.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const digest = value => hash(JSON.stringify(value));
@@ -36,6 +38,7 @@ function registrationIdentity(registration) {
     || new Set(registration.requiredRoles).size !== registration.requiredRoles.length
     || mandatory.some(r => !registration.requiredRoles.includes(r))) throw Error('invalid benchmark trial registration or mandatory roles');
   const scenario = protocol.scenarios.find(s => s.id === block.task);
+  scorerAuthority(registration.scorer);
   return { registrationDigest: digest(registration), protocolDigest: protocol.digest,
     task: block.task, repetition: block.repetition, arm: trial.arm,
     specificationDigest: block.specificationDigest, acceptanceDigest: block.acceptanceDigest,
@@ -52,7 +55,7 @@ export function bindBenchmarkTrial(state, registration) {
   if (state.prompt !== identity.scenario.task || !same(state.acceptance, identity.scenario.checks)
     || digest(benchmarkPolicySnapshot(state)) !== identity.policyDigest) throw Error('benchmark task, criteria or policy differs from registration');
   const initialReceipt = treeReceipt(state.root);
-  if (!initialReceipt) throw Error('benchmark requires a readable initial Git receipt');
+  if (!initialReceipt || initialReceipt.truncated) throw Error('benchmark requires a readable complete initial Git receipt');
   state.benchmarkBinding = structuredClone({ ...identity, initialReceipt });
   return state.benchmarkBinding;
 }
@@ -82,6 +85,7 @@ function externalFile(root, file, options) {
   outside(root, file);
   return boundedFile(file, options);
 }
+export function privateBenchmarkEvidence(root, file) { return externalFile(root, file); }
 
 export function readBenchmarkRegistration(root, file) {
   const evidence = externalFile(realpathSync(root), file);
@@ -101,7 +105,7 @@ function assertArtifacts(state) {
 
 function assertScorable(state, registration, receipt) {
   if (state.status !== 'done' || state.active || state.pending || state.wave || state.rework || state.queue.length
-    || state.releasePolicy || !receipt || !state.attempts.length || !same(state.attempts.at(-1).receipt, receipt)) throw Error('controller is not settled on the scored receipt');
+    || state.releasePolicy || !receipt || receipt.truncated || !state.attempts.length || !same(state.attempts.at(-1).receipt, receipt)) throw Error('controller is not settled on the scored receipt');
   assertArtifacts(state);
   if (state.dispatchEvidence?.records.some(r => !r || r.outcome === 'intent' || !r.finishedAt)) throw Error('unfinished controller invocation cannot be assessed as settled');
   const required = new Set(registration.requiredRoles);
@@ -120,10 +124,10 @@ function assertScorable(state, registration, receipt) {
   }
 }
 
-/** Binds raw state bytes, package bytes and pinned scorer code to the supplied report. */
-export function collectBenchmarkObservation({ registrationFile, stateFile, stateSha256, artifactFile,
-  scorerFile, scoreFile = null, scoreSha256 = null }) {
-  if (!hex(stateSha256) || (scoreFile && !hex(scoreSha256)) || (!scoreFile && scoreSha256)) throw Error('exact state/score byte pins required');
+/** Shared read-only pre/post execution context; not proof of executing this package. */
+export function benchmarkScoringContext({ registrationFile, stateFile, stateSha256, artifactFile,
+  scorerFile, oracleFile = null }, { settled = false } = {}) {
+  if (!hex(stateSha256)) throw Error('exact state byte pin required');
   // Root is not trusted until the bounded private state has been parsed and checked.
   const evidence = boundedFile(stateFile, { maxBytes: 8 * 1024 * 1024 });
   if (evidence.sha256 !== stateSha256) throw Error('controller state byte pin mismatch');
@@ -138,14 +142,38 @@ export function collectBenchmarkObservation({ registrationFile, stateFile, state
   const artifact = externalFile(root, artifactFile, { privateFile: false, maxBytes: 100 * 1024 * 1024 });
   const scorer = externalFile(root, scorerFile, { privateFile: false, maxBytes: 1024 * 1024 });
   if (artifact.sha256 !== identity.artifact.artifactSha256 || scorer.sha256 !== identity.scorer.sha256) throw Error('package or scorer code pin mismatch');
-  const telemetry = dispatchEvidenceSummary(state), receipt = treeReceipt(root);
+  const receipt = treeReceipt(root);
+  let oracle = null;
+  if (identity.scorer.authority) {
+    if (!oracleFile) throw Error('registered signed scorer requires pinned oracle evidence');
+    oracle = readPinnedScorerOracle(root, oracleFile, identity.scorer.oracleSha256);
+    if (oracle.scenario !== identity.task) throw Error('scorer oracle task differs from registered trial');
+  }
+  if (settled) assertScorable(state, registration, receipt);
+  return { state, root, registration, identity, artifact, scorer, receipt, oracle };
+}
+
+/** Binds raw state bytes, package bytes and pinned scorer code to the supplied report. */
+export function collectBenchmarkObservation(options) {
+  const { stateSha256, scoreFile = null, scoreSha256 = null } = options;
+  if (!hex(stateSha256) || (scoreFile && !hex(scoreSha256)) || (!scoreFile && scoreSha256)) throw Error('exact state/score byte pins required');
+  const { state, root, registration, identity, artifact, scorer, receipt, oracle } = benchmarkScoringContext(options);
+  const telemetry = dispatchEvidenceSummary(state);
   let status = ['blocked', 'cancelled'].includes(state.status) ? (state.status === 'blocked' ? 'blocked' : 'failed') : 'unassessed';
-  let accepted = null, scoreDigest = null;
+  let accepted = null, scoreDigest = null, trustedScorerProcessSignatureVerified = false;
   if (scoreFile) {
     assertScorable(state, registration, receipt);
     const score = externalFile(root, scoreFile);
     if (score.sha256 !== scoreSha256) throw Error('score byte pin mismatch');
-    const report = document(score.raw, 'score');
+    let report = document(score.raw, 'score');
+    if (identity.scorer.authority) {
+      const payload = verifyScorerReport(report, identity.scorer);
+      if (payload.artifactSha256 !== artifact.sha256 || payload.scorerSha256 !== scorer.sha256
+        || payload.oracleSha256 !== identity.scorer.oracleSha256
+        || payload.candidateInputDigest !== baselineInputDigest(root, Object.keys(oracle.baseline).sort())) throw Error('signed scorer artifact/oracle/input binding mismatch');
+      report = { ...payload, version: 1, source: 'operator-attestation', scorer: identity.scorer };
+      trustedScorerProcessSignatureVerified = true;
+    }
     if (report.version !== 1 || report.source !== 'operator-attestation' || report.runId !== state.id
       || report.stateSha256 !== stateSha256 || report.registrationDigest !== identity.registrationDigest
       || !same(report.scorer, identity.scorer) || !same(report.receipt, receipt)
@@ -159,9 +187,12 @@ export function collectBenchmarkObservation({ registrationFile, stateFile, state
     acceptanceDigest: identity.acceptanceDigest, artifactSha256: artifact.sha256, status, accepted,
     activeMs: telemetry.activeMs, workerCalls: telemetry.workerCalls, verifierCalls: telemetry.verifierCalls,
     humanPauses: null, actionableFindings: null, escapedDefects: null, actualCostUsd: null,
-    evidence: { level: 'operator-pinned-controller-and-score-not-provider-attested', runId: state.id,
+    evidence: { level: trustedScorerProcessSignatureVerified
+      ? 'trusted-launcher-signed-scorer-and-pinned-controller-not-provider-attested'
+      : 'operator-pinned-controller-and-score-not-provider-attested', runId: state.id,
       controllerStatus: state.status, stateSha256, registrationDigest: identity.registrationDigest,
       scorerSha256: scorer.sha256, scoreSha256: scoreDigest, receipt,
+      trustedScorerProcessSignatureVerified,
       graphFloorCoverageVerified: false, executionArtifactProvenanceVerified: false,
       benchmarkEligible: false } };
   describeMatchedObservations(registration.protocol, [row]);
