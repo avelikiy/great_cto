@@ -74,6 +74,21 @@ skip, not modern Node skipped. Added modern TAP and final pipeline-shell summary
 parsing, including a real isolated Node runner regression. Skips remain unverified
 checks even when the shell exit code is zero.
 
+## Browser and regression evidence
+
+Chromium was installed locally to execute the existing board E2E suite instead
+of reporting nine browser skips. Its first real run passed eight tests and failed
+sidebar navigation: Fleet was inside a collapsed Tools section. The test now
+opens that section through a normal click, tests closing/reopening it with Enter,
+and retains the destination/content assertions. No forced hidden click or source
+UI change was used. The repeated browser suite passed all nine tests, zero skips.
+
+The preceding broad quick gate passed root 1255, library 2536 (five skipped),
+eval 238 and documentation 76 tests, but failed on the original sidebar test.
+It is not a green full gate. A separate CLI suite passed all 356 tests.
+The complete local gate is rerun after the sidebar fix; its final verdict must
+be read together with its explicit skipped-check count.
+
 ## Limits
 
 These live runs prove bounded mixed-host dispatch, independent verification,
