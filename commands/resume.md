@@ -188,7 +188,7 @@ From `DECISION-LOG.md` and latest ADR. If none: "No decisions logged yet."
 
 ### 🔓 Open gates
 
-List any verdicts with `status: open`. If none: "All gates clear."
+List any verdicts with `status: open`. If none: "No open gates found in these records." Absence of a record does not approve a required gate.
 
 ---
 
@@ -202,29 +202,25 @@ List any verdicts with `status: open`. If none: "All gates clear."
 
 ---
 
-### ▶️ Ready to continue
+### ▶️ Continue the task
 
-End with exactly one of:
+Re-check the existing resume note and Step 1b proofs before continuing. If the
+note is stale or a proof failed, use the current code and evidence to reassess
+the next step. A changed goal or scope requires clarification. If a clear next
+step is still valid and already authorized, briefly say:
 
-Read the goal and the first step back **before acting** — the CTO confirms them, you do not
-start on your own reading of the note:
-
-**If clear next step exists** (the note's `## Start here` step 1, or a ❌ from Step 1b, which comes first):
 ```
-Goal: <goal in one line>
-First step: <Start here step 1 — or "re-fix <item>: its proof failed">
-<if STALE: "The note is <N> commits behind — check the first step still applies.">
-Say "go" to start, or tell me what to work on first.
+Ready. Continuing from: <last pending item>.
 ```
 
-**If ambiguous:**
-```
-Ready. Last session ended without a clear next step.
-What would you like to tackle?
-  1. <most likely next thing based on context>
-  2. <second option>
-  3. Something else
-```
+Then execute that step. Do not ask for another "go". If a human decision is
+pending, show the choice, recommendation, consequences and reason it needs the
+user; wait under the existing approval policy. Do not infer approval from missing
+logs or from the request to resume.
+
+If there is no unambiguous next task, ask one concise question based on the
+snapshot. Do not offer a command or agent menu. Context restoration alone is not
+permission to reopen a cancelled task or publish to production.
 
 ## Step 3 — Save resume timestamp
 

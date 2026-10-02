@@ -20,6 +20,25 @@ That's it. The CLI detects your stack, picks the right archetype, clones the plu
 
 After install, restart Claude Code and run `/inbox` or `/audit`.
 
+## Everyday use (source version)
+
+```bash
+great-cto run "build, fix or investigate something"
+great-cto status
+great-cto resume
+```
+
+These launch interactive Claude Code through `/start`, `/inbox`, and `/resume`;
+the plugin must be loaded. `/start` handles existing projects without resetting
+their configuration. For the controlled Codex runtime use `--host codex` and,
+when starting, an explicit scope such as `--allow src,tests,docs`.
+`status --host codex --json` returns the sanitized project run listing.
+`resume --host codex` selects only one unfinished run in the target project;
+ambiguity requires a UUID. Pending gates, runtime locks and verifier checks remain
+in force. `--dir PATH` targets another project; `--dry-run` previews without agents.
+Advanced policies, recovery and approvals stay under `codex-host`.
+Published npm versions may not include these source additions yet.
+
 ## What the plugin gives you
 
 The CLI installs it; these are what it installs.

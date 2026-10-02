@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "telemetry" | "task" | "worker" | "codex-host" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "telemetry" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -137,12 +137,13 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "codex-host") { args.command = "codex-host"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "run" || a === "status" || a === "resume") { args.command = a; args.taskArgs = argv.slice(i + 1); break; }
     // Slash-commands surfaced as CLI subcommands so users get a clear hint
     // instead of a confusing usage error. These work only in the chat plugin.
     else if (
       a === "start" || a === "audit" || a === "inbox" || a === "digest" ||
       a === "review" || a === "doctor" || a === "burn" || a === "save" ||
-      a === "resume" || a === "learn" || a === "agent" ||
+      a === "learn" || a === "agent" ||
       a === "rfc" || a === "release" || a === "ownership" ||
       a === "sec" || a === "poc" || a === "crystallize" ||
       a === "migrate"
@@ -671,10 +672,34 @@ async function runUninstall(args: CliArgs): Promise<number> {
   return r.failed.length ? 1 : 0;
 }
 
-function printHelp(): void {
+function printHelp(advanced = false): void {
+  if (!advanced) {
+    log(`great-cto — describe the task, get a checked result
+
+Get started:
+  great-cto init
+
+Everyday use:
+  great-cto run "describe the task"
+  great-cto status
+  great-cto resume
+
+Default host: interactive Claude Code with the plugin loaded.
+For controlled Codex add --host codex; run also needs --allow src,tests,docs.
+Use --dir PATH to choose a project, --dry-run to preview, or run --help for options.
+Resume preserves pending decisions; it never approves them.
+
+Details:
+  great-cto board           Open the local dashboard
+  great-cto help --advanced All installation, runtime and operator commands`);
+    return;
+  }
   log(`${bold("great-cto")} — one-command install for the great_cto Claude Code plugin
 
 ${bold("Usage:")}
+  npx great-cto run "describe the task" [--host claude-code|codex] [--dir PATH]
+  npx great-cto status [RUN_UUID] [--host codex] [--json]
+  npx great-cto resume [RUN_UUID] [--host codex]
   npx great-cto install [options]    Same as init
   npx great-cto [init] [options]     Detect + bootstrap
   npx great-cto board [--port 3141] [--no-open]
@@ -1510,7 +1535,7 @@ async function main(): Promise<void> {
   }
 
   if (args.command === "help") {
-    printHelp();
+    printHelp(rawArgv.includes('--advanced'));
     await finish(0);
   }
   if (args.command === "unknown") {
@@ -1604,6 +1629,11 @@ async function main(): Promise<void> {
   if (args.command === "codex-host") {
     const { runCodexHost } = await import('./codex-host.js');
     await finish(runCodexHost(args.taskArgs ?? []));
+  }
+  if (args.command === "run" || args.command === "status" || args.command === "resume") {
+    const { runDaily } = await import('./run.js');
+    const dailyArgs = [...(args.host ? ['--host', args.host] : []), ...(args.taskArgs ?? [])];
+    await finish(runDaily(args.command, dailyArgs, { cwd: args.dir }));
   }
   if (args.command === "serve") {
     try {

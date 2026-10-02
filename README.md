@@ -93,15 +93,38 @@ Restart Claude Code, then:
 /start "build a dispatch & scheduling app for an HVAC business"
 ```
 
-A day with great_cto:
+`/start` accepts new products and tasks in existing projects. Describe a feature,
+fix or investigation; it selects the workflow and preserves the existing project
+configuration. Day to day you touch three things:
 
-| When | Command | What you get |
-|---|---|---|
-| You have an idea, or an existing codebase | `/start "…"` | a brief, a plan and working code — three decisions stay yours: what to build, how, and whether it ships |
-| You're done for now | `/save` | what was done, how each "done" was verified, what's next |
-| You come back | `/resume` | exactly where you left off — and a warning if the code moved since |
-| Something needs you | `/inbox` | only the decisions waiting on you: gates, blockers, P0s |
-| Friday | `/digest` | what shipped, what broke, what it cost per feature |
+| | |
+|---|---|
+| `/start "…"` | describe a product or feature — the pipeline runs it |
+| `/inbox` | what needs you: pending gates, P0s, blocked tasks |
+| `/resume` | continue the already-authorized next step; pending decisions still wait |
+
+The same daily entry points are available from the terminal in this source version:
+
+```bash
+great-cto run "add Google login"   # opens interactive Claude Code with /start
+great-cto status                   # opens /inbox
+great-cto resume                   # opens /resume
+```
+
+Claude Code must have the plugin loaded. For the controlled Codex runtime:
+
+```bash
+great-cto run "add Google login" --host codex --allow src,tests,docs
+great-cto status --host codex
+great-cto resume --host codex
+```
+
+Codex selection is scoped to the current project (`--dir PATH` overrides it).
+Resume selects the only unfinished run; if several exist, use its UUID from
+status. It never grants approval, expands write scope or recovers a failed stage
+implicitly. `--dry-run` previews a launch without starting an agent. The existing
+`codex-host` commands remain available for approvals, recovery and advanced policies.
+This source change is not yet an npm release; published versions may lack these entries.
 
 When you need it:
 
