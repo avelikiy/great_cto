@@ -56,3 +56,14 @@ completed benchmark result. No credentials are needed in public reports.
 Resume requires human Claude reauthentication (`claude auth login` in a terminal),
 then a fresh matched run of all arms. Do not stitch a refreshed Claude run onto
 this interrupted study and present it as one controlled experiment.
+
+## Subsequent evidence (separate studies)
+
+Claude reauthentication subsequently succeeded. A fresh full-corpus study
+completed seven of nine cycles, retaining two fail-closed Codex model-catalog
+timeout diagnostics. After connectivity recovery, both unmatched tasks were
+rerun as full three-arm blocks: six of six cycles and eighteen clean calls.
+All initial/final checks passed, with an observed quality difference of 0 pp
+and a corpus ceiling effect. Neither prior failure was replaced or suppressed.
+See [the complete connectivity recheck](2026-10-02-host-quality-recheck.md) for
+exact results, study lineage, retained report hashes and interpretation limits.
