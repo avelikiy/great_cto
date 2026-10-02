@@ -66,3 +66,15 @@ test('HTTP degraded store reports unreadable records instead of all clear', asyn
   assert.match(snapshot.sources.find(s => s.id === 'codex').reason, /could not be read/);
   assert.equal(snapshot.entries.some(e => e.runId === id), true);
 });
+
+test('shared tasks use explicit links, goal and host capabilities instead of duplicate run rows', () => {
+  const taskId = randomUUID();
+  const task = { taskId, host: 'codex', goal: 'Export authorized CSV', acceptance: ['Check row access'], phase: 'accepted',
+    revision: 4, updatedAt: '2026-10-02T00:00:00Z', links: { runs: [id], issues: [], sessions: [] }, operations: [], evidence: [], metrics: {} };
+  const snapshot = project([run()], [], { tasks: [task] });
+  assert.equal(snapshot.entries.length, 1);
+  assert.equal(snapshot.entries[0].taskId, taskId); assert.equal(snapshot.entries[0].title, task.goal);
+  assert.match(snapshot.entries[0].command, /--revision 4/);
+  task.operations = [{ state: 'running' }];
+  assert.equal(project([run()], [], { tasks: [task] }).entries[0].capabilities[0].enabled, false);
+});

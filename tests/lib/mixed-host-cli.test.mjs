@@ -62,7 +62,7 @@ test('CLI executes both host subprocesses concurrently and clears their gates', 
     entry: 'code-reviewer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' } });
   const file = join(store, `${state.id}.json`);
   writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
-  const env = { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_CODEX_BIN: codex,
+  const env = { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_CODEX_BIN: codex,
     GREAT_CTO_CLAUDE_BIN: claude, MIXED_HOST_MARKERS: markers, GREAT_CTO_DISABLE_EVENTS: '1' };
   const invoke = (expectedCode, command, ...rest) => {
     const result = spawnSync(process.execPath, [CONTROLLER, command, state.id, ...rest],

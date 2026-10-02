@@ -60,7 +60,7 @@ test('live Claude Code and Codex workers complete one frozen QA/security wave',
     save(state);
 
     const result = spawnSync(process.execPath, [CONTROLLER, 'resume', state.id], {
-      cwd: REPO, env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_DISABLE_EVENTS: '1' },
+      cwd: REPO, env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_DISABLE_EVENTS: '1' },
       encoding: 'utf8', timeout: 900000, maxBuffer: 2 * 1024 * 1024,
     });
     assert.equal(result.status, 0, `controller failed: ${result.error?.message || result.stderr || result.stdout}`);

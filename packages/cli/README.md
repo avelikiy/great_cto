@@ -28,11 +28,16 @@ great-cto status
 great-cto resume
 ```
 
-These launch interactive Claude Code through `/start`, `/inbox`, and `/resume`;
-the plugin must be loaded. `/start` handles existing projects without resetting
+Run launches interactive Claude Code through `/start`; resume targets its exact
+pre-bound session through `/resume`. The plugin must be loaded. Status reads
+private task metadata without launching a model. `/start` handles existing projects without resetting
 their configuration. For the controlled Codex runtime use `--host codex` and,
 when starting, an explicit scope such as `--allow src,tests,docs`.
-`status --host codex --json` returns the sanitized project run listing.
+`status --json` works for both hosts. `--task UUID` selects persisted task identity;
+Codex status also includes its sanitized run listing. Optional repeated `--accept`
+criteria are stored and passed to execution and verification. `--operation UUID`
+provides idempotent launch receipts, and `resume --revision N` rejects stale intent.
+See [the shared task contract](../../docs/WORK-TASK-CONTRACT.md) for ownership and recovery.
 `resume --host codex` selects only one unfinished run in the target project;
 ambiguity requires a UUID. Pending gates, runtime locks and verifier checks remain
 in force. `--dir PATH` targets another project; `--dry-run` previews without agents.

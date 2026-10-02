@@ -4,6 +4,7 @@ import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, basename } from 'node:path';
 import { getTasks, getReadDegradation } from './beads.mjs';
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
+import { listWorkTasks, publicWorkTask } from '../../../scripts/lib/work-tasks.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 
 const text = v => typeof v === 'string' ? v : null;
@@ -12,7 +13,7 @@ const RUN_PHASE = { ready: 'accepted', 'awaiting-gate': 'needs_decision',
   'awaiting-release': 'needs_decision', blocked: 'blocked', 'manual-action': 'blocked' };
 
 export function projectWork({ projectId, issues = [], codex = { state: 'absent', runs: [] },
-  sessions = [], sources = [], observedAt = new Date().toISOString() }) {
+  tasks = [], sessions = [], sources = [], observedAt = new Date().toISOString() }) {
   const entries = [];
   for (const r of codex.runs || []) {
     // Completion of a controller run is not proof of the user's acceptance criteria.
@@ -51,10 +52,34 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       command: null, evidence: [], release: null,
     });
   }
+  for (const t of tasks) {
+    const linkedRuns = entries.filter(e => e.kind === 'run' && t.links.runs.includes(e.runId));
+    const linkedIssues = entries.filter(e => e.kind === 'issue' && e.issueIds.some(id => t.links.issues.includes(id)));
+    for (const linked of [...linkedRuns, ...linkedIssues]) {
+      linked.taskId = t.taskId; linked.goal = t.goal; linked.acceptance = t.acceptance;
+      if (!linked.terminal) entries.splice(entries.indexOf(linked), 1);
+    }
+    const owner = t.operations.some(o => o.state === 'running');
+    const run = linkedRuns.length === 1 ? linkedRuns[0] : null;
+    const enabled = t.phase !== 'cancelled' && !owner && (t.host === 'codex'
+      ? !!run?.capabilities.some(c => c.action === 'copy_resume' && c.enabled)
+      : t.managed !== false && t.links.sessions.length === 1 && !['needs_decision', 'working'].includes(t.phase));
+    entries.push({ key: `task:${t.taskId}`, kind: 'task', taskId: t.taskId, runId: run?.runId || null,
+      issueIds: t.links.issues, title: t.goal, goal: t.goal, acceptance: t.acceptance,
+      host: t.host, phase: t.phase, nativeState: run?.nativeState || t.phase,
+      terminal: t.phase === 'cancelled', updatedAt: t.updatedAt, outcome: null, reason: t.reason,
+      decisions: run?.decisions || [], evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
+      release: run?.release || null, revision: t.revision, metrics: t.metrics,
+      capabilities: [{ action: 'copy_resume', enabled, reason: enabled ? null : owner ? 'Host operation is active; duplicate resume is refused'
+        : t.managed === false ? 'Continue this observed session inside its native host'
+        : t.phase === 'needs_decision' ? 'Resolve the native host decision first' : 'Execution link or resumable host state is unavailable' }],
+      command: enabled ? `great-cto resume --task ${t.taskId} --host ${t.host} --revision ${t.revision}` : null,
+    });
+  }
   entries.sort((a, b) => (a.terminal - b.terminal) || (b.decisions.length - a.decisions.length)
     || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0) || a.key.localeCompare(b.key));
   const health = sources.some(s => ['degraded', 'unavailable'].includes(s.health)) ? 'degraded' : 'current';
-  const payload = { schemaVersion: 1, projectId, observedAt, health, sources, entries,
+  const payload = { schemaVersion: 1, projectId, observedAt, health, sources, tasks, entries,
     sessions: sessions.map(s => ({ session: s.session, state: s.state, since: date(s.since), reason: text(s.reason) })),
     decisions: entries.flatMap(e => e.decisions.map(d => ({ ...d, entryKey: e.key }))),
     execution: { enabled: false, reason: 'This board prepares commands; host execution is not connected' } };
@@ -67,8 +92,12 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
 
 export function getWork(cwd) {
   const observedAt = new Date().toISOString();
-  const sources = []; let issues = [], codex = { state: 'absent', runs: [] }, sessions = [];
+  const sources = []; let issues = [], codex = { state: 'absent', runs: [] }, sessions = [], tasks = [];
   const source = (id, health, reason = null) => sources.push({ id, health, reason, observedAt });
+  try {
+    const listing = listWorkTasks(cwd); tasks = listing.tasks.map(publicWorkTask);
+    source('tasks', listing.state === 'degraded' ? 'degraded' : 'current', listing.unreadable ? `${listing.unreadable} task state file(s) could not be read` : null);
+  } catch { source('tasks', 'unavailable', 'Cannot read shared task metadata'); }
   try {
     issues = getTasks(cwd);
     const reason = getReadDegradation(cwd);
@@ -97,5 +126,5 @@ export function getWork(cwd) {
   let canonical = cwd;
   try { canonical = realpathSync(cwd); } catch { /* source health already reports inaccessible data */ }
   const projectId = 'project:' + createHash('sha256').update(canonical).digest('hex');
-  return { ...projectWork({ projectId, issues, codex, sessions, sources, observedAt }), projectName: basename(cwd) };
+  return { ...projectWork({ projectId, issues, codex, tasks, sessions, sources, observedAt }), projectName: basename(cwd) };
 }

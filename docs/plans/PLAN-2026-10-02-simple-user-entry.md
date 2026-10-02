@@ -144,3 +144,21 @@ issue и done run не превращается в completed пользоват�
 операции с idempotency/revision, project creation lock и host capability contract.
 После него `.2` включает прямые start/resume и полноформатные decision cards.
 Полная спецификация находится в [admin handoff](../design/DESIGN-work-admin-2026-10.md).
+
+## Поставленный durable contract: этап .3.1
+
+[Shared task contract v1](../WORK-TASK-CONTRACT.md) реализован общим модулем для
+CLI, controller, hooks и board. Сохраняются goal/acceptance/authority, явные links,
+revision и operation receipts. Project lease исключает параллельные managed
+запуски обоих хостов; replay не даёт повторного dispatch. Claude status теперь
+читает метаданные, а resume выбирает точную заранее привязанную сессию. Поэтому
+ограничения первого инкремента выше относятся к его историческому состоянию.
+
+Админка показывает общий task поверх только явно связанных records. Команда
+resume содержит task ID и revision. Native sessions, зарегистрированные прямой
+командой вне CLI, остаются наблюдаемыми и продолжаются в своём хосте. Завершение
+процесса или run не становится доказательством принятого пользователем результата.
+Начато измерение наблюдаемых interruptions/time-to-start; снижение глубины pipeline
+и числа gates пока не включено. Native approval adapter, research outcome и
+семантическая проверка resume входят в следующий инкремент .3; прямые действия
+админки и decision cards остаются в .2.
