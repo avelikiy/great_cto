@@ -886,6 +886,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text3);
   text-align: center;
 }
+/* A <small> hint inside an empty state rendered at the browser's "smaller"
+   (13px × 5/6 = 10.83px), off the type scale; the layout gate caught it whenever
+   a fresh board had no logs. Pin it to the caption size. */
+.empty small { font-size: var(--fs-caption); }
 
 /* A read failed. Deliberately louder than .empty — the whole point is that this
    must not be mistaken for "there is nothing here". */
