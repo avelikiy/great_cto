@@ -130,6 +130,7 @@ export function runCodexExec({
     let out = '';
     let err = '';
     let timedOut = false;
+    let stdinError = null;
     const killGroup = () => {
       try {
         if (group && proc.pid) process.kill(-proc.pid, 'SIGKILL');
@@ -158,6 +159,13 @@ export function runCodexExec({
       }
     });
     proc.stderr.on('data', (b) => { err += String(b); });
+    const inputFailed = error => {
+      stdinError ||= typeof error?.code === 'string' ? error.code : 'STDIN_ERROR';
+      // The CLI cannot receive the complete request. Abort its group, but wait
+      // for authoritative close before returning a failed execution result.
+      killGroup();
+    };
+    proc.stdin.on('error', inputFailed);
     proc.on('error', (e) => {
       clearTimeout(timer);
       resolve({ state: 'unreadable', text: null, usage: null, errors: [String(e.message || e)], code: null, model, timedOut });
@@ -174,6 +182,10 @@ export function runCodexExec({
       // classify the exact known fallback nor distinguish it from a sandbox
       // or validation failure.
       if (err.trim()) parsed.errors.push(err.trim().slice(-4000));
+      if (stdinError) {
+        parsed.state = 'unreadable'; parsed.text = null; parsed.finalText = null;
+        parsed.errors.push(`prompt transport failed: ${stdinError}`);
+      }
       // A run cut off by the clock may have printed a verdict before it was done.
       // That is a truncated answer, and a truncated answer is not an answer.
       if (timedOut) {
@@ -183,8 +195,7 @@ export function runCodexExec({
       resolve({ ...parsed, code, model, timedOut });
     });
 
-    proc.stdin.write(prompt);
-    proc.stdin.end();
+    try { proc.stdin.end(prompt); } catch (error) { inputFailed(error); }
   });
 }
 
