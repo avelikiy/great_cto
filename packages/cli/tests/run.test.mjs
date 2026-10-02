@@ -201,3 +201,16 @@ test('controlled resume receipt replay succeeds even after host run became termi
   h.calls.length = 0; h.deps.spawn = () => { throw Error('receipt replay must not inspect or dispatch host'); };
   assert.equal(runDaily('resume', args, h.deps), 0); assert.equal(h.calls.length, 0);
 });
+
+test('research entry is explicit and native attempt authority stays with Claude', () => {
+  const h = harness(); assert.equal(runDaily('run', ['Investigate CSV', '--intent', 'research'], h.deps), 0);
+  assert.match(h.calls[0].args[2], /^\/audit Investigate CSV/);
+  const task = h.deps.tasks.listWorkTasks().tasks[0]; assert.equal(task.intent, 'research');
+  assert.equal(runDaily('run', ['Investigate', '--max-attempts', '2'], h.deps), 2);
+  assert.match(h.errors.at(-1), /host-owned/);
+});
+test('controlled research selects auditor and persists bounded attempt policy', () => {
+  const h = harness(); assert.equal(runDaily('run', ['Investigate CSV', '--host', 'codex', '--intent', 'research', '--allow', 'docs', '--max-attempts', '2'], h.deps), 0);
+  const dispatched = h.calls[1].args; assert.equal(dispatched[dispatched.indexOf('--entry')+1], 'project-auditor');
+  const task = h.deps.tasks.listWorkTasks().tasks[0]; assert.equal(task.budget.maxStageAttempts, 2);
+});

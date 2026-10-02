@@ -1,9 +1,9 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, statSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { randomUUID } from 'node:crypto';
+import { randomUUID, createHash } from 'node:crypto';
 import { beginWork, finishWork, listWorkTasks, linkWork, readWorkTask, observeWorkRun, observeWorkSession, publicWorkTask, acquireProjectLease } from '../../scripts/lib/work-tasks.mjs';
 const base = mkdtempSync(join(tmpdir(), 'gcto-task-contract-'));
 let n = 0;
@@ -47,6 +47,9 @@ test('session observations require exact pre-bound identity; Stop never means co
   let t = readWorkTask(w.task.taskId, f); assert.equal(t.metrics.interruptions.native_permission_or_input, 1);
   assert.ok(t.metrics.timeToObservedStartMs >= 0);
   observeWorkSession({ cwd: f.root, session_id: session, hook_event_name: 'Stop' }, f);
+  assert.equal(readWorkTask(w.task.taskId, f).phase, 'needs_decision'); // Stop cannot resolve a permission
+  observeWorkSession({ cwd: f.root, session_id: session, hook_event_name: 'UserPromptSubmit' }, f);
+  observeWorkSession({ cwd: f.root, session_id: session, hook_event_name: 'Stop' }, f);
   assert.equal(readWorkTask(w.task.taskId, f).phase, 'waiting'); w.lease.release();
 });
 test('controlled observations preserve pending authority, evidence and unknown acceptance', () => {
@@ -82,4 +85,17 @@ test('retired unrelated project records do not degrade current project membershi
   rmSync(f.root, { recursive: true, force: true });
   const listing = listWorkTasks(other.root, { store: f.store });
   assert.equal(listing.state, 'ok'); assert.equal(listing.tasks.length, 0);
+});
+
+test('pre-stage3 delivery receipts replay without a new dispatch or budget change', () => {
+  const f = fixture(), operationId = randomUUID(), w = start(f, { operationId });
+  finishWork(w.task.taskId, operationId, 0, f); w.lease.release();
+  const file = join(f.store, w.task.taskId + '.json'), task = JSON.parse(readFileSync(file));
+  delete task.intent; delete task.budget; delete task.activity; delete task.outcome; delete task.decisions;
+  const request = { root: task.root, host: 'claude-code', kind: 'start', goal: 'Export CSV', acceptance: ['Only authorized rows'], authority: { mode: 'native-interactive', writeScope: null }, taskId: null, expectedRevision: null };
+  task.operations[0].requestDigest = createHash('sha256').update(JSON.stringify(request)).digest('hex');
+  writeFileSync(file, JSON.stringify(task));
+  assert.equal(start(f, { operationId }).replay, true);
+  assert.throws(() => start(f, { operationId, intent: 'research' }), /conflicts/);
+  assert.throws(() => start(f, { operationId, maxAttempts: 2 }), /conflicts/);
 });

@@ -69,7 +69,8 @@ for (const f of boardFiles) {
 // Seed the same dependency closure from its executable instead of maintaining
 // a second hand-written runtime list.
 const codexController = join(repoRoot, "scripts", "codex-pipeline.mjs");
-for (const m of readFileSync(codexController, "utf8").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
+const taskController = join(repoRoot, "scripts", "work-task.mjs");
+for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskController, "utf8")].join("\n").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
 
 // Then their own siblings, to a fixpoint.
 //
@@ -98,6 +99,7 @@ for (const f of [...needed].sort()) {
   copyFileSync(src, join(out, "scripts", "lib", f));
 }
 
+copyFileSync(taskController, join(out, "scripts", "work-task.mjs"));
 copyFileSync(codexController, join(out, "scripts", "codex-pipeline.mjs"));
 mkdirSync(join(out, "shared"), { recursive: true });
 copyFileSync(join(repoRoot, "shared", "pipeline.toml"), join(out, "shared", "pipeline.toml"));

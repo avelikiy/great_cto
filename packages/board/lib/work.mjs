@@ -5,6 +5,8 @@ import { join, basename } from 'node:path';
 import { getTasks, getReadDegradation } from './beads.mjs';
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { listWorkTasks, publicWorkTask } from '../../../scripts/lib/work-tasks.mjs';
+import { decisionCapabilities } from '../../../scripts/lib/work-decisions.mjs';
+import { measureWork, compareWork } from '../../../scripts/lib/work-metrics.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 
 const text = v => typeof v === 'string' ? v : null;
@@ -61,25 +63,29 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
     }
     const owner = t.operations.some(o => o.state === 'running');
     const run = linkedRuns.length === 1 ? linkedRuns[0] : null;
-    const enabled = t.phase !== 'cancelled' && !owner && (t.host === 'codex'
+    const approval = decisionCapabilities(t).find(d => d.capability.enabled);
+    const approveCommand = approval ? `great-cto task work approve --task ${t.taskId} --decision ${approval.decisionId} --revision ${t.revision}` : null;
+    const enabled = !['cancelled', 'verified', 'completed'].includes(t.phase) && !owner && (t.host === 'codex'
       ? !!run?.capabilities.some(c => c.action === 'copy_resume' && c.enabled)
       : t.managed !== false && t.links.sessions.length === 1 && !['needs_decision', 'working'].includes(t.phase));
     entries.push({ key: `task:${t.taskId}`, kind: 'task', taskId: t.taskId, runId: run?.runId || null,
       issueIds: t.links.issues, title: t.goal, goal: t.goal, acceptance: t.acceptance,
       host: t.host, phase: t.phase, nativeState: run?.nativeState || t.phase,
-      terminal: t.phase === 'cancelled', updatedAt: t.updatedAt, outcome: null, reason: t.reason,
-      decisions: run?.decisions || [], evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
+      terminal: ['cancelled', 'completed'].includes(t.phase), updatedAt: t.updatedAt, outcome: t.outcome?.state === 'completed' ? `${t.intent || 'delivery'} outcome explicitly completed` : null, reason: t.reason,
+      intent: t.intent || 'delivery', stage: t.stage || null, taskOutcome: t.outcome || null,
+      decisions: decisionCapabilities(t).map(d => ({ ...d, id: d.decisionId, label: d.label || 'Host decision' })), evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
       release: run?.release || null, revision: t.revision, metrics: t.metrics,
-      capabilities: [{ action: 'copy_resume', enabled, reason: enabled ? null : owner ? 'Host operation is active; duplicate resume is refused'
+      capabilities: [...(approval ? [{ action: 'copy_approve', enabled: true, reason: null }] : []), { action: 'copy_resume', enabled, reason: enabled ? null : owner ? 'Host operation is active; duplicate resume is refused'
         : t.managed === false ? 'Continue this observed session inside its native host'
         : t.phase === 'needs_decision' ? 'Resolve the native host decision first' : 'Execution link or resumable host state is unavailable' }],
-      command: enabled ? `great-cto resume --task ${t.taskId} --host ${t.host} --revision ${t.revision}` : null,
+      command: approveCommand || (enabled ? `great-cto resume --task ${t.taskId} --host ${t.host} --revision ${t.revision}` : null),
     });
   }
   entries.sort((a, b) => (a.terminal - b.terminal) || (b.decisions.length - a.decisions.length)
     || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0) || a.key.localeCompare(b.key));
   const health = sources.some(s => ['degraded', 'unavailable'].includes(s.health)) ? 'degraded' : 'current';
-  const payload = { schemaVersion: 1, projectId, observedAt, health, sources, tasks, entries,
+  const measurement = measureWork(tasks);
+  const payload = { schemaVersion: 1, projectId, observedAt, health, sources, tasks, entries, measurement, simplification: compareWork(measurement, null),
     sessions: sessions.map(s => ({ session: s.session, state: s.state, since: date(s.since), reason: text(s.reason) })),
     decisions: entries.flatMap(e => e.decisions.map(d => ({ ...d, entryKey: e.key }))),
     execution: { enabled: false, reason: 'This board prepares commands; host execution is not connected' } };

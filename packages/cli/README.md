@@ -42,6 +42,10 @@ See [the shared task contract](../../docs/WORK-TASK-CONTRACT.md) for ownership a
 ambiguity requires a UUID. Pending gates, runtime locks and verifier checks remain
 in force. `--dir PATH` targets another project; `--dry-run` previews without agents.
 Advanced policies, recovery and approvals stay under `codex-host`.
+Research uses explicit `run --intent research`; controlled research writes reports
+only and preserves its bounded stage retry budget. Advanced host approvals, outcome
+attestations and cohort reports are under `task work`, documented in the shared
+contract. Resume progress is measured from bound stage evidence, not exit zero.
 Published npm versions may not include these source additions yet.
 
 ## What the plugin gives you

@@ -158,7 +158,42 @@ revision и operation receipts. Project lease исключает паралле�
 resume содержит task ID и revision. Native sessions, зарегистрированные прямой
 командой вне CLI, остаются наблюдаемыми и продолжаются в своём хосте. Завершение
 процесса или run не становится доказательством принятого пользователем результата.
-Начато измерение наблюдаемых interruptions/time-to-start; снижение глубины pipeline
-и числа gates пока не включено. Native approval adapter, research outcome и
-семантическая проверка resume входят в следующий инкремент .3; прямые действия
-админки и decision cards остаются в .2.
+В инкременте .3.1 начато измерение наблюдаемых interruptions/time-to-start.
+Native approval adapter, research outcome и семантическая проверка resume
+поставлены следующим инкрементом .3.2, описанным ниже. Снижение глубины pipeline
+и числа gates пока не включено; прямые действия админки и decision cards остаются в .2.
+
+## Завершение этапа 3: host adapters и outcome evidence
+
+Этап `.3.2` дополняет общий контракт решениями controller/native host, явным
+research intent, отдельным operator-attested результатом и семантическими receipt
+продолжения. Native dispatcher передаёт только событие точной session, verdict и
+receipt; чужие сессии и legacy records не связываются по времени. Pending native
+гейт не исчезает после Stop. Controlled approve проверяет proposal identity и
+actual tree через прежний host controller, под project и per-run locks.
+
+Переходы verified/completed требуют внешнего приватного evidence файла, всех
+criteria и хешей реальных artifacts. Completed task появляется в History.
+Research пишет отчёт, а не запускает implementation или release. В JSON projection
+добавлены intent, stage, budget, decisions, outcome и measurement cohorts.
+
+Политика измерений считает native permission, pipeline approval, rework и
+технические остановки отдельно. Unknown resume не успех. Сравнение с matched
+baseline выдаёт insufficient_evidence либо candidate_for_review; автоматического
+изменения authority нет. Это реализованный measurement guard, а не утверждение,
+что продуктивность уже улучшилась. Активация сокращённого pipeline требует реальных
+данных и review. Прямые browser actions и полноценные decision cards остаются
+самостоятельным этапом `.2`.
+
+
+Этапы `.3.1` и `.3.2` реализованы в ветке `codex/simple-user-entry`. Проверены
+binding/replay approval, устаревшие tree/artifact receipts, нерешённые native gates,
+research routing, bounded rework, legacy receipt compatibility и отсутствие
+автоматического completed. Широкая регрессия: root/hooks/board 1253 passed;
+CLI 356 passed; libraries 2470 passed, 4 skipped; eval 227 и docs 76 passed.
+Дополнительные CLI subprocess и legacy compatibility проверки прошли отдельно.
+Собранный npm archive запускает task work без исходного checkout. Chrome проверяет
+approval command, приватность token, completed research в History, оба theme и
+375/768/1200 px без ошибок JavaScript и горизонтального overflow. Fixture hosts
+не доказывают live LLM execution. Workspace HOL имеет отдельный дефект `.4`:
+сканирует ignored scratch/worktrees; release evidence проверяется на clean Git archive.

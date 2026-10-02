@@ -66,16 +66,17 @@ responsibilities; the shared layer does not reduce gate count automatically.
 ## State and evidence
 
 Implemented phases: accepted, working, needs_decision, blocked, waiting, unknown,
-and cancelled. `Stop`, `SessionEnd`, host exit 0 and controlled `done` never infer
+cancelled, verified and completed. `Stop`, `SessionEnd`, host exit 0 and controlled `done` never infer
 user acceptance or completed work. A finished run remains waiting for acceptance
-evidence. No verified/completed transition or decision-execution API is introduced.
+evidence. Verified/completed require the explicit operator evidence described below; no
+browser decision-execution API is introduced.
 
 Measured fields are first observed execution timestamp, milliseconds from task
 creation to that observation, and transition-based interruption counts. Repeated
 identical observations do not inflate counts. These are observations, not model
 latency or end-to-end productivity measurements. A resume receipt records host
-return/exit status; it does not prove semantic resume success. Cross-host research
-outcomes and adaptive pipeline depth remain future work.
+return/exit status; it does not prove semantic resume success. Research outcomes and resume progress evidence are implemented in stage 3 below.
+Adaptive pipeline depth activation remains gated on real measurements and review.
 
 The board overlays shared tasks only through explicit links, displays goals and
 criteria, and prepares revision-bound resume commands where ownership and host
@@ -89,3 +90,92 @@ conflicts, stale revisions, cross-host exclusion, forged handoff, exact session
 binding, observation deduplication, and refusal to infer acceptance. A real CLI
 fixture exercises a subprocess with native hook events and exact-session resume.
 Fixtures do not prove execution against a paid model or an installed plugin.
+
+## Stage 3: decisions, accepted outcomes and measured resume
+
+Stage 3 completes the shared backend contract. Daily entry remains run/status/resume;
+advanced operator operations live under the existing `task` command:
+
+```bash
+great-cto run 'Investigate CSV authorization' --intent research --accept 'Report the authorization findings'
+great-cto run 'Investigate CSV authorization' --host codex --intent research --allow docs --max-attempts 2 --accept 'Report the authorization findings'
+great-cto task work decisions --task TASK_UUID --dir PROJECT
+great-cto task work approve --task TASK_UUID --decision DECISION_ID --revision N --operation OPERATION_UUID --dir PROJECT
+great-cto task work verify --task TASK_UUID --revision N --operation OPERATION_UUID --evidence EXTERNAL_PRIVATE_JSON --dir PROJECT
+great-cto task work complete --task TASK_UUID --revision N --operation OPERATION_UUID --dir PROJECT
+great-cto task work metrics --dir PROJECT --baseline EXTERNAL_PRIVATE_JSON
+```
+
+Research is explicit, never inferred from a small diff or a keyword. Controlled
+research enters project-auditor, writes only beneath docs/research/reports and
+cannot supply a release policy. Native research invokes /audit; Claude's own
+interactive permissions remain authoritative. max-attempts (1..5) bounds controlled
+stage retries; native retry authority remains host-owned. Existing rewind, stale
+approval and verifier limits are preserved.
+
+Pending decisions have stable opaque IDs bound to their exact host proposal,
+receipt and token generation. Shared approval reserves an idempotent operation and
+project lease; the controller rechecks the operation, decision identity and actual
+tree under its run lock. Tokens stay private and never appear in task projection
+or copied commands. Approve and resume remain separate. Release approval still
+uses the release controller. Native Notification and dispatcher gate events attach
+only to an explicitly linked session. Stop and ordinary input do not approve a
+pipeline gate. Native gate receipt drift is reported as stale; native permission
+and pipeline decisions are resolved in their native session, with no remote bypass.
+
+Verified/completed transitions are now supported through explicit operator
+evidence. They do not follow automatically from a verifier or process exit.
+An evidence file is a private regular JSON file outside the worker project, <=64
+KiB, with this structure:
+
+```json
+{
+  "taskId": "TASK_UUID",
+  "goal": "exact stored task goal",
+  "revision": 7,
+  "kind": "research",
+  "goalSatisfied": true,
+  "criteria": [{
+    "index": 0,
+    "text": "exact stored criterion",
+    "state": "passed",
+    "evidence": "What the operator actually checked"
+  }],
+  "artifacts": [{"path": "docs/report.md", "sha256": "SHA256_OF_ACTUAL_BYTES"}]
+}
+```
+
+Every stored criterion must have ordered passing evidence; an empty acceptance
+list cannot verify. Actual artifact bytes, safe paths and the Git receipt are
+checked. Research accepts report artifacts only. Controlled runs must be done,
+without active workers or pending decisions; any release additionally needs the
+controller's verified publication and passing smoke result. An unmanaged native
+session must have ended. Completion rechecks artifact hashes and the exact receipt.
+New activity invalidates an uncompleted verified outcome. Completed historical
+tasks are not reopened by later chat events.
+
+This proof is explicitly labelled operator-attestation. File hashing establishes
+identity; the operator supplies the semantic claims about criteria and goal.
+Neither the board nor a worker-written file inside the project can manufacture
+that attestation. This contract does not claim production service deployment from
+local artifacts or a GitHub release.
+
+Resume receipts record progressed/waiting_decision/blocked/unobserved. Progress
+requires a new linked verified controlled stage or a new native stage result with
+matching receipt and exact session binding. Native stage progress does not imply
+independent verification. Exit zero, UserPromptSubmit and Stop alone remain
+unobserved. Reports expose known and unknown samples separately.
+
+Metrics group by host and intent: observed starts, median time-to-observed-start,
+interruptions by reason, technical interruptions, known resume progress and
+verification rework. Baseline comparison requires matched cohorts, at least 20
+tasks and 5 known resumes per cohort by default. Missing data produces
+insufficient_evidence. A measured improvement is a candidate for review; it does
+not auto-approve gates or change authority. Production defect evidence and policy
+review are still needed before activating reduced pipeline depth.
+
+The board now shows explicit research/delivery outcomes, bound host decisions,
+copy-only approval commands, completed task history and cohort measurements in its
+snapshot. POST /api/work remains refused; browser execution and complete decision
+card presentation belong to stage 2. Existing v1 records remain readable and their
+legacy operation digests can replay without adopting new authority.

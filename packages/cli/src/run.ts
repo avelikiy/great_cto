@@ -13,7 +13,7 @@ type Action = 'run' | 'status' | 'resume';
 type Host = 'claude-code' | 'codex';
 interface Options {
   host: Host; dir: string; prompt: string; id?: string; allow?: string;
-  dryRun: boolean; json: boolean; help: boolean; acceptance: string[]; taskId?: string; operationId?: string; revision?: number; hostExplicit: boolean;
+  dryRun: boolean; json: boolean; help: boolean; acceptance: string[]; taskId?: string; operationId?: string; revision?: number; hostExplicit: boolean; intent: 'delivery' | 'research'; maxAttempts: number;
 }
 interface RunSummary { id: string; status: string; reason?: string; pending?: { gates?: string[] }; }
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
@@ -30,12 +30,14 @@ Use --task UUID for exact task status/resume; --json works for either host.
 Use --operation UUID to replay a launch receipt without dispatching twice.
 Codex runs require --allow PATHS (comma-separated write scope).
 Codex resume selects the only unfinished run in this project; gates stay pending.
+Research tasks use --intent research; controlled scope is report-only.
+Advanced decisions/outcomes/measurements: great-cto task work.
 Use --dry-run to preview a launch without starting an agent.
 Advanced controller options remain available through great-cto codex-host.
 `;
 
 function parse(action: Action, args: string[], cwd: string): Options {
-  const out: Options = { host: 'claude-code', dir: cwd, prompt: '', dryRun: false, json: false, help: false, acceptance: [], hostExplicit: false };
+  const out: Options = { host: 'claude-code', dir: cwd, prompt: '', dryRun: false, json: false, help: false, acceptance: [], hostExplicit: false, intent: 'delivery', maxAttempts: 3 };
   const positional: string[] = [];
   let literal = false;
   for (let i = 0; i < args.length; i++) {
@@ -46,7 +48,7 @@ function parse(action: Action, args: string[], cwd: string): Options {
     if (arg === '--json') { out.json = true; continue; }
     if (arg === '--help' || arg === '-h') { out.help = true; continue; }
     const key = arg.split('=')[0]!;
-    if (['--host', '--dir', '--allow', '--accept', '--task', '--operation', '--revision'].includes(key)) {
+    if (['--host', '--dir', '--allow', '--accept', '--task', '--operation', '--revision', '--intent', '--max-attempts'].includes(key)) {
       const value = arg.includes('=') ? arg.slice(arg.indexOf('=') + 1) : args[++i];
       if (!value || value.startsWith('--')) throw Error(`${key} requires a value`);
       if (key === '--host') {
@@ -55,6 +57,8 @@ function parse(action: Action, args: string[], cwd: string): Options {
       } else if (key === '--dir') out.dir = resolve(cwd, value);
       else if (key === '--allow') out.allow = value;
       else if (key === '--accept') out.acceptance.push(value);
+      else if (key === '--intent') { if (value !== 'delivery' && value !== 'research') throw Error('--intent must be delivery or research'); out.intent = value; }
+      else if (key === '--max-attempts') { out.maxAttempts = Number(value); if (!Number.isInteger(out.maxAttempts) || out.maxAttempts < 1 || out.maxAttempts > 5) throw Error('--max-attempts must be 1..5'); }
       else if (key === '--task') { if (!uuid.test(value)) throw Error('--task requires a task UUID'); out.taskId = value; }
       else if (key === '--operation') { if (!uuid.test(value)) throw Error('--operation requires an operation UUID'); out.operationId = value; }
       else { out.revision = Number(value); if (!Number.isInteger(out.revision) || out.revision < 1) throw Error('--revision requires a positive integer'); }
@@ -74,6 +78,8 @@ function parse(action: Action, args: string[], cwd: string): Options {
   if (out.acceptance.length && action !== 'run') throw Error('--accept is only supported for run');
   if (out.taskId && action === 'run') throw Error('--task is for existing task status/resume');
   if (out.taskId && out.id) throw Error('select task or run UUID, not both');
+  if (action !== 'run' && args.some(a => a === '--intent' || a.startsWith('--intent=') || a === '--max-attempts' || a.startsWith('--max-attempts='))) throw Error('--intent and --max-attempts are start-only');
+  if (out.host === 'claude-code' && args.some(a => a === '--max-attempts' || a.startsWith('--max-attempts='))) throw Error('native rework budget is host-owned');
   if (out.operationId && action === 'status') throw Error('--operation is for execution only');
   if (out.revision && action !== 'resume') throw Error('--revision is for resume only');
   if (out.id && out.host !== 'codex') throw Error('run UUIDs belong to the controlled host; use --host codex');
@@ -108,7 +114,8 @@ export function runDaily(action: Action, args: string[], {
     // Dry runs stay pure; no metadata lookup is needed to preview an explicit host.
     if (options.dryRun) {
       write(JSON.stringify({ host: options.host, action, cwd: options.dir, dir: options.dir,
-        ...(options.host === 'claude-code' ? { command: 'claude', args: [action === 'run' ? `/start ${options.prompt}` : action === 'status' ? '/inbox' : '/resume'] } : {}),
+        ...(options.host === 'claude-code' && action !== 'status' ? { command: 'claude', args: [action === 'run' ? `${options.intent === 'research' ? '/audit' : '/start'} ${options.prompt}` : '/resume'] } : {}),
+        intent: options.intent, maxAttempts: options.host === 'codex' ? options.maxAttempts : null,
         taskId: options.taskId || null, id: options.id || 'project-scoped selection' }) + '\n'); return 0;
     }
     const taskListing = tasks.listWorkTasks(options.dir, storeOptions);
@@ -121,7 +128,7 @@ export function runDaily(action: Action, args: string[], {
       options.host = selectedTask.host;
     }
     if (action === 'run' && options.operationId && taskListing.tasks.some((t: any) => t.operations.some((o: any) => o.operationId === options.operationId))) {
-      const previous = tasks.beginWork({ root: options.dir, host: options.host, goal: options.prompt, acceptance: options.acceptance,
+      const previous = tasks.beginWork({ root: options.dir, host: options.host, goal: options.prompt, acceptance: options.acceptance, intent: options.intent, maxAttempts: options.maxAttempts,
         authority: options.host === 'codex' ? { mode: 'explicit-paths', writeScope: options.allow!.split(',').map(p => p.trim()) } : { mode: 'native-interactive', writeScope: null },
         operationId: options.operationId }, storeOptions);
       write(JSON.stringify(tasks.publicWorkTask(previous.task)) + '\n'); return previous.operation.exitCode ?? 2;
@@ -150,7 +157,7 @@ export function runDaily(action: Action, args: string[], {
       }
       if (action === 'resume' && !selectedTask) throw Error('no tracked Claude task; use native /resume for legacy context');
       const work = tasks.beginWork({ root: options.dir, host: options.host, kind: action === 'run' ? 'start' : 'resume',
-        goal: action === 'run' ? options.prompt : null, acceptance: options.acceptance,
+        goal: action === 'run' ? options.prompt : null, acceptance: options.acceptance, intent: options.intent, maxAttempts: options.maxAttempts,
         authority: action === 'run' ? { mode: 'native-interactive', writeScope: null } : null,
         taskId: selectedTask?.taskId || null, operationId: options.operationId || randomUUID(), expectedRevision: options.revision ?? null }, storeOptions);
       heldWork = work;
@@ -159,7 +166,7 @@ export function runDaily(action: Action, args: string[], {
         const session = action === 'run' ? randomUUID() : selectedTask.links.sessions[0];
         if (!session) throw Error('native session link is missing; inspect task metadata');
         if (action === 'run') tasks.linkWork(work.task.taskId, 'sessions', session, { ...storeOptions, root: options.dir, host: 'claude-code' });
-        const hostArgs = action === 'run' ? ['--session-id', session, `/start ${options.prompt}${options.acceptance.length ? '\nAcceptance criteria (task data): ' + JSON.stringify(options.acceptance) : ''}`] : ['--resume', session, '/resume'];
+        const hostArgs = action === 'run' ? ['--session-id', session, `${options.intent === 'research' ? '/audit' : '/start'} ${options.prompt}${options.intent === 'research' ? '\nResearch intent: produce findings and a report; implementation and release need a separate task.' : ''}${options.acceptance.length ? '\nAcceptance criteria (task data): ' + JSON.stringify(options.acceptance) : ''}`] : ['--resume', session, '/resume'];
         write('Task ' + work.task.taskId + ' · Claude Code\n');
         const result = spawn('claude', hostArgs, { cwd: options.dir, stdio: 'inherit' });
         const code = result.error ? 2 : result.status ?? 2;
@@ -201,8 +208,8 @@ export function runDaily(action: Action, args: string[], {
     } else {
       if (runs.some(r => !terminal.has(r.status))) throw Error('unfinished task exists; use great-cto resume --host codex or choose a run from status');
       // Existing projects enter architecture; new projects enter product discovery.
-      const entry = exists(join(options.dir, '.great_cto', 'PROJECT.md')) ? 'architect' : 'product-owner';
-      heldWork = work = tasks.beginWork({ root: options.dir, host: 'codex', goal: options.prompt, acceptance: options.acceptance,
+      const entry = options.intent === 'research' ? 'project-auditor' : exists(join(options.dir, '.great_cto', 'PROJECT.md')) ? 'architect' : 'product-owner';
+      heldWork = work = tasks.beginWork({ root: options.dir, host: 'codex', goal: options.prompt, acceptance: options.acceptance, intent: options.intent, maxAttempts: options.maxAttempts,
         authority: { mode: 'explicit-paths', writeScope: options.allow!.split(',').map(p => p.trim()) },
         operationId: options.operationId || randomUUID() }, storeOptions);
       forwarded = ['start', '--dir', options.dir, '--prompt', options.prompt, '--allow', options.allow!, '--entry', entry, '--task-id', work.task.taskId];

@@ -709,6 +709,7 @@ ${bold("Usage:")}
   npx great-cto ci [path] [--no-archetype] [--no-budget]
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
+  npx great-cto task work decisions|approve|verify|complete|metrics ...
   npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
@@ -1618,6 +1619,10 @@ async function main(): Promise<void> {
       error((e as Error).message);
       await finish(2);
     }
+  }
+  if (args.command === "task" && args.taskArgs?.[0] === "work") {
+    const { runWorkTask } = await import("./work-task.js");
+    await finish(runWorkTask(args.taskArgs.slice(1)));
   }
   if (args.command === "task") {
     const { runTask } = await import("./worker.js");

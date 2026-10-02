@@ -8,7 +8,7 @@
     if (host === 'codex' && (!allow.trim() || allow.split(',').some(p => !p.trim()))) throw Error('Codex requires an explicit comma-separated write scope.');
     return `great-cto run --host ${host}` + (host === 'codex' ? ` --allow ${quote(allow.trim())}` : '') + ` -- ${quote(goal.trim())}`;
   }
-  const phaseLabel = e => e.outcome || ({ waiting: 'Waiting; acceptance is not confirmed', unknown: 'Execution state is unknown', cancelled: 'Cancelled', working: 'Host activity recorded; liveness is not measured', accepted: 'Ready for host execution', needs_decision: 'Needs a decision', blocked: 'Blocked' }[e.phase])
+  const phaseLabel = e => e.outcome || ({ waiting: 'Waiting; acceptance is not confirmed', unknown: 'Execution state is unknown', verified: 'Verified outcome; explicit completion pending', completed: 'Requested outcome explicitly completed', publishing: 'Host publication in progress', cancelled: 'Cancelled', working: 'Host activity recorded; liveness is not measured', accepted: 'Ready for host execution', needs_decision: 'Needs a decision', blocked: 'Blocked' }[e.phase])
     || (e.kind === 'issue' ? `Issue: ${e.nativeState || 'unknown'}` : `Run: ${e.nativeState || 'unknown'}`);
   function render(snapshot, history = false, filter = '') {
     const warnings = snapshot.sources.filter(s => ['degraded', 'unavailable'].includes(s.health));
@@ -17,7 +17,7 @@
       + warnings.map(s => `<p class="work-warning">${esc(s.id)}: ${esc(s.reason || s.health)}</p>`).join('')
       + (rows.length ? rows.map(e => {
         const cap = e.capabilities.find(c => c.enabled);
-        const action = cap ? `<button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="${esc(cap.action)}">${cap.action === 'copy_resume' ? 'Copy resume command' : cap.action === 'review_decision' ? 'Review decision' : 'Open issue'}</button>` : '';
+        const action = cap ? `<button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="${esc(cap.action)}">${cap.action === 'copy_approve' ? 'Copy approval command' : cap.action === 'copy_resume' ? 'Copy resume command' : cap.action === 'review_decision' ? 'Review decision' : 'Open issue'}</button>` : '';
         return `<article class="work-card" data-entry-key="${esc(e.key)}"><h2>${esc(e.title)}</h2><p>${esc(phaseLabel(e))}</p>`
           + `<p class="work-meta">${esc(e.host || 'Host not linked')} · ${e.updatedAt ? esc(e.updatedAt) : 'Update time not recorded'}</p>`
           + (e.acceptance.length ? `<p>Acceptance: ${esc(e.acceptance.join('; '))}</p>` : '')
@@ -27,6 +27,7 @@
           + (!cap && e.capabilities[0]?.reason ? `<p>${esc(e.capabilities[0].reason)}</p>` : '')
           + `<details><summary>Technical details</summary><p>${esc(e.key)} · ${esc(e.nativeState || 'unknown')}</p>`
           + `<p>Task linkage: ${esc(e.taskId || 'not recorded')}</p>${e.revision ? `<p>Task revision: ${esc(e.revision)}</p>` : ''}`
+          + (e.taskOutcome ? `<p>Outcome evidence: ${esc(e.taskOutcome.source || 'operator-attestation')} · ${esc(e.taskOutcome.state)}</p>` : '')
           + `<p>Recorded roles: ${esc(e.evidence.map(v => v.label).join(', ') || 'none recorded; verification is not inferred')}</p>`
           + (e.release ? `<p>Release: ${esc(e.release.status || 'unknown')} · verified ${esc(e.release.verifiedAt || 'not recorded')}</p>` + (typeof e.release.url === 'string' && /^https?:\/\//i.test(e.release.url) ? `<p><a href="${esc(e.release.url)}" target="_blank" rel="noopener noreferrer">Open release result</a></p>` : '') : '')
           + `</details></article>`;
@@ -87,7 +88,7 @@
       const entry = snapshot.entries.find(e => e.key === button.dataset.workKey);
       const action = entry?.capabilities.find(c => c.action === button.dataset.workAction && c.enabled);
       if (!action) return;
-      if (action.action === 'copy_resume') copy(entry.command);
+      if (action.action === 'copy_resume' || action.action === 'copy_approve') copy(entry.command);
       else options.openIssue(entry.issueIds[0], action.action === 'review_decision');
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
