@@ -8,6 +8,7 @@ import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-
 import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
 import { detectClaude } from './lib/claude-exec.mjs';
 import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs';
+import { readBenchmarkRegistration, bindBenchmarkTrial } from './lib/adaptive-benchmark-collector.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
@@ -103,6 +104,10 @@ try {
       maxAttempts, hostRoutes, gatePolicy });
     state.taskId = taskId || work.task.taskId;
     state.acceptance = acceptance;
+    if (args.includes('--benchmark-trial')) {
+      if (!value('--benchmark-trial')) throw Error('--benchmark-trial requires an operator-owned trial registration');
+      bindBenchmarkTrial(state, readBenchmarkRegistration(root, value('--benchmark-trial')));
+    }
     linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
     save(state);
   } else {

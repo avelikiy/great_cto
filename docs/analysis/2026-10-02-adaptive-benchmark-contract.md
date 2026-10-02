@@ -15,10 +15,17 @@ a representative isolated fixture and independent hidden checks before execution
 The descriptions in the module are acceptance contracts, not completed fixtures.
 
 Both arms must pin exact artifact commit and package SHA256, complete execution
-policies and matched role/model assignments. Latest release metadata presently
-names v3.48.0 with targetCommitish main; that mutable branch label is not an exact
-baseline pin and is not substituted for one. The caller must resolve and verify
-the actual supplied artifact. Installed plugin state is not changed by this work.
+policies and matched role/model assignments. Release metadata names v3.48.0 with
+targetCommitish main; that mutable label is not used as a source pin. The remote
+annotated tag was resolved independently to exact commit
+fcdc6c3658dfb767b98343fb4f7e7ec80d6ff43a. The public npm3.48.0 package was downloaded
+with scripts disabled, its registry SHA512 integrity verified and its SHA256
+measured as380d99c7b72a0769c191a9e077bfa1b0003e0effe02339998c2f193791f428a9.
+Fifty packaged controller/shared-module/graph files matched that source commit
+byte-for-byte. Compiled CLI parity and actual execution are not claimed by that
+comparison. This resolves a candidate baseline artifact, not an approved experiment:
+matched graph floors, fixture/model policy and candidate arm still need validation.
+The caller must verify the actual running artifact. Installed plugin unchanged.
 
 The default design has three repetitions per task:24 paired blocks/48 workflow
 trials. Arm order alternates by task/repetition. This does not make24 independent
@@ -54,6 +61,13 @@ must bind actual controller attempts/receipts, independently scored artifacts an
 outside-worker evidence before results can support a product claim. The current
 module always leaves qualityUpliftPercent null and defaultEnablementAllowed false.
 It does not compute uncertainty or claim causal significance from supplied rows.
+
+The initial [bound observation collector](2026-10-02-benchmark-bound-collector.md)
+now connects private registered controller state and package/scorer bytes to
+receipt-bound operator scoring reports. It explicitly does not verify running
+artifact/provider provenance, scorer execution or full matched domain/risk floors;
+benchmarkEligible remains false. That provenance work is still required before
+the experiment can be described as a live validated comparison.
 
 ## Current verification and remaining work
 
