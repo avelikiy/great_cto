@@ -80,7 +80,11 @@ cannot block creation. SubagentStop can be blocked by another completion hook,
 so it is not a safe point to release execution capacity. v1 requires operator
 environment `CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1`; background requests, named
 agents/team launches and nested calls identified by agent_id are denied. Slots
-release only on successful foreground PostToolUse for the exact session/tool ID.
+release only on foreground PostToolUse with `tool_response.status=completed` and
+a valid `agentId`, for the exact session/tool ID. A successful tool return with
+`status=async_launched`, absent/unknown status or missing agent identity retains
+the lease. The environment switch alone is not completion evidence, including
+when a foreground call moves into the background during execution.
 An error, failed permission/tool call or interrupted hook retains the slot for
 reconciliation. Other hooks denying a previously admitted call may therefore
 leave a conservative reservation rather than falsely claim it ended.
@@ -94,6 +98,8 @@ against a process deliberately changing its environment/configuration, spawning
 an uninstrumented CLI via Bash, using context-fork skills or other launch APIs.
 Full background/team/fork lifecycle coverage is follow-up work. Enabling a policy
 does not constitute permission to launch those unsupported paths.
+The [native lifecycle contract audit](../analysis/2026-10-02-native-lifecycle-contract.md)
+records the current completion-status fix and the missing correlation evidence.
 
 ## Recovery and operations
 

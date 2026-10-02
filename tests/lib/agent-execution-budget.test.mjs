@@ -117,13 +117,38 @@ test('native hooks reserve before launch, deny nesting/background and release on
   assert.equal(run('pre', payload, { CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '' }).status, 2);
   assert.equal(run('pre', { ...payload, agent_id: 'parent' }).status, 2);
   assert.equal(run('pre', { ...payload, tool_input: { run_in_background: true } }).status, 2);
+  assert.equal(run('pre', { ...payload, hook_event_name: 'SubagentStart' }).status, 2);
   assert.equal(run('pre').status, 0); assert.equal(run('pre').status, 0);
   assert.equal(run('pre', { ...payload, tool_use_id: 'tool2' }).status, 2);
   assert.equal(run('post', { ...payload, hook_event_name: 'PostToolUseFailure' }).status, 2);
   assert.equal(budgetSnapshot(f.budget).active.length, 1);
-  assert.equal(run('post', { ...payload, hook_event_name: 'PostToolUse' }).status, 0);
+  assert.equal(run('post', { ...payload, hook_event_name: 'PostToolUse', tool_response: { status: 'completed', agentId: 'agent-one' } }).status, 0);
   assert.equal(budgetSnapshot(f.budget).active.length, 0);
   assert.equal(budgetSnapshot(f.budget).calls, 1);
+});
+
+test('async launch, missing status and stop intent retain native lease and concurrency pressure', t => {
+  const f = fixture(t, { maxConcurrent: 1 });
+  const hook = fileURLToPath(new URL('../../scripts/hooks/agent-execution-budget.mjs', import.meta.url));
+  const payload = { cwd: f.root, session_id: 'session', tool_use_id: 'tool1', tool_name: 'Agent',
+    hook_event_name: 'PreToolUse', tool_input: { subagent_type: 'Explore', run_in_background: false } };
+  const run = (phase, input) => spawnSync(process.execPath, [hook, phase], {
+    env: { ...process.env, ...f.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1' }, input: JSON.stringify(input), encoding: 'utf8' });
+  assert.equal(run('pre', payload).status, 0);
+  for (const response of [undefined, {}, { status: 'async_launched', agentId: 'agent-one' },
+    { status: 'running', agentId: 'agent-one' }, { status: 'completed' },
+    { status: 'completed', agentId: '../other' }, { status: 'failed', agentId: 'agent-one' }]) {
+    const result = run('post', { ...payload, hook_event_name: 'PostToolUse', tool_response: response });
+    assert.equal(result.status, 2); assert.match(result.stderr, /retained/);
+    assert.equal(budgetSnapshot(f.budget).active.length, 1);
+    assert.match(reserveAgents(f.budget, [request('codex-next')]).error, /concurrency/);
+  }
+  for (const hook_event_name of ['SubagentStop', 'Stop', 'TeammateIdle', 'PostToolUseFailure']) {
+    assert.equal(run('post', { ...payload, hook_event_name, tool_response: { status: 'completed', agentId: 'agent-one' } }).status, 2);
+    assert.equal(budgetSnapshot(f.budget).active.length, 1);
+  }
+  assert.equal(run('post', { ...payload, hook_event_name: 'PostToolUse', tool_response: { status: 'completed', agentId: 'agent-one' } }).status, 0);
+  assert.equal(budgetSnapshot(f.budget).active.length, 0); assert.equal(budgetSnapshot(f.budget).calls, 1);
 });
 
 test('native nested cwd cannot disguise an inside-project budget policy as operator-owned', t => {
