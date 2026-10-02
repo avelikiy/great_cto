@@ -35,6 +35,10 @@ expanded budget/mixed-host/manifest/scoped-evidence group passed 57/57, zero ski
 Pinned HOL scanner passed at83: zero new critical/high; existing35 high retain the
 same baseline. These are source/hook subprocess checks, not an authenticated
 native model lifecycle run. Claude auth status still reports loggedIn:false.
+Broad quick gate also passed: root1255, library2561, eval238, docs76, browser9
+and rendered-layout8; L1-L2 executed checks passed. Its final banner explicitly
+reports11 SKIPPED / NOT CHECKED (six library opt-in cases and five quick omissions).
+This is not full L1-L5 or actual native async acceptance.
 
 ## Required evidence for full native support
 
