@@ -21,6 +21,7 @@ import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "no
 import { join, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RULES, shouldExclude } from "./auto-attach-reviewers.mjs";
+import { adaptiveSpecialistPlan, planNotice } from '../lib/specialist-plan.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || ".great_cto";
 const STATE_PATH = join(PROJ_DIR, "cache", "reviewer-nudge.json");
@@ -52,6 +53,21 @@ function main() {
   if (!fp) return process.exit(0);
   const rel = isAbsolute(fp) ? relative(process.cwd(), fp) : fp;
   if (rel.startsWith("..")) return process.exit(0); // outside the project
+
+  const plan = adaptiveSpecialistPlan(process.cwd(), RULES);
+  if (plan) {
+    const noticePath = join(PROJ_DIR, 'cache', 'adaptive-reviewer-notice.json');
+    let previous = null;
+    try { previous = JSON.parse(readFileSync(noticePath, 'utf8')); } catch { /* notify */ }
+    // A notification cache is NOT review evidence. Never suppress unknown risk.
+    if (plan.fingerprint && previous?.fingerprint === plan.fingerprint) return process.exit(0);
+    try {
+      mkdirSync(join(PROJ_DIR, 'cache'), { recursive: true });
+      writeFileSync(noticePath, JSON.stringify({ fingerprint: plan.fingerprint }), { mode: 0o600 });
+    } catch { /* emit even when cache persistence fails */ }
+    process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: planNotice(plan) } }) + '\n');
+    return process.exit(0);
+  }
 
   const candidates = matchReviewers(rel);
   if (candidates.length === 0) return process.exit(0);
