@@ -31,4 +31,6 @@ The defective recipe produces `failed, passed, failed, failed`; repaired policy 
 
 ## Remaining requirements
 
+Subsequent checkpoint: the [billing webhook recipe](2026-10-03-billing-webhook-benchmark.md) adds the third corpus group. The counts below describe this tenant-recipe checkpoint.
+
 Two of eight corpus groups have executable recipes and hidden scorers; six remain. No paired model trials, performance measurement or quality-uplift percentage follows from fixture tests. Matched policies/domain floors, native/scoped live validation and execution/provider provenance still need evidence. `benchmarkEligible=false` remains unchanged. No model calls, human approvals, installed plugin/default changes, merge or release are requested.
