@@ -132,6 +132,11 @@ test('CLI integration: prefix host and project flags reach the daily adapter', (
   });
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).host, 'codex');
+  const invalid = spawnSync(process.execPath, ['index.mjs', '--host=unknown', 'run', 'a task', '--dry-run'], {
+    encoding: 'utf8', env: { ...process.env, DO_NOT_TRACK: '1', GREAT_CTO_NO_UPDATE_CHECK: '1' },
+  });
+  assert.equal(invalid.status, 2);
+  assert.match(invalid.stderr, /host must be/);
 });
 
 test('CLI integration: project-scoped status reads real controller state', () => {

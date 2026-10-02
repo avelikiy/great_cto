@@ -72,6 +72,7 @@ interface CliArgs {
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
+  hostInput?: string; // retain invalid prefix values for daily-adapter validation
   upgradeSelf: boolean;   // `upgrade --self` / `upgrade self`: upgrade the CLI itself, not companion plugins
   purgeData: boolean;     // `uninstall --purge-data`: move ~/.great_cto aside too
   projects: boolean;      // `uninstall --projects`: also remove the pre-push hooks init wrote into projects
@@ -114,8 +115,8 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--no-open") args.boardNoOpen = true;
     else if (a === "--use-llm") args.useLlm = true;
     else if (a === "--no-llm") args.noLlm = true;
-    else if (a === "--host") { const v = argv[++i] ?? ""; args.host = (v === "codex" || v === "claude-code") ? v : null; }
-    else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.host = (v === "codex" || v === "claude-code") ? v : null; }
+    else if (a === "--host") { const v = argv[++i] ?? ""; args.hostInput = v; args.host = (v === "codex" || v === "claude-code") ? v : null; }
+    else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.hostInput = v; args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a === "--bind") args.consoleBind = argv[++i] ?? null;
     else if (a.startsWith("--bind=")) args.consoleBind = a.slice("--bind=".length) || null;
     else if (a === "--demo") args.demo = true;
@@ -1632,7 +1633,7 @@ async function main(): Promise<void> {
   }
   if (args.command === "run" || args.command === "status" || args.command === "resume") {
     const { runDaily } = await import('./run.js');
-    const dailyArgs = [...(args.host ? ['--host', args.host] : []), ...(args.taskArgs ?? [])];
+    const dailyArgs = [...(args.hostInput !== undefined ? ['--host', args.hostInput] : []), ...(args.taskArgs ?? [])];
     await finish(runDaily(args.command, dailyArgs, { cwd: args.dir }));
   }
   if (args.command === "serve") {

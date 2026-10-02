@@ -76,6 +76,20 @@ Vertrauen entziehen solltest), **Harness** (wer die zweite Meinung geliefert hat
 und was sie tatsächlich getan hat). Nichts darauf stellt eine Abwesenheit als
 Bestanden dar: ein Scan, der nie lief, ist `n/a`, nie eine grüne Null.
 
+**Ein Einstieg in der Quellversion**
+
+`/start` nimmt Aufgaben in neuen und bestehenden Projekten an und erhält die Konfiguration. Die täglichen Aktionen sind Start, Status und Fortsetzung.
+
+```bash
+great-cto run "describe the task"
+great-cto status
+great-cto resume
+```
+
+Standard ist das interaktive Claude Code mit geladenem Plugin. Für kontrolliertes Codex ergänzen Sie `--host codex`, beim Start auch `--allow src,tests,docs`. Resume wählt den einzigen offenen Lauf des aktuellen Projekts; bei mehreren ist eine UUID erforderlich. Entscheidungen werden nicht automatisch genehmigt. Diese Quellcodeänderung ist noch kein npm-Release.
+
+`great-cto help --advanced`
+
 ## Gemessene Zahlen
 
 | | |
@@ -106,10 +120,8 @@ Ein Tag mit great_cto:
 | Wann | Befehl | Was du bekommst |
 |---|---|---|
 | Du hast eine Idee oder eine bestehende Codebasis | `/start "…"` | ein Brief, ein Plan und lauffähiger Code — drei Entscheidungen bleiben bei dir: was gebaut wird, wie, und ob es ausgeliefert wird |
-| Du hörst für heute auf | `/save` | was erledigt ist, wie jedes „fertig“ geprüft wurde, was als Nächstes kommt |
 | Du kommst zurück | `/resume` | genau dort, wo du aufgehört hast — mit Warnung, falls sich der Code inzwischen geändert hat |
 | Etwas wartet auf dich | `/inbox` | nur die Entscheidungen, die bei dir liegen: Gates, Blocker, P0s |
-| Freitag | `/digest` | was ausgeliefert wurde, was kaputtging, was jedes Feature gekostet hat |
 
 Wenn du es brauchst:
 

@@ -75,6 +75,20 @@ El tablero en `localhost:3141` se rellena solo — **Decisions** (qué te necesi
 ausencia como un aprobado: un escaneo que nunca corrió es `n/a`, nunca un cero
 verde.
 
+**Una entrada en la versión fuente**
+
+`/start` acepta tareas en proyectos nuevos y existentes, conservando la configuración. Las acciones diarias son iniciar, consultar el estado y continuar.
+
+```bash
+great-cto run "describe the task"
+great-cto status
+great-cto resume
+```
+
+Por defecto se abre Claude Code interactivo con el plugin cargado. Para Codex controlado, añade `--host codex` y al iniciar `--allow src,tests,docs`. Resume selecciona la única ejecución pendiente del proyecto; si hay varias, requiere UUID. No aprueba decisiones automáticamente. Este cambio del código fuente aún no es una publicación en npm.
+
+`great-cto help --advanced`
+
 ## Números medidos
 
 | | |
@@ -104,10 +118,8 @@ Un día con great_cto:
 | Cuándo | Comando | Qué obtienes |
 |---|---|---|
 | Tienes una idea o un código existente | `/start "…"` | un brief, un plan y código funcionando — tres decisiones siguen siendo tuyas: qué construir, cómo y si se publica |
-| Terminas por hoy | `/save` | qué se hizo, cómo se verificó cada «hecho», qué sigue |
 | Vuelves | `/resume` | justo donde lo dejaste — y un aviso si el código cambió desde entonces |
 | Algo te necesita | `/inbox` | solo las decisiones que esperan por ti: gates, bloqueos, P0 |
-| Viernes | `/digest` | qué se publicó, qué se rompió, cuánto costó cada funcionalidad |
 
 Cuando lo necesites:
 
