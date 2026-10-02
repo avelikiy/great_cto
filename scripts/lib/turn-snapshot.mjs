@@ -19,7 +19,7 @@
 
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, devNull } from 'node:os';
 import { join } from 'node:path';
 import { ACTIVITY_LOGS } from './receipt.mjs';
 
@@ -29,8 +29,24 @@ const EMPTY_TREE = '4b825dc642cb6eb9a060e54bf8d69288fbee4904';
 const ZERO_OID = '0000000000000000000000000000000000000000';
 
 function git(cwd, args, { env = null, input = null } = {}) {
-  return execFileSync('git', args, {
-    cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024,
+  // Diagnostic refs are not user commits: no project hooks, signing or monitor.
+  // These overrides apply ONLY to this child, never to operator configuration.
+  const config = ['-c', 'core.fsmonitor=false', '-c', `core.hooksPath=${devNull}`, '-c', 'commit.gpgsign=false'];
+  if (['add', 'read-tree', 'write-tree', 'reset'].includes(args[0])) {
+    let keys = '';
+    try {
+      // Reset's index comparison can also apply filters, even with --no-refresh.
+      // Read bounded names only; configured commands may contain private values.
+      keys = execFileSync('git', [...config, 'config', '--null', '--name-only', '--get-regexp', '^filter\\..*\\.(clean|process|required)$'],
+        { cwd, encoding: 'utf8', maxBuffer: 65536, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+    } catch (error) { if (error.status !== 1) throw Error('snapshot filter configuration is unreadable'); }
+    const filters = [...new Set(keys.split('\0').filter(Boolean).map(key => key.match(/^filter\.([\s\S]+)\.(?:clean|process|required)$/)?.[1]))];
+    if (filters.length > 128 || filters.some(name => !name)) throw Error('snapshot filter configuration exceeds safe bounds');
+    for (const name of filters) config.push('-c', `filter.${name}.clean=`, '-c', `filter.${name}.process=`, '-c', `filter.${name}.required=false`);
+  }
+  const command = args[0] === 'diff' ? ['diff', '--no-ext-diff', '--no-textconv', ...args.slice(1)] : args;
+  return execFileSync('git', [...config, ...command], {
+    cwd, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, timeout: 5000,
     stdio: [input == null ? 'ignore' : 'pipe', 'pipe', 'pipe'],
     ...(input == null ? {} : { input }),
     ...(env ? { env: { ...process.env, ...env } } : {}),

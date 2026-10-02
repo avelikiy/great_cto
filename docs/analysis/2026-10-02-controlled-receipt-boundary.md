@@ -81,7 +81,8 @@ index**, with `--no-refresh`. The user's index, HEAD and working tree remain
 unchanged; ignored runtime files are never force-staged and tracked activity keeps
 its prior HEAD bytes. Separate regression tests exercise both cases.
 
-This does not prove that automatic snapshotting suppresses all executable Git
-helpers. That separate P1 audit is tracked as great_cto-p4o9.4.3.1.4. Do not confuse
-pure receipt-reader suppression with universal diagnostic execution isolation.
+Executable helpers in automatic snapshots are addressed separately by the
+[snapshot executable-boundary audit](2026-10-02-turn-snapshot-executable-boundary.md),
+tracked as great_cto-p4o9.4.3.1.4. Neither helper suppression nor receipt-reader
+protection is universal diagnostic execution isolation or an OS sandbox.
 No installed plugin, default policy, real gate approval, merge or release changes.

@@ -202,18 +202,25 @@ reviewed tree look changed.
 
 ## Local turn snapshots (not telemetry — on by default, never sent)
 
-So a reviewer can see what each agent turn changed (ADR-023), the plugin records the
-project's files at the end of each turn as a git commit under
-`refs/great-cto/turns/<session>/<n>` **in your project's own `.git`**. It holds the
+The plugin stores a turn snapshot at the end of each agent turn so a reviewer can inspect
+what changed (ADR-023). Snapshot commits and their refs are stored locally
+**in your project's own Git database**, under
+`refs/great-cto/turns/<session>/<n>`. A snapshot holds the
 same content your working tree already holds, including uncommitted work; gitignored
 files and the agent events log are left out. Nothing is uploaded.
 
-These refs are not branches: a normal `git push` and a `git clone` do not carry them.
+Snapshot refs are not branches and are not pushed by a normal `git push`;
+a `git clone` does not carry them either.
 A mirror push would, so the plugin's pre-push hook refuses any push that includes
 `refs/great-cto/`. The newest 50 turns per session are kept, and sessions untouched
 for 14 days are removed. Delete them all with
 `git for-each-ref --format='%(refname)' refs/great-cto/ | xargs -n1 git update-ref -d`.
 Turn them off with `GREAT_CTO_DISABLE_TURNS=1`.
+
+Automatic diagnostic commands suppress configured executable Git helpers;
+your ordinary commit/push hooks and signing configuration remain unchanged.
+See the [execution-boundary audit](analysis/2026-10-02-turn-snapshot-executable-boundary.md)
+for the tested controls and limitations, not an OS-sandbox guarantee.
 
 ## Judge key check (not telemetry — sent only to OpenRouter)
 
