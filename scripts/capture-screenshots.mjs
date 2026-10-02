@@ -36,8 +36,8 @@ const CHECK = process.argv.includes('--check');
 /** Panel id (data-tab) → output file. */
 const SHOTS = [
   // The redesign's screens (great_cto-ki1x.26). `board.png` is the one README
-  // embeds, so it shows the screen the board opens on.
-  { tab: 'decisions', file: 'board.png', settle: 1500 },
+  // embeds, so it shows the screen the board opens on — Work since 3.48.
+  { tab: 'work', file: 'board.png', settle: 1500 },
   { tab: 'ledger', file: 'ledger.png', settle: 2000 },
   { tab: 'fleet', file: 'fleet.png', settle: 2000 },
   { tab: 'harness', file: 'harness.png', settle: 2000 },
@@ -149,7 +149,13 @@ async function main() {
     const written = [];
 
     for (const shot of SHOTS) {
-      const nav = await page.$(`[data-tab="${shot.tab}"]`);
+      // Since 3.48 the board opens on Work with Ledger, Fleet, Harness and
+      // Settings in a collapsed Tools menu. board.png shows it as it opens —
+      // collapsed; the menu is opened only to reach a tab inside it.
+      if (!(await page.$(`[data-tab="${shot.tab}"]:visible`))) {
+        await page.evaluate(() => document.getElementById('tools-nav')?.setAttribute('open', ''));
+      }
+      const nav = await page.$(`[data-tab="${shot.tab}"]:visible`);
       if (!nav) throw new Error(`no nav item [data-tab="${shot.tab}"] — the board's tabs changed, `
         + 'so this script is photographing a screen that no longer exists');
       await nav.click();
