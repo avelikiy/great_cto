@@ -34,6 +34,8 @@ Nineteen tests are exercised on macOS, including a format-only signature check t
 
 ## Remaining evidence
 
+Subsequent checkpoint: the [bounded historical import recipe](2026-10-03-bounded-import-benchmark.md) adds the fourth group and catches a shared runtime-risk classification gap. Counts below describe the billing checkpoint.
+
 Observed final focused checks:19/19 billing tests and107/107 expanded fixture, pinned/signed scorer, collector and protocol tests, all without skips. The initial scanner gate failed at77 on two static synthetic test-secret findings; replacing that fixture material with runtime random bytes restored83, zero Critical and the unchanged35 previously reviewed High. No scanner exemption or baseline edit was made. The stale generated architecture map was regenerated, not bypassed.
 
 Final local `ci-local.sh --quick` exited0: root1255/1255, libraries2755 passed with6 skips, eval238/238, docs76/76, browser9/9. The quick pipeline adds5 skips, for11 explicitly NOT CHECKED. Three Docker and three live model cases in the library suite were not executed; CLI build ran, but full CLI test/pack and full pipeline coverage are not implied by quick mode. Current read-only Claude auth probe returned `loggedIn=false`, `authMethod=none`, so actual joint-provider trials remain unavailable.
