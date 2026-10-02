@@ -81,9 +81,17 @@ try {
       if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('release policy must be operator-owned outside the target workspace');
       releasePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
     }
+    let gatePolicy = null;
+    if (args.includes('--gate-policy')) {
+      if (!value('--gate-policy')) throw Error('--gate-policy requires an operator-owned policy file');
+      const policyPath = realpathSync(value('--gate-policy'));
+      const rel = relative(root, policyPath);
+      if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('gate policy must be operator-owned outside the target workspace');
+      gatePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
     state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
-      maxAttempts, hostRoutes });
+      maxAttempts, hostRoutes, gatePolicy });
     state.taskId = taskId || work.task.taskId;
     state.acceptance = acceptance;
     linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });

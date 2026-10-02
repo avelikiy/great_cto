@@ -13,6 +13,7 @@ import { treeReceipt } from './receipt.mjs';
 import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
 import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
+import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -213,7 +214,7 @@ export function safePath(root, name, allowed) {
   return target;
 }
 
-export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {} }) {
+export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null }) {
   root = realpathSync(root);
   pluginRoot = realpathSync(pluginRoot);
   if (root === pluginRoot) throw Error('run from a target project, not the controller installation');
@@ -230,7 +231,8 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
     queue: [entry], results: {}, released: [], pending: null, approvals: [], active: null, status: 'ready', writes: {}, steps: 0,
     attempts: [], maxAttempts, rework: null, hostRoutes: validateRoutes(hostRoutes, graph),
     releasePolicy: releasePolicy ? validateReleasePolicy(releasePolicy, root) : null,
-    checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null };
+    checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null,
+    gatePolicy: gatePolicy ? validateRuntimePolicy(root, gatePolicy) : null };
 }
 
 function assertArtifacts(state) {
@@ -333,9 +335,18 @@ export function validateProposal(state, proposal) {
   });
 }
 
-/** All declared gates are enforced, including terminal edges. Approval never comes from model output. */
+/** Legacy runs enforce all declared gates. Opt-in policy changes pauses, never approvals. */
 export function advance(state) {
   if (state.pending) { state.status = 'awaiting-gate'; return; }
+  let policy = null;
+  if (state.gatePolicy) {
+    policy = runtimeGatePolicy({ root: state.root, ...state.gatePolicy });
+    state.gateAssessment = policy;
+    // A newly high-risk or unreadable diff cannot inherit a previously skipped pause.
+    if ((!policy.assessment.known || policy.assessment.tier === 'T2') && state.gatePolicy.skipped.length) {
+      state.status = 'blocked'; state.reason = 'change risk escalated after a skipped gate; start a newly assessed run'; return;
+    }
+  }
   for (const [role, result] of Object.entries(state.results)) {
     if (state.released.includes(role)) continue;
     const rule = state.graph[`${role}.${result.verdict}`] || state.graph[role];
@@ -345,7 +356,20 @@ export function advance(state) {
     if (joined.some(partner => !(state.graph[partner]?.on || []).includes(state.results[partner].verdict))) {
       state.status = 'blocked'; state.reason = 'join contains unsuccessful role'; return;
     }
-    const gates = list(rule.gate).filter(gate => !state.approvals.some(a => a.role === role && a.gate === gate && a.result === result.digest));
+    const declared = list(rule.gate);
+    const standard = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship'];
+    const applicable = declared.filter(gate => !policy?.activeGates || !standard.includes(gate.replace(/^gate:/, '')) || policy.activeGates.includes(gate.replace(/^gate:/, '')));
+    // Fail closed if the supplied graph cannot express the high-risk floor.
+    if (policy?.assessment.known && policy.assessment.tier === 'T2') {
+      const graphGates = Object.values(state.graph).flatMap(r => list(r.gate));
+      if (['security', 'compliance', 'ship'].some(g => !graphGates.includes(`gate:${g}`))) {
+        state.status = 'blocked'; state.reason = 'graph cannot enforce high-risk gate floor'; return;
+      }
+    }
+    for (const g of declared.filter(g => !applicable.includes(g))) {
+      if (state.gatePolicy && !state.gatePolicy.skipped.includes(g)) state.gatePolicy.skipped.push(g);
+    }
+    const gates = applicable.filter(gate => !state.approvals.some(a => a.role === role && a.gate === gate && a.result === result.digest));
     if (gates.length) {
       // The receipt the gate is guarded by is taken HERE, at the moment the gate is
       // raised — not reused from the end of the role's own stage. Those are
@@ -369,6 +393,10 @@ export function advance(state) {
   }
   if (state.queue.length) state.status = 'ready';
   else state.status = Object.keys(state.results).every(role => state.released.includes(role)) ? 'done' : 'join-wait';
+  if (state.status === 'done' && policy?.assessment.known && policy.assessment.tier === 'T2'
+    && ['security', 'compliance', 'ship'].some(g => !state.approvals.some(a => a.gate === `gate:${g}` && state.results[a.role]?.digest === a.result))) {
+    state.status = 'blocked'; state.reason = 'high-risk run reached end without approved security/compliance/ship floor';
+  }
 }
 
 export function approve(state, token) {
