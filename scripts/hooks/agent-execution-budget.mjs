@@ -2,6 +2,7 @@
 /** Admission before Agent/Task; foreground-only completion releases exact lease. */
 import { readFileSync } from 'node:fs';
 import { readExecutionBudget, requireAgents, releaseAgent, budgetSnapshot } from '../lib/agent-execution-budget.mjs';
+import { projectRoot } from '../lib/project-root.mjs';
 
 const phase = process.argv[2];
 if (!process.env.GREAT_CTO_AGENT_BUDGET_FILE) process.exit(0);
@@ -9,7 +10,7 @@ try {
   const payload = JSON.parse(readFileSync(0, 'utf8'));
   if (!['Agent', 'Task'].includes(payload.tool_name)) process.exit(0);
   if (!payload.cwd || !/^[a-zA-Z0-9_-]{1,200}$/.test(payload.session_id || '') || !/^[a-zA-Z0-9_-]{1,200}$/.test(payload.tool_use_id || '')) throw Error('budget requires host-provided cwd/session/tool identity');
-  const budget = readExecutionBudget(payload.cwd);
+  const budget = readExecutionBudget(projectRoot(payload.cwd));
   const callId = `${payload.session_id}:${payload.tool_use_id}`;
   if (phase === 'pre') {
     if (process.env.CLAUDE_CODE_DISABLE_BACKGROUND_TASKS !== '1' || payload.tool_input?.run_in_background || payload.tool_input?.team_name || payload.tool_input?.name) throw Error('budget v1 requires foreground-only Claude; set CLAUDE_CODE_DISABLE_BACKGROUND_TASKS=1, no background/team/name launches');

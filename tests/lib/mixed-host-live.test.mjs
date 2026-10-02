@@ -88,3 +88,39 @@ test('live Claude Code and Codex workers complete one frozen QA/security wave',
       claudeVersion: execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim(),
       codexVersion: execFileSync('codex', ['--version'], { encoding: 'utf8' }).trim(), reports }));
   });
+
+test('live mixed-host pre-build quorum stops before implementation and does not approve gates',
+  { skip: process.env.GREAT_CTO_LIVE_PHASED !== '1' }, async () => {
+    const { newRun, runParallelWave } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));
+    const base = createFixtureBase(), root = join(base, 'project'), store = join(base, 'runs');
+    mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(join(root, 'src')); mkdirSync(join(root, '.great_cto'));
+    writeFileSync(join(root, '.great_cto', 'PROJECT.md'), 'archetype: fintech\n');
+    writeFileSync(join(root, 'README.md'), '# Local numeric helper fixture\n\nNo card data, payments, customers, external services or deployment. Only an illustrative arithmetic helper.\n');
+    writeFileSync(join(root, 'src', 'add.mjs'), 'export function add(a, b) { return a + b; }\n');
+    execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
+    execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'phased fixture']);
+    const gitBase = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const state = newRun({ root, pluginRoot: PLUGIN_ROOT, entry: 'senior-dev', allowed: ['src', 'docs'],
+      prompt: 'PRE-BUILD acceptance fixture for a planned change to src/add.mjs: accept finite numbers only, reject nonnumeric/nonfinite inputs and nonfinite sums with TypeError. ' +
+        'Inspect README.md and src/add.mjs. Each pre-build role must produce a distinct concise Markdown threat/design report under docs/specialist-contracts/ and name it in meta.report. ' +
+        'State directly observed boundaries, proposed controls and testable acceptance criteria for that future change. Implementation does not exist yet and is not required at this phase. ' +
+        'This is an isolated numeric helper, not a payment product: no card data, real money movement or deployment. Mark absent payment/regulated systems as outside this fixture; do not certify PCI or legal compliance. ' +
+        'Do not implement or speculate about unstated product scope. Complete your own pre-build role only.',
+      specialistPolicy: { mode: 'adaptive', workflow: 'phased-change', base: gitBase },
+      hostRoutes: { 'pci-reviewer': 'claude-code', 'regulated-reviewer': 'codex' } });
+    const file = join(store, `${state.id}.json`), save = s => writeFileSync(file, JSON.stringify(s), { mode: 0o600 });
+    save(state); console.log(`LIVE_PHASED_RUN=${state.id} STORE=${store} PROJECT=${root}`);
+    await runParallelWave(state, { save, contextStore: store });
+    assert.equal(state.status, 'awaiting-gate', state.reason); assert.equal(state.approvals.length, 0);
+    assert.equal(state.results['senior-dev'], undefined); assert.equal(state.specialistReview, undefined);
+    assert.ok(state.pending.gates.includes('gate:plan')); assert.ok(state.pending.gates.includes('gate:compliance'));
+    assert.equal(state.waveHistory.at(-1).status, 'verified');
+    const reports = {};
+    for (const role of state.specialistPreparation.roles) {
+      const stage = state.results[role]; assert.equal(stage.verification.state, 'verified');
+      assert.ok(stage.meta.report.startsWith('docs/specialist-contracts/'));
+      reports[role] = { host: stage.host, path: join(root, stage.meta.report), sha256: sha256(readFileSync(join(root, stage.meta.report))) };
+    }
+    console.log(JSON.stringify({ run: state.id, status: state.status, gatesApproved: state.approvals.length,
+      pendingGates: state.pending.gates, phase: state.specialistPreparation.status, reports }));
+  });

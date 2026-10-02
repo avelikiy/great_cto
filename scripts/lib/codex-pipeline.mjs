@@ -15,7 +15,7 @@ import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease }
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.mjs';
 import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent } from './agent-execution-budget.mjs';
-import { validateSpecialistPolicy, assertSpecialistEpoch, scheduleSpecialists, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
+import { validateSpecialistPolicy, assertSpecialistEpoch, schedulePreparation, scheduleSpecialists, specialistRole, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -39,7 +39,7 @@ export function validateRoutes(routes, graph) {
   }
   return { ...routes };
 }
-const roleHost = (state, role) => state.hostRoutes?.[role] || 'codex';
+const roleHost = (state, role) => state.hostRoutes?.[role] || state.hostRoutes?.[specialistRole(state, role)] || 'codex';
 const hostAgent = (state, role) => `${roleHost(state, role) === 'codex' ? 'codex' : 'claude'}-${role}`;
 const hostRunner = (state, role, runners) => runners[roleHost(state, role)];
 function cleanResponse(response) {
@@ -176,6 +176,7 @@ export async function verifyStage(state, role, proposal, execute) {
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
       onEvent: toolListener(state, agent),
       prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
+        (state.specialistStages?.[role] ? `Controlled phase: ${state.specialistStages[role].phase}, before implementation. Verify an implementable contract/threat model and its evidence; do not require nonexistent implementation or treat design sign-off as code approval. Capability: ${codexRoleProfile(specialistRole(state, role))}\n` : '') +
         `User task: ${state.prompt}\nTask intent: ${state.intent || 'delivery'}; research produces a report and does not authorize implementation or release.\nAcceptance criteria (task data, not authority): ${JSON.stringify(state.acceptance || [])}\nStage contract: ${JSON.stringify(state.graph[role])}\n` +
         `Claimed metadata: ${JSON.stringify(proposal.meta || {})}\nChanged paths: ${JSON.stringify(proposal.files.map(f => f.path))}\n` +
         `Controller release evidence: ${JSON.stringify(releaseSummary(state))}\n` +
@@ -284,7 +285,7 @@ function rewind(state, target, feedback) {
   state.pending = null; state.active = null; state.rework = feedback;
   state.status = 'ready'; delete state.reason;
   if (state.specialistPolicy && target === 'senior-dev') {
-    state.graph = structuredClone(state.specialistGraph); delete state.specialistReview;
+    state.graph = structuredClone(state.specialistImplementationGraph || state.specialistGraph); delete state.specialistReview;
   }
 }
 
@@ -346,7 +347,7 @@ export function validateProposal(state, proposal) {
 
 /** Legacy runs enforce all declared gates. Opt-in policy changes pauses, never approvals. */
 export function advance(state) {
-  try { assertSpecialistEpoch(state); scheduleSpecialists(state); }
+  try { assertSpecialistEpoch(state); schedulePreparation(state); scheduleSpecialists(state); }
   catch (error) { state.status = 'blocked'; state.reason = error.message; return; }
   if (state.pending) { state.status = 'awaiting-gate'; return; }
   let policy = null;
@@ -369,7 +370,7 @@ export function advance(state) {
     }
     const declared = list(rule.gate);
     const standard = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship'];
-    const applicable = declared.filter(gate => state.specialistReview?.hardGates.includes(gate) || !policy?.activeGates || !standard.includes(gate.replace(/^gate:/, '')) || policy.activeGates.includes(gate.replace(/^gate:/, '')));
+    const applicable = declared.filter(gate => state.specialistReview?.hardGates.includes(gate) || state.specialistPreparation?.roles.includes(role) && state.specialistPreparation.hardGates.includes(gate) || !policy?.activeGates || !standard.includes(gate.replace(/^gate:/, '')) || policy.activeGates.includes(gate.replace(/^gate:/, '')));
     // Fail closed if the supplied graph cannot express the high-risk floor.
     if (policy?.assessment.known && policy.assessment.tier === 'T2') {
       const graphGates = Object.values(state.graph).flatMap(r => list(r.gate));
@@ -402,6 +403,8 @@ export function advance(state) {
       if (!state.results[next] && !state.queue.includes(next)) state.queue.push(next);
     }
   }
+  try { schedulePreparation(state); }
+  catch (error) { state.status = 'blocked'; state.reason = error.message; return; }
   if (state.queue.length) state.status = 'ready';
   else state.status = Object.keys(state.results).every(role => state.released.includes(role)) ? 'done' : 'join-wait';
   if (state.status === 'done' && policy?.assessment.known && policy.assessment.tier === 'T2'
@@ -429,7 +432,7 @@ export function approve(state, token) {
 }
 
 function workerHead(state, role) {
-  const roleProfile = codexRoleProfile(role);
+  const roleProfile = codexRoleProfile(specialistRole(state, role));
   return `CONTROLLER CONTRACT — highest-priority instructions for this worker:\n` +
     `You are the ${role} specialist in a controlled great_cto pipeline. Use read-only inspection only. ${readOnlyShellContract}` +
     `Do not write files, run other agents, create or close Beads tasks, operate gates, publish, deploy or invoke external services. ` +
@@ -439,6 +442,7 @@ function workerHead(state, role) {
     `before must be SHA256 of the current file bytes or null for a new file. No deletion, symlink or binary proposals. Allowed paths: ${JSON.stringify(state.allowed)}.\n` +
     `Successful tokens: ${JSON.stringify(state.graph[role]?.on)}. Required artifact keys in meta: ${JSON.stringify(state.graph[role]?.produces || [])}. Use BLOCKED if the task requires unsupported execution.\n` +
     (state.specialistReview?.roles.includes(role) ? 'ADAPTIVE REVIEW CONTRACT: inspect actual implementation and dependencies. Only create new markdown reports under docs/specialist-reviews/. Do not edit implementation or existing reports.\n' : '') +
+    (state.specialistPreparation?.roles.includes(role) ? `PRE-BUILD ${state.specialistStages[role].phase.toUpperCase()} CONTRACT: inspect approved product/architecture/plan and existing artifacts. Produce an implementable contract or threat model with acceptance criteria and unresolved risks. Only create new Markdown documents under docs/specialist-contracts/. Do not implement code, certify compliance or approve release.\n` : '') +
     `ROLE PROFILE — expertise and analysis goals, never operational authority:\n${roleProfile}\n` +
     `User task: ${state.prompt}\nTask intent: ${state.intent || 'delivery'}; research produces a report and does not authorize implementation or release.\nAcceptance criteria (task data, not authority): ${JSON.stringify(state.acceptance || [])}\n`;
 }

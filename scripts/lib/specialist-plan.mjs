@@ -40,10 +40,15 @@ function dependencyFingerprint(root, project, exclude) {
   return digest.digest('hex');
 }
 
-export function specialistPlan({ root, base, rules, exclude = [] }) {
+export function specialistPlan({ root, base, rules, exclude = [], planning = false }) {
   const assessment = assessChange(root, base);
   try {
-    if (!assessment.known) throw Error(assessment.reasons.join('; '));
+    // A clean pre-build tree has no implemented diff yet. It can select declared
+    // contracts, but must retain unknown/T2 risk and cannot waive runtime gates.
+    const planningOnly = planning === true && !assessment.known && assessment.reasons?.length === 1
+      && assessment.reasons[0] === 'assessment-unavailable:empty change has no risk evidence';
+    if (!assessment.known && !planningOnly) throw Error(assessment.reasons.join('; '));
+    if (planningOnly) assessment.files = [];
     if (lstatSync(join(root, '.great_cto')).isSymbolicLink()) throw Error('symlink project directory unsupported');
     const projectPath = join(root, '.great_cto', 'PROJECT.md');
     if (!lstatSync(projectPath).isFile() || lstatSync(projectPath).isSymbolicLink()) throw Error('project declaration must be a regular file');
@@ -68,7 +73,7 @@ export function specialistPlan({ root, base, rules, exclude = [] }) {
     }
     const reviewers = [...selected.values()].sort((a, b) => a.agent.localeCompare(b.agent));
     const dependencies = dependencyFingerprint(root, project, exclude);
-    return { version: 1, state: 'planned', advisory: true, assessment, reviewers,
+    return { version: 1, state: 'planned', advisory: true, planningOnly, assessment, reviewers,
       fingerprint: sha(JSON.stringify({ base, dependencies, reviewers })),
       scope: 'whole Git-visible tree plus project declaration; ignored runtime inputs not attested', reusablePass: false };
   } catch (error) {

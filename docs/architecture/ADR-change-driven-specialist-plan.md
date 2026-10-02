@@ -1,4 +1,4 @@
-# ADR: Risk-driven specialist plan and content-bound notifications
+# ADR: Change-driven specialist plan and content-bound notifications
 
 Status: Proposed, native advisory increment implemented for review.
 Date: 2026-10-02. Deciders: maintainer and independent security reviewer.

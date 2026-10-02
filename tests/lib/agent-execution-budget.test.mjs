@@ -126,6 +126,18 @@ test('native hooks reserve before launch, deny nesting/background and release on
   assert.equal(budgetSnapshot(f.budget).calls, 1);
 });
 
+test('native nested cwd cannot disguise an inside-project budget policy as operator-owned', t => {
+  const f = fixture(t); mkdirSync(join(f.root, '.great_cto')); mkdirSync(join(f.root, 'src'));
+  writeFileSync(join(f.root, '.great_cto/PROJECT.md'), 'archetype: web-service\n');
+  const inside = join(f.root, 'policy.json'); writeFileSync(inside, readFileSync(f.file), { mode: 0o600 });
+  const hook = fileURLToPath(new URL('../../scripts/hooks/agent-execution-budget.mjs', import.meta.url));
+  const payload = { cwd: join(f.root, 'src'), session_id: 'nested-cwd', tool_use_id: 'tool1', tool_name: 'Agent', hook_event_name: 'PreToolUse', tool_input: {} };
+  const env = { ...process.env, ...f.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1', GREAT_CTO_AGENT_BUDGET_FILE: inside };
+  const result = spawnSync(process.execPath, [hook, 'pre'], { env, input: JSON.stringify(payload), encoding: 'utf8' });
+  assert.equal(result.status, 2); assert.match(result.stderr, /outside the worker workspace/);
+  assert.equal(budgetSnapshot(f.budget).active.length, 0); assert.equal(budgetSnapshot(f.budget).calls, 0);
+});
+
 test('controlled stages account for both worker and verifier, without changing gates', async t => {
   const f = fixture(t); const pluginRoot = join(f.dir, 'plugin'); mkdirSync(join(pluginRoot, 'shared'), { recursive: true });
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), '[transitions.writer]\non=["DONE"]\nproduces=["report"]\ngate="gate:ship"\nnext=[]');

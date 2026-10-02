@@ -145,7 +145,10 @@ try {
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
       artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
       activation: state.release.activation, rollback: state.release.rollback } : null,
-    pending: state.pending, queue: state.queue, specialistReview: state.specialistReview ? {
+    pending: state.pending, queue: state.queue, specialistPreparation: state.specialistPreparation ? {
+      roles: state.specialistPreparation.roles, status: state.specialistPreparation.status,
+      fingerprint: state.specialistPreparation.fingerprint, reusablePass: false } : null,
+    specialistReview: state.specialistReview ? {
       roles: state.specialistReview.roles, fingerprint: state.specialistReview.fingerprint, reusablePass: false } : null,
     hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
       id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,

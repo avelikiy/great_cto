@@ -1,11 +1,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { newRun, runStage, runParallelWave, approve, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { assertSpecialistEpoch } from '../../scripts/lib/controlled-specialists.mjs';
+import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
+import { REVIEWERS_BY_ARCHETYPE, PACK_REVIEWERS, COMPLIANCE_REVIEWERS } from '../../scripts/lib/required-reviewers.mjs';
 
 function fixture(t, archetype = 'fintech', policy = true) {
   const root = mkdtempSync(join(tmpdir(), 'controlled-specialists-'));
@@ -37,7 +39,7 @@ test('default graph unchanged; policy requires existing-change entry, scope and 
   const f = fixture(t, 'web-service', false); assert.equal(f.state.specialistPolicy, undefined);
   assert.throws(() => newRun({ ...f.args, specialistPolicy: { mode: 'adaptive', workflow: 'existing-change', base: 'HEAD' }, entry: 'product-owner' }), /senior-dev/);
   assert.throws(() => fixture(t, 'ai-system'), /phase unsupported/);
-  assert.throws(() => fixture(t, 'game'), /no controlled Codex profile/);
+  assert.doesNotThrow(() => fixture(t, 'game'));
 });
 
 test('fintech schedules PCI and regulated roles and cannot raise ship before complete quorum', async t => {
@@ -142,4 +144,145 @@ test('regulated specialist floors cannot be waived by auto gate policy on low-ri
   // not replace the subsequent security-officer's regulatory approval.
   while (state.pending?.role !== 'security-officer') { assert.equal(state.status, 'awaiting-gate'); approve(state, state.pending.token); }
   assert.equal(state.status, 'awaiting-gate'); assert.ok(state.pending.gates.includes('gate:security')); assert.ok(state.pending.gates.includes('gate:compliance'));
+});
+
+function phased(t, archetype = 'fintech', extra = {}) {
+  const f = fixture(t, archetype);
+  f.state = newRun({ ...f.args, ...extra, specialistPolicy: { ...f.args.specialistPolicy, workflow: 'phased-change', ...extra.specialistPolicy } });
+  return f;
+}
+async function preReview(state) {
+  const role = state.queue[0], path = `docs/specialist-contracts/${role}-${state.steps}.md`;
+  return runStage(state, { execute: async () => reply(role, [{ path, before: null, content: `${role}: threat boundaries, controls, acceptance criteria` }]), verify });
+}
+async function finishPreparation(state) {
+  while (state.queue[0] !== 'senior-dev' || state.status === 'awaiting-gate') {
+    if (state.pending) approve(state, state.pending.token);
+    else { assert.equal(state.status, 'ready', state.reason); await preReview(state); }
+  }
+}
+
+test('every shipped agent and every selected domain has an explicit controlled capability profile', () => {
+  const roles = readdirSync(new URL('../../agents/', import.meta.url)).filter(p => p.endsWith('.md')).map(p => p.slice(0, -3));
+  for (const role of [...roles, ...Object.values(REVIEWERS_BY_ARCHETYPE).flat(), ...Object.values(PACK_REVIEWERS).flat(), ...COMPLIANCE_REVIEWERS.map(r => r.reviewer)]) {
+    assert.ok(codexRoleProfile(role).length > 50, role);
+    assert.doesNotMatch(codexRoleProfile(role), /subagent_type|bd update|git push|spawn_agent/);
+  }
+  assert.throws(() => codexRoleProfile('unregistered-reviewer'), /no controlled Codex profile/);
+});
+
+test('clean full-cycle preparation selects declared floors without inventing low-risk diff evidence', t => {
+  const f = fixture(t); f.put('src/ui.ts', 'v1');
+  assert.throws(() => newRun(f.args), /empty change has no risk evidence/);
+  const state = newRun({ ...f.args, entry: 'product-owner', specialistPolicy: { ...f.args.specialistPolicy, workflow: 'full-cycle' } });
+  assert.deepEqual(state.queue, ['product-owner']); assert.equal(state.specialistReview, undefined);
+  const phasedState = newRun({ ...f.args, specialistPolicy: { ...f.args.specialistPolicy, workflow: 'phased-change' } });
+  assert.equal(phasedState.specialistPreparation.plan.planningOnly, true);
+  assert.equal(phasedState.specialistPreparation.plan.assessment.known, false);
+  assert.equal(phasedState.specialistPreparation.plan.assessment.tier, 'T2');
+  assert.deepEqual(phasedState.queue, ['pci-reviewer-prebuild', 'regulated-reviewer-prebuild']);
+});
+
+test('phased fintech contracts must be independently verified and explicitly approved before implementation', async t => {
+  const { state } = phased(t);
+  assert.deepEqual(state.queue, ['pci-reviewer-prebuild', 'regulated-reviewer-prebuild']);
+  await preReview(state); assert.equal(state.pending, null); assert.equal(state.queue[0], 'regulated-reviewer-prebuild');
+  await preReview(state); assert.equal(state.status, 'awaiting-gate'); assert.ok(state.pending.gates.includes('gate:compliance'));
+  assert.equal(state.results['senior-dev'], undefined);
+  await finishPreparation(state); assert.equal(state.specialistPreparation.status, 'complete');
+  await implement(state); assert.equal(state.specialistReview.roles.length, 5);
+  assert.ok(state.results['pci-reviewer-prebuild']); assert.ok(state.results['regulated-reviewer-prebuild']);
+});
+
+test('pre-build refusal and unverified output never schedule implementation', async t => {
+  for (const verifierFailure of [false, true]) {
+    const { state } = phased(t);
+    const path = 'docs/specialist-contracts/refused.md';
+    await runStage(state, { execute: async () => verifierFailure ? reply(state.queue[0], [{ path, before: null, content: 'unsupported claim' }])
+      : { state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'REJECTED', summary: 'unsafe architecture', files: [], meta: {} }) },
+      verify: verifierFailure ? async () => ({ state: 'unverifiable', findings: ['missing contract evidence'], checks: ['actual contract inspected'] }) : verify });
+    assert.equal(state.status, 'blocked'); assert.equal(state.results['senior-dev'], undefined); assert.equal(state.pending, null);
+  }
+});
+
+test('pre-build cannot claim an existing source file as its contract report', async t => {
+  const { state } = phased(t);
+  await runStage(state, { execute: async () => ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'DONE', summary: 'claimed contract', files: [], meta: { report: 'src/ui.ts' } }) }), verify });
+  assert.equal(state.status, 'blocked'); assert.match(state.reason, /newly proposed phase artifact/);
+  assert.equal(state.results['pci-reviewer-prebuild'], undefined); assert.equal(state.pending, null);
+});
+
+test('pre-build source mutation invalidates preparation before next worker or approval', async t => {
+  const f = phased(t); await preReview(f.state); f.put('src/ui.ts', 'mutated input');
+  let called = false;
+  await assert.rejects(runStage(f.state, { execute: async () => { called = true; return reply(f.state.queue[0]); }, verify }), /pre-build epoch invalidated/);
+  assert.equal(called, false); assert.equal(f.state.results['senior-dev'], undefined);
+});
+
+test('phased reviewer cannot write implementation, and new implemented domain requires a new assessment', async t => {
+  const f = phased(t);
+  await runStage(f.state, { execute: async () => reply(f.state.queue[0], [{ path: 'src/forbidden.ts', before: null, content: 'implementation' }]), verify });
+  assert.equal(f.state.status, 'blocked'); assert.match(f.state.reason, /specialist-contracts/);
+  const g = phased(t, 'web-service'); assert.equal(g.state.queue[0], 'senior-dev');
+  await runStage(g.state, { execute: async () => reply('senior-dev', [{ path: 'src/payments.ts', before: null, content: 'new payment surface' }]), verify });
+  assert.equal(g.state.status, 'blocked'); assert.match(g.state.reason, /new domain\/contract assessment/);
+  assert.equal(g.state.specialistReview, undefined);
+});
+
+test('AI contract runs before implementation, eval runs only in post-build quorum', async t => {
+  const f = fixture(t, 'web-service'); f.put('.great_cto/PROJECT.md', 'archetype: ai-system\n');
+  const state = newRun({ ...f.args, specialistPolicy: { ...f.args.specialistPolicy, workflow: 'phased-change' } });
+  assert.deepEqual(state.queue, ['ai-prompt-architect-prebuild', 'ai-security-reviewer-prebuild']);
+  await finishPreparation(state); await implement(state); approve(state, state.pending.token);
+  assert.ok(state.queue.includes('ai-eval-engineer')); assert.ok(state.queue.includes('ai-security-reviewer'));
+  assert.ok(!state.queue.includes('ai-prompt-architect')); assert.equal(state.results['ai-eval-engineer'], undefined);
+  while (state.queue.length && state.status === 'ready') await review(state);
+  assert.equal(state.status, 'awaiting-gate'); assert.equal(state.results['ai-eval-engineer'].verification.state, 'verified');
+});
+
+test('explicit contracts are operator-selected; unknown or side-effecting roles are refused', async t => {
+  const f = phased(t, 'web-service', { specialistPolicy: { contracts: ['auth-engineer', 'design-advisor'] } });
+  assert.deepEqual(f.state.queue, ['auth-engineer-prebuild', 'design-advisor-prebuild']);
+  await finishPreparation(f.state); await implement(f.state);
+  assert.equal(f.state.specialistReview.roles.length, 3);
+  assert.throws(() => phased(t, 'web-service', { specialistPolicy: { contracts: ['infra-provisioner'] } }), /unsupported specialist contract/);
+  assert.throws(() => phased(t, 'web-service', { specialistPolicy: { contracts: 'auth-engineer' } }), /unsupported specialist contract/);
+});
+
+test('full-cycle preserves product architecture plan gates before domain preparation', async t => {
+  const f = fixture(t);
+  const state = newRun({ ...f.args, entry: 'product-owner', specialistPolicy: { ...f.args.specialistPolicy, workflow: 'full-cycle' } });
+  for (const [role, key] of [['product-owner', 'brief'], ['architect', 'arch'], ['pm', 'plan']]) {
+    assert.equal(state.queue[0], role);
+    const path = `docs/${role}.md`, files = [{ path, before: null, content: 'explicit approved design and acceptance criteria' }];
+    const meta = { [key]: path };
+    if (role === 'pm') { files.push({ path: 'docs/briefs/task.md', before: null, content: 'bounded implementation task' }); meta.briefs = 'docs/briefs/'; }
+    await runStage(state, { execute: async () => ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'DONE', summary: 'assessed', files, meta }) }), verify });
+    assert.equal(state.status, 'awaiting-gate'); assert.ok(state.pending.gates.includes(`gate:${role === 'product-owner' ? 'product' : role === 'architect' ? 'arch' : 'plan'}`));
+    approve(state, state.pending.token);
+  }
+  assert.equal(state.queue[0], 'pci-reviewer-prebuild'); assert.equal(state.results['senior-dev'], undefined);
+  await finishPreparation(state); await implement(state); assert.equal(state.specialistReview.roles.length, 5);
+});
+
+test('mixed-host pre-build wave uses underlying or explicit staged host routes', async t => {
+  const f = phased(t, 'fintech', { hostRoutes: { 'pci-reviewer': 'claude-code', 'regulated-reviewer-prebuild': 'codex' } });
+  const calls = [];
+  const runner = host => async ({ prompt }) => {
+    assert.match(prompt, /PRE-BUILD THREAT-REVIEW CONTRACT/);
+    const role = prompt.match(/You are the ([\w-]+) specialist/)[1]; calls.push([role, host]);
+    return reply(role, [{ path: `docs/specialist-contracts/${role}.md`, before: null, content: 'bounded independent threat model' }]);
+  };
+  await runParallelWave(f.state, { runners: { codex: runner('codex'), 'claude-code': runner('claude-code') }, verify });
+  assert.equal(f.state.status, 'awaiting-gate'); assert.equal(f.state.results['senior-dev'], undefined);
+  assert.deepEqual(new Set(calls.map(c => c[1])), new Set(['codex', 'claude-code']));
+});
+
+test('domain repair retains verified pre-build contracts but invalidates post-build quorum', async t => {
+  const { state } = phased(t); await finishPreparation(state); await implement(state); approve(state, state.pending.token);
+  while (state.queue[0] !== 'pci-reviewer') await review(state);
+  await runStage(state, { execute: async () => ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'REJECTED', summary: 'implementation violates contract', files: [], meta: {} }) }), verify });
+  assert.equal(state.queue[0], 'senior-dev'); assert.equal(state.specialistReview, undefined);
+  assert.equal(state.specialistPreparation.status, 'complete'); assert.ok(state.results['pci-reviewer-prebuild']);
+  await implement(state); assert.equal(state.status, 'awaiting-gate'); assert.equal(state.specialistReview.roles.length, 5);
 });
