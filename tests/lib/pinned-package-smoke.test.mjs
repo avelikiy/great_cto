@@ -6,6 +6,9 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { runPinnedPackageSmoke } from '../../scripts/lib/pinned-package-smoke.mjs';
+import { fileURLToPath } from 'node:url';
+import { relative } from 'node:path';
+import { runtimeImportClosure } from '../../packages/cli/scripts/runtime-import-closure.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const entry = `import {mkdirSync} from 'node:fs';
 if(process.argv[2]==='--version') console.log('9.0.0');
@@ -102,4 +105,31 @@ test('malformed package metadata does not echo private content', t => {
       f.clean(error.evidenceRoot); assert.doesNotMatch(error.message, /private fixture/); return /unsupported published/.test(error.message);
     });
   }
+});
+
+test('opt-in delivered controller probe runs the matrix in a separate private process', t => {
+  const repo = fileURLToPath(new URL('../../', import.meta.url));
+  const files = runtimeImportClosure(repo, [join(repo, 'scripts/lib/codex-pipeline.mjs')]);
+  const extras = files.map(path => ({ name: `package/board/${relative(repo, path)}`, content: readFileSync(path, 'utf8') }));
+  extras.push({ name: 'package/board/shared/pipeline.toml', content: readFileSync(join(repo, 'shared/pipeline.toml'), 'utf8') });
+  const f = fixture(t, { extras, rawMetadata: JSON.stringify({ name: 'great-cto', version: '9.0.0', type: 'module', bin: { 'great-cto': 'index.mjs' } }) });
+  const report = runPinnedPackageSmoke({ ...f.options, controllerProbe: true }); f.clean(report.evidenceRoot);
+  assert.equal(report.controllerAssets.cases.length, 12); assert.equal(report.controllerAssets.refusals.length, 8);
+  const diagnostics = JSON.parse(readFileSync(join(report.evidenceRoot, 'controller-probe-diagnostics.json')));
+  assert.ok(diagnostics.pid !== process.pid); assert.equal(diagnostics.exitCode, 0);
+  assert.equal(statSync(join(report.evidenceRoot, 'controller-probe-diagnostics.json')).mode & 0o777, 0o600);
+  assert.equal(report.controllerProbeProcess.pid, diagnostics.pid);
+  assert.equal(existsSync(f.marker), false); assert.equal(report.benchmarkEligible, false);
+  const missing = fixture(t);
+  assert.throws(() => runPinnedPackageSmoke({ ...missing.options, controllerProbe: true }), error => {
+    missing.clean(error.evidenceRoot); assert.doesNotMatch(error.message, /ERR_MODULE_NOT_FOUND|Cannot find module/);
+    return /packaged controller probe failed/.test(error.message);
+  });
+  assert.throws(() => runPinnedPackageSmoke({ ...f.options, controllerProbe: 'yes' }), /must be boolean/);
+  const altered = fixture(t, { extras: extras.map(file => file.name.endsWith('/pipeline.toml')
+    ? { ...file, content: file.content.replace('gate = ["gate:security", "gate:compliance", "gate:ship"]', 'gate = ["gate:ship"]') } : file),
+    rawMetadata: JSON.stringify({ name: 'great-cto', version: '9.0.0', type: 'module', bin: { 'great-cto': 'index.mjs' } }) });
+  assert.throws(() => runPinnedPackageSmoke({ ...altered.options, controllerProbe: true }), error => {
+    altered.clean(error.evidenceRoot); return /packaged controller probe failed/.test(error.message);
+  });
 });

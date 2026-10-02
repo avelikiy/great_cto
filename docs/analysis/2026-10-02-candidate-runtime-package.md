@@ -1,6 +1,6 @@
 # Candidate runtime package closure
 
-Date: 2026-10-02. Scope: `great_cto-p4o9.4.3.1.8`. Related: [pinned package smoke](2026-10-02-pinned-package-smoke.md), [benchmark contract](2026-10-02-adaptive-benchmark-contract.md).
+Date: 2026-10-02. Scope: `great_cto-p4o9.4.3.1.8`. Related: [pinned package smoke](2026-10-02-pinned-package-smoke.md), [benchmark contract](2026-10-02-adaptive-benchmark-contract.md), [packaged graph probe](2026-10-02-packaged-controller-assets.md).
 
 ## Actual packaging defect
 
