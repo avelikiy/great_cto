@@ -40,6 +40,8 @@ Authentication/session verification, tenant database RLS, general tool registrat
 
 ## Remaining full objective
 
+Subsequent corpus preparation: [API compatibility](2026-10-03-api-compatibility-benchmark.md).
+
 Observed final checks:38/38 focused proposal/policy tests and109/109 expanded proposal/import/scorer/routing tests, without skips. A malformed oracle ordering introduced during addition of the ambiguity case caused scorer unavailability, not acceptance; case ordering was corrected without relaxing verification. Full local `ci-local.sh` exited0:root1255, libraries2816 passed with6 skips, eval238, docs76, browser9, CLI356 and pack passed. L1–L5 adds one absent Python board-suite skip, for7 explicit NOT CHECKED. Three Docker and three actual model cases remain unexecuted. Final scanner rerun is83, zero Critical and unchanged35 previously reviewed High; no exceptions or baseline edits. Current Claude auth probe returned `loggedIn=false`, `authMethod=none`. Packing source is not installation, provider execution or merge approval.
 
 Five of eight corpus recipes are prepared at this checkpoint. API compatibility, migration safety and board accessibility remain, as do matched independently attested domain floors, live native/scoped/provider evidence, comparative trials, independent security review and delivered installed artifact proof. No product-quality uplift percentage follows from corpus self-tests.
