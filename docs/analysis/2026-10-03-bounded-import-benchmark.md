@@ -40,6 +40,8 @@ This bounded sequential importer does not establish database transactions, crash
 
 ## Remaining full-goal requirements
 
+Subsequent checkpoint: the [planner authority/citation recipe](2026-10-03-prompt-injection-benchmark.md) adds the fifth representative group and exposes a nested prompt-risk classification gap. Counts below describe the import checkpoint.
+
 Final focused importer/policy checks pass37/37; the expanded importer/billing/scorer/specialist/policy regression passes102/102, without skips. The separate cross-host transport/controller regression passes44/44. Initial full CI failed on two new shell-pattern findings and an actual controller stdin EPIPE crash; neither was waived. Structured sandbox-policy construction plus the quoted-path denial probe cleared the scanner findings, and explicit transport-error handling repaired the controller crash.
 
 Repeated full `ci-local.sh` exited0: root1255, libraries2790 passed with6 skips, eval238, docs76, browser9, CLI356 and CLI pack passed. L1–L5 completed with one absent Python board-suite skip, for7 explicitly NOT CHECKED overall. Three Docker and three live model tests in libraries remain unexecuted. HOL score83, zero Critical and unchanged35 previously reviewed High; no baseline edits or exceptions. Current read-only Claude auth probe returned `loggedIn=false`, `authMethod=none`. The pack is a local build artifact, not a released or installed plugin and not approval to merge.
