@@ -1,5 +1,7 @@
 # API compatibility comparative corpus
 
+Subsequent corpus: [migration safety](2026-10-03-migration-safety-benchmark.md).
+
 Scope: `great_cto-p4o9.4.1.6`. Related: [proposal corpus](2026-10-03-prompt-injection-benchmark.md), [preregistered protocol](2026-10-02-adaptive-benchmark-contract.md).
 
 The sixth representative task repairs executable `src/api/summary.mjs`. Old clients receive exactly `{status:200,body:{id,count}}`. Only boolean `includeSource:true` adds `{source:{asOf}}`. Invalid requests return400 before source validation. Missing, unavailable or malformed source returns503, never successful invented identity or zero. Valid zero remains valid data. Inputs must not be mutated.
