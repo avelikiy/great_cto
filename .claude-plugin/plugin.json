@@ -142,6 +142,17 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "[ -n \"$GREAT_CTO_AGENT_BUDGET_FILE\" ] || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-execution-budget.mjs\" pre; _budget_exit=$?; if [ $_budget_exit -ne 0 ]; then exit 2; fi",
+            "statusMessage": "Checking shared agent execution budget..."
+          }
+        ]
+      },
+      {
         "matcher": "Bash",
         "hooks": [
           {
@@ -225,6 +236,17 @@
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "Agent|Task",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "[ -n \"$GREAT_CTO_AGENT_BUDGET_FILE\" ] || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-execution-budget.mjs\" post; _budget_exit=$?; if [ $_budget_exit -ne 0 ]; then exit 2; fi",
+            "statusMessage": "Releasing completed foreground agent budget lease..."
+          }
+        ]
+      },
       {
         "matcher": "Write|Edit|MultiEdit",
         "hooks": [

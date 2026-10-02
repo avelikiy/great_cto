@@ -14,6 +14,7 @@ import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
 import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.mjs';
+import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent } from './agent-execution-budget.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -232,7 +233,8 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
     attempts: [], maxAttempts, rework: null, hostRoutes: validateRoutes(hostRoutes, graph),
     releasePolicy: releasePolicy ? validateReleasePolicy(releasePolicy, root) : null,
     checkPolicy: checkPolicy ? JSON.parse(JSON.stringify(checkPolicy)) : null,
-    gatePolicy: gatePolicy ? validateRuntimePolicy(root, gatePolicy) : null };
+    gatePolicy: gatePolicy ? validateRuntimePolicy(root, gatePolicy) : null,
+    executionBudget: readExecutionBudget(root) };
 }
 
 function assertArtifacts(state) {
@@ -479,7 +481,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
   const agent = hostAgent(state, role);
   const t0 = Date.now();
   let stageOk = false;
-  if (!prepared) emit(state, { kind: 'agent-start', agent });
+  let stageStarted = false;
   try {
     // ADR-026. With a store, the evidence goes to a file named by path and digest.
     // Without one (a caller that keeps no run store), it stays inline as before —
@@ -510,9 +512,12 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     const prompt = head + context;
     const runner = execute || hostRunner(state, role, runners);
     if (!prepared && typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
-    const response = prepared ? prepared.response : await runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
+    const response = prepared ? prepared.response : await withAgentBudget(state, { callId: `${attempt.id}:worker`, host: roleHost(state, role), role }, async () => {
+      stageStarted = true; emit(state, { kind: 'agent-start', agent });
+      return runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
       timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) });
+    });
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
     const proposal = cleanResponse(response);
@@ -582,7 +587,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     attempt.phase = 'verifying'; save(state);
     const verification = attempt.checks && attempt.checks.state !== 'passed'
       ? { state: attempt.checks.state === 'failed' ? 'rework' : 'unverifiable', findings: [`Required checks ${attempt.checks.state}: ${JSON.stringify(checkSummary(attempt.checks))}`], checks: ['controller executed mandatory checks'] }
-      : await verify(state, role, proposal, execute || runCodexExec);
+      : await withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier' }, () => verify(state, role, proposal, execute || runCodexExec));
     if (!['verified', 'rework', 'unverifiable'].includes(verification?.state) || !Array.isArray(verification.findings) ||
         !Array.isArray(verification.checks) || !verification.checks.length) throw Error('invalid or empty verifier evidence');
     assertArtifacts(state);
@@ -624,7 +629,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // Keep active set: a partial write or interrupted process must not be replayed.
     save(state);
   } finally {
-    if (!prepared) emit(state, { kind: 'agent-stop', agent, ok: stageOk, duration_ms: Date.now() - t0 });
+    if (stageStarted) emit(state, { kind: 'agent-stop', agent, ok: stageOk, duration_ms: Date.now() - t0 });
     // ADR-023: a Codex stage is a turn. Recorded after every tree check above, and it
     // writes only git objects and a ref, never a working file. Never throws.
     if (snapshotTurn(state.root, { session: state.id }).state === 'recorded') pruneTurns(state.root, { session: state.id, keep: 50 });
@@ -634,6 +639,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
 
 /** Only a symmetric graph join can share a frozen input tree. */
 export function parallelPair(state) {
+  if (state.executionBudget?.limits.maxConcurrent < 2) return null;
   if (state.status !== 'ready' || state.pending || state.active || state.queue.length < 2) return null;
   const [a, b] = state.queue;
   const left = state.graph[a], right = state.graph[b];
@@ -683,12 +689,14 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     assertArtifacts(state);
     const receipt = treeReceipt(state.root);
     if (!receipt) throw Error('parallel wave requires a Git repository with at least one commit');
-    state.wave = { id: randomUUID(), roles, status: 'running', receipt,
+    const waveId = randomUUID();
+    const leases = requireAgents(state.executionBudget, roles.map(role => ({ callId: `${waveId}:${role}`, host: roleHost(state, role), role, depth: 1 })));
+    state.wave = { id: waveId, roles, status: 'running', receipt,
       hosts: Object.fromEntries(roles.map(role => [role, roleHost(state, role)])), startedAt: new Date().toISOString() };
     const context = inlineContext(state);
     state.wave.context = context;
-    save(state); // A crash now cannot silently dispatch these roles again.
-    const calls = roles.map(async role => {
+    try { save(state); } catch (error) { for (const lease of leases) releaseAgent(state.executionBudget, lease); throw error; }
+    const calls = roles.map(async (role, index) => {
       const agent = hostAgent(state, role), started = Date.now();
       emit(state, { kind: 'agent-start', agent });
       let ok = false;
@@ -701,7 +709,10 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
           extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) });
         ok = true;
         return result;
-      } finally { emit(state, { kind: 'agent-stop', agent, ok, duration_ms: Date.now() - started }); }
+      } finally {
+        releaseAgent(state.executionBudget, leases[index]);
+        emit(state, { kind: 'agent-stop', agent, ok, duration_ms: Date.now() - started });
+      }
     });
     const settled = await Promise.allSettled(calls);
     try {

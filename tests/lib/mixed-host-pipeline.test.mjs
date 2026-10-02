@@ -7,6 +7,7 @@ import { execFileSync } from 'node:child_process';
 import { newRun, parallelPair, runParallelWave, runStage, approve } from '../../scripts/lib/codex-pipeline.mjs';
 import { detectClaude, parseClaudeResult } from '../../scripts/lib/claude-exec.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { readExecutionBudget, budgetSnapshot, requireAgents, releaseAgent } from '../../scripts/lib/agent-execution-budget.mjs';
 
 const graph = `[transitions.qa]\non=["PASS"]\nproduces=["report"]\njoin=["security"]\ngate="gate:qa"\nnext=[]\n` +
   `[transitions.security]\non=["APPROVED"]\nproduces=["report"]\njoin=["qa"]\ngate="gate:security"\nnext=[]`;
@@ -31,6 +32,34 @@ const reply = (role, path = `docs/${role}.md`) => ({ state: 'ok', code: 0, error
   finalText: JSON.stringify({ verdict: role === 'qa' ? 'PASS' : 'APPROVED', summary: `${role} reviewed`,
     meta: { report: path }, files: [{ path, before: null, content: `${role} evidence\n` }] }), usage: null });
 const verify = async () => ({ state: 'verified', findings: [], checks: ['inspected actual report'] });
+
+function budgetFor(t, state) {
+  const dir = mkdtempSync(join(tmpdir(), 'wave-budget-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, 'policy.json');
+  writeFileSync(file, JSON.stringify({ maxConcurrent: 2, maxDepth: 1, maxCallsPerRun: 12, runId: 'wave' }), { mode: 0o600 });
+  state.executionBudget = readExecutionBudget(state.root, { env: { GREAT_CTO_AGENT_BUDGET_FILE: file, GREAT_CTO_AGENT_BUDGET_STORE: join(dir, 'store') } });
+}
+
+test('budgeted mixed wave shares two slots and charges workers plus separate verifiers', async t => {
+  const state = fixture(t); budgetFor(t, state);
+  await runParallelWave(state, { runners: {
+    'claude-code': async () => { assert.equal(budgetSnapshot(state.executionBudget).active.length, 2); return reply('qa'); },
+    codex: async () => { assert.equal(budgetSnapshot(state.executionBudget).active.length, 2); return reply('security'); },
+  }, verify: async () => { assert.equal(budgetSnapshot(state.executionBudget).active.length, 1); return verify(); } });
+  assert.equal(state.status, 'awaiting-gate');
+  assert.equal(budgetSnapshot(state.executionBudget).calls, 4);
+  assert.equal(budgetSnapshot(state.executionBudget).active.length, 0);
+});
+
+test('another host holding one slot prevents partial mixed-wave dispatch', async t => {
+  const state = fixture(t); budgetFor(t, state);
+  const [other] = requireAgents(state.executionBudget, [{ callId: 'other', host: 'claude-code', role: 'research', depth: 1 }]);
+  let calls = 0;
+  await assert.rejects(runParallelWave(state, { runners: { codex: async () => { calls++; }, 'claude-code': async () => { calls++; } }, verify }), /concurrency/);
+  assert.equal(calls, 0); assert.equal(state.wave, undefined);
+  assert.equal(budgetSnapshot(state.executionBudget).calls, 1);
+  releaseAgent(state.executionBudget, other);
+});
 
 test('two hosts execute concurrently, proposals apply once, and gates remain human-owned', async t => {
   const state = fixture(t), started = [];
