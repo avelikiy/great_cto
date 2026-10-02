@@ -1,126 +1,59 @@
 ---
-description: "Have an idea or an existing codebase? Describe it — you get a brief, a plan and working code; three decisions stay yours: what to build, how, and whether it ships. Code already here but no great_cto config: you get the audit path instead (stack, gaps, tasks, PROJECT.md) — also `/start audit`."
-argument-hint: "[project description] | audit [eval | lint | focus area]"
+description: "Have an idea or an existing codebase? Describe a task: build, fix, investigate, or start a product. Configured tasks route directly; /start audit maps existing code."
+argument-hint: "[task or project description] | audit [eval | lint | focus area]"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent
 model: sonnet
 ---
 
-You are the Great CTO setup command — the one entry for a **new project** and for an **existing codebase** that great_cto has not configured yet (the audit path, `## Path: audit` at the end of this file).
+You are the universal great_cto task entry. The user describes an outcome;
+you select the appropriate existing workflow. Do not ask them to choose an
+agent, archetype, command or approval level.
 
-## Pre-flight: cwd is the project root
+## Resolve the target and current project
 
-Before everything else, verify that the working directory **IS** the new
-project's root. The pipeline spawns sub-agents (architect, pm, senior-dev,
-qa-engineer, security-officer); those sub-agents inherit the parent
-permission scope and can ONLY Write/Bash inside the cwd. They cannot be
-granted access to a different path at runtime — that is a Claude Code
-design constraint (see `agents/_shared/sandbox-cwd-policy.md`).
+The working directory is the target project root. Report it briefly before
+writing. Never create a different project inside it or expand permission scope.
+If the user explicitly asks for a separate new project while in an existing
+project, ask for its target directory before writing there. Otherwise, an
+existing PROJECT.md is normal and does not require a choice or reconfiguration.
 
-```bash
-echo "cwd=$(pwd)"
-```
+Read `.great_cto/PROJECT.md` and inspect the repository:
 
-If the cwd is not the directory you want the new project to live in, **stop
-and tell CTO to `cd` first**:
+- **Explicit audit request:** `/start audit [focus]` follows `## Path: audit` below. Preserve configured approval policy and operator choices.
+- **Existing configured project:** preserve PROJECT.md. Load the installed
+  `skills/great_cto/SKILL.md` (relative to CLAUDE_PLUGIN_ROOT, or the repository
+  skill during development) and use its Intent Mapping. A feature, fix, audit,
+  incident or research request enters the appropriate existing workflow directly.
+  Do not run the new-project setup steps below. Clarify only ambiguity that
+  changes the outcome or authorization. A research request produces findings;
+  it does not authorize implementation or deployment by itself.
+- **Existing code without configuration:** inspect the stack and use the
+  existing-project audit/bootstrap path (`## Path: audit` below). Preserve existing files. Do not treat
+  an unconfigured repository as an empty greenfield project.
+- **Empty/new project:** use the discovery and setup steps below.
+- **No task description:** ask the single question below.
 
-```
-You're in $(pwd). Sub-agents will write to THIS directory.
+If `.great_cto/DISCOVERY-NO-BUILD.md` exists and this request would reopen that
+product decision, show the recorded reason and ask what changed. A new request
+must not silently erase a previous no-build decision.
 
-If that's not what you want:
-  mkdir ~/code/<slug> && cd ~/code/<slug> && /start "<description>"
+## User-facing task contract
 
-Then re-run /start. Do NOT continue from here.
-```
-
-Proceed only when cwd is the intended project root.
-
-## Route: new project, or existing codebase → audit path
-
-Decide which path this run takes **before** any guard below:
-
-```bash
-FIRST_ARG=$(printf '%s' "$ARGUMENTS" | awk '{print tolower($1)}')
-HAS_MANIFEST=$(ls package.json Cargo.toml go.mod requirements.txt pyproject.toml pom.xml build.gradle Gemfile composer.json 2>/dev/null | head -1)
-SRC_FILES=$(find . \( -path ./node_modules -o -path ./.git -o -path ./vendor -o -path ./dist -o -path ./build -o -path ./.venv \) -prune -o \
-  -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.jsx" -o -name "*.py" -o -name "*.go" -o -name "*.rs" \
-  -o -name "*.java" -o -name "*.kt" -o -name "*.rb" -o -name "*.php" -o -name "*.swift" -o -name "*.cs" \) -print 2>/dev/null | wc -l | tr -d ' ')
-EXISTING_CODE=false
-{ [ "${SRC_FILES:-0}" -gt 10 ] || { [ -n "$HAS_MANIFEST" ] && [ "${SRC_FILES:-0}" -ge 1 ]; }; } && EXISTING_CODE=true
-[ -f .great_cto/PROJECT.md ] && CONFIGURED=true || CONFIGURED=false
-echo "first_arg=$FIRST_ARG manifest=${HAS_MANIFEST:-none} src_files=$SRC_FILES existing_code=$EXISTING_CODE configured=$CONFIGURED"
-```
-
-| Condition | Path |
-|-----------|------|
-| First word of the argument is `audit` (`/start audit`, `/start audit eval`, `/start audit lint`, `/start audit focus on security`) | **Audit path** — the rest of the argument is its argument. Runs whether or not PROJECT.md exists: audit is always safe to re-run. `/audit …` is the same command. |
-| `CONFIGURED=false` and `EXISTING_CODE=true` — a codebase is already here (more than 10 source files, or a manifest plus at least one source file) and great_cto has not configured it | **Audit path**, no argument. Tell the CTO in one line: `Existing codebase detected (<N> source files, <manifest>) — running the audit path first: stack, gaps, tasks, PROJECT.md.` If the CTO gave a description, keep it: after the audit it becomes the first feature (see "After the audit"). |
-| Anything else | **New-project setup** — continue with the guards and steps below. |
-
-On the audit path, jump to `## Path: audit` and follow it to the end. Do NOT run the guards or Steps 0–6 of new-project setup.
-
-## Guard: existing project
-
-```bash
-ls .great_cto/PROJECT.md 2>/dev/null && echo "EXISTS" || echo "NEW"
-ls .great_cto/DISCOVERY-NO-BUILD.md 2>/dev/null && echo "NO_BUILD"
-```
-
-If EXISTS → stop and tell CTO. **First option must be the new-project escape hatch** — most CTOs hit this guard because they meant to start a NEW project but forgot to `cd` into a fresh directory:
-
-```bash
-# Predict slug from first 2 nouns in the description (skip filler verbs).
-# E.g. /start "build news agent for hashtags" → SLUG="news-agent"
-SLUG=$(printf '%s' "$DESCRIPTION" | tr '[:upper:]' '[:lower:]' \
-  | sed -E 's/^(build|create|make|add|setup|implement|design) //' \
-  | awk '{print $1"-"$2}' | sed 's/[^a-z0-9-]//g' | cut -c1-30)
-[ -z "$SLUG" ] && SLUG="new-project"
-```
-
-Output:
-```
-Project already configured as `<type>` (from .great_cto/PROJECT.md in $(pwd)).
-
-You're inside an existing great_cto project. Three options, in order of likelihood:
-
-  1. **You meant a NEW project** (most common — wrong cwd):
-     mkdir ../<SLUG> && cd ../<SLUG> && /start "<description>"
-
-  2. **You want to add a feature TO this project**:
-     Tell me what to build → pipeline starts immediately on this codebase
-
-  3. **You want to re-audit / reset this project**:
-     /start audit      — gap analysis of existing code (same as /audit)
-     rm .great_cto/PROJECT.md && /start "..."   — reset config
-
-Do NOT proceed until CTO picks one.
-```
-
-Do NOT proceed with setup. Do NOT overwrite PROJECT.md. Do NOT silently fall back to free-form Q&A — that's the failure mode this guard exists to prevent.
-
-If NO_BUILD → stop and tell CTO:
-```
-Previous discovery decided NOT to build (see DISCOVERY-NO-BUILD.md).
-
-Reason: <quote "Why no build" section, first sentence>
-Vendor chosen / evaluated: <from action items>
-Revisit due: <created date + 6 months>
-
-Options:
-  • Re-confirm — keep using the vendor
-  • Supersede — conditions changed (revenue / scale / customization). Tell me what changed → I'll re-run discovery
-  • Delete .great_cto/DISCOVERY-NO-BUILD.md → reset and run /start fresh
-```
-Do NOT proceed with setup. Do NOT overwrite the no-build decision.
+Describe progress as the task's outcome, current work, remaining work and any
+needed decision. Agent names and graph details are available on request.
+A decision request includes the choice, recommendation, consequences and why
+it needs the user now. Existing checks and configured human gates still apply;
+this entry never approves a gate, changes approval-level or expands write scope.
 
 ---
 
 ## Guard: no description
 
 If CTO ran `/start` with no argument (empty) → ask ONE question:
-> "What are you building? Describe your project in a sentence or two."
+> "What would you like to accomplish? Describe the task in a sentence or two."
 
-Wait for the answer. Then proceed with setup.
+Wait for the answer. Then resolve the target and route the task; only new projects need setup.
 
 ---
 
@@ -148,39 +81,13 @@ Wait for the answer. Then proceed with setup.
 
 ---
 
-## Guard: discovery / research / MVP
+## Discovery requests are supported
 
-Before type detection, scan the description for signals that the task is **not yet ready for the pipeline**.
-
-**Discovery signals** (check semantically, not keyword-only):
-- Vague intent: "explore", "research", "experiment", "figure out", "not sure what", "maybe", "should we", "what's the best way", "help me decide"
-- Unvalidated idea: "validate", "prototype quickly", "test the idea", "proof of concept", "PoC", "see if it works"
-- Greenfield with no requirements: "MVP", "from scratch", "brand new", "starting fresh" + no domain/stack signals
-
-**Do NOT trigger** if description has clear deliverables despite containing these words:
-- "research and then build X" → build X is the deliverable
-- "prototype JWT auth" → auth is the domain, prototype just means small scope
-
-**If triggered**, stop and respond:
-
-```
-⚠ This sounds like a discovery or research task.
-
-The pipeline works best when requirements are clear:
-✓ "Build a JWT auth service with refresh tokens"
-✗ "Explore auth options and figure out what to build"
-
-The pipeline (architect → senior-dev → QA → security → devops) assumes
-you know what to build. For fuzzy tasks it produces architecture docs
-for the wrong thing.
-
-Options:
-  → Clarify requirements in chat first, then run /start again
-  → /start audit — if you have existing code and want to understand it
-  → Say "I know what to build" to proceed anyway (your risk)
-```
-
-Wait for CTO reply. If they say "I know what to build" or equivalent → proceed normally.
+Research, exploration and MVP requests use Phase 0 to clarify or test the idea.
+Do not reject the request and send the user to another command. When the
+requested deliverable is research, finish with findings and evidence; start a
+build only if the user authorized it. Preserve the existing no-build decision
+and product approval policies.
 
 ---
 
@@ -1257,7 +1164,7 @@ Spawn `great_cto-project-auditor` with this context (vary by MODE):
 >      prints (`/exception create --gate … --scope "GAP-n" --reason "gap-wave N: tracked" …`)
 >      and record its EXC-id in the register's `exception:` field — keeps the gate green while
 >      the gap is tracked + expiring, never a silent bypass. Criticals are never deferred.
-> 5. **Write .great_cto/PROJECT.md** (overwrite if exists):
+> 5. **Write .great_cto/PROJECT.md** (create if absent; preserve configured approval policy and operator choices if it exists):
 >    Use detected stack, type, and team size (estimate from git log authors).
 >    Set review_mode: auto unless security-critical type (then: strict).
 >    **Audience / compliance gap**: if README + git history don't reveal who uses this
@@ -1285,4 +1192,7 @@ Tell CTO what was found in 2-3 lines. Do NOT repeat the agent's full output.
 
 ### After the audit
 
-If the CTO gave a project description on the automatic route, it is now the first feature on this codebase: show it back in one line and ask "Start the pipeline on this?" — the same as option 2 of `## Guard: existing project`. Do NOT re-run new-project setup; the audit already wrote PROJECT.md.
+If the original request includes an authorized implementation, continue with
+that feature through the existing workflow. If the request was only an audit,
+finish with findings. If unclear, ask one question about the desired outcome.
+Do not re-run setup, erase PROJECT.md or request another generic "go".

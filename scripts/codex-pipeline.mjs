@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { newRun, runStage, runParallelWave, parallelPair, approve, recover, cancel } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
+import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
 import { detectClaude } from './lib/claude-exec.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
@@ -22,14 +23,17 @@ const routes = raw => {
   }
   return out;
 };
+const inheritedLease = process.env.GREAT_CTO_WORK_LEASE;
+delete process.env.GREAT_CTO_WORK_LEASE;
 const store = codexRunStore();
 mkdirSync(store, { recursive: true, mode: 0o700 });
 const save = state => {
   const file = join(store, `${state.id}.json`);
   writeFileSync(`${file}.tmp`, JSON.stringify(state, null, 2), { mode: 0o600 });
   renameSync(`${file}.tmp`, file);
+  observeWorkRun(state);
 };
-let locked = null;
+let locked = null, projectLease = null, work = null, taskForFinish = null;
 try {
   if (command === 'doctor') {
     const result = codexHostDoctor({ pluginRoot: resolve(value('--plugin-root') || join(dirname(fileURLToPath(import.meta.url)), '..')), store });
@@ -42,6 +46,21 @@ try {
   let state;
   if (command === 'start') {
     const root = realpathSync(resolve(value('--dir') || '.'));
+    const taskId = value('--task-id');
+    const allowed = (value('--allow') || '').split(',').map(p => p.trim()).filter(Boolean);
+    let acceptance = [], intent = value('--intent') || 'delivery', maxAttempts = value('--max-attempts') === null ? 3 : Number(value('--max-attempts'));
+    if (taskId) {
+      projectLease = acquireProjectLease(root, { reuseToken: inheritedLease });
+      const task = readWorkTask(taskId, { root });
+      acceptance = task.acceptance; intent = task.intent || 'delivery'; maxAttempts = task.budget?.maxStageAttempts || 3;
+      if (task.host !== 'codex' || task.goal !== value('--prompt')?.trim()
+        || JSON.stringify(task.authority?.writeScope) !== JSON.stringify(allowed)) throw Error('task authority does not match run request');
+    } else {
+      work = beginWork({ root, host: 'codex', goal: value('--prompt'), intent, maxAttempts, authority: { mode: 'explicit-paths', writeScope: allowed } });
+      projectLease = work.lease; taskForFinish = work.task.taskId;
+    }
+    const listing = listCodexRuns({ root, store });
+    if (listing.state === 'degraded' || listing.runs.some(r => !['done', 'cancelled'].includes(r.status))) throw Error('unfinished or unreadable project run exists; resume or inspect it first');
     if (args.includes('--routes') && value('--routes') == null) throw Error('--routes requires a value');
     const hostRoutes = routes(value('--routes'));
     if (Object.values(hostRoutes).includes('claude-code')) {
@@ -63,22 +82,39 @@ try {
       releasePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
     }
     state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
-      allowed: (value('--allow') || '').split(',').filter(Boolean), entry: value('--entry') || 'product-owner',
-      maxAttempts: value('--max-attempts') === null ? 3 : Number(value('--max-attempts')), hostRoutes });
+      allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
+      maxAttempts, hostRoutes });
+    state.taskId = taskId || work.task.taskId;
+    state.acceptance = acceptance;
+    linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
     save(state);
   } else {
     const id = args[0];
     if (!/^[0-9a-f-]{36}$/.test(id || '')) throw Error('a run UUID is required');
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));
     if (state.id !== id || state.version !== 1) throw Error('invalid run state');
+    if (command !== 'status') {
+      if (command === 'resume' && state.taskId && !inheritedLease) {
+        work = beginWork({ root: state.root, host: 'codex', kind: 'resume', taskId: state.taskId });
+        projectLease = work.lease; taskForFinish = work.task.taskId;
+      } else projectLease = acquireProjectLease(state.root, { reuseToken: inheritedLease });
+    }
   }
-  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
+  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;
     // Reload under lock so simultaneous approvals cannot overwrite one another.
     state = JSON.parse(readFileSync(join(store, `${state.id}.json`), 'utf8'));
-    if (command === 'approve') { approve(state, value('--token')); save(state); }
+    if (command === 'approve-task') {
+      if (!inheritedLease || !state.taskId) throw Error('task approval requires operator operation ownership');
+      const task = readWorkTask(state.taskId, { root: state.root });
+      const operation = task.operations.find(o => o.operationId === value('--operation'));
+      const decision = controlledDecisions(state)[0];
+      if (!operation || operation.state !== 'running' || operation.kind !== 'approve' || operation.data?.decisionId !== value('--decision') || !decision || decision.decisionId !== value('--decision')) throw Error('task approval is stale or unbound');
+      if (decision.kind === 'release') approveRelease(state, state.release.token); else approve(state, state.pending.token);
+      save(state);
+    } else if (command === 'approve') { approve(state, value('--token')); save(state); }
     else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
     else if (command === 'recover') { recover(state); save(state); }
     else if (command === 'cancel') { cancel(state); save(state); }
@@ -101,5 +137,7 @@ try {
   console.error(`codex-pipeline: ${error.message}`);
   process.exitCode = 2;
 } finally {
-  if (locked) rmdirSync(locked);
+  try { if (locked) rmdirSync(locked);
+    if (taskForFinish) finishWork(taskForFinish, work.operation.operationId, process.exitCode || 0); }
+  finally { projectLease?.release(); }
 }

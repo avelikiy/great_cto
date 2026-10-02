@@ -76,6 +76,20 @@ attend), **Ledger** (ce que ça a coûté), **Fleet** (quel agent cesser de croi
 présente une absence comme une réussite : un scan qui n'a jamais tourné est
 `n/a`, jamais un zéro vert.
 
+**Un point d’entrée dans la version source**
+
+`/start` accepte des tâches dans les projets nouveaux et existants et préserve la configuration. Les actions quotidiennes sont démarrer, consulter l’état et reprendre.
+
+```bash
+great-cto run "describe the task"
+great-cto status
+great-cto resume
+```
+
+Par défaut, Claude Code interactif s’ouvre avec le plugin chargé. Pour Codex contrôlé, ajoutez `--host codex` et au démarrage `--allow src,tests,docs`. Resume sélectionne la seule exécution inachevée du projet ; plusieurs nécessitent un UUID. Aucune décision n’est approuvée automatiquement. Cette modification source n’est pas encore publiée sur npm.
+
+`great-cto help --advanced`
+
 ## Chiffres mesurés
 
 | | |
@@ -106,10 +120,8 @@ Une journée avec great_cto :
 | Quand | Commande | Ce que vous obtenez |
 |---|---|---|
 | Vous avez une idée ou un code existant | `/start "…"` | un brief, un plan et du code qui tourne — trois décisions restent les vôtres : quoi construire, comment, et si ça part en production |
-| Vous arrêtez pour aujourd'hui | `/save` | ce qui a été fait, comment chaque « terminé » a été vérifié, la suite |
 | Vous revenez | `/resume` | exactement là où vous en étiez — avec une alerte si le code a changé depuis |
 | Quelque chose vous attend | `/inbox` | seulement les décisions qui vous reviennent : gates, blocages, P0 |
-| Vendredi | `/digest` | ce qui est sorti, ce qui a cassé, ce que chaque fonctionnalité a coûté |
 
 Quand vous en avez besoin :
 

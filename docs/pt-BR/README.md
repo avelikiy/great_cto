@@ -75,6 +75,20 @@ de você), **Ledger** (quanto custou), **Fleet** (em qual agente parar de
 confiar), **Harness** (quem deu a segunda opinião, e o que ela de fato fez).
 Nada nele mostra uma ausência como aprovação: um scan que nunca rodou é `n/a`,
 nunca um zero verde.
+**Uma entrada na versão do código-fonte**
+
+`/start` aceita tarefas em projetos novos e existentes e preserva a configuração. As ações diárias são iniciar, consultar o estado e continuar.
+
+```bash
+great-cto run "describe the task"
+great-cto status
+great-cto resume
+```
+
+Por padrão, abre o Claude Code interativo com o plugin carregado. Para Codex controlado, adicione `--host codex` e ao iniciar `--allow src,tests,docs`. Resume seleciona a única execução inacabada do projeto; se houver várias, exige UUID. Não aprova decisões automaticamente. Esta mudança do código-fonte ainda não foi publicada no npm.
+
+`great-cto help --advanced`
+
 ## Números medidos
 
 | | |
@@ -104,10 +118,8 @@ Um dia com o great_cto:
 | Quando | Comando | O que você recebe |
 |---|---|---|
 | Você tem uma ideia ou um código existente | `/start "…"` | um brief, um plano e código funcionando — três decisões continuam suas: o que construir, como e se vai para produção |
-| Você encerrou por hoje | `/save` | o que foi feito, como cada "pronto" foi verificado, o que vem depois |
 | Você volta | `/resume` | exatamente onde parou — e um aviso se o código mudou desde então |
 | Algo precisa de você | `/inbox` | só as decisões esperando por você: gates, bloqueios, P0 |
-| Sexta-feira | `/digest` | o que foi entregue, o que quebrou, quanto custou cada funcionalidade |
 
 Quando precisar:
 
