@@ -96,7 +96,9 @@ establish live model quality or installed-plugin parity.
 
 ## Consequences and remaining boundaries
 
-No historical PASS reuse, no defaults change, no release or deployment authority.
+No implicit historical PASS reuse, no defaults change, no release or deployment authority.
+Explicit opt-in reuse requires the separate [scoped evidence contract](ADR-scoped-review-evidence.md),
+including fresh independent dependency/current-task attestation and unchanged human gates.
 Ignored runtime inputs remain outside the Git-visible attestation. Full external
 provisioning/import/live monitoring require their independent operator contracts.
 Scoped historical reuse, native asynchronous admission, live benchmark,

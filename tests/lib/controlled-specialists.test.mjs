@@ -4,6 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, readdirSyn
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { newRun, runStage, runParallelWave, approve, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { assertSpecialistEpoch } from '../../scripts/lib/controlled-specialists.mjs';
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
@@ -34,6 +35,68 @@ async function review(state) {
   const role = state.queue[0]; const path = `docs/specialist-reviews/${role}.md`;
   return runStage(state, { execute: async () => reply(role, [{ path, before: null, content: `${role}: actual findings` }]), verify });
 }
+
+async function scopedPrior(t) {
+  const f = fixture(t);
+  const policy = { ...f.args.specialistPolicy, reviewReuse: { scopes: { 'pci-reviewer': ['src/ui.ts'] } } };
+  f.state = newRun({ ...f.args, specialistPolicy: policy });
+  await implement(f.state); approve(f.state, f.state.pending.token);
+  while (f.state.queue[0] !== 'pci-reviewer') await review(f.state);
+  const role = 'pci-reviewer', path = 'docs/specialist-reviews/pci-original.md';
+  await runStage(f.state, { execute: async () => reply(role, [{ path, before: null, content: 'PCI boundary findings for current source' }]),
+    verify: async state => ({ state: 'verified', findings: [], checks: ['inspected actual source/report'],
+      dependencyAttestation: { state: 'complete', inputDigest: state.attempts.at(-1).scopedInput.digest,
+        checks: ['inspected imports/config/project inventory for PCI scope'] } }) });
+  assert.ok(f.state.results[role].scopedReview);
+  const outside = mkdtempSync(join(tmpdir(), 'scoped-controller-state-'));
+  t.after(() => rmSync(outside, { recursive: true, force: true }));
+  const source = join(outside, 'prior.json'), raw = JSON.stringify(f.state); writeFileSync(source, raw);
+  const args = { ...f.args, specialistPolicy: { ...policy, reviewReuse: { ...policy.reviewReuse,
+    sources: { [role]: { path: source, sha256: createHash('sha256').update(raw).digest('hex') } } } } };
+  const next = newRun(args);
+  await implement(next); approve(next, next.pending.token);
+  while (next.queue[0] !== role) {
+    const current = next.queue[0], report = `docs/specialist-reviews/${current}-next.md`;
+    await runStage(next, { execute: async () => reply(current, [{ path: report, before: null, content: 'Fresh mandatory review' }]), verify });
+    assert.equal(next.status, 'ready', next.reason);
+    assert.equal(next.results[next.attempts.at(-1).role].reuse, undefined, 'mandatory quorum is freshly executed');
+  }
+  return { ...f, next, args, role };
+}
+
+test('operator-pinned scoped report skips only domain worker; fresh verifier and current gate quorum remain', async t => {
+  const f = await scopedPrior(t); let workers = 0, verifiers = 0;
+  await runStage(f.next, { execute: async () => { workers++; throw Error('domain worker must not launch'); },
+    verify: async state => { verifiers++; return { state: 'verified', findings: [], checks: ['read current source and copied actual report'],
+      dependencyAttestation: { state: 'complete', inputDigest: state.attempts.at(-1).scopedInput.digest,
+        checks: ['fresh dependency closure and current task inspection'] } }; } });
+  assert.equal(workers, 0); assert.equal(verifiers, 1);
+  assert.equal(f.next.results[f.role].reuse.runId, f.state.id);
+  assert.equal(f.next.results[f.role].scopedReview, undefined, 'reused result cannot mint recursive reuse');
+  assert.notEqual(f.next.results[f.role].digest, f.state.results[f.role].digest);
+  assert.equal(f.next.pending, null, 'unrun regulated reviewer still blocks gate');
+  await review(f.next);
+  assert.equal(f.next.status, 'awaiting-gate'); assert.ok(f.next.pending.gates.includes('gate:ship'));
+  assert.ok(!f.next.approvals.some(a => a.gate === 'gate:ship'));
+});
+
+test('plain verified on reused report cannot approve; rework invalidates implementation quorum', async t => {
+  const f = await scopedPrior(t);
+  await runStage(f.next, { execute: async () => { throw Error('worker should not launch'); }, verify });
+  assert.equal(f.next.queue[0], 'senior-dev'); assert.equal(f.next.status, 'ready');
+  assert.equal(f.next.results[f.role], undefined); assert.equal(f.next.pending, null);
+  assert.equal(f.next.approvals.length, 0); assert.match(f.next.rework.findings[0], /lacks fresh complete/);
+});
+
+test('edited operator pin falls back to a full fresh domain worker with audit reason', async t => {
+  const f = await scopedPrior(t);
+  writeFileSync(f.args.specialistPolicy.reviewReuse.sources[f.role].path, '{}');
+  let workers = 0;
+  await runStage(f.next, { execute: async () => { workers++; return reply(f.role,
+    [{ path: 'docs/specialist-reviews/pci-fallback.md', before: null, content: 'fresh complete domain review' }]); }, verify });
+  assert.equal(workers, 1); assert.equal(f.next.results[f.role].reuse, undefined);
+  assert.match(f.next.attempts.at(-1).reuseRefusal, /pin changed/);
+});
 
 test('default graph unchanged; policy requires existing-change entry, scope and supported roles', t => {
   const f = fixture(t, 'web-service', false); assert.equal(f.state.specialistPolicy, undefined);

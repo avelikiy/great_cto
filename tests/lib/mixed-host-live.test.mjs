@@ -14,6 +14,48 @@ const PLUGIN_ROOT = resolve(process.env.GREAT_CTO_LIVE_PLUGIN_ROOT || REPO);
 const CONTROLLER = join(PLUGIN_ROOT, 'scripts', 'codex-pipeline.mjs');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+test('live Claude scoped contract can be reused only after fresh Codex completeness verification',
+  { skip: process.env.GREAT_CTO_LIVE_REUSE !== '1' }, async () => {
+    const { newRun, runStage } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));
+    const base = createFixtureBase(), root = join(base, 'project'), store = join(base, 'runs');
+    mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(join(root, 'src')); mkdirSync(join(root, '.great_cto'));
+    writeFileSync(join(root, '.great_cto/PROJECT.md'), 'archetype: fintech\n');
+    writeFileSync(join(root, 'README.md'), '# Isolated arithmetic fixture\nNo payment, card, customer, network or deployment functionality.\n');
+    writeFileSync(join(root, 'src/add.mjs'), 'export function add(a, b) { return a + b; }\n');
+    execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
+    execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'reuse fixture']);
+    const gitBase = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const role = 'pci-reviewer-prebuild', scopes = { [role]: ['README.md', 'src/add.mjs'] };
+    const args = { root, pluginRoot: PLUGIN_ROOT, entry: 'senior-dev', allowed: ['src', 'docs'],
+      prompt: 'Prepare a concise PRE-BUILD PCI boundary report for a future finite-numbers-only arithmetic helper change. ' +
+        'Inspect README.md, src/add.mjs and PROJECT.md. No payment/card/customer/network systems exist; report these observed boundaries without certifying compliance. ' +
+        'State planned input and finite-sum checks and testable acceptance criteria, not implemented behavior. ' +
+        'Create a new Markdown report under docs/specialist-contracts/ and name it in meta.report. Do not modify implementation or approve gates.',
+      specialistPolicy: { mode: 'adaptive', workflow: 'phased-change', base: gitBase, reviewReuse: { scopes } },
+      hostRoutes: { 'pci-reviewer': 'claude-code' } };
+    const first = newRun(args), file = join(store, `${first.id}.json`);
+    const saveFirst = s => writeFileSync(file, JSON.stringify(s), { mode: 0o600 });
+    saveFirst(first); console.log(`LIVE_REUSE_ORIGINAL=${first.id} STORE=${store} PROJECT=${root}`);
+    await runStage(first, { save: saveFirst, contextStore: store });
+    assert.equal(first.results[role]?.host, 'claude-code', first.reason);
+    assert.ok(first.results[role].scopedReview, first.attempts.at(-1).scopedAttestationRefusal);
+    assert.equal(first.results[role].verification.dependencyAttestation.state, 'complete');
+    const next = newRun({ ...args, specialistPolicy: { ...args.specialistPolicy,
+      reviewReuse: { scopes, sources: { [role]: { path: file, sha256: sha256(readFileSync(file)) } } } } });
+    const nextFile = join(store, `${next.id}.json`), saveNext = s => writeFileSync(nextFile, JSON.stringify(s), { mode: 0o600 });
+    saveNext(next);
+    await runStage(next, { save: saveNext, contextStore: store });
+    assert.equal(next.results[role]?.reuse?.runId, first.id, next.reason || next.attempts.at(-1).reuseRefusal);
+    assert.equal(next.results[role].verification.state, 'verified');
+    assert.equal(next.results[role].verification.dependencyAttestation.state, 'complete');
+    assert.equal(next.results[role].scopedReview, undefined);
+    assert.equal(next.pending, null); assert.equal(next.approvals.length, 0);
+    assert.equal(next.results['senior-dev'], undefined);
+    console.log(JSON.stringify({ original: first.id, reused: next.id, status: next.status,
+      report: next.results[role].meta.report, verification: next.results[role].verification,
+      gatesApproved: 0, remainingQuorum: next.queue, workerSkipped: !!next.attempts.at(-1).reuse }));
+  });
+
 test('live Claude Code and Codex workers complete one frozen QA/security wave',
   { skip: process.env.GREAT_CTO_LIVE_MIXED !== '1' }, async () => {
     const { newRun, runStage } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));

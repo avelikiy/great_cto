@@ -6,6 +6,7 @@ import { pinChangeBase } from './runtime-gate-policy.mjs';
 import { specialistPlan } from './specialist-plan.mjs';
 import { RULES } from '../hooks/auto-attach-reviewers.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
+import { validateReviewReusePolicy } from './scoped-review-reuse.mjs';
 
 const mandatory = ['code-reviewer', 'qa-engineer', 'security-officer'];
 const contracts = new Set(['auth-engineer', 'subscription-billing-engineer', 'integrations-engineer', 'connector-builder',
@@ -53,6 +54,7 @@ export function validateSpecialistPolicy(state, policy) {
     for (const role of roles.filter(r => r !== 'ai-eval-engineer')) registerPreparationRole(state, role);
     schedulePreparation(state);
   }
+  state.specialistPolicy.reviewReuse = validateReviewReusePolicy(state, policy.reviewReuse);
   return state.specialistPolicy;
 }
 
