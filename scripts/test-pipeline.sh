@@ -300,8 +300,11 @@ else
   check "cost-guard runs cleanly without budget" \
     bash -c "echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"/start foo\"}' | node $HOOKS/cost-guard.mjs"
 
-  check "session-end produces a snapshot directive" \
-    bash -c "echo '{\"hook_event_name\":\"SessionEnd\",\"cwd\":\"$ROOT\"}' | node $HOOKS/session-end.mjs"
+  check "session-end writes an actual isolated fixture snapshot" \
+    node "$ROOT/scripts/lib/session-end-smoke.mjs" "$HOOKS/session-end.mjs"
+  skipped "SessionEnd actual git/Beads capture (fixture stubs; NOT CHECKED)"
+  skipped "SessionEnd actual lessons merge (launch intercepted; NOT CHECKED)"
+  skipped "SessionEnd paid learner (explicitly off; NOT CHECKED)"
 fi
 
 # =============================================================================
@@ -546,5 +549,9 @@ if [ "$FAIL" -gt 0 ]; then
 fi
 
 echo
-echo "${C_OK}All checks passed. Pipeline ready to merge.${C_RESET}"
+if [ "$SKIP" -gt 0 ]; then
+  echo "${C_WARN}Executed checks passed; $SKIP checks NOT CHECKED. Full pipeline readiness is unproven.${C_RESET}"
+else
+  echo "${C_OK}Automated checks passed. Merge still requires applicable independent review and human/security gates.${C_RESET}"
+fi
 exit 0
