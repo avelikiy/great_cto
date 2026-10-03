@@ -46,10 +46,10 @@ try{
 `;
 const env={PATH:process.env.PATH,LANG:'C',TZ:'UTC'};
 function processes(){
- const r=spawnSync('ps',['-axo','pid=,ppid=,stat=,lstart='],{env,encoding:'utf8',timeout:5000,maxBuffer:1048576});
+ const r=spawnSync('ps',['-axo','pid=,ppid=,pgid=,stat=,lstart='],{env,encoding:'utf8',timeout:5000,maxBuffer:1048576});
  assert.equal(r.status,0,'owned-process inventory must be available');const table=new Map();
- for(const line of r.stdout.split('\n')){const m=line.match(/^\s*(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s*$/);
-  if(m)table.set(Number(m[1]),{parent:Number(m[2]),state:m[3],birth:m[4]});}
+ for(const line of r.stdout.split('\n')){const m=line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s*$/);
+  if(m)table.set(Number(m[1]),{parent:Number(m[2]),group:Number(m[3]),state:m[4],birth:m[5]});}
  return table;
 }
 function ownedTree(roots,owner){
@@ -81,6 +81,11 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   assert.ok(ready.roots.length>0&&ready.roots.every(p=>Number.isInteger(p)&&p>1));
   owned=ownedTree(ready.roots,child.pid);
   assert.ok(owned.size>1,'browser root and actual descendant observed before continuation');
+  const groupTable=processes(),ownerGroup=groupTable.get(child.pid)?.group;
+  assert.ok(Number.isInteger(ownerGroup),'owner process group must be observed');
+  assert.ok(ready.roots.every(pid=>{const p=groupTable.get(pid);return p?.group===pid&&p.group!==ownerGroup;}),
+   'actual Chromium roots lead distinct process groups; scorer group alone cannot own browser cleanup');
+  t.diagnostic(mode+': browser root owns a separate process group from scorer owner');
   assert.equal(ready.profiles.length,1,'one actual Chromium temporary profile must be captured');
   const profile=ready.profiles[0];
   assert.equal(dirname(profile),scratch,'profile must be a direct child of this test private temporary root');
