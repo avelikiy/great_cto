@@ -542,3 +542,32 @@ reuse/fallback/rework cases also passed, using scripted verifier results rather
 than independent live model evidence. Native admission, complete lifecycle,
 security approval, comparative model quality and installed-artifact parity
 remain unfinished. The parent concurrent diagnosis remains in progress.
+
+### Shared admission ledger container and fence guards
+
+Source review under `great_cto-p4o9.2.4` found that truthy JSON arrays or scalars
+could pass the map-container guard for leases/calls/retired identities. Text-keyed
+properties on an array disappear when serialized; the shared ledger therefore
+could fail to retain admitted capacity. Nine of ten new persisted-file negative
+cases failed against the previous implementation (the invalid call-count string
+already refused). They passed after requiring JSON object containers and checking
+whole-wave fence capacity before incrementing the monotonic safe integer.
+
+Final affected budget/controller/specialist regression passed 92/92, zero skips,
+52549.999125 ms. This includes the expanded thirty-case admission suite: malformed
+root/container refusal without rewriting state, actual native prelaunch hook
+subprocess denials, eight competing admission processes, whole-wave exhaustion,
+last-safe-fence admission/replay/release, native asynchronous-response retention
+and controlled worker/verifier accounting. Separate mixed-host regression passed
+15/15, zero skips, 5850.764208 ms, using scripted host/verifier results rather than
+live providers. Documentation checks passed 94/94; syntax/diff checks and local
+HOL83/80 passed with zero Critical and 35 High reviewed as false positives.
+
+These source format/integer guards do not authenticate ledger contents, provide
+same-UID isolation, enable background/team/fork paths or attest actual model
+completion. No live lifecycle evidence or approving independent security receipt
+was produced. The earlier canonical run remains red with fifteen browser failures
+and eighteen NOT CHECKED skips; it predates this guard change and is not a full
+post-change regression. Native lifecycle, independent admission, measured quality
+and delivered/installed readiness remain open. No installed policy, defaults,
+shared cache, archive, frozen corpus, human gate, merge or release was changed.

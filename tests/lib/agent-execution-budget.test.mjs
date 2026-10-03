@@ -21,6 +21,56 @@ function fixture(t, limits = {}) {
 }
 const request = (callId, host = 'codex') => ({ callId, host, role: 'worker', depth: 1 });
 
+for (const field of ['leases', 'calls', 'retired']) {
+  for (const value of [[], 1, 'invalid']) test(`malformed ledger ${field} container refuses without rewriting state: ${JSON.stringify(value)}`, t => {
+    const f = fixture(t); budgetSnapshot(f.budget);
+    const path = join(f.budget.store, 'ledger.json'), ledger = JSON.parse(readFileSync(path, 'utf8'));
+    ledger[field] = value; writeFileSync(path, JSON.stringify(ledger));
+    const before = readFileSync(path, 'utf8');
+    assert.throws(() => budgetSnapshot(f.budget), /ledger\/policy mismatch/);
+    assert.throws(() => requireAgents(f.budget, [request('codex'), request('claude', 'claude-code')]), /ledger\/policy mismatch/);
+    assert.equal(readFileSync(path, 'utf8'), before);
+  });
+}
+
+test('fence exhaustion refuses a whole cross-host wave without allocating unsafe identities', t => {
+  const f = fixture(t); budgetSnapshot(f.budget);
+  const path = join(f.budget.store, 'ledger.json'), ledger = JSON.parse(readFileSync(path, 'utf8'));
+  ledger.nextFence = Number.MAX_SAFE_INTEGER - 1; writeFileSync(path, JSON.stringify(ledger));
+  assert.match(reserveAgents(f.budget, [request('codex'), request('claude', 'claude-code')]).error, /fence/);
+  assert.equal(budgetSnapshot(f.budget).active.length, 0); assert.equal(budgetSnapshot(f.budget).calls, 0);
+  const [last] = requireAgents(f.budget, [request('last')]);
+  assert.equal(last.fence, Number.MAX_SAFE_INTEGER);
+  assert.equal(requireAgents(f.budget, [request('last')])[0].token, last.token);
+  assert.match(reserveAgents(f.budget, [request('overflow')]).error, /fence/);
+  assert.equal(budgetSnapshot(f.budget).active.length, 1); assert.equal(budgetSnapshot(f.budget).calls, 1);
+  releaseAgent(f.budget, last); assert.equal(budgetSnapshot(f.budget).active.length, 0);
+});
+
+for (const value of [null, []]) test('invalid ledger root refuses with controlled mismatch: '+JSON.stringify(value), t => {
+  const f = fixture(t), path = join(f.budget.store, 'ledger.json');
+  writeFileSync(path, JSON.stringify(value), {mode: 0o600});
+  assert.throws(() => budgetSnapshot(f.budget), /ledger\/policy mismatch/);
+  assert.equal(readFileSync(path, 'utf8'), JSON.stringify(value));
+});
+
+for (const field of ['leases', 'calls', 'retired']) test('native prelaunch hook refuses malformed persistent '+field, t => {
+  const f = fixture(t); budgetSnapshot(f.budget);
+  const path = join(f.budget.store, 'ledger.json'), ledger = JSON.parse(readFileSync(path, 'utf8'));
+  ledger[field] = []; writeFileSync(path, JSON.stringify(ledger));
+  const before = readFileSync(path, 'utf8');
+  const hook = fileURLToPath(new URL('../../scripts/hooks/agent-execution-budget.mjs', import.meta.url));
+  const result = spawnSync(process.execPath, [hook, 'pre'], {
+    env: {...process.env, ...f.env, CLAUDE_CODE_DISABLE_BACKGROUND_TASKS: '1'},
+    input: JSON.stringify({cwd:f.root, session_id:'native', tool_use_id:'corrupt', tool_name:'Agent',
+      hook_event_name:'PreToolUse', tool_input:{subagent_type:'Explore'}}), encoding:'utf8', timeout:3000, maxBuffer:4096
+  });
+  assert.equal(result.status, 2); assert.equal(result.signal, null);
+  assert.equal(JSON.parse(result.stdout).hookSpecificOutput.permissionDecision, 'deny');
+  assert.match(result.stderr, /ledger\/policy mismatch/);
+  assert.equal(readFileSync(path, 'utf8'), before);
+});
+
 test('default is off; unsafe policy paths, permissions and malformed/deeper limits fail closed', t => {
   const f = fixture(t); assert.equal(readExecutionBudget(f.root, { env: {} }), null);
   const inside = join(f.root, 'policy.json'); writeFileSync(inside, '{}', { mode: 0o600 });

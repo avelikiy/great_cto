@@ -5,6 +5,7 @@ import { join, relative, isAbsolute, sep } from 'node:path';
 import { randomUUID, createHash } from 'node:crypto';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
+const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const outside = (root, path) => { const rel = relative(root, path); return rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel); };
 const sleep = ms => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
 
@@ -48,7 +49,9 @@ function transaction(budget, operation) {
     atomicJson(join(lock, 'owner.json'), { token: lockToken, pid: process.pid });
     const path = join(budget.store, 'ledger.json');
     const ledger = existsSync(path) ? JSON.parse(readFileSync(path, 'utf8')) : { version: 1, policyDigest: budget.policyDigest, limits: budget.limits, nextFence: 0, leases: {}, calls: {}, retired: {}, events: [] };
-    if (ledger.version !== 1 || ledger.policyDigest !== budget.policyDigest || JSON.stringify(ledger.limits) !== JSON.stringify(budget.limits) || !ledger.leases || !ledger.calls || !ledger.retired || !Array.isArray(ledger.events) || !Number.isSafeInteger(ledger.nextFence) || ledger.nextFence < 0 || Object.values(ledger.calls).some(n => !Number.isSafeInteger(n) || n < 0)) throw Error('agent budget ledger/policy mismatch; admission refused');
+    // JSON arrays discard string-keyed properties on serialization. Treating
+    // them as maps can silently lose leases, call counts or replay fencing.
+    if (!record(ledger) || ledger.version !== 1 || ledger.policyDigest !== budget.policyDigest || JSON.stringify(ledger.limits) !== JSON.stringify(budget.limits) || !record(ledger.leases) || !record(ledger.calls) || !record(ledger.retired) || !Array.isArray(ledger.events) || !Number.isSafeInteger(ledger.nextFence) || ledger.nextFence < 0 || Object.values(ledger.calls).some(n => !Number.isSafeInteger(n) || n < 0)) throw Error('agent budget ledger/policy mismatch; admission refused');
     const result = operation(ledger);
     atomicJson(path, ledger);
     return result;
@@ -82,6 +85,7 @@ export function reserveAgents(budget, requests) {
     if (requests.some(r => ledger.retired[sha(`${budget.runKey}\0${r.callId}`)])) return deny('completed/reconciled call identity cannot be reused');
     if (Object.keys(ledger.leases).length + requests.length > ledger.limits.maxConcurrent) return deny('global agent concurrency exhausted');
     if ((ledger.calls[budget.runKey] || 0) + requests.length > ledger.limits.maxCallsPerRun) return deny('shared run agent-call budget exhausted');
+    if (requests.length > Number.MAX_SAFE_INTEGER - ledger.nextFence) return deny('agent lease fence exhausted; admission refused');
     const leases = requests.map(r => {
       const lease = { token: randomUUID(), fence: ++ledger.nextFence, runKey: budget.runKey, callId: r.callId, host: r.host, role: r.role || 'worker', depth: r.depth, acquiredAt: new Date().toISOString(), ownerPid: Object.hasOwn(r, 'ownerPid') ? r.ownerPid : process.pid };
       ledger.leases[lease.token] = lease;

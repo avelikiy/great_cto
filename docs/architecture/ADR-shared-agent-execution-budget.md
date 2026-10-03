@@ -64,6 +64,16 @@ lease was reconciled fails fencing before the controller can accept that result.
 Unknown/corrupt state, policy mismatch and lock acquisition failure refuse new
 admission. No expiry or PID-only reclamation of execution slots is performed.
 
+Ledger map containers (`leases`, `calls`, `retired`) must be JSON objects, not
+arrays, strings or numbers. Arrays lose text-keyed lease properties when
+serialized, so accepting them could erase capacity and replay accounting. A
+malformed container refuses both snapshot and admission without rewriting the
+ledger. A wave also refuses if incrementing its fences would exceed
+`Number.MAX_SAFE_INTEGER`; the last safe fence remains usable and its active
+reservation replay/release still works. Counters are never reset automatically.
+These format and integer guards do not attest the ledger's provenance or protect
+against arbitrary same-UID edits to otherwise valid records.
+
 ## Host coverage
 
 Controlled Codex pipeline start freezes policy and store in controller state.
