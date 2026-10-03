@@ -173,6 +173,11 @@ test('opt-in delivered controller probe runs the matrix in a separate private pr
   assert.equal(diagnostics.outcome, 'exited-zero'); assert.equal(diagnostics.errorCode, null);
   assert.equal(diagnostics.signal, null); assert.equal(diagnostics.timeoutMs, 30000);
   assert.equal(diagnostics.descendantQuiescenceVerified, false);
+  const progressPath = join(report.evidenceRoot, 'fixtures/probe-progress.json');
+  const progress = JSON.parse(readFileSync(progressPath));
+  assert.equal(progress.scope, 'diagnostic-progress-only'); assert.equal(progress.stage, 'complete');
+  assert.equal(progress.benchmarkEligible, false); assert.equal(progress.descendantQuiescenceVerified, false);
+  assert.equal(statSync(progressPath).mode & 0o777, 0o600);
   assert.equal(statSync(join(report.evidenceRoot, 'controller-probe-diagnostics.json')).mode & 0o777, 0o600);
   assert.equal(report.controllerProbeProcess.pid, diagnostics.pid);
   assert.equal(existsSync(f.marker), false); assert.equal(report.benchmarkEligible, false);
@@ -182,6 +187,8 @@ test('opt-in delivered controller probe runs the matrix in a separate private pr
     const diagnostic = JSON.parse(readFileSync(join(error.evidenceRoot, 'controller-probe-diagnostics.json')));
     assert.equal(diagnostic.outcome, 'nonzero-or-unknown'); assert.equal(diagnostic.exitCode, 1);
     assert.equal(diagnostic.errorCode, null); assert.equal(diagnostic.descendantQuiescenceVerified, false);
+    assert.equal(existsSync(join(error.evidenceRoot, 'fixtures/probe-progress.json')), false,
+      'missing plugin root is refused before progress file creation');
     return /packaged controller probe failed/.test(error.message);
   });
   assert.throws(() => runPinnedPackageSmoke({ ...f.options, controllerProbe: 'yes' }), /must be boolean/);

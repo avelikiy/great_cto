@@ -87,3 +87,23 @@ executable, nonzero exit, 30-second timeout, output overflow and signal cases.
 The classification-only unit cases are not substituted for these native process
 checks. Controller construction/selection passed in a separate process; neither
 this scoped run nor a scanner pass closes the three historical full-CI failures.
+
+The concurrent stock library run at immutable `4e3f4aaa` completed exit 1:
+3043 tests, 3036 passed, one failed, six skipped, duration 246862 ms. Private log:
+`/Users/Shared/great-cto-lib-ci-lc4mwc`. Both historical Chromium scenarios passed
+(broker completion refusal 2324 ms; helper tainted continuation 1770 ms).
+The packaged controller matrix failed again. Retained process diagnostics in
+`/private/var/folders/xf/8mjkgbt91mgg9b0m_gyrh92w0000gn/T/great-cto-package-smoke-7lKp8c`
+record ETIMEDOUT, SIGTERM, null exit code and 30012 ms with no output. This proves
+the fresh timeout, not its historical cause or descendant termination.
+
+The trusted controller harness now writes bounded last-stage progress through
+an exclusively opened private inode. Stages bracket candidate imports, fixture
+Git commands, construction and specialist selection. No prompt, oracle or raw
+command output is included. The descriptor closes on success and thrown errors;
+the file remains diagnostic data, never admission or provenance evidence.
+The next concurrent run is needed to locate the timeout within the matrix.
+Both affected caller suites pass 12/12 without skips after checkpoint changes,
+including private progress success and refusal checks; scanner remains 83/80.
+Fresh Claude CLI auth reports loggedIn false / authMethod none; live mixed-host
+execution remains unavailable. No installation, default, merge or release changed.

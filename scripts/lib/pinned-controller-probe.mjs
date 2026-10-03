@@ -1,6 +1,6 @@
 /** Trusted harness: construction/selection only; never calls runStage or approve. */
 import assert from 'node:assert/strict';
-import { mkdirSync, writeFileSync, readFileSync, unlinkSync, realpathSync, lstatSync, readdirSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, unlinkSync, realpathSync, lstatSync, readdirSync, openSync, writeSync, ftruncateSync, closeSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -20,20 +20,35 @@ export async function probeControllerAssets({ pluginRoot, fixtureRoot }) {
   pluginRoot = realpathSync(pluginRoot); fixtureRoot = realpathSync(fixtureRoot);
   assert.ok(lstatSync(fixtureRoot).isDirectory());
   if (readdirSync(fixtureRoot).length || (lstatSync(fixtureRoot).mode & 0o077)) throw Error('private empty fixture root required');
+  // Hold an exclusively created inode, not a reopenable pathname. This is
+  // diagnostic progress only, never evidence of admission or successful work.
+  const progressFd = openSync(join(fixtureRoot, 'probe-progress.json'), 'wx', 0o600);
+  const start = performance.now(); let sequence = 0;
+  const checkpoint = (stage, label = null) => {
+    const value = Buffer.from(JSON.stringify({ version: 1, scope: 'diagnostic-progress-only', sequence: ++sequence,
+      stage, label, elapsedMs: Math.round(performance.now() - start), recordedAt: new Date().toISOString(),
+      benchmarkEligible: false, descendantQuiescenceVerified: false }));
+    writeSync(progressFd, value, 0, value.length, 0); ftruncateSync(progressFd, value.length);
+  };
+  checkpoint('import-start');
+  try {
   const load = name => import(pathToFileURL(join(pluginRoot, name)).href);
   const { newRun, advance } = await load('scripts/lib/codex-pipeline.mjs');
   const { codexRoleProfile } = await load('scripts/lib/codex-role-profiles.mjs');
   const { specialistPlan } = await load('scripts/lib/specialist-plan.mjs');
   const { RULES } = await load('scripts/hooks/auto-attach-reviewers.mjs');
+  checkpoint('import-complete');
   const graphSha256 = sha(readFileSync(join(pluginRoot, 'shared/pipeline.toml')));
   const cases = [], refusals = [];
   function fixture(label, domain = domains[0]) {
+    checkpoint('fixture-start', label);
     const root = join(fixtureRoot, label); mkdirSync(root, { mode: 0o700 });
     const put = (name, content) => { const path = join(root, name); mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, content); };
     put('.great_cto/PROJECT.md', `archetype: ${domain.archetype}\n`); put(domain.path, 'v1\n');
-    const git = args => execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
+    const git = args => { checkpoint(`git-${args[0]}-start`, label); const result = execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
       '-c', 'commit.gpgsign=false', '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', ...args],
     { cwd: root, encoding: 'utf8', timeout: 10000, maxBuffer: 65536 });
+      checkpoint(`git-${args[0]}-complete`, label); return result; };
     const templates = join(fixtureRoot, 'empty-git-template'); mkdirSync(templates, { recursive: true });
     git(['init', '-q', '--template', templates]); git(['add', '.']); git(['commit', '-qm', 'fixture baseline']);
     const base = git(['rev-parse', 'HEAD']).trim(); put(domain.path, 'v2\n');
@@ -55,14 +70,18 @@ export async function probeControllerAssets({ pluginRoot, fixtureRoot }) {
   };
   for (const domain of domains) for (const workflow of ['existing-change', 'phased-change', 'full-cycle']) {
     const label = `${domain.archetype}-${workflow}`, f = fixture(label, domain);
+    checkpoint('construction-start', label);
     // Existing-change intentionally cannot move AI prompt contracts after code.
     if (domain.archetype === 'ai-system' && workflow === 'existing-change') {
       assert.throws(() => newRun(f.args(workflow)), /specialist phase unsupported/);
       refusals.push({ label, state: 'refused' }); continue;
     }
     const state = newRun(f.args(workflow)); pristine(state); assert.equal(state.graphHash, graphSha256);
+    checkpoint('construction-complete', label);
     assert.equal(state.hostRoutes['senior-dev'], 'claude-code'); assert.equal(state.hostRoutes['code-reviewer'], 'codex');
+    checkpoint('selection-start', label);
     const plan = specialistPlan({ root: f.root, base: f.base, rules: RULES });
+    checkpoint('selection-complete', label);
     assert.equal(plan.state, 'planned'); assert.equal(plan.assessment.known, true);
     const roles = plan.reviewers.map(r => r.agent);
     for (const role of [...mandatory, ...domain.expected]) assert.ok(roles.includes(role), `missing required ${role} in ${label}`);
@@ -125,8 +144,10 @@ export async function probeControllerAssets({ pluginRoot, fixtureRoot }) {
     assert.match(state.reason, /review floor: unsafe exit|review floor: missing security\/compliance|project domain policy changed/);
     refusals.push({ label, state: 'blocked' });
   }
+  checkpoint('complete');
   return { version: 1, scope: 'delivered-controller-construction-and-selection-only', graphSha256, cases, refusals,
     dispatchAttempts: 0, approvalsRecorded: 0, providerCalls: null, executionArtifactProvenanceVerified: false, benchmarkEligible: false };
+  } finally { closeSync(progressFd); }
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
