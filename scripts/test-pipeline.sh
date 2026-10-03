@@ -311,100 +311,19 @@ fi
 # L4 — Board API
 # =============================================================================
 section "L4 — Board API (~30s)"
-# L4 starts a board of its own. It used to start it on 3141 and `pkill` anything
-# already serving there first — so running the suite silently killed the board
-# the operator had open, and the run it was measuring was the one it disturbed.
-# A test that has to stop the system to observe it is measuring itself.
-#
-# So: an ephemeral port, and a cleanup that kills the process THIS script
-# started and nothing else. BOARD_PORT is read by packages/board/lib/config.mjs.
-BOARD_PORT_TEST=""
-BOARD_URL=""
-BOARD_PID=""
-cleanup_board() {
-  if [ -n "$BOARD_PID" ]; then
-    kill "$BOARD_PID" 2>/dev/null || true
-    wait "$BOARD_PID" 2>/dev/null || true
-  fi
-}
-trap cleanup_board EXIT
-
+# Probe the installed artifact in a private fixture. Unsupported isolation is
+# a failed NOT CHECKED check, never a fallback to operator state.
 if [ "$SKIP_L4" = "1" ]; then
   skipped "L4 (--skip-l4)"
 elif [ -z "$PLUGIN_DIR" ]; then
   skipped "L4 (no plugin dir)"
-elif ! command -v curl >/dev/null; then
-  skipped "L4 (no curl)"
 else
-  # An ephemeral port the OS says is free, asked for once and reused for the
-  # whole level. Not a fixed high port: two runs in parallel would collide and
-  # the second would test the first one's server.
-  BOARD_PORT_TEST=$(node -e '
-    const net = require("node:net"); const s = net.createServer();
-    s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => console.log(p)); });
-  ')
-  BOARD_URL="http://127.0.0.1:$BOARD_PORT_TEST"
-  printf "  ${C_DIM}board under test → %s (operator's board on 3141 is untouched)${C_RESET}\n" "$BOARD_URL"
-
-  # --no-open: the server opens a real browser tab on start unless told not to,
-      # and a test run must not take over the operator's screen.
-      BOARD_PORT="$BOARD_PORT_TEST" nohup node "$PLUGIN_DIR/packages/board/server.mjs" --no-open >/tmp/gctest-l4-board.log 2>&1 &
-  BOARD_PID=$!
-  # Wait up to 5s for server to listen
-  for i in 1 2 3 4 5; do
-    curl -sf $BOARD_URL/api/projects >/dev/null 2>&1 && break
-    sleep 1
-  done
-
-  if ! curl -sf $BOARD_URL/api/projects >/dev/null 2>&1; then
-    printf "  ${C_FAIL}✗${C_RESET} board failed to start\n"
-    cat /tmp/gctest-l4-board.log | tail -5 | sed 's/^/      /'
-    FAIL=$((FAIL+1)); FAILURES+=("board startup")
-  else
-    for endpoint in /api/projects /api/agents-installed /api/metrics /api/cost \
-                    /api/memory /api/inbox /api/resume /api/decisions \
-                    /api/pipeline /api/logs /api/tasks; do
-      check "$endpoint returns valid JSON" \
-        bash -c "curl -sf '$BOARD_URL$endpoint' | python3 -m json.tool >/dev/null"
-    done
-
-    check "agents-installed matches the agents/ directory" \
-      bash -c "n=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"total\"])'); r=\$(ls agents/*.md | wc -l | tr -d ' '); [ \"\$n\" = \"\$r\" ] || { echo \"board reports \$n agents, agents/ holds \$r\" >&2; exit 1; }"
-
-    check "agents-installed includes new agents (continuous-learner, edtech, gov, insurance reviewers)" \
-      bash -c "names=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(\" \".join(a[\"slug\"] for a in json.load(sys.stdin)[\"agents\"]))'); for must in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do echo \"\$names\" | grep -qw \"\$must\" || exit 1; done"
-
-    check "memory endpoint surfaces exactly 11 layers" \
-      bash -c "n=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"layers\"]))'); [ \"\$n\" = '11' ]"
-
-    check "memory has both project + global scopes" \
-      bash -c "scopes=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
-
-    # Math invariant — only applies to task-estimation source (both rates
-    # hardcoded: $0.30/AI-hr ÷ $150/human-hr = 500x in v2.5.9+; was 7500x
-    # earlier with the unrealistic $0.02/hr default). PLAN sources use
-    # real measured numbers and have project-specific ratios.
-    check "metrics math: human/llm ratio ≈ 500× when source=tasks" \
-      bash -c "curl -sf '$BOARD_URL/api/projects' | python3 -c '
-import sys,json,urllib.request
-projs = json.load(sys.stdin)
-projs = projs if isinstance(projs,list) else projs.get(\"projects\",[])
-for p in projs:
-    slug = p.get(\"slug\") or p.get(\"name\")
-    if not slug: continue
-    m = json.load(urllib.request.urlopen(f\"$BOARD_URL/api/metrics?project={slug}\"))
-    cost = m[\"cost\"]
-    if cost[\"llm_usd\"] <= 0: continue
-    if cost.get(\"source\") != \"tasks\": continue
-    ratio = cost[\"human_usd\"] / cost[\"llm_usd\"]
-    # Default rates: \$0.30/AI-hr (Sonnet+Haiku mix) vs \$150/human-hr (mid-level
-    # fully-loaded) → exactly 500x. Empirical drift from per-agent rounding
-    # is < 5%. Tolerance 470-530 covers all observed projects.
-    assert 470 <= ratio <= 530, f\"task-source ratio drift: {ratio} (expected ~500)\"
-    sys.exit(0)
-sys.exit(0)  # no task-source data → vacuously pass
-'"
-  fi
+  check "isolated board: 11 JSON APIs, agent inventory, memory scopes and nonvacuous task rate ratio" \
+    node "$ROOT/scripts/lib/board-smoke.mjs" "$PLUGIN_DIR/packages/board/server.mjs" "$ROOT/agents"
+  skipped "Board actual git/Beads capture (fixture adapter; NOT CHECKED)"
+  skipped "Board notification delivery (disabled fixture sinks; NOT CHECKED)"
+  skipped "Board release discovery/cron (not exercised; NOT CHECKED)"
+  skipped "Board operator agent inventory (copied fixture; NOT CHECKED; parity remains in L5)"
 fi
 
 # =============================================================================
