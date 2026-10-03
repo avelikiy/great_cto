@@ -86,3 +86,70 @@ sandbox or independent security admission. Actual-host reuse still needs Claude
 reauthentication, tracked in `.3.2.2.2.1`. Reader bug/follow-up scope is
 `.3.2.2.2.2`; the parent remains in progress. Installed plugin, gates, defaults,
 frozen benchmark corpus, release and merge authority are unchanged.
+
+## 2026-10-03 authenticated live repeat: explicit closure correction
+
+After operator reauthentication, actual Claude worker run
+`f77a234d-142a-4ccf-a1d2-051ea5e60954` produced a PRE-BUILD boundary report.
+Actual Codex verification returned rework with an incomplete dependency
+attestation: the report used `.great_cto/PROJECT.md`, but the fixture's explicit
+operator closure named only README.md and src/add.mjs. The declaration was
+separately bound by projectDigest, but the verifier contract asks for all relevant
+files in the explicit closure. No accepted result, reused run, implementation or
+gate approval was produced. This was a genuine failed live test, not an auth
+failure or a successful refusal counted as a positive reuse test.
+
+Evidence root: `/Users/Shared/great-cto-acceptance-501/mixed-release-bC3gTx`.
+Log: `/Users/Shared/great-cto-live-reuse-v2-TCM8tH`. TAP: zero passed, one failed,
+two other opt-in live tests NOT CHECKED; duration 78582.886167 ms.
+
+The fixture now includes the tracked declaration in the explicit closure and
+uses its exact path in the task. No verifier prompt, production admission rule,
+required completeness check, approval policy or security baseline was weakened.
+Follow-up: great_cto-p4o9.3.2.2.2.3; actual-host verification remains tracked in
+great_cto-p4o9.3.2.2.2.1 until the corrected live run terminates successfully.
+
+The corrected-scope run `ad7d6900-b3e6-43ae-91ef-cba9978319c8` produced an
+accepted Claude report and actual Codex verified/complete attestation with the
+exact 64-character input digest. Evidence minting nevertheless refused: the
+verifier populated findings with positive observations; completeScopeAttestation
+intentionally requires zero unresolved findings. Scope and digest were not the
+cause of this second failure. Evidence root:
+`/Users/Shared/great-cto-acceptance-501/mixed-release-cYYbm9`; log:
+`/Users/Shared/great-cto-live-reuse-v2-fixed-KK3QTM`. TAP: zero passed, one failed,
+two other live tests NOT CHECKED; duration 71658.232583 ms. No reused run or
+approval was produced.
+
+The scoped verifier prompt now explicitly separates defects/unresolved blockers
+in findings from successful observations in checks. A verified scoped receipt
+requires findings:[]; blockers must remain and return rework/unverifiable.
+Returned findings are not stripped or reinterpreted, and admission is unchanged.
+Prompt-contract regression was RED before the clarification and GREEN afterward.
+Follow-up: great_cto-p4o9.3.2.2.2.4. The first affected scoped/controller/docs
+regression passed 146/146 without skips (68514.480041 ms), before this prompt
+clarification; a separate final-byte controller regression and live run follow.
+
+The final live run passed: actual Claude original
+`5be08c3d-db32-4344-868f-4dc1101114b2`, reused run
+`0f82532d-5905-423d-97e2-2d7ef7552097`. Original evidence is version 2;
+the recipient ran a fresh actual Codex verifier with verified state, empty
+findings and complete current-task dependency attestation. The domain worker was
+skipped only in the recipient. Reused results do not mint recursive evidence.
+Both runs retain zero approvals, no pending approval and no senior-dev result.
+The recipient remains ready with regulated-reviewer-prebuild in its queue; this
+is not a finished preparation quorum or release. src/add.mjs remains unchanged.
+
+Evidence root: `/Users/Shared/great-cto-acceptance-501/mixed-release-FzyYzF`.
+Log: `/Users/Shared/great-cto-live-reuse-v2-contract-pXKOE1`. TAP: one passed,
+zero failed, two other opt-in live cases NOT CHECKED; duration 118619.374875 ms.
+These are three distinct retained attempts, not failed results rewritten into a
+pass. No comparative model-quality uplift is inferred from this single fixture.
+
+Final-byte controller/scoped/controlled-specialist regressions passed 100/100,
+zero skips (68447.118292 ms). Documentation checks passed 76/76, zero skips.
+Syntax and git diff checks passed. Local HOL scanner passed 83/80 with zero
+Critical and 35 High reviewed as false positives; this is not independent
+security approval. Installed plugin, defaults, main integration, CI workflows,
+shared Chromium cache, frozen corpus, release and merge authority remain
+unchanged. Narrow live task and the two contract fixes can close; parent/global
+acceptance remain incomplete.

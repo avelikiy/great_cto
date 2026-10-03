@@ -25,10 +25,12 @@ test('live Claude scoped contract can be reused only after fresh Codex completen
     execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
     execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'reuse fixture']);
     const gitBase = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
-    const role = 'pci-reviewer-prebuild', scopes = { [role]: ['README.md', 'src/add.mjs'] };
+    // The project declaration is digest-bound separately, but it is also a
+    // relevant report dependency and must be explicit in the operator closure.
+    const role = 'pci-reviewer-prebuild', scopes = { [role]: ['.great_cto/PROJECT.md', 'README.md', 'src/add.mjs'] };
     const args = { root, pluginRoot: PLUGIN_ROOT, entry: 'senior-dev', allowed: ['src', 'docs'],
       prompt: 'Prepare a concise PRE-BUILD PCI boundary report for a future finite-numbers-only arithmetic helper change. ' +
-        'Inspect README.md, src/add.mjs and PROJECT.md. No payment/card/customer/network systems exist; report these observed boundaries without certifying compliance. ' +
+        'Inspect README.md, src/add.mjs and .great_cto/PROJECT.md. No payment/card/customer/network systems exist; report these observed boundaries without certifying compliance. ' +
         'State planned input and finite-sum checks and testable acceptance criteria, not implemented behavior. ' +
         'Create a new Markdown report under docs/specialist-contracts/ and name it in meta.report. Do not modify implementation or approve gates.',
       specialistPolicy: { mode: 'adaptive', workflow: 'phased-change', base: gitBase, reviewReuse: { scopes } },

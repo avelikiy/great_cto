@@ -24,6 +24,17 @@ function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["r
 const response = (verdict = 'DONE', files = [{ path: 'src/app.js', before: null, content: 'export const x = 1;\n' }]) =>
   ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict, summary: 'fixture', meta: { report: 'src/app.js' }, files }), usage: null });
 
+test('scoped verifier distinguishes unresolved findings from successful checks', async t => {
+  const s = fixture(t);
+  s.attempts.push({ role: 'writer', scopedInput: { digest: 'a'.repeat(64), binding: { inputs: [] } } });
+  await verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /findings must contain only defects or unresolved blockers/);
+    assert.match(options.prompt, /Successful observations belong in checks, not findings/);
+    assert.match(options.prompt, /verified scoped attestation requires findings:\[\]/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected files'] }) };
+  });
+});
+
 test('role -> guarded write -> human gate -> resume -> terminal gate -> done', async t => {
   const s = fixture(t); const calls = [];
   await runStage(s, { execute: async opts => { calls.push(opts); return response(); } });
