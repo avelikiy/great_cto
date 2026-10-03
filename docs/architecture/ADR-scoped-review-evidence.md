@@ -30,6 +30,19 @@ scope, input, role or task refuses a candidate. Dependencies must be tracked,
 regular, non-symlink files, not ignored runtime state; missing/deleted/unreadable
 inputs refuse reuse. Limits: 200 files, one MiB per file, eight MiB total.
 
+Evidence version 2 uses literal Git pathspecs: a wildcard-looking filename must
+itself be tracked, not merely match a tracked sibling. Dependency, report and
+prior-run files must have one link. Reads use bounded O_NOFOLLOW/O_NONBLOCK
+descriptors with inode/device/owner/mode/link/size/time checks before and after
+reading and revalidation of the current canonical path. The aggregate closure
+limit is checked incrementally instead of reading all 200 maximum-sized files
+before refusing. Prior-run JSON retains its four-MiB cap.
+
+Version-1 evidence is not silently upgraded: its different input binding refuses
+reuse and follows the ordinary fresh-worker path. These descriptor observations
+are not atomic ancestor handles or a sandbox against same-UID ABA/tampering.
+Fresh independent semantic attestation and all mandatory gates still apply.
+
 An ordinary fresh review may mint scoped evidence only if its independent verifier
 explicitly attests `dependencyAttestation.state=complete`, the exact input digest
 and nonempty actual completeness checks. The verifier is told to inspect the

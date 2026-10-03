@@ -1,9 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, linkSync, renameSync, chmodSync, utimesSync } from 'node:fs';
+import fs from 'node:fs';
+import {syncBuiltinESMExports} from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { execFileSync } from 'node:child_process';
+import { execFileSync,spawnSync } from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import { createHash } from 'node:crypto';
 import { scopedReviewInput, attestScopedReview, scopedReviewCandidate } from '../../scripts/lib/scoped-review-reuse.mjs';
 
@@ -120,4 +123,77 @@ test('force-tracked ignored input is still refused', t => {
 test('input changes during fresh verifier inspection refuse minting', t => {
   const f = fixture(t); f.put('src/auth.mjs', 'changed while verifier ran');
   assert.throws(() => attestScopedReview(f.state, f.role, f.input, f.result), /changed during attestation/);
+});
+
+for(const path of ['src/*.mjs','src/[a]uth.mjs','src/????.mjs'])test('untracked literal dependency cannot borrow Git pathspec tracking '+path,t=>{
+  const f=fixture(t);f.put(path,'untracked literal input');
+  assert.throws(()=>scopedReviewInput(f.state,f.role,[path]),'dependency path must itself be tracked');
+});
+for(const path of ['src/*.mjs','src/[a]uth.mjs','src/????.mjs'])test('actually tracked literal filename remains eligible '+path,t=>{
+  const f=fixture(t);f.put(path,'tracked literal input');
+  execFileSync('git',['--literal-pathspecs','add','--',path],{cwd:f.root});
+  const input=scopedReviewInput(f.state,f.role,[path]);
+  assert.equal(input.binding.inputs[0].path,path);assert.equal(input.binding.version,2);
+  assert.equal(input.binding.inputs[0].sha256,sha('tracked literal input'));
+});
+test('legacy scoped evidence version cannot silently become current reuse',t=>{
+  const f=fixture(t);f.mint();
+  const evidence=f.result.scopedReview;
+  evidence.version=1;evidence.input.binding.version=1;
+  evidence.input.digest=sha(JSON.stringify(evidence.input.binding));
+  f.result.verification.dependencyAttestation.inputDigest=evidence.input.digest;
+  evidence.verificationDigest=sha(JSON.stringify(f.result.verification));
+  const source=f.save();
+  assert.throws(()=>scopedReviewCandidate(f.next(),f.role,f.dependencies,source),/matching independently scoped/);
+});
+
+for(const kind of ['dependency','report','prior'])test('hardlinked '+kind+' refuses scoped reuse evidence',t=>{
+  const f=fixture(t),source=f.mint();
+  const path=kind==='dependency'?join(f.root,'src/auth.mjs'):kind==='report'?join(f.root,f.result.meta.report):source.path;
+  linkSync(path,join(f.directory,'alias'));
+  assert.throws(()=>kind==='dependency'?scopedReviewInput(f.state,f.role,f.dependencies):scopedReviewCandidate(f.next(),f.role,f.dependencies,source));
+});
+
+// Trusted test-only races perform actual filesystem mutations on test-owned
+// files at the read boundary. No private oracle or arbitrary runtime selected.
+for(const kind of ['symlink-swap','growth','mode-change','after-read-change'])test('mutable evidence refuses '+kind,t=>{
+  const f=fixture(t),target=fs.realpathSync(join(f.root,'src/auth.mjs'));
+  const outside=join(f.directory,'outside.txt');writeFileSync(outside,'PRIVATE_SCOPE_PAYLOAD_MUST_NOT_LEAK');
+  const originalOpen=fs.openSync,originalReadFile=fs.readFileSync,originalRead=fs.readSync;
+  let injected=false,targetFd;
+  const before=path=>{
+    if(path!==target&&path!==join(f.root,'src/auth.mjs')||injected||kind==='after-read-change')return;
+    injected=true;
+    if(kind==='symlink-swap'){renameSync(path,path+'.original');symlinkSync(outside,path);}
+    if(kind==='growth')writeFileSync(path,Buffer.alloc(1048577));
+    if(kind==='mode-change')chmodSync(path,0o777);
+  };
+  const after=()=>{if(kind==='after-read-change'&&!injected){injected=true;writeFileSync(target,'different content');utimesSync(target,1,1);}};
+  fs.openSync=(path,...args)=>{before(path);const fd=originalOpen(path,...args);if(path===target)targetFd=fd;return fd;};
+  fs.readFileSync=(path,...args)=>{before(path);const content=originalReadFile(path,...args);if(path===target||path===join(f.root,'src/auth.mjs'))after();return content;};
+  fs.readSync=(fd,...args)=>{const count=originalRead(fd,...args);if(fd===targetFd)after();return count;};
+  syncBuiltinESMExports();
+  try{assert.throws(()=>scopedReviewInput(f.state,f.role,f.dependencies));assert.equal(injected,true);}
+  finally{fs.openSync=originalOpen;fs.readFileSync=originalReadFile;fs.readSync=originalRead;syncBuiltinESMExports();}
+});
+
+test('actual FIFO replacement refuses without blocking the controller',
+ {skip:!['darwin','linux'].includes(process.platform)},t=>{
+  const f=fixture(t),entry=fileURLToPath(new URL('../helpers/scoped-review-fifo.mjs',import.meta.url));
+  const child=spawnSync(process.execPath,[entry],{input:JSON.stringify({state:f.state}),encoding:'utf8',
+    env:{LANG:'C',TZ:'UTC'},timeout:2000,killSignal:'SIGKILL',maxBuffer:4096});
+  assert.equal(child.status,0);assert.equal(child.signal,null);assert.equal(child.stderr,'');
+  assert.deepEqual(JSON.parse(child.stdout),{refused:true,fifoCreated:true,nonBlocking:true,noFollow:true});
+  assert.ok(!child.stdout.includes(f.directory));
+});
+
+test('aggregate cap stops before reading the rest of an oversized closure',t=>{
+  const f=fixture(t),dependencies=[];
+  for(let i=0;i<12;i++){const path='src/input-'+i+'.txt';dependencies.push(path);f.put(path,Buffer.alloc(1048576));}
+  execFileSync('git',['add','src'],{cwd:f.root});
+  const original=fs.openSync;let opened=0;
+  fs.openSync=(path,...args)=>{if(typeof path==='string'&&path.includes('/src/input-'))opened++;return original(path,...args);};
+  syncBuiltinESMExports();
+  try{assert.throws(()=>scopedReviewInput(f.state,f.role,dependencies),/exceeds 8 MiB/);assert.equal(opened,9);}
+  finally{fs.openSync=original;syncBuiltinESMExports();}
 });

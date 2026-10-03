@@ -1,14 +1,37 @@
 /** Controller evidence for scoped review reuse. No gate/dispatch authority. */
-import { readFileSync, lstatSync, realpathSync } from 'node:fs';
+import { lstatSync, realpathSync, openSync, fstatSync, readSync, closeSync, constants } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { resolve, relative, join, sep, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 
-export const SCOPED_REVIEW_VERSION = 1;
+export const SCOPED_REVIEW_VERSION = 2;
 const sha = value => createHash('sha256').update(value).digest('hex');
 const mandatory = new Set(['code-reviewer', 'qa-engineer', 'security-officer', 'ai-eval-engineer']);
 const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000, maxBuffer: 4 * 1024 * 1024 });
+
+// Bounded descriptor observation, not an atomic ancestor handle or OS sandbox.
+// Before/after path checks detect observed mutations; same-UID ABA/tampering
+// remains outside the cooperative controller's independent admission proof.
+function evidenceFile(path, limit) {
+  const before = lstatSync(path, { bigint: true });
+  const regular = stat => stat.isFile() && stat.nlink === 1n && stat.size <= BigInt(limit);
+  const equal = (a,b) => ['dev','ino','uid','mode','nlink','size','mtimeNs','ctimeNs'].every(key => a[key] === b[key]);
+  if (!regular(before)) throw Error('unsupported evidence artifact');
+  let fd;
+  try { fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK); }
+  catch { throw Error('evidence identity unavailable'); }
+  try {
+    const opened = fstatSync(fd, { bigint: true });
+    if (!regular(opened) || !equal(before,opened)) throw Error('evidence changed before reading');
+    const buffer = Buffer.alloc(Number(opened.size)+1); let used = 0, count;
+    while (used < buffer.length && (count=readSync(fd,buffer,used,buffer.length-used,null))>0) used+=count;
+    const after = fstatSync(fd, { bigint: true }), current = lstatSync(path, { bigint: true });
+    if (used!==Number(opened.size) || !equal(opened,after) || !equal(after,current)
+      || !regular(current) || realpathSync(path)!==path) throw Error('evidence changed during reading');
+    return { mode: Number(opened.mode), content: buffer.subarray(0,used) };
+  } finally { closeSync(fd); }
+}
 
 export function completeScopeAttestation(verification, input) {
   const a = verification?.dependencyAttestation;
@@ -42,18 +65,16 @@ function bytes(root, path, tracked = true) {
   if (typeof path !== 'string' || isAbsolute(path) || path.includes('\\') || path.includes('\0')
     || path.split('/').some(p => !p || p === '.' || p === '..')) throw Error('invalid dependency path');
   if (tracked) {
-    git(root, ['ls-files', '--error-unmatch', '--', path]);
+    git(root, ['--literal-pathspecs', 'ls-files', '--error-unmatch', '--', path]);
     if (git(root, ['ls-files', '--others', '--ignored', '--exclude-standard', '--cached', '-z']).split('\0').includes(path)) throw Error('ignored dependency input');
   }
-  let current = root;
+  let current = realpathSync(root);
   for (const part of path.split('/')) {
     current = join(current, part);
     if (lstatSync(current).isSymbolicLink()) throw Error('symlink evidence unsupported');
   }
-  const stat = lstatSync(current);
-  if (!stat.isFile() || stat.size > 1024 * 1024) throw Error('unsupported evidence artifact');
-  const content = readFileSync(current);
-  return { path, mode: stat.mode, sha256: sha(content), content };
+  const {mode,content} = evidenceFile(current,1024*1024);
+  return { path, mode, sha256: sha(content), content };
 }
 
 function eligible(state, role) {
@@ -67,8 +88,12 @@ export function scopedReviewInput(state, role, dependencies) {
   const capability = eligible(state, role);
   if (!Array.isArray(dependencies) || !dependencies.length || dependencies.length > 200
     || new Set(dependencies).size !== dependencies.length) throw Error('explicit unique dependency closure required');
-  const inputs = dependencies.map(path => bytes(state.root, path));
-  if (inputs.reduce((sum, input) => sum + input.content.length, 0) > 8 * 1024 * 1024) throw Error('dependency closure exceeds 8 MiB');
+  const inputs = []; let total = 0;
+  for (const path of dependencies) {
+    const input = bytes(state.root,path);
+    if ((total+=input.content.length) > 8*1024*1024) throw Error('dependency closure exceeds 8 MiB');
+    inputs.push(input);
+  }
   const project = bytes(state.root, '.great_cto/PROJECT.md', false);
   const contract = state.graph[role];
   if (!contract) throw Error('missing role contract');
@@ -108,7 +133,7 @@ export function scopedReviewCandidate(state, role, dependencies, source) {
   const path = realpathSync(source.path), rel = relative(realpathSync(state.root), path);
   if (!rel || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('prior run must be outside worker workspace');
   if (lstatSync(source.path).isSymbolicLink() || !lstatSync(path).isFile() || lstatSync(path).size > 4 * 1024 * 1024) throw Error('invalid prior run artifact');
-  const raw = readFileSync(path);
+  const {content:raw} = evidenceFile(path,4*1024*1024);
   if (sha(raw) !== source.sha256) throw Error('prior run pin changed');
   let prior;
   try { prior = JSON.parse(raw); } catch { throw Error('prior run is not valid JSON'); }
