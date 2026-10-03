@@ -158,3 +158,71 @@ failure remains unexplained; synthetic refusal coverage does not close it.
 Both affected suites passed 13/13 without skips after the diagnostic change;
 scanner remains 83/80 with unchanged reviewed baseline. A fresh concurrent
 library run is needed for the OS-first toolchain and writer instrumentation.
+
+## Terminal postfix verification at 3f6f06bc
+
+The concurrent library run completed exit 0: 3044 tests, 3038 passed, zero failed,
+six skipped, 133738 ms. The full non-quick CI subsequently completed **exit 1**
+at the same immutable source head, Node v22.14.0 on Darwin. Authoritative log:
+`/Users/Shared/great-cto-full-postfix-ci-aRFUI6`.
+
+| Source check | Passed | Failed | Skipped |
+| --- | ---: | ---: | ---: |
+| Root/hooks/board | 1257 | 0 | 0 |
+| Libraries | 3038 | 0 | 6 |
+| Eval | 238 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Board browser E2E fixture | 9 | 0 | 0 |
+| CLI | 361 | 0 | 0 |
+
+Scanner passed 83/80, zero Critical and the unchanged 35 historically reviewed
+High entries. No new scanner exception or independent security receipt exists.
+The three historical library scenarios passed; this does not retroactively
+recover the cause of discarded historical failures. Writer diagnostic coverage
+does not prove why the original unexpected writer invocation timed out.
+
+The stock installed-plugin L1-L5 suite retained 33 grouped passes, three failures
+and nine skips in 72 seconds. Its selected artifact is
+`/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`. Webhook invalid/valid
+signature and board namespace tests refused before operator mutation or server
+launch because this installed artifact lacks isolated namespace support. These
+failures remain failures; the candidate checks below do not replace them.
+
+### Actual packed candidate, without installation
+
+The full build/pack produced 161 files. A separate preserved candidate is
+`/Users/Shared/great-cto-postfix-candidate-02Y0pg/great-cto-3.48.0.tgz`, SHA-256
+`99be49033092c3b9ae626d767a52e451cd538f0fe2cf162d27d8679c4e01ec34`.
+It is byte-identical to the earlier candidate: recent changes affect private
+harnesses, not the distributed runtime. This is not a new release or install.
+
+The exact pinned archive passed actual CLI version/empty-store checks and a
+separate-process controller probe: 12 construction/selection cases, eight
+refusals, process exit 0 in 2740 ms. Private extraction/process diagnostics:
+`/private/var/folders/xf/8mjkgbt91mgg9b0m_gyrh92w0000gn/T/great-cto-package-smoke-QLgqK4`.
+Execution-artifact provenance and benchmark eligibility remain false; provider
+calls remain null, not measured zero. Descendant quiescence is unverified.
+
+Using this extracted candidate, actual private webhook HTTP checks returned
+401 for an invalid signature and 200 for a valid signature, with zero outgoing
+dispatches in the empty fixture. Its board answered all 11 fixture HTTP APIs,
+reported 11 memory layers and isolated discovery. The 71-agent inventory was
+supplied from source as fixture data, not proved bundled or installed. Synthetic
+task rate ratio 500 is a fixture assertion, not economic or product-quality
+uplift. Actual Beads/git, notification delivery and release discovery were not
+verified. Board fixture provider calls were zero under child-local stubs.
+No installed defaults, plugin cache, merge, release or human approval changed.
+
+### Runtime requirements still unproven
+
+Six library skips are three opt-in live Docker scenarios and three opt-in live
+mixed-host scenarios (scoped reuse, frozen QA/security wave, pre-build quorum).
+Fresh read-only checks report Codex logged in using ChatGPT, Claude CLI
+loggedIn false/authMethod none, and an unavailable local Docker daemon.
+These are external prerequisites, not passing native admission evidence.
+
+Construction/selection and source fixtures do not establish live phase execution,
+independently attested reuse, background/team/fork terminal correlation, release
+or installed runtime parity. Comparative quality trials, independent security
+sign-off and delivered execution provenance remain open in epic great_cto-p4o9.
+No percentage improvement or full coverage conclusion follows from this report.
