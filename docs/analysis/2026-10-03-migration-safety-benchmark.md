@@ -1,5 +1,7 @@
 # Migration safety comparative corpus
 
+Subsequent corpus: [board accessibility](2026-10-03-board-accessibility-benchmark.md).
+
 Scope: `great_cto-p4o9.4.1.7`. Related: [protocol](2026-10-02-adaptive-benchmark-contract.md), [API corpus](2026-10-03-api-compatibility-benchmark.md).
 
 The seventh representative task is a backward-compatible migration **plan**, not arbitrary SQL implementation. Candidate repairs only `migrations/plan.json`; protected schema and project metadata remain operator-owned. A fixed trusted interpreter admits exact keys, boolean decisions and bounded integer timeouts, then emits only known PostgreSQL statements. Unknown SQL/code, extra keys, missing fields, coerced types and out-of-range deadlines are refused before database execution. No candidate JavaScript, SQL strings, shell or extensions are executed.
