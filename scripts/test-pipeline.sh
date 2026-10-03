@@ -264,41 +264,13 @@ else
       echo \"\$out\" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"transport\"]==\"sse\"'
     "
 
-  # HMAC tests use canonical name 'github'. Backup/restore any existing config.
+  # Probe the installed artifact, never back up or mutate operator config.
+  # Incompatible artifacts fail explicitly before registration or server start.
   check "serve enforces HMAC: invalid signature returns 401" \
-    bash -c "
-      cfg=~/.great_cto/webhooks.json
-      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
-      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3144 >/dev/null 2>&1 &
-      SRV_PID=\$!
-      wait_http http://127.0.0.1:3144/ 10
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:3144/webhook/github)
-      kill \$SRV_PID 2>/dev/null
-      wait \$SRV_PID 2>/dev/null
-      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
-      [ \"\$code\" = '401' ]
-    "
+    node "$ROOT/scripts/lib/webhook-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs" invalid
 
-  # The digest is the LAST field: OpenSSL 3 prints `SHA2-256(stdin)= <hex>`, macOS's
-  # /usr/bin/openssl (LibreSSL) prints the bare hex, where `$2` is empty and the
-  # check signed with nothing. It went red on 2026-09-11 the day PATH put /usr/bin first.
   check "serve enforces HMAC: valid signature returns 200" \
-    bash -c "
-      cfg=~/.great_cto/webhooks.json
-      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
-      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3145 >/dev/null 2>&1 &
-      SRV_PID=\$!
-      wait_http http://127.0.0.1:3145/ 10
-      payload='{\"action\":\"opened\",\"number\":1,\"repository\":{\"full_name\":\"x/y\"}}'
-      sig=\$(echo -n \"\$payload\" | openssl dgst -sha256 -hmac 'testsecret123' | awk '{print \"sha256=\"\$NF}')
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:3145/webhook/github)
-      kill \$SRV_PID 2>/dev/null
-      wait \$SRV_PID 2>/dev/null
-      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
-      [ \"\$code\" = '200' ]
-    "
+    node "$ROOT/scripts/lib/webhook-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs" valid
 fi
 
 # =============================================================================

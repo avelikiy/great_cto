@@ -29,6 +29,10 @@ import { getIncoming } from "./webhook-config.js";
 
 const EVENTS_LOG = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhook-events.log");
 
+export function getEventsLogPath(): string {
+  return EVENTS_LOG;
+}
+
 interface ServeArgs {
   port: number;
   noLog: boolean;
