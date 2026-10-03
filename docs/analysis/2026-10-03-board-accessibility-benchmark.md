@@ -1,5 +1,7 @@
 # Board accessibility comparative corpus
 
+Subsequent preparation: [frozen corpus registration](2026-10-03-corpus-registration.md).
+
 Scope: `great_cto-p4o9.4.1.8`, UI contract regression `great_cto-p4o9.1.3`. Related: [protocol](2026-10-02-adaptive-benchmark-contract.md), [migration corpus](2026-10-03-migration-safety-benchmark.md).
 
 The eighth representative task repairs actual `web/board.html` markup and CSS. It is not a class-name scanner or synthetic layout policy. Source initially has an unreachable navigation link, div-based controls with no native key activation, suppressed focus,960px minimum layout and wrong decision targets. An external resource creates an actual browser console error under operator CSP. Reference repair uses native buttons, reachable destination, visible focus, responsive wrapping and the protected decision target; it removes the failing resource.
