@@ -10,6 +10,19 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const extractor = fileURLToPath(new URL('./extract-benchmark-package.py', import.meta.url));
 const controllerProbeEntry = fileURLToPath(new URL('./pinned-controller-probe.mjs', import.meta.url));
 const env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C', TZ: 'UTC', PYTHONDONTWRITEBYTECODE: '1' };
+// Retain bounded cause metadata, never error messages (which can contain private
+// argv/output). Direct-child results do not attest descendant quiescence.
+export function smokeProcessDiagnostic(child, { startedAt, elapsedMs }) {
+  const errorCode = typeof child.error?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(child.error.code)
+    ? child.error.code : child.error ? 'UNCLASSIFIED' : null;
+  const signal = typeof child.signal === 'string' && /^SIG[A-Z0-9]{1,16}$/.test(child.signal) ? child.signal : null;
+  return { pid: Number.isInteger(child.pid) && child.pid > 0 ? child.pid : null,
+    exitCode: Number.isInteger(child.status) ? child.status : null, signal, errorCode,
+    outcome: errorCode === 'ETIMEDOUT' ? 'timeout' : errorCode === 'ENOBUFS' ? 'output-limit'
+      : errorCode ? 'process-error' : signal ? 'signalled' : child.status === 0 ? 'exited-zero' : 'nonzero-or-unknown',
+    startedAt, finishedAt: new Date().toISOString(), elapsedMs: Math.max(0, Math.round(elapsedMs)),
+    timeoutMs: 30000, descendantQuiescenceVerified: false };
+}
 function bytes(path, limit = 8 * 1024 * 1024) {
   if (realpathSync(path) !== resolve(path)) throw Error('noncanonical package file');
   const fd = openSync(path, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
@@ -53,9 +66,11 @@ export function runPinnedPackageSmoke({ artifactFile, artifactSha256, pythonBin 
 
 function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, evidenceRoot, controllerProbe }) {
   const extracted = join(evidenceRoot, 'extracted'); mkdirSync(extracted, { mode: 0o700 });
+  const extractionStartedAt = new Date().toISOString(), extractionStart = performance.now();
   const unpack = spawnSync(pythonBin, ['-I', '-B', extractor, resolve(artifactFile), artifactSha256, extracted], {
     env, encoding: 'utf8', timeout: 30000, maxBuffer: 65536 });
-  writeFileSync(join(evidenceRoot, 'extraction-diagnostics.json'), JSON.stringify({ exitCode: unpack.status,
+  writeFileSync(join(evidenceRoot, 'extraction-diagnostics.json'), JSON.stringify({
+    ...smokeProcessDiagnostic(unpack, { startedAt: extractionStartedAt, elapsedMs: performance.now() - extractionStart }),
     stdout: unpack.stdout ?? '', stderr: unpack.stderr ?? '' }), { mode: 0o600 });
   if (unpack.error || unpack.status !== 0) throw Error(`pinned package extraction failed; evidence directory ${evidenceRoot}`);
   const root = join(extracted, 'package'), entry = join(root, 'index.mjs');
@@ -68,10 +83,10 @@ function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, eviden
   const before = inventory(root), entrySha256 = sha(bytes(entry)), runs = join(evidenceRoot, 'runs');
   const processes = [];
   function invoke(args) {
-    const startedAt = new Date().toISOString();
+    const startedAt = new Date().toISOString(), start = performance.now();
     const child = spawnSync(process.execPath, [entry, ...args], { cwd: evidenceRoot,
       env: { ...env, GREAT_CTO_CODEX_RUNS_DIR: runs }, encoding: 'utf8', timeout: 30000, maxBuffer: 65536 });
-    processes.push({ args, pid: child.pid, exitCode: child.status, startedAt, finishedAt: new Date().toISOString() });
+    processes.push({ args, ...smokeProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start }) });
     writeFileSync(join(evidenceRoot, 'process-diagnostics.json'), JSON.stringify({ processes,
       lastOutput: { stdout: child.stdout ?? '', stderr: child.stderr ?? '' } }), { mode: 0o600 });
     if (child.error || child.status !== 0 || child.signal) throw Error(`published CLI ${args[0]} failed; evidence directory ${evidenceRoot}`);
@@ -86,12 +101,13 @@ function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, eviden
   let controllerAssets = null, controllerProbeProcess = null;
   if (controllerProbe) {
     const fixtures = join(evidenceRoot, 'fixtures'); mkdirSync(fixtures, { mode: 0o700 });
-    const startedAt = new Date().toISOString();
+    const startedAt = new Date().toISOString(), start = performance.now();
     const child = spawnSync(process.execPath, [controllerProbeEntry, join(root, 'board'), fixtures], {
       cwd: evidenceRoot, env: { ...env, GREAT_CTO_CODEX_RUNS_DIR: runs,
         GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' }, encoding: 'utf8', timeout: 30000, maxBuffer: 65536 });
-    writeFileSync(join(evidenceRoot, 'controller-probe-diagnostics.json'), JSON.stringify({ pid: child.pid,
-      exitCode: child.status, stdout: child.stdout ?? '', stderr: child.stderr ?? '' }), { mode: 0o600 });
+    const diagnostic = smokeProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start });
+    writeFileSync(join(evidenceRoot, 'controller-probe-diagnostics.json'), JSON.stringify({ ...diagnostic,
+      stdout: child.stdout ?? '', stderr: child.stderr ?? '' }), { mode: 0o600 });
     if (child.error || child.status !== 0 || child.signal) throw Error(`packaged controller probe failed; evidence directory ${evidenceRoot}`);
     try { controllerAssets = JSON.parse(child.stdout); } catch { throw Error('packaged controller probe is not JSON'); }
     if (!controllerAssets || typeof controllerAssets !== 'object' || Array.isArray(controllerAssets)
@@ -101,7 +117,7 @@ function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, eviden
       || controllerAssets.dispatchAttempts !== 0 || controllerAssets.approvalsRecorded !== 0
       || controllerAssets.providerCalls !== null || controllerAssets.graphSha256 !== sha(bytes(join(root, 'board/shared/pipeline.toml')))
       || controllerAssets.executionArtifactProvenanceVerified !== false || controllerAssets.benchmarkEligible !== false) throw Error('unsupported packaged controller probe result');
-    controllerProbeProcess = { pid: child.pid, exitCode: child.status, startedAt, finishedAt: new Date().toISOString() };
+    controllerProbeProcess = diagnostic;
   }
   if (inventory(root).digest !== before.digest || sha(bytes(resolve(artifactFile), 100 * 1024 * 1024)) !== artifactSha256) throw Error('published package changed during smoke execution');
   return { version: 1, scope: 'pinned-delivered-cli-smoke-only', packageVersion: metadata.version,

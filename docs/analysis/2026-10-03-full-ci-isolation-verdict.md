@@ -64,3 +64,26 @@ reviewed High entries, with no new exceptions. Guardian/probe remediation and
 full-current-CI/delivered-runtime proof remain open.
 Source/browser fixtures do not establish deployed UI or
 production gate execution. The full epic remains open.
+
+## Process-cause diagnostic follow-up
+
+A sequential-file run of the three failing library files completed 33/33 with
+zero skips, including the actual Chromium refusal scenarios and separate-process
+controller matrix. This does not explain their historical full-CI failures.
+The old controller diagnostic retained only a null exit code and empty output;
+it cannot prove a timeout, startup failure or descendant termination.
+
+Extraction, CLI and controller process diagnostics now retain bounded error code,
+signal, outcome, wall timestamps and monotonic elapsed milliseconds. Private error
+messages are excluded. Existing private output capture and 30-second limits are
+unchanged. Timeout and output-limit classifications require the corresponding
+process API error codes; duration alone is not causal evidence. Every record
+explicitly leaves descendant quiescence unverified. These diagnostics do not grant
+admission, cleanup authority, artifact provenance, benchmark eligibility or gate
+approval. Historical evidence is preserved, not retroactively reclassified.
+
+The affected caller suite passes 10/10 without skips, including actual missing
+executable, nonzero exit, 30-second timeout, output overflow and signal cases.
+The classification-only unit cases are not substituted for these native process
+checks. Controller construction/selection passed in a separate process; neither
+this scoped run nor a scanner pass closes the three historical full-CI failures.
