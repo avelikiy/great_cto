@@ -2,12 +2,12 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {mkdtempSync,realpathSync,lstatSync,rmSync} from 'node:fs';
-import {join,dirname,basename} from 'node:path';
-import {tmpdir} from 'node:os';
+import {lstatSync,rmSync,chmodSync} from 'node:fs';
+import {dirname,basename} from 'node:path';
 import {createHash} from 'node:crypto';
 import {boardAccessibilityBenchmarkFixture} from '../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 import {createBrowserGuardianProtocol} from '../../scripts/lib/browser-guardian-protocol.mjs';
+import {createBrowserResourceOwner} from '../../scripts/lib/browser-guardian-resources.mjs';
 
 const observer=fileURLToPath(new URL('../../scripts/benchmark-scorers/board-accessibility.mjs',import.meta.url));
 // Instrument only this test's trusted child before Playwright loads. Browser API
@@ -67,7 +67,7 @@ async function waitGone(owned){for(let i=0;i<50;i++){if(!living(owned).length)re
 for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
  if(process.platform!=='darwin'&&process.platform!=='linux')return t.skip('process-tree inventory unsupported; lifecycle NOT CHECKED');
  const recipe=boardAccessibilityBenchmarkFixture();if(!recipe.oracle.browser)return t.skip('Playwright unavailable; lifecycle NOT CHECKED');
- const scratch=realpathSync(mkdtempSync(join(tmpdir(),'great-cto-owned-browser-')));
+ const resources=createBrowserResourceOwner({ownerPid:process.pid}),scratch=resources.privateRoot();
  const scratchIdentity=lstatSync(scratch);
  let html=recipe.files['web/board.html'];if(mode==='dom-refusal')html=html.replace('id="approve"','id="approve" onclick="throw 1"');
  const child=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({observer,oracle:recipe.oracle,html,mode})],
@@ -95,6 +95,8 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   const initial=lstatSync(profile);
   assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
+  assert.equal(resources.register({scorerPid:child.pid,browserRoots:ready.roots,profilePath:profile}).state,'OBSERVING');
+  assert.ok(resources.observe().liveProcesses>1,'actual scorer and browser inventory must be nonempty');
   // Replay the observed owned identities through the unactivated protocol.
   // These test-recipe digests are not preregistered trial/OS attestations.
   const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -136,6 +138,22 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   catch(error){if(error.code!=='ENOENT')throw error;}
   t.diagnostic(mode+': temporary profile '+(retained?'retained':'removed')+' before test cleanup');
   if(mode!=='owner-kill')assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
+  const observation=resources.observe();
+  assert.equal(observation.state,'OBSERVING');
+  assert.equal(observation.liveProcesses,0);
+  assert.equal(observation.profileState,retained?'retained':'removed');
+  assert.equal(observation.cleanupAuthorized,false);
+  assert.equal(observation.resourceClosureVerified,false);
+  if(mode==='owner-kill'){
+   chmodSync(profile,0o755);
+   assert.equal(resources.observe().state,'PRESERVED','changed private profile must invalidate the registered observation');
+   chmodSync(profile,0o700);
+   assert.equal(resources.observe().state,'PRESERVED','restoring mode cannot revive a preserved owner');
+  }else if(mode==='normal'){
+   chmodSync(scratch,0o755);
+   assert.equal(resources.observe().state,'PRESERVED','changed root must invalidate an otherwise completed observation');
+   chmodSync(scratch,0o700);
+  }
   const protocolResult=send('quiescent',{processes:processIds,profile:profileId,profileState:retained?'retained':'removed'});
   assert.equal(protocolResult.state,'QUIESCENT');
   assert.equal(protocolResult.cleanupAuthorized,false,'trace consistency never authorizes OS deletion');
