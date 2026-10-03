@@ -467,3 +467,36 @@ scoped execution does not clear the historical concurrent initialization
 refusal or independently attest recursive resource closure. Existing frozen
 runtime registration is unchanged; source-only retention mitigation is not a
 substitute for a newly approved runtime or complete CI.
+
+### Actor-local scorer readiness timing
+
+The fixed source test launcher now emits bounded wall timestamps and its own
+monotonic elapsed values for launch, invocation and result. The parent records
+bounded known-stage arrival times and marker-poll elapsed duration separately.
+The fixed scorer publishes its ready marker only after installing its SIGTERM
+handler; valid handler-ready/PID/timestamp fields plus actual PID/parent
+identity remain necessary. Readiness is frozen before awaiting final exit.
+Late publication, elapsed values or launcher exit zero cannot satisfy it.
+
+The original parent launch origin, 50-by-20-ms polling loop, 1000-ms scorer
+deadline, 2000-ms exit watchdog and 10000-ms test bound are unchanged. Wall
+clocks and pipe-arrival latency are diagnostic observations, not cross-clock
+ordering or pass authority. No candidate/oracle path, raw native output,
+capability or installed runtime is published or changed by this test fixture.
+
+Timing assertions first failed on missing metadata, then the final scorer
+suite passed 31/31 without skips. This actual positive observed launcher start
+arrival at 27 ms, runner invocation arrival at 28 ms, marker publication about
+115 ms after parent launch and parent readiness observation at 134 ms. Native
+scorer timeout reported ETIMEDOUT/SIGKILL, elapsed 1007 ms at the unchanged
+1000-ms limit; the observed owned scorer was no longer live. The explicit
+no-ready timeout case and prelaunch refusal cases also retain bounded timing
+without fabricating ready evidence.
+
+This scoped pass does not identify the historical concurrent missing-ready
+cause or clear the red canonical verdict; `.5.9.7.2.3` remains in progress
+pending equivalent concurrent evidence. Current Claude auth still reports
+loggedIn false/authMethod none. Native async correlation/live scoped reuse,
+shared-cache Chromium recovery, matched benchmark baseline choice, independent
+runtime/security admission and delivered-artifact verification remain separate
+unfinished requirements; no percent quality uplift is inferred.

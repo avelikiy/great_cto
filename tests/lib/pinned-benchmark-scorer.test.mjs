@@ -175,6 +175,8 @@ test('fixed lifecycle launcher refuses private input and stale receipt without e
     const records=child.stdout.trim().split('\n').map(line=>JSON.parse(line));
     assert.equal(records[0].kind,'launcher-started');assert.equal(records.at(-1).kind,'prelaunch-refused');
     assert.equal(records.at(-1).reason,reason);assert.ok(records.every(r=>!r.processDiagnostic));
+    for(const record of records){assert.ok(Number.isInteger(record.elapsedMs)&&record.elapsedMs>=0);
+      assert.match(record.observedAt,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);}
     assert.doesNotMatch(child.stdout,/PRIVATE_PAYLOAD/);assert.ok(!child.stdout.includes(f.root));
   }
 });
@@ -187,6 +189,12 @@ test('fixed lifecycle launcher reports a timeout without manufacturing ready evi
   assert.equal(child.status,0);assert.equal(child.signal,null);assert.equal(child.stderr,'');
   const records=child.stdout.trim().split('\n').map(line=>JSON.parse(line));
   assert.deepEqual(records.map(r=>r.kind),['launcher-started','runner-invoked','runner-unavailable']);
+  for(let i=0;i<records.length;i++){
+    assert.ok(Number.isInteger(records[i].elapsedMs)&&records[i].elapsedMs>=0);
+    assert.match(records[i].observedAt,/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/);
+    if(i)assert.ok(records[i].elapsedMs>=records[i-1].elapsedMs);
+    assert.ok(!Object.hasOwn(records[i],'readyObserved'),'launcher timing cannot fabricate scorer ready');
+  }
   const diagnostic=records.at(-1).processDiagnostic;
   assert.equal(diagnostic.outcome,'timeout');assert.equal(diagnostic.timeoutMs,1000);
   assert.equal(diagnostic.errorCode,'ETIMEDOUT');assert.equal(diagnostic.signal,'SIGKILL');
@@ -199,18 +207,35 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
   const f=fixture(t), marker=join(f.options.scorerFile,'..','owned-pid.json');
   const oracle=JSON.stringify({...f.recipe.oracle,signalTestMarker:marker});
   writeFileSync(f.options.oracleFile,oracle,{mode:0o600});f.options.oracleSha256=sha(oracle);
-  f.custom("import {writeFileSync} from 'node:fs';\nprocess.on('SIGTERM',()=>{});\nwriteFileSync(JSON.parse(process.argv[3]).signalTestMarker,JSON.stringify({pid:process.pid}));\nsetInterval(()=>{},1000);");
+  f.custom("import {writeFileSync} from 'node:fs';\nprocess.on('SIGTERM',()=>{});\nwriteFileSync(JSON.parse(process.argv[3]).signalTestMarker,JSON.stringify({pid:process.pid,handlerReady:true,publishedAt:new Date().toISOString()}));\nsetInterval(()=>{},1000);");
   const launcherInput=JSON.stringify({options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}});
+  const launchAt=new Date().toISOString(),launchStart=performance.now();
   const child=spawn(process.execPath,[lifecycleLauncher],{env:{LANG:'C',TZ:'UTC'},stdio:['pipe','pipe','pipe']});
-  let output='',pid,identity,timer;
+  let output='',pid,identity,timer,readyPublicationAt=null,observedLineCount=0;
+  const stageArrivals=[],knownStages=new Set(['launcher-started','runner-invoked','runner-unavailable','prelaunch-refused','runner-refused','unexpected-completion']);
   const closed=new Promise((resolve,reject)=>{child.once('close',(code,signal)=>resolve({code,signal}));child.once('error',reject);});
-  child.stdout.on('data',b=>{output+=b;});child.stderr.resume();
+  child.stdout.on('data',b=>{output+=b;
+    const lines=output.split('\n');
+    for(;observedLineCount<lines.length-1;observedLineCount++)try{
+      const kind=JSON.parse(lines[observedLineCount]).kind;
+      if(knownStages.has(kind)&&stageArrivals.length<6)stageArrivals.push({kind,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart))});
+    }catch{}
+  });child.stderr.resume();
   child.stdin.end(launcherInput);
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const processIdentity=p=>{const r=spawnSync('ps',['-p',String(p),'-o','pid=,ppid=,lstart='],{encoding:'utf8',timeout:1000});return r.status===0?r.stdout.trim():null;};
   try{
-    for(let i=0;i<50&&!pid;i++){try{pid=JSON.parse(readFileSync(marker,'utf8')).pid;}catch{}if(!pid)await pause(20);}
+    const pollingStart=performance.now();
+    for(let i=0;i<50&&!pid;i++){try{
+      const markerValue=JSON.parse(readFileSync(marker,'utf8'));
+      if(markerValue.handlerReady===true&&Number.isInteger(markerValue.pid)&&markerValue.pid>1
+        &&typeof markerValue.publishedAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(markerValue.publishedAt)){
+        pid=markerValue.pid;readyPublicationAt=markerValue.publishedAt;
+      }
+    }catch{}if(!pid)await pause(20);}
     const readyObserved=Number.isInteger(pid)&&pid>1;
+    const readyPollElapsedMs=Math.max(0,Math.round(performance.now()-pollingStart));
+    const parentReadyElapsedMs=readyObserved?Math.max(0,Math.round(performance.now()-launchStart)):null;
     if(readyObserved){identity=processIdentity(pid);
       assert.equal(Number(identity?.split(/\s+/)[1]),child.pid,'scorer PID must belong to test-owned launcher');}
     const exit=await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('launcher exceeded watchdog after scorer deadline')),2000);})]);
@@ -220,7 +245,7 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
     catch{assert.fail('fixed launcher returned invalid metadata');}
     const last=records.at(-1)??{kind:'no-final-stage'};
     assert.doesNotMatch(output,/PRIVATE_PAYLOAD/);assert.ok(!output.includes(f.root));
-    const observation={readyObserved,launcherExit:exit,final:last};
+    const observation={readyObserved,launchAt,readyPublicationAt,readyPollElapsedMs,parentReadyElapsedMs,stageArrivals,launcherExit:exit,final:last};
     t.diagnostic('owned launcher observation: '+JSON.stringify(observation));
     assert.ok(readyObserved,'trusted scorer ready not observed within fixed window; '+JSON.stringify(observation));
     assert.equal(records[0]?.kind,'launcher-started');assert.equal(records[0]?.pid,child.pid);

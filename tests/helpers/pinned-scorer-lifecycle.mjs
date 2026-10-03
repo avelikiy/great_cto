@@ -1,7 +1,9 @@
 // Fixed trusted fixture launcher. Private configuration stays on stdin, never
 // argv or output. This is diagnostic observation, not independent admission.
 import { runPinnedBenchmarkScorer } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
-const emit = value => process.stdout.write(JSON.stringify(value) + '\n');
+const observationStart = performance.now();
+const emit = value => process.stdout.write(JSON.stringify({ ...value,
+  observedAt: new Date().toISOString(), elapsedMs: Math.max(0, Math.round(performance.now()-observationStart)) }) + '\n');
 emit({ kind: 'launcher-started', pid: process.pid });
 let input = '', refused = false;
 const refuse = (reason, kind = 'prelaunch-refused') => {
