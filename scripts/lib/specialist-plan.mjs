@@ -67,6 +67,9 @@ export function specialistPlan({ root, base, rules, exclude = [], planning = fal
       const files = assessment.files.filter(path => !activity.test(path) && !exclude.includes(path) && rule.pattern.test(path));
       if (files.length) add(rule.reviewer, 'changed artifact pattern', files);
     }
+    const uiFiles = assessment.files.filter(path => !activity.test(path) && !exclude.includes(path)
+      && /\.(?:html?|css|scss|sass|jsx|tsx|vue|svelte)$/i.test(path));
+    if (uiFiles.length) add('design-advisor', 'UI interaction, accessibility and responsive contract required before implementation', uiFiles);
     if (assessment.files.some(path => /(^|\/)(agents(?:-full)?|skills|prompts?)\/|(^|\/)(AGENTS|CLAUDE|SKILL)\.md$/i.test(path))) {
       add('ai-security-reviewer', 'executable prompt or policy change');
       add('ai-eval-engineer', 'executable prompt or policy change');
@@ -78,7 +81,7 @@ export function specialistPlan({ root, base, rules, exclude = [], planning = fal
       scope: 'whole Git-visible tree plus project declaration; ignored runtime inputs not attested', reusablePass: false };
   } catch (error) {
     // Unknown evidence may widen selection, never silently drop specialists.
-    const agents = [...new Set([...mandatory, ...rules.map(r => r.reviewer), ...Object.values(REVIEWERS_BY_ARCHETYPE).flat(),
+    const agents = [...new Set([...mandatory, 'design-advisor', ...rules.map(r => r.reviewer), ...Object.values(REVIEWERS_BY_ARCHETYPE).flat(),
       ...Object.values(PACK_REVIEWERS).flat(), ...COMPLIANCE_REVIEWERS.map(r => r.reviewer)])].sort();
     return { version: 1, state: 'unknown', advisory: true, assessment, reason: error.message, fingerprint: null,
       reviewers: agents.map(agent => ({ agent, reasons: ['risk evidence unavailable; no selective omission'], files: [] })), reusablePass: false };

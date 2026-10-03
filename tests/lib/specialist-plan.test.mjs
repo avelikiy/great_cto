@@ -22,6 +22,14 @@ function fixture(t, project = 'archetype: web-service\n') {
 }
 const agents = plan => plan.reviewers.map(r => r.agent);
 
+test('static UI artifacts select design accessibility contract without relabeling the domain', t => {
+  for (const extension of ['html', 'css', 'scss', 'sass', 'jsx', 'tsx', 'vue', 'svelte']) {
+    const f = fixture(t); f.put(`src/component.${extension}`, 'UI contract input');
+    const p = f.plan(); assert.equal(p.state, 'planned'); assert.ok(agents(p).includes('design-advisor'), extension);
+    assert.ok(agents(p).includes('code-reviewer')); assert.equal(p.reusablePass, false);
+  }
+});
+
 test('opt-in stays off; current low-risk diff selects only mandatory review, not catalog', t => {
   const f = fixture(t); f.put('src/ui.ts', 'ui v2');
   assert.equal(adaptiveSpecialistPlan(f.root, RULES, {}), null);

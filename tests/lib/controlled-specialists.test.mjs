@@ -27,6 +27,20 @@ function fixture(t, archetype = 'fintech', policy = true) {
   return { root, put, args, state: newRun(args) };
 }
 const verify = async () => ({ state: 'verified', findings: [], checks: ['read actual bytes'] });
+
+test('static UI contract refuses existing-change and stays before implementation in phased workflow', async t => {
+  const f = fixture(t, 'web-service', false); f.put('src/board.html', '<button>Decision</button>');
+  const policy = { mode: 'adaptive', workflow: 'existing-change', base: f.args.specialistPolicy?.base || execFileSync('git', ['rev-parse', 'HEAD'], { cwd: f.root, encoding: 'utf8' }).trim() };
+  assert.throws(() => newRun({ ...f.args, specialistPolicy: policy }), /design-advisor requires a separate contract/);
+  const state = newRun({ ...f.args, specialistPolicy: { ...policy, workflow: 'phased-change' } });
+  assert.ok(state.specialistPreparation.selected.includes('design-advisor'));
+  assert.ok(state.queue.includes('design-advisor-prebuild')); assert.ok(!state.queue.includes('senior-dev'));
+  assert.equal(state.specialistStages['design-advisor-prebuild'].phase, 'contract');
+  await runStage(state, { execute: async () => reply('design-advisor', [{ path: 'docs/specialist-contracts/DESIGN-ui.md', before: null, content: 'Keyboard/reflow contract' }]), verify });
+  assert.equal(state.status, 'awaiting-gate', state.reason); assert.ok(state.specialistPreparation.hardGates.includes('gate:plan'));
+  assert.equal(state.attempts[0].role, 'design-advisor-prebuild'); assert.equal(state.approvals.length, 0);
+  assert.equal(state.results['senior-dev'], undefined); assertSpecialistEpoch(state);
+});
 function reply(role, files = []) {
   return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'DONE', summary: 'Inspected', files,
     meta: ['senior-dev', 'code-reviewer'].includes(role) ? {} : { report: files[0]?.path } }) };
