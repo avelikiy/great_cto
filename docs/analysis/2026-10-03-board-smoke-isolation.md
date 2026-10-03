@@ -55,6 +55,6 @@ The current selected installed local 3.48.0 board refuses exit 77 before launch:
 it lacks the new namespace/discovery contract. The source board exercises all
 eleven endpoints successfully. Negative tests cover legacy refusal before
 entrypoint, exit-zero-before-listening, and intercepted model launch. Full stock
-CI has not run: L4b still needs exclusively owned temporary roots instead of
-pre-deleting predictable PID paths (tracked as great_cto-p4o9.5.9.3).
+CI has not run. L4b now uses [exclusively owned temporary roots](2026-10-03-phase-smoke-isolation.md)
+instead of pre-deleting predictable PID paths (great_cto-p4o9.5.9.3).
 Installed plugin/defaults/releases and human/security gates are unchanged.
