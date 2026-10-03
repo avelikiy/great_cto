@@ -395,3 +395,31 @@ Final-byte three-file execution including the two new native fault cases:
 28 tests, 17 passed, eleven failed, zero skips, exit one. Documentation and
 classification checks passed 94/94. Earlier red runs are not discarded or
 called flaky; this rerun covered the final diagnostic edits.
+
+### Missing local browser prerequisite and post-registration fault coverage
+
+The next bounded native launch diagnostic established a current prerequisite
+failure: pinned Playwright entry exists, package version 1.60.0, expected
+Chromium executable absent, no browser child spawned. The tool explicitly
+reported missing executable, not timeout. No raw exception, paths or browser
+logs were published. Scratch from this diagnostic was retained; no closure
+authority was inferred. This does not explain earlier full concurrent runs.
+
+The fixed probe now forwards only the enum `missing-browser-executable` for
+that explicit tool error; other launch errors remain `launch-refused`, never
+classified from duration alone. The broker rejects unknown reasons and invalid
+stage/reason combinations. Current actual helper/browser execution remains red:
+29 tests, 18 passed, eleven failed, zero skipped. All eight main browser modes
+report missing executable before resource registration. Dependency recovery is
+tracked in `.5.9.7.2.5`; shared-cache installation requires separate approval.
+The installed plugin, system Chrome and frozen artifacts have not been changed.
+
+Five new observation inventory faults use an actual fixed native scorer/browser
+process tree successfully registered with real OS inventory before injecting
+exit seven, ETIMEDOUT, ENOBUFS, SIGKILL or malformed rows into the subsequent
+inventory call. All retain fixed private observation stage/cause, held scratch
+and irreversible PRESERVED state without public authority. The fixed fixture
+tree and inherited pipe close before test-owned scratch cleanup. Combined
+owner/inventory/lineage checks pass 28/28 without skips; these are source fault
+tests, not Chromium lifecycle, production isolation or benchmark execution.
+Full guardian diagnostic/admission coverage remains unproved under `.2.2`.

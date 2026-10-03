@@ -7,6 +7,7 @@ import {boardAccessibilityBenchmarkFixture} from './board-accessibility-benchmar
 
 let started=false,released=false,completed=false,rejectBarrier,releaseBarrier;
 let stage='transport';
+let failureReason='stage-refused';
 const roots=[],profiles=[],original=cp.spawn;
 cp.spawn=function(...args){const child=original(...args);child.once('spawn',()=>{
  roots.push(child.pid);
@@ -36,10 +37,17 @@ else process.on('message',async raw=>{
   stage='browser-load';
   const chromium=await loadPinnedBoardBrowser(recipe.oracle.browser,process.env.TMPDIR),launch=chromium.launch;
   let reported=false;
-  chromium.launch=async function(...args){stage='browser-launch';const browser=await launch.apply(this,args),newContext=browser.newContext;
+  chromium.launch=async function(...args){stage='browser-launch';let browser;
+   try{browser=await launch.apply(this,args);}catch(error){
+    // Recognize the tool's explicit prerequisite refusal; never forward its
+    // message, executable path, launch arguments or native browser logs.
+    failureReason=typeof error.message==='string'&&error.message.includes("Executable doesn't exist at ")
+     ?'missing-browser-executable':'launch-refused';throw error;
+   }
+   stage='browser-launched';const newContext=browser.newContext;
    browser.newContext=async function(...args){stage='context-create';const context=await newContext.apply(this,args),newPage=context.newPage;
     context.newPage=async function(...args){stage='page-create';const page=await newPage.apply(this,args),setContent=page.setContent;
-     page.setContent=async function(...args){const value=await setContent.apply(this,args);
+     page.setContent=async function(...args){stage='dom-content';const value=await setContent.apply(this,args);
       if(!reported){reported=true;if(profiles.length!==1)throw Error('invalid probe resources');
        stage='resource-barrier';send({kind:'resources',roots,profilePath:profiles[0]});await barrier;stage='dom-observation';}
       return value;};return page;};return context;};return browser;};
@@ -47,7 +55,7 @@ else process.on('message',async raw=>{
   stage='observation';const result=await observeBoard(html,recipe.oracle,process.env.TMPDIR);
   completed=true;
   process.send(JSON.stringify({kind:'done',probeAdmitted:result.admitted}),()=>{if(process.connected)process.disconnect();});
- }catch{process.exitCode=1;send({kind:'failed',stage});}
+ }catch{process.exitCode=1;send({kind:'failed',stage,reason:failureReason});}
  finally{if(started&&process.connected&&(!released||process.exitCode===1)){
   // Keep a held successful probe connected; terminate only failed execution.
   if(process.exitCode===1)process.disconnect();

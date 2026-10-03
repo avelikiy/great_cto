@@ -11,8 +11,8 @@ export function startBrowserGuardianProbe(mode,emit){
   execPath:process.execPath,execArgv:[],env:{LANG:'C',TZ:'UTC',TMPDIR:root,TMP:root,TEMP:root},
   stdio:['ignore','ignore','ignore','ipc']});
  let registered=false,released=false,closed=false,failed=false,done;
- let stage='launch',failureStage=null,probeStage=null,directExit=null;
- const privateDiagnostic=()=>Object.freeze({stage,failureStage,probeStage,directExit,
+ let stage='launch',failureStage=null,probeStage=null,probeReason=null,directExit=null;
+ const privateDiagnostic=()=>Object.freeze({stage,failureStage,probeStage,probeReason,directExit,
   resource:owner.privateDiagnostic(),descendantQuiescenceVerified:false,benchmarkEligible:false});
  const unavailable=()=>{if(failed)return;failureStage=stage;failed=true;emit({kind:'probe-unavailable',privateDiagnostic:privateDiagnostic(),cleanupAuthorized:false,benchmarkEligible:false});if(child.connected)child.disconnect();};
  const requireObservation=()=>{const snapshot=owner.observe();
@@ -34,8 +34,10 @@ export function startBrowserGuardianProbe(mode,emit){
     if(!registered||!released||done!==undefined||Object.keys(m).sort().join(',')!=='kind,probeAdmitted'||typeof m.probeAdmitted!=='boolean')throw Error('invalid probe completion');
     stage='completion-observation';requireObservation();done=m.probeAdmitted;stage='completed';
    }else if(m.kind==='failed'){
-    if(Object.keys(m).sort().join(',')!=='kind,stage'||!['transport','recipe','scorer-import','browser-load','browser-launch','context-create','page-create','resource-barrier','dom-observation','observation'].includes(m.stage))throw Error('invalid probe failure');
-    probeStage=m.stage;stage='probe-failure';unavailable();
+    if(Object.keys(m).sort().join(',')!=='kind,reason,stage'||!['transport','recipe','scorer-import','browser-load','browser-launch','browser-launched','context-create','page-create','dom-content','resource-barrier','dom-observation','observation'].includes(m.stage)
+     ||!['missing-browser-executable','launch-refused','stage-refused'].includes(m.reason)
+     ||(m.stage!=='browser-launch'&&m.reason!=='stage-refused'))throw Error('invalid probe failure');
+    probeStage=m.stage;probeReason=m.reason;stage='probe-failure';unavailable();
    }else throw Error('probe unavailable');
   }catch{unavailable();}
  });

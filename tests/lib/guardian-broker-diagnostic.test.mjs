@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 import {lstatSync,readdirSync,rmSync} from 'node:fs';
 import {startBrowserGuardianProbe} from '../../scripts/lib/browser-guardian-broker.mjs';
 const entry=fileURLToPath(new URL('../helpers/guardian-probe-fault.mjs',import.meta.url));
-for(const mode of ['valid','invalid'])test('broker private native failure stage '+mode,
+for(const mode of ['valid','invalid','invalid-reason','wrong-pair'])test('broker private native failure stage '+mode,
  {skip:!['darwin','linux'].includes(process.platform),timeout:5000},async t=>{
  const original=cp.fork;let child,exit;
  cp.fork=(path,args,options)=>{
@@ -35,10 +35,11 @@ for(const mode of ['valid','invalid'])test('broker private native failure stage 
  const d=refusal.privateDiagnostic;
  assert.equal(d.failureStage,mode==='valid'?'probe-failure':'resource-frame');
  assert.equal(d.probeStage,mode==='valid'?'browser-launch':null);
+ assert.equal(d.probeReason,mode==='valid'?'missing-browser-executable':null);
  assert.equal(d.directExit,null,'failure publication precedes direct exit');
  assert.ok(Object.isFrozen(d));assert.equal(d.benchmarkEligible,false);
  assert.equal(d.descendantQuiescenceVerified,false);
- assert.doesNotMatch(JSON.stringify(d),/PRIVATE_STAGE|stdout|stderr|capability|profilePath/);
+ assert.doesNotMatch(JSON.stringify(d),/PRIVATE_STAGE|PRIVATE_REASON|stdout|stderr|capability|profilePath/);
  assert.ok(!JSON.stringify(d).includes(root));
  assert.equal(broker.privateDiagnostic().directExit.code,7);
  assert.equal(broker.privateDiagnostic().failureStage,d.failureStage);

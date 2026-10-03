@@ -1,12 +1,17 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {fork,spawnSync} from 'node:child_process';
+import cp from 'node:child_process';
+import {syncBuiltinESMExports} from 'node:module';
 import {mkdirSync,lstatSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createBrowserResourceOwner} from '../../scripts/lib/browser-guardian-resources.mjs';
 const entry=fileURLToPath(new URL('../helpers/guardian-lineage-fixture.mjs',import.meta.url));
-for(const phase of ['before-registration','late-scorer','inherited-descriptor'])test('unregistered lineage preserves '+phase,
+const faultEntry=fileURLToPath(new URL('../helpers/guardian-inventory-fault.mjs',import.meta.url));
+const causes={nonzero:['nonzero-or-unknown','process-refused'],timeout:['timeout','process-refused'],
+ 'output-limit':['output-limit','process-refused'],signal:['signalled','process-refused'],'invalid-rows':['exited-zero','rows-refused']};
+for(const phase of ['before-registration','late-scorer','inherited-descriptor',...Object.keys(causes).map(mode=>'observation-'+mode)])test('unregistered lineage preserves '+phase,
  {timeout:20000,skip:!['darwin','linux'].includes(process.platform)},async t=>{
  const owner=createBrowserResourceOwner({ownerPid:process.pid}),root=owner.privateRoot(),identity=lstatSync(root);
  const profile=join(root,'playwright_chromiumdev_profile-Lineage123');mkdirSync(profile,{mode:0o700});
@@ -29,6 +34,27 @@ for(const phase of ['before-registration','late-scorer','inherited-descriptor'])
  scorer.send({kind:'init',profilePath:profile});const ready=await next();assert.equal(ready.kind,'ready');
  const registration={scorerPid:scorer.pid,browserRoots:[ready.browserPid],profilePath:profile};
  if(phase!=='before-registration')assert.equal(owner.register(registration).state,'OBSERVING');
+ if(phase.startsWith('observation-')){
+  const mode=phase.slice('observation-'.length),original=cp.spawnSync;
+  cp.spawnSync=(bin,args,options)=>{
+   assert.equal(bin,'/bin/ps');assert.equal(options.timeout,1000);assert.equal(options.maxBuffer,1048576);
+   assert.equal(options.killSignal,'SIGKILL');return original(process.execPath,[faultEntry,mode],options);
+  };
+  syncBuiltinESMExports();let snapshot;
+  try{snapshot=owner.observe();}finally{cp.spawnSync=original;syncBuiltinESMExports();}
+  assert.equal(snapshot.state,'PRESERVED');
+  const diagnostic=owner.privateDiagnostic();
+  assert.equal(diagnostic.stage,'observation-inventory');assert.equal(diagnostic.reason,causes[mode][1]);
+  assert.equal(diagnostic.inventory.outcome,causes[mode][0]);
+  assert.ok(Object.isFrozen(diagnostic));assert.ok(Object.isFrozen(diagnostic.inventory));
+  assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_PAYLOAD|stdout|stderr|capability|profilePath/);
+  assert.ok(!JSON.stringify(diagnostic).includes(root));
+  for(const key of ['osQuiescenceVerified','resourceClosureVerified','cleanupAuthorized','independentAdmissionVerified','benchmarkEligible'])assert.equal(snapshot[key],false);
+  assert.ok(!Object.hasOwn(snapshot,'privateDiagnostic')&&!Object.hasOwn(snapshot,'inventory'));
+  owner.observe();assert.deepEqual(owner.privateDiagnostic(),diagnostic,'preserved owner retains actual observation refusal');
+  assert.ok(lstatSync(join(profile,'held-descriptor')).isFile(),'live fixed fixture descriptor is not deleted by refusal');
+  return;
+ }
  scorer.send({kind:phase==='inherited-descriptor'?'late-browser':'late-scorer'});
  const late=await next();assert.equal(late.kind,'late-ready');assert.equal(late.fileIno,ready.fileIno);
  const snapshot=phase==='before-registration'?owner.register(registration):owner.observe();
