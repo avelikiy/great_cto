@@ -2,6 +2,9 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
+import {mkdtempSync,realpathSync,lstatSync,rmSync} from 'node:fs';
+import {join,dirname,basename} from 'node:path';
+import {tmpdir} from 'node:os';
 import {boardAccessibilityBenchmarkFixture} from '../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 
 const observer=fileURLToPath(new URL('../../scripts/benchmark-scorers/board-accessibility.mjs',import.meta.url));
@@ -11,8 +14,11 @@ const program=String.raw`
 import cp from 'node:child_process';
 import {syncBuiltinESMExports} from 'node:module';
 import {pathToFileURL} from 'node:url';
-const roots=[],original=cp.spawn;
-cp.spawn=function(...args){const child=original(...args);child.once('spawn',()=>roots.push(child.pid));return child;};
+const roots=[],profiles=[],original=cp.spawn;
+cp.spawn=function(...args){const child=original(...args);child.once('spawn',()=>{
+ roots.push(child.pid);
+ for(const arg of args[1]??[])if(arg.startsWith('--user-data-dir='))profiles.push(arg.slice('--user-data-dir='.length));
+});return child;};
 syncBuiltinESMExports();
 const config=JSON.parse(process.argv[1]);
 try{
@@ -27,7 +33,7 @@ try{
     const page=await newPage.apply(this,args),setContent=page.setContent;
     page.setContent=async function(...args){
      const value=await setContent.apply(this,args);
-     if(!reported){reported=true;process.stdout.write(JSON.stringify({kind:'ready',roots})+'\n');
+     if(!reported){reported=true;process.stdout.write(JSON.stringify({kind:'ready',roots,profiles})+'\n');
       await new Promise(r=>process.stdin.once('data',r));}
      return value;
     };return page;
@@ -59,9 +65,11 @@ async function waitGone(owned){for(let i=0;i<50;i++){if(!living(owned).length)re
 for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
  if(process.platform!=='darwin'&&process.platform!=='linux')return t.skip('process-tree inventory unsupported; lifecycle NOT CHECKED');
  const recipe=boardAccessibilityBenchmarkFixture();if(!recipe.oracle.browser)return t.skip('Playwright unavailable; lifecycle NOT CHECKED');
+ const scratch=realpathSync(mkdtempSync(join(tmpdir(),'great-cto-owned-browser-')));
+ const scratchIdentity=lstatSync(scratch);
  let html=recipe.files['web/board.html'];if(mode==='dom-refusal')html=html.replace('id="approve"','id="approve" onclick="throw 1"');
  const child=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({observer,oracle:recipe.oracle,html,mode})],
-  {env,stdio:['pipe','pipe','pipe']});
+  {env:{...env,TMPDIR:scratch,TMP:scratch,TEMP:scratch},stdio:['pipe','pipe','pipe']});
  let output='',errors='',ready,done;const closed=new Promise(r=>child.once('close',(code,signal)=>r({code,signal})));
  child.stdout.on('data',b=>{output+=b.toString();assert.ok(output.length<=4096,'bounded public lifecycle output');
   for(const line of output.split('\n').slice(0,-1)){const event=JSON.parse(line);if(event.kind==='ready')ready=event;if(event.kind==='done')done=event;}});
@@ -73,6 +81,13 @@ for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer br
   assert.ok(ready.roots.length>0&&ready.roots.every(p=>Number.isInteger(p)&&p>1));
   owned=ownedTree(ready.roots,child.pid);
   assert.ok(owned.size>1,'browser root and actual descendant observed before continuation');
+  assert.equal(ready.profiles.length,1,'one actual Chromium temporary profile must be captured');
+  const profile=ready.profiles[0];
+  assert.equal(dirname(profile),scratch,'profile must be a direct child of this test private temporary root');
+  assert.match(basename(profile),/^playwright_chromiumdev_profile-[A-Za-z0-9]+$/);
+  const initial=lstatSync(profile);
+  assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
+  assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
   if(mode==='owner-kill')child.kill('SIGKILL');
   else{child.stdin.write('continue\n');child.stdin.end();}
   const exit=await Promise.race([closed,new Promise((_,reject)=>{exitTimer=setTimeout(()=>reject(Error('observer owner did not terminate')),15000);})]);
@@ -81,6 +96,11 @@ for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer br
   else{assert.equal(exit.code,0,'actual observer completes without launch error');assert.ok(done);assert.equal(done.admitted,mode==='normal');}
   assert.ok(await waitGone(owned),'captured browser tree must stop without test cleanup assistance');
   t.diagnostic(mode+': captured '+owned.size+' owned processes; none remained running before cleanup');
+  let retained=false;
+  try{const after=lstatSync(profile);assert.equal(after.ino,initial.ino,'profile identity must not change');retained=true;}
+  catch(error){if(error.code!=='ENOENT')throw error;}
+  t.diagnostic(mode+': temporary profile '+(retained?'retained':'removed')+' before test cleanup');
+  if(mode!=='owner-kill')assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
   assert.equal(errors,'','observer child must not report error');
  }finally{
   clearTimeout(exitTimer);
@@ -89,5 +109,13 @@ for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer br
   // A reused PID or unrelated browser must never receive this cleanup signal.
   for(const [pid]of living(owned).reverse())try{process.kill(pid,'SIGKILL');}catch{}
   await closed;
+  // Only this newly created test root is removable, and only after all captured
+  // processes have stopped. A retained crash profile is measured above first.
+  if(owned.size&&await waitGone(owned)){
+   const current=lstatSync(scratch);
+   assert.ok(current.isDirectory()&&!current.isSymbolicLink()&&current.ino===scratchIdentity.ino
+    &&current.dev===scratchIdentity.dev&&current.uid===scratchIdentity.uid,'test cleanup root identity must remain unchanged');
+   rmSync(scratch,{recursive:true,force:true});
+  }
  }
 });
