@@ -500,3 +500,45 @@ loggedIn false/authMethod none. Native async correlation/live scoped reuse,
 shared-cache Chromium recovery, matched benchmark baseline choice, independent
 runtime/security admission and delivered-artifact verification remain separate
 unfinished requirements; no percent quality uplift is inferred.
+
+### Concurrent source regression after evidence-reader v2
+
+Canonical library command `node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs`
+finished at immutable published source
+`0d9fc0ed546ce5052ef77829bc3800e87d8dd3a8`, exit 1. Retained log:
+`/Users/Shared/great-cto-evidence-v2-lib-ci-UJeEra`.
+Totals: 3093 tests, 3060 passed, 15 failed, 18 skipped, zero cancelled,
+91508.480083 ms. No deadline, concurrency, skip policy or gate was changed.
+
+All 15 failures are actual-browser scenarios: four observer lifecycle modes,
+two broker resource-mutation phases, eight external-helper modes and one
+active-parent SIGKILL case. The eight helper modes explicitly report
+`browser-launch` / `missing-browser-executable`, with successful resource-owner
+creation inventory, before browser registration. The remaining seven failures
+are unmet readiness or mutation prerequisites, not evidence that the intended
+browser fault or cleanup scenario executed. Their assertion text alone does not
+prove a separate historical root cause. Shared-cache Chromium recovery still
+needs operator approval; no substitute executable, added skip or cache change
+was used to obtain a pass.
+
+The 18 skips are twelve browser/DOM checks whose existing prerequisites report
+Chromium unavailable, three opt-in live Docker cases and three opt-in live model
+cases. All are NOT CHECKED, not successful coverage. This run is the full stock
+library group, not the full ci-local/root/eval/CLI/installed L1-L5 pipeline.
+
+The scorer signal-handler readiness case passed in this concurrent run. Its
+owned launcher observation recorded ready publication at 214 ms after parent
+launch and parent observation at 219 ms, with launcher stage arrivals at
+44/45 ms. The actual scorer timed out at the unchanged 1000-ms limit, reporting
+ETIMEDOUT/SIGKILL and elapsed 1005 ms. This verifies this execution, not the
+cause of the earlier missing-ready failure or universal concurrency stability.
+The real PostgreSQL baseline/repair and all four initializer-refusal retention
+cases passed, including the unchanged ten-second native timeout. Earlier
+concurrent initialization failure and recursive closure remain unproved.
+
+All evidence-reader v2 unit cases passed, including native FIFO refusal at
+117.007541 ms and incremental aggregate-cap refusal. The controlled scoped
+reuse/fallback/rework cases also passed, using scripted verifier results rather
+than independent live model evidence. Native admission, complete lifecycle,
+security approval, comparative model quality and installed-artifact parity
+remain unfinished. The parent concurrent diagnosis remains in progress.
