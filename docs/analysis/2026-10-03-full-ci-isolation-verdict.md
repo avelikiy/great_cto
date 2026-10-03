@@ -423,3 +423,47 @@ tree and inherited pipe close before test-owned scratch cleanup. Combined
 owner/inventory/lineage checks pass 28/28 without skips; these are source fault
 tests, not Chromium lifecycle, production isolation or benchmark execution.
 Full guardian diagnostic/admission coverage remains unproved under `.2.2`.
+
+### Versioned source initializer refusal retention
+
+Source-only migration scorer safety change under `.5.9.7.2.4`: an absent server
+guardian handle no longer permits deleting the generated cluster root after
+initializer refusal. Initialization errors now retain private fixed stage,
+actual exit/error/signal/time, scratch-retained state and false eligibility /
+descendant-quiescence flags. The existing ten-second initialization timeout,
+default termination signal, 64-KB buffer and startup/shutdown deadlines are
+unchanged. Raw initdb output, arguments, paths and private rows are withheld.
+
+Original source SHA256:
+`ae21be78bfb8cd6b09b3033b148322bc93757444053e85f5a230b1551487fc5c`.
+New source SHA256:
+`de4278f6a550384a524ddadaa5415522b3afa1ac127db186541c2271f860072e`.
+This is a separate source revision, not a rewrite or new admission of the
+frozen corpus/scorer/oracle/runtime artifacts. Existing archived bytes and
+installed plugin are not changed. Fresh runtime closure registration and
+independent review remain necessary before this source can become an admitted
+benchmark runtime; a local source digest is not such a certificate.
+
+Native fixed-fixture fault tests first reproduced deletion on nonzero exit,
+SIGKILL and an initializer leaving a live descriptor-holding descendant.
+After remediation, final four-case execution passed without skips: exit seven,
+SIGKILL, actual ten-second ETIMEDOUT and the live descendant. Diagnostics match
+the actual native spawn result; test-owned root is retained until the fixed
+descendant closes its descriptor and is observed stopped before test cleanup.
+Version detection is a fixed native test seam, not proof of PostgreSQL presence.
+
+These tests prove refusal retention and bounded metadata, not successful
+initialization, the historical concurrent CI cause, recursive server closure,
+same-UID isolation or an approved benchmark. Real PostgreSQL regression is
+tracked separately; `.2.4` remains in progress. Shared browser-cache recovery
+approval is still pending; no installation, release, merge, model call, skip,
+deadline expansion or gate bypass occurred.
+
+The actual PostgreSQL regression subsequently completed 25/25, zero skips,
+64882 ms. It exercised baseline failure / repair through a newly source-pinned
+scorer, rollback/readers/deadlines/privileges, no TCP listener with intentional
+action-failure cleanup, and guardian shutdown after real scorer SIGKILL. This
+scoped execution does not clear the historical concurrent initialization
+refusal or independently attest recursive resource closure. Existing frozen
+runtime registration is unchanged; source-only retention mitigation is not a
+substitute for a newly approved runtime or complete CI.

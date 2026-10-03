@@ -38,9 +38,21 @@ export async function withTemporaryPostgres(action){
  const data=join(temp,'data'),socket=join(temp,'socket');mkdirSync(socket,{mode:0o700});
  let child,closed,shutdown=false;
  try{
+  const startedAt=new Date().toISOString(),initStart=performance.now();
   const init=spawnSync(tools.initdb,['-D',data,'-U','bench_admin','--auth-local=trust','--auth-host=reject','--no-locale','--encoding=UTF8'],
    {env:{LANG:'C'},encoding:'utf8',timeout:10000,maxBuffer:65536,shell:false});
-  if(init.error||init.status!==0)throw Error('temporary PostgreSQL initialization unavailable');
+  if(init.error||init.status!==0||init.signal){
+   const codes=['ETIMEDOUT','ENOBUFS','ENOENT','EACCES','EPERM','EAGAIN','ENOMEM','EMFILE','ENFILE','E2BIG','EINVAL','ENOSYS','EINTR','EIO'];
+   const signals=['SIGHUP','SIGINT','SIGQUIT','SIGILL','SIGTRAP','SIGABRT','SIGBUS','SIGFPE','SIGKILL','SIGSEGV','SIGPIPE','SIGALRM','SIGTERM','SIGUSR1','SIGUSR2'];
+   const errorCode=init.error?(codes.includes(init.error.code)?init.error.code:'UNCLASSIFIED'):null;
+   const signal=signals.includes(init.signal)?init.signal:null;
+   const error=Error('temporary PostgreSQL initialization unavailable');
+   error.privateDiagnostic=Object.freeze({stage:'initialization',exitCode:Number.isInteger(init.status)?init.status:null,signal,errorCode,
+    outcome:errorCode==='ETIMEDOUT'?'timeout':errorCode==='ENOBUFS'?'output-limit':errorCode?'process-error':signal?'signalled':'nonzero-or-unknown',
+    startedAt,finishedAt:new Date().toISOString(),elapsedMs:Math.max(0,Math.round(performance.now()-initStart)),timeoutMs:10000,
+    scratchState:'retained',descendantQuiescenceVerified:false,benchmarkEligible:false});
+   throw error;
+  }
   child=spawn(process.execPath,['--input-type=module','-e',guardian,tools.postgres,'-D',data,'-c',"listen_addresses=",'-c','unix_socket_directories='+socket,'-c','unix_socket_permissions=0700','-c','max_connections=12'],
    {env:{LANG:'C'},stdio:['pipe','ignore','ignore'],shell:false});closed=terminal(child);child.stdin.on('error',()=>{});
   const sql=(role,body,timeout=2000)=>{
@@ -65,7 +77,10 @@ export async function withTemporaryPostgres(action){
  }finally{
   if(child){child.stdin.end();const result=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),6000);closed.then(value=>{clearTimeout(timer);resolve(value);});});shutdown=!!result&&result.code===0;
    if(!shutdown)throw Error('temporary PostgreSQL shutdown unconfirmed');}
-  if(!child||shutdown)rmSync(temp,{recursive:true,force:true});
+  // No server guardian does not mean initdb/bootstrap descendants stopped.
+  // Retain this owned scope after initializer failure; never grant cleanup
+  // from an absent handle or the initializer's direct-process exit alone.
+  if(shutdown)rmSync(temp,{recursive:true,force:true});
  }
 }
 function verifyRows(rows){if(!Array.isArray(rows)||rows.length!==2||rows[0]?.id!==1||rows[0]?.amount!==0||rows[1]?.id!==2
