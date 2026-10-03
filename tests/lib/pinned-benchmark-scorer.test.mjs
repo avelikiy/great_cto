@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { docsBenchmarkFixture } from '../../scripts/lib/docs-benchmark-fixture.mjs';
 import { runPinnedBenchmarkScorer } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
@@ -128,3 +128,37 @@ for (const kind of ['throw', 'timeout', 'oversized output', 'malformed JSON', 'w
     });
   });
 }
+
+test('timeout remains bounded when trusted scorer handles SIGTERM and stays alive', {timeout:10000}, async t => {
+  if (!['darwin','linux'].includes(process.platform)) return t.skip('owned process identity unavailable; hostile signal timeout NOT CHECKED');
+  const f=fixture(t), marker=join(f.options.scorerFile,'..','owned-pid.json');
+  const oracle=JSON.stringify({...f.recipe.oracle,signalTestMarker:marker});
+  writeFileSync(f.options.oracleFile,oracle,{mode:0o600});f.options.oracleSha256=sha(oracle);
+  f.custom("import {writeFileSync} from 'node:fs';\nprocess.on('SIGTERM',()=>{});\nwriteFileSync(JSON.parse(process.argv[3]).signalTestMarker,JSON.stringify({pid:process.pid}));\nsetInterval(()=>{},1000);");
+  const module=new URL('../../scripts/lib/pinned-benchmark-scorer.mjs',import.meta.url).href;
+  const program=`const config=JSON.parse(process.argv[1]);
+const {runPinnedBenchmarkScorer}=await import(config.module);
+try{runPinnedBenchmarkScorer(config.options);process.exitCode=2;}
+catch(error){if(error.message==='pinned scorer process did not complete')process.stdout.write('unavailable');else process.exitCode=3;}`;
+  const child=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({module,options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}})],
+    {env:{LANG:'C',TZ:'UTC'},stdio:['ignore','pipe','pipe']});
+  let output='',pid,identity,timer;
+  const closed=new Promise((resolve,reject)=>{child.once('close',(code,signal)=>resolve({code,signal}));child.once('error',reject);});
+  child.stdout.on('data',b=>{output+=b;});child.stderr.resume();
+  const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  const processIdentity=p=>{const r=spawnSync('ps',['-p',String(p),'-o','pid=,ppid=,lstart='],{encoding:'utf8',timeout:1000});return r.status===0?r.stdout.trim():null;};
+  try{
+    for(let i=0;i<50&&!pid;i++){try{pid=JSON.parse(readFileSync(marker,'utf8')).pid;}catch{}if(!pid)await pause(20);}
+    assert.ok(Number.isInteger(pid)&&pid>1,'trusted scorer must actually start and register signal handler');
+    identity=processIdentity(pid);
+    assert.equal(Number(identity?.split(/\s+/)[1]),child.pid,'scorer PID must belong to test-owned launcher');
+    const exit=await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('launcher exceeded watchdog after scorer deadline')),2000);})]);
+    assert.equal(exit.code,0);assert.equal(exit.signal,null);assert.equal(output,'unavailable');
+    assert.equal(processIdentity(pid),null,'timed-out owned scorer must no longer be a live process');
+  }finally{
+    clearTimeout(timer);
+    if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
+    if(identity&&processIdentity(pid)===identity)try{process.kill(pid,'SIGKILL');}catch{}
+    await closed;
+  }
+});

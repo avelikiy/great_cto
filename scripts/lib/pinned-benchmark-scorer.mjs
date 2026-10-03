@@ -71,7 +71,10 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
   const startedAt = new Date().toISOString();
   const child = spawnSync(process.execPath, ['--input-type=module', '-', candidate, JSON.stringify(oracle)], {
     input: code, cwd: dirname(realpathSync(scorerFile)), env: { LANG: 'C', TZ: 'UTC' },
-    timeout: timeoutMs, maxBuffer: 65536, encoding: 'utf8', windowsHide: true,
+    // spawnSync waits for child exit even after its deadline signal. SIGTERM
+    // can be handled (e.g. by Playwright) without exiting Node, so it cannot
+    // enforce this process boundary. Descendant/profile cleanup is separate.
+    timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 65536, encoding: 'utf8', windowsHide: true,
   });
   const finishedAt = new Date().toISOString(), after = treeReceipt(candidate);
   if (!after || !same(before, after) || baselineInputDigest(candidate, names) !== candidateInputDigest) throw Error('candidate changed during scoring');

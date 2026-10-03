@@ -62,7 +62,7 @@ function living(owned){const table=processes();return [...owned].filter(([pid,bi
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitGone(owned){for(let i=0;i<50;i++){if(!living(owned).length)return true;await pause(100);}return false;}
 
-for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
+for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
  if(process.platform!=='darwin'&&process.platform!=='linux')return t.skip('process-tree inventory unsupported; lifecycle NOT CHECKED');
  const recipe=boardAccessibilityBenchmarkFixture();if(!recipe.oracle.browser)return t.skip('Playwright unavailable; lifecycle NOT CHECKED');
  const scratch=realpathSync(mkdtempSync(join(tmpdir(),'great-cto-owned-browser-')));
@@ -88,11 +88,24 @@ for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer br
   const initial=lstatSync(profile);
   assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
-  if(mode==='owner-kill')child.kill('SIGKILL');
+  if(mode==='owner-kill'||mode==='owner-term')child.kill(mode==='owner-kill'?'SIGKILL':'SIGTERM');
   else{child.stdin.write('continue\n');child.stdin.end();}
+  if(mode==='owner-term'){
+   assert.ok(await waitGone(owned),'SIGTERM must close captured browser tree while owner is held');
+   let removed=false;
+   for(let i=0;i<50;i++){try{lstatSync(profile);}catch(error){if(error.code!=='ENOENT')throw error;removed=true;break;}await pause(100);}
+   assert.ok(removed,'handled SIGTERM must remove temporary profile');
+   // Playwright handles SIGTERM by closing browsers, not by exiting Node.
+   // Release this test-only barrier so the interrupted observer can unwind.
+   child.stdin.write('continue\n');child.stdin.end();
+  }
   const exit=await Promise.race([closed,new Promise((_,reject)=>{exitTimer=setTimeout(()=>reject(Error('observer owner did not terminate')),15000);})]);
   clearTimeout(exitTimer);
   if(mode==='owner-kill')assert.equal(exit.signal,'SIGKILL');
+  else if(mode==='owner-term'){
+   assert.equal(exit.code,1,'interrupted observer must report failure after test barrier release');
+   assert.equal(done,undefined,'terminated observer must not emit a completed scoring result');
+  }
   else{assert.equal(exit.code,0,'actual observer completes without launch error');assert.ok(done);assert.equal(done.admitted,mode==='normal');}
   assert.ok(await waitGone(owned),'captured browser tree must stop without test cleanup assistance');
   t.diagnostic(mode+': captured '+owned.size+' owned processes; none remained running before cleanup');
@@ -101,7 +114,7 @@ for(const mode of ['normal','dom-refusal','owner-kill'])test('actual observer br
   catch(error){if(error.code!=='ENOENT')throw error;}
   t.diagnostic(mode+': temporary profile '+(retained?'retained':'removed')+' before test cleanup');
   if(mode!=='owner-kill')assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
-  assert.equal(errors,'','observer child must not report error');
+  assert.equal(errors,mode==='owner-term'?'trusted browser lifecycle child failed\n':'','observer child must report only expected bounded error');
  }finally{
   clearTimeout(exitTimer);
   if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
