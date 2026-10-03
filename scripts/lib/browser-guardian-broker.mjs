@@ -12,6 +12,8 @@ export function startBrowserGuardianProbe(mode,emit){
   stdio:['ignore','ignore','ignore','ipc']});
  let registered=false,released=false,closed=false,failed=false,done;
  const unavailable=()=>{if(failed)return;failed=true;emit({kind:'probe-unavailable',cleanupAuthorized:false,benchmarkEligible:false});if(child.connected)child.disconnect();};
+ const requireObservation=()=>{const snapshot=owner.observe();
+  if(snapshot.state!=='OBSERVING')throw Error('probe resource unavailable');return snapshot;};
  child.on('error',()=>unavailable());
  child.on('message',raw=>{
   try{
@@ -21,21 +23,27 @@ export function startBrowserGuardianProbe(mode,emit){
     if(registered||Object.keys(m).sort().join(',')!=='kind,profilePath,roots')throw Error('invalid probe resources');
     const snapshot=owner.register({scorerPid:child.pid,browserRoots:m.roots,profilePath:m.profilePath});
     if(snapshot.state!=='OBSERVING')throw Error('invalid probe resources');registered=true;
-    emit({kind:'probe-ready',snapshot:owner.observe()});
+    emit({kind:'probe-ready',snapshot:requireObservation()});
    }else if(m.kind==='done'){
     if(!registered||!released||done!==undefined||Object.keys(m).sort().join(',')!=='kind,probeAdmitted'||typeof m.probeAdmitted!=='boolean')throw Error('invalid probe completion');
-    done=m.probeAdmitted;
+    requireObservation();done=m.probeAdmitted;
    }else throw Error('probe unavailable');
   }catch{unavailable();}
  });
- child.once('close',(code,signal)=>{closed=true;emit({kind:'probe-ended',code,signal,
-  probeAdmitted:done??null,snapshot:owner.observe(),cleanupAuthorized:false,benchmarkEligible:false});});
+ // Parent-driven IPC disconnect can omit ChildProcess close notification.
+ // exit tracks this direct process only; snapshots never certify descriptor
+ // closure, browser-tree quiescence or reaping from that event.
+ child.once('exit',(code,signal)=>{closed=true;const snapshot=owner.observe();
+  if(!failed&&snapshot.state!=='OBSERVING')unavailable();
+  emit({kind:'probe-ended',code,signal,probeAdmitted:failed?null:done??null,
+   snapshot,cleanupAuthorized:false,benchmarkEligible:false});});
  child.send(JSON.stringify({version:1,kind:'init',mode}),error=>{if(error)unavailable();});
  return Object.freeze({
   // Only the private operator channel receives fixture recovery coordinates.
   privateResources:()=>Object.freeze({root,scorerPid:child.pid}),
   observe:()=>failed?Object.freeze({...owner.snapshot(),state:'PRESERVED'}):owner.observe(),
-  continue(){if(!registered||released||failed||closed)throw Error('probe unavailable');released=true;
+  continue(){if(!registered||released||failed||closed)throw Error('probe unavailable');
+   try{requireObservation();}catch{unavailable();throw Error('probe unavailable');}released=true;
    child.send(JSON.stringify({version:1,kind:'continue'}),error=>{if(error)unavailable();});},
   disconnect(){failed=true;if(child.connected)child.disconnect();}
  });

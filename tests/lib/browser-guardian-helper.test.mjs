@@ -37,7 +37,7 @@ test('actual private helper processes a complete trace, no OS authority',async t
  }
  f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
 });
-for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
+for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch','tainted-continue'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
  if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('actual browser resource broker NOT CHECKED');
  const f=fixture(t),pause=ms=>new Promise(r=>setTimeout(r,ms));
  const table=()=>{const r=spawnSync('/bin/ps',['-axo','pid=,ppid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,killSignal:'SIGKILL',maxBuffer:1048576});
@@ -68,8 +68,12 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
   else if(mode==='helper-kill')f.child.kill('SIGKILL');
   else if(mode==='parent-disconnect')f.child.disconnect();
   else if(mode==='duplicate-start')command('probe-start',{mode:'normal'});
+  else if(mode==='tainted-continue'){mkdirSync(join(root,'unknown-before-continue'),{mode:0o700});command('probe-continue');}
   else command('probe-continue');
-  if(mode==='duplicate-start'){assert.equal((await f.next()).kind,'unavailable');assert.equal((await f.closed).code,1);}
+  if(mode==='duplicate-start'||mode==='tainted-continue'){
+   const refused=await f.next();assert.equal(refused.kind,'unavailable');assert.equal(refused.cleanupAuthorized,false);
+   assert.equal(refused.benchmarkEligible,false);assert.equal((await f.closed).code,1);
+  }
   else if(mode==='helper-kill'||mode==='parent-disconnect'){
    const exit=await f.closed;if(mode==='helper-kill')assert.equal(exit.signal,'SIGKILL');else assert.equal(exit.code,1);
   }else{
@@ -84,7 +88,7 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
   let artifactsRetained=false;try{assert.equal(lstatSync(artifact).ino,artifactIdentity.ino);artifactsRetained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
   assert.equal(artifactsRetained,mode==='scorer-kill','both bound scratch directories follow measured crash lifetime');
   assert.equal(lstatSync(root).ino,rootIdentity.ino,'guardian retains its private root, never reclaims it');
-  if(!['helper-kill','parent-disconnect','duplicate-start'].includes(mode)){
+  if(!['helper-kill','parent-disconnect','duplicate-start','tainted-continue'].includes(mode)){
    command('probe-observe');const observation=await f.next();assert.equal(observation.kind,'probe-observation');
    assert.equal(observation.snapshot.liveProcesses,0);assert.equal(observation.snapshot.profileState,retained?'retained':'removed');
    assert.equal(observation.snapshot.artifactsState,retained?'retained':'removed');
