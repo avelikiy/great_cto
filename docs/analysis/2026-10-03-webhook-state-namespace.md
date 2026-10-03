@@ -1,5 +1,8 @@
 # Webhook state namespace prerequisite
 
+Related: [hook lifecycle contract](../HOOKS.md) and the subsequent
+[stock smoke migration](2026-10-03-webhook-smoke-isolation.md).
+
 The stock pipeline HMAC smoke currently backs up and modifies the operator's
 webhook config. Adding an incoming hook preserves outgoing hooks. A correctly
 signed `pull_request.opened` fixture can consequently dispatch real configured

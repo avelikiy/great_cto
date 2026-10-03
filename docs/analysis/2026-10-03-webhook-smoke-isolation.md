@@ -2,8 +2,10 @@
 
 This change migrates both stock L2 HMAC probes to
 `scripts/lib/webhook-smoke.mjs`. The earlier namespace prerequisite is recorded
-in `2026-10-03-webhook-state-namespace.md`; its remaining-boundary statement
+in [the namespace report](2026-10-03-webhook-state-namespace.md); its remaining-boundary statement
 describes that earlier commit, not this migration.
+
+The remaining SessionEnd boundary belongs to the [hook lifecycle contract](../HOOKS.md).
 
 ## Execution boundary
 
