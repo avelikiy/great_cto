@@ -571,3 +571,50 @@ and eighteen NOT CHECKED skips; it predates this guard change and is not a full
 post-change regression. Native lifecycle, independent admission, measured quality
 and delivered/installed readiness remain open. No installed policy, defaults,
 shared cache, archive, frozen corpus, human gate, merge or release was changed.
+
+### Current candidate guard delivery verification
+
+At published source `2eaf4afe`, CLI build and normal prepack completed. A new local
+candidate was retained separately, without publishing or installation:
+`/Users/Shared/great-cto-guard-candidate-PAvKgn/great-cto-3.48.0.tgz`.
+SHA256: `e89e7d7d56d84ab4e2c1fe68efe05c737a5c7ccf6dff09ff6730de97bef8a005`.
+Metadata still states 3.48.0; this is a private candidate, not a new release of
+that version. The archive contains 161 files; previous candidate archives and
+frozen runtime/corpus remain intact. The unactivated browser guardian prototype
+is absent from this runtime import closure.
+
+Actual extracted module bytes match current source:
+
+| Module | Source and candidate SHA256 |
+| --- | --- |
+| scoped-review-reuse.mjs | 5f05542eea8ce5fe74d87af1169cae3ce4c6119f118d59644e9cafe937f66270 |
+| agent-execution-budget.mjs | f9fb48c2a7072d17d5c349459b97187b8b1dcb5f9076cae1aad47e8c59c778c4 |
+
+Pinned extraction/CLI smoke passed. Evidence root:
+`/private/var/folders/xf/8mjkgbt91mgg9b0m_gyrh92w0000gn/T/great-cto-package-smoke-Bsnugh`.
+Actual `--version` and private empty `codex-host list` exited zero at 251/79 ms.
+The separate controller-construction/selection probe exited zero at 2056 ms,
+with 12 cases and eight refusals, no dispatch or recorded approvals. This is not
+a worker/verifier/full-cycle or independent runtime admission result.
+
+A fixed trusted local helper, `tests/helpers/delivered-guard-probe.mjs`, then
+checked expected module pins before importing those exact extracted modules.
+Its actual private process exited zero with empty stderr. Eight assertion groups
+passed: shared cross-host capacity, malformed-map refusal without rewriting
+the corrupt fixture, whole-wave safe-fence refusal, last-safe replay/release,
+scope version 2, untracked literal-name refusal, tracked literal-name acceptance
+and hardlink refusal. Test-owned Git, project/policy/ledger files were created
+under retained `/private/tmp/great-cto-delivered-guards-SwxWI7`; no real operator
+store or project was changed. Wrong-pin and oversized configuration negatives
+also refused before probe output, without skips. This is a trusted local
+candidate test, not a sandbox against candidate-controlled code or a signed
+independent certificate; expected pins and the probe originate from this source.
+
+Post-probe archive digest is unchanged. Provider calls remain null (not measured),
+approvals zero, executionArtifactProvenanceVerified false,
+descendantQuiescenceVerified false and benchmarkEligible false. Documentation
+checks passed 94/94 and local HOL83/80 passed with zero Critical and 35 reviewed
+High. No new exception, release, install, shared-cache update or gate approval
+occurred. Task `.5.9.8` covers this narrow candidate guard delivery check only;
+parent full CI, installed parity, actual models and independent admission remain
+unfinished.
