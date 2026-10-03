@@ -392,3 +392,35 @@ test('an ordinary branch push is untouched by the snapshot guard', () => {
   assert.equal(remoteHas(bare, 'refs/heads/main'), true);
   assert.equal(remoteHas(bare, 'refs/great-cto/turns/s1/0'), false, 'and a branch push does not carry the snapshot');
 });
+
+// Authorship: every change to great_cto is made as avelikiy, with avelikiy's
+// GitHub address. 2026-10-02 one merge commit carried the owner's name with a
+// work address linked to a second GitHub account, and that account appeared in
+// the public contributors list. Commits by other people under their own names
+// are not this check's business.
+function authored(name, email) {
+  const { home, work, cfg } = setupRepo();
+  commit(work, cfg, 'a.txt', 'base', 'init');
+  assert.equal(push(work, home, 'main').status, 0);
+  installHook(work);
+  const who = { GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email };
+  commit(work, who, 'b.txt', 'change', 'feat: a change');
+  return push(work, home, 'main');
+}
+
+test('authorship: avelikiy with a non-GitHub address → PUSH BLOCKED', () => {
+  const res = authored('avelikiy', 'owner@company.example');
+  assert.notEqual(res.status, 0, 'a commit under the owner name with another address must not reach the public repo');
+  assert.match(res.stdout + res.stderr, /author|committer/i);
+  assert.match(res.stdout + res.stderr, /avelikiy@users\.noreply\.github\.com/);
+});
+
+test('authorship: avelikiy with the GitHub noreply address → PUSH ALLOWED', () => {
+  const res = authored('avelikiy', 'avelikiy@users.noreply.github.com');
+  assert.equal(res.status, 0, res.stdout + res.stderr);
+});
+
+test('authorship: another contributor under their own name is not blocked', () => {
+  const res = authored('Jane Contributor', 'jane@example.com');
+  assert.equal(res.status, 0, res.stdout + res.stderr);
+});

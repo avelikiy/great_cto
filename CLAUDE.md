@@ -53,6 +53,26 @@ Rules for agents:
 
 ---
 
+## Authorship — everything is made as avelikiy
+
+Every change to great_cto — commits, pushes, tags, releases, PRs, issues and
+comments — is made as **avelikiy**:
+
+- Git author and committer: `avelikiy <avelikiy@users.noreply.github.com>`, the
+  repository's own git config. Never pass `-c user.name=…` / `-c user.email=…`,
+  never `--author`, never commit with another address.
+- GitHub actions (`gh pr`, `gh issue`, `gh release`, comments): switch to the
+  `avelikiy` account first — `gh auth switch -u avelikiy`.
+
+Rationale: GitHub attributes a commit by its email. A commit with the owner's
+name and a different address is attributed to whatever account that address
+belongs to, and that account appears in the public contributors list for good.
+
+The pre-push hook (`scripts/hooks/pre-push.sh`, check 1c) refuses a commit whose
+author or committer is avelikiy with any other address.
+
+---
+
 ## Code style
 
 - TypeScript strict mode; no `any` without comment explaining why

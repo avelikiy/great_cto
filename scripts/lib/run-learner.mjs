@@ -47,14 +47,32 @@ const MAX_DIGEST_CHARS = 60_000;
 const MAX_CONCLUSION_CHARS = 30_000;
 const MAX_CONCLUSION_EACH = 500;
 
-/** Every secret-shaped string replaced by its kind. Never returns the value. */
+/** The Luhn checksum a payment card number carries. */
+function luhnValid(digits) {
+  let sum = 0;
+  for (let i = 0; i < digits.length; i++) {
+    let d = Number(digits[digits.length - 1 - i]);
+    if (i % 2) { d *= 2; if (d > 9) d -= 9; }
+    sum += d;
+  }
+  return sum % 10 === 0;
+}
+
+// 13-19 digits, optionally grouped by spaces or dashes. Only a run that passes
+// Luhn is a card: a long id, a millisecond timestamp or a primary key that fails
+// it stays in the digest as evidence (idea from autoharness #180). Here and not
+// in secret-patterns: the secret-scan guard would then block Stripe's test cards
+// in every fintech project's fixtures.
+const CARD_RUN = /\b\d(?:[ -]?\d){12,18}\b/g;
+
+/** Every secret-shaped string, and every card number, replaced by its kind. Never returns the value. */
 export function redact(text) {
   let out = String(text ?? '');
   for (const { name, regex } of PATTERNS) {
     const flags = regex.flags.includes('g') ? regex.flags : `${regex.flags}g`;
     out = out.replace(new RegExp(regex.source, flags), `[REDACTED ${name}]`);
   }
-  return out;
+  return out.replace(CARD_RUN, (m) => (luhnValid(m.replace(/[ -]/g, '')) ? '[REDACTED card number]' : m));
 }
 
 const WRAPPER = /^\s*<(command-name|command-message|command-args|local-command-stdout|system-reminder|task-notification)/;

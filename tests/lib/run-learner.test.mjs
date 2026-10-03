@@ -187,3 +187,20 @@ test('a window with neither operator messages nor conclusions is still skipped',
   writeFileSync(f, JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'ok' }] } }));
   assert.equal(runLearner({ cwd, transcript: f, reason: 'window', claude: '/nonexistent' }).state, 'skipped');
 });
+
+// Card numbers: since 3.48 the digest carries the assistant's conclusions, so a
+// card number that appeared in a session could reach the learner and its lessons.
+// Gated on the Luhn checksum (autoharness #180): a long id, a millisecond
+// timestamp or a primary key that fails the checksum stays as evidence.
+test('a card number is redacted from the digest; a long id that is not one is kept', () => {
+  const line = (text) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
+  const out = digestTranscript([
+    line('paid with 4242 4242 4242 4242 in the test'),
+    line('fallback card 4111-1111-1111-1111 also failed'),
+    line('order id 1234567890123456 and snowflake 1790939104017'),
+  ].join('\n')).text;
+  assert.doesNotMatch(out, /4242 4242 4242 4242|4111-1111-1111-1111/);
+  assert.match(out, /\[REDACTED card number\]/);
+  assert.match(out, /1234567890123456/, 'a 16-digit id that fails Luhn is not a card');
+  assert.match(out, /1790939104017/, 'a timestamp that fails Luhn is not a card');
+});
