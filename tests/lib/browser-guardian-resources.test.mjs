@@ -23,6 +23,12 @@ for(const mode of ['empty','duplicate','foreign-scorer','outside-profile','symli
    assert.equal(result.state,'PRESERVED');
    assert.equal(result.cleanupAuthorized,false);
    assert.equal(result.benchmarkEligible,false);
+   const diagnostic=owner.privateDiagnostic();
+   assert.ok(Object.isFrozen(diagnostic));assert.ok(Object.isFrozen(diagnostic.inventory));
+   assert.equal(diagnostic.inventory.timeoutMs,1000);
+   assert.equal(diagnostic.inventory.benchmarkEligible,false);
+   assert.ok(!JSON.stringify(diagnostic).includes(root));
+   assert.ok(!Object.hasOwn(result,'privateDiagnostic')&&!Object.hasOwn(result,'inventory'));
    assert.equal(owner.register(input).state,'PRESERVED','failed owner cannot be revived');
    assert.equal(owner.observe().state,'PRESERVED');
    assert.ok(!JSON.stringify(result).includes(root),'public snapshot withholds private root');

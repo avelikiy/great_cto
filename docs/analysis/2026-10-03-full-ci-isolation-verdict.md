@@ -333,3 +333,31 @@ percentage, independent admission or installed/deployed proof. The previous
 red logs remain authoritative historical evidence. Current read-only checks
 still report Claude unauthenticated, Codex logged in and Docker unavailable.
 No models, real approval, installation, release, merge or defaults changed.
+
+### Private inventory cause observation prerequisite
+
+The resource owner now retains creator-private fixed stage/reason metadata and
+actual native inventory status, allowlisted error code/signal and elapsed time.
+The one-second timeout, SIGKILL and one-MB buffer are unchanged. Raw process
+tables, stderr, paths and capability material are not retained. Constructor
+inventory refusal has bounded private metadata before scratch creation;
+registration refusal preserves its cause through subsequent irreversible
+refusals. Public snapshots do not gain diagnostic keys or cleanup/admission
+authority. Observation stages are implemented but their injected native-fault
+coverage is still missing; helper/broker forwarding is also not implemented.
+
+Ten native fault-seam cases passed: construction and registration each cover
+exit seven, timeout, output limit, self-SIGKILL and malformed zero-exit rows.
+The seam replaces only the test process's fixed ps call with a fixed trusted
+native child, not arbitrary candidate code. Registration uses real test-owned
+scratch but does not claim successful process registration. These tests do not
+prove an actual OS ps failure, recursive closure or independent admission.
+
+The six-file scoped regression completed exit one: 53 tests, 38 passed,
+15 failed, zero skipped. Browser/broker cases did not establish their required
+static DOM/readiness assertions. All ten new fault cases, resource refusal
+tests and three lineage cases passed. This scoped run is red, not a replacement
+for canonical concurrent CI; the cause of browser refusal remains unproved.
+The previous process handle was unavailable, so no terminal verdict is inferred
+for that earlier run. Issue `.5.9.7.2.2` remains in progress. No deadlines,
+concurrency defaults, installed artifacts, frozen corpus or gates changed.
