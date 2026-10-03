@@ -69,6 +69,10 @@ export function createBrowserResourceOwner({ownerPid}={}){
      if(!p||p.parent!==scorerPid||p.uid!==uid||p.group!==id||p.group===scorer.group||p.state.startsWith('Z'))throw Error('invalid registration');}
     for(let changed=true;changed;){changed=false;for(const [id,p]of table)if(!browsers.has(id)&&browsers.has(p.parent)){browsers.add(id);changed=true;if(browsers.size>63-capturedScratch.size)throw Error('invalid registration');}}
     for(const id of browsers){const p=table.get(id);if(p.uid!==uid)throw Error('invalid registration');captured.set(id,p);}
+    // Browser descendants were explicitly captured above. Any other child of
+    // the scorer/captured tree is outside the admitted registration, even when
+    // it shares this UID. Never silently omit or later adopt that process.
+    for(const [id,p]of table)if(!captured.has(id)&&captured.has(p.parent))throw Error('incomplete process registration');
     registry=captured;profileName=name;scratch=capturedScratch;state='OBSERVING';return snapshot({registeredProcesses:registry.size,registeredScratchDirectories:scratch.size});
    }catch{return preserve();}
   },
@@ -80,6 +84,7 @@ export function createBrowserResourceOwner({ownerPid}={}){
      if(current.birth!==previous.birth||current.uid!==previous.uid||current.group!==previous.group)throw Error('identity changed');
      if(!current.state.startsWith('Z'))liveProcesses++;
     }
+    for(const [id,current]of table)if(!registry.has(id)&&registry.has(current.parent))throw Error('uncaptured descendant');
     const currentScratch=scratchInventory();
     for(const [name,identity]of currentScratch){if(!scratch.has(name)||removed.has(name)||!same(identity,scratch.get(name)))throw Error('identity changed');}
     for(const name of scratch.keys())if(!currentScratch.has(name))removed.add(name);

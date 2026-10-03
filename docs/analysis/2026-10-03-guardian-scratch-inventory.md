@@ -72,10 +72,40 @@ delivered/installed artifact execution are still required. No production
 controller uses this probe. Old corpus registrations/archives are not rewritten,
 and there is no model execution, gate approval, merge, release or installation.
 
-An additional integration gap is tracked as `.5.8.3.7.3`: the broker's
-continuation guard currently checks its registration/phase booleans, but does
-not re-observe resource-owner preservation before releasing the held scorer.
-Ready/completion paths need coordinated resource refusal too. The owner's
-terminal refusal is verified here; propagating it into every broker execution
-transition is not claimed complete. The current unactivated probe's DOM result
-is not signed admission, and none of its false authority flags are relaxed.
+The subsequently fixed broker integration gap `.5.8.3.7.3` is documented in
+[broker preservation evidence](2026-10-03-guardian-broker-preservation.md).
+Ready, continuation, completion and scorer-exit paths now freshly observe the
+resource owner and propagate preservation. This remains an unactivated probe,
+not signed admission; none of its false authority flags are relaxed.
+
+## Unregistered lineage and inherited descriptors
+
+Registration previously captured the scorer and selected browser descendants
+but silently omitted other direct scorer children. Observation subsequently
+checked only captured identities, overlooking new children of the captured
+tree. Three actual Node process fixtures first failed with OBSERVING instead
+of PRESERVED. The owner now refuses incomplete registration and preserves on
+observing any uncaptured child of a registered process. It never adopts that
+child or expands its authority.
+
+The fixed native fixture covers an extra scorer child before registration, a
+late scorer child and a late browser descendant. Each holds a private file
+descriptor. In the third case the browser exits while its descendant remains
+running with inherited stdout and the file descriptor; ChildProcess close is
+delayed until that descendant naturally exits. A parsed OS row confirms the
+holder's PID, UID and non-zombie state after direct browser exit. All authority
+flags stay false. Fixture cleanup waits for its owned scorer and inherited
+pipe closure, then checks the exact private root identity before removal.
+
+These are static Node lineage/descriptor fixtures, not Chromium launch or
+hostile same-UID isolation evidence. An orphan detached before observation,
+PID reuse between samples, recursive descriptor inventory and independently
+signed executable/resource closure are still unproved. No guardian signal or
+deletion API, production activation, artifact registration, installation or
+benchmark admission is added.
+
+Final macOS scoped execution passed 43/43 with zero skips: the three new
+native lineage cases plus resource-owner, broker, helper and direct Chromium
+lifecycle callers. Documentation/link checks passed 81/81 with zero skips;
+syntax, diff whitespace and generated-reference checks also passed. This is
+scoped source evidence, not a new full-CI or delivered-artifact verdict.
