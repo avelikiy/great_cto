@@ -5,7 +5,9 @@ import {fileURLToPath} from 'node:url';
 import {mkdtempSync,realpathSync,lstatSync,rmSync} from 'node:fs';
 import {join,dirname,basename} from 'node:path';
 import {tmpdir} from 'node:os';
+import {createHash} from 'node:crypto';
 import {boardAccessibilityBenchmarkFixture} from '../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
+import {createBrowserGuardianProtocol} from '../../scripts/lib/browser-guardian-protocol.mjs';
 
 const observer=fileURLToPath(new URL('../../scripts/benchmark-scorers/board-accessibility.mjs',import.meta.url));
 // Instrument only this test's trusted child before Playwright loads. Browser API
@@ -93,6 +95,21 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   const initial=lstatSync(profile);
   assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
+  // Replay the observed owned identities through the unactivated protocol.
+  // These test-recipe digests are not preregistered trial/OS attestations.
+  const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
+  const protocol=createBrowserGuardianProtocol({attemptId:'lifecycle-'+mode,
+   receiptSha256:digest(html),registrationSha256:digest(recipe.oracle)}),binding=protocol.binding();
+  let sequence=0;
+  const send=(type,payload={})=>protocol.receive(JSON.stringify({version:1,attemptId:binding.attemptId,
+   capability:binding.capability,sequence:++sequence,type,...payload}));
+  const processIds=[digest(['scorer',child.pid,groupTable.get(child.pid).birth]),
+   ...[...owned].map(([pid,birth])=>digest(['browser',pid,birth]))];
+  const profileId=digest(['profile',profile,initial.dev,initial.ino,initial.uid]);
+  assert.equal(send('ready').state,'READY');
+  assert.equal(send('register',{resources:[{id:processIds[0],kind:'scorer'},
+   ...processIds.slice(1).map(id=>({id,kind:'browser'})),{id:profileId,kind:'profile'}]}).state,'OBSERVING');
+  assert.equal(send('stop',{reason:mode==='owner-kill'?'scorer-death':mode==='owner-term'?'deadline':mode==='dom-refusal'?'dom-refusal':'normal'}).state,'STOPPING');
   if(mode==='owner-kill'||mode==='owner-term')child.kill(mode==='owner-kill'?'SIGKILL':'SIGTERM');
   else{child.stdin.write('continue\n');child.stdin.end();}
   if(mode==='owner-term'){
@@ -119,6 +136,10 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   catch(error){if(error.code!=='ENOENT')throw error;}
   t.diagnostic(mode+': temporary profile '+(retained?'retained':'removed')+' before test cleanup');
   if(mode!=='owner-kill')assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
+  const protocolResult=send('quiescent',{processes:processIds,profile:profileId,profileState:retained?'retained':'removed'});
+  assert.equal(protocolResult.state,'QUIESCENT');
+  assert.equal(protocolResult.cleanupAuthorized,false,'trace consistency never authorizes OS deletion');
+  assert.equal(protocolResult.benchmarkEligible,false);
   assert.equal(errors,mode==='owner-term'?'trusted browser lifecycle child failed\n':'','observer child must report only expected bounded error');
  }finally{
   clearTimeout(exitTimer);
