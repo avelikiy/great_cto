@@ -646,3 +646,62 @@ current check rollup has Snyk SUCCESS but no approving review. Plugin/CLI/Runtim
 CI and Evals Runner are disabled manually. No installation, CI enablement,
 branch integration, PR merge, release, benchmark eligibility or security
 approval was inferred or performed.
+
+## Post-rebase full local CI at 02e57d1b
+
+The operator authorized rebasing onto rewritten main and force-with-lease.
+The 85 replayed patches matched range-diff; all author/committer identities are
+avelikiy with the GitHub noreply address. Published head:
+`02e57d1bb694c2a673ea036c909cb4615f6e65ae`. PR167 now reports
+MERGEABLE/CLEAN (still draft); the current rollup contains only Snyk SUCCESS.
+This supersedes the historical conflicting-main observation above, not the
+unfulfilled required CI or independent security review.
+
+Actual Claude scoped reuse has separately passed after reauthentication and two
+contract fixes, recorded in 2026-10-02-scoped-review-validation.md. It is not a
+full-cycle or paired quality benchmark result.
+
+Full `bash scripts/ci-local.sh`, without quick mode, completed exit 1 on the
+immutable published head. Log:
+`/Users/Shared/great-cto-post-rebase-ci-OyDKCW`.
+
+| Group | Passed | Failed | NOT CHECKED |
+|---|---:|---:|---:|
+| Root/hooks/board | 1260 | 0 | 0 |
+| Libraries | 3077 | 15 | 18 |
+| Eval | 238 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Board browser E2E | 0 | 0 | 9 |
+| Installed-plugin L1-L5 | 33 | 3 | 9 |
+| CLI unit tests | 361 | 0 | 0 |
+
+Library duration: 106007.103 ms. Its 15 failures comprise four actual observer
+lifecycle cases, two broker resource-mutation cases, eight external-helper cases
+and one actual-parent-SIGKILL case. The eight helper diagnostics explicitly
+report browser-launch/missing-browser-executable after successful inventory
+creation. The other seven unmet readiness/DOM/mutation checks do not prove the
+intended fault executed or that Chromium absence alone explains them. Do not
+increase deadlines, add skips or substitute a browser to manufacture green.
+The 18 library skips are twelve browser cases, three Docker opt-ins and three
+live-model opt-ins, all NOT CHECKED in this invocation.
+
+Installed local Claude plugin 3.48.0 L1-L5 completed in 60 seconds: two webhook
+probes and one board probe refused absent isolated namespace support before
+mutation/server launch. Actual isolated Beads phase lifecycle passed, but role
+execution/deployment/approval in that fixture is synthetic and NOT CHECKED.
+Installed tests are not interchangeable with source tests or candidate probes.
+
+Structural, generated references/bundle, local HOL scanner (83/80, zero Critical,
+35 High previously reviewed as false positives), layout baseline (8/8), decision
+key (7/7), CLI build and npm pack passed. The resulting private candidate has
+161 files, metadata 3.48.0, and is preserved separately:
+`/Users/Shared/great-cto-post-rebase-candidate-9dzxko/great-cto-3.48.0.tgz`.
+SHA256: `7a9d36d1577e312757fdecc881c96f3e67773d469ab634c82209108b9c9a98f1`.
+This run did not perform extracted-candidate runtime probes and does not inherit
+them from older archives with different bytes.
+
+No model opt-ins, installation/update, shared Chromium cache change, Docker
+start, workflow enablement, release, PR merge or gate approval was performed.
+Parent full-CI acceptance remains open. Next prerequisite is explicit Chromium
+installation authority; current-artifact runtime parity and independent review
+remain separate follow-ups.
