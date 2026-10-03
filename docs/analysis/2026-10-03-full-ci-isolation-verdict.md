@@ -274,3 +274,32 @@ Scanner remains 83/80, zero Critical and the unchanged 35 historically reviewed
 High findings. No new exception, timeout/scheduling/skip workaround, model call,
 independent admission, installation, defaults, merge, release or frozen-corpus
 rewrite occurred. Root causes and overall readiness remain unproved.
+
+## Fixed signal-test lifecycle observation
+
+The signal-handler fixture now launches a fixed trusted source entrypoint;
+private options are bounded on stdin, not supplied as executable text or argv.
+Its stdout contains only launcher/invocation/result stage metadata. Shape and
+input-limit refusal happen before invocation; a stale receipt is explicitly
+distinguished. Other runner refusals without process evidence remain stage
+unproven rather than being called prelaunch or completed. No candidate/oracle
+payload, path, raw error or signing authority is output.
+
+The existing 50-by-20-ms ready polling window, one-second scorer deadline,
+two-second exit watchdog and ten-second test limit are unchanged. Parent
+receipt/input preparation still precedes launch. Missing observed ready is
+recorded before waiting for the launcher result within the existing watchdog;
+late readiness cannot satisfy that assertion. Actual observed PID/parent
+identity, ETIMEDOUT/SIGKILL and direct-process disappearance are still required
+for the positive signal-handler case. No descriptor/descendant closure is
+inferred from direct-process exit.
+
+Final focused macOS execution passed 31/31, zero skips. A separate native
+negative fixture produces a timeout without any ready publication and never
+manufactures readiness evidence. Input shape, 64-KB input-limit and stale
+receipt refusals return bounded metadata without echo. The positive case
+observed ready and a scorer timeout of 1005 ms at the unchanged 1000-ms limit.
+This proves the new scoped observation path, not the cause of historical
+missing readiness. Issue `.5.9.7.2.3` and the overall concurrency diagnosis
+remain open pending stronger current evidence. Runtime runner/signature code,
+frozen corpus, installed plugin and all gates are unchanged.

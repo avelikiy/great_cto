@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
 import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
@@ -12,6 +13,7 @@ import { specialistPlan } from '../../scripts/lib/specialist-plan.mjs';
 import { RULES } from '../../scripts/hooks/auto-attach-reviewers.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
+const lifecycleLauncher=fileURLToPath(new URL('../helpers/pinned-scorer-lifecycle.mjs',import.meta.url));
 test('scorer cause metadata never copies private text or guesses timeout from elapsed time', () => {
   const diagnostic = scorerProcessDiagnostic({ status: null, signal: 'private signal',
     error: { code: 'private argv', message: 'PRIVATE_PAYLOAD_MUST_NOT_LEAK' }, stdout: 'private stdout', stderr: 'private stderr' },
@@ -163,31 +165,68 @@ for (const kind of ['throw', 'timeout', 'oversized output', 'malformed JSON', 'w
   });
 }
 
+test('fixed lifecycle launcher refuses private input and stale receipt without echo', t=>{
+  const f=fixture(t),receipt=treeReceipt(f.root);f.repair();
+  for(const [input,reason] of [[JSON.stringify({PRIVATE_PAYLOAD_MUST_NOT_LEAK:true}),'input-shape'],
+    ['PRIVATE_PAYLOAD_MUST_NOT_LEAK'.repeat(3000),'input-limit'],
+    [JSON.stringify({options:{...f.options,expectedReceipt:receipt,timeoutMs:1000}}),'receipt-refused']]){
+    const child=spawnSync(process.execPath,[lifecycleLauncher],{input,env:{LANG:'C',TZ:'UTC'},encoding:'utf8',timeout:10000,maxBuffer:4096});
+    assert.equal(child.status,3);assert.equal(child.signal,null);assert.equal(child.stderr,'');
+    const records=child.stdout.trim().split('\n').map(line=>JSON.parse(line));
+    assert.equal(records[0].kind,'launcher-started');assert.equal(records.at(-1).kind,'prelaunch-refused');
+    assert.equal(records.at(-1).reason,reason);assert.ok(records.every(r=>!r.processDiagnostic));
+    assert.doesNotMatch(child.stdout,/PRIVATE_PAYLOAD/);assert.ok(!child.stdout.includes(f.root));
+  }
+});
+
+test('fixed lifecycle launcher reports a timeout without manufacturing ready evidence', t=>{
+  const f=fixture(t);f.custom('setInterval(()=>{},1000);');
+  const child=spawnSync(process.execPath,[lifecycleLauncher],{
+    input:JSON.stringify({options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}}),
+    env:{LANG:'C',TZ:'UTC'},encoding:'utf8',timeout:10000,maxBuffer:4096});
+  assert.equal(child.status,0);assert.equal(child.signal,null);assert.equal(child.stderr,'');
+  const records=child.stdout.trim().split('\n').map(line=>JSON.parse(line));
+  assert.deepEqual(records.map(r=>r.kind),['launcher-started','runner-invoked','runner-unavailable']);
+  const diagnostic=records.at(-1).processDiagnostic;
+  assert.equal(diagnostic.outcome,'timeout');assert.equal(diagnostic.timeoutMs,1000);
+  assert.equal(diagnostic.errorCode,'ETIMEDOUT');assert.equal(diagnostic.signal,'SIGKILL');
+  assert.equal(diagnostic.descendantQuiescenceVerified,false);assert.equal(diagnostic.benchmarkEligible,false);
+  assert.ok(!child.stdout.includes(f.root));
+});
+
 test('timeout remains bounded when trusted scorer handles SIGTERM and stays alive', {timeout:10000}, async t => {
   if (!['darwin','linux'].includes(process.platform)) return t.skip('owned process identity unavailable; hostile signal timeout NOT CHECKED');
   const f=fixture(t), marker=join(f.options.scorerFile,'..','owned-pid.json');
   const oracle=JSON.stringify({...f.recipe.oracle,signalTestMarker:marker});
   writeFileSync(f.options.oracleFile,oracle,{mode:0o600});f.options.oracleSha256=sha(oracle);
   f.custom("import {writeFileSync} from 'node:fs';\nprocess.on('SIGTERM',()=>{});\nwriteFileSync(JSON.parse(process.argv[3]).signalTestMarker,JSON.stringify({pid:process.pid}));\nsetInterval(()=>{},1000);");
-  const module=new URL('../../scripts/lib/pinned-benchmark-scorer.mjs',import.meta.url).href;
-  const program=`const config=JSON.parse(process.argv[1]);
-const {runPinnedBenchmarkScorer}=await import(config.module);
-try{runPinnedBenchmarkScorer(config.options);process.exitCode=2;}
-catch(error){if(error.message.startsWith('pinned scorer process did not complete'))process.stdout.write('unavailable');else process.exitCode=3;}`;
-  const child=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({module,options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}})],
-    {env:{LANG:'C',TZ:'UTC'},stdio:['ignore','pipe','pipe']});
+  const launcherInput=JSON.stringify({options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}});
+  const child=spawn(process.execPath,[lifecycleLauncher],{env:{LANG:'C',TZ:'UTC'},stdio:['pipe','pipe','pipe']});
   let output='',pid,identity,timer;
   const closed=new Promise((resolve,reject)=>{child.once('close',(code,signal)=>resolve({code,signal}));child.once('error',reject);});
   child.stdout.on('data',b=>{output+=b;});child.stderr.resume();
+  child.stdin.end(launcherInput);
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const processIdentity=p=>{const r=spawnSync('ps',['-p',String(p),'-o','pid=,ppid=,lstart='],{encoding:'utf8',timeout:1000});return r.status===0?r.stdout.trim():null;};
   try{
     for(let i=0;i<50&&!pid;i++){try{pid=JSON.parse(readFileSync(marker,'utf8')).pid;}catch{}if(!pid)await pause(20);}
-    assert.ok(Number.isInteger(pid)&&pid>1,'trusted scorer must actually start and register signal handler');
-    identity=processIdentity(pid);
-    assert.equal(Number(identity?.split(/\s+/)[1]),child.pid,'scorer PID must belong to test-owned launcher');
+    const readyObserved=Number.isInteger(pid)&&pid>1;
+    if(readyObserved){identity=processIdentity(pid);
+      assert.equal(Number(identity?.split(/\s+/)[1]),child.pid,'scorer PID must belong to test-owned launcher');}
     const exit=await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('launcher exceeded watchdog after scorer deadline')),2000);})]);
-    assert.equal(exit.code,0);assert.equal(exit.signal,null);assert.equal(output,'unavailable');
+    assert.ok(Buffer.byteLength(output)<=4096,'fixed launcher output must remain bounded');
+    let records=[];
+    try{if(output.trim())records=output.trim().split('\n').map(line=>JSON.parse(line));}
+    catch{assert.fail('fixed launcher returned invalid metadata');}
+    const last=records.at(-1)??{kind:'no-final-stage'};
+    assert.doesNotMatch(output,/PRIVATE_PAYLOAD/);assert.ok(!output.includes(f.root));
+    const observation={readyObserved,launcherExit:exit,final:last};
+    t.diagnostic('owned launcher observation: '+JSON.stringify(observation));
+    assert.ok(readyObserved,'trusted scorer ready not observed within fixed window; '+JSON.stringify(observation));
+    assert.equal(records[0]?.kind,'launcher-started');assert.equal(records[0]?.pid,child.pid);
+    assert.equal(exit.code,0);assert.equal(exit.signal,null);assert.equal(last.kind,'runner-unavailable');
+    assert.equal(last.processDiagnostic.outcome,'timeout');assert.equal(last.processDiagnostic.timeoutMs,1000);
+    assert.equal(last.processDiagnostic.pid,pid);assert.equal(last.processDiagnostic.descendantQuiescenceVerified,false);
     assert.equal(processIdentity(pid),null,'timed-out owned scorer must no longer be a live process');
   }finally{
     clearTimeout(timer);
