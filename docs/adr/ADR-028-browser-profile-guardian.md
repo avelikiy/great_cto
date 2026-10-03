@@ -1,6 +1,8 @@
 # ADR-028: Browser scorer resource guardian
 
-Status: Proposed. Date: 2026-10-03. Deciders: project owner and independent executable/browser admission reviewer. Tracking: great_cto-p4o9.5.8.3; ownership/design prerequisite .5.8.3.2. This ADR does not activate a guardian or approve host admission.
+**Status:** Proposed · **Date:** 2026-10-03 · **Deciders:** project owner and independent executable/browser admission reviewer.
+
+Tracking: great_cto-p4o9.5.8.3; ownership/design prerequisite .5.8.3.2. This ADR does not activate a guardian or approve host admission.
 
 ## Context
 
