@@ -2,7 +2,7 @@ import{test}from'node:test';
 import assert from'node:assert/strict';
 import{fork,spawn,spawnSync}from'node:child_process';
 import{fileURLToPath}from'node:url';
-import{lstatSync,readdirSync,rmSync}from'node:fs';
+import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync,renameSync}from'node:fs';
 import{join}from'node:path';
 import{boardAccessibilityBenchmarkFixture}from'../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 
@@ -37,7 +37,7 @@ test('actual private helper processes a complete trace, no OS authority',async t
  }
  f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
 });
-for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
+for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
  if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('actual browser resource broker NOT CHECKED');
  const f=fixture(t),pause=ms=>new Promise(r=>setTimeout(r,ms));
  const table=()=>{const r=spawnSync('/bin/ps',['-axo','pid=,ppid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,killSignal:'SIGKILL',maxBuffer:1048576});
@@ -53,6 +53,7 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
   root=started.privateResources.root;rootIdentity=lstatSync(root);const scorer=started.privateResources.scorerPid;
   const registered=await f.next();assert.equal(registered.kind,'probe-ready');assert.equal(registered.snapshot.state,'OBSERVING');
   assert.ok(registered.snapshot.liveProcesses>1);assert.equal(registered.snapshot.cleanupAuthorized,false);
+  assert.equal(registered.snapshot.registeredScratchDirectories,2);
   const rows=table();assert.equal(rows.get(scorer)?.parent,f.child.pid,'scorer must be a child of actual external helper');
   owned.set(scorer,rows.get(scorer));
   for(let changed=true;changed;){changed=false;for(const [pid,p]of rows)if(!owned.has(pid)&&owned.has(p.parent)){owned.set(pid,p);changed=true;}}
@@ -75,18 +76,38 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
    const ended=await f.next();assert.equal(ended.kind,'probe-ended');assert.equal(ended.snapshot.cleanupAuthorized,false);
    assert.equal(ended.benchmarkEligible,false);
    if(mode==='scorer-kill'){assert.equal(ended.signal,'SIGKILL');assert.equal(ended.probeAdmitted,null);}
-   else{assert.equal(ended.code,0);assert.equal(ended.probeAdmitted,mode==='normal');}
+   else{assert.equal(ended.code,0);assert.equal(ended.probeAdmitted,mode!=='dom-refusal');}
   }
   assert.ok(await gone(),'captured scorer/browser must stop before fallback cleanup');
   let retained=false;try{assert.equal(lstatSync(profile).ino,profileIdentity.ino);retained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
   assert.equal(retained,mode==='scorer-kill');
   let artifactsRetained=false;try{assert.equal(lstatSync(artifact).ino,artifactIdentity.ino);artifactsRetained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
-  assert.equal(artifactsRetained,mode==='scorer-kill','artifacts follow measured crash lifetime but are not registered by profile-only sampler');
+  assert.equal(artifactsRetained,mode==='scorer-kill','both bound scratch directories follow measured crash lifetime');
   assert.equal(lstatSync(root).ino,rootIdentity.ino,'guardian retains its private root, never reclaims it');
   if(!['helper-kill','parent-disconnect','duplicate-start'].includes(mode)){
    command('probe-observe');const observation=await f.next();assert.equal(observation.kind,'probe-observation');
    assert.equal(observation.snapshot.liveProcesses,0);assert.equal(observation.snapshot.profileState,retained?'retained':'removed');
+   assert.equal(observation.snapshot.artifactsState,retained?'retained':'removed');
+   assert.equal(observation.snapshot.retainedScratchDirectories,retained?2:0);
    assert.equal(observation.snapshot.independentAdmissionVerified,false);
+   if(mode==='normal'){
+    // Even a directory named exactly like the removed resource is late and
+    // cannot be re-adopted, regardless of possible inode reuse.
+    mkdirSync(profile,{mode:0o700});command('probe-observe');
+    assert.equal((await f.next()).snapshot.state,'PRESERVED');
+   }else if(mode==='dom-refusal'){
+    mkdirSync(join(root,'unknown-late-directory'),{mode:0o700});command('probe-observe');
+    assert.equal((await f.next()).snapshot.state,'PRESERVED');
+   }else if(mode==='scorer-kill'){
+    // Scorer/browser are already proven stopped. Retain the original inode
+    // inside another owned directory while replacing only its registered name.
+    const holder=join(profile,'held-artifact');renameSync(artifact,holder);mkdirSync(artifact,{mode:0o700});
+    command('probe-observe');assert.equal((await f.next()).snapshot.state,'PRESERVED');
+    assert.equal(lstatSync(holder).ino,artifactIdentity.ino,'sampler must not touch original artifacts');
+   }else if(mode==='symlink-scratch'){
+    symlinkSync(root,join(root,'playwright-artifacts-Link123'));command('probe-observe');
+    assert.equal((await f.next()).snapshot.state,'PRESERVED');
+   }
    f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
   }
   t.diagnostic(mode+': external helper owns '+owned.size+' captured scorer/browser processes; profile/artifacts '+(retained?'retained':'removed')+' before fixture cleanup');
@@ -162,5 +183,51 @@ child.send(JSON.stringify(config.init));`;
   const birth=row=>row?.split(/\s+/).slice(3).join(' ');
   if(owned&&identity&&birth(inspect(pid))===birth(identity))try{process.kill(pid,'SIGKILL');}catch{}
   await closed;
+ }
+});
+
+test('actual parent SIGKILL unwinds external helper with live Chromium and both scratch directories',{timeout:20000},async t=>{
+ if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('active browser parent death NOT CHECKED');
+ const program=String.raw`import{fork}from'node:child_process';
+const config=JSON.parse(process.argv[1]);
+const child=fork(config.helper,[],{execPath:process.execPath,execArgv:[],env:{LANG:'C',TZ:'UTC'},stdio:['ignore','ignore','ignore','ipc']});
+child.on('message',m=>{if(process.connected)process.send(m);});
+process.on('message',raw=>child.send(raw));
+child.send(JSON.stringify(config.init));`;
+ const parent=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({helper,init})],{env,stdio:['ignore','ignore','ignore','ipc']});
+ const closed=new Promise(r=>parent.once('exit',(code,signal)=>r({code,signal}))),messages=[],waiters=[];
+ parent.on('message',m=>{if(waiters.length)waiters.shift()(m);else messages.push(m);});
+ const next=async()=>{let timer;try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>waiters.push(r)),
+  new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('nested parent message timeout')),3000))]);}finally{clearTimeout(timer);}};
+ const pause=ms=>new Promise(r=>setTimeout(r,ms));
+ const table=()=>{const r=spawnSync('/bin/ps',['-axo','pid=,ppid=,uid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,killSignal:'SIGKILL',maxBuffer:1048576});
+  assert.equal(r.status,0);const map=new Map();for(const line of r.stdout.split('\n')){const m=line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s*$/);if(m)map.set(Number(m[1]),{parent:Number(m[2]),uid:Number(m[3]),state:m[4],birth:m[5]});}return map;};
+ let root,rootIdentity,owned=new Map(),parentIdentity;
+ const live=()=>{const rows=table();return [...owned].filter(([pid,p])=>{const q=rows.get(pid);return q?.birth===p.birth&&q.uid===p.uid&&!q.state.startsWith('Z');});};
+ const gone=async()=>{for(let i=0;i<60;i++){if(!live().length)return true;await pause(50);}return false;};
+ try{
+  const ready=await next();assert.equal(ready.kind,'ready');const guardianPid=ready.pid;
+  parent.send(JSON.stringify({version:1,kind:'probe-start',capability:ready.binding.capability,mode:'normal'}));
+  const started=await next();assert.equal(started.kind,'probe-started');root=started.privateResources.root;rootIdentity=lstatSync(root);
+  const registered=await next();assert.equal(registered.kind,'probe-ready');assert.equal(registered.snapshot.registeredScratchDirectories,2);assert.ok(registered.snapshot.liveProcesses>1);
+  const rows=table();parentIdentity=rows.get(parent.pid);assert.equal(parentIdentity?.parent,process.pid);
+  assert.equal(rows.get(guardianPid)?.parent,parent.pid);assert.equal(rows.get(started.privateResources.scorerPid)?.parent,guardianPid);
+  owned.set(guardianPid,rows.get(guardianPid));
+  for(let changed=true;changed;){changed=false;for(const [pid,p]of rows)if(!owned.has(pid)&&owned.has(p.parent)){assert.equal(p.uid,process.getuid());owned.set(pid,p);changed=true;}}
+  assert.ok(owned.size>3,'actual helper, scorer, Chromium and descendants present before parent death');
+  const scratch=readdirSync(root);assert.equal(scratch.length,2);assert.ok(scratch.some(n=>n.startsWith('playwright-artifacts-')));assert.ok(scratch.some(n=>n.startsWith('playwright_chromiumdev_profile-')));
+  parent.kill('SIGKILL');assert.equal((await closed).signal,'SIGKILL');
+  assert.ok(await gone(),'captured helper/scorer/browser stop before fixture fallback after actual parent death');
+  assert.deepEqual(readdirSync(root),[],'both observed scratch directories disappear through scorer unwind, not guardian deletion');
+  assert.equal(lstatSync(root).ino,rootIdentity.ino,'root is retained after actual parent death');
+  assert.equal(registered.snapshot.cleanupAuthorized,false);assert.equal(registered.snapshot.benchmarkEligible,false);
+  t.diagnostic('actual parent SIGKILL: '+owned.size+' helper/scorer/browser processes captured; none running; profile and artifacts gone before fallback; root retained');
+ }finally{
+  if(parent.exitCode===null&&parent.signalCode===null)parent.kill('SIGKILL');await closed;
+  for(const [pid]of live().reverse())try{process.kill(pid,'SIGKILL');}catch{}
+  if(root&&rootIdentity&&owned.size&&await gone()){
+   const current=lstatSync(root);assert.ok(current.isDirectory()&&!current.isSymbolicLink());assert.equal(current.ino,rootIdentity.ino);assert.equal(current.dev,rootIdentity.dev);assert.equal(current.uid,process.getuid());
+   rmSync(root,{recursive:true,force:true});
+  }
  }
 });

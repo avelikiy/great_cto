@@ -10,6 +10,7 @@ for(const mode of ['empty','duplicate','foreign-scorer','outside-profile','symli
   const owner=createBrowserResourceOwner({ownerPid:process.pid}),root=owner.privateRoot(),identity=lstatSync(root);
   const profile=join(root,'playwright_chromiumdev_profile-Test123');
   mkdirSync(profile,{mode:0o700});
+  mkdirSync(join(root,'playwright-artifacts-Test123'),{mode:0o700});
   try{
    const input={scorerPid:process.pid,browserRoots:[process.pid+1],profilePath:profile};
    if(mode==='empty')input.browserRoots=[];

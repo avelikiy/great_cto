@@ -97,6 +97,7 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
   assert.equal(resources.register({scorerPid:child.pid,browserRoots:ready.roots,profilePath:profile}).state,'OBSERVING');
   assert.ok(resources.observe().liveProcesses>1,'actual scorer and browser inventory must be nonempty');
+  assert.equal(resources.observe().registeredScratchDirectories,2,'actual profile and artifacts must both be bound');
   // Replay the observed owned identities through the unactivated protocol.
   // These test-recipe digests are not preregistered trial/OS attestations.
   const digest=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex');
@@ -142,6 +143,8 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   assert.equal(observation.state,'OBSERVING');
   assert.equal(observation.liveProcesses,0);
   assert.equal(observation.profileState,retained?'retained':'removed');
+  assert.equal(observation.artifactsState,retained?'retained':'removed');
+  assert.equal(observation.retainedScratchDirectories,retained?2:0);
   assert.equal(observation.cleanupAuthorized,false);
   assert.equal(observation.resourceClosureVerified,false);
   if(mode==='owner-kill'){
