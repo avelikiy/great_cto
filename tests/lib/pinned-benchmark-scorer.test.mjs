@@ -6,12 +6,22 @@ import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { docsBenchmarkFixture } from '../../scripts/lib/docs-benchmark-fixture.mjs';
-import { runPinnedBenchmarkScorer } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
+import { runPinnedBenchmarkScorer, scorerProcessDiagnostic } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 import { specialistPlan } from '../../scripts/lib/specialist-plan.mjs';
 import { RULES } from '../../scripts/hooks/auto-attach-reviewers.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
+test('scorer cause metadata never copies private text or guesses timeout from elapsed time', () => {
+  const diagnostic = scorerProcessDiagnostic({ status: null, signal: 'private signal',
+    error: { code: 'private argv', message: 'PRIVATE_PAYLOAD_MUST_NOT_LEAK' }, stdout: 'private stdout', stderr: 'private stderr' },
+    { startedAt: 'fixture-start', elapsedMs: 30001, timeoutMs: 250 });
+  assert.equal(diagnostic.outcome, 'process-error');assert.equal(diagnostic.errorCode, 'UNCLASSIFIED');
+  assert.equal(diagnostic.signal, null);assert.equal(diagnostic.pid, null);assert.equal(diagnostic.exitCode, null);
+  assert.equal(diagnostic.elapsedMs, 30001);assert.equal(diagnostic.timeoutMs, 250);
+  assert.equal(diagnostic.descendantQuiescenceVerified, false);assert.equal(diagnostic.benchmarkEligible, false);
+  assert.doesNotMatch(JSON.stringify(diagnostic), /private|PRIVATE_PAYLOAD/);
+});
 const scorer = readFileSync(new URL('../../scripts/benchmark-scorers/docs-low-risk.mjs', import.meta.url));
 function fixture(t) {
   const temp = realpathSync(mkdtempSync(join(tmpdir(), 'pinned-docs-scorer-')));
@@ -31,6 +41,30 @@ function fixture(t) {
   const custom = text => { writeFileSync(scorerFile, text, { mode: 0o600 }); options.scorerSha256 = sha(text); };
   return { root, recipe, options, score, repair, put, custom };
 }
+
+for (const [kind, code, outcome, errorCode, signal, exitCode] of [
+  ['nonzero', "process.stderr.write('PRIVATE_PAYLOAD_MUST_NOT_LEAK');process.exit(7);", 'nonzero-or-unknown', null, null, 7],
+  ['timeout', 'setInterval(()=>{},1000);', 'timeout', 'ETIMEDOUT', 'SIGKILL', null],
+  ['output-limit', "process.stdout.write('PRIVATE_PAYLOAD_MUST_NOT_LEAK'.repeat(20000));setInterval(()=>{},1000);", 'output-limit', 'ENOBUFS', 'SIGKILL', null],
+  ['signal', "process.kill(process.pid,'SIGKILL');", 'signalled', null, 'SIGKILL', null],
+]) test('actual pinned scorer retains safe '+kind+' cause', t => {
+  if (kind==='signal'&&!['darwin','linux'].includes(process.platform)) return t.skip('native signal cause NOT CHECKED');
+  const f=fixture(t);f.custom(code);const timeoutMs=kind==='timeout'?250:10000;
+  assert.throws(()=>f.score({timeoutMs}), error=>{
+    assert.match(error.message,/^pinned scorer process did not complete;/);
+    const diagnostic=error.processDiagnostic;
+    assert.equal(diagnostic.outcome,outcome);assert.equal(diagnostic.errorCode,errorCode);
+    assert.equal(diagnostic.signal,signal);assert.equal(diagnostic.exitCode,exitCode);
+    assert.equal(diagnostic.timeoutMs,timeoutMs);assert.equal(diagnostic.descendantQuiescenceVerified,false);
+    assert.equal(diagnostic.benchmarkEligible,false);assert.ok(diagnostic.pid>1);
+    assert.ok(Number.isFinite(Date.parse(diagnostic.startedAt)));assert.ok(Number.isFinite(Date.parse(diagnostic.finishedAt)));
+    assert.ok(diagnostic.elapsedMs>=0);if(kind==='timeout')assert.ok(diagnostic.elapsedMs>=250);
+    assert.doesNotMatch(error.message,/PRIVATE_PAYLOAD|private stdout|private stderr/);
+    assert.doesNotMatch(JSON.stringify(diagnostic),/PRIVATE_PAYLOAD|private stdout|private stderr/);
+    assert.ok(!error.message.includes(f.root)&&!error.message.includes(f.options.oracleFile));
+    return true;
+  });
+});
 
 test('real defective fixture fails, repaired candidate passes in separate pinned process', t => {
   const f = fixture(t), broken = f.score();
@@ -139,7 +173,7 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
   const program=`const config=JSON.parse(process.argv[1]);
 const {runPinnedBenchmarkScorer}=await import(config.module);
 try{runPinnedBenchmarkScorer(config.options);process.exitCode=2;}
-catch(error){if(error.message==='pinned scorer process did not complete')process.stdout.write('unavailable');else process.exitCode=3;}`;
+catch(error){if(error.message.startsWith('pinned scorer process did not complete'))process.stdout.write('unavailable');else process.exitCode=3;}`;
   const child=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({module,options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}})],
     {env:{LANG:'C',TZ:'UTC'},stdio:['ignore','pipe','pipe']});
   let output='',pid,identity,timer;

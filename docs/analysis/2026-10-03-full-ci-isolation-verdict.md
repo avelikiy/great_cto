@@ -226,3 +226,51 @@ independently attested reuse, background/team/fork terminal correlation, release
 or installed runtime parity. Comparative quality trials, independent security
 sign-off and delivered execution provenance remain open in epic great_cto-p4o9.
 No percentage improvement or full coverage conclusion follows from this report.
+
+## Pinned-scorer cause retention and repeated concurrency failures
+
+The lineage-postfix quick-CI at `282e7970` remained red, as recorded in
+[scratch inventory evidence](2026-10-03-guardian-scratch-inventory.md).
+Its generic pinned-scorer error discarded the actual child error code, signal,
+exit status and monotonic execution duration. Those historical fields cannot
+be recovered from a later success or from elapsed time alone.
+
+The pinned runner now attaches and includes bounded cause metadata in its
+failure error: PID/status, validated error code/signal, outcome, wall timestamps,
+monotonic duration and the selected unchanged deadline. It excludes raw error
+text, argv, oracle, candidate paths and stdout/stderr. Timeout and output-limit
+classification require ETIMEDOUT and ENOBUFS respectively, not slow elapsed
+time. Descendant quiescence and benchmark eligibility remain explicitly false.
+The successful execution/signed-report process schema is unchanged, and no
+failure is converted into a completed acceptance assessment.
+
+Four actual native subprocess cases first failed on discarded metadata, then
+passed for nonzero exit, timeout, output overflow and signal. A separate unit
+case verifies private-text exclusion and absence of a duration-based timeout
+guess. The full focused scorer file completed 28 passes and one failure: its
+older signal-handler test did not observe the private ready marker within its
+fixed polling window. This proves missing observed readiness, not signal-handler
+behavior. Follow-up `.5.9.7.2.3` preserves that distinction; its deadlines were
+not extended and the failure was not waived.
+
+A subsequent concurrent `node --test tests/lib/*.test.mjs` completed exit 1:
+3032 tests, 3012 passed, 14 failed, six skipped, 452065 ms. Preserved log:
+`/Users/Shared/great-cto-scorer-cause-lib-ci-PZMKpY`. Every pinned-runner caller
+file was exercised, including the bound signer and collector; all four new
+native cause cases passed. The 14 failures include the repeated broker/helper
+and direct-browser cases, initial inventory refusal in the new lineage fixture,
+and missing signal-test readiness. This command did not include the 20 tests
+under `scripts/lib`; it is not the stock complete CI library command or a new
+full-CI verdict. Its failures remain real even where earlier scoped checks passed.
+
+Three contemporary read-only inventory samples with the identical one-second
+limit completed exit 0 in 177, 185 and 339 ms, about 56 KB each. They do not
+explain earlier null statuses or certify process identity/isolation. The current
+shell selects Homebrew Git 2.53.0, so the previous package-smoke legacy-Git cause
+is not established for these current failures. Private guardian/OS-inventory
+refusal-stage evidence remains a separate prerequisite `.5.9.7.2.2`.
+
+Scanner remains 83/80, zero Critical and the unchanged 35 historically reviewed
+High findings. No new exception, timeout/scheduling/skip workaround, model call,
+independent admission, installation, defaults, merge, release or frozen-corpus
+rewrite occurred. Root causes and overall readiness remain unproved.

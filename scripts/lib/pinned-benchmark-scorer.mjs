@@ -9,6 +9,19 @@ import { scenarios } from './adaptive-benchmark-protocol.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+// Cause metadata only. Never copy argv, private oracle, stdout/stderr or raw
+// error text. A direct-child exit does not certify descendant quiescence.
+export function scorerProcessDiagnostic(child, { startedAt, elapsedMs, timeoutMs }) {
+  const errorCode = typeof child.error?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(child.error.code)
+    ? child.error.code : child.error ? 'UNCLASSIFIED' : null;
+  const signal = typeof child.signal === 'string' && /^SIG[A-Z0-9]{1,16}$/.test(child.signal) ? child.signal : null;
+  return Object.freeze({ pid: Number.isInteger(child.pid) && child.pid > 0 ? child.pid : null,
+    exitCode: Number.isInteger(child.status) ? child.status : null, signal, errorCode,
+    outcome: errorCode === 'ETIMEDOUT' ? 'timeout' : errorCode === 'ENOBUFS' ? 'output-limit'
+      : errorCode ? 'process-error' : signal ? 'signalled' : child.status === 0 ? 'exited-zero' : 'nonzero-or-unknown',
+    startedAt, finishedAt: new Date().toISOString(), elapsedMs: Math.max(0, Math.round(elapsedMs)), timeoutMs,
+    descendantQuiescenceVerified: false, benchmarkEligible: false });
+}
 export function baselineInputDigest(root, names) {
   const inputs = names.map(name => {
     const path = resolve(root, name);
@@ -68,7 +81,7 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
   const candidateInputDigest = baselineInputDigest(candidate, names);
   // Execute the exact verified bytes, not a filename that could be swapped after reading.
   // Pinned code is trusted and may perform side effects; this is not a sandbox.
-  const startedAt = new Date().toISOString();
+  const startedAt = new Date().toISOString(), start = performance.now();
   const child = spawnSync(process.execPath, ['--input-type=module', '-', candidate, JSON.stringify(oracle)], {
     input: code, cwd: dirname(realpathSync(scorerFile)), env: { LANG: 'C', TZ: 'UTC' },
     // spawnSync waits for child exit even after its deadline signal. SIGTERM
@@ -76,9 +89,14 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
     // enforce this process boundary. Descendant/profile cleanup is separate.
     timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 65536, encoding: 'utf8', windowsHide: true,
   });
-  const finishedAt = new Date().toISOString(), after = treeReceipt(candidate);
+  const processDiagnostic = scorerProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start, timeoutMs });
+  const finishedAt = processDiagnostic.finishedAt, after = treeReceipt(candidate);
   if (!after || !same(before, after) || baselineInputDigest(candidate, names) !== candidateInputDigest) throw Error('candidate changed during scoring');
-  if (child.error || child.status !== 0 || child.signal) throw Error('pinned scorer process did not complete');
+  if (child.error || child.status !== 0 || child.signal) {
+    const error = Error('pinned scorer process did not complete; ' + JSON.stringify(processDiagnostic));
+    error.processDiagnostic = processDiagnostic;
+    throw error;
+  }
   let score;
   try { score = JSON.parse(child.stdout); } catch { throw Error('pinned scorer returned invalid JSON'); }
   if (score?.version !== 1 || score.pid !== child.pid || score.scenario !== scenario.id
