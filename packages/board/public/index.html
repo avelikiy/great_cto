@@ -108,6 +108,7 @@
   --status-review-text: #00d97e;  /* bright on dark: the bed and the ink can be one colour */
   --status-done: #00d97e;
   --status-blocked: #ff5466;
+  --status-blocked-ink: #ff5466;   /* blocked-status TEXT on a tinted surface */
   --status-gate: #a78bfa;
 
   --p0-bg: rgba(255, 84, 102, 0.14);  --p0-fg: #fca5a5;
@@ -198,6 +199,7 @@
   --status-review-text: #097448;
   --status-done: #0a7d4d;
   --status-blocked: #c43030;
+  --status-blocked-ink: #a32626;   /* #c43030 reads 4.08:1 on the red-tinted banner; this is 5.45:1 */
   --status-gate: #7c3aed;
   --p0-bg: rgba(196, 48, 48, 0.12);   --p0-fg: #b91c1c;
   --p1-bg: rgba(180, 83, 9, 0.12);    --p1-fg: #a64c08;
@@ -921,7 +923,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-color: var(--status-blocked);
   background: var(--rail-fail-bg);
 }
-.project-fallback-banner strong { color: var(--status-blocked); }
+.project-fallback-banner strong { color: var(--status-blocked-ink); }
 .project-fallback-banner span   { color: var(--text); font-family: var(--sans); }
 
 /* ── Side panel ───────────────────────────────────────────────────────────── */
