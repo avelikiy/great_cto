@@ -806,3 +806,67 @@ increment; the concurrent library result remains red. Installed-plugin parity,
 independent security review, comparative quality and native admission still
 require separate evidence. No installation, workflow enablement, release,
 merge, production activation, gate approval or frozen corpus change occurred.
+
+## Browser preparation versus IPC control deadline
+
+The remediation in `great_cto-p4o9.5.9.7.2.5.1.1` changes trusted test
+fixtures only. `tests/helpers/browser-case-deadline.mjs` establishes one
+monotonic 20-second case deadline before helper startup. Control replies retain
+the three-second cap, limited by the remaining case budget. Preparation and
+observation use only the remainder of that same case budget, not a fresh
+20 seconds per phase. Progress frames do not renew it. Both pre-wait and
+post-receive expiration checks refuse late replies even if a timer callback is
+delayed. Existing browser case framework timeouts remain 20 seconds; production
+pipeline, admission and owned-resource cleanup authority are unchanged.
+
+Four fake-clock tests pass, covering preparation beyond the control cap,
+repeated phase windows without renewal, expiration independent of timer
+scheduling, and invalid phases/clock samples. Focused deadline/lifecycle/
+broker/helper/protocol/resource checks passed 88/88, no skips, 29977.590041 ms;
+log `/Users/Shared/great-cto-phase-deadline-focused-LPSBBM`. A native idle-helper
+negative case actually waits until the 20-second case deadline and refuses
+the absent preparation reply. Its 25-second framework timeout provides five
+seconds for assertions and reaping only, not a longer preparation deadline.
+
+The first canonical run passed 3106/3112 with six NOT CHECKED, no failures,
+216625.709083 ms, log `/Users/Shared/great-cto-phase-deadline-full-load-yrwIiq`.
+However, the new 20-second negative case preceded the positive browser cases
+and delayed their start. That result is retained but does not prove that the
+phase fix handles their previous initial-load overlap. The negative case was
+then moved after all positive helper cases, without changing the canonical
+command or parallelism.
+
+That ordered replay of `node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs`
+completed exit 1: 3112 total, 3105 passed, one failed, six NOT CHECKED,
+280102.472042 ms. Log:
+`/Users/Shared/great-cto-phase-deadline-ordered-load-m7dhIj`.
+All eight external-helper modes passed, including the five previously failing
+readiness cases and actual active-parent SIGKILL. Normal cold browser loading
+was 5561 ms (actor load at 16 ms, observation at 5577 ms), with resource barrier
+at 6581 ms and observation completion at 10625 ms. Dom-refusal cold loading was
+4295 ms (11 to 4306 ms). This directly exercises preparation exceeding the old
+three-second cap under canonical load while remaining inside the unchanged
+20-second case budget. Native absent preparation also passed at its fixed
+deadline. This resolves the narrowly scoped helper readiness-budget issue,
+not the entire library or full CI gate.
+
+The separate remaining failure is `browser behavior refuses console-error`
+in `board-accessibility-benchmark.test.mjs`: pinned scorer elapsed 30017 ms,
+timeout 30000 ms, SIGKILL, descendantQuiescenceVerified false and
+benchmarkEligible false. It is tracked in `great_cto-p4o9.5.9.10`; no scorer
+deadline was extended and no cleanup/admission success is inferred. Six skips
+remain three Docker and three live-model opt-ins. Syntax/reference/diff checks
+and HOL passed (83/80, zero Critical, same 35 baseline-reviewed High). No new
+security exception, plugin installation, merge, release, workflow enablement,
+production activation or quality-percentage claim was made. Full CI,
+installed-plugin namespace parity and independent security evidence remain
+separate outstanding requirements.
+
+The isolated diagnostic `node --test --test-name-pattern='browser behavior
+refuses console-error' tests/lib/board-accessibility-benchmark.test.mjs` passed
+1/1, no skips, 1411.22875 ms (case 912.832584 ms), log
+`/Users/Shared/great-cto-console-error-diagnostic-TEK0pC`. This changed-load
+diagnostic is not a replacement for the failed canonical run and does not
+identify the timeout stage or prove a fix. The case includes an external
+`example.invalid` image request; no causal claim about that request is made
+without an actor/network trace.

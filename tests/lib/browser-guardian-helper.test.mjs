@@ -6,12 +6,14 @@ import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync,renameSync}from'node:f
 import{join}from'node:path';
 import{boardAccessibilityBenchmarkFixture}from'../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 import{performance}from'node:perf_hooks';
+import{createBrowserCaseDeadline,BROWSER_CASE_MS}from'../helpers/browser-case-deadline.mjs';
 
 const helper=fileURLToPath(new URL('../../scripts/lib/browser-guardian-helper.mjs',import.meta.url));
 const hex=n=>n.toString(16).padStart(64,'0');
 const init={version:1,kind:'init',attemptId:'ipc-test',receiptSha256:hex(10),registrationSha256:hex(11)};
 const env={LANG:'C',TZ:'UTC'};
 function fixture(t){
+ const budget=createBrowserCaseDeadline();
  const child=fork(helper,[],{execPath:process.execPath,execArgv:[],env,stdio:['ignore','pipe','pipe','ipc']});
  let stdout='',stderr='';child.stdout.on('data',b=>stdout+=b);child.stderr.on('data',b=>stderr+=b);
  const messages=[],waiters=[],timeline=[],probeTimings=[];let exited=false;
@@ -26,8 +28,17 @@ function fixture(t){
   }
   trace('received:'+m.kind);if(waiters.length)waiters.shift()(m);else messages.push(m);
  });
- const next=async(expected='message')=>{let timer,waiter;trace('waiting:'+expected);try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>{waiter=r;waiters.push(r);}),
-  new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('helper message timeout: '+JSON.stringify({expected,timeline,probeTimings}))),3000))]);}finally{clearTimeout(timer);const index=waiters.indexOf(waiter);if(index>=0)waiters.splice(index,1);}};
+ const next=async(expected='message')=>{let timer,waiter;
+  const phase=expected==='probe-ready'?'prepare':expected==='probe-ended'?'observe':'control',window=budget.window(phase);
+  const timeout=()=>Error('helper message timeout: '+JSON.stringify({expected,phase,deadline:window.deadline,timeline,probeTimings}));
+  trace('waiting:'+expected);
+  try{
+   if(budget.expired(window))throw timeout();
+   const result=await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>{waiter=r;waiters.push(r);}),
+    new Promise((_,reject)=>timer=setTimeout(()=>reject(timeout()),window.delayMs))]);
+   if(budget.expired(window))throw timeout();return result;
+  }finally{clearTimeout(timer);const index=waiters.indexOf(waiter);if(index>=0)waiters.splice(index,1);}
+ };
  const send=value=>{if(exited)throw Error('helper already closed');trace('sent');child.send(value);};
  const sendFrame=value=>send(JSON.stringify(value));
  t.after(async()=>{if(!exited)child.kill('SIGKILL');await closed;assert.equal(stdout,'','helper must not publish private IPC data');assert.equal(stderr,'');});
@@ -53,7 +64,7 @@ test('expired IPC waiter cannot consume the next control reply',async t=>{
  f.sendFrame({version:1,kind:'close'});
  assert.equal((await f.next('closed')).kind,'closed');assert.equal((await f.closed).code,0);
 });
-for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch','tainted-continue'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
+for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch','tainted-continue'])test('external guardian actual browser probe '+mode,{timeout:BROWSER_CASE_MS},async t=>{
  if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('actual browser resource broker NOT CHECKED');
  const f=fixture(t),pause=ms=>new Promise(r=>setTimeout(r,ms));
  const table=()=>{const r=spawnSync('/bin/ps',['-axo','pid=,ppid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,killSignal:'SIGKILL',maxBuffer:1048576});
@@ -214,7 +225,7 @@ child.send(JSON.stringify(config.init));`;
  }
 });
 
-test('actual parent SIGKILL unwinds external helper with live Chromium and both scratch directories',{timeout:20000},async t=>{
+test('actual parent SIGKILL unwinds external helper with live Chromium and both scratch directories',{timeout:BROWSER_CASE_MS},async t=>{
  if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('active browser parent death NOT CHECKED');
  const program=String.raw`import{fork}from'node:child_process';
 const config=JSON.parse(process.argv[1]);
@@ -223,10 +234,16 @@ child.on('message',m=>{if(process.connected)process.send(m);});
 process.on('message',raw=>child.send(raw));
 child.send(JSON.stringify(config.init));`;
  const parent=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({helper,init})],{env,stdio:['ignore','ignore','ignore','ipc']});
+ const budget=createBrowserCaseDeadline();
  const closed=new Promise(r=>parent.once('exit',(code,signal)=>r({code,signal}))),messages=[],waiters=[];
  parent.on('message',m=>{if(m.kind==='probe-progress')return;if(waiters.length)waiters.shift()(m);else messages.push(m);});
- const next=async()=>{let timer;try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>waiters.push(r)),
-  new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('nested parent message timeout')),3000))]);}finally{clearTimeout(timer);}};
+ const next=async(phase='control')=>{let timer,waiter;const window=budget.window(phase);
+  try{if(budget.expired(window))throw Error('nested parent phase deadline exhausted');
+   const result=await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>{waiter=r;waiters.push(r);}),
+    new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('nested parent message timeout')),window.delayMs))]);
+   if(budget.expired(window))throw Error('nested parent phase deadline exhausted');return result;
+  }finally{clearTimeout(timer);const index=waiters.indexOf(waiter);if(index>=0)waiters.splice(index,1);}
+ };
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
  const table=()=>{const r=spawnSync('/bin/ps',['-axo','pid=,ppid=,uid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,killSignal:'SIGKILL',maxBuffer:1048576});
   assert.equal(r.status,0);const map=new Map();for(const line of r.stdout.split('\n')){const m=line.match(/^\s*(\d+)\s+(\d+)\s+(\d+)\s+(\S+)\s+(.+?)\s*$/);if(m)map.set(Number(m[1]),{parent:Number(m[2]),uid:Number(m[3]),state:m[4],birth:m[5]});}return map;};
@@ -237,7 +254,7 @@ child.send(JSON.stringify(config.init));`;
   const ready=await next();assert.equal(ready.kind,'ready');const guardianPid=ready.pid;
   parent.send(JSON.stringify({version:1,kind:'probe-start',capability:ready.binding.capability,mode:'normal'}));
   const started=await next();assert.equal(started.kind,'probe-started');root=started.privateResources.root;rootIdentity=lstatSync(root);
-  const registered=await next();assert.equal(registered.kind,'probe-ready');assert.equal(registered.snapshot.registeredScratchDirectories,2);assert.ok(registered.snapshot.liveProcesses>1);
+  const registered=await next('prepare');assert.equal(registered.kind,'probe-ready');assert.equal(registered.snapshot.registeredScratchDirectories,2);assert.ok(registered.snapshot.liveProcesses>1);
   const rows=table();parentIdentity=rows.get(parent.pid);assert.equal(parentIdentity?.parent,process.pid);
   assert.equal(rows.get(guardianPid)?.parent,parent.pid);assert.equal(rows.get(started.privateResources.scorerPid)?.parent,guardianPid);
   owned.set(guardianPid,rows.get(guardianPid));
@@ -258,4 +275,17 @@ child.send(JSON.stringify(config.init));`;
    rmSync(root,{recursive:true,force:true});
   }
  }
+});
+// Keep the deliberate 20s no-reply case last: it must not postpone the browser
+// probes until the other library files have finished their initial workload.
+test('absent browser preparation reply expires at the existing case deadline',{timeout:25000},async t=>{
+ const f=fixture(t);f.sendFrame(init);assert.equal((await f.next('ready')).kind,'ready');
+ const started=performance.now();
+ // No probe request: the actual idle helper cannot send a preparation reply.
+ // 5s harness headroom permits assertions/reaping, not an extended case budget.
+ await assert.rejects(f.next('probe-ready'),error=>{
+  assert.match(error.message,/helper message timeout/);assert.match(error.message,/"phase":"prepare"/);return true;
+ });
+ assert.ok(performance.now()-started>15000,'preparation was not charged to the 3s control budget');
+ t.diagnostic('native absent preparation reply refused by fixed 20s case deadline; no progress renewal');
 });
