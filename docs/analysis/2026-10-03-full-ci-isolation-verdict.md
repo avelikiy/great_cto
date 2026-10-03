@@ -57,7 +57,10 @@ helper and verifies they remain untouched; separate ownership regressions cover
 directory/symlink replacement and widened permissions. All eighteen remaining
 caller test files passed 128/128 with zero skips; manual import review found no
 other consumer of the removed sweeper. They use unchanged reap APIs. The
-generated architecture map was refreshed and its sync check now passes;
-scanner and guardian/probe remediation remain open.
+generated architecture map was refreshed and its sync check now passes.
+After [static-bootstrap/random-key remediation](2026-10-03-session-end-smoke-isolation.md),
+the unchanged scanner gate reports 83, zero Critical and the same 35 historically
+reviewed High entries, with no new exceptions. Guardian/probe remediation and
+full-current-CI/delivered-runtime proof remain open.
 Source/browser fixtures do not establish deployed UI or
 production gate execution. The full epic remains open.

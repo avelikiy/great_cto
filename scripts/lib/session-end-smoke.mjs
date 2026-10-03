@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, readdirSync, readlinkSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 export function runSessionEndSmoke({ hookPath }) {
   const hook = realpathSync(resolve(hookPath));
@@ -22,26 +22,8 @@ export function runSessionEndSmoke({ hookPath }) {
     writeFileSync(record, JSON.stringify({ sync: [], async: [] }));
     // Patch only this child process before loading the trusted hook. Do not
     // override HOME/CODEX_HOME. Never spawn real git/bd, merge, or learner.
-    const bootstrap = `
-      import os from 'node:os';
-      import cp from 'node:child_process';
-      import {syncBuiltinESMExports} from 'node:module';
-      import {readFileSync,writeFileSync} from 'node:fs';
-      import {basename} from 'node:path';
-      const record=${JSON.stringify(record)};
-      const log=(kind,value)=>{const r=JSON.parse(readFileSync(record,'utf8'));r[kind].push(value);writeFileSync(record,JSON.stringify(r));};
-      os.homedir=()=>${JSON.stringify(home)};
-      cp.spawnSync=(cmd,args)=>{log('sync',{cmd,args});return {status:1,stdout:'',stderr:''};};
-      cp.spawn=(cmd,args)=>{
-        const merge=cmd==='node' && args.length===1 && basename(args[0])==='lessons-merge.mjs';
-        log('async',{merge});
-        if(!merge) throw Error('unexpected child refused');
-        return {unref(){}};
-      };
-      syncBuiltinESMExports();
-      await import(${JSON.stringify(pathToFileURL(hook).href)});
-    `;
-    const r = spawnSync(process.execPath, ['--input-type=module', '-e', bootstrap], {
+    const bootstrap = fileURLToPath(new URL('./session-end-smoke-bootstrap.mjs', import.meta.url));
+    const r = spawnSync(process.execPath, [bootstrap, hook, home, record], {
       cwd: project, input: JSON.stringify({ hook_event_name: 'SessionEnd', session_id: 'fixture-session', reason: 'fixture-snapshot', cwd: project }),
       env: { PATH: '/usr/bin:/bin', LANG: 'C', TZ: 'UTC', GREAT_CTO_AUTO_LEARN: '0' },
       encoding: 'utf8', timeout: 10000, maxBuffer: 65536,

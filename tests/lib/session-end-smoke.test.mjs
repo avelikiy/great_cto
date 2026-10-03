@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { mkdtempSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { runSessionEndSmoke } from '../../scripts/lib/session-end-smoke.mjs';
 import { spawnSync } from 'node:child_process';
 
@@ -29,6 +29,23 @@ test('unexpected child launch is intercepted and cannot become successful snapsh
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const hook = join(root, 'hook.mjs');
   writeFileSync(hook, "import{spawn}from'node:child_process';spawn('claude',['-p','do not execute']);");
+  assert.throws(() => runSessionEndSmoke({ hookPath: hook }), /unexpected child refused/);
+});
+
+test('quoted shell-shaped hook filename remains argv data and captures the actual snapshot', t => {
+  const root = mkdtempSync(join(tmpdir(), 'great-cto-session-argv-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const hook = join(root, "hook 'quoted $literal; [fixture].mjs");
+  const source = fileURLToPath(new URL('../../scripts/hooks/session-end.mjs', import.meta.url));
+  writeFileSync(hook, 'await import(' + JSON.stringify(pathToFileURL(source).href) + ');');
+  assert.equal(runSessionEndSmoke({ hookPath: hook }).snapshotVerified, true);
+});
+
+test('unexpected alternate process API is refused before execution', t => {
+  const root = mkdtempSync(join(tmpdir(), 'great-cto-session-exec-'));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const hook = join(root, 'hook.mjs');
+  writeFileSync(hook, "import{execFileSync}from'node:child_process';execFileSync('claude',['-p','must not execute']);");
   assert.throws(() => runSessionEndSmoke({ hookPath: hook }), /unexpected child refused/);
 });
 

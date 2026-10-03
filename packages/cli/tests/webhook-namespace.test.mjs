@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
-import { createHmac } from 'node:crypto';
+import { createHmac, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -28,14 +28,16 @@ function fixture(t) {
   writeFileSync(`${config}.gctest-bak`, 'preexisting backup');
   const prefix = `import os from 'node:os'; import {syncBuiltinESMExports} from 'node:module';
     os.homedir = () => ${JSON.stringify(ambient)}; syncBuiltinESMExports();`;
-  const env = { ...process.env, GREAT_CTO_HOME: join(root, 'isolated'), GREAT_CTO_UPDATE_CHECK_NO_SPAWN: '1' };
+  const hmacKey = randomBytes(32).toString('hex');
+  const env = { PATH: process.env.PATH || '/usr/bin:/bin', LANG: 'C', TZ: 'UTC', CI: '1', DO_NOT_TRACK: '1',
+    GREAT_CTO_HOME: join(root, 'isolated'), GREAT_CTO_UPDATE_CHECK_NO_SPAWN: '1', GREAT_CTO_FIXTURE_HMAC_KEY: hmacKey };
   const unchanged = () => {
     assert.equal(readFileSync(config, 'utf8'), bytes);
     assert.equal(readFileSync(`${config}.gctest-bak`, 'utf8'), 'preexisting backup');
     assert.equal(existsSync(join(ambient, '.great_cto', 'webhook-events.log')), false);
     assert.equal(existsSync(join(ambient, '.great_cto', 'webhook-dlq.log')), false);
   };
-  return { root, ambient, prefix, env, unchanged };
+  return { root, ambient, prefix, env, unchanged, hmacKey };
 }
 
 test('webhook config and DLQ use the dedicated namespace, not ambient hooks', t => {
@@ -43,7 +45,7 @@ test('webhook config and DLQ use the dedicated namespace, not ambient hooks', t 
   const r = spawnSync(process.execPath, ['--input-type=module', '-e', `${f.prefix}
     const c = await import(${JSON.stringify(configUrl)});
     const d = await import(${JSON.stringify(dispatchUrl)});
-    c.addIncoming({name:'github',secret:'fixture-secret'});
+    c.addIncoming({name:'github',secret:process.env.GREAT_CTO_FIXTURE_HMAC_KEY});
     console.log(JSON.stringify({config:c.getConfigPath(), dlq:d.getDlqPath(), fired:d.dispatch({name:'pr.opened',title:'fixture'}).fired, value:c.loadConfig()}));
   `], { env: f.env, encoding: 'utf8', timeout: 5000 });
   assert.equal(r.status, 0, r.stderr);
@@ -82,7 +84,7 @@ test('actual CLI add/list/remove use the dedicated config namespace', t => {
     assert.equal(r.status, 0, r.stderr);
     return r.stdout + r.stderr;
   };
-  run(['add-incoming', 'github', '--secret', 'fixture-secret']);
+  run(['add-incoming', 'github', '--secret', f.hmacKey]);
   assert.ok(run(['list']).includes(join(f.env.GREAT_CTO_HOME, 'webhooks.json')));
   const file = join(f.env.GREAT_CTO_HOME, 'webhooks.json');
   assert.equal(JSON.parse(readFileSync(file, 'utf8')).incoming[0].name, 'github');
@@ -112,7 +114,7 @@ test('real HTTP signature refusal and acceptance cannot dispatch ambient hooks',
   const f = fixture(t);
   const child = spawn(process.execPath, ['--input-type=module', '-e', `${f.prefix}
     const c = await import(${JSON.stringify(configUrl)});
-    c.addIncoming({name:'github',secret:'fixture-secret'});
+    c.addIncoming({name:'github',secret:process.env.GREAT_CTO_FIXTURE_HMAC_KEY});
     const {runServe} = await import(${JSON.stringify(serveUrl)});
     process.exit(await runServe({port:0,noLog:false,insecure:false}));
   `], { env: f.env, stdio: ['ignore', 'ignore', 'pipe'] });
@@ -138,7 +140,7 @@ test('real HTTP signature refusal and acceptance cannot dispatch ambient hooks',
   const headers = {'Content-Type':'application/json','X-GitHub-Event':'pull_request','X-Hub-Signature-256':'sha256=bad'};
   assert.equal((await fetch(`${url}/webhook/github`, {method:'POST',headers,body})).status, 401);
   assert.deepEqual(await (await fetch(`${url}/events`)).json(), {events:[]});
-  headers['X-Hub-Signature-256'] = `sha256=${createHmac('sha256','fixture-secret').update(body).digest('hex')}`;
+  headers['X-Hub-Signature-256'] = `sha256=${createHmac('sha256',f.hmacKey).update(body).digest('hex')}`;
   const response = await fetch(`${url}/webhook/github`, {method:'POST',headers,body});
   assert.equal(response.status, 200);
   assert.equal((await response.json()).dispatched_to, 0);

@@ -28,13 +28,25 @@ reason, empty hook stdout, the actual lessons symlink under the fixture home,
 unchanged fixture lessons/config bytes, no auto-learn marker, and only the
 expected intercepted command kinds. An exit-zero hook without a snapshot fails.
 
+The child now uses the fixed `session-end-smoke-bootstrap.mjs` entrypoint.
+Hook, fixture-home and record paths are structured argv data, not interpolated
+executable text. The bootstrap validates canonical fixture paths before hook
+import. Unknown synchronous commands and alternate exec/fork APIs are refused
+as well as unknown asynchronous launches. A quoted, shell-shaped hook filename
+still captures the actual snapshot without becoming shell/code syntax.
+
 ## Verification scope
 
 - Source SessionEnd and the installed local 3.48.0 SessionEnd both produce the
   expected snapshot and isolated registration.
-- Four new tests cover actual source snapshot, exit-zero/no-snapshot refusal,
-  unexpected learner-process launch refusal, and honest stock summary with
-  skipped checks. Together with the webhook harness tests: **9/9**, no skips.
+- Six snapshot tests cover actual source capture, exit-zero/no-snapshot refusal,
+  unexpected launch refusal, quoted argv handling, alternate process API
+  refusal and honest skipped-check summary. The five CLI namespace tests use
+  fresh random HMAC key material shared only by fixture producer/receiver, not
+  a hardcoded source credential; signature refusal/acceptance remains asserted.
+- The unmodified HOL gate now reports score **83** (floor 80), zero Critical
+  and 35 previously reviewed High findings. The four new entries in the earlier
+  full-CI scan are gone. This is scanner evidence, not independent sign-off.
 - The stock L3 check invokes this verifier rather than the raw hook at checkout
   cwd. It separately counts actual git/Beads capture, actual lessons merge, and
   paid learner as three explicit **NOT CHECKED** skips.
