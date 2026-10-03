@@ -618,3 +618,31 @@ High. No new exception, release, install, shared-cache update or gate approval
 occurred. Task `.5.9.8` covers this narrow candidate guard delivery check only;
 parent full CI, installed parity, actual models and independent admission remain
 unfinished.
+
+### Current collector and controller CLI regression
+
+At immutable published `b3d35d6cd29a9d3c423129569fd17ef6325f9d5f`, the exact
+collector and mixed-host CLI groups completed: 22/22 passed, zero skips,
+48181.736708 ms. Command:
+`node --test tests/lib/adaptive-benchmark-collector.test.mjs tests/lib/mixed-host-cli.test.mjs`.
+Retained log: `/Users/Shared/great-cto-current-collector-cli-79Tylu`.
+
+The historically intermittent trial-binding case passed at 313.6295 ms: an
+actual controller subprocess using an intentionally failed non-model executable
+persisted trial binding, blocked status, one attempt and one worker dispatch
+record with no approvals. The mixed-host CLI case passed at 4481.012375 ms with
+two actual test-fixture subprocesses, separate worker/verifier evidence and
+fixture-only gate tokens. Neither case executed the real Codex/Claude providers
+or approved an operator's pipeline. Collector negatives refused forged/missing
+dispatches, edited registration/policy/state/score pins, unfinished quorum,
+tree drift and stale approval. Missing/unassessed scores did not become zero.
+
+This scoped pass does not explain the earlier ready-versus-blocked assertion or
+the separate exit-137 diagnostic termination, and is not stock full CI under its
+original full load. `.5.6` remains in progress with historical cause unconfirmed.
+Fresh external checks still show Claude logged out and the Playwright 1.60.0
+Chromium executable absent. PR167 remains draft/conflicting with main; its
+current check rollup has Snyk SUCCESS but no approving review. Plugin/CLI/Runtime
+CI and Evals Runner are disabled manually. No installation, CI enablement,
+branch integration, PR merge, release, benchmark eligibility or security
+approval was inferred or performed.
