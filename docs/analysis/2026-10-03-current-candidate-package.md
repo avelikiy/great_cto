@@ -25,11 +25,11 @@ A separate read-only comparison matched all161 regular extracted files against l
 | Review/ordering safety | Existing representative web/fintech/mobile/AI matrix | Joined mandatory barriers, security/compliance gates and phased/full-cycle ordering retained |
 | Mutation refusal | Whole inventory and archive rechecked after execution | Both unchanged |
 | Source/build parity | Independent read-only byte comparison | 161/161 local output matches |
-| Frozen corpus contexts | All8 registered inputs with explicit changed-path/role expectations | Not yet executed; task remains in progress |
+| Frozen corpus contexts | All8 registered inputs with explicit changed-path/role expectations | Subsequent [24-case probe](2026-10-03-frozen-corpus-controller-contexts.md):22 constructions,2 expected refusals; no stage execution |
 | Actual workflow/provider proof | Dispatched roles, independently verified outputs, actual authorized gates | Not established by this probe |
 
 All tested states have zero recorded dispatch attempts and approvals. Host routes are configured for Codex and Claude Code, not dispatched. Provider calls and cost remain unknown/null, not zero. Full-cycle here means graph construction, not completion of a product lifecycle. Actual model/native events, matched-arm role floors, running module/tool/provider provenance, same-user isolation and independent admission remain outside this evidence scope. `executionArtifactProvenanceVerified=false` and `benchmarkEligible=false` remain explicit.
 
-The artifact and diagnostics are intentionally retained. No installed plugin, defaults, merge, release or actual gate approval changed. Next required work is all eight frozen-context delivered-controller probes, followed by the remaining independent evidence prerequisites and live matched trials; this fresh archive alone cannot make the experiment eligible.
+The artifact and diagnostics are intentionally retained. No installed plugin, defaults, merge, release or actual gate approval changed. The subsequent eight-context construction probe is documented separately. Independent evidence prerequisites and live matched trials remain required; this archive and graph construction alone cannot make the experiment eligible.
 
 The existing pinned package/controller harness suites passed9/9 without skips. The complete local CLI suite, including a fresh TypeScript build, passed356/356 without skips. Documentation tests passed76/76; diff checks passed. HOL score83, zeroCritical and unchanged35 reviewedHigh; no new High/Critical or exception changes. These targeted suites and actual artifact checks supplement, but do not replace, the preceding source quick CI. No new full L3-L5/live model/native lifecycle suite was run in this verification.
