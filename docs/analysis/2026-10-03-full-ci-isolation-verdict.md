@@ -361,3 +361,37 @@ for canonical concurrent CI; the cause of browser refusal remains unproved.
 The previous process handle was unavailable, so no terminal verdict is inferred
 for that earlier run. Issue `.5.9.7.2.2` remains in progress. No deadlines,
 concurrency defaults, installed artifacts, frozen corpus or gates changed.
+
+### Private helper/broker stage forwarding
+
+The unactivated fixture now forwards bounded diagnostics only on its existing
+creator-private fork channel. The protocol snapshots and successful reply
+shapes are unchanged; unavailable private replies gain `privateDiagnostic`.
+Broker records fixed lifecycle stages and the first refusal stage, private
+resource-owner metadata and actual direct-process exit. Probe failure stages
+are accepted only from an exact frame and a fixed allowlist. Raw exceptions,
+arguments, paths and payloads are not copied. Direct exit still does not imply
+descendant/descriptor closure, cleanup or admission.
+
+Two actual native fixed-fixture fault-seam cases pass: accepted browser-launch
+failure and a rejected arbitrary stage sentinel, both exiting seven. They
+verify immutable private broker metadata, no sentinel/root leak, retained
+scratch, preserved refusal cause and unchanged false public authority flags.
+They do not exercise Chromium or establish an OS failure cause.
+
+The actual two-file helper/broker execution is red: 26 tests, 15 passed,
+11 failed, zero skipped. Eleven malformed/unauthorized IPC cases passed their
+new bounded diagnostic/no-echo/public-snapshot assertions. All eight main
+browser modes now report fixed `browser-launch` failure while construction
+inventory exited zero. Thus this attempt refused before resource registration,
+not at that registration's ps call. The cause inside Chromium launch remains
+unknown; this observation does not explain previous concurrency timeouts.
+The other three failures remain broker transition and active-parent-browser
+checks. Observation inventory fault coverage and complete native lifecycle
+diagnostics remain open under `.5.9.7.2.2`; no successful whole-CI or isolation
+proof is asserted. No pinned scorer or frozen corpus bytes changed.
+
+Final-byte three-file execution including the two new native fault cases:
+28 tests, 17 passed, eleven failed, zero skips, exit one. Documentation and
+classification checks passed 94/94. Earlier red runs are not discarded or
+called flaky; this rerun covered the final diagnostic edits.

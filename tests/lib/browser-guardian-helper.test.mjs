@@ -49,9 +49,9 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
   f.sendFrame(init);const ready=await f.next();assert.equal(ready.kind,'ready');
   const command=(kind,extra={})=>f.sendFrame({version:1,kind,capability:ready.binding.capability,...extra});
   command('probe-start',{mode:mode==='dom-refusal'?'dom-refusal':'normal'});
-  const started=await f.next();assert.equal(started.kind,'probe-started');
+  const started=await f.next();assert.equal(started.kind,'probe-started',JSON.stringify(started.privateDiagnostic??null));
   root=started.privateResources.root;rootIdentity=lstatSync(root);const scorer=started.privateResources.scorerPid;
-  const registered=await f.next();assert.equal(registered.kind,'probe-ready');assert.equal(registered.snapshot.state,'OBSERVING');
+  const registered=await f.next();assert.equal(registered.kind,'probe-ready',JSON.stringify(registered.privateDiagnostic??null));assert.equal(registered.snapshot.state,'OBSERVING');
   assert.ok(registered.snapshot.liveProcesses>1);assert.equal(registered.snapshot.cleanupAuthorized,false);
   assert.equal(registered.snapshot.registeredScratchDirectories,2);
   const rows=table();assert.equal(rows.get(scorer)?.parent,f.child.pid,'scorer must be a child of actual external helper');
@@ -161,6 +161,12 @@ for(const kind of ['object','malformed','oversized','duplicate init','future req
   raw=JSON.stringify(step);
  }
  f.send(raw);const reply=await f.next();assert.equal(reply.kind,'unavailable');assert.equal(reply.cleanupAuthorized,false);
+ assert.ok(['transport','initialization','probe-request','probe-start','protocol-step'].includes(reply.privateDiagnostic?.stage));
+ assert.equal(reply.privateDiagnostic.benchmarkEligible,false);
+ assert.equal(reply.privateDiagnostic.descendantQuiescenceVerified,false);
+ assert.equal(reply.privateDiagnostic.probe,null,'transport refusals cannot manufacture process evidence');
+ assert.ok(Buffer.byteLength(JSON.stringify(reply.privateDiagnostic))<2048);
+ assert.ok(!Object.hasOwn(reply.snapshot,'privateDiagnostic'),'public protocol snapshot remains unchanged');
  assert.ok(!JSON.stringify(reply).includes('test-sentinel'));assert.ok(!JSON.stringify(reply).includes(ready.binding.capability));
  assert.equal((await f.closed).code,1);
 });
