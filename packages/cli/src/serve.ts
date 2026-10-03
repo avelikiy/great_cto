@@ -23,11 +23,11 @@ import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { dispatch, getDlqPath } from "./webhook-dispatch.js";
 import { getIncoming } from "./webhook-config.js";
 
-const EVENTS_LOG = join(homedir(), ".great_cto", "webhook-events.log");
+const EVENTS_LOG = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhook-events.log");
 
 interface ServeArgs {
   port: number;
@@ -47,7 +47,7 @@ interface WebhookEvent {
 function logEvent(ev: WebhookEvent, noLog: boolean): void {
   if (noLog) return;
   try {
-    const dir = join(homedir(), ".great_cto");
+    const dir = dirname(EVENTS_LOG);
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     appendFileSync(EVENTS_LOG, JSON.stringify(ev) + "\n");
   } catch (e) {
@@ -316,7 +316,9 @@ export async function runServe(args: ServeArgs): Promise<number> {
 
   return new Promise<number>(resolve => {
     server.listen(args.port, "127.0.0.1", () => {
-      console.error(`great-cto serve → http://localhost:${args.port}${insecure ? "  [INSECURE: HMAC OFF]" : ""}`);
+      const address = server.address();
+      const port = address && typeof address !== "string" ? address.port : args.port;
+      console.error(`great-cto serve → http://localhost:${port}${insecure ? "  [INSECURE: HMAC OFF]" : ""}`);
       console.error(`  POST /webhook/github   GitHub (HMAC SHA-256)`);
       console.error(`  POST /webhook/sentry   Sentry (HMAC SHA-256)`);
       console.error(`  POST /webhook/generic  Generic (optional HMAC)`);

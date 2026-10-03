@@ -41,7 +41,8 @@ export interface WebhookConfig {
   outgoing: OutgoingHook[];
 }
 
-const CONFIG_PATH = join(homedir(), ".great_cto", "webhooks.json");
+// Same dedicated state namespace as the task queue and update checker.
+const CONFIG_PATH = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhooks.json");
 
 const DEFAULT_CONFIG: WebhookConfig = { incoming: [], outgoing: [] };
 
