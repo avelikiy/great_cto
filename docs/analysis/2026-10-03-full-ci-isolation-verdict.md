@@ -303,3 +303,33 @@ This proves the new scoped observation path, not the cause of historical
 missing readiness. Issue `.5.9.7.2.3` and the overall concurrency diagnosis
 remain open pending stronger current evidence. Runtime runner/signature code,
 frozen corpus, installed plugin and all gates are unchanged.
+
+### Canonical concurrent library verdict at 25bf6abf
+
+The actual stock library command, including both `tests/lib/*.test.mjs` and
+`scripts/lib/*.test.mjs`, completed exit 1 at immutable `25bf6abf`: 3054 tests,
+3038 passed, ten failed, six skipped, 463742 ms. Preserved log:
+`/Users/Shared/great-cto-fixed-scorer-lifecycle-lib-ci-yYsqez`.
+All four native scorer cause cases, both new launcher refusal/no-ready cases
+and all three native lineage cases passed under this concurrency.
+
+Eight external browser-helper modes reported message timeouts. The temporary
+PostgreSQL cleanup-on-action-failure test refused during initialization before
+its intended action; it is tracked separately as `.5.9.7.2.4`, not accepted as
+a successful cleanup proof. Private guardian-stage evidence remains `.2.2`.
+
+The tenth failure now has stronger cause evidence: the signal fixture did not
+observe ready within its unchanged polling window, but its trusted launcher
+exited zero with an actual scorer result ETIMEDOUT/SIGKILL, elapsed 1024 ms at
+the 1000-ms limit. Thus this fresh attempt reached scorer process execution;
+it is not a prelaunch receipt/input refusal. That still does not prove whether
+user code installed its signal handler, whether startup or marker observation
+was delayed, or why previous attempts lacked observed readiness. The test
+remains failed; no late-ready evidence or launcher exit is substituted for its
+required ready/identity assertion. `.2.3` remains in progress.
+
+This is a red canonical library verdict, not a complete CI rerun, improvement
+percentage, independent admission or installed/deployed proof. The previous
+red logs remain authoritative historical evidence. Current read-only checks
+still report Claude unauthenticated, Codex logged in and Docker unavailable.
+No models, real approval, installation, release, merge or defaults changed.
