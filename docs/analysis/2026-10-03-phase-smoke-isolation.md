@@ -39,7 +39,7 @@ review, security approval or installed artifact parity. Full CI and artifact
 verification remain tracked in great_cto-p4o9.5.9. No installation, release or
 default change is part of this fixture.
 
-Full-suite preflight still found predictable L1 log paths and a fixed-port MCP
-readiness check without owned-listener proof. Those are tracked separately in
-great_cto-p4o9.5.9.4; this fixture's passing result does not close them or make
-the stock full CI safe to run yet.
+Full-suite preflight found predictable L1 log paths and a fixed-port MCP
+readiness check without owned-listener proof. Those are addressed separately by
+the [captured-log/owned MCP fixture](2026-10-03-mcp-smoke-isolation.md) in
+great_cto-p4o9.5.9.4. This phase fixture's passing result is not full CI proof.

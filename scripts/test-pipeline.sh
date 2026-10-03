@@ -68,30 +68,6 @@ else
   C_OK=""; C_FAIL=""; C_DIM=""; C_HEAD=""; C_RESET=""; C_WARN=""
 fi
 
-# wait_http URL SECONDS — poll until it answers, or give up.
-#
-# The three server checks below used `sleep 1` and then curled once. That is an
-# assumption about how fast a process binds a port, and under a loaded run — which
-# is exactly what ci-local is — it is wrong: the MCP check failed there and passed
-# 3/3 in isolation, which is the signature of a fixed wait, not of a broken server.
-#
-# Polling turns "it was not ready in one second" into "it never became ready",
-# which is the thing the check meant to assert in the first place.
-wait_http() {
-  local url="$1" limit="${2:-10}" i=0
-  while [ "$i" -lt "$((limit * 10))" ]; do
-    curl -sf "$url" >/dev/null 2>&1 && return 0
-    sleep 0.1
-    i=$((i + 1))
-  done
-  return 1
-}
-# Exported: `check` runs each command in a fresh `bash -c`, which does not inherit
-# shell functions. Without this the helper is "command not found" and three checks
-# fail for a reason that has nothing to do with what they test — which is how the
-# first cut of this change turned one failure into three.
-export -f wait_http
-
 PASS=0; FAIL=0; SKIP=0
 declare -a FAILURES
 
@@ -148,10 +124,10 @@ if [ "$SKIP_L1" = "1" ]; then
   skipped "L1 (--skip-l1)"
 else
   check "npm test (CLI unit tests)" \
-    bash -c "cd packages/cli && npm test --silent >/tmp/gctest-l1-test.log 2>&1"
+    bash -c "cd packages/cli && npm test --silent"
 
   check "archetype regression (28 cases)" \
-    bash -c "cd packages/cli && node test-archetypes.mjs >/tmp/gctest-l1-arch.log 2>&1 && grep -q 'Failed: 0/' /tmp/gctest-l1-arch.log"
+    bash -c 'cd packages/cli && out=$(node test-archetypes.mjs 2>&1) && printf "%s\n" "$out" && printf "%s\n" "$out" | grep -q "Failed: 0/"'
 
   check "board server.mjs syntax" \
     node --check packages/board/server.mjs
@@ -185,7 +161,7 @@ else
   # is absent this reports absent, and absence never reads as a pass.
   if ls tests/board/test_*.py >/dev/null 2>&1; then
     check "board API regression tests (pytest)" \
-      bash -c "pytest tests/board/ --tb=line -q >/tmp/gctest-l1-board.log 2>&1 && grep -qE '^[0-9]+ passed' /tmp/gctest-l1-board.log"
+      bash -c 'out=$(pytest tests/board/ --tb=line -q 2>&1) && printf "%s\n" "$out" && printf "%s\n" "$out" | grep -qE "^[0-9]+ passed"'
   else
     skipped "board pytest — suite is not in this repository (.gitignore:90); the committed Node board tests cover this surface"
   fi
@@ -253,16 +229,8 @@ else
   check "report agents --format json returns agent records" \
     bash -c "$CLI report agents --period 30d --format json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"type\"]==\"agents\"; assert \"agents\" in d'"
 
-  check "mcp --sse server starts and /healthz returns valid JSON" \
-    bash -c "
-      $CLI mcp --sse --port 8766 >/dev/null 2>&1 &
-      MCP_PID=\$!
-      wait_http http://127.0.0.1:8766/healthz 10
-      out=\$(curl -sf http://127.0.0.1:8766/healthz 2>/dev/null)
-      kill \$MCP_PID 2>/dev/null
-      wait \$MCP_PID 2>/dev/null
-      echo \"\$out\" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"transport\"]==\"sse\"'
-    "
+  check "isolated MCP owned listener, SSE initialize and seven-tool inventory" \
+    node "$ROOT/scripts/lib/mcp-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs"
 
   # Probe the installed artifact, never back up or mutate operator config.
   # Incompatible artifacts fail explicitly before registration or server start.
