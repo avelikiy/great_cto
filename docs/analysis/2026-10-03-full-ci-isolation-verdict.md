@@ -746,3 +746,63 @@ rerun after installation and remains red on its last recorded invocation;
 installed-plugin namespace parity and independent security approval are still
 unconfirmed. No quality uplift or complete dual-host release readiness is
 inferred from restoring a browser dependency.
+
+## Actor-local helper timing under canonical library load
+
+Added bounded private timing frames to the unactivated fixed-fixture probe:
+allowlisted stage names and monotonic actor elapsed milliseconds, with broker
+receipt elapsed milliseconds, at most 32 frames. No caller path, command,
+capability, browser log or approval is included. Frames cannot register resources,
+reset the three-second watchdog or certify admission/quiescence. The public
+protocol snapshots are unchanged. Test readers separate diagnostic progress from
+control replies and retain the last 16 transport events for timeout diagnostics.
+
+The first instrumentation run passed 29/30; its sole new failure was the nested
+parent fixture interpreting probe-progress as probe-ready. Correcting that
+fixture's diagnostic/control demultiplexing yielded 30/30 with zero skips
+(19587.861542 ms), log
+`/Users/Shared/great-cto-helper-stage-timing-fixed-iR08OD`. The initial failed
+instrumentation log is `/Users/Shared/great-cto-helper-stage-timing-D2JV30`.
+This is not evidence that historical timeouts were fixed.
+
+Canonical `node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs` then completed
+exit 1: 3110 total, 3099 passed, five failed, six NOT CHECKED,
+371514.65925 ms. Log:
+`/Users/Shared/great-cto-helper-full-load-timing-4Vtgd4`.
+The five failures are external-helper normal, dom-refusal, scorer-kill,
+duplicate-start and symlink-scratch. Each timeout explicitly awaited probe-ready;
+no ready frame was received before the three-second watchdog. Other observer,
+broker and actual active-parent-SIGKILL cases passed. Six remaining skips are
+three Docker and three model opt-ins, not browser coverage.
+
+Normal actor trace: browser-load at 9 ms, observation at 2610 ms, browser-launch
+at 2611 ms; broker received launch at 2764 ms. Dom-refusal: browser-load at
+10 ms, observation at 2429 ms, launch at 2430 ms; broker launch at 2737 ms.
+Thus cold browser module loading alone took 2.60/2.42 seconds before launch.
+Other failed traces reached context/page creation or the resource barrier before
+the watchdog, without accepted ready completion. This localizes the current
+failures to the composite preparation/readiness budget, not missing Chromium
+or a consumed ready reply. It does not retroactively prove the same stage in
+older uninstrumented failures or a scheduler-independent upper latency bound.
+The observer independently permits a five-second launch and three-second DOM
+content operation, while generic next() charges their combined preparation to
+one three-second control-message wait. Phase-budget redesign is tracked in
+great_cto-p4o9.5.9.7.2.5.1.1; no deadline was increased or reset here.
+
+A separate deterministic reader bug was reproduced: an expired waiter remained
+queued and consumed the next control reply. The regression received closed at
+3084 ms but timed out waiting for it; removing only waiter cleanup reproduced
+RED (6198.580041 ms). Cleanup now removes the exact waiter in finally; the
+same regression passed GREEN (3221.3985 ms) without changing the three-second
+deadline. This prevents reply loss after expiration, but is not the cause of
+the five current readiness timeouts.
+
+Final focused observer/broker/helper/protocol/resource/documentation regression
+passed 159/159, zero skips (20566.608167 ms), log
+`/Users/Shared/great-cto-helper-final-regression-RR7y5X`. Local HOL scanner passed
+83/80 with zero Critical and the same 35 previously reviewed High findings.
+Syntax and diff checks passed. Full local CI remains unverified on this
+increment; the concurrent library result remains red. Installed-plugin parity,
+independent security review, comparative quality and native admission still
+require separate evidence. No installation, workflow enablement, release,
+merge, production activation, gate approval or frozen corpus change occurred.

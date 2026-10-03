@@ -5,6 +5,7 @@ import{fileURLToPath}from'node:url';
 import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync,renameSync}from'node:fs';
 import{join}from'node:path';
 import{boardAccessibilityBenchmarkFixture}from'../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
+import{performance}from'node:perf_hooks';
 
 const helper=fileURLToPath(new URL('../../scripts/lib/browser-guardian-helper.mjs',import.meta.url));
 const hex=n=>n.toString(16).padStart(64,'0');
@@ -13,15 +14,24 @@ const env={LANG:'C',TZ:'UTC'};
 function fixture(t){
  const child=fork(helper,[],{execPath:process.execPath,execArgv:[],env,stdio:['ignore','pipe','pipe','ipc']});
  let stdout='',stderr='';child.stdout.on('data',b=>stdout+=b);child.stderr.on('data',b=>stderr+=b);
- const messages=[],waiters=[];let exited=false;
+ const messages=[],waiters=[],timeline=[],probeTimings=[];let exited=false;
+ const startedAt=performance.now();
+ const trace=event=>{timeline.push({event,elapsedMs:Math.floor(performance.now()-startedAt)});if(timeline.length>16)timeline.shift();};
  const closed=new Promise(resolve=>child.once('exit',(code,signal)=>{exited=true;resolve({code,signal});}));
- child.on('message',m=>{if(waiters.length)waiters.shift()(m);else messages.push(m);});
- const next=async()=>{let timer;try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>waiters.push(r)),
-  new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('helper message timeout')),3000))]);}finally{clearTimeout(timer);}};
- const send=value=>{if(exited)throw Error('helper already closed');child.send(value);};
+ child.on('message',m=>{
+  if(m.kind==='probe-progress'){
+   assert.equal(m.cleanupAuthorized,false);assert.equal(m.benchmarkEligible,false);
+   assert.deepEqual(Object.keys(m.privateTiming).sort(),['actorElapsedMs','brokerElapsedMs','stage']);
+   assert.ok(probeTimings.length<32);probeTimings.push(m.privateTiming);return;
+  }
+  trace('received:'+m.kind);if(waiters.length)waiters.shift()(m);else messages.push(m);
+ });
+ const next=async(expected='message')=>{let timer,waiter;trace('waiting:'+expected);try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>{waiter=r;waiters.push(r);}),
+  new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('helper message timeout: '+JSON.stringify({expected,timeline,probeTimings}))),3000))]);}finally{clearTimeout(timer);const index=waiters.indexOf(waiter);if(index>=0)waiters.splice(index,1);}};
+ const send=value=>{if(exited)throw Error('helper already closed');trace('sent');child.send(value);};
  const sendFrame=value=>send(JSON.stringify(value));
  t.after(async()=>{if(!exited)child.kill('SIGKILL');await closed;assert.equal(stdout,'','helper must not publish private IPC data');assert.equal(stderr,'');});
- return{child,closed,next,send,sendFrame};
+ return{child,closed,next,send,sendFrame,probeTimings};
 }
 test('actual private helper processes a complete trace, no OS authority',async t=>{
  const f=fixture(t);f.sendFrame(init);const ready=await f.next();assert.equal(ready.kind,'ready');assert.equal(ready.pid,f.child.pid);assert.notEqual(ready.pid,process.pid);
@@ -37,6 +47,12 @@ test('actual private helper processes a complete trace, no OS authority',async t
  }
  f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
 });
+test('expired IPC waiter cannot consume the next control reply',async t=>{
+ const f=fixture(t);f.sendFrame(init);assert.equal((await f.next('ready')).kind,'ready');
+ await assert.rejects(f.next('deliberately-absent'),/helper message timeout/);
+ f.sendFrame({version:1,kind:'close'});
+ assert.equal((await f.next('closed')).kind,'closed');assert.equal((await f.closed).code,0);
+});
 for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-disconnect','duplicate-start','symlink-scratch','tainted-continue'])test('external guardian actual browser probe '+mode,{timeout:20000},async t=>{
  if(!['darwin','linux'].includes(process.platform)||!boardAccessibilityBenchmarkFixture().oracle.browser)return t.skip('actual browser resource broker NOT CHECKED');
  const f=fixture(t),pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -46,12 +62,12 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
  const live=()=>{const rows=table();return [...owned].filter(([pid,p])=>{const q=rows.get(pid);return q?.birth===p.birth&&!q.state.startsWith('Z');});};
  const gone=async()=>{for(let i=0;i<60;i++){if(!live().length)return true;await pause(50);}return false;};
  try{
-  f.sendFrame(init);const ready=await f.next();assert.equal(ready.kind,'ready');
+  f.sendFrame(init);const ready=await f.next('ready');assert.equal(ready.kind,'ready');
   const command=(kind,extra={})=>f.sendFrame({version:1,kind,capability:ready.binding.capability,...extra});
   command('probe-start',{mode:mode==='dom-refusal'?'dom-refusal':'normal'});
-  const started=await f.next();assert.equal(started.kind,'probe-started',JSON.stringify(started.privateDiagnostic??null));
+  const started=await f.next('probe-started');assert.equal(started.kind,'probe-started',JSON.stringify(started.privateDiagnostic??null));
   root=started.privateResources.root;rootIdentity=lstatSync(root);const scorer=started.privateResources.scorerPid;
-  const registered=await f.next();assert.equal(registered.kind,'probe-ready',JSON.stringify(registered.privateDiagnostic??null));assert.equal(registered.snapshot.state,'OBSERVING');
+  const registered=await f.next('probe-ready');assert.equal(registered.kind,'probe-ready',JSON.stringify(registered.privateDiagnostic??null));assert.equal(registered.snapshot.state,'OBSERVING');
   assert.ok(registered.snapshot.liveProcesses>1);assert.equal(registered.snapshot.cleanupAuthorized,false);
   assert.equal(registered.snapshot.registeredScratchDirectories,2);
   const rows=table();assert.equal(rows.get(scorer)?.parent,f.child.pid,'scorer must be a child of actual external helper');
@@ -77,7 +93,7 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
   else if(mode==='helper-kill'||mode==='parent-disconnect'){
    const exit=await f.closed;if(mode==='helper-kill')assert.equal(exit.signal,'SIGKILL');else assert.equal(exit.code,1);
   }else{
-   const ended=await f.next();assert.equal(ended.kind,'probe-ended');assert.equal(ended.snapshot.cleanupAuthorized,false);
+   const ended=await f.next('probe-ended');assert.equal(ended.kind,'probe-ended');assert.equal(ended.snapshot.cleanupAuthorized,false);
    assert.equal(ended.benchmarkEligible,false);
    if(mode==='scorer-kill'){assert.equal(ended.signal,'SIGKILL');assert.equal(ended.probeAdmitted,null);}
    else{assert.equal(ended.code,0);assert.equal(ended.probeAdmitted,mode!=='dom-refusal');}
@@ -115,6 +131,8 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
    f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
   }
   t.diagnostic(mode+': external helper owns '+owned.size+' captured scorer/browser processes; profile/artifacts '+(retained?'retained':'removed')+' before fixture cleanup');
+  assert.ok(f.probeTimings.some(x=>x.stage==='resource-barrier'),'actual actor stage evidence required');
+  t.diagnostic(mode+': private actor timing '+JSON.stringify(f.probeTimings));
  }finally{
   if(f.child.exitCode===null&&f.child.signalCode===null)f.child.kill('SIGKILL');await f.closed;
   for(const [pid]of live().reverse())try{process.kill(pid,'SIGKILL');}catch{}
@@ -206,7 +224,7 @@ process.on('message',raw=>child.send(raw));
 child.send(JSON.stringify(config.init));`;
  const parent=spawn(process.execPath,['--input-type=module','-e',program,JSON.stringify({helper,init})],{env,stdio:['ignore','ignore','ignore','ipc']});
  const closed=new Promise(r=>parent.once('exit',(code,signal)=>r({code,signal}))),messages=[],waiters=[];
- parent.on('message',m=>{if(waiters.length)waiters.shift()(m);else messages.push(m);});
+ parent.on('message',m=>{if(m.kind==='probe-progress')return;if(waiters.length)waiters.shift()(m);else messages.push(m);});
  const next=async()=>{let timer;try{return await Promise.race([messages.length?Promise.resolve(messages.shift()):new Promise(r=>waiters.push(r)),
   new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('nested parent message timeout')),3000))]);}finally{clearTimeout(timer);}};
  const pause=ms=>new Promise(r=>setTimeout(r,ms));

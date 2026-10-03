@@ -1,6 +1,9 @@
 import {fork} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
 import {createBrowserResourceOwner} from './browser-guardian-resources.mjs';
+import {performance} from 'node:perf_hooks';
+
+const timingStages=new Set(['recipe','scorer-import','browser-load','observation','browser-launch','browser-launched','context-create','page-create','dom-content','resource-barrier','dom-observation','observation-complete']);
 
 // Explicit fixed-fixture development probe. No arbitrary executable, oracle,
 // path, environment, command, signals or deletion authority is accepted.
@@ -12,6 +15,7 @@ export function startBrowserGuardianProbe(mode,emit){
   stdio:['ignore','ignore','ignore','ipc']});
  let registered=false,released=false,closed=false,failed=false,done;
  let stage='launch',failureStage=null,probeStage=null,probeReason=null,directExit=null;
+ const startedAt=performance.now(),timings=[];
  const privateDiagnostic=()=>Object.freeze({stage,failureStage,probeStage,probeReason,directExit,
   resource:owner.privateDiagnostic(),descendantQuiescenceVerified:false,benchmarkEligible:false});
  const unavailable=()=>{if(failed)return;failureStage=stage;failed=true;emit({kind:'probe-unavailable',privateDiagnostic:privateDiagnostic(),cleanupAuthorized:false,benchmarkEligible:false});if(child.connected)child.disconnect();};
@@ -23,7 +27,15 @@ export function startBrowserGuardianProbe(mode,emit){
    stage='resource-frame';
    if(failed||closed||typeof raw!=='string'||Buffer.byteLength(raw)>4096)throw Error('invalid probe resources');
    const m=JSON.parse(raw);if(JSON.stringify(m)!==raw)throw Error('invalid probe resources');
-   if(m.kind==='resources'){
+   if(m.kind==='timing'){
+    if(Object.keys(m).sort().join(',')!=='elapsedMs,kind,stage'||!timingStages.has(m.stage)
+     ||!Number.isSafeInteger(m.elapsedMs)||m.elapsedMs<0||m.elapsedMs>60000||timings.length>=32
+     ||(timings.length&&m.elapsedMs<timings.at(-1).actorElapsedMs))throw Error('invalid probe timing');
+    const timing=Object.freeze({stage:m.stage,actorElapsedMs:m.elapsedMs,brokerElapsedMs:Math.floor(performance.now()-startedAt)});
+    timings.push(timing);
+    // Private diagnostic only: no resources, capability, admission or timer reset.
+    emit({kind:'probe-progress',privateTiming:timing,cleanupAuthorized:false,benchmarkEligible:false});
+   }else if(m.kind==='resources'){
     if(registered||Object.keys(m).sort().join(',')!=='kind,profilePath,roots')throw Error('invalid probe resources');
     stage='registration';const snapshot=owner.register({scorerPid:child.pid,browserRoots:m.roots,profilePath:m.profilePath});
     if(snapshot.state!=='OBSERVING')throw Error('invalid probe resources');registered=true;
