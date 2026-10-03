@@ -1,7 +1,6 @@
 import { reversibilityOf } from '../../../scripts/lib/gate-reversibility.mjs';
 import fs from 'fs';
 import path from 'path';
-import os from 'os';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
 import { getTasks } from './beads.mjs';
@@ -21,7 +20,6 @@ function gateNameOf(task) {
 }
 
 function getMemory(cwd = process.cwd()) {
-  const home = os.homedir();
   const layers = [
     // Project-local (.great_cto/) — L1 archetype + L2 codebase + L3 retros
     { id: 'project',     scope: 'project', layer: 'L1', name: 'PROJECT.md',    desc: 'Archetype, size, compliance, owners',           path: path.join(cwd, '.great_cto', 'PROJECT.md') },
@@ -33,9 +31,9 @@ function getMemory(cwd = process.cwd()) {
     { id: 'handoff',     scope: 'project', layer: 'L3', name: 'HANDOFF.md',    desc: 'Auto-written on context compaction',            path: path.join(cwd, '.great_cto', 'HANDOFF.md') },
     { id: 'local',       scope: 'project', layer: 'L3', name: 'local.md',      desc: 'Project-local notes (gitignored)',              path: path.join(cwd, '.great_cto', 'local.md') },
     // Cross-project (~/.great_cto/) — L4 global memory shared across all projects
-    { id: 'g-decisions', scope: 'global',  layer: 'L4', name: 'decisions.md',  desc: 'Append-only ADR log — every gate approval',     path: path.join(home, '.great_cto', 'decisions.md') },
-    { id: 'g-prefs',     scope: 'global',  layer: 'L4', name: 'preferences.md',desc: 'User-level CTO preferences (style, defaults)',  path: path.join(home, '.great_cto', 'preferences.md') },
-    { id: 'g-lessons',   scope: 'global',  layer: 'L4', name: 'lessons.md',    desc: 'Cross-project lessons promoted from L3',        path: path.join(home, '.great_cto', 'lessons.md') },
+    { id: 'g-decisions', scope: 'global',  layer: 'L4', name: 'decisions.md',  desc: 'Append-only ADR log — every gate approval',     path: path.join(GREAT_CTO_DIR, 'decisions.md') },
+    { id: 'g-prefs',     scope: 'global',  layer: 'L4', name: 'preferences.md',desc: 'User-level CTO preferences (style, defaults)',  path: path.join(GREAT_CTO_DIR, 'preferences.md') },
+    { id: 'g-lessons',   scope: 'global',  layer: 'L4', name: 'lessons.md',    desc: 'Cross-project lessons promoted from L3',        path: path.join(GREAT_CTO_DIR, 'lessons.md') },
   ];
   const result = layers.map(l => ({
     ...l,
@@ -45,7 +43,7 @@ function getMemory(cwd = process.cwd()) {
     // is photographed. The layer already knows its scope, so the display form is
     // derived rather than guessed.
     displayPath: l.scope === 'global'
-      ? path.join('~', path.relative(home, l.path)).split(path.sep).join('/')
+      ? path.join(process.env.GREAT_CTO_HOME ? '$GREAT_CTO_HOME' : path.join('~', '.great_cto'), path.relative(GREAT_CTO_DIR, l.path)).split(path.sep).join('/')
       : path.relative(cwd, l.path).split(path.sep).join('/'),
     content: readFileSafe(l.path),
     exists: fs.existsSync(l.path),

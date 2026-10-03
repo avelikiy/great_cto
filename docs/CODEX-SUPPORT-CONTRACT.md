@@ -31,6 +31,13 @@ Codex sessions outside this controller do not inherit its guarantees.
 
 ## Execution and release requirements
 
+Controlled delivery requires a readable Git repository with an initial commit
+and complete input/output/gate receipts. Missing or truncated receipts refuse
+dispatch, verification and approval, including saved legacy records; no null-to-null
+comparison attests source identity. Explicit non-Git research is report-only and
+labeled as artifact evidence, not Git-tree or product-delivery attestation. See
+the [controlled receipt boundary](analysis/2026-10-02-controlled-receipt-boundary.md).
+
 Build/test commands execute repository code. Command-name allowlists alone are
 not a sandbox. An executor must enforce writable paths, network policy, secret
 access, runtime limits and artifact collection. The semantic verifier cannot

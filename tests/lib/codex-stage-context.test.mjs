@@ -12,19 +12,22 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { newRun, runStage as stage, approve, buildStageContext, verifyStage, CONTEXT_BUDGET_BYTES } from '../../scripts/lib/codex-pipeline.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 const sha = (t) => createHash('sha256').update(t).digest('hex');
 
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'codex-context-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = mkdtempSync(join(tmpdir(), 'codex-context-')), root = join(dir, 'project');
+  mkdirSync(root);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const pluginRoot = join(root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'),
     '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\nnext = []');
   for (const role of ['writer', 'reviewer']) writeFileSync(join(pluginRoot, `agents/${role}.md`), `You are ${role}.`);
-  const store = join(root, 'store');
+  const store = join(dir, 'store');
+  commitFixture(root);
   const state = newRun({ root, pluginRoot, prompt: 'Build a fixture', allowed: ['src', 'docs'], entry: 'writer' });
   return { state, store };
 }

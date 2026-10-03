@@ -45,7 +45,7 @@ export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.e
       '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--json-schema', PROPOSAL_SCHEMA];
     const group = process.platform !== 'win32';
     const proc = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], detached: group });
-    let out = '', err = '', settled = false, timedOut = false;
+    let out = '', err = '', settled = false, timedOut = false, stdinError = null;
     const finish = result => { if (!settled) { settled = true; clearTimeout(timer); resolve(result); } };
     const kill = () => {
       try { if (group && proc.pid) process.kill(-proc.pid, 'SIGKILL'); else proc.kill('SIGKILL'); }
@@ -54,15 +54,23 @@ export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.e
     const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
     proc.stdout.on('data', bytes => { out += String(bytes); });
     proc.stderr.on('data', bytes => { err += String(bytes); });
-    proc.stdin.on('error', () => { /* early CLI exit is reported by close */ });
+    const inputFailed = error => {
+      stdinError ||= typeof error?.code === 'string' ? error.code : 'STDIN_ERROR';
+      kill(); // incomplete input must not produce an accepted proposal
+    };
+    proc.stdin.on('error', inputFailed);
     proc.on('error', error => finish({ state: 'unreadable', finalText: null, errors: [String(error.message)], usage: null, code: null }));
     proc.on('close', code => {
       if (group && proc.pid) { try { process.kill(-proc.pid, 'SIGKILL'); } catch { /* gone */ } }
       const parsed = parseClaudeResult(out);
       if (err.trim()) parsed.errors.push(err.trim().slice(-4000));
+      if (stdinError) {
+        parsed.state = 'unreadable'; parsed.text = null; parsed.finalText = null;
+        parsed.errors.push(`prompt transport failed: ${stdinError}`);
+      }
       if (timedOut) { parsed.state = 'unreadable'; parsed.errors.push(`timed out after ${timeoutMs}ms`); }
       finish({ ...parsed, code, timedOut });
     });
-    proc.stdin.end(prompt);
+    try { proc.stdin.end(prompt); } catch (error) { inputFailed(error); }
   });
 }

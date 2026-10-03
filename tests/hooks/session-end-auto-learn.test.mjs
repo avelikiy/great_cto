@@ -25,6 +25,12 @@ function run(payload = {}, { env = {}, config = null, dirty = false } = {}) {
   // whether a test sees a learner.
   const home = join(projectDir, '.home');
   mkdirSync(join(home, '.great_cto'), { recursive: true });
+  // This suite exercises learning, not Beads. The installed bd initializes HOME
+  // (and can send telemetry asynchronously) even when no project database exists.
+  // Do not let an unrelated real CLI race fixture cleanup or contact the network.
+  const bin = join(projectDir, '.bin');
+  mkdirSync(bin);
+  writeFileSync(join(bin, 'bd'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
   if (config) writeFileSync(join(home, '.great_cto', 'config.json'), JSON.stringify(config));
   // A session that changed nothing is skipped on purpose (learn-worth-it); a test of
   // the learner needs a session with something in it.
@@ -40,6 +46,7 @@ function run(payload = {}, { env = {}, config = null, dirty = false } = {}) {
     GREAT_CTO_DISABLE_SESSION_LEARNING: '',
     GREAT_CTO_AUTO_LEARN: '',
     ...env,
+    PATH: [bin, env.PATH ?? process.env.PATH ?? ''].join(':'),
   };
 
   const r = spawnSync('node', [HOOK], {
@@ -146,6 +153,17 @@ test('GREAT_CTO_AUTO_LEARN=0 wins over the config file', () => {
 // ═══════════════════════════════════════════════════════════════════════════
 // Flag absent — no spawn
 // ═══════════════════════════════════════════════════════════════════════════
+
+test('learning tests do not initialize real Beads state in fixture HOME', () => {
+  const res = run({});
+  try {
+    assert.equal(res.exit, 0);
+    assert.ok(!existsSync(join(res.projectDir, '.home', '.beads')));
+    assert.ok(!existsSync(join(res.projectDir, '.home', '.config')));
+  } finally {
+    res.cleanup();
+  }
+});
 
 test('without GREAT_CTO_AUTO_LEARN flag no marker file is created', () => {
   const res = run({});

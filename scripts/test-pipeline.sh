@@ -68,30 +68,6 @@ else
   C_OK=""; C_FAIL=""; C_DIM=""; C_HEAD=""; C_RESET=""; C_WARN=""
 fi
 
-# wait_http URL SECONDS — poll until it answers, or give up.
-#
-# The three server checks below used `sleep 1` and then curled once. That is an
-# assumption about how fast a process binds a port, and under a loaded run — which
-# is exactly what ci-local is — it is wrong: the MCP check failed there and passed
-# 3/3 in isolation, which is the signature of a fixed wait, not of a broken server.
-#
-# Polling turns "it was not ready in one second" into "it never became ready",
-# which is the thing the check meant to assert in the first place.
-wait_http() {
-  local url="$1" limit="${2:-10}" i=0
-  while [ "$i" -lt "$((limit * 10))" ]; do
-    curl -sf "$url" >/dev/null 2>&1 && return 0
-    sleep 0.1
-    i=$((i + 1))
-  done
-  return 1
-}
-# Exported: `check` runs each command in a fresh `bash -c`, which does not inherit
-# shell functions. Without this the helper is "command not found" and three checks
-# fail for a reason that has nothing to do with what they test — which is how the
-# first cut of this change turned one failure into three.
-export -f wait_http
-
 PASS=0; FAIL=0; SKIP=0
 declare -a FAILURES
 
@@ -148,10 +124,10 @@ if [ "$SKIP_L1" = "1" ]; then
   skipped "L1 (--skip-l1)"
 else
   check "npm test (CLI unit tests)" \
-    bash -c "cd packages/cli && npm test --silent >/tmp/gctest-l1-test.log 2>&1"
+    bash -c "cd packages/cli && npm test --silent"
 
   check "archetype regression (28 cases)" \
-    bash -c "cd packages/cli && node test-archetypes.mjs >/tmp/gctest-l1-arch.log 2>&1 && grep -q 'Failed: 0/' /tmp/gctest-l1-arch.log"
+    bash -c 'cd packages/cli && out=$(node test-archetypes.mjs 2>&1) && printf "%s\n" "$out" && printf "%s\n" "$out" | grep -q "Failed: 0/"'
 
   check "board server.mjs syntax" \
     node --check packages/board/server.mjs
@@ -185,7 +161,7 @@ else
   # is absent this reports absent, and absence never reads as a pass.
   if ls tests/board/test_*.py >/dev/null 2>&1; then
     check "board API regression tests (pytest)" \
-      bash -c "pytest tests/board/ --tb=line -q >/tmp/gctest-l1-board.log 2>&1 && grep -qE '^[0-9]+ passed' /tmp/gctest-l1-board.log"
+      bash -c 'out=$(pytest tests/board/ --tb=line -q 2>&1) && printf "%s\n" "$out" && printf "%s\n" "$out" | grep -qE "^[0-9]+ passed"'
   else
     skipped "board pytest — suite is not in this repository (.gitignore:90); the committed Node board tests cover this surface"
   fi
@@ -253,52 +229,16 @@ else
   check "report agents --format json returns agent records" \
     bash -c "$CLI report agents --period 30d --format json 2>/dev/null | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"type\"]==\"agents\"; assert \"agents\" in d'"
 
-  check "mcp --sse server starts and /healthz returns valid JSON" \
-    bash -c "
-      $CLI mcp --sse --port 8766 >/dev/null 2>&1 &
-      MCP_PID=\$!
-      wait_http http://127.0.0.1:8766/healthz 10
-      out=\$(curl -sf http://127.0.0.1:8766/healthz 2>/dev/null)
-      kill \$MCP_PID 2>/dev/null
-      wait \$MCP_PID 2>/dev/null
-      echo \"\$out\" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert d[\"transport\"]==\"sse\"'
-    "
+  check "isolated MCP owned listener, SSE initialize and seven-tool inventory" \
+    node "$ROOT/scripts/lib/mcp-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs"
 
-  # HMAC tests use canonical name 'github'. Backup/restore any existing config.
+  # Probe the installed artifact, never back up or mutate operator config.
+  # Incompatible artifacts fail explicitly before registration or server start.
   check "serve enforces HMAC: invalid signature returns 401" \
-    bash -c "
-      cfg=~/.great_cto/webhooks.json
-      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
-      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3144 >/dev/null 2>&1 &
-      SRV_PID=\$!
-      wait_http http://127.0.0.1:3144/ 10
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:3144/webhook/github)
-      kill \$SRV_PID 2>/dev/null
-      wait \$SRV_PID 2>/dev/null
-      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
-      [ \"\$code\" = '401' ]
-    "
+    node "$ROOT/scripts/lib/webhook-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs" invalid
 
-  # The digest is the LAST field: OpenSSL 3 prints `SHA2-256(stdin)= <hex>`, macOS's
-  # /usr/bin/openssl (LibreSSL) prints the bare hex, where `$2` is empty and the
-  # check signed with nothing. It went red on 2026-09-11 the day PATH put /usr/bin first.
   check "serve enforces HMAC: valid signature returns 200" \
-    bash -c "
-      cfg=~/.great_cto/webhooks.json
-      [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
-      $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3145 >/dev/null 2>&1 &
-      SRV_PID=\$!
-      wait_http http://127.0.0.1:3145/ 10
-      payload='{\"action\":\"opened\",\"number\":1,\"repository\":{\"full_name\":\"x/y\"}}'
-      sig=\$(echo -n \"\$payload\" | openssl dgst -sha256 -hmac 'testsecret123' | awk '{print \"sha256=\"\$NF}')
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:3145/webhook/github)
-      kill \$SRV_PID 2>/dev/null
-      wait \$SRV_PID 2>/dev/null
-      [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
-      [ \"\$code\" = '200' ]
-    "
+    node "$ROOT/scripts/lib/webhook-smoke.mjs" "$PLUGIN_DIR/packages/cli/index.mjs" valid
 fi
 
 # =============================================================================
@@ -328,175 +268,44 @@ else
   check "cost-guard runs cleanly without budget" \
     bash -c "echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"/start foo\"}' | node $HOOKS/cost-guard.mjs"
 
-  check "session-end produces a snapshot directive" \
-    bash -c "echo '{\"hook_event_name\":\"SessionEnd\",\"cwd\":\"$ROOT\"}' | node $HOOKS/session-end.mjs"
+  check "session-end writes an actual isolated fixture snapshot" \
+    node "$ROOT/scripts/lib/session-end-smoke.mjs" "$HOOKS/session-end.mjs"
+  skipped "SessionEnd actual git/Beads capture (fixture stubs; NOT CHECKED)"
+  skipped "SessionEnd actual lessons merge (launch intercepted; NOT CHECKED)"
+  skipped "SessionEnd paid learner (explicitly off; NOT CHECKED)"
 fi
 
 # =============================================================================
 # L4 — Board API
 # =============================================================================
 section "L4 — Board API (~30s)"
-# L4 starts a board of its own. It used to start it on 3141 and `pkill` anything
-# already serving there first — so running the suite silently killed the board
-# the operator had open, and the run it was measuring was the one it disturbed.
-# A test that has to stop the system to observe it is measuring itself.
-#
-# So: an ephemeral port, and a cleanup that kills the process THIS script
-# started and nothing else. BOARD_PORT is read by packages/board/lib/config.mjs.
-BOARD_PORT_TEST=""
-BOARD_URL=""
-BOARD_PID=""
-cleanup_board() {
-  if [ -n "$BOARD_PID" ]; then
-    kill "$BOARD_PID" 2>/dev/null || true
-    wait "$BOARD_PID" 2>/dev/null || true
-  fi
-}
-trap cleanup_board EXIT
-
+# Probe the installed artifact in a private fixture. Unsupported isolation is
+# a failed NOT CHECKED check, never a fallback to operator state.
 if [ "$SKIP_L4" = "1" ]; then
   skipped "L4 (--skip-l4)"
 elif [ -z "$PLUGIN_DIR" ]; then
   skipped "L4 (no plugin dir)"
-elif ! command -v curl >/dev/null; then
-  skipped "L4 (no curl)"
 else
-  # An ephemeral port the OS says is free, asked for once and reused for the
-  # whole level. Not a fixed high port: two runs in parallel would collide and
-  # the second would test the first one's server.
-  BOARD_PORT_TEST=$(node -e '
-    const net = require("node:net"); const s = net.createServer();
-    s.listen(0, "127.0.0.1", () => { const p = s.address().port; s.close(() => console.log(p)); });
-  ')
-  BOARD_URL="http://127.0.0.1:$BOARD_PORT_TEST"
-  printf "  ${C_DIM}board under test → %s (operator's board on 3141 is untouched)${C_RESET}\n" "$BOARD_URL"
-
-  # --no-open: the server opens a real browser tab on start unless told not to,
-      # and a test run must not take over the operator's screen.
-      BOARD_PORT="$BOARD_PORT_TEST" nohup node "$PLUGIN_DIR/packages/board/server.mjs" --no-open >/tmp/gctest-l4-board.log 2>&1 &
-  BOARD_PID=$!
-  # Wait up to 5s for server to listen
-  for i in 1 2 3 4 5; do
-    curl -sf $BOARD_URL/api/projects >/dev/null 2>&1 && break
-    sleep 1
-  done
-
-  if ! curl -sf $BOARD_URL/api/projects >/dev/null 2>&1; then
-    printf "  ${C_FAIL}✗${C_RESET} board failed to start\n"
-    cat /tmp/gctest-l4-board.log | tail -5 | sed 's/^/      /'
-    FAIL=$((FAIL+1)); FAILURES+=("board startup")
-  else
-    for endpoint in /api/projects /api/agents-installed /api/metrics /api/cost \
-                    /api/memory /api/inbox /api/resume /api/decisions \
-                    /api/pipeline /api/logs /api/tasks; do
-      check "$endpoint returns valid JSON" \
-        bash -c "curl -sf '$BOARD_URL$endpoint' | python3 -m json.tool >/dev/null"
-    done
-
-    check "agents-installed matches the agents/ directory" \
-      bash -c "n=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(json.load(sys.stdin)[\"total\"])'); r=\$(ls agents/*.md | wc -l | tr -d ' '); [ \"\$n\" = \"\$r\" ] || { echo \"board reports \$n agents, agents/ holds \$r\" >&2; exit 1; }"
-
-    check "agents-installed includes new agents (continuous-learner, edtech, gov, insurance reviewers)" \
-      bash -c "names=\$(curl -sf $BOARD_URL/api/agents-installed | python3 -c 'import sys,json; print(\" \".join(a[\"slug\"] for a in json.load(sys.stdin)[\"agents\"]))'); for must in continuous-learner edtech-reviewer gov-reviewer insurance-reviewer; do echo \"\$names\" | grep -qw \"\$must\" || exit 1; done"
-
-    check "memory endpoint surfaces exactly 11 layers" \
-      bash -c "n=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; print(len(json.load(sys.stdin)[\"layers\"]))'); [ \"\$n\" = '11' ]"
-
-    check "memory has both project + global scopes" \
-      bash -c "scopes=\$(curl -sf $BOARD_URL/api/memory | python3 -c 'import sys,json; m=json.load(sys.stdin); print(\" \".join(set(l.get(\"scope\",\"\") for l in m[\"logs\" if \"logs\" in m else \"layers\"])))'); echo \"\$scopes\" | grep -q project && echo \"\$scopes\" | grep -q global"
-
-    # Math invariant — only applies to task-estimation source (both rates
-    # hardcoded: $0.30/AI-hr ÷ $150/human-hr = 500x in v2.5.9+; was 7500x
-    # earlier with the unrealistic $0.02/hr default). PLAN sources use
-    # real measured numbers and have project-specific ratios.
-    check "metrics math: human/llm ratio ≈ 500× when source=tasks" \
-      bash -c "curl -sf '$BOARD_URL/api/projects' | python3 -c '
-import sys,json,urllib.request
-projs = json.load(sys.stdin)
-projs = projs if isinstance(projs,list) else projs.get(\"projects\",[])
-for p in projs:
-    slug = p.get(\"slug\") or p.get(\"name\")
-    if not slug: continue
-    m = json.load(urllib.request.urlopen(f\"$BOARD_URL/api/metrics?project={slug}\"))
-    cost = m[\"cost\"]
-    if cost[\"llm_usd\"] <= 0: continue
-    if cost.get(\"source\") != \"tasks\": continue
-    ratio = cost[\"human_usd\"] / cost[\"llm_usd\"]
-    # Default rates: \$0.30/AI-hr (Sonnet+Haiku mix) vs \$150/human-hr (mid-level
-    # fully-loaded) → exactly 500x. Empirical drift from per-agent rounding
-    # is < 5%. Tolerance 470-530 covers all observed projects.
-    assert 470 <= ratio <= 530, f\"task-source ratio drift: {ratio} (expected ~500)\"
-    sys.exit(0)
-sys.exit(0)  # no task-source data → vacuously pass
-'"
-  fi
+  check "isolated board: 11 JSON APIs, agent inventory, memory scopes and nonvacuous task rate ratio" \
+    node "$ROOT/scripts/lib/board-smoke.mjs" "$PLUGIN_DIR/packages/board/server.mjs" "$ROOT/agents"
+  skipped "Board actual git/Beads capture (fixture adapter; NOT CHECKED)"
+  skipped "Board notification delivery (disabled fixture sinks; NOT CHECKED)"
+  skipped "Board release discovery/cron (not exercised; NOT CHECKED)"
+  skipped "Board operator agent inventory (copied fixture; NOT CHECKED; parity remains in L5)"
 fi
 
 # =============================================================================
 # L4b — Phase task lifecycle (v2.5.7+ phase-task.sh)
 # =============================================================================
-section "L4b — Phase task lifecycle (~10s)"
+section "L4b — Phase task lifecycle (isolated Beads fixture)"
 if [ "$SKIP_L4" = "1" ]; then
   skipped "L4b (--skip-l4)"
 elif ! command -v bd >/dev/null; then
   skipped "L4b (no bd CLI)"
 else
-  PT="$ROOT/scripts/phase-task.sh"
-  # bd rejects directory names containing dots (`tmp.XXXX` from mktemp).
-  # Use a stable safe path.
-  TMP="/tmp/gctest-phasetask-$$"
-  rm -rf "$TMP" && mkdir -p "$TMP"
-  cd "$TMP" && git init -q && bd init -q >/dev/null 2>&1
-
-  GATE=$(bd create "gate:test" --label gate 2>&1 | grep -oE '[a-z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
-
-  check "phase-task open creates labelled task with correct prefix" \
-    bash -c "
-      cd '$TMP'
-      ID=\$(bash '$PT' open architect test-feature --parent '$GATE')
-      [ -n \"\$ID\" ] && bd show \"\$ID\" >/dev/null 2>&1
-    "
-
-  check "phase-task open is idempotent — same id on re-open" \
-    bash -c "
-      cd '$TMP'
-      A=\$(bash '$PT' open architect test-feature)
-      B=\$(bash '$PT' open architect test-feature)
-      [ \"\$A\" = \"\$B\" ]
-    "
-
-  check "phase-task close --verdict ok closes despite open gate dependency" \
-    bash -c "
-      cd '$TMP'
-      ID=\$(bash '$PT' open senior-dev test-feature --parent '$GATE')
-      bash '$PT' start \"\$ID\" >/dev/null
-      bash '$PT' close \"\$ID\" --verdict ok >/dev/null
-      bd show \"\$ID\" 2>&1 | grep -iE 'closed' >/dev/null
-    "
-
-  check "phase-task close --verdict fail marks blocked" \
-    bash -c "
-      cd '$TMP'
-      ID=\$(bash '$PT' open qa-engineer test-feature)
-      bash '$PT' close \"\$ID\" --verdict fail --notes 'test failure' >/dev/null
-      bd show \"\$ID\" 2>&1 | grep -iE 'blocked' >/dev/null
-    "
-
-  check "full 8-stage pipeline → 8 closed phase tasks" \
-    bash -c "
-      tmp=/tmp/gctest-pipeline-\$\$ ; rm -rf \"\$tmp\" && mkdir -p \"\$tmp\" && cd \"\$tmp\" && git init -q && bd init -q >/dev/null 2>&1
-      gate=\$(bd create 'gate' --label gate 2>&1 | grep -oE '[a-z][a-zA-Z0-9_-]+-[a-z0-9]+' | head -1)
-      for a in architect pm senior-dev code-reviewer qa-engineer security-officer performance-engineer devops; do
-        tid=\$(bash '$PT' open \$a feat --parent \$gate)
-        bash '$PT' close \"\$tid\" --verdict ok >/dev/null
-      done
-      n=\$(bd list --status closed 2>&1 | grep -cE '^✓ [a-z]' | tr -d ' ')
-      rm -rf \"\$tmp\"
-      [ \"\$n\" -ge 8 ]
-    "
-
-  cd "$ROOT"
-  rm -rf "$TMP"
+  check "phase-task lifecycle: five checks with actual isolated Beads; gate stays open" \
+    node "$ROOT/scripts/lib/phase-smoke.mjs" "$ROOT/scripts/phase-task.sh" "$(command -v bd)"
+  skipped "L4b actual role/model execution, deployment and human approval (synthetic verdicts; NOT CHECKED)"
 fi
 
 # =============================================================================
@@ -574,5 +383,9 @@ if [ "$FAIL" -gt 0 ]; then
 fi
 
 echo
-echo "${C_OK}All checks passed. Pipeline ready to merge.${C_RESET}"
+if [ "$SKIP" -gt 0 ]; then
+  echo "${C_WARN}Executed checks passed; $SKIP checks NOT CHECKED. Full pipeline readiness is unproven.${C_RESET}"
+else
+  echo "${C_OK}Automated checks passed. Merge still requires applicable independent review and human/security gates.${C_RESET}"
+fi
 exit 0

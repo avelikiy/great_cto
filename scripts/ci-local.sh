@@ -27,6 +27,10 @@ export GIT_CONFIG_COUNT=2
 export GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
 export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
 
+# Test imports must not leave opaque Python bytecode inside the plugin tree.
+# A subsequent security scan must inspect shipped source, not local caches.
+export PYTHONDONTWRITEBYTECODE=1
+
 E2E=0; QUICK=0
 for a in "$@"; do
   case "$a" in

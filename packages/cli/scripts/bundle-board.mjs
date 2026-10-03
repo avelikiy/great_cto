@@ -12,6 +12,7 @@
 import { cpSync, mkdirSync, rmSync, existsSync, copyFileSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { runtimeImportClosure } from './runtime-import-closure.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url)); // packages/cli/scripts
 const cliRoot = join(here, "..");                     // packages/cli
@@ -72,45 +73,27 @@ const codexController = join(repoRoot, "scripts", "codex-pipeline.mjs");
 const taskController = join(repoRoot, "scripts", "work-task.mjs");
 for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskController, "utf8")].join("\n").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
 
-// Then their own siblings, to a fixpoint.
+// Follow literal imports across directories, not only scripts/lib siblings.
+// controlled-specialists imports ../hooks/auto-attach-reviewers.mjs. A sibling
+// scan shipped a CLI whose --version worked while codex-host could not start.
 //
 // The direct scan alone was WRONG and would have shipped a broken bundle:
 // `gate-plan.mjs` imports `./change-tier.mjs` and `./judge-model.mjs`, which the
 // board never names itself. Dropping them for being unmentioned would have
 // replaced two missing files with two different missing files — a fix that moves
 // the defect rather than removing it.
-for (let grew = true; grew; ) {
-  grew = false;
-  for (const f of [...needed]) {
-    const src = join(repoRoot, "scripts", "lib", f);
-    if (!existsSync(src)) continue;
-    for (const m of readFileSync(src, "utf8").matchAll(/from\s+['"]\.\/([\w.-]+\.mjs)['"]|import\(\s*['"]\.\/([\w.-]+\.mjs)['"]/g)) {
-      const dep = m[1] || m[2];
-      if (dep && !needed.has(dep)) { needed.add(dep); grew = true; }
-    }
-  }
+const runtimeFiles = runtimeImportClosure(repoRoot, [codexController, taskController,
+  ...boardFiles.filter(file => !skip.test(file)),
+  ...[...needed].map(f => join(repoRoot, "scripts", "lib", f))]);
+for (const src of runtimeFiles) {
+  const dest = join(out, src.slice(repoRoot.length + 1));
+  mkdirSync(dirname(dest), { recursive: true });
+  copyFileSync(src, dest);
 }
 
-mkdirSync(join(out, "scripts", "lib"), { recursive: true });
-const missing = [];
-for (const f of [...needed].sort()) {
-  const src = join(repoRoot, "scripts", "lib", f);
-  if (!existsSync(src)) { missing.push(f); continue; }
-  copyFileSync(src, join(out, "scripts", "lib", f));
-}
-
-copyFileSync(taskController, join(out, "scripts", "work-task.mjs"));
-copyFileSync(codexController, join(out, "scripts", "codex-pipeline.mjs"));
 mkdirSync(join(out, "shared"), { recursive: true });
 copyFileSync(join(repoRoot, "shared", "pipeline.toml"), join(out, "shared", "pipeline.toml"));
-// Loud, not best-effort. Shipping a bundle whose imports cannot resolve is the
-// failure this block exists to prevent, so it must not be possible to do it
-// quietly.
-if (missing.length) {
-  console.error(`bundle-board: the board imports scripts/lib files that do not exist: ${missing.join(", ")}`);
-  process.exit(1);
-}
-console.log(`bundle-board: copied ${needed.size - missing.length} shared script(s): ${[...needed].sort().join(", ")}`);
+console.log(`bundle-board: copied ${runtimeFiles.length} runtime module(s)`);
 
 // gate-plan.mjs → ../../packages/cli/dist/archetypes.js
 mkdirSync(join(out, "packages", "cli", "dist"), { recursive: true });

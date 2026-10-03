@@ -43,7 +43,6 @@ const KNOWN_LEAKERS = new Set([
   'tests/lib/acceptance-verify.test.mjs',
   'tests/lib/agent-shield.test.mjs',
   'tests/lib/cost-runs.test.mjs',
-  'tests/lib/count-skips.test.mjs',
   'tests/lib/cross-model-review-provider.test.mjs',
   'tests/lib/doc-links.test.mjs',
   'tests/lib/exceptions.test.mjs',

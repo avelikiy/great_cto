@@ -146,6 +146,10 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
   if (env.skip) return t.skip(env.skip);
   try {
     const { page } = await openBoard(env, '#/decisions');
+    const tools = page.locator('#tools-nav');
+    assert.equal(await tools.getAttribute('open'), null, 'technical tools start collapsed');
+    await tools.locator('summary').click();
+    assert.notEqual(await tools.getAttribute('open'), null, 'Tools opens through an ordinary click');
     await page.locator('.nav-item', { hasText: 'Fleet' }).first().click();
     await page.waitForTimeout(700);
     assert.match(await page.locator('.panel.active').first().innerText(), /Fleet|agent/i,
@@ -153,6 +157,11 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
     assert.match(page.url(), /#\/fleet/, 'and the URL says where the operator is');
 
     // The nav is a tablist: a keyboard operator reaches every screen.
+    await tools.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await tools.getAttribute('open'), null, 'keyboard activation closes Tools');
+    await page.keyboard.press('Enter');
+    assert.notEqual(await tools.getAttribute('open'), null, 'keyboard activation reopens Tools');
     const ledger = page.locator('.nav-item', { hasText: 'Ledger' }).first();
     await ledger.focus();
     await page.keyboard.press('Enter');

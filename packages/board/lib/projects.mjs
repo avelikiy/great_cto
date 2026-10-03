@@ -264,11 +264,31 @@ function autoRegisterProject(dir) {
 // project that ran /audit or /start (which writes .great_cto/PROJECT.md) gets
 // auto-registered without the user having to do anything.
 // Fully async — never blocks the event loop.
+function getDiscoveryScope() {
+  const scoped = process.env.GREAT_CTO_DISCOVERY_ROOT;
+  if (scoped) {
+    if (!path.isAbsolute(scoped)) throw new Error('GREAT_CTO_DISCOVERY_ROOT must be absolute');
+    const root = fs.realpathSync(scoped);
+    if (!fs.statSync(root).isDirectory()) throw new Error('GREAT_CTO_DISCOVERY_ROOT must be a directory');
+    return { roots: [root], includeClaudeProjects: false };
+  }
+  const home = os.homedir();
+  return { roots: [
+    path.join(home, 'work'), path.join(home, 'dev'),
+    path.join(home, 'development'), path.join(home, 'code'),
+    path.join(home, 'projects'), path.join(home, 'src'),
+    path.join(home, 'Documents', 'projects'), home,
+  ], includeClaudeProjects: true };
+}
+
 async function discoverProjects() {
   const fsAsync = fs.promises;
   const HOME = os.homedir();
   const seen = new Set();
   const found = [];
+  // Resolve before scanning. A broken explicit scope must never fall back to
+  // scanning the operator's home or Claude project cache.
+  const scope = getDiscoveryScope();
 
   async function scanDir(dir, depth) {
     if (depth < 0 || seen.has(dir)) return;
@@ -298,22 +318,13 @@ async function discoverProjects() {
   }
 
   // 1) Common dev folders — top-level scan, 1-level deep
-  const roots = [
-    path.join(HOME, 'work'),
-    path.join(HOME, 'dev'),
-    path.join(HOME, 'development'),
-    path.join(HOME, 'code'),
-    path.join(HOME, 'projects'),
-    path.join(HOME, 'src'),
-    path.join(HOME, 'Documents', 'projects'),
-    HOME,
-  ];
+  const roots = scope.roots;
   for (const root of roots) {
     try { await fsAsync.access(root); await scanDir(root, 1); } catch {}
   }
 
   // 2) Claude Code's known project list (~/.claude/projects/<encoded-path>/)
-  try {
+  if (scope.includeClaudeProjects) try {
     const ccProj = path.join(HOME, '.claude', 'projects');
     await fsAsync.access(ccProj);
     const entries = await fsAsync.readdir(ccProj);
@@ -456,6 +467,7 @@ export {
   getChangeTier,
   autoRegisterProject,
   getRegistryDegradation,
+  getDiscoveryScope,
   discoverProjects,
   listProjects,
   resolveProjectCwd,

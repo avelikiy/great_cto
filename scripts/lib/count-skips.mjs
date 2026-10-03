@@ -7,7 +7,7 @@
  * ci-local's step() tees each step's output and asks this how many were skipped,
  * so the gate can keep "green" and "green with things not checked" apart.
  *
- * Only runner SUMMARY lines count — TAP `# skip N`, spec `ℹ skipped N` — summed
+ * Only runner SUMMARY lines count — TAP skip/skipped, spec and pipeline — summed
  * across every runner in the output. A test's own `# SKIP` directive is already
  * inside its runner's summary, and a test merely NAMED "skip" is not a skip.
  *
@@ -19,7 +19,11 @@ import { fileURLToPath } from 'node:url';
 
 export function countSkips(text) {
   let n = 0;
-  for (const m of String(text ?? '').matchAll(/^(?:# skip|ℹ skipped) (\d+)\s*$/gm)) n += Number(m[1]);
+  const plain = String(text ?? '').replace(/\u001b\[[0-9;]*m/g, '');
+  for (const m of plain.matchAll(/^(?:# skip(?:ped)?|ℹ skipped) (\d+)\s*$/gm)) n += Number(m[1]);
+  // test-pipeline.sh emits one final human summary, not TAP. Individual level
+  // skip messages are deliberately ignored to avoid double counting.
+  for (const m of plain.matchAll(/^\s*✓\s+\d+\s+passed\s+–\s+(\d+)\s+skipped\s*(?:\([^\n]*\))?\s*$/gm)) n += Number(m[1]);
   return n;
 }
 

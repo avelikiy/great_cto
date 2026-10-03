@@ -19,7 +19,7 @@ import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { OutgoingHook, loadConfig } from "./webhook-config.js";
 
-const DLQ_PATH = join(homedir(), ".great_cto", "webhook-dlq.log");
+const DLQ_PATH = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhook-dlq.log");
 const RETRY_DELAYS_MS = [1_000, 4_000, 16_000, 64_000]; // 4 attempts total
 
 export interface DispatchEvent {

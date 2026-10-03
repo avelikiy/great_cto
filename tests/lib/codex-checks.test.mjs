@@ -7,11 +7,13 @@ import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { runChecks, validateCheckPolicy, shellQuote } from '../../scripts/lib/codex-checks.mjs';
 import { safePath, newRun, runStage } from '../../scripts/lib/codex-pipeline.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 const image = `node@sha256:${'a'.repeat(64)}`;
 function fixture(t) {
   const root = mkdtempSync(join(tmpdir(), 'codex-check-test-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   mkdirSync(join(root, 'src')); writeFileSync(join(root, 'src/app.mjs'), 'export const x = 2;\n');
+  commitFixture(root);
   return { root, allowed: ['src'], checkPolicy: { image, inputs: ['src'], commands: [['node', '--check', 'src/app.mjs']], timeoutMs: 10000 } };
 }
 test('policy requires pinned image, argv and bounded time', () => {

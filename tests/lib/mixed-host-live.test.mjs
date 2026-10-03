@@ -14,6 +14,50 @@ const PLUGIN_ROOT = resolve(process.env.GREAT_CTO_LIVE_PLUGIN_ROOT || REPO);
 const CONTROLLER = join(PLUGIN_ROOT, 'scripts', 'codex-pipeline.mjs');
 const sha256 = bytes => createHash('sha256').update(bytes).digest('hex');
 
+test('live Claude scoped contract can be reused only after fresh Codex completeness verification',
+  { skip: process.env.GREAT_CTO_LIVE_REUSE !== '1' }, async () => {
+    const { newRun, runStage } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));
+    const base = createFixtureBase(), root = join(base, 'project'), store = join(base, 'runs');
+    mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(join(root, 'src')); mkdirSync(join(root, '.great_cto'));
+    writeFileSync(join(root, '.great_cto/PROJECT.md'), 'archetype: fintech\n');
+    writeFileSync(join(root, 'README.md'), '# Isolated arithmetic fixture\nNo payment, card, customer, network or deployment functionality.\n');
+    writeFileSync(join(root, 'src/add.mjs'), 'export function add(a, b) { return a + b; }\n');
+    execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
+    execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'reuse fixture']);
+    const gitBase = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    // The project declaration is digest-bound separately, but it is also a
+    // relevant report dependency and must be explicit in the operator closure.
+    const role = 'pci-reviewer-prebuild', scopes = { [role]: ['.great_cto/PROJECT.md', 'README.md', 'src/add.mjs'] };
+    const args = { root, pluginRoot: PLUGIN_ROOT, entry: 'senior-dev', allowed: ['src', 'docs'],
+      prompt: 'Prepare a concise PRE-BUILD PCI boundary report for a future finite-numbers-only arithmetic helper change. ' +
+        'Inspect README.md, src/add.mjs and .great_cto/PROJECT.md. No payment/card/customer/network systems exist; report these observed boundaries without certifying compliance. ' +
+        'State planned input and finite-sum checks and testable acceptance criteria, not implemented behavior. ' +
+        'Create a new Markdown report under docs/specialist-contracts/ and name it in meta.report. Do not modify implementation or approve gates.',
+      specialistPolicy: { mode: 'adaptive', workflow: 'phased-change', base: gitBase, reviewReuse: { scopes } },
+      hostRoutes: { 'pci-reviewer': 'claude-code' } };
+    const first = newRun(args), file = join(store, `${first.id}.json`);
+    const saveFirst = s => writeFileSync(file, JSON.stringify(s), { mode: 0o600 });
+    saveFirst(first); console.log(`LIVE_REUSE_ORIGINAL=${first.id} STORE=${store} PROJECT=${root}`);
+    await runStage(first, { save: saveFirst, contextStore: store });
+    assert.equal(first.results[role]?.host, 'claude-code', first.reason);
+    assert.ok(first.results[role].scopedReview, first.attempts.at(-1).scopedAttestationRefusal);
+    assert.equal(first.results[role].verification.dependencyAttestation.state, 'complete');
+    const next = newRun({ ...args, specialistPolicy: { ...args.specialistPolicy,
+      reviewReuse: { scopes, sources: { [role]: { path: file, sha256: sha256(readFileSync(file)) } } } } });
+    const nextFile = join(store, `${next.id}.json`), saveNext = s => writeFileSync(nextFile, JSON.stringify(s), { mode: 0o600 });
+    saveNext(next);
+    await runStage(next, { save: saveNext, contextStore: store });
+    assert.equal(next.results[role]?.reuse?.runId, first.id, next.reason || next.attempts.at(-1).reuseRefusal);
+    assert.equal(next.results[role].verification.state, 'verified');
+    assert.equal(next.results[role].verification.dependencyAttestation.state, 'complete');
+    assert.equal(next.results[role].scopedReview, undefined);
+    assert.equal(next.pending, null); assert.equal(next.approvals.length, 0);
+    assert.equal(next.results['senior-dev'], undefined);
+    console.log(JSON.stringify({ original: first.id, reused: next.id, status: next.status,
+      report: next.results[role].meta.report, verification: next.results[role].verification,
+      gatesApproved: 0, remainingQuorum: next.queue, workerSkipped: !!next.attempts.at(-1).reuse }));
+  });
+
 test('live Claude Code and Codex workers complete one frozen QA/security wave',
   { skip: process.env.GREAT_CTO_LIVE_MIXED !== '1' }, async () => {
     const { newRun, runStage } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));
@@ -87,4 +131,40 @@ test('live Claude Code and Codex workers complete one frozen QA/security wave',
     console.log(JSON.stringify({ run: state.id, pluginRoot: PLUGIN_ROOT, status: output.status, pendingGates: saved.pending.gates,
       claudeVersion: execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim(),
       codexVersion: execFileSync('codex', ['--version'], { encoding: 'utf8' }).trim(), reports }));
+  });
+
+test('live mixed-host pre-build quorum stops before implementation and does not approve gates',
+  { skip: process.env.GREAT_CTO_LIVE_PHASED !== '1' }, async () => {
+    const { newRun, runParallelWave } = await import(pathToFileURL(join(PLUGIN_ROOT, 'scripts', 'lib', 'codex-pipeline.mjs')));
+    const base = createFixtureBase(), root = join(base, 'project'), store = join(base, 'runs');
+    mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(join(root, 'src')); mkdirSync(join(root, '.great_cto'));
+    writeFileSync(join(root, '.great_cto', 'PROJECT.md'), 'archetype: fintech\n');
+    writeFileSync(join(root, 'README.md'), '# Local numeric helper fixture\n\nNo card data, payments, customers, external services or deployment. Only an illustrative arithmetic helper.\n');
+    writeFileSync(join(root, 'src', 'add.mjs'), 'export function add(a, b) { return a + b; }\n');
+    execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
+    execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid', 'commit', '-qm', 'phased fixture']);
+    const gitBase = execFileSync('git', ['-C', root, 'rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+    const state = newRun({ root, pluginRoot: PLUGIN_ROOT, entry: 'senior-dev', allowed: ['src', 'docs'],
+      prompt: 'PRE-BUILD acceptance fixture for a planned change to src/add.mjs: accept finite numbers only, reject nonnumeric/nonfinite inputs and nonfinite sums with TypeError. ' +
+        'Inspect README.md and src/add.mjs. Each pre-build role must produce a distinct concise Markdown threat/design report under docs/specialist-contracts/ and name it in meta.report. ' +
+        'State directly observed boundaries, proposed controls and testable acceptance criteria for that future change. Implementation does not exist yet and is not required at this phase. ' +
+        'This is an isolated numeric helper, not a payment product: no card data, real money movement or deployment. Mark absent payment/regulated systems as outside this fixture; do not certify PCI or legal compliance. ' +
+        'Do not implement or speculate about unstated product scope. Complete your own pre-build role only.',
+      specialistPolicy: { mode: 'adaptive', workflow: 'phased-change', base: gitBase },
+      hostRoutes: { 'pci-reviewer': 'claude-code', 'regulated-reviewer': 'codex' } });
+    const file = join(store, `${state.id}.json`), save = s => writeFileSync(file, JSON.stringify(s), { mode: 0o600 });
+    save(state); console.log(`LIVE_PHASED_RUN=${state.id} STORE=${store} PROJECT=${root}`);
+    await runParallelWave(state, { save, contextStore: store });
+    assert.equal(state.status, 'awaiting-gate', state.reason); assert.equal(state.approvals.length, 0);
+    assert.equal(state.results['senior-dev'], undefined); assert.equal(state.specialistReview, undefined);
+    assert.ok(state.pending.gates.includes('gate:plan')); assert.ok(state.pending.gates.includes('gate:compliance'));
+    assert.equal(state.waveHistory.at(-1).status, 'verified');
+    const reports = {};
+    for (const role of state.specialistPreparation.roles) {
+      const stage = state.results[role]; assert.equal(stage.verification.state, 'verified');
+      assert.ok(stage.meta.report.startsWith('docs/specialist-contracts/'));
+      reports[role] = { host: stage.host, path: join(root, stage.meta.report), sha256: sha256(readFileSync(join(root, stage.meta.report))) };
+    }
+    console.log(JSON.stringify({ run: state.id, status: state.status, gatesApproved: state.approvals.length,
+      pendingGates: state.pending.gates, phase: state.specialistPreparation.status, reports }));
   });
