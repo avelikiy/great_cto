@@ -705,3 +705,44 @@ start, workflow enablement, release, PR merge or gate approval was performed.
 Parent full-CI acceptance remains open. Next prerequisite is explicit Chromium
 installation authority; current-artifact runtime parity and independent review
 remain separate follow-ups.
+
+## Chromium prerequisite restored with explicit approval
+
+The operator approved installation into the shared Playwright cache. Executed
+the repository's Playwright 1.60.0 CLI `install chromium`, exit 0. It installed
+Chrome for Testing 148.0.7778.96 / Chromium revision 1223, the corresponding
+headless shell and Playwright FFmpeg 1011. The expected executable now exists
+under `/Users/avelikiy/Library/Caches/ms-playwright/chromium-1223`.
+No dependency version, executable substitution, timeout or skip policy changed.
+The installed plugin, workflows, release and gate approvals remain unchanged.
+
+The three-file browser regression at published source 01ffb6bd completed exit 1:
+30 total, 28 passed, two failed, zero skips (32524.948583 ms). Log:
+`/Users/Shared/great-cto-chromium-recheck-iCIDsX`. All four actual observer
+lifecycle cases, both broker resource mutation cases, six of eight external
+helper browser cases and the actual parent-SIGKILL live-browser case passed.
+External helper normal and dom-refusal failed with helper message timeout, not
+missing-browser-executable. This concurrent result remains failed and is not
+overwritten by a later diagnostic.
+
+A separate isolated diagnostic selected only those two helper cases and passed
+2/2, zero skips, exit 0 (4287.791584 ms), with unchanged deadlines. Log:
+`/Users/Shared/great-cto-helper-isolated-vZSt1h`. This changes the load condition;
+it supports a load-sensitive hypothesis but does not establish a causal
+race/stall diagnosis or prove the concurrent suite is sound. Follow-up
+great_cto-p4o9.5.9.7.2.5.1 remains in progress. Do not widen the message deadline
+or label the previous failures flaky without actor-local timing evidence.
+
+Actual browser board E2E now passed 9/9, zero skips, exit 0 (31074.982 ms).
+Log: `/Users/Shared/great-cto-browser-e2e-restored-3fOPJE`. The suite exercised
+screen rendering, mouse/keyboard navigation, blocked-task row/drawer actions,
+fixture gate ritual and wrong-name refusal, palette shortcut, phone layout,
+fixture project identity, Fleet reviewer evidence and Decisions waiting state.
+These are private fixture actions, not operator gate approval or live-model
+product quality measurements.
+
+The missing Chromium prerequisite task can close narrowly. Full CI has not been
+rerun after installation and remains red on its last recorded invocation;
+installed-plugin namespace parity and independent security approval are still
+unconfirmed. No quality uplift or complete dual-host release readiness is
+inferred from restoring a browser dependency.
