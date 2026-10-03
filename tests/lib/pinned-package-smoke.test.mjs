@@ -3,13 +3,15 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, realpathSync, writeFileSync, readFileSync, rmSync, statSync, existsSync, symlinkSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { runPinnedPackageSmoke, smokeProcessDiagnostic } from '../../scripts/lib/pinned-package-smoke.mjs';
 import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
 import { runtimeImportClosure } from '../../packages/cli/scripts/runtime-import-closure.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
+const archiveWriter = fileURLToPath(new URL('../helpers/package-smoke-archive.py', import.meta.url));
+const writerEnv = { PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC', PYTHONDONTWRITEBYTECODE: '1' };
 test('bounded process diagnostics distinguish causes without private error text or descendant claims', () => {
   for (const [child, outcome, errorCode, signal] of [
     [{ pid: 123, status: 0 }, 'exited-zero', null, null],
@@ -30,35 +32,55 @@ test('bounded process diagnostics distinguish causes without private error text 
 const entry = `import {mkdirSync} from 'node:fs';
 if(process.argv[2]==='--version') console.log('9.0.0');
 else {mkdirSync(process.env.GREAT_CTO_CODEX_RUNS_DIR,{recursive:true,mode:0o700});console.log(JSON.stringify({state:'ok',runs:[],unreadable:0}));}`;
-function fixture(t, { code = entry, extras = [], rawMetadata = null, bomb = false } = {}) {
+function fixture(t, { code = entry, extras = [], rawMetadata = null, bomb = false, writerScenario = 'normal' } = {}) {
   const root = realpathSync(mkdtempSync(join(tmpdir(), 'package-smoke-fixture-')));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  let retain = false;
+  t.after(() => { if (!retain) rmSync(root, { recursive: true, force: true }); });
   const archive = join(root, 'package.tgz'), marker = join(root, 'lifecycle-marker');
-  const payload = { archive, bomb, files: [
+  const payload = { archive, bomb, writerScenario, files: [
     { name: 'package/package.json', content: rawMetadata ?? JSON.stringify({ name: 'great-cto', version: '9.0.0', bin: { 'great-cto': 'index.mjs' } }) },
     { name: 'package/index.mjs', content: code },
     { name: 'package/postinstall.mjs', content: `import{writeFileSync}from'node:fs';writeFileSync(${JSON.stringify(marker)},'ran');` }, ...extras] };
-  // Binary tar headers, links and hostile member names need an archive writer.
-  execFileSync('python3.12', ['-I', '-B', '-c', `import sys,json,tarfile,io,gzip
-p=json.loads(sys.stdin.read())
-if p['bomb']:
- with gzip.open(p['archive'],'wb') as f:
-  for _ in range(129): f.write(bytes(1024*1024))
-else:
- with tarfile.open(p['archive'],'w:gz') as t:
-  for item in p['files']:
-   data=item.get('content','').encode();info=tarfile.TarInfo(item['name']);info.mode=0o644;info.size=item.get('size',len(data))
-   if item.get('type')=='symlink':info.type=tarfile.SYMTYPE;info.linkname='../outside';info.size=0
-   if item.get('type')=='hardlink':info.type=tarfile.LNKTYPE;info.linkname='package/index.mjs';info.size=0
-   if item.get('type')=='device':info.type=tarfile.CHRTYPE;info.size=0
-   t.addfile(info,io.BytesIO(data) if info.size==len(data) else None)
-`], { input: JSON.stringify(payload), timeout: 10000 });
+  // Static writer entrypoint; private data stays on stdin, never in argv.
+  const startedAt = new Date().toISOString(), start = performance.now();
+  const writer = spawnSync('python3.12', ['-I', '-B', archiveWriter], {
+    env: writerEnv, input: JSON.stringify(payload), encoding: 'utf8', timeout: 10000, maxBuffer: 65536 });
+  const diagnostic = { ...smokeProcessDiagnostic(writer, { startedAt, elapsedMs: performance.now() - start }), timeoutMs: 10000 };
+  writeFileSync(join(root, 'writer-diagnostics.json'), JSON.stringify({ ...diagnostic,
+    stdout: writer.stdout ?? '', stderr: writer.stderr ?? '' }), { flag: 'wx', mode: 0o600 });
+  if (writer.error || writer.status !== 0 || writer.signal) {
+    retain = true;
+    const error = Error(`fixture archive writer failed; evidence directory ${root}`);
+    error.evidenceRoot = root; throw error;
+  }
   const options = { artifactFile: archive, artifactSha256: sha(readFileSync(archive)) };
   const clean = evidenceRoot => t.after(() => rmSync(evidenceRoot, { recursive: true, force: true }));
-  return { options, marker, clean };
+  return { options, marker, clean, writerRoot: root };
 }
+test('archive writer retains private timeout and nonzero evidence without echoing payload', { timeout: 25000 }, t => {
+  for (const [writerScenario, outcome, stage] of [['stall', 'timeout', 'fixed-stall'], ['nonzero', 'nonzero-or-unknown', 'fixed-refusal']]) {
+    assert.throws(() => fixture(t, { writerScenario }), error => {
+      assert.doesNotMatch(error.message, /private fixture writer error/);
+      const root = error.evidenceRoot, diagnostic = JSON.parse(readFileSync(join(root, 'writer-diagnostics.json')));
+      const progress = JSON.parse(readFileSync(join(root, 'writer-progress.json')));
+      assert.equal(diagnostic.outcome, outcome); assert.equal(diagnostic.timeoutMs, 10000);
+      assert.equal(diagnostic.descendantQuiescenceVerified, false);
+      assert.equal(progress.stage, stage); assert.match(progress.pythonVersion, /^3\.12\./);
+      assert.equal(progress.benchmarkEligible, false);
+      assert.equal(statSync(root).mode & 0o077, 0);
+      assert.equal(statSync(join(root, 'writer-diagnostics.json')).mode & 0o777, 0o600);
+      assert.equal(statSync(join(root, 'writer-progress.json')).mode & 0o777, 0o600);
+      if (writerScenario === 'stall') { assert.equal(diagnostic.errorCode, 'ETIMEDOUT'); assert.ok(diagnostic.elapsedMs >= 10000); }
+      else assert.equal(diagnostic.exitCode, 1);
+      t.diagnostic(`archive writer ${writerScenario}: retained private evidence ${root}`);
+      t.after(() => assert.ok(existsSync(root), 'failed writer evidence must survive fixture teardown'));
+      return /fixture archive writer failed/.test(error.message);
+    });
+  }
+});
 test('actual published-layout CLI runs twice in private isolated store without lifecycle script', t => {
   const f = fixture(t, { code: "if(process.env.PACKAGE_SMOKE_TEST_SENTINEL) throw Error('inherited environment');\n" + entry });
+  assert.equal(JSON.parse(readFileSync(join(f.writerRoot, 'writer-progress.json'))).stage, 'archive-write-complete');
   const priorOptions = process.env.NODE_OPTIONS, priorSentinel = process.env.PACKAGE_SMOKE_TEST_SENTINEL;
   let report;
   try {

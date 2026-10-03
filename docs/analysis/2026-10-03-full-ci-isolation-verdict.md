@@ -138,3 +138,23 @@ The subsequent affected-suite run passed 12/12 without skips, with the controlle
 scenario taking 8613 ms. Scanner, reference, syntax and diff checks passed.
 The archive-writer issue remains open; no post-change full concurrent verdict
 is claimed from this later scoped pass.
+
+## Archive fixture writer diagnostics
+
+The test archive writer now uses a fixed Python helper, with payload bytes on
+stdin rather than executable text or argv. It runs in an OS-first allowlisted
+environment with the unchanged 10000-ms timeout. The parent writes private
+0600 process-result metadata; the helper records Python version/executable and
+last stage through an exclusively created private inode. No error message or
+payload is included in the raised exception. Private stdout/stderr stay in the
+retained diagnostic file, not the public test report.
+
+Writer failures retain their private fixture root rather than losing evidence
+in teardown. Fixed timeout and nonzero scenarios verify this retention after
+teardown and preserve their diagnostics. They do not certify descendant
+quiescence, admission or benchmark eligibility. Successful writer fixtures still
+follow their existing owned-root cleanup. The original unexpected startup/write
+failure remains unexplained; synthetic refusal coverage does not close it.
+Both affected suites passed 13/13 without skips after the diagnostic change;
+scanner remains 83/80 with unchanged reviewed baseline. A fresh concurrent
+library run is needed for the OS-first toolchain and writer instrumentation.
