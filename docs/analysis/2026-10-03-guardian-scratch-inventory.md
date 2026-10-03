@@ -109,3 +109,26 @@ native lineage cases plus resource-owner, broker, helper and direct Chromium
 lifecycle callers. Documentation/link checks passed 81/81 with zero skips;
 syntax, diff whitespace and generated-reference checks also passed. This is
 scoped source evidence, not a new full-CI or delivered-artifact verdict.
+
+### Concurrent quick-CI contradicts overall readiness
+
+At immutable `282e7970`, the subsequent stock quick-CI completed exit 1.
+Preserved log: `/Users/Shared/great-cto-lineage-quick-ci-IRGFZ0`. Root/hooks/board
+passed 1257/1257, eval 238/238, docs 76/76 and board browser E2E 9/9.
+Libraries completed 3047 tests: 3028 passed, 13 failed, six skipped, duration
+440385 ms. All three new native lineage cases passed under this concurrency.
+
+Failures include a source-coercion API scorer that did not complete, Chromium
+owner-kill failure to reach static DOM, broker process-inventory null status,
+helper-message timeouts across eight actual browser modes, completion refusal
+and the active-parent nested readiness timeout. These observations do not prove
+one common cause, nor absence of a regression. Diagnosis is tracked as
+`great_cto-p4o9.5.9.7.2`; scoped success does not waive these failures. No timeout,
+scheduling, skip or scanner baseline was changed to make the result pass.
+
+The selected installed local 3.48.0 quick pipeline suite reported 20 grouped
+passes, two failures and five skips. Both webhook signature probes refused
+before mutation or server launch due to missing namespace isolation support.
+Scanner passed 83/80, zero Critical and the unchanged 35 historically reviewed
+High findings. This is not independent security approval. No candidate was
+installed or released; production admission and the full epic remain open.
