@@ -107,3 +107,34 @@ Both affected caller suites pass 12/12 without skips after checkpoint changes,
 including private progress success and refusal checks; scanner remains 83/80.
 Fresh Claude CLI auth reports loggedIn false / authMethod none; live mixed-host
 execution remains unavailable. No installation, default, merge or release changed.
+
+The stage-instrumented concurrent run at `8d9f9a1e` completed exit 1, 3043 tests:
+3036 passed, one failed, six skipped, 226724 ms. Log:
+`/Users/Shared/great-cto-lib-stage-ci-ZufHp0`. The controller again reached its
+30000-ms deadline (ETIMEDOUT, SIGTERM, elapsed 30005 ms). Retained evidence root:
+`/private/var/folders/xf/8mjkgbt91mgg9b0m_gyrh92w0000gn/T/great-cto-package-smoke-jDCqQl`.
+Last checkpoint was sequence 218, `git-rev-parse-complete` for the final
+`project-drift` case at 29377 ms. This identifies cumulative matrix time near
+the deadline; it does not establish a stalled child or descendant quiescence.
+
+Tool resolution audit found the smoke allowlist preferred `/usr/local/bin/git`,
+Git 2.15.0 (x86_64/i386), while the direct host probe used Homebrew Git 2.53.0
+(arm64). System `/usr/bin/git` reports 2.54.0 (Apple Git-157), including arm64e.
+The smoke allowlist now prefers `/usr/bin:/bin:/usr/local/bin`; it does not
+inherit operator PATH and still permits local Python if missing from OS paths.
+Actual Git version is bounded and recorded in private diagnostic progress.
+All matrix cases, refusal assertions, policy floors and 30-second limits remain
+unchanged. Toolchain mismatch is a measured hypothesis for cumulative latency,
+not yet proof that the original three failures share one cause. A concurrent
+post-change run is still required; no test scheduling/retry workaround was added.
+
+First post-change affected-suite run had 11 passes and one failure before smoke
+execution: the archive fixture writer (`python3.12`) reached its unchanged
+10000-ms deadline. This is tracked separately as `great_cto-p4o9.5.9.7.1`; no
+controller diagnostic existed for that failure. A subsequent focused controller
+scenario passed in 8615 ms with OS-first Git version verification. This scoped
+pass is not an explanation of the writer failure or a replacement for full CI.
+The subsequent affected-suite run passed 12/12 without skips, with the controller
+scenario taking 8613 ms. Scanner, reference, syntax and diff checks passed.
+The archive-writer issue remains open; no post-change full concurrent verdict
+is claimed from this later scoped pass.

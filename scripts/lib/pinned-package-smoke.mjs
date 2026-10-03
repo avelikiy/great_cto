@@ -9,7 +9,9 @@ import { spawnSync } from 'node:child_process';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const extractor = fileURLToPath(new URL('./extract-benchmark-package.py', import.meta.url));
 const controllerProbeEntry = fileURLToPath(new URL('./pinned-controller-probe.mjs', import.meta.url));
-const env = { PATH: '/usr/local/bin:/usr/bin:/bin', LANG: 'C', TZ: 'UTC', PYTHONDONTWRITEBYTECODE: '1' };
+// Prefer OS tools over legacy local overrides. Local Python remains available
+// when absent from the system directories; never inherit the operator PATH.
+const env = { PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC', PYTHONDONTWRITEBYTECODE: '1' };
 // Retain bounded cause metadata, never error messages (which can contain private
 // argv/output). Direct-child results do not attest descendant quiescence.
 export function smokeProcessDiagnostic(child, { startedAt, elapsedMs }) {

@@ -177,6 +177,12 @@ test('opt-in delivered controller probe runs the matrix in a separate private pr
   const progress = JSON.parse(readFileSync(progressPath));
   assert.equal(progress.scope, 'diagnostic-progress-only'); assert.equal(progress.stage, 'complete');
   assert.equal(progress.benchmarkEligible, false); assert.equal(progress.descendantQuiescenceVerified, false);
+  assert.match(progress.gitVersion, /^git version /);
+  // The actual isolated probe must resolve Git through OS-first allowlisted
+  // PATH, not through the operator's Homebrew/legacy-local preference.
+  const expectedGitVersion = execFileSync('git', ['--version'], {
+    env: { PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC' }, encoding: 'utf8', timeout: 10000 }).trim();
+  assert.equal(progress.gitVersion, expectedGitVersion);
   assert.equal(statSync(progressPath).mode & 0o777, 0o600);
   assert.equal(statSync(join(report.evidenceRoot, 'controller-probe-diagnostics.json')).mode & 0o777, 0o600);
   assert.equal(report.controllerProbeProcess.pid, diagnostics.pid);

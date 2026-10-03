@@ -17,6 +17,7 @@ test('trusted probe exercises actual graph, domain selection and fail-closed bou
   const progressPath = join(root, 'probe-progress.json'), progress = JSON.parse(readFileSync(progressPath));
   assert.equal(progress.stage, 'complete'); assert.ok(progress.sequence > 50);
   assert.equal(progress.scope, 'diagnostic-progress-only'); assert.equal(progress.benchmarkEligible, false);
+  assert.match(progress.gitVersion, /^git version /);
   assert.equal(progress.descendantQuiescenceVerified, false); assert.equal(statSync(progressPath).mode & 0o777, 0o600);
 });
 

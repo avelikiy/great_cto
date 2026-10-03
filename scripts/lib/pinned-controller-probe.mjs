@@ -23,15 +23,19 @@ export async function probeControllerAssets({ pluginRoot, fixtureRoot }) {
   // Hold an exclusively created inode, not a reopenable pathname. This is
   // diagnostic progress only, never evidence of admission or successful work.
   const progressFd = openSync(join(fixtureRoot, 'probe-progress.json'), 'wx', 0o600);
-  const start = performance.now(); let sequence = 0;
+  const start = performance.now(); let sequence = 0, gitVersion = null;
   const checkpoint = (stage, label = null) => {
     const value = Buffer.from(JSON.stringify({ version: 1, scope: 'diagnostic-progress-only', sequence: ++sequence,
-      stage, label, elapsedMs: Math.round(performance.now() - start), recordedAt: new Date().toISOString(),
+      stage, label, gitVersion, elapsedMs: Math.round(performance.now() - start), recordedAt: new Date().toISOString(),
       benchmarkEligible: false, descendantQuiescenceVerified: false }));
     writeSync(progressFd, value, 0, value.length, 0); ftruncateSync(progressFd, value.length);
   };
   checkpoint('import-start');
   try {
+  checkpoint('git-version-start');
+  const rawGitVersion = execFileSync('git', ['--version'], { encoding: 'utf8', timeout: 10000, maxBuffer: 4096 }).trim();
+  if (!/^git version [0-9][A-Za-z0-9 .()+-]{0,120}$/.test(rawGitVersion)) throw Error('unsupported Git version diagnostic');
+  gitVersion = rawGitVersion; checkpoint('git-version-complete');
   const load = name => import(pathToFileURL(join(pluginRoot, name)).href);
   const { newRun, advance } = await load('scripts/lib/codex-pipeline.mjs');
   const { codexRoleProfile } = await load('scripts/lib/codex-role-profiles.mjs');
