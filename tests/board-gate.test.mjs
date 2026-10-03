@@ -14,24 +14,21 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { startBoard } from './helpers/board-start.mjs';
-import { reap, sweepStrays } from './helpers/reap.mjs';
+import { reap } from './helpers/reap.mjs';
+import { createOwnedPhaseFixture } from '../scripts/lib/owned-phase-fixture.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const CLI_ENTRY = join(__dirname, '..', 'packages', 'cli', 'index.mjs');
 
 // ── env preflight ──────────────────────────────────────────────────────────
 
-// A previous run that was interrupted rather than failed leaves a detached board
-// running and its temp tree behind — `finally` does not fire when the runner is
-// killed. Clear that before spawning more, so debris cannot accumulate across
-// days of Ctrl-C.
-sweepStrays('gcto-gate-');
+// Interrupted runs may leave resources behind. A prefix is not ownership:
+// never kill another run or remove its directories during module startup.
 
 const bdProbe = spawnSync('bd', ['--version'], { encoding: 'utf8' });
 const BD_AVAILABLE = bdProbe.status === 0;
@@ -46,9 +43,11 @@ async function fetchJson(port, path, init) {
   catch { return { status: r.status, body: txt }; }
 }
 
+const ownedRoots = new Map();
 function makeProject() {
-  const home = mkdtempSync(join(tmpdir(), 'gcto-gate-home-'));
-  const project = mkdtempSync(join(tmpdir(), 'gcto-gate-proj-'));
+  const homeFixture = createOwnedPhaseFixture(), projectFixture = createOwnedPhaseFixture();
+  const home = homeFixture.root, project = projectFixture.root;
+  ownedRoots.set(home, homeFixture); ownedRoots.set(project, projectFixture);
   mkdirSync(join(home, '.great_cto'), { recursive: true });
   mkdirSync(join(project, '.great_cto'), { recursive: true });
   writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\nprimary: web-service\n');
@@ -96,11 +95,16 @@ function bdShow(project, id) {
 // the cleanup below the board could still finish a write into its temp HOME and
 // leave `rmSync` failing with ENOTEMPTY. See tests/helpers/reap.mjs.
 async function killBoardTree(board) {
-  await reap(board);
+  const result = await reap(board);
+  assert.equal(result, 'reaped', 'owned board group did not stop; fixture roots retained');
 }
 
 function cleanup(...dirs) {
-  for (const d of dirs) try { rmSync(d, { recursive: true, force: true }); } catch {}
+  for (const d of dirs) {
+    const fixture = ownedRoots.get(d);
+    assert.ok(fixture, 'cleanup refuses an unowned directory');
+    fixture.cleanup(); ownedRoots.delete(d);
+  }
 }
 
 /**
