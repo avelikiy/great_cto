@@ -6,10 +6,12 @@
 // 2026-09-11. A directory a live session points at is not "other", it is in use.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pruneVersionsPlan, liveRootsFromPs, applyPrunePlan } from '../../scripts/lib/prune-versions.mjs';
+import { pruneVersionsPlan, liveRootsFromPs, applyPrunePlan, readLiveRoots, readRegisteredRoots } from '../../scripts/lib/prune-versions.mjs';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const C = '/h/.claude/plugins/cache/local/great_cto';
 
@@ -110,5 +112,62 @@ test('prune refuses symlink root and preserves another installer lock', (t) => {
   fs.mkdirSync(path.join(f.root, '.local-install-lock'));
   assert.throws(() => applyPrunePlan({ ...f, remove: [f.old] }));
   assert.equal(fs.existsSync(path.join(f.root, '.local-install-lock')), true);
+  assert.equal(fs.existsSync(f.old), true);
+});
+
+test('successful ps without a positive environment control is unknown, not no sessions', () => {
+  assert.equal(readLiveRoots({ probeToken: 'fixture', readPs: () => 'node claude\n' }), null);
+  assert.equal(readLiveRoots({ probeToken: 'fixture', readPs: () => 'ps GREAT_CTO_PRUNE_VISIBILITY=wrong\n' }), null);
+});
+
+test('visible native host without a plugin root refuses pruning even with working ps', () => {
+  const probe = 'ps GREAT_CTO_PRUNE_VISIBILITY=fixture\n';
+  for (const client of ['claude --resume', '/Applications/Codex.app/Contents/MacOS/Codex', 'codex exec --json']) {
+    assert.equal(readLiveRoots({ probeToken: 'fixture', readPs: () => probe + client + ' PATH=/fixture\n' }), null);
+  }
+  assert.deepEqual(readLiveRoots({ probeToken: 'fixture', readPs: () => probe }), []);
+  assert.deepEqual(readLiveRoots({ probeToken: 'fixture', readPs: () => probe + `claude CLAUDE_PLUGIN_ROOT=${C}/3.28.4 PATH=/fixture\n` }), [`${C}/3.28.4`]);
+});
+
+test('registered versions and canonical live aliases remain protected beyond newest three', (t) => {
+  const f = cacheFixture(t);
+  const alias = path.join(f.temp, 'old-alias');
+  fs.symlinkSync(f.old, alias);
+  const r = pruneVersionsPlan({ versionDirs: [f.old, f.keep], keep: f.keep, liveRoots: [alias], keepNewest: 1 });
+  assert.deepEqual(r.remove, []);
+  const registered = pruneVersionsPlan({ versionDirs: [f.old, f.keep], keep: f.keep, liveRoots: [], protectedRoots: [alias], keepNewest: 1 });
+  assert.deepEqual(registered.remove, []);
+  assert.match(registered.kept[0].why, /registration/);
+});
+
+test('registry protection reads every scope and refuses unavailable/malformed/symlink state', (t) => {
+  const f = cacheFixture(t);
+  const registry = path.join(f.temp, 'registry.json');
+  assert.equal(readRegisteredRoots(registry), null);
+  fs.writeFileSync(registry, '{broken');
+  assert.equal(readRegisteredRoots(registry), null);
+  fs.writeFileSync(registry, JSON.stringify({ version: 2, plugins: { 'great_cto@local': [
+    { scope: 'user', installPath: f.keep }, { scope: 'project', installPath: f.old } ] } }));
+  assert.deepEqual(readRegisteredRoots(registry), [f.keep, f.old]);
+  const alias = path.join(f.temp, 'registry-alias');
+  fs.symlinkSync(registry, alias);
+  assert.equal(readRegisteredRoots(alias), null);
+});
+
+test('CLI prune leaves non-version folders and all registered old versions alone', (t) => {
+  const f = cacheFixture(t);
+  const backup = path.join(f.root, 'backup');
+  fs.mkdirSync(backup);
+  const registry = path.join(f.temp, 'registry.json');
+  fs.writeFileSync(registry, JSON.stringify({ version: 2, plugins: { 'great_cto@local': [{ scope: 'user', installPath: f.old }] } }));
+  const bin = path.join(f.temp, 'bin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'ps'), '#!/bin/sh\nprintf "ps GREAT_CTO_PRUNE_VISIBILITY=%s\\n" "$GREAT_CTO_PRUNE_VISIBILITY"\n', { mode: 0o755 });
+  const script = fileURLToPath(new URL('../../scripts/lib/prune-versions.mjs', import.meta.url));
+  const r = spawnSync(process.execPath, [script, '--cache-root', f.root, '--keep', f.keep, '--registry', registry, '--keep-newest', '1', '--apply'], {
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` }, encoding: 'utf8', timeout: 5000 });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /non-version cache directory left alone/);
+  assert.equal(fs.existsSync(backup), true);
   assert.equal(fs.existsSync(f.old), true);
 });

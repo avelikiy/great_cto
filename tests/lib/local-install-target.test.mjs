@@ -220,3 +220,33 @@ test('strict managed sync propagates missing source while SessionStart stays adv
   assert.equal(spawnSync(process.execPath, [script, ...base]).status, 0);
   assert.equal(spawnSync(process.execPath, [script, ...base, '--strict']).status, 1);
 });
+
+test('cache-only publication cannot request destructive pruning of the previous selection', (t) => {
+  const f = fixture(t, '3.48.0');
+  const before = fs.readFileSync(f.registry, 'utf8');
+  const result = f.run(['--no-register', '--prune']);
+  assert.notEqual(result.status, 0);
+  assert.match(result.stderr, /cannot be combined/);
+  assert.equal(fs.existsSync(f.cache), false);
+  assert.equal(fs.readFileSync(f.registry, 'utf8'), before);
+});
+
+test('strict sync reports partial side effects after a later write fails', (t) => {
+  const f = fixture(t, '3.48.0');
+  const home = path.join(f.root, 'managed-home');
+  const agents = path.join(home, '.claude/agents');
+  fs.mkdirSync(path.join(agents, 'great_cto-architect.md'), { recursive: true });
+  const retired = path.join(agents, 'great_cto-retired.md');
+  fs.writeFileSync(retired, '# old\n<!-- great_cto-managed -->\n');
+  const helper = path.join(repo, 'scripts/lib/sync-managed.mjs');
+  const url = new URL(`file://${helper}`).href;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';
+    os.homedir=()=>${JSON.stringify(home)};syncBuiltinESMExports();
+    process.argv=[process.execPath,${JSON.stringify(helper)},'--plugin-dir',${JSON.stringify(f.source)},'--strict'];
+    await import(${JSON.stringify(url)});
+  `], { encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 1);
+  assert.match(result.stdout, /partial copies or retirements may remain/);
+  assert.equal(fs.existsSync(retired), false, 'reproduce a retirement before the write error');
+});

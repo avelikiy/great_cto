@@ -24,6 +24,8 @@ for a in "$@"; do
 done
 [ "$DO_REGISTER" -eq 1 ] || DO_AGENTS=0
 die() { printf 'install-local FAILED: %s\n' "$1" >&2; exit 1; }
+[ "$DO_REGISTER" -eq 1 ] || [ "$DO_PRUNE" -eq 0 ] \
+  || die "--no-register cannot be combined with --prune: protect the existing host selection"
 command -v node >/dev/null 2>&1 || die "node not found on PATH"
 command -v git >/dev/null 2>&1 || die "git not found on PATH"
 
@@ -57,8 +59,8 @@ if [ "$DO_REGISTER" -eq 1 ]; then
 fi
 if [ "$DO_PRUNE" -eq 1 ]; then
   # Retain newest three and all observed live roots. Helper validates each target.
-  node "$ROOT/scripts/lib/prune-versions.mjs" --cache-root "$CACHE_ROOT" --keep "$DEST" --keep-newest 3 --apply \
-    || die "prune failed; no install success claimed"
+  node "$ROOT/scripts/lib/prune-versions.mjs" --cache-root "$CACHE_ROOT" --keep "$DEST" --registry "$REG" --keep-newest 3 --apply \
+    || die "cache publication and registration completed, but cleanup failed; partial changes remain"
 fi
 
 printf 'INSTALL-LOCAL: DONE v%s (local cache%s only)\n' "$VERSION" \

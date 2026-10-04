@@ -117,7 +117,7 @@ if (invokedDirectly) {
     }
   } catch (e) {
     failed = true;
-    process.stdout.write(`great_cto: agents and commands not synced — ${e.message}\n`);
+    process.stdout.write(`great_cto: managed refresh failed; partial copies or retirements may remain — ${e.message}\n`);
   }
   process.exit(strict && failed ? 1 : 0);
 }

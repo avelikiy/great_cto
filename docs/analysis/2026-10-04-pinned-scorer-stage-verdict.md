@@ -544,3 +544,65 @@ Focused privacy/namespace/update/VAPID checks passed 63/63, no skips. Log:
 `/Users/Shared/great-cto-state-privacy-tests.log`. CLI build and lesson sweep
 (426 files, zero findings) passed. These newer bytes require their own complete
 canonical replay and independent scope review before activation.
+
+## Namespace candidate replay and actual simultaneous workers
+
+Full `ci-local.sh --e2e` at `6a58c81bd494e3b7505bbad928c54d87fb566d9a`
+terminated exit 1. Log `/Users/Shared/great-cto-state-home-full-ci.log`.
+All executed source checks passed: root 1270/1270, library 3157 passed with
+six skips and zero failures, eval 238, docs 76, browser nine, CLI 362 and
+archetype 34. Installed local-cache L1-L5 still had 33 passed, three namespace
+failures and nine skips. This remains red canonical evidence, not a green run.
+
+An actual offline npm install of the private 165-file candidate was verified
+against every packaged file hash before and after probes. Archive:
+`/Users/Shared/great-cto-state-candidate-PlZPiQ/great-cto-3.48.0.tgz`,
+SHA-256 `09f37fecc23934e33455766a47527e0fd1b1d84e9fae9eeab444615bc8527d69`.
+Log `/Users/Shared/great-cto-state-private-install.log`. Board JSON APIs,
+webhook signature acceptance/refusal and MCP initialization/tool listing passed.
+No MCP tool execution, release discovery, Docker build or deployment is proved.
+This is a private candidate with new bytes, not a new public 3.48.0 release.
+
+The real mixed-host smoke against that installed candidate passed, exit 0,
+one test and zero skips, 230778.853541 ms suite duration. Log:
+`/Users/Shared/great-cto-state-live-mixed.log`. Run
+`5efebbd0-451f-4a7b-8fdd-d7385f046edf`, frozen wave
+`6a44296e-30dd-49be-89c3-4ff2acc8a167`. Actual worker dispatch records show:
+
+| Worker | Started UTC | Finished UTC |
+| --- | --- | --- |
+| Claude Code QA | 16:23:12.791 | 16:23:44.039 |
+| Codex security | 16:23:12.805 | 16:23:31.033 |
+
+Worker execution intervals overlap by 18.228 seconds. Sequential application
+and verification attempt timestamps do not measure this overlap. Code review
+passed after one rework; QA and security reports were verified. The run stopped
+at `awaiting-gate`, approvals zero. Scope is two read-only arithmetic fixture
+files and report creation, not build/export/release, native-hook parity or
+measured product-quality uplift. The Codex worker and verifier share a host;
+different-model-family verification is not claimed.
+
+## Caller/prune follow-up after independent REQUEST_CHANGES
+
+The caller/prune/strict-sync/fragment review at 6a58c81b completed exit 0,
+is_error false, actual model claude-fable-5-1, duration_ms 160621,
+total_cost_usd 0.7051195. Input 19059 bytes, SHA-256
+`2165bf4d315c7b4e844955ec96b4b7687bd536fbd13b482d5bda9fab17ab40d8`;
+log `/Users/Shared/great-cto-installer-caller-review-8y6TTu/review.log`.
+Verdict REQUEST_CHANGES, four Medium findings, confirmed and remediated:
+
+- Reject `--no-register --prune` before mutation; protect every registered
+  absolute install path across registry scopes, including canonical aliases.
+- Require a fresh environment visibility positive control for process scanning;
+  unknown host environments or unreadable registry disable removal.
+- Leave non-version cache directories alone rather than failing after activation;
+  late prune failure explicitly reports preceding publication/registration.
+- Strict managed refresh reports that partial copies/retirements may remain,
+  rather than implying failure left managed files unchanged.
+
+Focused installer/prune regression passed 67/67 with zero skips; bash syntax,
+diff check and lesson sweep (428 files, zero findings) passed. Log:
+`/Users/Shared/great-cto-prune-medium-regression.log`. These fixes require
+independent re-review of their new bytes. The three approved immutable helpers
+remain byte-identical to f94c9f2c. Neither their narrow approval nor this
+regression approves the whole branch, active refresh or release.
