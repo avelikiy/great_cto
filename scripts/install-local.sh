@@ -47,8 +47,10 @@ die()   { printf '\033[31m  ✗ %s\033[0m\n' "$1"; exit 1; }
 command -v rsync >/dev/null 2>&1 || die "rsync not found on PATH"
 command -v node  >/dev/null 2>&1 || die "node not found on PATH"
 
-VERSION="$(node -p "require('$ROOT/.claude-plugin/plugin.json').version" 2>/dev/null)" \
-  || die "cannot read version from .claude-plugin/plugin.json"
+# Validate before mkdir/rsync --delete: an empty or traversal version must never
+# select the cache root or escape it. The helper also refuses symlink targets.
+VERSION="$(node "$ROOT/scripts/lib/local-install-target.mjs" "$ROOT/.claude-plugin/plugin.json" "$CACHE_ROOT")" \
+  || die "unsafe or unreadable local install target"
 DEST="$CACHE_ROOT/$VERSION"
 
 echo "install-local: great_cto v$VERSION → $DEST"

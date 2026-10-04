@@ -408,3 +408,45 @@ Current Claude/Codex caches, registrations, managed agents, live board,
 marketplaces and defaults were not updated. No merge/release or security
 receipt was manufactured. The private npm candidate proof above remains valid
 within its scope; canonical installed L1-L5 remains the historical red result.
+
+## Auth-restored independent review: REQUEST_CHANGES
+
+After the operator completed Claude auth login, the read-only auth check reported
+loggedIn true with authMethod claude.ai. The retry reused the same 89,806-byte
+input, SHA-256
+`169798ab0449af85e62e6204d65fa261ed09023f1e9eac17bab1cf6ca0cdb4f7`,
+at pinned source `829297425b030e1484022713d9b7abc3bc20e285` and the archive
+identity above. The eight reviewed files were unchanged through `1f895871`.
+Log: `/Users/Shared/great-cto-independent-namespace-retry-YD0xEN/review.log`.
+The prior failed auth attempt remains historical evidence, not overwritten.
+
+The Claude CLI review terminated exit 0, terminal_reason completed, is_error
+false; model claude-opus-5-5, duration_ms 167963, total_cost_usd 0.7054662.
+Safe/restricted/no-tools/strict-MCP/no-prompts/no-session-persistence settings
+remained in force. No subagents or web requests were recorded. Verdict:
+REQUEST_CHANGES, not an approving receipt or whole-branch security signoff.
+
+The High finding was confirmed in source: unvalidated manifest.version selected
+the mkdir and rsync --delete destination. Empty version selected the cache root;
+traversal could select outside it. Task `great_cto-p4o9.5.10.1` adds a read-only
+preflight before any mkdir/sync, requiring a bounded strict semantic version and
+a direct-child target, refusing cache/destination symlinks and non-directories.
+The shell now passes manifest paths as arguments, without JavaScript interpolation.
+
+The isolated executable-shell regression initially reproduced 16 failures out
+of 20 cases. rsync was a marker-only stub and source/cache paths were temporary
+fixtures; operator HOME, registries, board and marketplaces were not touched.
+After remediation, 23 installer cases cover invalid version types/paths, missing
+or malformed JSON, safe versions, existing directories and symlink/file refusal.
+This is preflight coverage, not full installer execution or race-free activation:
+same-version mutation and filesystem TOCTOU are not resolved by this patch.
+
+Task `great_cto-p4o9.5.10.2` tracks remaining findings and their validation.
+Source confirms in-place same-version mutation, non-propagated required-step
+failures, a lexical prune guard with a symlink-following directory producer,
+and whole-tree copying without a sensitive-local-file allowlist. Namespace
+permissions, relative roots, board environment preservation and other model
+claims require separate inspection; the reviewer output alone is not proof.
+Broader adaptive security review `great_cto-p4o9.5`, OS admission and installed
+parity remain open. No install, merge, release or active refresh was performed.
+The changed installer bytes need independent re-review before activation.
