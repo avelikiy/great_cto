@@ -22,7 +22,11 @@ function fixture(t){
  git(['init','-q']);git(['add','.']);git(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','defective boundary']);
  const scorerFile=join(operator,'scorer.mjs'),oracleFile=join(operator,'oracle.json');writeFileSync(scorerFile,scorer,{mode:0o600});writeFileSync(oracleFile,JSON.stringify(recipe.oracle),{mode:0o600});
  const options={root,scorerFile,oracleFile,scorerSha256:sha(scorer),oracleSha256:sha(readFileSync(oracleFile))};
- return {root,operator,recipe,put,base:git(['rev-parse','HEAD']).trim(),score:()=>runPinnedBenchmarkScorer({...options,expectedReceipt:treeReceipt(root),timeoutMs:30000}),setOracle:o=>{
+ return {root,operator,recipe,put,base:git(['rev-parse','HEAD']).trim(),score:()=>{
+  try{const result=runPinnedBenchmarkScorer({...options,expectedReceipt:treeReceipt(root),timeoutMs:30000,stageDiagnostics:true});
+   t.diagnostic('migration scorer stages: '+JSON.stringify(result.stageTimings));return result;
+  }catch(error){t.diagnostic('migration scorer failure stages: '+JSON.stringify(error.stageTimings??[]));throw error;}
+ },setOracle:o=>{
   writeFileSync(oracleFile,JSON.stringify(o));options.oracleSha256=sha(readFileSync(oracleFile));
  }};
 }

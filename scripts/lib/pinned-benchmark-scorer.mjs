@@ -10,6 +10,7 @@ const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 const boardStages = new Set(['inventory','browser-load','browser-loaded','launch','launched','context','page','content','content-ready','safety','keyboard','layout','targets','context-close','context-closed','browser-close','browser-closed','result']);
+const migrationStages = new Set(['pg-inventory','pg-init','pg-initialized','pg-init-failed','pg-startup','pg-ready','pg-startup-failed','pg-setup','pg-setup-failed','pg-holder','pg-holder-ready','pg-holder-release','pg-holder-released','pg-statement','pg-observation','pg-shutdown','pg-stopped','pg-shutdown-unconfirmed','pg-result','pg-failed']);
 // Explicit opt-in fd3 only. Never promote private payloads or stage progress to
 // acceptance, timeout renewal, cleanup authority or descendant-quiescence proof.
 export function scorerStageDiagnostic(raw) {
@@ -17,7 +18,7 @@ export function scorerStageDiagnostic(raw) {
   const lines=raw.trim().split('\n');if(!raw.trim()||lines.length>64)return [];
   const stages=[];
   try { for(const line of lines){const row=JSON.parse(line);
-    if(!row||Object.keys(row).sort().join(',')!=='elapsedMs,stage'||!boardStages.has(row.stage)
+    if(!row||Object.keys(row).sort().join(',')!=='elapsedMs,stage'||(!boardStages.has(row.stage)&&!migrationStages.has(row.stage))
       ||!Number.isInteger(row.elapsedMs)||row.elapsedMs<0||row.elapsedMs>60000
       ||(stages.length&&row.elapsedMs<stages.at(-1).elapsedMs))return [];
     stages.push(Object.freeze({stage:row.stage,elapsedMs:row.elapsedMs}));

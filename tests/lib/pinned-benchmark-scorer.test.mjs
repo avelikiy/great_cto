@@ -17,6 +17,8 @@ const lifecycleLauncher=fileURLToPath(new URL('../helpers/pinned-scorer-lifecycl
 test('private stage diagnostic rejects payloads, flood and nonmonotonic timing without echo',()=>{
  const row=(stage,elapsedMs)=>JSON.stringify({stage,elapsedMs})+'\n';
  assert.deepEqual(scorerStageDiagnostic(row('launch',1)+row('launched',2)),[{stage:'launch',elapsedMs:1},{stage:'launched',elapsedMs:2}]);
+ assert.deepEqual(scorerStageDiagnostic(row('pg-init',1)+row('pg-init-failed',2)+row('pg-failed',3)),
+  [{stage:'pg-init',elapsedMs:1},{stage:'pg-init-failed',elapsedMs:2},{stage:'pg-failed',elapsedMs:3}]);
  for(const raw of ['PRIVATE_PAYLOAD',row('PRIVATE_PAYLOAD',1),row('launch',2)+row('launched',1),
   row('launch',1).repeat(65),'x'.repeat(8193),JSON.stringify({stage:'launch',elapsedMs:1,unexpectedField:'PRIVATE_PAYLOAD'}),row('launch',60001)]){
   assert.deepEqual(scorerStageDiagnostic(raw),[]);
@@ -271,6 +273,13 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
     assert.equal(last.processDiagnostic.outcome,'timeout');assert.equal(last.processDiagnostic.timeoutMs,1000);
     assert.equal(last.processDiagnostic.pid,pid);assert.equal(last.processDiagnostic.descendantQuiescenceVerified,false);
     assert.equal(processIdentity(pid),null,'timed-out owned scorer must no longer be a live process');
+  }catch(error){
+    // Emit observations even when the watchdog fires: the previous test lost
+    // its only startup/ready evidence on precisely the failing path.
+    t.diagnostic('owned launcher failure observation: '+JSON.stringify({launchAt,readyPublicationAt,
+      readyObserved:Number.isInteger(pid)&&pid>1,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart)),
+      stageArrivals,launcher:{pid:child.pid,exitCode:child.exitCode,signal:child.signalCode}}));
+    throw error;
   }finally{
     clearTimeout(timer);
     if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');

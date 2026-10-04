@@ -1,5 +1,5 @@
 /** Pinned operator driver. Only bounded declarative plans, never candidate SQL. */
-import {realpathSync,lstatSync,readdirSync,openSync,fstatSync,readSync,closeSync,constants,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
+import {realpathSync,lstatSync,readdirSync,openSync,fstatSync,readSync,closeSync,writeSync,constants,mkdtempSync,mkdirSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {spawn,spawnSync} from 'node:child_process';
@@ -7,6 +7,11 @@ import {performance} from 'node:perf_hooks';
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const keys=(x,names)=>x&&typeof x==='object'&&!Array.isArray(x)&&same(Object.keys(x).sort(),names.sort());
+// Explicit operator opt-in, metadata only; progress never renews a deadline or
+// grants acceptance/cleanup authority. No SQL, oracle, path or raw error text.
+const diagnosticStart=performance.now();let diagnosticCount=0;
+function stage(stage){if(process.argv[1]!=='-'||process.argv[4]!=='stage-diagnostics-v1'||diagnosticCount++>=64)return;
+ try{writeSync(3,JSON.stringify({stage,elapsedMs:Math.max(0,Math.round(performance.now()-diagnosticStart))})+'\n');}catch{}}
 export function validateMigrationPlan(p){
  if(!keys(p,['version','expand','rollback','timeouts','privileges'])||p.version!==1
   ||!keys(p.expand,['preserveLegacy','nullable'])||!keys(p.rollback,['removeAdded','preserveRows'])
@@ -39,9 +44,11 @@ export async function withTemporaryPostgres(action){
  let child,closed,shutdown=false;
  try{
   const startedAt=new Date().toISOString(),initStart=performance.now();
+  stage('pg-init');
   const init=spawnSync(tools.initdb,['-D',data,'-U','bench_admin','--auth-local=trust','--auth-host=reject','--no-locale','--encoding=UTF8'],
    {env:{LANG:'C'},encoding:'utf8',timeout:10000,maxBuffer:65536,shell:false});
   if(init.error||init.status!==0||init.signal){
+   stage('pg-init-failed');
    const codes=['ETIMEDOUT','ENOBUFS','ENOENT','EACCES','EPERM','EAGAIN','ENOMEM','EMFILE','ENFILE','E2BIG','EINVAL','ENOSYS','EINTR','EIO'];
    const signals=['SIGHUP','SIGINT','SIGQUIT','SIGILL','SIGTRAP','SIGABRT','SIGBUS','SIGFPE','SIGKILL','SIGSEGV','SIGPIPE','SIGALRM','SIGTERM','SIGUSR1','SIGUSR2'];
    const errorCode=init.error?(codes.includes(init.error.code)?init.error.code:'UNCLASSIFIED'):null;
@@ -53,6 +60,7 @@ export async function withTemporaryPostgres(action){
     scratchState:'retained',descendantQuiescenceVerified:false,benchmarkEligible:false});
    throw error;
   }
+  stage('pg-initialized');stage('pg-startup');
   child=spawn(process.execPath,['--input-type=module','-e',guardian,tools.postgres,'-D',data,'-c',"listen_addresses=",'-c','unix_socket_directories='+socket,'-c','unix_socket_permissions=0700','-c','max_connections=12'],
    {env:{LANG:'C'},stdio:['pipe','ignore','ignore'],shell:false});closed=terminal(child);child.stdin.on('error',()=>{});
   const sql=(role,body,timeout=2000)=>{
@@ -63,7 +71,8 @@ export async function withTemporaryPostgres(action){
   };
   let ready=false;const deadline=performance.now()+3000;
   while(performance.now()<deadline){if(sql('bench_admin','SELECT 1;',1000).value==='1'){ready=true;break;}if(child.exitCode!==null)break;await sleep(25);}
-  if(!ready)throw Error('temporary PostgreSQL startup unavailable');
+  if(!ready){stage('pg-startup-failed');throw Error('temporary PostgreSQL startup unavailable');}
+  stage('pg-ready');
   const holder=()=>{
    const c=spawn(tools.psql,['-X','-q','-t','-A','-h',socket,'-p','5432','-U','bench_reader','-d','postgres','--set=ON_ERROR_STOP=1'],
     {env:{LANG:'C',PGCONNECT_TIMEOUT:'1',PGAPPNAME:'bench-reader-holder'},stdio:['pipe','pipe','ignore'],shell:false});
@@ -75,8 +84,8 @@ export async function withTemporaryPostgres(action){
   };
   return await action({sql,holder,tools,temp});
  }finally{
-  if(child){child.stdin.end();const result=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),6000);closed.then(value=>{clearTimeout(timer);resolve(value);});});shutdown=!!result&&result.code===0;
-   if(!shutdown)throw Error('temporary PostgreSQL shutdown unconfirmed');}
+  if(child){stage('pg-shutdown');child.stdin.end();const result=await new Promise(resolve=>{const timer=setTimeout(()=>resolve(null),6000);closed.then(value=>{clearTimeout(timer);resolve(value);});});shutdown=!!result&&result.code===0;
+   if(!shutdown){stage('pg-shutdown-unconfirmed');throw Error('temporary PostgreSQL shutdown unconfirmed');}stage('pg-stopped');}
   // No server guardian does not mean initdb/bootstrap descendants stopped.
   // Retain this owned scope after initializer failure; never grant cleanup
   // from an absent handle or the initializer's direct-process exit alone.
@@ -88,7 +97,8 @@ function verifyRows(rows){if(!Array.isArray(rows)||rows.length!==2||rows[0]?.id!
 export async function runMigrationPlan(plan,rows){
  validateMigrationPlan(plan);verifyRows(rows);
  return withTemporaryPostgres(async({sql,holder})=>{
-  const must=(role,text)=>{const r=sql(role,text);if(!r.ok)throw Error('trusted migration setup unavailable');return r.value;};
+  const must=(role,text)=>{const r=sql(role,text);if(!r.ok){stage('pg-setup-failed');throw Error('trusted migration setup unavailable');}return r.value;};
+  stage('pg-setup');
   must('bench_admin','REVOKE CREATE ON SCHEMA public FROM PUBLIC; CREATE ROLE bench_reader LOGIN; CREATE ROLE bench_migrator LOGIN; CREATE TABLE public.accounts(id integer PRIMARY KEY,amount integer NOT NULL); ALTER TABLE public.accounts OWNER TO bench_migrator; CREATE SCHEMA private; CREATE TABLE private.secrets(id integer); INSERT INTO private.secrets VALUES(1);'+
    'INSERT INTO public.accounts VALUES '+rows.map(r=>'('+r.id+','+r.amount+')').join(',')+'; GRANT SELECT ON public.accounts TO bench_reader;'+
    (plan.privileges.readerWrite?'GRANT INSERT,UPDATE,DELETE ON public.accounts TO bench_reader;':'')+(plan.privileges.migratorSuperuser?'ALTER ROLE bench_migrator SUPERUSER;':''));
@@ -97,14 +107,15 @@ export async function runMigrationPlan(plan,rows){
   const settings="SET LOCAL lock_timeout='"+plan.timeouts.lockMs+"ms'; SET LOCAL statement_timeout='"+plan.timeouts.statementMs+"ms'; ";
   const addition='ALTER TABLE public.accounts ADD COLUMN display_name text'+(plan.expand.nullable?'':' NOT NULL')+';';
   const apply='BEGIN; '+settings+addition+(plan.expand.preserveLegacy?'':'ALTER TABLE public.accounts DROP COLUMN amount;')+' COMMIT;';
-  const h=holder();let locks=false;
-  try{await h.ready;
+  stage('pg-holder');const h=holder();let locks=false;
+  try{await h.ready;stage('pg-holder-ready');
    if(must('bench_admin',"SELECT count(*) FROM pg_locks l JOIN pg_stat_activity a ON a.pid=l.pid WHERE a.application_name='bench-reader-holder' AND l.relation='public.accounts'::regclass AND l.mode='AccessShareLock' AND l.granted;")!=='1')throw Error('reader lock not attested');
    const start=performance.now(),attempt=sql('bench_migrator','BEGIN; '+settings+addition+' COMMIT;',1500);
    locks=attempt.code==='55P03'&&performance.now()-start<1200&&read();
-  }finally{await h.release();}
+  }finally{stage('pg-holder-release');await h.release();stage('pg-holder-released');}
+  stage('pg-statement');
   const statement=sql('bench_migrator','BEGIN; '+settings+'SELECT pg_sleep(3); COMMIT;',1500);locks&&=statement.code==='57014';
-  const applied=sql('bench_migrator',apply).ok;
+  stage('pg-observation');const applied=sql('bench_migrator',apply).ok;
   const reader=applied&&read()&&sql('bench_reader','SELECT id,amount,display_name FROM public.accounts ORDER BY id;').ok;
   const write=sql('bench_reader','BEGIN; INSERT INTO public.accounts(id,amount) VALUES(99,99); ROLLBACK;');
   const update=sql('bench_reader','BEGIN; UPDATE public.accounts SET id=10 WHERE id=1; ROLLBACK;');
@@ -131,11 +142,12 @@ function inventory(root){const files=new Map();let count=0,total=0;function visi
  const bytes=bounded(path);if((total+=bytes.length)>1048576)throw Error('oversized inventory');files.set(name,bytes);
 }visit();return files;}
 async function score(){
+ stage('pg-inventory');
  const root=realpathSync(process.argv[2]),o=JSON.parse(process.argv[3]);if(o.scenario!=='migration-safety'||!Array.isArray(o.protected))throw Error('invalid migration oracle');verifyRows(o.rows);
  let files,integrity=false;try{files=inventory(root);integrity=Object.keys(o.baseline).every(n=>files.has(n))&&[...files.keys()].every(n=>Object.hasOwn(o.baseline,n))&&o.protected.every(n=>sha(files.get(n))===o.baseline[n]);}catch{}
  let passed=[false,false,false,false];if(integrity){let plan;try{plan=validateMigrationPlan(JSON.parse(files.get('migrations/plan.json').toString('utf8')));}catch{}
   if(plan)passed=(await runMigrationPlan(plan,o.rows)).passed;}
- process.stdout.write(JSON.stringify({version:1,pid:process.pid,scenario:o.scenario,criteria:o.criteria.map((text,i)=>({text,state:passed[i]?'passed':'failed',
+ stage('pg-result');process.stdout.write(JSON.stringify({version:1,pid:process.pid,scenario:o.scenario,criteria:o.criteria.map((text,i)=>({text,state:passed[i]?'passed':'failed',
   evidence:passed[i]?'Temporary PostgreSQL observed rollback/readers/deadlines/role contracts':'Migration behavior or protected inventory failed; private rows withheld'}))}));
 }
-if(process.argv[1]==='-')await score();
+if(process.argv[1]==='-')try{await score();}catch(error){stage('pg-failed');throw error;}

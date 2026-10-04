@@ -204,3 +204,23 @@ Its freshly verified SHA-256 is
 Identical bytes to the earlier candidate do not confer inherited runtime proof.
 No plugin installation, merge, release, default change or human/security
 approval was performed. The lifecycle fix is verified; full acceptance is not.
+
+## Scorer failure-path diagnostic follow-up
+
+Tasks `great_cto-p4o9.5.9.12` and `great_cto-p4o9.5.9.13` remain unresolved.
+The PostgreSQL driver's opt-in fd3 trace now reports fixed stage identifiers
+for initialization, startup, setup, holder, observations and shutdown, with
+monotonic elapsed time only. The existing parser enforces exact keys, known
+stages, 64 records and 8192 bytes; no SQL, paths, private rows or raw stderr
+are forwarded. Progress does not renew any deadline or establish acceptance.
+The migration fixture opts into this trace; production invocations remain
+opt-out. The launcher timeout test also reports its bounded startup/ready
+observations on the failure path, before cleanup, rather than losing them when
+the watchdog rejects. No scorer, watchdog or PostgreSQL phase bound changed.
+
+Focused scorer/migration/initializer regression passed 62/62 with zero skips,
+failures or cancellations in 31273.773958 ms. Log:
+`/Users/Shared/great-cto-scorer-diagnostics-focused.log`.
+The SIGTERM-handling case passed in 1334.16075 ms and observed an actual
+ETIMEDOUT/SIGKILL scorer exit. This isolated result does not supersede the
+previous canonical failures. Their causes still require loaded replay evidence.
