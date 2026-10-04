@@ -75,6 +75,17 @@ or activate the local candidate in Codex, confirm enabled-plugin selection, or
 prove the running host has adopted it. Existing live-root protection during prune
 is observational, not an OS-level guarantee against same-user filesystem races.
 
+For isolated CLI/board probes, `GREAT_CTO_HOME` must be an absolute dedicated
+state directory. Empty/unset retains the normal home default; relative paths
+are refused, not reinterpreted against each process cwd. `GREAT_CTO_DISCOVERY_ROOT`
+controls project discovery separately: set both for an isolated probe. A discovery
+root alone does not relocate the operator registry. The global store and its
+parent project-shaped marker are excluded from project registration/discovery.
+Webhook config/DLQ and VAPID key files use mode 0600 with file-symlink refusal;
+existing secret files are tightened when read/written. New state directories use
+0700; existing parent directories are not chmod-ed. This does not migrate all
+legacy plugin writers or claim OS isolation from another same-user process.
+
 ## Why GitHub Actions is failing (account-level, not the code)
 
 - Repo is **public** → Actions minutes are unlimited (rules out a minutes cap).

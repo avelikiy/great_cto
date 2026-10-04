@@ -1,7 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import os from 'os';
+import { stateHome } from '../../cli/src/state-home.mjs';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
@@ -20,7 +20,7 @@ const HOST = (() => {
   return String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_HOST || '127.0.0.1');
 })();
 // Shared dedicated namespace with the CLI; unset/empty keeps the operator default.
-const GREAT_CTO_DIR = process.env.GREAT_CTO_HOME || path.join(os.homedir(), '.great_cto');
+const GREAT_CTO_DIR = stateHome();
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
 // Test seam: honor an explicit override so tests can point the registry at a
 // tmp fixture without touching the real ~/.great_cto/projects.json (same

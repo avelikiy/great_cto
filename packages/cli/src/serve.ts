@@ -22,12 +22,12 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { createServer, IncomingMessage, ServerResponse } from "node:http";
-import { homedir } from "node:os";
+import { stateHome } from "./state-home.mjs";
 import { dirname, join } from "node:path";
 import { dispatch, getDlqPath } from "./webhook-dispatch.js";
 import { getIncoming } from "./webhook-config.js";
 
-const EVENTS_LOG = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhook-events.log");
+const EVENTS_LOG = join(stateHome(), "webhook-events.log");
 
 export function getEventsLogPath(): string {
   return EVENTS_LOG;

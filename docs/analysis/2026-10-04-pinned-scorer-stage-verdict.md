@@ -484,3 +484,63 @@ and lesson-rules sweep (424 files, zero findings) passed. Log:
 `/Users/Shared/great-cto-immutable-install-regression.log`.
 This records source remediation only. Independent re-review and canonical CI
 are pending; installed caches, registry, board and marketplace remain unchanged.
+
+## Installer re-review and canonical replay outcomes
+
+The broad static re-review of `f94c9f2c98cc8f74126296d288a3c27c8e9da71c`
+did not return a result within 240000 ms: terminal null exit code, SIGKILL,
+timedOut true. Input 104854 bytes, SHA-256
+`f006ee5db7314253d6665de1eec7cc8b502412315cfbe3ef4355c8a4082a5c5a`;
+log `/Users/Shared/great-cto-immutable-review-aJDrxd/review.log`.
+The reduced six-file core attempt also timed out at 180000 ms with the same
+terminal failure and no verdict: 29617 bytes, input SHA-256
+`acc2442794ea5cf47494a41cdbe6ed567efc89579be13de093b4d248444d0945`;
+log `/Users/Shared/great-cto-installer-core-review-NQEc4q/review.log`.
+Neither log contains a model result or usage; cost/usage are unknown, not zero.
+
+A third, explicitly smaller review used medium effort and only three complete
+helpers: local-install-target, local-install-cache, local-install-registry.
+Source pin remained f94c9f2c; input 13568 bytes, SHA-256
+`c9f73c7512e65f461ecb4cfecdadcf6342c5db08a1996a6d59b5e024b21a926f`.
+It completed exit 0, is_error false, duration_ms 113533, actual model
+claude-fable-5-1, total_cost_usd 0.4971595. Log:
+`/Users/Shared/great-cto-snapshot-review-IMRbzw/review.log`.
+Verdict APPROVE for these helpers only, no High/Medium finding. Caller, prune,
+sync, tests, helper dependencies, whole branch, OS admission, installation and
+release were excluded. No broader approving receipt exists. Low findings cover
+stale crash locks, cleanup-error handling, malformed registry entries, restrictive
+replacement mode and backup accumulation. The non-cooperating registry update
+race and same-user filesystem authority remain explicit limitations.
+
+Full canonical `ci-local.sh --e2e` at f94c9f2c terminated exit 1. Log:
+`/Users/Shared/great-cto-immutable-full-ci.log`. Source root/hooks/board:
+1269 passed, one failed, zero skipped; library 3151 passed, zero failed, six
+skipped (253287.626833 ms); eval 238, docs 76, browser nine, CLI 361 and archetype
+34 passed. CLI pack ran. HOL remained 83/80, zero Critical, 35 historically
+reviewed High, no new bypass/baseline. Installed L1-L5 selected the local
+3.48.0 cache and failed: 33 passed, three namespace-support failures, nine
+skipped, 57 seconds. The local Claude registration is disabled; current enabled
+Claude/Codex marketplace installations also report 3.48.0, but this local-cache
+replay is not an enabled-marketplace firing test. Both CLI auth checks passed.
+Docker app is present but its daemon socket is absent; Docker runtime is unavailable.
+
+The source failure was stale-board.test requiring the removed implicit restart.
+It now asserts no restart/claim of running-board adoption. A real isolated shell
+fixture additionally traps rsync/lsof/Claude/Codex invocations and confirms none
+occur during cache-only publication. Focused contract 43/43 and repeated complete
+root/hooks/board 1270/1270 passed with zero skips (66972.192334 ms), before the
+following namespace remediation. They do not green the earlier full CI.
+
+Task `great_cto-p4o9.5.10.3` remediates confirmed relative namespace/secret-mode
+findings: CLI and board share one packaged stateHome resolver; relative roots
+fail before writes. Config/DLQ/VAPID use private descriptor-based reads/writes,
+file-symlink/special-file refusal and mode 0600; new directories use 0700 without
+chmod of existing parents. Loaded legacy secret files are tightened. The board
+excludes relocated global state, its marker-bearing parent and symlink aliases
+from project registration, discovery and existing registry output. Observed
+/var versus /private/var duplicate auto-registration is prevented by canonical
+identity. Unknown scope refuses registration rather than falling through.
+Focused privacy/namespace/update/VAPID checks passed 63/63, no skips. Log:
+`/Users/Shared/great-cto-state-privacy-tests.log`. CLI build and lesson sweep
+(426 files, zero findings) passed. These newer bytes require their own complete
+canonical replay and independent scope review before activation.

@@ -204,7 +204,15 @@ function getChangeTier(dir) {
     return { tier: 'T2', error: e.message };  // fail-safe: unknown → full gates
   }
 }
+function isGlobalStateProject(dir) {
+  const canonical = value => { try { return fs.realpathSync(value); } catch { return path.resolve(value); } };
+  const resolved = canonical(dir);
+  const state = canonical(GREAT_CTO_DIR);
+  return isInsideDir(state, resolved) || canonical(path.join(resolved, '.great_cto')) === state;
+}
+
 function autoRegisterProject(dir) {
+  if (isGlobalStateProject(dir)) return null;
   // The home directory is never a project.
   //
   // `~/.great_cto/` is the GLOBAL store — cross-project verdicts, decisions,
@@ -234,12 +242,16 @@ function autoRegisterProject(dir) {
     const enclosing = readProjectsRegistry().projects
       .find((e) => e.path && path.resolve(e.path) !== resolved && isInsideDir(path.resolve(e.path), resolved));
     if (enclosing) return null;
-  } catch { /* if we cannot resolve it, fall through to the normal checks */ }
+  } catch { return null; } // Unknown scope is not permission to register it.
 
   const meta = readProjectMd(dir);
   if (!meta) return null;
   const reg = readProjectsRegistry();
-  const existingByPath = reg.projects.find(p => p.path === meta.path);
+  const existingByPath = reg.projects.find(p => {
+    if (p.path === meta.path) return true;
+    try { return fs.realpathSync(p.path) === fs.realpathSync(meta.path); }
+    catch { return false; }
+  });
   if (existingByPath) return meta; // already registered at this path, nothing to do
   // Only an entry whose path is GONE is this repo having moved. An entry whose
   // path still exists is a different project that happens to share a name, and
@@ -291,13 +303,13 @@ async function discoverProjects() {
   const scope = getDiscoveryScope();
 
   async function scanDir(dir, depth) {
-    if (depth < 0 || seen.has(dir)) return;
+    if (depth < 0 || seen.has(dir) || isInsideDir(GREAT_CTO_DIR, dir)) return;
     seen.add(dir);
     try {
       // Check the dir itself first — but NEVER treat HOME's own .great_cto as a
       // project: ~/.great_cto is the global config dir, not a project. Without
       // this guard, $HOME gets registered as a bogus project (great_cto-…).
-      if (dir !== HOME) {
+      if (dir !== HOME && !isGlobalStateProject(dir)) {
         try {
           await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
           found.push(dir);
@@ -333,7 +345,7 @@ async function discoverProjects() {
       const decoded = '/' + dir.replace(/^-+/, '').replace(/-/g, '/');
       try {
         await fsAsync.access(path.join(decoded, '.great_cto', 'PROJECT.md'));
-        found.push(decoded);
+        if (!isGlobalStateProject(decoded)) found.push(decoded);
       } catch {}
     }
   } catch {}
@@ -353,7 +365,7 @@ function listProjects() {
   // .great_cto has no project marker or task source left (no PROJECT.md,
   // no tasks.md, no .beads → nothing to show, just clutters the switcher).
   reg.projects = reg.projects.filter(p =>
-    p.path !== HOME &&
+    p.path !== HOME && !isGlobalStateProject(p.path) &&
     fs.existsSync(p.path) &&
     (fs.existsSync(path.join(p.path, '.great_cto', 'PROJECT.md')) ||
      fs.existsSync(path.join(p.path, '.great_cto', 'tasks.md')) ||

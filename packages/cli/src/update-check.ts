@@ -35,10 +35,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { createInterface } from "node:readline";
-import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { semverDescending } from "./semver.js";
+import { stateHome } from "./state-home.mjs";
 
 export const REGISTRY_DIST_TAGS_URL = "https://registry.npmjs.org/-/package/great-cto/dist-tags";
 export const CACHE_FRESH_MS = 24 * 60 * 60 * 1000; // 24h
@@ -58,13 +58,9 @@ export interface UpdateCache {
   promptedFor?: string; // latest version we've already shown the interactive Y/n prompt for, if any
 }
 
-function defaultCachePath(): string {
-  return join(homedir(), ".great_cto", "update-check.json");
-}
-
 /** Resolve the cache file path — GREAT_CTO_HOME lets tests/worker isolate state, same convention as worker.ts/task-queue.ts. */
 export function cachePath(): string {
-  const base = process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto");
+  const base = stateHome();
   return join(base, "update-check.json");
 }
 

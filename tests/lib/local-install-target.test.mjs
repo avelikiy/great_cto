@@ -36,7 +36,9 @@ function fixture(t, version) {
   fs.writeFileSync(registry, JSON.stringify({ version: 2, plugins: {} }));
   const bin = path.join(root, 'bin');
   fs.mkdirSync(bin);
-  fs.writeFileSync(path.join(bin, 'rsync'), `#!/bin/sh\nprintf called > '${marker}'\n`, { mode: 0o755 });
+  for (const command of ['rsync', 'lsof', 'claude', 'codex']) {
+    fs.writeFileSync(path.join(bin, command), `#!/bin/sh\nprintf called > '${marker}'\nexit 1\n`, { mode: 0o755 });
+  }
   const script = fs.readFileSync(path.join(repo, 'scripts/install-local.sh'), 'utf8')
     .replace(/^ROOT=.*$/m, `ROOT='${source}'`)
     .replace(/^CACHE_ROOT=.*$/m, `CACHE_ROOT='${cache}'`)
@@ -204,9 +206,12 @@ test('managed-helper failure propagates without changing host registration', (t)
   assert.equal(fs.existsSync(path.join(f.cache, '3.48.0')), true, 'immutable staged cache can remain after later failure');
 });
 
-test('local installer has no implicit board or marketplace side effects', () => {
+test('local installer has no implicit board or marketplace side effects', (t) => {
   const script = fs.readFileSync(path.join(repo, 'scripts/install-local.sh'), 'utf8');
   assert.doesNotMatch(script, /board_stop|board_start|marketplace upgrade|marketplace update|rsync/);
+  const f = fixture(t, '3.48.0');
+  assert.equal(f.run().status, 0);
+  assert.equal(fs.existsSync(f.marker), false, 'host commands and board owner probes must not run');
 });
 
 test('strict managed sync propagates missing source while SessionStart stays advisory', () => {

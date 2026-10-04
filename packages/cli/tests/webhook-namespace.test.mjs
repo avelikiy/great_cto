@@ -3,7 +3,7 @@ import { test } from 'node:test';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHmac, randomBytes } from 'node:crypto';
 import { once } from 'node:events';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -43,6 +43,7 @@ function fixture(t) {
 test('webhook config and DLQ use the dedicated namespace, not ambient hooks', t => {
   const f = fixture(t);
   const r = spawnSync(process.execPath, ['--input-type=module', '-e', `${f.prefix}
+    process.umask(0);
     const c = await import(${JSON.stringify(configUrl)});
     const d = await import(${JSON.stringify(dispatchUrl)});
     c.addIncoming({name:'github',secret:process.env.GREAT_CTO_FIXTURE_HMAC_KEY});
@@ -55,6 +56,8 @@ test('webhook config and DLQ use the dedicated namespace, not ambient hooks', t 
   assert.equal(result.fired, 0);
   assert.deepEqual(result.value.outgoing, []);
   assert.equal(result.value.incoming[0].name, 'github');
+  assert.equal(statSync(result.config).mode & 0o777, 0o600);
+  assert.equal(statSync(f.env.GREAT_CTO_HOME).mode & 0o777, 0o700);
   f.unchanged();
 });
 
@@ -96,6 +99,7 @@ test('actual CLI add/list/remove use the dedicated config namespace', t => {
 test('failed fixture deliveries write only the isolated DLQ', t => {
   const f = fixture(t);
   const r = spawnSync(process.execPath, ['--input-type=module', '-e', `${f.prefix}
+    process.umask(0);
     const c = await import(${JSON.stringify(configUrl)});
     const d = await import(${JSON.stringify(dispatchUrl)});
     globalThis.fetch = async () => { throw new Error('fixture refusal'); };
@@ -104,9 +108,25 @@ test('failed fixture deliveries write only the isolated DLQ', t => {
     d.dispatch({name:'pr.opened',title:'fixture'});
   `], { env: f.env, encoding: 'utf8', timeout: 5000 });
   assert.equal(r.status, 0, r.stderr);
+  assert.equal(statSync(join(f.env.GREAT_CTO_HOME, 'webhook-dlq.log')).mode & 0o777, 0o600);
   const entry = JSON.parse(readFileSync(join(f.env.GREAT_CTO_HOME, 'webhook-dlq.log'), 'utf8'));
   assert.equal(entry.hook, 'fixture');
   assert.equal(entry.error, 'fixture refusal');
+  f.unchanged();
+});
+
+test('all CLI state consumers refuse relative namespaces before filesystem writes', t => {
+  const f = fixture(t);
+  for (const name of ['webhook-config.js', 'webhook-dispatch.js', 'serve.js', 'task-queue.js', 'worker.js', 'update-check.js']) {
+    const url = new URL(`../dist/${name}`, import.meta.url).href;
+    const r = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      const m = await import(${JSON.stringify(url)});
+      if (m.cachePath) m.cachePath();
+    `], { cwd: f.root, env: { ...f.env, GREAT_CTO_HOME: 'relative-state' }, encoding: 'utf8', timeout: 5000 });
+    assert.notEqual(r.status, 0, name);
+    assert.match(r.stderr, /GREAT_CTO_HOME must be an absolute/, name);
+    assert.equal(existsSync(join(f.root, 'relative-state')), false);
+  }
   f.unchanged();
 });
 

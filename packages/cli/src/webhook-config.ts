@@ -12,9 +12,10 @@
 //     ]
 //   }
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+import { stateHome } from "./state-home.mjs";
+import { readPrivateState, writePrivateState } from "./private-state.mjs";
 
 export interface IncomingHook {
   name: string;          // unique slug (github, sentry, custom-1)
@@ -42,7 +43,7 @@ export interface WebhookConfig {
 }
 
 // Same dedicated state namespace as the task queue and update checker.
-const CONFIG_PATH = join(process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto"), "webhooks.json");
+const CONFIG_PATH = join(stateHome(), "webhooks.json");
 
 const DEFAULT_CONFIG: WebhookConfig = { incoming: [], outgoing: [] };
 
@@ -53,7 +54,7 @@ export function getConfigPath(): string {
 export function loadConfig(): WebhookConfig {
   if (!existsSync(CONFIG_PATH)) return { ...DEFAULT_CONFIG };
   try {
-    const raw = readFileSync(CONFIG_PATH, "utf8");
+    const raw = readPrivateState(CONFIG_PATH);
     const parsed = JSON.parse(raw) as Partial<WebhookConfig>;
     return {
       incoming: parsed.incoming ?? [],
@@ -65,9 +66,7 @@ export function loadConfig(): WebhookConfig {
 }
 
 export function saveConfig(cfg: WebhookConfig): void {
-  const dir = dirname(CONFIG_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  writePrivateState(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
 
 export function addIncoming(hook: IncomingHook): void {
