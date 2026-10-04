@@ -870,3 +870,7 @@ diagnostic is not a replacement for the failed canonical run and does not
 identify the timeout stage or prove a fix. The case includes an external
 `example.invalid` image request; no causal claim about that request is made
 without an actor/network trace.
+
+Follow-up: [pinned scorer stage diagnostic verdict](2026-10-04-pinned-scorer-stage-verdict.md)
+records the next instrumented canonical run and full-CI evidence. A later
+successful run does not retroactively explain the original timeout.

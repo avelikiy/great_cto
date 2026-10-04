@@ -3,6 +3,8 @@
 Date: 2026-10-04. Source branch: `codex/adaptive-pipeline`.
 Scope: `great_cto-p4o9.5.9.10`, remaining canonical-load scorer timeout.
 
+Previous evidence: [full CI isolation verdict](2026-10-03-full-ci-isolation-verdict.md).
+
 ## Reproduction and evidence boundary
 
 The previous canonical library run at the phase-deadline increment completed
@@ -66,3 +68,61 @@ No plugin installation, merge, release, workflow enablement, production
 activation, security approval or comparative quality claim is authorized by
 these diagnostics. Full non-quick CI and installed-artifact parity require
 their own terminal evidence.
+
+## Full non-quick CI at 91187560
+
+`bash scripts/ci-local.sh` ran against immutable `91187560` and completed
+exit 1 (session 39700). Log:
+`/Users/Shared/great-cto-stage-full-ci-jGPbKM`.
+
+| Block | Terminal evidence |
+| --- | --- |
+| Root/hooks/board | 1264 passed, no failures/skips |
+| Library | 3114 total, 3106 passed, 1 failed, 1 cancelled, 6 NOT CHECKED; 499058.246042 ms |
+| Eval | 238 passed |
+| Documentation | 76 passed |
+| Actual browser E2E | 9 passed, no skips |
+| Installed Claude plugin L1-L5 | 33 passed, 3 failed, 9 NOT CHECKED; 216 seconds |
+| CLI unit tests | 361 passed |
+| Build/pack | Passed; private candidate, not a release or runtime attestation |
+
+Console-error passed again: browser-loaded 1381 ms, launched 1782 ms,
+third context closed 3435 ms, browser closed/result 3480 ms. No actor trace
+of the historical failing case exists, so the scorer-cause issue stays open.
+
+The library failure is the new report's missing document-graph link (49
+orphans instead of the frozen 48 baseline). Bidirectional links to the prior
+full-CI verdict were added after terminal CI; the frozen baseline is unchanged.
+Task: `great_cto-p4o9.5.9.10.2`. This correction is not a green rerun of full CI.
+
+The cancelled library case is rendered contrast: its test reported
+testTimeoutFailure after 180003.570167 ms, but its worker remained alive for
+over five minutes and prevented the library process from finishing. Inspection
+verified worker PID 68538, parent runner 84615, birth 2026-10-04 10:13:22
+local, and child board PID 69501, parent 68538, birth 10:13:28. Both cwd values
+were this exact worktree. The verified board was killed with SIGKILL and the
+blocked worker with SIGTERM; no prefix search, foreign process signal, profile
+deletion or inferred descendant-quiescence proof was used. The existing
+180-second timeout failure is retained, not replaced by success. Remaining
+unobserved native browser resources are not claimed to be absent. Task:
+`great_cto-p4o9.5.9.11`. The test's finally awaits browser.close before stopping
+its board; owned-resource lifetime/abort handling needs a bounded redesign.
+
+L1-L5 selected `/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`.
+Two webhook HMAC cases and the board case refused missing isolated namespace
+support before config mutation/server launch. The phase-task fixture passed
+its five actual Beads checks while retaining an open synthetic gate; role/model
+execution, deployment and actual human approval remain NOT CHECKED. No installed
+artifact was replaced to hide these failures.
+
+The newly packed 161-file candidate is preserved at
+`/Users/Shared/great-cto-stage-ci-candidate-gBPhY9/great-cto-3.48.0.tgz`,
+SHA-256 `84174eff3750cd38edbd1215f934e3daa0ca61ec7898c5201febefc351462053`.
+It was not installed, released or given an inherited runtime verdict. Full
+acceptance remains incomplete; no merge or security approval follows from pack
+success or the two successful scorer observations.
+
+After the document links were repaired, documentation plus document-graph
+regression passed 81/81, no skips, 5361.689667 ms. Reference and diff checks
+passed. The full-CI result above is still red; this focused check only resolves
+the orphan-report regression, not contrast lifecycle or installed parity.
