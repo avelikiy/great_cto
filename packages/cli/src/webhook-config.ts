@@ -12,7 +12,6 @@
 //     ]
 //   }
 
-import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { stateHome } from "./state-home.mjs";
 import { readPrivateState, writePrivateState } from "./private-state.mjs";
@@ -45,23 +44,28 @@ export interface WebhookConfig {
 // Same dedicated state namespace as the task queue and update checker.
 const CONFIG_PATH = join(stateHome(), "webhooks.json");
 
-const DEFAULT_CONFIG: WebhookConfig = { incoming: [], outgoing: [] };
-
 export function getConfigPath(): string {
   return CONFIG_PATH;
 }
 
 export function loadConfig(): WebhookConfig {
-  if (!existsSync(CONFIG_PATH)) return { ...DEFAULT_CONFIG };
   try {
     const raw = readPrivateState(CONFIG_PATH);
     const parsed = JSON.parse(raw) as Partial<WebhookConfig>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+      || (parsed.incoming !== undefined && !Array.isArray(parsed.incoming))
+      || (parsed.outgoing !== undefined && !Array.isArray(parsed.outgoing))) {
+      throw new Error("Invalid webhook configuration shape");
+    }
     return {
       incoming: parsed.incoming ?? [],
       outgoing: parsed.outgoing ?? [],
     };
-  } catch {
-    return { ...DEFAULT_CONFIG };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { incoming: [], outgoing: [] };
+    // A failed read is not an authoritative empty configuration. Never allow
+    // an add/remove operation to overwrite a corrupt or inaccessible store.
+    throw error;
   }
 }
 

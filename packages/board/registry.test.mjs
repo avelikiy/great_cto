@@ -14,6 +14,7 @@ import path from 'node:path';
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-registry-test-'));
 const projectsFile = path.join(tmpDir, 'projects.json');
 process.env.GREAT_CTO_PROJECTS_FILE = projectsFile;
+process.env.GREAT_CTO_DISCOVERY_ROOT = tmpDir;
 
 const {
   readProjectsRegistry,

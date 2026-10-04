@@ -20,7 +20,8 @@ export function readPrivateState(file) {
   const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
   try {
     if (!fs.fstatSync(fd).isFile()) throw new Error('private state is not a regular file');
-    fs.fchmodSync(fd, 0o600);
+    const stat = fs.fstatSync(fd);
+    if ((stat.mode & 0o777) !== 0o600) fs.fchmodSync(fd, 0o600);
     return fs.readFileSync(fd, 'utf8');
   } finally { fs.closeSync(fd); }
 }
@@ -30,11 +31,13 @@ export function writePrivateState(file, text, append = false) {
   regularOrAbsent(file);
   fs.mkdirSync(dirname(file), { recursive: true, mode: 0o700 });
   const flags = fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_NOFOLLOW
-    | fs.constants.O_NONBLOCK | (append ? fs.constants.O_APPEND : fs.constants.O_TRUNC);
+    | fs.constants.O_NONBLOCK | (append ? fs.constants.O_APPEND : 0);
   const fd = fs.openSync(file, flags, 0o600);
   try {
     if (!fs.fstatSync(fd).isFile()) throw new Error('private state is not a regular file');
     fs.fchmodSync(fd, 0o600);
+    // Refuse permission failures before modifying existing bytes.
+    if (!append) fs.ftruncateSync(fd, 0);
     fs.writeFileSync(fd, text);
   } finally { fs.closeSync(fd); }
 }

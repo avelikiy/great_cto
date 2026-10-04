@@ -606,3 +606,38 @@ diff check and lesson sweep (428 files, zero findings) passed. Log:
 independent re-review of their new bytes. The three approved immutable helpers
 remain byte-identical to f94c9f2c. Neither their narrow approval nor this
 regression approves the whole branch, active refresh or release.
+
+## Pinned installer approval and namespace follow-up
+
+At `5a9e39e90fb6569727347c0b37e6375b51427016`, independent caller/prune/
+sync/shared-fragments re-review returned APPROVE, no High/Medium, exit 0,
+is_error false, duration_ms 161797, actual claude-fable-5-1,
+total_cost_usd 0.8949895. Input 20946 bytes, SHA-256
+`c3c8f71b498fc41ca3d198f182231c7464185e6cb50e99703c949e7e544bc344`;
+log `/Users/Shared/great-cto-prune-rereview-toJJVF/review.log`.
+Root/hooks/board 1270/1270, installer/prune 56/56 and privacy/sync/fragments
+17/17 passed without skips. Installer task .5.10.2 is closed narrowly;
+Low follow-ups .5.10.4 and broad security/activation tasks stay open.
+
+Five-file namespace/privacy/projects review at the same pin returned
+REQUEST_CHANGES, exit 0, is_error false, duration_ms 166851,
+actual claude-fable-5-1, total_cost_usd 0.8979795. Input 30362 bytes, SHA-256
+`2c2e94ec2e2d9bce07781fad485a2470906c1c41fb802255488c41567bb2ad55`;
+log `/Users/Shared/great-cto-state-rereview-q9VQuL/review.log`.
+Confirmed Medium findings: failed/corrupt webhook read could masquerade as
+empty config and be overwritten; truncation preceded mode verification;
+board file overrides allowed cwd-relative paths; automatic registration
+bypassed the canonical HOME/discovery boundary. Follow-up implementation:
+
+- Only ENOENT means empty config; other read/shape failures abort mutation.
+- Already-0600 reads need no chmod; wider modes must tighten or fail closed.
+  Writes chmod and validate before ftruncate, preserving bytes on mode failure.
+  Read-only permissive secret mounts are deliberately refused, not silently used.
+- Both board file override seams require absolute, NUL-free paths.
+- Automatic registration canonicalizes and checks HOME or explicit isolated
+  discovery scope, including symlink aliases and cwd. Invalid scope refuses.
+
+No atomic/CAS write guarantee or adversarial same-user isolation is introduced.
+Low registry-shape/directory-creation findings and platform boundaries remain
+follow-up work. New remediation bytes require their own independent review;
+prior installed-package and live-wave evidence applies only to its older pin.

@@ -236,6 +236,13 @@ function autoRegisterProject(dir) {
   // the board there added it as a separate project reading great_cto's beads —
   // 228 tasks counted twice, under two names, in a fleet of seventeen.
   try {
+    // Automatic discovery/cwd must not bypass the raw-path registration
+    // boundary. An explicit isolated discovery scope replaces HOME, never
+    // falls back to it, and is canonicalized before containment checks.
+    const scope = getDiscoveryScope();
+    const boundary = fs.realpathSync(scope.includeClaudeProjects ? os.homedir() : scope.roots[0]);
+    const canonical = fs.realpathSync(dir);
+    if (!isInsideDir(boundary, canonical)) return null;
     const resolved = path.resolve(dir);
     if (resolved === path.resolve(os.homedir())) return null;
     if (isInsideDir(path.join(os.homedir(), '.claude', 'plugins'), resolved)) return null;

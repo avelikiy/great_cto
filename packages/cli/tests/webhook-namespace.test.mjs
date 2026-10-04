@@ -78,6 +78,21 @@ test('unset and empty namespace preserve the normal default', t => {
   f.unchanged();
 });
 
+test('corrupt webhook config refuses mutations without replacing original bytes', t => {
+  const f = fixture(t), file = join(f.env.GREAT_CTO_HOME, 'webhooks.json');
+  mkdirSync(f.env.GREAT_CTO_HOME, { recursive: true });
+  for (const bytes of ['{broken', 'null', '{"incoming":{}}']) {
+    writeFileSync(file, bytes);
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+      const c = await import(${JSON.stringify(configUrl)});
+      c.addIncoming({name:'new'});
+    `], { env: f.env, encoding: 'utf8', timeout: 5000 });
+    assert.notEqual(result.status, 0);
+    assert.equal(readFileSync(file, 'utf8'), bytes);
+  }
+  f.unchanged();
+});
+
 test('actual CLI add/list/remove use the dedicated config namespace', t => {
   const f = fixture(t);
   const run = args => {

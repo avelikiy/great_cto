@@ -26,11 +26,17 @@ const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
 // tmp fixture without touching the real ~/.great_cto/projects.json (same
 // convention as GREAT_CTO_BD_BIN in lib/beads.mjs). Unset in production —
 // zero behavior change at runtime.
-const PROJECTS_FILE = process.env.GREAT_CTO_PROJECTS_FILE || path.join(GREAT_CTO_DIR, 'projects.json');
+function stateFileOverride(name, fallback) {
+  const value = process.env[name];
+  if (!value) return path.join(GREAT_CTO_DIR, fallback);
+  if (!path.isAbsolute(value) || value.includes('\0')) throw new Error(`${name} must be absolute and contain no NUL`);
+  return path.resolve(value);
+}
+const PROJECTS_FILE = stateFileOverride('GREAT_CTO_PROJECTS_FILE', 'projects.json');
 const SHARE_ENDPOINT = 'https://greatcto.systems/r/';
 const VAPID_KEYS_FILE = path.join(GREAT_CTO_DIR, 'vapid-keys.json');
 const PUSH_SUBS_FILE = path.join(GREAT_CTO_DIR, 'push-subscriptions.json');
-const NOTIF_HISTORY_FILE = process.env.GREAT_CTO_NOTIF_HISTORY_FILE || path.join(GREAT_CTO_DIR, 'notif-history.json');
+const NOTIF_HISTORY_FILE = stateFileOverride('GREAT_CTO_NOTIF_HISTORY_FILE', 'notif-history.json');
 const VAPID_SUBJECT = 'mailto:hi@updates.greatcto.systems';
 
 export {

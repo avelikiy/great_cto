@@ -98,6 +98,69 @@ test('private file helpers refuse symlink and special targets without touching o
   assert.equal(fs.statSync(outside).mode & 0o777, 0o644);
 });
 
+test('permission tightening failure occurs before truncating existing private bytes', (t) => {
+  const root = fixture(t), file = path.join(root, 'secret.json');
+  fs.writeFileSync(file, 'preserved', { mode: 0o600 });
+  const original = fs.fchmodSync;
+  fs.fchmodSync = () => { const error = new Error('fixture permission refusal'); error.code = 'EPERM'; throw error; };
+  try {
+    assert.equal(readPrivateState(file), 'preserved', 'already private read does not need chmod');
+    assert.throws(() => writePrivateState(file, 'replacement'), /permission refusal/);
+    assert.equal(fs.readFileSync(file, 'utf8'), 'preserved');
+    fs.chmodSync(file, 0o644);
+    assert.throws(() => readPrivateState(file), /permission refusal/, 'unsafe mode fails closed');
+  } finally { fs.fchmodSync = original; }
+});
+
+test('board file overrides reject relative paths before writes', (t) => {
+  const root = fixture(t);
+  const module = new URL('../../packages/board/lib/config.mjs', import.meta.url).href;
+  for (const name of ['GREAT_CTO_PROJECTS_FILE', 'GREAT_CTO_NOTIF_HISTORY_FILE']) {
+    const result = spawnSync(process.execPath, ['--input-type=module', '-e', `await import(${JSON.stringify(module)})`], {
+      cwd: root, env: { ...process.env, GREAT_CTO_HOME: path.join(root, 'state'), [name]: 'relative.json' }, encoding: 'utf8', timeout: 5000 });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /must be absolute/);
+    assert.equal(fs.existsSync(path.join(root, 'relative.json')), false);
+  }
+});
+
+test('automatic registration refuses paths outside explicit discovery scope', (t) => {
+  const root = fixture(t), scope = path.join(root, 'scope'), outside = path.join(root, 'outside');
+  fs.mkdirSync(scope);
+  fs.mkdirSync(path.join(outside, '.great_cto'), { recursive: true });
+  fs.writeFileSync(path.join(outside, '.great_cto/PROJECT.md'), 'name: outside\narchetype: web-service\n');
+  const module = new URL('../../packages/board/lib/projects.mjs', import.meta.url).href;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    const m = await import(${JSON.stringify(module)});
+    console.log(JSON.stringify([m.autoRegisterProject(${JSON.stringify(outside)}),m.listProjects()]));
+  `], { cwd: outside, env: { ...process.env, GREAT_CTO_HOME: path.join(root, 'state'),
+    GREAT_CTO_PROJECTS_FILE: path.join(root, 'state/projects.json'), GREAT_CTO_DISCOVERY_ROOT: scope }, encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), [null, []]);
+});
+
+test('default automatic registration enforces canonical HOME, including cwd and aliases', (t) => {
+  const root = fixture(t), home = path.join(root, 'home'), outside = path.join(root, 'outside');
+  fs.mkdirSync(home);
+  fs.mkdirSync(path.join(outside, '.great_cto'), { recursive: true });
+  fs.writeFileSync(path.join(outside, '.great_cto/PROJECT.md'), 'name: outside\narchetype: web-service\n');
+  const alias = path.join(home, 'outside-alias');
+  fs.symlinkSync(outside, alias);
+  const module = new URL('../../packages/board/lib/projects.mjs', import.meta.url).href;
+  const env = { ...process.env, GREAT_CTO_HOME: path.join(home, '.great_cto'),
+    GREAT_CTO_PROJECTS_FILE: path.join(home, '.great_cto/projects.json') };
+  delete env.GREAT_CTO_DISCOVERY_ROOT;
+  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
+    import os from 'node:os'; import {syncBuiltinESMExports} from 'node:module';
+    os.homedir = () => ${JSON.stringify(home)}; syncBuiltinESMExports();
+    const m = await import(${JSON.stringify(module)});
+    console.log(JSON.stringify([m.autoRegisterProject(${JSON.stringify(outside)}),
+      m.autoRegisterProject(${JSON.stringify(alias)}),m.listProjects()]));
+  `], { cwd: outside, env, encoding: 'utf8', timeout: 5000 });
+  assert.equal(result.status, 0, result.stderr);
+  assert.deepEqual(JSON.parse(result.stdout), [null, null, []]);
+});
+
 test('VAPID private keys persist with mode600 and existing keys are tightened, not regenerated', (t) => {
   const root = fixture(t);
   const file = path.join(root, 'vapid-keys.json');
