@@ -376,3 +376,35 @@ Independent review, installed host parity, real mixed-host execution, quality
 benchmark and release/distribution boundaries remain separate. Historical
 scorer/registration causes above remain unresolved. No release, merge, global
 installation, defaults or approval was performed.
+
+## Independent namespace review attempt and active refresh boundary
+
+Task `great_cto-p4o9.5.10`. A separate Claude CLI reviewer was invoked at
+source `82929742`, using safe mode, restricted mode, no tools, strict MCP,
+permission mode dontAsk/no prompts and no session persistence. Supplied input
+covered five namespace files, install-local.sh, runtime-gate-policy and
+review-graph-floor plus their main-to-head diff. It explicitly excluded whole
+branch signoff, host admission, merge, release or installation approval.
+Input identity and the actual terminal result are retained in
+`/Users/Shared/great-cto-independent-namespace-review-NyJu8e/review.log`.
+
+The reviewer terminated exit 1 after 1176 ms, with null signal/errorCode:
+`Failed to authenticate: OAuth session expired and could not be refreshed`.
+Its actual JSON response recorded is_error true, terminal_reason api_error,
+zero token usage, zero total cost and no model usage. No review verdict exists;
+this is unavailable review, not request-changes or approval. Authentication
+must be restored before a genuine independent review can proceed.
+
+Read-only installer inspection found it rsyncs the entire source tree with
+--delete into the same versioned Claude cache, optionally refreshes managed
+agents/commands, writes plugin registration, may restart an existing board,
+and refreshes Claude/Codex marketplaces. It is not a narrowly scoped namespace
+update. This branch differs from origin/main across 216 files; approving the
+five namespace files alone would not authorize activating the whole branch.
+The broader adaptive-policy security task `great_cto-p4o9.5` remains open;
+the earlier PR149 exception is not applicable. install-local.sh was not run.
+
+Current Claude/Codex caches, registrations, managed agents, live board,
+marketplaces and defaults were not updated. No merge/release or security
+receipt was manufactured. The private npm candidate proof above remains valid
+within its scope; canonical installed L1-L5 remains the historical red result.
