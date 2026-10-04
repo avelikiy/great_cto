@@ -306,3 +306,73 @@ SHA-256 `4dfe0e1a0e2ac695ccd5fbc043c3765689aa408959ee6ec3334b508a8de24495`.
 It was not installed or released. Source passes and identical candidate bytes
 do not replace installed parity, skipped acceptance or historical diagnostics.
 No merge, defaults, security exception or human approval was changed.
+
+## Private installed-candidate namespace verification
+
+Task `great_cto-p4o9.5.9.15`, verified from source `bb6b47c5`. Selected active
+Claude cache remains `/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`.
+Its webhook config, events and DLQ paths use homedir directly; board state does
+not honor GREAT_CTO_HOME and discovery lacks GREAT_CTO_DISCOVERY_ROOT support.
+Source and the current packed candidate contain those namespace changes.
+Both artifacts report 3.48.0: version equality is not byte or runtime parity.
+
+Observed SHA-256 prefixes (12 hex digits; archive pin below is full length):
+
+| File | Active Claude cache | Private npm candidate |
+| --- | --- | --- |
+| CLI webhook-config.js | 262b15304040 | b47ae3d1f87f |
+| CLI webhook-dispatch.js | 885c40a9167f | 98a9d0579909 |
+| CLI serve.js | ede24138d702 | e741926b7042 |
+| Board config.mjs | abb2eb089ed3 | fa86f1f9a849 |
+| Board projects.mjs | 761f32049ba3 | 7fc0e6d2c6a2 |
+
+All five active-cache file hashes were unchanged before/after the probes.
+Both active-cache HMAC fixtures refused WEBHOOK_SMOKE_ISOLATION_UNSUPPORTED;
+board refused BOARD_SMOKE_ISOLATION_UNSUPPORTED before global mutation or
+server launch. These are compatibility refusals, not successful runtime tests.
+
+The current archive was verified by the bounded pinned-package extractor and
+controller probe, then actually installed by npm offline into an exclusively
+owned private prefix with --ignore-scripts, --no-audit, --no-fund,
+--omit=dev and a private npm cache. HOME/CODEX_HOME were not repurposed.
+The first npm attempt had exit 127 because its sanitized PATH omitted the
+actual /usr/local/bin npm; it performed no installation. The corrected fixed
+PATH installed one package successfully. No postinstall, global plugin cache,
+marketplace, managed agents/commands or active board was changed.
+
+Private evidence root:
+`/private/var/folders/xf/8mjkgbt91mgg9b0m_gyrh92w0000gn/T/great-cto-package-smoke-FSsjvv`.
+Actual npm package is under `npm-install/node_modules/great-cto` there.
+Archive SHA-256:
+`4dfe0e1a0e2ac695ccd5fbc043c3765689aa408959ee6ec3334b508a8de24495`.
+All 161 installed regular files matched the pinned extraction by relative name
+and SHA-256 before probes, and remained identical afterward. The pinned
+extraction inventory digest is
+`6ca454d540a909b25db0a61abd8ca7e230df19770a703370838d0101fd36b625`;
+entry SHA-256
+`e90b93e5a01ce84ac430c905e093fee493da385e793f11e6a0f244e4c200d9df`.
+The archive pin was rechecked after npm installation.
+
+Actual installed-candidate results, log
+`/Users/Shared/great-cto-private-install-namespace.log`:
+
+- Invalid HMAC returned 401, valid HMAC returned 200 with zero outgoing dispatch;
+  private event and DLQ checks passed.
+- Actual board listener/router verified eleven JSON APIs, isolated discovery,
+  eleven memory layers and 71 copied fixture agents. Actual Beads/git execution,
+  notification delivery and release discovery were stubbed/unexecuted and are
+  NOT CHECKED. The synthetic task rate ratio 500 is arithmetic, not quality.
+- Actual MCP SSE listener, health, initialize and tools/list passed with seven
+  tools. No tools/call or model/provider execution was performed.
+- Pinned extracted CLI --version and codex-host list passed; controller probe
+  covered twelve construction/selection cases and eight refusals with zero
+  dispatch attempts and zero approvals. Provider provenance remains unknown,
+  not inferred from these local checks; benchmarkEligible remains false.
+
+This resolves current candidate namespace verification only. The last canonical
+full CI still failed against the active cache (33 passed, three failed, nine
+skipped); this private installation does not replace or green that result.
+Independent review, installed host parity, real mixed-host execution, quality
+benchmark and release/distribution boundaries remain separate. Historical
+scorer/registration causes above remain unresolved. No release, merge, global
+installation, defaults or approval was performed.
