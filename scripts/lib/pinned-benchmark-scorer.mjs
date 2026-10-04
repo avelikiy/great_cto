@@ -9,6 +9,21 @@ import { scenarios } from './adaptive-benchmark-protocol.mjs';
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 const hex = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const boardStages = new Set(['inventory','browser-load','browser-loaded','launch','launched','context','page','content','content-ready','safety','keyboard','layout','targets','context-close','context-closed','browser-close','browser-closed','result']);
+// Explicit opt-in fd3 only. Never promote private payloads or stage progress to
+// acceptance, timeout renewal, cleanup authority or descendant-quiescence proof.
+export function scorerStageDiagnostic(raw) {
+  if (typeof raw !== 'string' || Buffer.byteLength(raw) > 8192) return [];
+  const lines=raw.trim().split('\n');if(!raw.trim()||lines.length>64)return [];
+  const stages=[];
+  try { for(const line of lines){const row=JSON.parse(line);
+    if(!row||Object.keys(row).sort().join(',')!=='elapsedMs,stage'||!boardStages.has(row.stage)
+      ||!Number.isInteger(row.elapsedMs)||row.elapsedMs<0||row.elapsedMs>60000
+      ||(stages.length&&row.elapsedMs<stages.at(-1).elapsedMs))return [];
+    stages.push(Object.freeze({stage:row.stage,elapsedMs:row.elapsedMs}));
+  }}catch{return [];}
+  return Object.freeze(stages);
+}
 // Cause metadata only. Never copy argv, private oracle, stdout/stderr or raw
 // error text. A direct-child exit does not certify descendant quiescence.
 export function scorerProcessDiagnostic(child, { startedAt, elapsedMs, timeoutMs }) {
@@ -69,10 +84,11 @@ export function readPinnedScorerOracle(root, oracleFile, oracleSha256) {
 }
 
 export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracleFile, oracleSha256,
-  expectedReceipt, timeoutMs = 10000 }) {
+  expectedReceipt, timeoutMs = 10000, stageDiagnostics = false }) {
   const candidate = realpathSync(root);
   if (candidate !== resolve(root) || !hex(scorerSha256) || !hex(oracleSha256)
-    || !Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30000) throw Error('invalid pinned scorer invocation');
+    || !Number.isInteger(timeoutMs) || timeoutMs < 250 || timeoutMs > 30000
+    || typeof stageDiagnostics !== 'boolean') throw Error('invalid pinned scorer invocation');
   const code = pinnedExternal(candidate, scorerFile, scorerSha256);
   const oracle = readPinnedScorerOracle(candidate, oracleFile, oracleSha256);
   const scenario = scenarios.find(s => s.id === oracle.scenario), names = Object.keys(oracle.baseline).sort();
@@ -82,19 +98,22 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
   // Execute the exact verified bytes, not a filename that could be swapped after reading.
   // Pinned code is trusted and may perform side effects; this is not a sandbox.
   const startedAt = new Date().toISOString(), start = performance.now();
-  const child = spawnSync(process.execPath, ['--input-type=module', '-', candidate, JSON.stringify(oracle)], {
+  const child = spawnSync(process.execPath, ['--input-type=module', '-', candidate, JSON.stringify(oracle), ...(stageDiagnostics?['stage-diagnostics-v1']:[])], {
     input: code, cwd: dirname(realpathSync(scorerFile)), env: { LANG: 'C', TZ: 'UTC' },
     // spawnSync waits for child exit even after its deadline signal. SIGTERM
     // can be handled (e.g. by Playwright) without exiting Node, so it cannot
     // enforce this process boundary. Descendant/profile cleanup is separate.
     timeout: timeoutMs, killSignal: 'SIGKILL', maxBuffer: 65536, encoding: 'utf8', windowsHide: true,
+    stdio: stageDiagnostics?['pipe','pipe','pipe','pipe']:['pipe','pipe','pipe'],
   });
   const processDiagnostic = scorerProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start, timeoutMs });
+  const stageTimings=stageDiagnostics?scorerStageDiagnostic(child.output?.[3]):null;
   const finishedAt = processDiagnostic.finishedAt, after = treeReceipt(candidate);
   if (!after || !same(before, after) || baselineInputDigest(candidate, names) !== candidateInputDigest) throw Error('candidate changed during scoring');
   if (child.error || child.status !== 0 || child.signal) {
     const error = Error('pinned scorer process did not complete; ' + JSON.stringify(processDiagnostic));
     error.processDiagnostic = processDiagnostic;
+    if(stageDiagnostics){error.stageTimings=stageTimings;error.message+='; stages='+JSON.stringify(stageTimings);}
     throw error;
   }
   let score;
@@ -107,5 +126,6 @@ export function runPinnedBenchmarkScorer({ root, scorerFile, scorerSha256, oracl
     scorerSha256, oracleSha256, receipt: after, candidateInputDigest, criteria: score.criteria,
     accepted: score.criteria.every(c => c.state === 'passed'),
     process: { pid: child.pid, exitCode: child.status, startedAt, finishedAt, node: process.version },
-    evidenceLevel: 'local-process-execution-not-provider-or-package-attestation', benchmarkEligible: false };
+    evidenceLevel: 'local-process-execution-not-provider-or-package-attestation', benchmarkEligible: false,
+    ...(stageDiagnostics?{stageTimings}:{}) };
 }

@@ -1,10 +1,12 @@
 /** Pinned trusted observer; actual static HTML/CSS repair, candidate JS disabled. */
-import {realpathSync,lstatSync,readdirSync,openSync,fstatSync,readSync,closeSync,constants} from 'node:fs';
+import {realpathSync,lstatSync,readdirSync,openSync,fstatSync,readSync,closeSync,writeSync,constants} from 'node:fs';
 import {join,relative,isAbsolute} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {createHash} from 'node:crypto';
 const sha=x=>createHash('sha256').update(x).digest('hex'),same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const viewports=[{width:320,height:640},{width:375,height:720},{width:1280,height:800}];
+const diagnostic=process.argv[1]==='-'&&process.argv[4]==='stage-diagnostics-v1',start=performance.now();let frameCount=0;
+function stage(name){if(diagnostic&&frameCount++<64)try{writeSync(3,JSON.stringify({stage:name,elapsedMs:Math.floor(performance.now()-start)})+'\n');}catch{}}
 function bounded(path){const fd=openSync(path,constants.O_RDONLY|constants.O_NOFOLLOW|constants.O_NONBLOCK);try{
  const s=fstatSync(fd);if(!s.isFile()||s.nlink!==1||s.size>65536)throw Error('unsafe candidate file');const b=Buffer.alloc(s.size+1);let used=0,n;
  while(used<b.length&&(n=readSync(fd,b,used,b.length-used,null))>0)used+=n;const after=fstatSync(fd);
@@ -26,16 +28,17 @@ function verifyOracle(o){
 export async function observeBoard(html,o,root){
  verifyOracle(o);
  if(typeof html!=='string'||Buffer.byteLength(html)>65536||/<\s*(?:script|meta|base|iframe|frame|object|embed|form|link)\b/i.test(html))return {passed:[false,false,false,false],admitted:false};
- const chromium=await loadPinnedBoardBrowser(o.browser,root);let browser;
- try{browser=await chromium.launch({headless:true,timeout:5000});}catch{throw Error('Chromium launch unavailable');}
+ stage('browser-load');const chromium=await loadPinnedBoardBrowser(o.browser,root);let browser;stage('browser-loaded');
+ try{stage('launch');browser=await chromium.launch({headless:true,timeout:5000});stage('launched');}catch{throw Error('Chromium launch unavailable');}
  const passed=[true,true,true,true];let requestCount=0;
  try{for(const viewport of viewports){
-  const context=await browser.newContext({viewport,serviceWorkers:'block',acceptDownloads:false});
+  stage('context');const context=await browser.newContext({viewport,serviceWorkers:'block',acceptDownloads:false});
   await context.route('**/*',route=>{requestCount++;return route.abort();});
-  const page=await context.newPage();page.setDefaultTimeout(1500);const errors=[];
+  stage('page');const page=await context.newPage();page.setDefaultTimeout(1500);const errors=[];
   page.on('pageerror',()=>errors.push('pageerror'));page.on('console',m=>{if(m.type()==='error')errors.push('consoleerror');});
   const csp="default-src 'none'; script-src 'none'; style-src 'unsafe-inline'; img-src 'none'; connect-src 'none'; frame-src 'none'; form-action 'none'; base-uri 'none'";
-  await page.setContent('<!doctype html><head><meta http-equiv="Content-Security-Policy" content="'+csp+'"></head>'+html,{timeout:3000,waitUntil:'load'});
+  stage('content');await page.setContent('<!doctype html><head><meta http-equiv="Content-Security-Policy" content="'+csp+'"></head>'+html,{timeout:3000,waitUntil:'load'});stage('content-ready');
+  stage('safety');
   const safe=await page.evaluate(()=>![...document.querySelectorAll('*')].some(el=>[...el.attributes].some(a=>
    /^on/i.test(a.localName)||['target','download','formaction','action'].includes(a.localName)||(a.localName==='href'&&!/^#[a-zA-Z][\w-]*$/.test(a.value)))));
   if(!safe){await context.close();return {passed:[false,false,false,false],admitted:false};}
@@ -45,7 +48,7 @@ export async function observeBoard(html,o,root){
   },true);});
   const active=()=>page.evaluate(()=>document.activeElement?.id);
   const focusVisible=()=>page.evaluate(()=>{const s=getComputedStyle(document.activeElement);return s.outlineStyle!=='none'&&parseFloat(s.outlineWidth)>=2;});
-  let keyboard=true;
+  stage('keyboard');let keyboard=true;
   try{
    await page.keyboard.press('Tab');keyboard&&=await active()==='nav-decisions'&&await focusVisible();
    await page.keyboard.press('Enter');keyboard&&=await active()==='decisions';
@@ -58,9 +61,9 @@ export async function observeBoard(html,o,root){
    keyboard&&=same(calls.map(c=>c.action),['approve','approve','reject','reject']);
   }catch{keyboard=false;}
   passed[0]&&=keyboard;
-  passed[1]&&=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&document.body.scrollWidth<=innerWidth+1
+  stage('layout');passed[1]&&=await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1&&document.body.scrollWidth<=innerWidth+1
    &&[...document.querySelectorAll('#approve,#reject')].every(el=>{const r=el.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth+1;}));
-  let targets=true;
+  stage('targets');let targets=true;
   try{
    await page.evaluate(()=>{window.__boardCalls=[];});
    for(const [id,label]of [['approve','Approve'],['reject','Reject']]){
@@ -71,8 +74,8 @@ export async function observeBoard(html,o,root){
    targets&&=same(await page.evaluate(()=>window.__boardCalls),[{action:'approve',target:o.target},{action:'reject',target:o.target}]);
   }catch{targets=false;}
   passed[2]&&=targets;passed[3]&&=errors.length===0;
-  await context.close();
- }}finally{await browser.close();}
+  stage('context-close');await context.close();stage('context-closed');
+ }}finally{stage('browser-close');await browser.close();stage('browser-closed');}
  return {passed,admitted:true,requestCount};
 }
 function inventory(root){const files=new Map();let count=0,total=0;function visit(name=''){
@@ -81,11 +84,11 @@ function inventory(root){const files=new Map();let count=0,total=0;function visi
  const bytes=bounded(path);if((total+=bytes.length)>1048576)throw Error('oversized inventory');files.set(name,bytes);
 }visit();return files;}
 async function score(){
- const root=realpathSync(process.argv[2]),o=JSON.parse(process.argv[3]);verifyOracle(o);let files,integrity=false;
+ stage('inventory');const root=realpathSync(process.argv[2]),o=JSON.parse(process.argv[3]);verifyOracle(o);let files,integrity=false;
  try{files=inventory(root);integrity=Object.keys(o.baseline).every(n=>files.has(n))&&[...files.keys()].every(n=>Object.hasOwn(o.baseline,n))&&o.protected.every(n=>sha(files.get(n))===o.baseline[n]);
   if(integrity)integrity=same(JSON.parse(files.get('contracts/decision.json').toString('utf8')),{target:o.target,actions:['approve','reject']});}catch{}
  let passed=[false,false,false,false];if(integrity)passed=(await observeBoard(files.get('web/board.html').toString('utf8'),o,root)).passed;
- process.stdout.write(JSON.stringify({version:1,pid:process.pid,scenario:o.scenario,criteria:o.criteria.map((text,i)=>({text,state:passed[i]?'passed':'failed',
+ stage('result');process.stdout.write(JSON.stringify({version:1,pid:process.pid,scenario:o.scenario,criteria:o.criteria.map((text,i)=>({text,state:passed[i]?'passed':'failed',
   evidence:passed[i]?'Chromium observed native keyboard, layout and local decision recorder contract':'Browser behavior or protected inventory failed; decision values withheld'}))}));
 }
 if(process.argv[1]==='-')await score();

@@ -7,13 +7,21 @@ import { tmpdir } from 'node:os';
 import { execFileSync, spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { docsBenchmarkFixture } from '../../scripts/lib/docs-benchmark-fixture.mjs';
-import { runPinnedBenchmarkScorer, scorerProcessDiagnostic } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
+import { runPinnedBenchmarkScorer, scorerProcessDiagnostic, scorerStageDiagnostic } from '../../scripts/lib/pinned-benchmark-scorer.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 import { specialistPlan } from '../../scripts/lib/specialist-plan.mjs';
 import { RULES } from '../../scripts/hooks/auto-attach-reviewers.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const lifecycleLauncher=fileURLToPath(new URL('../helpers/pinned-scorer-lifecycle.mjs',import.meta.url));
+test('private stage diagnostic rejects payloads, flood and nonmonotonic timing without echo',()=>{
+ const row=(stage,elapsedMs)=>JSON.stringify({stage,elapsedMs})+'\n';
+ assert.deepEqual(scorerStageDiagnostic(row('launch',1)+row('launched',2)),[{stage:'launch',elapsedMs:1},{stage:'launched',elapsedMs:2}]);
+ for(const raw of ['PRIVATE_PAYLOAD',row('PRIVATE_PAYLOAD',1),row('launch',2)+row('launched',1),
+  row('launch',1).repeat(65),'x'.repeat(8193),JSON.stringify({stage:'launch',elapsedMs:1,unexpectedField:'PRIVATE_PAYLOAD'}),row('launch',60001)]){
+  assert.deepEqual(scorerStageDiagnostic(raw),[]);
+ }
+});
 test('scorer cause metadata never copies private text or guesses timeout from elapsed time', () => {
   const diagnostic = scorerProcessDiagnostic({ status: null, signal: 'private signal',
     error: { code: 'private argv', message: 'PRIVATE_PAYLOAD_MUST_NOT_LEAK' }, stdout: 'private stdout', stderr: 'private stderr' },
@@ -43,6 +51,16 @@ function fixture(t) {
   const custom = text => { writeFileSync(scorerFile, text, { mode: 0o600 }); options.scorerSha256 = sha(text); };
   return { root, recipe, options, score, repair, put, custom };
 }
+
+test('actual pinned timeout retains opt-in stage, never private stderr or cleanup proof',t=>{
+ const f=fixture(t);
+ f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
+ assert.throws(()=>f.score({timeoutMs:250,stageDiagnostics:true}),error=>{
+  assert.equal(error.processDiagnostic.outcome,'timeout');assert.deepEqual(error.stageTimings,[{stage:'launch',elapsedMs:1}]);
+  assert.equal(error.processDiagnostic.descendantQuiescenceVerified,false);assert.doesNotMatch(error.message,/PRIVATE_PAYLOAD/);return true;
+ });
+ assert.throws(()=>f.score({stageDiagnostics:'true'}),/invalid pinned scorer/);
+});
 
 for (const [kind, code, outcome, errorCode, signal, exitCode] of [
   ['nonzero', "process.stderr.write('PRIVATE_PAYLOAD_MUST_NOT_LEAK');process.exit(7);", 'nonzero-or-unknown', null, null, 7],

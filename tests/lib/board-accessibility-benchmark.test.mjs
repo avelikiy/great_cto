@@ -21,7 +21,7 @@ function fixture(t){
  git(['init','-q']);git(['add','.']);git(['-c','user.name=Fixture','-c','user.email=fixture@example.invalid','commit','-qm','defective boundary']);
  const scorerFile=join(operator,'scorer.mjs'),oracleFile=join(operator,'oracle.json');writeFileSync(scorerFile,scorer,{mode:0o600});writeFileSync(oracleFile,JSON.stringify(recipe.oracle),{mode:0o600});
  const options={root,scorerFile,oracleFile,scorerSha256:sha(scorer),oracleSha256:sha(readFileSync(oracleFile))};
- return {root,operator,recipe,put,base:git(['rev-parse','HEAD']).trim(),score:()=>runPinnedBenchmarkScorer({...options,expectedReceipt:treeReceipt(root),timeoutMs:30000}),setOracle:o=>{
+ return {root,operator,recipe,put,base:git(['rev-parse','HEAD']).trim(),score:()=>runPinnedBenchmarkScorer({...options,expectedReceipt:treeReceipt(root),timeoutMs:30000,stageDiagnostics:true}),setOracle:o=>{
   writeFileSync(oracleFile,JSON.stringify(o));options.oracleSha256=sha(readFileSync(oracleFile));
  }};
 }
@@ -56,6 +56,7 @@ for(const [mutation,index]of [['nav-unreachable',0],['non-native',0],['focus-hid
  if(mutation==='hide-control')html=html.replace('</style>','#reject{display:none}</style>');
  if(mutation==='console-error')html=html.replace('</main>','<img src="https://example.invalid/missing.png" alt=""></main>');
  f.put('web/board.html',html);const result=f.score();assert.equal(result.accepted,false);assert.equal(result.criteria[index].state,'failed');
+ t.diagnostic(mutation+': stage timings '+JSON.stringify(result.stageTimings));
  });
 }
 for(const mutation of ['script','meta-refresh','inline-handler','foreign-navigation','project-drift','contract-drift','extra-source','hardlink','symlink','oversized']){
