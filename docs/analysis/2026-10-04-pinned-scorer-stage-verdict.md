@@ -126,3 +126,43 @@ After the document links were repaired, documentation plus document-graph
 regression passed 81/81, no skips, 5361.689667 ms. Reference and diff checks
 passed. The full-CI result above is still red; this focused check only resolves
 the orphan-report regression, not contrast lifecycle or installed parity.
+
+## Contrast lifetime remediation
+
+Task: `great_cto-p4o9.5.9.11`. The old contrast test's framework deadline
+cancelled the test but did not cancel its asynchronous browser work. Its finally
+awaited browser.close before stopping the independently owned board; the worker
+and board therefore outlived the recorded timeout.
+
+The test now uses a creator-held Playwright BrowserServer handle and a test-only
+contrast lifetime. Abort starts browser kill and board child stop independently;
+neither a hung protocol close nor its rejection postpones the board stop. Each
+stop waits for its actual child exit and the API result with a fixed three-second
+cleanup bound. Stop timeout/refusal is an error, never quiescence or success.
+Late handles acquired after abort are stopped and refused before use. The
+operation checks abort before scheduling and after completion; a late result
+cannot become a pass. No raw PID/process-group search or manual profile removal
+is used by the lifetime. This contract is for creator-held test resources only,
+not production cleanup or a general descendant-quiescence attestation.
+
+The contrast acceptance deadline remains 180 seconds. Launch and connect now
+have explicit ten-second phase limits instead of an implicit launch timeout.
+Missing Playwright/Chrome remains NOT CHECKED; other launch/connect failures
+are errors rather than skipped acceptance. All 14 panels and both themes,
+contrast floors, font-axis checks and the legacy ratchet remain unchanged.
+
+Six fault/edge-case tests cover hung browser stop, late acquisition, idempotency
+and an unrelated child, delayed operation completion after abort, cancellation
+before scheduling, and a stop API resolving without actual child exit. Native
+abort additionally captures board/browser process identities and descendants,
+verifies captured processes no longer run, and verifies an unrelated sentinel
+retains its original identity and remains alive. A native focused run captured
+eight owned processes. This is scoped captured-tree evidence, not proof about
+unknown or future descendants.
+
+Focused lifetime/native/contrast regression passed 9/9, zero skips or
+cancellations, 20996.655208 ms; contrast case 20750.893667 ms. Log:
+`/Users/Shared/great-cto-contrast-lifetime-focused-UawKZg`. HOL passed 83/80,
+zero Critical and the same 35 baseline-reviewed High; no new waiver. Syntax,
+reference and diff checks pass. The prior full-CI failure remains in the record
+until the complete remediation replay has its own terminal result.

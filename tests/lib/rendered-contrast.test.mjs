@@ -32,6 +32,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { loadBrowser } from '../../scripts/lib/layout-snapshot.mjs';
 import { parseColor, composite, ratio, AA_TEXT, AA_LARGE } from '../../scripts/lib/contrast.mjs';
 import { startServerOnFreePort } from '../helpers/board-start.mjs';
+import { createContrastLifetime } from '../helpers/contrast-lifetime.mjs';
 
 // The port comes from the kernel, not from the pid. `3239 + (pid % 40)` gave
 // forty possible values, so a second run on the same machine could take the
@@ -236,7 +237,11 @@ test('the arithmetic agrees with the token audit on a known pair', () => {
 });
 
 test('every panel, both themes: text can be read against what is behind it', { timeout: 180_000 }, async (t) => {
+  const lifetime=createContrastLifetime(t.signal);
+  t.after(()=>lifetime.stop());
+  await lifetime.run(async()=>{
   const chromium = await loadBrowser();
+  t.signal.throwIfAborted();
   if (!chromium) return t.skip('playwright not installed — not checked, not passed');
 
   let started;
@@ -248,12 +253,16 @@ test('every panel, both themes: text can be read against what is behind it', { t
     return t.skip(`board server did not come up — not checked, not passed: ${e.message}`);
   }
   const { port: PORT, proc: server } = started;
+  await lifetime.ownBoard(server);
   let browser;
   try {
     try {
-      browser = await chromium.launch({ channel: 'chrome', headless: true });
+      const browserServer=await chromium.launchServer({ channel: 'chrome', headless: true, timeout:10000 });
+      await lifetime.ownBrowser(browserServer);
+      browser=await chromium.connect(browserServer.wsEndpoint(),{timeout:10000});
     } catch (e) {
-      return t.skip(`no usable browser: ${String(e.message).split('\n')[0]} — not checked, not passed`);
+      if(String(e.message).includes("Executable doesn't exist"))return t.skip('Chrome unavailable — NOT CHECKED');
+      throw Error('contrast browser launch/connect failed');
     }
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
     await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
@@ -335,8 +344,7 @@ test('every panel, both themes: text can be read against what is behind it', { t
     assert.equal(unknown.length, 0,
       `${unknown.length} rendered text element(s) below AA that no task owns — the token audit cannot see these, this can:\n${worst.join('\n')}`);
   } finally {
-    try { await browser?.close(); } catch { /* already gone */ }
-    try { process.kill(-server.pid, 'SIGKILL'); } catch { /* already gone */ }
-    try { server.kill('SIGKILL'); } catch { /* already gone */ }
+    await lifetime.stop();
   }
+  });
 });
