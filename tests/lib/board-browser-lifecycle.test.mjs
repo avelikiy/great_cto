@@ -95,7 +95,11 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   const initial=lstatSync(profile);
   assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
-  assert.equal(resources.register({scorerPid:child.pid,browserRoots:ready.roots,profilePath:profile}).state,'OBSERVING');
+  const registration=resources.register({scorerPid:child.pid,browserRoots:ready.roots,profilePath:profile});
+  // Creator-private fixed metadata only. Record the refusal before cleanup;
+  // a PRESERVED snapshot is never rewritten as a successful observation.
+  t.diagnostic(mode+': resource registration '+JSON.stringify({snapshot:registration,diagnostic:resources.privateDiagnostic()}));
+  assert.equal(registration.state,'OBSERVING');
   assert.ok(resources.observe().liveProcesses>1,'actual scorer and browser inventory must be nonempty');
   assert.equal(resources.observe().registeredScratchDirectories,2,'actual profile and artifacts must both be bound');
   // Replay the observed owned identities through the unactivated protocol.
