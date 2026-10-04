@@ -641,3 +641,33 @@ No atomic/CAS write guarantee or adversarial same-user isolation is introduced.
 Low registry-shape/directory-creation findings and platform boundaries remain
 follow-up work. New remediation bytes require their own independent review;
 prior installed-package and live-wave evidence applies only to its older pin.
+
+## Medium remediation replay and limited re-review verdict
+
+Source remediation is `e73b7ac0f68167f7c27f625608a1b4422edad69d`.
+The first general root replay had 1265 passed and five failed: registry/portfolio
+fixtures still attempted automatic registration outside HOME without explicit
+scope. Those fixtures now declare their isolated directory scope. The corrected
+full root/hooks/board replay passed 1270/1270, zero skips, 44470.393584 ms;
+log `/Users/Shared/great-cto-state-medium-root-replay.log`. CLI build and all
+363 CLI tests passed, zero skips; log `/Users/Shared/great-cto-state-medium-cli.log`.
+Private-state regression passed 10/10; combined registry/portfolio/private
+fixtures passed 41/41 (not 58), zero skips. Diff/reference checks passed.
+
+Limited independent follow-up at e73b7ac0 returned APPROVE, all four Medium
+findings fixed, exit 0, is_error false, duration_ms 69357, actual
+claude-fable-5-1, total_cost_usd 0.3902095. Input 9373 bytes, SHA-256
+`8dffd719466a449109ab52e20f93c39790098676d978d26eadef95057a3c60bf`;
+log `/Users/Shared/great-cto-state-medium-review-8DN0gl/review.log`.
+Scope: private-state, webhook-config and board config complete files, plus
+automatic-registration boundary diff only. Full projects/helper/caller closure
+was not reviewed and no signed broad approving receipt was produced.
+
+Residual Low/Info follow-ups are tracked in .5.10.3.1. Reviewer suggestions
+about multiple explicit roots and null scope do not describe the current
+getDiscoveryScope contract: explicit scope returns exactly one canonical root;
+invalid scope throws and the enclosing registration catch returns null.
+Remaining canonical exclusion aliases and legacy registry shape/mode need
+their own checks. POSIX final-component no-follow must not be advertised as
+Windows parity. The active plugin is unchanged, last full canonical CI is
+still red, and new bytes have no fresh installed live lifecycle replay yet.
