@@ -111,6 +111,39 @@ test('secret in any proposed file prevents ALL writes', async t => {
   assert.doesNotMatch(s.reason, /AKIA/);
 });
 
+test('controlled PM prompt specifies both plan and nonempty briefs directory protocol', async t => {
+  const s = fixture(t);
+  s.graph.pm = { on: ['PLAN_READY'], produces: ['plan', 'briefs'], gate: 'gate:plan', next: [] };
+  s.queue = ['pm'];
+  await runStage(s, { execute: async options => {
+    assert.match(options.prompt, /meta\.plan names the plan Markdown file/);
+    assert.match(options.prompt, /meta\.briefs names.*trailing slash/);
+    assert.match(options.prompt, /one implementation brief per planned task/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'PLAN_READY', summary: 'fixture',
+      meta: { plan: 'docs/plan.md', briefs: 'docs/impl-briefs/' }, files: [
+        { path: 'docs/plan.md', before: null, content: '# Plan\nOne task.\n' },
+        { path: 'docs/impl-briefs/task.md', before: null, content: '# Task\nOwnership, implementation and acceptance.\n' },
+      ] }) };
+  } });
+  assert.equal(s.status, 'awaiting-gate', s.reason);
+  assert.deepEqual(s.pending.gates, ['gate:plan']);
+  assert.equal(s.approvals.length, 0);
+});
+
+test('controlled PM missing briefs refuses before any proposed write', async t => {
+  const s = fixture(t);
+  s.graph.pm = { on: ['PLAN_READY'], produces: ['plan', 'briefs'], gate: 'gate:plan', next: [] };
+  s.queue = ['pm'];
+  await runStage(s, { execute: async () => ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({
+    verdict: 'PLAN_READY', summary: 'incomplete fixture', meta: { plan: 'docs/plan.md' },
+    files: [{ path: 'docs/plan.md', before: null, content: '# Plan\nIncomplete.\n' }],
+  }) }) });
+  assert.equal(s.status, 'blocked');
+  assert.equal(s.reason, 'missing artifact: briefs');
+  assert.equal(existsSync(join(s.root, 'docs/plan.md')), false);
+  assert.equal(s.approvals.length, 0);
+});
+
 test('reject path escapes, protected files, symlinks and changes outside ownership', t => {
   const s = fixture(t);
   for (const path of ['../outside', '/tmp/outside', 'docs/../outside', 'docs/AGENTS.md', '.great_cto/gate.json', '.codex/config.toml', 'other/file', 'src/.env', 'src\\escape']) {
