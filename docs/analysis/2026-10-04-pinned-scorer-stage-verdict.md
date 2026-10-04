@@ -450,3 +450,37 @@ claims require separate inspection; the reviewer output alone is not proof.
 Broader adaptive security review `great_cto-p4o9.5`, OS admission and installed
 parity remain open. No install, merge, release or active refresh was performed.
 The changed installer bytes need independent re-review before activation.
+
+## Immutable local publication remediation (review pending)
+
+Task `great_cto-p4o9.5.10.2` replaces the in-place whole-tree rsync with a
+Git-tracked regular-file snapshot. Local state, environment secrets, key files
+and dependency directories are excluded. A checked inventory is staged on the
+cache filesystem before rename into an unused version directory. Existing
+versions are never overwritten; different files under the same version fail.
+Identical repeated publication preserves file mtimes. An exclusive cooperative
+installer lock prevents concurrent local publishers and prune from colliding.
+
+Registry activation is a separate atomic write with a unique recovery backup,
+preserving non-user entries and retaining the source commit plus content hash.
+Invalid/missing registry fails before cache mutation unless cache-only mode was
+explicitly requested. Installer-required managed sync now uses --strict;
+SessionStart remains advisory. Prune validates every direct-child target before
+the first removal, rejects symlinks, traversal, current version, stage and lock
+paths, and retains the newest three and observed live roots.
+
+Implicit board restart and marketplace refresh were removed: neither is part
+of local publication, and neither can silently select a different source here.
+No Codex activation, running-host adoption or release success is claimed.
+Managed-file refresh and registry selection are not one global transaction;
+partial managed updates or an unused published cache can remain on later error.
+Cooperative locks/atomic renames are not OS admission against an adversarial
+same-user filesystem writer or CAS against a non-cooperating Claude updater.
+
+Focused installer/prune/sync/root-resolution/drift/docs regression passed
+156 tests, zero failures and zero skips. bash syntax, generated-reference check,
+diff whitespace, agent-shield (zero blocking; 17 existing advisory findings)
+and lesson-rules sweep (424 files, zero findings) passed. Log:
+`/Users/Shared/great-cto-immutable-install-regression.log`.
+This records source remediation only. Independent re-review and canonical CI
+are pending; installed caches, registry, board and marketplace remain unchanged.

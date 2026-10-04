@@ -1,242 +1,67 @@
 #!/usr/bin/env bash
-# scripts/install-local.sh — install this working copy as the local great_cto
-# plugin so Claude Code loads it (and the SessionStart hook can bootstrap).
-#
-# WHY THIS EXISTS
-#   great_cto is developed from source. Claude Code loads it as a plugin from a
-#   VERSIONED cache dir: ~/.claude/plugins/cache/local/great_cto/<version>/.
-#   That dir is populated by rsync (this script), and the SessionStart hook keeps
-#   only the 3 most recent versions — so after a few bumps, or a plugins-cache
-#   reset, the cache can end up EMPTY for great_cto. When it does, PLUGIN_DIR
-#   resolves to nothing and the SessionStart hook silently no-ops
-#   ("plugin dir not found — run /update"): no ARCHETYPES.md/SKILL.md bootstrap,
-#   no agents refreshed, docs/metrics look broken. This script re-populates it in
-#   one idempotent command.
-#
-# USAGE
-#   bash scripts/install-local.sh            # sync plugin + refresh global agents
-#   bash scripts/install-local.sh --no-agents  # sync plugin only
-#   bash scripts/install-local.sh --prune     # also remove OTHER cached versions
-#
-# Idempotent: re-running never duplicates; rsync --delete keeps the cache exact.
-
+# Install this Git working copy in the Claude local cache, without replacing
+# an existing version's files or refreshing either host from a different source.
+# Usage: install-local.sh [--no-agents] [--no-register] [--prune]
+# --no-register implies --no-agents: publish cache only, no host activation.
+# Bump plugin.json version when bytes differ. No force-overwrite mode exists.
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-# Deliberately the `local` marketplace: this script IS what writes that copy.
-# Everything the plugin ships resolves itself through ${CLAUDE_PLUGIN_ROOT}
-# instead — see tests/lib/plugin-root-resolution.test.mjs.
+# Deliberately the local marketplace: this publishes that copy, not a lookup.
 CACHE_ROOT="$HOME/.claude/plugins/cache/local/great_cto"
-AGENTS_DIR="$HOME/.claude/agents"
-
+REG="$HOME/.claude/plugins/installed_plugins.json"
 DO_AGENTS=1
+DO_REGISTER=1
 DO_PRUNE=0
 for a in "$@"; do
   case "$a" in
     --no-agents) DO_AGENTS=0 ;;
-    --prune)     DO_PRUNE=1 ;;
-    -h|--help)   sed -n '2,20p' "$0"; exit 0 ;;
-    *) echo "unknown flag: $a (use --no-agents | --prune)"; exit 2 ;;
+    --no-register) DO_REGISTER=0 ;;
+    --prune) DO_PRUNE=1 ;;
+    -h|--help) sed -n '2,6p' "$0"; exit 0 ;;
+    *) echo "unknown flag: $a"; exit 2 ;;
   esac
 done
+[ "$DO_REGISTER" -eq 1 ] || DO_AGENTS=0
+die() { printf 'install-local FAILED: %s\n' "$1" >&2; exit 1; }
+command -v node >/dev/null 2>&1 || die "node not found on PATH"
+command -v git >/dev/null 2>&1 || die "git not found on PATH"
 
-step()  { printf '\n\033[1m━━ %s\033[0m\n' "$1"; }
-ok()    { printf '\033[32m  ✓ %s\033[0m\n' "$1"; }
-die()   { printf '\033[31m  ✗ %s\033[0m\n' "$1"; exit 1; }
-
-command -v rsync >/dev/null 2>&1 || die "rsync not found on PATH"
-command -v node  >/dev/null 2>&1 || die "node not found on PATH"
-
-# Validate before mkdir/rsync --delete: an empty or traversal version must never
-# select the cache root or escape it. The helper also refuses symlink targets.
 VERSION="$(node "$ROOT/scripts/lib/local-install-target.mjs" "$ROOT/.claude-plugin/plugin.json" "$CACHE_ROOT")" \
   || die "unsafe or unreadable local install target"
 DEST="$CACHE_ROOT/$VERSION"
+if [ "$DO_REGISTER" -eq 1 ]; then
+  node "$ROOT/scripts/lib/local-install-registry.mjs" "$REG" --check \
+    || die "registry preflight failed; use --no-register for cache-only publication"
+fi
 
 echo "install-local: great_cto v$VERSION → $DEST"
+node "$ROOT/scripts/lib/local-install-cache.mjs" "$ROOT" "$CACHE_ROOT" \
+  || die "cache publication failed; existing versions left unchanged"
 
-# ── 1. Sync the plugin content into the versioned cache dir ──────────────────
-step "Sync plugin → local cache"
-mkdir -p "$DEST" || die "cannot create $DEST"
-rsync -a --delete \
-  --exclude='.git' \
-  --exclude='node_modules' \
-  --exclude='.claude/worktrees' \
-  --exclude='packages/cli/node_modules' \
-  --exclude='*.tgz' \
-  --exclude='.great_cto/logs' \
-  "$ROOT/" "$DEST/" || die "rsync failed"
-ok "synced v$VERSION"
-
-# Verify the files the SessionStart hook actually reads exist.
-PLUGIN_DIR="$(ls -d "$CACHE_ROOT"/*/ 2>/dev/null | sort -V | tail -1 | sed 's|/$||')"
-[ "$PLUGIN_DIR" = "$DEST" ] || die "newest cache dir is $PLUGIN_DIR, expected $DEST"
+# Verify the files before any managed-file or host-registration mutation.
+PLUGIN_DIR="$DEST"
 for f in .claude-plugin/plugin.json skills/great_cto/ARCHETYPES.md skills/great_cto/SKILL.md \
          agents/architect.md scripts/hooks/auto-attach-reviewers.mjs commands/start.md; do
-  [ -f "$DEST/$f" ] || die "post-sync check: missing $f"
+  [ -f "$DEST/$f" ] || die "post-publication check: missing $f"
 done
-ok "PLUGIN_DIR resolves and required files present"
 
-# ── 2. Refresh global agents and commands (what SessionStart does) ───────────
-# The same script SessionStart runs, so the two can no longer disagree about
-# which agents exist: every agents/*.md and commands/*.md is installed, and only
-# files great_cto marked are ever retired.
 if [ "$DO_AGENTS" -eq 1 ]; then
-  step "Refresh global agents and commands (~/.claude)"
-  node "$DEST/scripts/lib/sync-managed.mjs" --plugin-dir "$DEST" --report | sed 's/^/  ✓ /'
+  # SessionStart stays advisory; installation must propagate skipped/failed sync.
+  node "$DEST/scripts/lib/sync-managed.mjs" --plugin-dir "$DEST" --report --strict \
+    || die "managed-file refresh failed; host registration was not changed"
 fi
-
-# ── 3. Optional prune of other cached versions ───────────────────────────────
+if [ "$DO_REGISTER" -eq 1 ]; then
+  node "$ROOT/scripts/lib/local-install-registry.mjs" "$REG" "$DEST" "$VERSION" \
+    || die "registration failed; no install success claimed"
+fi
 if [ "$DO_PRUNE" -eq 1 ]; then
-  step "Prune other cached versions"
-  # Not every other version: an open session runs hooks from the version it
-  # started on, and deleting that directory is how a session start wiped every
-  # agent and command on 2026-09-11. prune-versions keeps what a live process
-  # names, and removes nothing when it cannot tell.
-  removed=0
-  plan="$(node "$DEST/scripts/lib/prune-versions.mjs" --cache-root "$CACHE_ROOT" --keep "$DEST")" || plan=""
-  while IFS= read -r d; do
-    [ -n "$d" ] || continue
-    case "$d" in "$CACHE_ROOT"/*) rm -rf "$d" && removed=$((removed+1)) ;; esac
-  done <<< "$plan"
-  ok "pruned $removed other version(s)"
+  # Retain newest three and all observed live roots. Helper validates each target.
+  node "$ROOT/scripts/lib/prune-versions.mjs" --cache-root "$CACHE_ROOT" --keep "$DEST" --keep-newest 3 --apply \
+    || die "prune failed; no install success claimed"
 fi
 
-step "Validate the manifest"
-# `claude plugin validate` is the only thing that reads these files the way the
-# host does. Five files shipped with frontmatter YAML that silently parsed to
-# nothing — a description containing ": " reads as a nested mapping, and the
-# whole block is dropped at load time without a word. Advisory: a broken CLI or
-# an older Claude Code must not stop a local install.
-if command -v claude >/dev/null 2>&1; then
-  if claude plugin validate "$ROOT" 2>&1 | grep -q "Validation failed"; then
-    printf '\033[33m  ! manifest validation FAILED — run: claude plugin validate .\033[0m\n'
-  else
-    ok "manifest validates"
-  fi
-else
-  echo "  · claude CLI not on PATH — manifest not validated"
-fi
-
-step "Register with the host"
-# Copying files into the cache is not installing. Claude Code loads a plugin only
-# if ~/.claude/plugins/installed_plugins.json has an entry for it, and that entry
-# names one exact version directory. This script creates a NEW directory on every
-# bump and --prune deletes the old ones, so an entry written by a previous install
-# goes stale, points at a deleted path, and the plugin stops loading — quietly.
-# Found on 2026-07-29: great_cto was the only enabled @local plugin missing from
-# the registry, so none of its hooks had run for weeks while `enabledPlugins` said
-# it was on. Re-asserting the entry here is the difference between "the files are
-# there" and "the host will load them".
-REG="$HOME/.claude/plugins/installed_plugins.json"
-if [ -f "$REG" ] && command -v node >/dev/null 2>&1; then
-  node - "$REG" "$DEST" "$VERSION" <<'NODE'
-const { readFileSync, writeFileSync, copyFileSync, existsSync } = require('node:fs');
-const [reg, dest, version] = process.argv.slice(2);
-const KEY = 'great_cto@local';
-let d;
-try { d = JSON.parse(readFileSync(reg, 'utf8')); }
-catch { console.log('  ! registry unreadable — left alone'); process.exit(0); }
-d.plugins ||= {};
-const cur = (d.plugins[KEY] || [])[0];
-if (cur && cur.installPath === dest && existsSync(dest)) {
-  console.log(`  \u2713 already registered → v${version}`);
-  process.exit(0);
-}
-copyFileSync(reg, `${reg}.bak`);            // one rolling backup, never a chain
-const now = new Date().toISOString();
-d.plugins[KEY] = [{
-  scope: 'user',
-  installPath: dest,
-  version,
-  installedAt: cur?.installedAt || now,
-  lastUpdated: now,
-  gitCommitSha: 'local',
-}];
-writeFileSync(reg, JSON.stringify(d, null, 2) + '\n');
-// Read back before claiming anything: announcing a write we never verified is
-// how the previous version of this step managed to lie.
-const after = JSON.parse(readFileSync(reg, 'utf8'));
-if (!(after.plugins || {})[KEY]) {
-  console.log('  ! wrote the registry but the entry is not there — inspect it by hand');
-  process.exit(1);
-}
-console.log(`  \u2713 ${cur ? 'repointed' : 'registered'} great_cto@local → v${version}`);
-NODE
-else
-  echo "  ! no installed_plugins.json — skipping registration"
-fi
-
-# ── The board is a running process, not a file ──────────────────────────────
-#
-# Installing a new plugin used to update the cache and leave the running board
-# alone. `server.mjs` answers EADDRINUSE with "board already running" and
-# exit(0), so every relaunch deferred to the old process: this machine served
-# v2.95.0 for nine days while three installs in a row reported success. An
-# install that reports a version the operator cannot see is the same defect as a
-# guard that never runs.
-. "$(dirname "$0")/lib/board-restart.sh"
-BOARD_PORT="${BOARD_PORT:-3141}"
-OLD_PID="$(board_pid_on_port "$BOARD_PORT")"
-if [ -n "$OLD_PID" ]; then
-  OLD_VER="$(board_reported_version "$BOARD_PORT")"
-  if [ "$OLD_VER" = "$VERSION" ] && ! board_code_newer_than_process "$PLUGIN_DIR/packages/board" "$OLD_PID"; then
-    echo "  ✓ board on :$BOARD_PORT already runs v$VERSION"
-  else
-    # Its cwd decides which project it opens on — a restart that changes that is
-    # a restart that moved the operator's board somewhere else.
-    OLD_CWD="$(board_cwd "$OLD_PID")"
-    if [ "$OLD_VER" = "$VERSION" ]; then
-      printf '  restarting board on :%s — same version, newer files\n' "$BOARD_PORT"
-    else
-      printf '  restarting board on :%s (was v%s)\n' "$BOARD_PORT" "${OLD_VER:-unknown}"
-    fi
-    if board_stop "$BOARD_PORT"; then
-      NEW_VER="$(board_start "$PLUGIN_DIR/packages/board/server.mjs" "$OLD_CWD" "$BOARD_PORT")"
-      if [ -n "$NEW_VER" ]; then
-        echo "  ✓ board restarted → v$NEW_VER"
-      else
-        # Never claim the restart worked. A board that did not come back is worse
-        # than a stale one, and the operator has to know which they have.
-        echo "  ! board did not come back on :$BOARD_PORT — start it with /board"
-      fi
-    else
-      echo "  ! could not free :$BOARD_PORT (pid $OLD_PID) — the board still runs v${OLD_VER:-unknown}"
-    fi
-  fi
-fi
-
-# The registration Claude Code actually LOADS. Until 2026-09-25 the `local`
-# marketplace entry this script feeds had an invalid `source` (an absolute path),
-# so Claude Code stubbed great_cto@local — no hooks — and every session ran the
-# GitHub marketplace registration at 3.29.1. Keep that registration current too;
-# `claude -p ok --debug hooks` + ~/.claude/debug/latest shows which one loads.
-if command -v claude >/dev/null 2>&1 && claude plugin list 2>/dev/null | grep -q 'great_cto@great-cto'; then
-  claude plugin marketplace update great-cto >/dev/null 2>&1 \
-    && claude plugin update great_cto@great-cto 2>&1 | tail -1 | sed 's/^/  /' \
-    || echo "  ! could not update great_cto@great-cto — run: claude plugin update great_cto@great-cto"
-fi
-
-# Codex keeps its own Git snapshot of great_cto and never refreshes it: on this
-# machine it sat at 3.37.0 while 3.45.0 shipped, so none of the Codex guards had
-# arrived. `codex plugin marketplace upgrade` refreshes the snapshot and the installed
-# plugin together (measured 2026-09-30). It reads GitHub main, so it only picks up a
-# release after release.sh has pushed the tag.
-CODEX_BIN="$(command -v codex 2>/dev/null || ls -d "$HOME"/.nvm/versions/node/*/bin/codex 2>/dev/null | sort -V | tail -1)"
-if [ -n "$CODEX_BIN" ] && grep -qE '^\[marketplaces\.("great-cto"|great-cto)\]' "$HOME/.codex/config.toml" 2>/dev/null; then
-  step "Refresh great_cto in Codex"
-  # One retry: the first refresh after release.sh pushed the tag failed once (3.46.0,
-  # output discarded, a manual rerun passed) — keep the error this time.
-  cx_refresh() { "$CODEX_BIN" plugin marketplace upgrade great-cto 2>&1 >/dev/null; }
-  if CX_ERR="$(cx_refresh)" || { sleep 5; CX_ERR="$(cx_refresh)"; }; then
-    CX_DIR="$HOME/.codex/plugins/cache/great-cto/great-cto"
-    CX_VER="$( (cd "$CX_DIR" 2>/dev/null && ls -1) | sort -V | tail -1)"   # bare version names, one market
-    echo "  ✓ Codex has great_cto ${CX_VER:-?} — new or changed hooks need one review: run \`codex\` in a terminal, Trust all and continue"
-  else
-    echo "  ! could not refresh Codex: $(printf '%s' "$CX_ERR" | head -1)"
-    echo "    run: codex plugin marketplace upgrade great-cto"
-  fi
-fi
-
-printf '\n\033[42;30m INSTALL-LOCAL: DONE \033[0m  v%s\n' "$VERSION"
-echo "  Restart your Claude Code session so the SessionStart hook picks it up."
+printf 'INSTALL-LOCAL: DONE v%s (local cache%s only)\n' "$VERSION" \
+  "$( [ "$DO_REGISTER" -eq 1 ] && printf ' + Claude registration' )"
+echo "No board restart, marketplace refresh, Codex activation or release was performed."
+echo "Restart Claude Code explicitly to load the selected local registration."

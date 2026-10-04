@@ -18,8 +18,8 @@
  *   SessionStart's cache cleanup uses 3.
  *   stdout: one directory to remove per line; stderr: what was kept, and why.
  */
-import { readdirSync, statSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, lstatSync, realpathSync, rmSync, mkdirSync, rmdirSync } from 'node:fs';
+import { join, dirname, basename, isAbsolute, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
@@ -75,6 +75,32 @@ function readLiveRoots() {
   } catch { return null; }
 }
 
+export function applyPrunePlan({ root, keep, remove }) {
+  if (!isAbsolute(root) || lstatSync(root).isSymbolicLink()) throw new Error('unsafe prune root');
+  const canonical = realpathSync(root);
+  const current = realpathSync(keep);
+  if (dirname(current) !== canonical || lstatSync(keep).isSymbolicLink()) throw new Error('unsafe kept version');
+  const lock = join(canonical, '.local-install-lock');
+  mkdirSync(lock, { mode: 0o700 });
+  try {
+    // Validate ALL paths before the first removal, not just a lexical prefix.
+    const targets = remove.map(dir => {
+      if (!isAbsolute(dir) || dirname(resolve(dir)) !== resolve(root)
+        || !/^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.+-]+)?$/.test(basename(dir))) {
+        throw new Error('prune target is not a direct version child');
+      }
+      const stat = lstatSync(dir);
+      const actual = realpathSync(dir);
+      if (stat.isSymbolicLink() || !stat.isDirectory() || dirname(actual) !== canonical || actual === current) {
+        throw new Error('unsafe prune target');
+      }
+      return actual;
+    });
+    for (const target of targets) rmSync(target, { recursive: true, force: false });
+    return targets.length;
+  } finally { rmdirSync(lock); }
+}
+
 const invokedDirectly = (() => {
   try { return Boolean(process.argv[1]) && fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
   catch { return false; }
@@ -87,12 +113,16 @@ if (invokedDirectly) {
   if (!root || !keep) { process.stderr.write('usage: prune-versions.mjs --cache-root <dir> --keep <dir>\n'); process.exit(2); }
   let versionDirs = [];
   try {
+    if (!isAbsolute(root) || lstatSync(root).isSymbolicLink()) throw new Error('unsafe cache root');
     versionDirs = readdirSync(root).map((f) => join(root, f))
-      .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } });
-  } catch { process.exit(0); }
+      .filter((p) => { try { const s = lstatSync(p); return !s.isSymbolicLink() && s.isDirectory() && !basename(p).startsWith('.'); } catch { return false; } });
+  } catch (error) { process.stderr.write(`prune refused: ${error.message}\n`); process.exit(1); }
   const keepNewest = Number.parseInt(arg('--keep-newest') || '0', 10) || 0;
   const plan = pruneVersionsPlan({ versionDirs, keep, liveRoots: readLiveRoots(), keepNewest });
   if (plan.why) process.stderr.write(`  · ${plan.why}\n`);
   for (const k of plan.kept) process.stderr.write(`  · kept ${k.dir} — ${k.why}\n`);
-  for (const d of plan.remove) process.stdout.write(`${d}\n`);
+  if (process.argv.includes('--apply')) {
+    try { process.stdout.write(`pruned ${applyPrunePlan({ root, keep, remove: plan.remove })} version(s)\n`); }
+    catch (error) { process.stderr.write(`prune refused: ${error.message}\n`); process.exit(1); }
+  } else for (const d of plan.remove) process.stdout.write(`${d}\n`);
 }

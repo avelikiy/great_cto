@@ -6,7 +6,10 @@
 // 2026-09-11. A directory a live session points at is not "other", it is in use.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { pruneVersionsPlan, liveRootsFromPs } from '../../scripts/lib/prune-versions.mjs';
+import { pruneVersionsPlan, liveRootsFromPs, applyPrunePlan } from '../../scripts/lib/prune-versions.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 const C = '/h/.claude/plugins/cache/local/great_cto';
 
@@ -61,4 +64,51 @@ test('keepNewest never removes a version a live session runs from, however old',
   const dirs = ['3.9.0', '3.28.4', '3.29.0', '3.29.1'].map((v) => `${C}/${v}`);
   const r = pruneVersionsPlan({ versionDirs: dirs, keep: `${C}/3.29.1`, liveRoots: [`${C}/3.9.0`], keepNewest: 3 });
   assert.deepEqual(r.remove, []);
+});
+
+function cacheFixture(t) {
+  const temp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'contained-prune-')));
+  t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+  const root = path.join(temp, 'cache');
+  const keep = path.join(root, '3.48.0');
+  const old = path.join(root, '3.47.0');
+  fs.mkdirSync(keep, { recursive: true });
+  fs.mkdirSync(old);
+  return { temp, root, keep, old };
+}
+
+test('prune deletes only a validated direct-child version', (t) => {
+  const f = cacheFixture(t);
+  assert.equal(applyPrunePlan({ ...f, remove: [f.old] }), 1);
+  assert.equal(fs.existsSync(f.old), false);
+  assert.equal(fs.existsSync(f.keep), true);
+});
+
+for (const kind of ['root', 'keep', 'outside', 'traversal', 'nested', 'symlink', 'stage', 'file']) {
+  test(`prune refuses ${kind} without deleting even an earlier valid candidate`, (t) => {
+    const f = cacheFixture(t);
+    let unsafe;
+    if (kind === 'root') unsafe = f.root;
+    if (kind === 'keep') unsafe = f.keep;
+    if (kind === 'outside') unsafe = f.temp;
+    if (kind === 'traversal') unsafe = `${f.root}/../cache`;
+    if (kind === 'nested') { unsafe = path.join(f.old, '3.1.0'); fs.mkdirSync(unsafe); }
+    if (kind === 'symlink') { unsafe = path.join(f.root, '3.1.0'); fs.symlinkSync(f.temp, unsafe); }
+    if (kind === 'stage') { unsafe = path.join(f.root, '.local-install-stage-owned'); fs.mkdirSync(unsafe); }
+    if (kind === 'file') { unsafe = path.join(f.root, '3.1.0'); fs.writeFileSync(unsafe, 'not directory'); }
+    assert.throws(() => applyPrunePlan({ ...f, remove: [f.old, unsafe] }));
+    assert.equal(fs.existsSync(f.old), true);
+    assert.equal(fs.existsSync(f.keep), true);
+  });
+}
+
+test('prune refuses symlink root and preserves another installer lock', (t) => {
+  const f = cacheFixture(t);
+  const alias = path.join(f.temp, 'alias');
+  fs.symlinkSync(f.root, alias);
+  assert.throws(() => applyPrunePlan({ root: alias, keep: f.keep, remove: [f.old] }));
+  fs.mkdirSync(path.join(f.root, '.local-install-lock'));
+  assert.throws(() => applyPrunePlan({ ...f, remove: [f.old] }));
+  assert.equal(fs.existsSync(path.join(f.root, '.local-install-lock')), true);
+  assert.equal(fs.existsSync(f.old), true);
 });

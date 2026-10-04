@@ -22,7 +22,7 @@
  *
  * CLI: node sync-managed.mjs --plugin-dir <dir> [--report]
  *   Silent when both halves sync; one line per half that was skipped, and why.
- *   Always exits 0 — a session start is never blocked over this.
+ *   Advisory by default; --strict makes installation fail on skipped/error.
  */
 import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync, realpathSync } from 'node:fs';
 import { join } from 'node:path';
@@ -104,14 +104,20 @@ const invokedDirectly = (() => {
 if (invokedDirectly) {
   const at = process.argv.indexOf('--plugin-dir');
   const report = process.argv.includes('--report');
+  const strict = process.argv.includes('--strict');
+  let failed = false;
   try {
     const r = syncManaged({ pluginDir: at > 0 ? process.argv[at + 1] : null });
     for (const [half, v] of Object.entries(r)) {
-      if (v.state === 'skipped') process.stdout.write(`great_cto: ${half} not synced — ${v.why}\n`);
+      if (v.state === 'skipped') {
+        failed = true;
+        process.stdout.write(`great_cto: ${half} not synced — ${v.why}\n`);
+      }
       else if (report) process.stdout.write(`${half}: ${v.copied} installed, ${v.pruned} retired, ${v.kept} user file(s) kept\n`);
     }
   } catch (e) {
+    failed = true;
     process.stdout.write(`great_cto: agents and commands not synced — ${e.message}\n`);
   }
-  process.exit(0);
+  process.exit(strict && failed ? 1 : 0);
 }

@@ -47,13 +47,33 @@ agents refreshed, docs/metrics look broken on the board.
 Re-populate it in one idempotent command:
 
 ```bash
-bash scripts/install-local.sh              # sync plugin + refresh ~/.claude/agents
-bash scripts/install-local.sh --no-agents  # plugin cache only
-bash scripts/install-local.sh --prune      # also drop other cached versions
+bash scripts/install-local.sh                # publish + managed files + Claude local registry
+bash scripts/install-local.sh --no-agents    # publish + Claude local registry
+bash scripts/install-local.sh --no-register  # cache-only, no managed files/registry activation
+bash scripts/install-local.sh --prune        # also prune validated unused versions, keep newest 3
 ```
 
-Run it after a version bump or whenever the board shows stale/empty docs, then
-restart your Claude Code session so the SessionStart hook picks it up.
+The source must be a Git checkout root with a commit. Only tracked regular files
+are copied, with local state, credentials, environment secrets and dependencies
+excluded. Files are checked in a staging directory and renamed into an unused
+version directory. A content inventory and source commit are retained in
+`.great-cto-local-install.json`; this is build identity, not security approval.
+An identical re-run leaves files unchanged. Different bytes under the same
+version are refused: bump the plugin version, never overwrite a running cache.
+
+Registration requires an existing readable Claude version-2 registry. Its
+update is atomic, preserves non-user registrations and retains a unique backup
+of the previous registry. Required-step failures exit nonzero and do not print
+DONE. Managed-file refresh is not a global transaction; on a later failure some
+managed files or a published cache can remain, while prior cache versions remain
+available. Automatic rollback of the whole host is not claimed.
+
+No board restart or Claude/Codex marketplace update occurs here. Those operations
+can select different source bytes and need separate approval and runtime checks.
+Restart Claude Code explicitly after registration. This command does not install
+or activate the local candidate in Codex, confirm enabled-plugin selection, or
+prove the running host has adopted it. Existing live-root protection during prune
+is observational, not an OS-level guarantee against same-user filesystem races.
 
 ## Why GitHub Actions is failing (account-level, not the code)
 

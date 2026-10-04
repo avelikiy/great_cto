@@ -2,6 +2,7 @@
 // Read-only preflight. Never mkdir or follow a cache/destination symlink.
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const numeric = '(?:0|[1-9][0-9]*)';
 const prerelease = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)';
@@ -20,8 +21,7 @@ function directoryOrAbsent(target) {
   return true;
 }
 
-try {
-  const [manifest, cacheRoot] = process.argv.slice(2);
+export function validateInstallTarget(manifest, cacheRoot) {
   const version = JSON.parse(readFileSync(manifest, 'utf8')).version;
   // `$` also matches before a terminal newline in JS, so explicitly refuse it.
   if (typeof version !== 'string' || version.length > 128 || /\s/.test(version) || !semver.test(version)) {
@@ -36,8 +36,14 @@ try {
   if (destExists && (!rootExists || dirname(realpathSync(dest)) !== realpathSync(root))) {
     throw new Error('destination escapes the canonical cache root');
   }
-  process.stdout.write(version);
-} catch (error) {
-  process.stderr.write(`install target refused: ${error.message}\n`);
-  process.exitCode = 1;
+  return { version, root, dest };
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  try {
+    process.stdout.write(validateInstallTarget(...process.argv.slice(2)).version);
+  } catch (error) {
+    process.stderr.write(`install target refused: ${error.message}\n`);
+    process.exitCode = 1;
+  }
 }
