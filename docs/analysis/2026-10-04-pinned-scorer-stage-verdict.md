@@ -265,3 +265,44 @@ The fresh 161-file candidate is preserved at
 SHA-256 `4dfe0e1a0e2ac695ccd5fbc043c3765689aa408959ee6ec3334b508a8de24495`.
 It has not been installed, released or assigned inherited runtime acceptance.
 No merge, security exception, approval or default change was performed.
+
+## Native registration diagnostic replay
+
+Task `great_cto-p4o9.5.9.14`: commit `7291a2a6` changes only the native lifecycle
+test. It records the resource registration snapshot and creator-private fixed
+cause metadata before asserting OBSERVING, so a failing registration no longer
+loses its refusal stage at the assertion. No production state machine, process
+ownership, deadline or cleanup rule changed. Focused lifecycle/resource/native
+inventory/lineage regression passed 32/32, no skips or cancellations,
+10033.194959 ms; log `/Users/Shared/great-cto-registration-focused.log`.
+
+Full non-quick CI at immutable `7291a2a6` terminated exit 1, session 23440,
+log `/Users/Shared/great-cto-registration-full-ci-jaN796`. Root 1270 passed;
+library 3115 total, 3109 passed, zero failed/cancelled, six skipped,
+141842.711125 ms. Eval 238, docs 76, browser E2E nine and CLI 361 passed.
+HOL passed 83/80, zero Critical, unchanged 35 baseline-reviewed High.
+Installed Claude L1-L5 selected the same local 3.48.0 cache and recorded
+33 passed, three failed, nine skipped (66 seconds). The missing isolated
+namespace support remains a real installed-artifact failure; full CI is red.
+
+Native dom-refusal passed in 1752.526625 ms. Actual registration recorded
+OBSERVING, five registered processes and two scratch directories; inventory
+exited zero after 102 ms against its unchanged 1000 ms bound. Four captured
+browser processes stopped and its profile was removed before test cleanup.
+Normal, owner-term and owner-kill also passed. These captured-tree observations
+are not independent admission, general descendant-quiescence proof or cleanup
+authority. The older PRESERVED failure was not reproduced and its cause is
+still unknown; `.14` remains unresolved, not closed by retry-as-pass.
+
+PostgreSQL baseline/repair passed in 9443.520541 ms, with pg-stopped observed
+at 5264/2815 ms respectively. SIGTERM-handling scorer passed in 1606.012083 ms
+with actual ready evidence and ETIMEDOUT/SIGKILL after 1004 ms against its
+1000 ms bound. Historical `.12` and `.13` causes also remain unconfirmed.
+No manual CI-worker termination or timeout extension was used.
+
+The freshly verified 161-file package is preserved at
+`/Users/Shared/great-cto-registration-candidate-l7DBmI/great-cto-3.48.0.tgz`,
+SHA-256 `4dfe0e1a0e2ac695ccd5fbc043c3765689aa408959ee6ec3334b508a8de24495`.
+It was not installed or released. Source passes and identical candidate bytes
+do not replace installed parity, skipped acceptance or historical diagnostics.
+No merge, defaults, security exception or human approval was changed.
