@@ -703,3 +703,31 @@ nonfinite sums, built-in Node tests, no dependencies or production deployment.
 The real gate needs human approval of this exact disposable fixture before
 architecture/implementation. This new source run is not the previous installed
 candidate wave and does not claim that later mixed-host stages have executed.
+
+## Human-approved product/architecture and real PM protocol recovery
+
+The operator explicitly approved this fixture's product gate, then its
+architecture gate. Codex architect produced verified `docs/architecture.md`.
+The following PM attempt `de62f693-f7c2-4fea-83dc-510284309b0a` failed closed
+with `missing artifact: briefs`, before proposed files were written. The graph
+requires `plan` and `briefs`; the controlled PM profile mentioned implementation
+briefs but not their exact metadata/directory representation. The rejected raw
+proposal was not retained, so its full response shape is not established.
+
+Commit `3d9a3aae` clarifies `meta.plan`, `meta.briefs` with a trailing slash and
+nonempty per-task brief file proposals. No artifact guard was relaxed. Two new
+tests confirm the successful directory protocol and missing-brief refusal before
+any write. Pipeline tests passed 32/32 and eval/contract/mixed-host regressions
+260/260, zero skips. Logs `/Users/Shared/great-cto-pm-artifact-contract-tests.log`
+and `/Users/Shared/great-cto-pm-artifact-eval-regression.log`.
+
+Receipt-checked recovery retained the failed attempt and both human approvals.
+The real same-run PM retry completed exit 0 with verification state verified,
+`meta.plan=docs/plan.md`, `meta.briefs=docs/impl-briefs/`, and two brief files
+T1-add.md/T2-tests.md. Final status `awaiting-gate`, pending `gate:plan`,
+approvals two; implementation and release have not run. Logs:
+`/Users/Shared/great-cto-full-graph-after-arch.log` (original refusal),
+`/Users/Shared/great-cto-full-graph-pm-recovered.log`, and
+`/Users/Shared/great-cto-full-graph-pm-retry.log` (verified retry).
+Task .p4o9.8.1 closes only this output-protocol remediation. Full compatibility,
+active artifact parity and broad security/release gates remain unproven.
