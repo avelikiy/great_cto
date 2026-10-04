@@ -166,3 +166,41 @@ cancellations, 20996.655208 ms; contrast case 20750.893667 ms. Log:
 zero Critical and the same 35 baseline-reviewed High; no new waiver. Syntax,
 reference and diff checks pass. The prior full-CI failure remains in the record
 until the complete remediation replay has its own terminal result.
+
+## Full CI after contrast lifetime remediation
+
+The full non-quick CI at immutable source commit `60974120` terminated with
+exit 1 (session 2181). Log:
+`/Users/Shared/great-cto-contrast-full-ci-WhlXIn`.
+Root tests passed 1270/1270. Library tests recorded 3115 total, 3107 passed,
+two failed, zero cancelled and six skipped, 565357.13425 ms.
+The rendered contrast case passed in 23946.859625 ms. Native abort captured
+eight owned processes, confirmed their stop and retained the unrelated sentinel.
+No manual process signals were needed in this replay. This resolves the scoped
+contrast lifetime task `great_cto-p4o9.5.9.11`, not historical timeout causality
+or arbitrary descendant cleanup.
+
+The two library failures remain separate unresolved defects:
+
+- `great_cto-p4o9.5.9.12`: the real PostgreSQL baseline's initial pinned scorer
+  exited 1 with null signal/error code after 15137 ms, below its 30000 ms deadline.
+  This is not evidence of a timeout; its underlying cause remains unconfirmed.
+- `great_cto-p4o9.5.9.13`: the SIGTERM-handling scorer test exceeded its launcher
+  watchdog after the scorer deadline (4244.817 ms). An earlier focused pass does
+  not replace this canonical failure or establish its cause.
+
+Eval tests passed 238, documentation 76, browser E2E nine and CLI 361.
+HOL passed 83/80 with zero Critical and the same 35 baseline-reviewed High,
+without a new exception. Installed Claude L1-L5 retained 33 passes, three
+failures and nine skips (125 seconds); the three namespace refusals were not
+bypassed and the installed artifact was not replaced. Skips are NOT CHECKED,
+not acceptance. Full CI task `great_cto-p4o9.5.9` remains open, as do scorer
+diagnosis, installed parity, security and live-model acceptance boundaries.
+
+The current 161-file package is preserved at
+`/Users/Shared/great-cto-contrast-ci-candidate-U2EqIa/great-cto-3.48.0.tgz`.
+Its freshly verified SHA-256 is
+`84174eff3750cd38edbd1215f934e3daa0ca61ec7898c5201febefc351462053`.
+Identical bytes to the earlier candidate do not confer inherited runtime proof.
+No plugin installation, merge, release, default change or human/security
+approval was performed. The lifecycle fix is verified; full acceptance is not.
