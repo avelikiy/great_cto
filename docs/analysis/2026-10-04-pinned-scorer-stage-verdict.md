@@ -224,3 +224,44 @@ failures or cancellations in 31273.773958 ms. Log:
 The SIGTERM-handling case passed in 1334.16075 ms and observed an actual
 ETIMEDOUT/SIGKILL scorer exit. This isolated result does not supersede the
 previous canonical failures. Their causes still require loaded replay evidence.
+
+### Diagnostic full-CI terminal verdict
+
+The canonical non-quick run at immutable `7e4fb0f8` terminated exit 1, session
+11653, log `/Users/Shared/great-cto-scorer-stage-full-ci-0rotAp`. Root 1270 passed;
+library 3115 total, 3108 passed, one failed, zero cancelled, six skipped,
+183799.231792 ms. Eval 238, docs 76, browser E2E nine and CLI 361 passed.
+Installed Claude L1-L5 retained 33 passed, three failed and nine skipped
+(58 seconds), including the unchanged missing-namespace refusals. Installed
+parity and skipped runtime boundaries remain unconfirmed.
+
+Neither previous scorer failure reproduced in this canonical run:
+
+- PostgreSQL baseline plus repair passed in 14411.753917 ms. Their traces
+  reached `pg-stopped` at 6722 and 4342 ms respectively, then `pg-result`.
+- SIGTERM-handling scorer passed in 1611.444333 ms. Ready publication was
+  observed, runner-unavailable arrived at parent elapsed 1444 ms, and the
+  scorer recorded ETIMEDOUT/SIGKILL after 1003 ms against its 1000 ms bound.
+
+These observations do not resolve the earlier exit-1 or watchdog causes.
+Tasks `.12` and `.13` remain open/in progress; no retry-as-pass classification
+or deadline extension is justified. The original failures remain above.
+
+The new library failure is `great_cto-p4o9.5.9.14`: actual observer browser
+processes stop after dom-refusal, `board-browser-lifecycle.test.mjs:98`,
+6170.609583 ms. Registration returned PRESERVED instead of OBSERVING. Its
+private refusal stage was not emitted at the assertion, so the cause is
+unconfirmed. Normal, owner-term and owner-kill cases passed in the same run;
+their passes do not establish dom-refusal resource closure. Preservation must
+not be disabled or treated as authority to delete resources.
+
+The rendered contrast case passed in 15557.321958 ms. This is the existing
+test's scoped verdict, not measurement of image/gradient text it reports as
+unmeasured. Full acceptance remains red. No manual signals were used to
+terminate the CI worker.
+
+The fresh 161-file candidate is preserved at
+`/Users/Shared/great-cto-scorer-stage-candidate-j8cmyg/great-cto-3.48.0.tgz`,
+SHA-256 `4dfe0e1a0e2ac695ccd5fbc043c3765689aa408959ee6ec3334b508a8de24495`.
+It has not been installed, released or assigned inherited runtime acceptance.
+No merge, security exception, approval or default change was performed.
