@@ -671,3 +671,35 @@ Remaining canonical exclusion aliases and legacy registry shape/mode need
 their own checks. POSIX final-component no-follow must not be advertised as
 Windows parity. The active plugin is unchanged, last full canonical CI is
 still red, and new bytes have no fresh installed live lifecycle replay yet.
+
+## Docker recovery and real build/export fixture
+
+Docker subsequently recovered: `docker info` returned server 29.7.2. The
+earlier missing-socket result remains historical evidence, not a current blocker.
+The official node:22-alpine image was pulled and runtime tests used immutable
+`node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402`.
+At source `a69a59f5`, codex-checks and codex-release suites passed 29/29,
+zero skips, 8639.886333 ms. Log:
+`/Users/Shared/great-cto-state-docker-build-export.log`.
+
+Previously skipped tests now actually exercised offline test/build isolation,
+host-input write/network denial, failing assertion then repair, artifact export
+and a local release artifact smoke without rebuilding. Controller workers,
+verifier results and release approval in these fixtures are synthetic test
+inputs; GitHub adapter tests use a fake remote. This proves actual Docker/build/
+export/local-artifact mechanics, not a real mixed-model full pipeline or a
+human-approved/public release. No production service or active plugin changed.
+
+The actual source full-graph starter then completed exit 0 and stopped at
+`gate:product`. Run `61c7cfc9-f449-41c3-855a-6b4394acb792`, store
+`/Users/Shared/great-cto-acceptance-501/mixed-release-oAVnmO/runs`, project
+`/Users/Shared/great-cto-acceptance-501/mixed-release-oAVnmO/project`.
+Log `/Users/Shared/great-cto-source-full-graph-start.log`.
+Codex product-owner produced `docs/brief.md`, verification state verified;
+final status awaiting-gate, approvals zero, release null. Result identity:
+`3048c2ac3d0c4f18293b179ea04aab166486094d75e21bb9a37dec1dfb6c1dee`.
+The brief specifies finite-number-only add, TypeError for invalid inputs or
+nonfinite sums, built-in Node tests, no dependencies or production deployment.
+The real gate needs human approval of this exact disposable fixture before
+architecture/implementation. This new source run is not the previous installed
+candidate wave and does not claim that later mixed-host stages have executed.
