@@ -12,12 +12,13 @@ function board(on: any, inbox: { status?: number; headers?: Record<string, strin
   const posted: Posted[] = []
   const toasts: string[] = []
   const status: (string | undefined)[] = []
+  const opened: any[] = []
   mock.clock(on)
   mock.env(on, env ?? {})
   const value = (v: unknown) => ({ value: v })
   on('session.root', () => value(ROOT))
   on('command.register', () => value(undefined))
-  on('ui.open', () => value({ isPlaced: true }))
+  on('ui.open', (_: any, e: any) => { opened.push(e); return value({ isPlaced: true }) })
   on('ui.toast', (_: any, e: any) => { toasts.push(e.text); return value(undefined) })
   on('ui.status', (_: any, e: any) => { status.push(e.text); return value(undefined) })
   on('http.fetch', (_: any, e: any) => {
@@ -29,7 +30,7 @@ function board(on: any, inbox: { status?: number; headers?: Record<string, strin
     const s = inbox.status ?? 200
     return value({ status: s, ok: s < 300, headers: inbox.headers ?? {}, text: JSON.stringify(inbox.body ?? {}) })
   })
-  return { posted, toasts, status }
+  return { posted, toasts, status, opened }
 }
 
 // What the board would issue for a gate; derived, so no literal reads as a credential.
@@ -52,7 +53,7 @@ for (const surface of SURFACES) {
     const ui = await openPane($, surface)
     expect(await ui.find({ text: /gate:plan — plan review/ })).toBeDefined()
     await ui.press({ key: 'approve-demo-1' })
-    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-1', body: { action: 'approve', token: issued('demo-1'), project: 'demo-proj' } }])
+    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-1', body: { action: 'approve', token: issued('demo-1'), project: ROOT } }])
     expect(b.toasts.some(t => t === 'gate:plan approved')).toBe(true)
   })
 
@@ -61,7 +62,7 @@ for (const surface of SURFACES) {
     const ui = await openPane($, surface)
     expect(await ui.find({ key: 'approve-demo-2' })).toBeUndefined()
     await ui.input({ key: 'confirm-demo-2', text: 'gate:ship', kind: 'submit' })
-    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-2', body: { action: 'approve', token: issued('demo-2'), project: 'demo-proj', confirm: 'gate:ship' } }])
+    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-2', body: { action: 'approve', token: issued('demo-2'), project: ROOT, confirm: 'gate:ship' } }])
   })
 }
 
@@ -99,4 +100,10 @@ test('BOARD_PORT moves the pane to the board where the board is', async ($, on) 
   const ui = await openPane($, 'terminal')
   await ui.press({ key: 'approve-demo-1' })
   expect(b.posted[0].url).toBe('http://127.0.0.1:4242/api/gates/demo-1')
+})
+
+test('/gates opens the pane holding the keyboard, so 1 and 2 press at once', async ($, on) => {
+  const b = board(on, { body: { pending_gates: [PLAN] } })
+  await openPane($, 'terminal')
+  expect(b.opened.some(o => o.id === 'great-cto-gates' && o.focus === true)).toBe(true)
 })

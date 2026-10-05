@@ -644,7 +644,11 @@ async function dispatch(req, res, url, cwd) {
         // The title is a NICETY — `id` was already its documented fallback. The
         // line is the record. So the lookup gets its own try and cannot take the
         // record down with it, and the caller is told which of the two happened.
-        const projectSlug = parsed.project || path.basename(gateCwd);
+        // A project given by PATH (the gate pane names its project by the session
+        // root, which resolves for any project under HOME) is logged by its
+        // directory's name: the path is the operator's own, and decisions.md may be
+        // committed.
+        const projectSlug = parsed.project && !/^[\/~]/.test(parsed.project) ? parsed.project : path.basename(gateCwd);
         let title = id;
         try {
           const gateTask = getTasks(gateCwd).find((t) => t.id === id);

@@ -28,8 +28,12 @@ const seen = atom({ plugin: 'great-cto', key: 'seen' } as const, 0)
 
 const basename = (p: string) => p.replace(/\/+$/, '').split('/').pop() || p
 
+// The project travels as the session root's absolute path, which the board resolves
+// for any project under HOME — registered or not, and never confused with another
+// project whose directory has the same name. A path the board cannot honour comes
+// back from /api/inbox as a fallback, and the pane then offers no decision at all.
 async function projectOf($: any): Promise<string> {
-  return basename(await $.session.root())
+  return await $.session.root()
 }
 
 function gatesOf(body: any): Gate[] {
@@ -47,9 +51,9 @@ async function refresh($: any): Promise<void> {
   let next: View
   try {
     const r = await $.http.fetch(`${BOARD}/api/inbox?project=${encodeURIComponent(project)}`)
-    if (r.headers['x-project-resolved'] === 'fallback') next = { state: 'not-on-board', project }
+    if (r.headers['x-project-resolved'] === 'fallback') next = { state: 'not-on-board', project: basename(project) }
     else if (!r.ok) next = { state: 'error', why: `board answered ${r.status}` }
-    else next = { state: 'ok', project, gates: gatesOf(JSON.parse(r.text)), at: new Date().toISOString() }
+    else next = { state: 'ok', project: basename(project), gates: gatesOf(JSON.parse(r.text)), at: new Date().toISOString() }
   } catch (err) {
     next = { state: 'board-down', why: String((err as Error)?.message || err) }
   }
@@ -98,8 +102,10 @@ export const register: Register = on => {
     return next(e)
   })
 
+  // Asked for, the pane takes the keyboard: 1 / 2 press at once, Esc goes back to the
+  // prompt. Opened by a new gate, it does not — it must not catch keys being typed.
   on('command.run', { command: 'gates' }, async $ => {
-    await $.ui.open({ id: PANE, title: 'Gates' })
+    await $.ui.open({ id: PANE, title: 'Gates', focus: true })
     await refresh($)
     return { text: 'Gates pane opened.' }
   })
