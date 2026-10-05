@@ -20,6 +20,33 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.50.0 — 2026-10-05
+
+The gates waiting on you, in the session you are working in.
+
+### Added
+
+- **Gate pane** — a Claude Code mod that ships inside the plugin (Claude Code 2.1.287+).
+  `/gates` opens a pane of the pending gates of the session's project; the status line counts
+  them, and a new gate raises a toast. A cheap gate is decided with **Approve / Reject** (`1` /
+  `2`); a gate expensive to undo keeps the board's ritual — type its name (`gate:ship`) and
+  press Enter. Every decision goes through the board's own route with the token it issued
+  (ADR-024), so the binding to the tree and the decision log stay in one place; the pane writes
+  nothing itself. A board that is not running, or a project it does not know, is said as such,
+  never as "no gates". See `docs/GATE-PANE.md`.
+  Older Claude Code skips the module and keeps every other hook; Codex reads only
+  `.codex-plugin/hooks.json` — both checked on the real engines.
+
+### Fixed
+
+- **The decision log no longer records a path for a project given by path.** A gate decided for
+  a project named by its absolute path logged `/Users/<name>/…` into `.great_cto/decisions.md`;
+  it now logs the directory's name.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.49.2 — 2026-10-05
 
 What is true of one project stays in that project.
