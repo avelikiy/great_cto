@@ -216,6 +216,19 @@ Release policy can independently select `backend: local, trusted: true` for
 its smoke commands (omit `image`); release adapter `local` describes artifact
 publication, **not** execution backend. Release approval remains mandatory.
 
+The disposable mixed-host full-graph harness supports explicit trusted local
+acceptance without Docker. It starts a fresh run and stops at the first human
+gate; it never inherits or automatically grants approvals:
+
+```sh
+GREAT_CTO_LIVE_CHECKS_BACKEND=local GREAT_CTO_TRUST_LOCAL_FIXTURE=1 node tests/eval/mixed-host-release-live.mjs /absolute/private/install/node_modules/great-cto/board
+```
+
+Omitting those variables retains the pinned Docker acceptance contract. The
+harness checks controller, pipeline, checks and release module hashes before
+and after execution. This command incurs actual model usage; fixture trust
+does not authorize public release or execution of an untrusted product.
+
 ### Offline Docker executor
 
 At `start`, pass `--checks-policy /absolute/operator-owned/checks.json`. The JSON
