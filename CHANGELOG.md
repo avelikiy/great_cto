@@ -18,6 +18,42 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.49.1 — 2026-10-05
+
+Every domain reviewer now says the same two words, and says who has to act.
+
+### Changed
+
+- **The 38 pre-implementation domain reviewers record `APPROVED` or `BLOCKED`, nothing
+  else.** None of them named a verdict line before, so each made one up — and the pipeline
+  dispatcher has rules only for `APPROVED` (advance to senior-dev) and `BLOCKED` (halt). A
+  `PASS` or `CONDITIONAL` stalled the pipeline in silence. Each reviewer's sign-off step now
+  ends with its own `scripts/log-verdict.sh` line carrying `feature=`, the `tm=` path it
+  actually writes, `criticals=`/`highs=`, and on `BLOCKED` `need=decision|implementer` plus
+  `finding=`. The rules live in `agents/_shared/reviewer-verdict.md`, inlined into the bundle.
+  **How far this is verified:** statically — a test checks all 38 lines (word, meta keys,
+  TM path), mutation-checked. No LLM eval has run for these agents yet, so no real reviewer
+  run has been observed writing the new line.
+
+### Fixed
+
+- **A session that ends in your home directory no longer writes lessons into the global
+  layer.** The learner takes its working directory for the project, so a session ending in
+  `~` wrote into `~/.great_cto/lessons.md` — the file injected into every session of every
+  project. Lessons about one project reached all of them, and the injection outgrew its
+  ceiling. The learner now skips the home directory and says why in `.last-auto-learn`. If
+  you have a `~/.great_cto/lessons.md` you did not write, it came from this; its entries
+  belong in the project they name.
+- **The HOL plugin scan reads what a user installs**, not the operator's checkout: a
+  snapshot of `git ls-files`. In a worktree that held `.claude/settings.local.json` it failed
+  on secrets in a file the plugin never ships.
+- **`tests/eval/runner.mjs --dry-run` no longer drops its last line** under a loaded machine:
+  it returns instead of calling `process.exit(0)` while stdout is still draining.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.49.0 — 2026-10-05
 
 Smart contracts get an auditor that works from the code, not the design.
