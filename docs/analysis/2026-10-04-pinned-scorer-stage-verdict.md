@@ -1043,6 +1043,32 @@ post-release stage has run in this fresh installed full graph yet. This proves
 the installed candidate's developer -> real checks/export -> verifier -> human
 gate path, not full lifecycle compatibility or active-marketplace parity.
 
+### Installed code approval and subsequent Desktop availability blocker
+
+The user explicitly approved gate:code for the exact developer result above.
+Unchanged pinned installed CLI accepted token
+e100394e-e8a6-4a3d-9769-16b62e1f76d6 under its normal receipt/lock checks.
+State is ready, approvals four, pending null, active null, queue code-reviewer,
+qa-engineer, security-officer. No review wave was launched and no release exists.
+
+Fresh preflight on 2026-10-05 around 14:01 UTC no longer found the Docker socket
+or backend processes. /Applications/Docker.app is absent and /usr/local/bin/docker
+is a dangling symlink to its CLI; selected /opt/homebrew/bin/docker resolves to
+Homebrew docker 29.7.2. Attempting the previously supported Desktop start command
+returned unknown flag --timeout, not a successful start. Both existing contexts
+still point to the missing socket. Spotlight found only
+`/Users/avelikiy/Library/Application Support/com.docker.install/in_progress/Docker.app`.
+No Docker-specific installer/backend process was observed; these checks do not
+establish why the app disappeared or whether installation will complete.
+
+No staging bundle was moved or launched, no installation/runtime replacement
+was performed, and mandatory checks were not bypassed. The earlier 29/29 actual
+Docker result remains valid historical evidence, not current daemon readiness.
+Continuation requires restoring the normal Desktop installation and healthy
+daemon, or explicit authorization to repair installation. The approved code gate
+does not need to be approved again. This remains an external preflight blocker;
+controller state was not manually changed to blocked or advanced into review.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
