@@ -256,6 +256,20 @@ test('parallel verifier requires a bound workflow attestation and rejects unsupp
   assert.equal((await check({ state: 'supported', waveId: s.wave.id, roles: s.wave.roles, checks: ['no unsupported timing claims'] })).state, 'verified');
 });
 
+test('same-role rework worker receives exact current replacement SHA256, not a Git blob ID', async t => {
+  const s = fixture(t); s.maxAttempts = 2;
+  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['correct report'], checks: ['read report'] }) });
+  const before = s.writes['src/app.js'];
+  assert.match(before, /^[a-f0-9]{64}$/);
+  await runStage(s, { execute: async options => {
+    assert.ok(options.prompt.includes(`"src/app.js":"${before}"`));
+    assert.match(options.prompt, /not Git blob IDs/);
+    const proposal = JSON.parse(response().text); proposal.files[0].before = before;
+    return { ...response(), text: JSON.stringify(proposal) };
+  } });
+  assert.equal(s.status, 'awaiting-gate'); assert.equal(s.approvals.length, 0);
+});
+
 test('post-release worker and verifier receive bounded controller evidence without artifact bytes', async t => {
   const s = fixture(t, '[transitions.writer]\non=["DONE"]\nnext=[]');
   // Assembled: a token-shaped literal reads as a leaked credential to secret scanners.

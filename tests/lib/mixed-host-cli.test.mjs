@@ -21,7 +21,10 @@ process.stdin.on('data', chunk => { prompt += chunk; });
 process.stdin.on('end', async () => {
   const codex = role === 'security-officer';
   if (codex && prompt.includes('independent verifier')) {
-    const text = JSON.stringify({ state: 'verified', findings: [], checks: ['fixture inspected actual report'] });
+    const line = prompt.split('\\n').find(line => line.startsWith('Frozen parallel review snapshot: '));
+    const wave = line ? JSON.parse(line.slice('Frozen parallel review snapshot: '.length)) : null;
+    const text = JSON.stringify({ state: 'verified', findings: [], checks: ['fixture inspected actual report'],
+      workflowAttestation: wave ? { state: 'supported', waveId: wave.id, roles: wave.roles, checks: ['fixture inspected workflow assertions'] } : undefined });
     console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } }));
     process.exit(0);
   }

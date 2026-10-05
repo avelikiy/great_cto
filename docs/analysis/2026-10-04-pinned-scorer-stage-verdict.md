@@ -924,3 +924,59 @@ correction did not obtain verified; the harness assertion failed, retained at
 persists each transition and respects the three-attempt cap. Complete installed
 live acceptance and wider passing regressions remain required before closing
 .p4o9.8.3 or claiming this candidate fully validated.
+
+### Disk recovery and actual installed rework acceptance
+
+The external disk condition changed: subsequent df reported 28 GiB free,
+then 39 GiB. No shared cache or user-file deletion was performed here. The
+previous ENOSPC run remains historical red evidence; caller checks were restarted.
+
+The persisted installed v2 replay exposed a separate correct refusal:
+`stale file: docs/qa-report.md` on the Claude replacement proposal. The controller
+did not accept a guessed/null before hash. Workers now receive at most 32 exact
+controller-managed current replacement SHA256 values, explicitly distinguished
+from Git blob IDs. Existing ownership and drift validation is unchanged.
+Regression covering same-role replacement passed with the final pipeline,
+mixed-host/context suite: 61/61, no skips, 122929.600791 ms;
+`/Users/Shared/great-cto-workflow-attestation-tests-v3.log`.
+
+The replay fixture now includes the original cited docs and supplies archived
+prior controller check evidence to the initial verifier, isolating the report
+workflow defect rather than omitting its original evidence. It does not inherit
+approvals or save over the original completed run. Source/injected-actor failures
+and the earlier installed stale-proposal failure remain retained in their logs.
+
+Final private npm archive is
+`/Users/Shared/great-cto-workflow-candidate-3z57RN/great-cto-3.48.0.tgz`, SHA256
+`aa0ef48fe717aeb282367a778b02c27e867ddddb09ed77601a7f2cf84c7afb19`.
+Actual offline install has source-identical controller module SHA256
+`ac4d0e74ef59a286b119d746ec773e14da74e4eb7bc9aa7136f90bfcab26c616`.
+
+Installed-runtime replay exited 0. Actual Codex verifier rejected the historical
+QA assertion about parallel security, with a bound unsupported workflow
+attestation for wave ee02b137-1890-402c-a8f7-8e73667a5075. Real Claude Code
+corrected the report on attempt two; actual Codex verifier returned verified,
+findings empty, and disclosed no independent runtime execution. New isolated
+run remains awaiting-gate gate:qa with zero approvals. Its state is
+`/Users/Shared/great-cto-acceptance-501/mixed-release-JcOScd/audit-state.json`;
+log `/Users/Shared/great-cto-workflow-claims-installed-live-v3.log`.
+Corrected report SHA256
+`dd8c615a9fa884b633663009387ccf193a55c8d16fcc3b66d8110dd049bfdf7b`,
+result digest `615320ab995fcf2e3744f9c1d6f1f07d2ed2b4dc1cae1a4be533a01677cf7241`.
+Only the first historical actor is injected; the rejecting verifier, correcting
+Claude worker and final verifier are actual host executions. This is installed
+candidate evidence for report rework, not another fresh full-graph release or
+an active marketplace plugin update.
+
+Final caller regression after disk recovery passed 149/149, zero skips,
+324490.090334 ms (`/Users/Shared/great-cto-workflow-caller-regression-v2.log`).
+Entrypoint/recovery/release/import-closure suite passed 33, failed zero, skipped
+one opt-in live Docker build/export test, 56503.030875 ms
+(`/Users/Shared/great-cto-workflow-entrypoints-v2.log`). Its first attempt had
+32 passed and one CLI fixture failure because the mocked verifier omitted the
+new attestation. That fixture now derives the exact wave ID and roles from its
+received prompt; production enforcement was not bypassed to make it green.
+Across the final three suites: 243 passed, zero failed, one explicit skip.
+The archived ENOSPC failures are not reclassified; the later replay is green.
+Workflow-claim defect .p4o9.8.3 is closed for this bounded contract and actual
+installed report-rework evidence, not for broad 100 percent lifecycle parity.

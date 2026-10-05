@@ -21,6 +21,7 @@ const base = createFixtureBase(), root = join(base, 'project'), pluginRoot = joi
 mkdirSync(root); mkdirSync(join(pluginRoot, 'shared'), { recursive: true });
 for (const name of ['src', 'tests']) cpSync(join(original.root, name), join(root, name), { recursive: true });
 mkdirSync(join(root, 'docs'));
+cpSync(join(original.root, 'docs'), join(root, 'docs'), { recursive: true, filter: path => !path.endsWith('/qa-report.md') });
 const report = readFileSync(join(original.root, 'docs/qa-report.md'), 'utf8');
 writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), '[transitions.qa-engineer]\non=["PASS"]\nproduces=["report"]\ngate="gate:qa"\nnext=[]\n');
 execFileSync('git', ['init', '-q', root]); execFileSync('git', ['-C', root, 'add', '.']);
@@ -33,7 +34,8 @@ const proposal = { verdict: 'PASS', summary: 'Archived QA report replay for fres
 // Only the initial historical actor response is injected. The verifier is real,
 // and the retry uses the default real Claude runner and real Codex verifier.
 await runStage(state, { runners: { 'claude-code': async () => ({ state: 'ok', code: 0, errors: [], finalText: JSON.stringify(proposal) }) },
-  save, verify: (s, role, p, execute) => verifyStage({ ...s, wave: frozen, dispatchEvidence: original.dispatchEvidence }, role, p, execute) });
+  save, verify: (s, role, p, execute) => verifyStage({ ...s, wave: frozen, dispatchEvidence: original.dispatchEvidence,
+    results: Object.fromEntries(Object.entries(original.results).filter(([r]) => ['product-owner', 'architect', 'pm', 'senior-dev', 'code-reviewer'].includes(r))) }, role, p, execute) });
 assert.equal(state.attempts[0].verification.state, 'rework', 'real verifier must reject the historical unsupported workflow claim');
 assert.equal(state.status, 'ready'); assert.equal(state.approvals.length, 0);
 const rejection = state.attempts[0].verification;
