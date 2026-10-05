@@ -883,3 +883,44 @@ does not prove all lifecycle branches, installed-plugin parity, native-hook
 parity, production deployment or measured product-quality improvement.
 The unsupported QA workflow claim .p4o9.8.3 remains open; no broad 100 percent
 compatibility claim, public release, merge or active-plugin update is made.
+
+## Workflow-claim hardening candidate and validation limits
+
+The accepted QA concurrency inaccuracy is addressed in a source candidate:
+worker/verifier context distinguishes queued roles, frozen-wave membership,
+controller invocation observations and verified results. Observations are
+bounded to 32 workers with explicit completeness/truncation. A parallel-wave
+verifier must return workflowAttestation bound to the exact wave ID and ordered
+role list; missing/mismatched evidence yields unverifiable, unsupported factual
+workflow assertions yield rework. Semantic checking is still model-dependent,
+not a deterministic guarantee of every report sentence.
+
+Negative regression first failed as expected. Final pipeline, mixed-host and
+stage-context regression passed 60/60, no skips, 102369.435583 ms, log
+`/Users/Shared/great-cto-workflow-attestation-tests-v2.log`. Initial context
+tests expected the previous generic sibling wording/unattested verifier JSON;
+those callers now exercise the explicit workflow contract. The separate
+149-test caller regression is RED: 125 passed, 24 failed, no skips,
+165556.96975 ms, with ENOSPC from Git fixture creation and temporary writes.
+Log `/Users/Shared/great-cto-workflow-caller-regression.log`. A fresh df check
+showed 118 MiB available on the 100 percent full Data filesystem; these
+failures are not waived or represented as a successful canonical suite.
+
+Private npm archive was packed and actually installed offline with scripts
+disabled in `/Users/Shared/great-cto-workflow-candidate-a7MVxg/install`.
+Archive SHA256 `d1912962c69abe0e8ec1b0a128ce3a117aacd4a3b8a789e1b897cd69fa6321cc`.
+Source and installed controller module SHA256 both
+`577a40dfb6df3c5df303ae706da2b497700233c10b0fa3ba72afcaf2bcfe3e07`.
+Installed CLI --version returned 3.48.0; this is a private candidate, not a
+new public release or active-plugin update.
+
+Live archived-report replay uses the actual old report and frozen controller
+wave, a real Codex verifier, then a fresh Claude worker/Codex verifier in an
+isolated report-only fixture with zero inherited approvals. Only the historical
+actor response is injected and is explicitly labeled as replay, not a new live
+worker. The first source replay reached rework for the old report but its first
+correction did not obtain verified; the harness assertion failed, retained at
+`/Users/Shared/great-cto-workflow-claims-source-live.log`. The revised harness
+persists each transition and respects the three-attempt cap. Complete installed
+live acceptance and wider passing regressions remain required before closing
+.p4o9.8.3 or claiming this candidate fully validated.

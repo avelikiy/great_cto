@@ -238,6 +238,24 @@ test('verifier runs separately with actual file paths and refuses empty evidence
   await assert.rejects(verifyStage(s, 'writer', proposal, async () => ({ ...response(), text: '{"state":"verified","checks":[],"findings":[]}' })), /empty/);
 });
 
+test('parallel verifier requires a bound workflow attestation and rejects unsupported concurrency claims', async t => {
+  const s = fixture(t);
+  s.wave = { id: 'review-wave', roles: ['writer', 'reviewer'], hosts: { writer: 'claude-code', reviewer: 'codex' }, receipt: {} };
+  s.queue.push('security');
+  const check = attestation => verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /Only roles listed in the frozen wave/);
+    assert.match(options.prompt, /queued roles are not running/);
+    return { ...response(), text: JSON.stringify({ state: 'verified', findings: [], checks: ['read report'], workflowAttestation: attestation }) };
+  });
+  assert.equal((await check(undefined)).state, 'unverifiable');
+  assert.equal((await check({ state: 'supported', waveId: 'different', roles: s.wave.roles, checks: ['checked'] })).state, 'unverifiable');
+  assert.equal((await check({ state: 'supported', waveId: s.wave.id, roles: ['writer', 'security'], checks: ['checked'] })).state, 'unverifiable');
+  const bad = await check({ state: 'unsupported', waveId: s.wave.id, roles: s.wave.roles, checks: ['report incorrectly says security runs in parallel'] });
+  assert.equal(bad.state, 'rework');
+  assert.match(bad.findings.join(' '), /workflow/);
+  assert.equal((await check({ state: 'supported', waveId: s.wave.id, roles: s.wave.roles, checks: ['no unsupported timing claims'] })).state, 'verified');
+});
+
 test('post-release worker and verifier receive bounded controller evidence without artifact bytes', async t => {
   const s = fixture(t, '[transitions.writer]\non=["DONE"]\nnext=[]');
   // Assembled: a token-shaped literal reads as a leaked credential to secret scanners.

@@ -138,6 +138,12 @@ read-only Codex verifier inspects actual files after each stage; `rework` and
 `unverifiable` block downstream dispatch. Same-stage repair does not approve any
 gate. Artifact hashes are checked before the next attempt or resumed stage and
 after verification. Its findings and checks are retained.
+Parallel-wave reports additionally require a workflow attestation bound to the
+exact wave ID and role list. Workers and verifiers receive bounded controller
+invocation observations; queued roles are not running, and wave membership does
+not establish successful execution or measured overlap. Missing or mismatched
+attestation cannot verify a report; unsupported factual workflow claims require
+rework. This is semantic inspection, not a deterministic proof of every sentence.
 This is a fresh session, not a guarantee of a different model family. It is not
 the legacy `independent-verify` scoring/board integration. Test execution is
 limited to commands the read-only sandbox permits; a model's `verified` verdict

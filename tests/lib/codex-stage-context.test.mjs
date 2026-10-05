@@ -124,7 +124,8 @@ test('worker context identifies frozen review snapshot with explicit hash proven
   assert.match(context.text, /wave-fixture/);
   assert.match(context.text, /untracked-digest/);
   assert.match(context.text, /Git blob object IDs, not raw SHA256/);
-  assert.match(context.text, /Sibling reports are produced concurrently/);
+  assert.match(context.text, /Only roles listed in the frozen wave are parallel siblings/);
+  assert.match(context.text, /queued roles are not running/);
 });
 
 test('verifier receives controller checks and snapshot separately from worker claims', async t => {
@@ -135,7 +136,8 @@ test('verifier receives controller checks and snapshot separately from worker cl
   let prompt;
   const result = await verifyStage(state, 'reviewer', { files: [], meta: {} }, async options => {
     prompt = options.prompt;
-    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected fixture'] }) };
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected fixture'],
+      workflowAttestation: { state: 'supported', waveId: state.wave.id, roles: state.wave.roles, checks: ['checked workflow assertions'] } }) };
   });
   assert.equal(result.state, 'verified');
   for (const value of ['tested-input', 'current-input', '44 passed', 'frozen-wave', 'snapshot-digest']) assert.ok(prompt.includes(value));
