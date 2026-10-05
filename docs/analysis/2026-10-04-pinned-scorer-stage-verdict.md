@@ -996,6 +996,53 @@ separate operator decision because restart may interrupt unrelated containers.
 This is an external execution blocker, not a failed implementation or rejected
 plan. No model worker was spent on a stage whose mandatory checks are unavailable.
 
+### Authorized Docker recovery and installed developer resume
+
+The user explicitly authorized restarting shared Docker Desktop. Normal
+`docker desktop restart --timeout 45` failed because backend PIDs 4767,
+4773 and 4774 did not stop before the deadline. A read-only socket retry still
+returned an empty HTTP 200. The supported `docker desktop stop --force
+--timeout 30` then exited zero, followed by `docker desktop start --timeout 45`
+exiting zero. No factory reset, data deletion, image pruning or context change
+was performed.
+
+Fresh readiness after recovery on 2026-10-05: version and info returned server
+29.7.2; the Unix-socket /_ping response contained OK. Pinned Node image
+node@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402
+was available locally. Installed controller/module SHA256 pins were unchanged:
+9343fed8dec92da76269681bbd5ac27cb4e6b98d4d4461c8669aafcd6d4a9ea5 and
+ac4d0e74ef59a286b119d746ec773e14da74e4eb7bc9aa7136f90bfcab26c616.
+The normal installed CLI resumed run 9b290a34-291e-4b1c-9848-0a3d9c6b8fa6
+from senior-dev with three existing explicit approvals, no additional gate
+approval and no manual state mutation. Log:
+`/Users/Shared/great-cto-installed-full-graph-after-plan.log`.
+
+Installed resume exited zero, awaiting gate:code for senior-dev, active null,
+queue empty, approvals still three and release null. Exact result digest is
+12195cf0f9fa9befee8e94511986e795db3c41d2d813564303c7fd969fba7d08;
+gate token e100394e-e8a6-4a3d-9769-16b62e1f76d6. Actual Codex worker ran
+13:19:54.012Z to 13:21:04.238Z and returned proposals; the controller applied
+src/add.mjs, tests/test.mjs and docs/implementation-receipt.md. The worker
+accurately disclosed that it did not itself write files or run runtime checks.
+
+Controller-operated checks ran 13:21:05.489Z to 13:21:07.312Z with the pinned
+Node image: 29 passed, zero failed, zero skipped, TAP duration 285.38675 ms.
+The build command copied src/add.mjs to dist/add.mjs inside the sandbox and
+exported it, not on the host project filesystem. Export/source SHA256 is
+aab6f8c0de652ab6fb3c3c376bfdcd25993ae95b947a788185b1ea0bfeee35da;
+artifact digest 91dc6799021e4b56d55fee7c2ac2b42a6df72eafd87d346e4eb62cbbf6f0a851.
+Real Codex verifier returned verified after inspecting artifacts/contracts,
+receipt hashes and provided controller evidence. Its four findings were
+supportive observations, not an empty list; it explicitly disclosed no
+independent test execution or current-file/inputDigest identity confirmation.
+Thus Docker execution is controller evidence, not independent verifier runtime
+evidence. Installed controller/module pins remained unchanged after the stage.
+
+No gate:code approval was added. No reviewer, Claude QA, security, release or
+post-release stage has run in this fresh installed full graph yet. This proves
+the installed candidate's developer -> real checks/export -> verifier -> human
+gate path, not full lifecycle compatibility or active-marketplace parity.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
