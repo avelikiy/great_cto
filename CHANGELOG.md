@@ -22,6 +22,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.52.0 — 2026-10-05
+
+Four more industries a product can be specced for without guessing.
+
+### Added
+
+- **Industry briefs for travel, nonprofits, small farms and maritime** — four new files of
+  the `verticals` skill, in the same shape as the existing twelve: the vocabulary, the rules
+  incumbents get right, what a naive build gets wrong, the entities to model, per-product
+  notes and light compliance. The architect and the project manager read the one that applies
+  before writing the spec.
+  - *Travel:* capacity lives on each departure and its resources, with a hold during checkout;
+    times are local to the place; a marketplace booking is not a payment received.
+  - *Nonprofit:* a gift is not an order — the household gives, a pledge is not a payment,
+    restricted money stays on its fund, the receipt is a tax document.
+  - *Farms:* records are made offline; history per field per season is never overwritten;
+    intervals after a spray or a treatment block harvest and sale; the lot code joins field
+    and customer.
+  - *Maritime:* a boat must fit the slip; charters sell in week blocks; maintenance is due by
+    hours or date; a container's free days before port charges are the point of tracking it.
+- Airline ticketing and navigation / safety-of-life features are named in the briefs as out of
+  scope. The briefs were written from domain knowledge and are not yet validated on a live
+  project in each industry.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.51.0 — 2026-10-05
 
 The smart-contract auditor prepares code for an external audit.
