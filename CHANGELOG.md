@@ -17,6 +17,39 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.49.0 — 2026-10-05
+
+Smart contracts get an auditor that works from the code, not the design.
+
+### Added
+
+- **`smart-contract-auditor`** — the 72nd agent. `oracle-reviewer` threat-models a web3
+  design before code exists; nothing audited the contracts once they were written. The
+  auditor runs the analyzers it finds (Slither, Aderyn, Solhint, Foundry; Echidna, Medusa,
+  Halmos, Mythril on demand), reviews twelve vectors, and keeps a finding only when it passes
+  four gates — executed, reachable, triggered by an unprivileged caller, materially harmful —
+  with file:line and a Foundry PoC for Critical/High. Any analyzer that did not run is listed as
+  "not checked", never as "clean". Writes `docs/security/AUDIT-{slug}.md`; FAIL while a
+  Critical/High is open, BLOCKED when nothing compiles or no analyzer ran. On the web3
+  archetype it is a required reviewer, so `gate:ship` waits for its verdict; elsewhere run it
+  with `/review --contracts`. Methodology adapted from pashov/skills (MIT), credited in
+  NOTICE.md.
+
+### Fixed
+
+- **qa-engineer's web3 Slither check never fired** — it tested `ls … | head -1`, whose exit
+  status is `head`'s. It now checks for the evidence file and accepts the auditor's report.
+- **Card numbers are redacted from the session learner's digest** — 13–19 digit runs that pass
+  the Luhn checksum become `[REDACTED card number]`; ids and timestamps that fail it stay.
+- **pre-push refuses commits made as avelikiy under any other address**, so a work address
+  linked to a second GitHub account cannot reach the public contributors list again.
+- **Board:** the project-not-found banner's title now meets WCAG AA contrast in the light theme
+  (5.45:1, was 4.08:1).
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.48.0 — 2026-10-02
 
 Three commands carry the day, from Claude Code or the terminal, on either host.
