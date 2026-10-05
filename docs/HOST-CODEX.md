@@ -173,7 +173,50 @@ receipts, non-Git projects, exhausted budgets and tree drift require inspection.
 `cancel` invalidates a pending gate, not files already written. Both commands
 take the existing exclusive lock: cancellation does not interrupt a running CLI.
 
-## Offline build/test executor
+## Build/test backends
+
+Docker is optional for the product, not silently optional for a pinned run.
+Policies without `backend` retain the existing Docker behavior. Explicit
+`"backend": "docker"` also requires a pinned image. There is no automatic
+fallback when Docker is unavailable. Start a new run to change the policy;
+existing approval and policy digests must not be rewritten.
+
+For small **trusted** projects, an operator-owned local policy can be used:
+
+```json
+{
+  "backend": "local",
+  "trusted": true,
+  "inputs": ["src", "tests"],
+  "commands": [["node", "--test", "tests/test.mjs"]],
+  "timeoutMs": 60000
+}
+```
+
+Local commands execute as the current OS user, without a shell, in a private
+temporary copy of selected inputs. `node` resolves to the controller's Node;
+other executables require absolute paths. Dependencies are not installed or
+copied implicitly. Commands receive only PATH (controller Node directory),
+HOME/TMPDIR (temporary work directory), LANG and LC_ALL, not the inherited
+credential environment. Selected inputs and exported outputs have the same
+path/secret/size validation as Docker. The total command deadline is bounded;
+each command has bounded captured output and same-process-group descendants
+are terminated on POSIX. Code that escapes that group is not contained.
+
+**Local is not a sandbox.** Code can access the user's filesystem, credentials
+stored on disk, network and other processes. Snapshotting and environment
+filtering prevent accidental exposure, not malicious access. Use Docker or
+another separately implemented/verified sandbox for untrusted code. Local
+evidence reports `backend: local`, `isolation: none`, `image: null`, Node/OS/arch
+and executable SHA256 identities; these observed identities are not immutable
+runtime pins or container-equivalence claims. No CPU/memory/network isolation
+is asserted. Trust is explicit operator consent, not inferred from project size.
+
+Release policy can independently select `backend: local, trusted: true` for
+its smoke commands (omit `image`); release adapter `local` describes artifact
+publication, **not** execution backend. Release approval remains mandatory.
+
+### Offline Docker executor
 
 At `start`, pass `--checks-policy /absolute/operator-owned/checks.json`. The JSON
 must be outside the target workspace; its content is snapshotted into run state.

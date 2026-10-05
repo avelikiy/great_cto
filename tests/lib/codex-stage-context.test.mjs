@@ -17,6 +17,14 @@ import { commitFixture } from '../helpers/committed-fixture.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 const sha = (t) => createHash('sha256').update(t).digest('hex');
 
+test('stage context preserves local backend and non-isolation provenance', () => {
+  const ctx = buildStageContext({ results: { 'senior-dev': { at: '2026-10-05T00:00:00Z',
+    checks: { state: 'passed', code: 0, backend: 'local', isolation: 'none', image: null,
+      runtime: { node: 'v22', platform: 'darwin', arch: 'arm64' } } } } });
+  assert.match(ctx.text, /"backend": "local"/); assert.match(ctx.text, /"isolation": "none"/);
+  assert.match(ctx.text, /"image": null/); assert.match(ctx.text, /"platform": "darwin"/);
+});
+
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'codex-context-')), root = join(dir, 'project');
   mkdirSync(root);

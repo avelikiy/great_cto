@@ -324,6 +324,7 @@ function repairTarget(state, role) {
 
 function checkSummary(checks) {
   return checks ? { state: checks.state, code: checks.code, inputDigest: checks.inputDigest,
+    backend: checks.backend, isolation: checks.isolation, image: checks.image, runtime: checks.runtime,
     stdout: checks.stdout?.slice(-8000), stderr: checks.stderr?.slice(-4000) } : null;
 }
 

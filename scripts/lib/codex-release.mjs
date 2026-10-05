@@ -8,10 +8,14 @@ import { treeReceipt } from './receipt.mjs';
 import { publishGitHubRelease } from './codex-github-release.mjs';
 const ROOT_MARKER = '.great-cto-release-root';
 const ROOT_MARKER_CONTENT = 'great-cto-release-root:v1\n';
+const backendFields = policy => policy.backend === 'local'
+  ? { backend: 'local', trusted: policy.trusted }
+  : policy.backend === undefined ? { image: policy.image } : { backend: policy.backend, image: policy.image };
 
 export function validateReleasePolicy(policy, root) {
   if (!policy || !['local', 'github-release'].includes(policy.adapter)) throw Error('release requires a supported adapter');
-  const smoke = { image: policy.image, inputs: ['artifact'], commands: policy.smokeCommands, timeoutMs: policy.timeoutMs };
+  const smoke = { ...backendFields(policy), inputs: ['artifact'], commands: policy.smokeCommands, timeoutMs: policy.timeoutMs };
+  if (policy.backend === 'local' && policy.image !== undefined) throw Error('local release smoke cannot claim a container image');
   validateCheckPolicy(smoke);
   if (policy.adapter === 'github-release') {
     if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(policy.repository || '')) throw Error('GitHub release requires repository owner/name');
@@ -21,7 +25,7 @@ export function validateReleasePolicy(policy, root) {
     if (typeof policy.notes !== 'string' || policy.notes.length > 8192 || policy.notes.includes('\0')) throw Error('GitHub release notes are invalid or too large');
     return { adapter: 'github-release', repository: policy.repository, tag: policy.tag, targetCommitish: policy.targetCommitish,
       title: policy.title, notes: policy.notes, activation: 'none', rollback: 'superseding-release',
-      image: policy.image, smokeCommands: JSON.parse(JSON.stringify(policy.smokeCommands)), timeoutMs: policy.timeoutMs };
+      ...backendFields(policy), smokeCommands: JSON.parse(JSON.stringify(policy.smokeCommands)), timeoutMs: policy.timeoutMs };
   }
   if (typeof policy.releaseRoot !== 'string') throw Error('local release requires an explicit releaseRoot');
   const releaseRoot = realpathSync(policy.releaseRoot);
@@ -32,7 +36,7 @@ export function validateReleasePolicy(policy, root) {
   if (!existsSync(marker) || !lstatSync(marker).isFile() || lstatSync(marker).isSymbolicLink() || readFileSync(marker, 'utf8') !== ROOT_MARKER_CONTENT) {
     throw Error(`release root is not designated: create ${ROOT_MARKER} with the documented v1 content`);
   }
-  return { adapter: 'local', releaseRoot, activation: 'none', rollback: 'consumer-selects-previous', image: policy.image,
+  return { adapter: 'local', releaseRoot, activation: 'none', rollback: 'consumer-selects-previous', ...backendFields(policy),
     smokeCommands: JSON.parse(JSON.stringify(policy.smokeCommands)), timeoutMs: policy.timeoutMs };
 }
 
@@ -121,7 +125,7 @@ export async function executeRelease(state, { safePath, checks = runChecks, gh, 
     try {
       const published = await publishGitHubRelease(r, state.releasePolicy, { gh, verifyDownloaded: root => checks({
         root, allowed: r.artifacts.map(a => a.path), checkPolicy: {
-          image: state.releasePolicy.image, inputs: r.artifacts.map(a => a.path), commands: state.releasePolicy.smokeCommands,
+          ...backendFields(state.releasePolicy), inputs: r.artifacts.map(a => a.path), commands: state.releasePolicy.smokeCommands,
           timeoutMs: state.releasePolicy.timeoutMs,
         },
       }, { safePath }) });
@@ -149,7 +153,7 @@ export async function executeRelease(state, { safePath, checks = runChecks, gh, 
     verifyDirectory(target, r.artifacts);
     r.path = target; r.publishedAt ??= new Date().toISOString(); save(state);
     r.smoke = await checks({ root: target, allowed: r.artifacts.map(a => a.path), checkPolicy: {
-      image: state.releasePolicy.image, inputs: r.artifacts.map(a => a.path), commands: state.releasePolicy.smokeCommands,
+      ...backendFields(state.releasePolicy), inputs: r.artifacts.map(a => a.path), commands: state.releasePolicy.smokeCommands,
       timeoutMs: state.releasePolicy.timeoutMs,
     } }, { safePath });
     verifyDirectory(target, r.artifacts);

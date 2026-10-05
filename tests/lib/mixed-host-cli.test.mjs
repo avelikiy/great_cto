@@ -48,7 +48,7 @@ process.stdin.on('end', async () => {
 });
 `;
 
-test('CLI executes both host subprocesses concurrently and clears their gates', t => {
+test('CLI executes both host subprocesses concurrently with trusted local checks and clears their gates', t => {
   const base = mkdtempSync(join(tmpdir(), 'mixed-cli-'));
   t.after(() => rmSync(base, { recursive: true, force: true }));
   const root = join(base, 'project'), store = join(base, 'store'), markers = join(base, 'markers');
@@ -62,7 +62,9 @@ test('CLI executes both host subprocesses concurrently and clears their gates', 
   writeFileSync(claude, hostSource('qa-engineer')); writeFileSync(codex, hostSource('security-officer'));
   chmodSync(claude, 0o755); chmodSync(codex, 0o755);
   const state = newRun({ root, pluginRoot: REPO, prompt: 'Review this fixture', allowed: ['docs'],
-    entry: 'code-reviewer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' } });
+    entry: 'code-reviewer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' },
+    checkPolicy: { backend: 'local', trusted: true, inputs: ['docs/code-review.md'],
+      commands: [['node', '-e', "if(!require('fs').readFileSync('docs/code-review.md','utf8').includes('evidence'))process.exit(1)"]], timeoutMs: 10000 } });
   const file = join(store, `${state.id}.json`);
   writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
   const env = { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_CODEX_BIN: codex,
@@ -93,6 +95,9 @@ test('CLI executes both host subprocesses concurrently and clears their gates', 
   assert.equal(saved.waveHistory[0].status, 'verified');
   assert.deepEqual([saved.results['qa-engineer'].host, saved.results['security-officer'].host], ['claude-code', 'codex']);
   assert.ok(saved.results['qa-engineer'].verification.state === 'verified');
+  assert.equal(saved.results['qa-engineer'].checks.backend, 'local');
+  assert.equal(saved.results['qa-engineer'].checks.isolation, 'none');
+  assert.equal(saved.results['qa-engineer'].checks.state, 'passed');
   assert.ok(saved.results['security-officer'].verification.state === 'verified');
   assert.ok(existsSync(join(root, 'docs', 'qa-engineer.md')));
   assert.ok(existsSync(join(root, 'docs', 'security-officer.md')));

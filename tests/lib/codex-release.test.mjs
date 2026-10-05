@@ -33,6 +33,29 @@ function fixture(t) {
 }
 const smoke = async () => ({ state: 'passed', code: 0, stdout: 'test fixture smoke', stderr: '' });
 
+test('real trusted local build and post-release smoke need no Docker and preserve release approval', async t => {
+  const s = fixture(t);
+  delete s.checkPolicy.image;
+  Object.assign(s.checkPolicy, { backend: 'local', trusted: true });
+  s.results['qa-engineer'].checks = await runChecks(s, { safePath });
+  const policy = { ...s.releasePolicy, backend: 'local', trusted: true };
+  delete policy.image;
+  s.releasePolicy = validateReleasePolicy(policy, s.root);
+  prepareRelease(s);
+  await assert.rejects(executeRelease(s, { safePath }), /not approved/);
+  approveRelease(s, s.release.token);
+  await executeRelease(s, { safePath });
+  assert.equal(s.release.status, 'verified'); assert.equal(s.release.smoke.backend, 'local');
+  assert.equal(s.release.smoke.isolation, 'none'); assert.equal(s.release.smoke.image, null);
+  assert.equal(readFileSync(join(s.release.path, 'dist/index.mjs'), 'utf8'), content);
+});
+
+test('local release smoke rejects implicit trust and false image identity', t => {
+  const s = fixture(t), p = { ...s.releasePolicy, backend: 'local' }; delete p.image;
+  assert.throws(() => validateReleasePolicy(p, s.root), /trusted/);
+  assert.throws(() => validateReleasePolicy({ ...p, trusted: true, image }, s.root), /image/);
+});
+
 test('artifact validation rejects unsafe paths, bad data, duplicates and digest drift', () => {
   for (const candidate of [[], [{ path: '../escape', base64: 'eA==' }], [{ path: 'a', base64: 'garbage' }],
     [{ path: 'a', base64: 'eA==', sha256: 'bad' }], [artifacts()[0], artifacts()[0]]]) assert.throws(() => validateArtifacts(candidate));
