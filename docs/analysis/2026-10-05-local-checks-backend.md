@@ -157,3 +157,43 @@ TypeError, binary64/rounding/signed-zero behavior, no coercion, dependency-free
 builtin tests and accurate trusted-local/non-isolation responsibility boundaries.
 All four installed module pins remained unchanged after the stage. No
 gate:arch approval, PM, developer, Claude QA, security or release was executed.
+
+### Explicit architecture approval and installed planning stage
+
+The user explicitly approved gate:arch for the installed local run's exact
+architecture result 300d45fa6e11d84fe192b4ff4a3e8bb503e0d1777b039a8eb500fe737608d7b9.
+The normal pinned CLI accepted token 2fd928a1-d950-4231-9788-b13c7d05cffb;
+four runtime module hashes were unchanged. State became ready, approvals two,
+pending null, queue pm. Actual Codex PM dispatch began
+2026-10-05T16:48:21.079Z via the installed CLI resume operation.
+Log: /Users/Shared/great-cto-local-installed-after-arch.log.
+
+PM worker returned 16:50:12.349Z; Codex verifier returned verified with empty
+findings at 16:50:34.705Z (result timestamp). Installed resume exited zero and
+awaits gate:plan, active null, approvals two, release absent. PM result:
+493296532b43866885c98da2e752499408a024c246ee6577bb315c65f1ea924a;
+pending token f46f891b-4b43-4356-b4f0-b6f99aebe126. Artifacts include docs/plan.md
+and six task briefs, implementation ownership assigned to senior-dev. Estimated
+45/55 minutes and allowed review parallelism are plans, not measured results.
+All four installed runtime pins remain unchanged. No implementation or tests
+were executed by this planning stage.
+
+### Operator audit: verified planning result is not sufficient for approval
+
+Direct comparison found a concrete mismatch missed by the semantic verifier:
+docs/plan.md and docs/impl-briefs/T5-local-release.md promise smoke by importing
+src/add.mjs and checking overflow via add(Number.MAX_VALUE,Number.MAX_VALUE).
+The already frozen operator releasePolicy actually imports dist/add.mjs and
+checks add(2,3) and TypeError for add(NaN,1). The plan must describe the real
+controller-owned policy, not imply a different smoke will run. This does not
+mean the executor failed; it is an uncorrected planning/evidence defect despite
+verified/findings-empty. Prospective tests may cover overflow, but they cannot
+be attributed to the frozen post-release smoke.
+
+gate:plan is deliberately unapproved. No policy, artifact or run JSON was
+manually rewritten, and no approved predecessor was erased. The installed CLI
+has approve/recover/cancel but no operator reject/rework command for a pending
+verified gate. Safe reconciliation requires a controlled rework mechanism and
+policy-context audit, or an explicitly chosen fresh-run approach; it must not
+silently mutate a pinned candidate. Full lifecycle acceptance .8.6 remains
+in progress pending correction and a new bound planning result.
