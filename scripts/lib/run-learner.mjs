@@ -30,8 +30,8 @@
  */
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { tmpdir, homedir } from 'node:os';
+import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PATTERNS } from './secret-patterns.mjs';
 import { parseLessons } from './lessons-write.mjs';
@@ -211,7 +211,15 @@ function writeMarker(cwd, line) {
  * Run the learner once and record the outcome.
  * @returns {{state:'done'|'failed'|'skipped', exit:number|null, added:number, detail?:string}}
  */
-export function runLearner({ cwd, transcript, reason, fromOffset = 0, claude = 'claude', budgetUsd, timeoutMs = 300_000, env = process.env } = {}) {
+export function runLearner({ cwd, transcript, reason, fromOffset = 0, claude = 'claude', budgetUsd, timeoutMs = 300_000, env = process.env, home = homedir() } = {}) {
+  // Home is not a project: ~/.great_cto is the global layer that read-global-memory
+  // injects into every session of every project. A session that ended in ~ once
+  // wrote a lesson naming private projects there (2026-10-05). Every path to the
+  // learner — session end and learn windows — comes through here.
+  if (resolve(cwd) === resolve(home)) {
+    writeMarker(cwd, 'skipped: the home directory is not a project — its .great_cto is the global layer');
+    return { state: 'skipped', exit: null, added: 0, detail: 'the home directory is not a project' };
+  }
   const before = lessonCount(cwd);
   let dir = null;
   let digestPath = null;

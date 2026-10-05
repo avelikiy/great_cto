@@ -204,3 +204,20 @@ test('a card number is redacted from the digest; a long id that is not one is ke
   assert.match(out, /1234567890123456/, 'a 16-digit id that fails Luhn is not a card');
   assert.match(out, /1790939104017/, 'a timestamp that fails Luhn is not a card');
 });
+
+test('a session that ends in the home directory teaches nothing — its .great_cto is the global layer', () => {
+  // On 2026-10-05 a session ended in ~, the learner took ~ for a project and wrote
+  // a lesson naming two private projects into ~/.great_cto/lessons.md — the file
+  // read-global-memory injects into every session of every project. It also pushed
+  // that injection past its byte ceiling. Home is never a project here.
+  const home = project();
+  const fake = fakeClaude({ addLesson: true });
+  const r = runLearner({ cwd: home, home, transcript: transcript(), claude: fake.bin });
+  assert.equal(r.state, 'skipped');
+  assert.match(r.detail, /home directory/);
+  assert.equal(existsSync(join(home, '.great_cto', 'lessons.md')), false, 'no lesson written into the global layer');
+  assert.throws(() => fake.argv(), 'the learner was not started at all');
+  // A project below home is still a project.
+  const below = join(home, 'proj'); mkdirSync(join(below, '.great_cto'), { recursive: true });
+  assert.equal(runLearner({ cwd: below, home, transcript: transcript(), claude: fake.bin }).state, 'done');
+});
