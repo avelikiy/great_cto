@@ -1,6 +1,6 @@
 ---
 description: "Before merging a branch: a code review with evidence for every finding and no false alarms — a domain compliance review (`--domain tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice`), or a smart-contract audit (`--contracts`). Code review = 12 angles + skeptical triage (3 rounds + arbiter); `--deep` triages every P0/P1 angle, not just security/reliability; creates or closes gate:code. Domain review = the matching compliance reviewer writes docs/sec-threats/TM-<domain>-<slug>.md and raises its gate. Contracts = smart-contract-auditor writes docs/security/AUDIT-<slug>.md."
-argument-hint: "[PR/branch name | --deep | --domain <tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice> [arch-slug] | --contracts [path ...]]"
+argument-hint: "[PR/branch name | --deep | --domain <tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice> [arch-slug] | --contracts [--package] [path ...]]"
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent, advisor_20260301
@@ -32,8 +32,14 @@ Use the Agent tool with `subagent_type: smart-contract-auditor` and prompt:
 > checks only if the contracts hold value or `--deep` was passed. Write
 > `docs/security/AUDIT-<slug>.md` and the verdict line.
 
-Then report in ≤ 6 lines: the AUDIT file path, Critical / High / Medium counts, the tools
-that did **not** run, the verdict (PASS | FAIL | BLOCKED), and the next action — FAIL →
+With `--package` (code headed to an external audit) add to that prompt:
+
+> This is prepare mode. Also write the threat model, the invariant specification, a
+> Foundry invariant suite under `test/invariant/<slug>/` that you ran, and the auditors'
+> package in `docs/security/audit-package-<slug>/` (Steps 4, 5b, 7, 9).
+
+Then report in ≤ 6 lines: the AUDIT file path (and the package folder with `--package`),
+Critical / High / Medium counts, invariants tested / specified, the tools that did **not** run, the verdict (PASS | FAIL | BLOCKED), and the next action — FAIL →
 fix and re-run `/review --contracts`; BLOCKED → the build or tool problem to fix first.
 **Do not continue into the code review below.**
 
