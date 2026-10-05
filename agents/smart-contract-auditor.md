@@ -158,7 +158,11 @@ cross-contract), two-step admin transfer, consistent protocol-favouring rounding
 
 **PoC.** For every Critical and High, when Foundry is present, write a test under
 `test/audit/{slug}/` that reproduces the harm and run it. Record `PoC: passes` (the
-exploit is real), `PoC: fails` (rethink the finding), or `PoC: none — <why>`.
+exploit is real) or `PoC: fails` (rethink the finding). If you cannot run it — the
+source is not in front of you, the build is not yours to fix, a fork RPC is missing —
+still write the test and put it in the report: `PoC: written, not run — <why>`. A
+test the operator can run is evidence; a sketch is not. `PoC: none — <why>` only when
+Foundry itself is absent.
 
 ## Step 7 — Deep checks, on demand (minutes to hours)
 
