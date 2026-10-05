@@ -923,6 +923,30 @@ inherited. Log `/Users/Shared/great-cto-installed-full-graph-start.log`.
 Installed full lifecycle beyond this first gate remains unexecuted and requires
 the new run's explicit human decisions. Tracked in .p4o9.8.4.
 
+### Installed run: explicit product approval and verified architecture
+
+The user explicitly approved gate:product for installed run
+9b290a34-291e-4b1c-9848-0a3d9c6b8fa6. The installed CLI accepted the exact
+pending product result 904cc73f14296f16c6b3ebecb7cebbbebf17a7a33b9ab1e837b51cdb979f6a75
+under its normal lock and receipt checks. Approval count is one; no later gates
+were approved. Runtime pins were checked before approval and after resume and
+remained identical to the recorded installed controller/pipeline hashes.
+
+Resume exited 0. Actual architect worker and Codex verifier accepted
+docs/architecture.md with verified, findings empty. Result digest
+`47a5bed6466d4b5e10ed92fb6fb41e6a0adb2bbaf36586bbc324febc3fd7d17a`.
+The contract is package-free ESM, pure O(1) addition, finite-number arguments
+and finite result, TypeError otherwise, no coercion, binary64 semantics and
+node:test coverage of both input positions and overflow signs. Exact monetary
+arithmetic and production services are out of scope. No implementation or
+runtime tests were claimed by the architect or verifier.
+
+Current state awaits gate:arch, approvals one, no release created. The product
+authorization is not architectural approval. Runtime log:
+`/Users/Shared/great-cto-installed-full-graph-after-product.log`.
+Docker version retry still returned EOF; later Docker checks remain contingent
+on restoring daemon connectivity. The active marketplace plugin was not changed.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
