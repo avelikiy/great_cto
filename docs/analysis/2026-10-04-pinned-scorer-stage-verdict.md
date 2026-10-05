@@ -947,6 +947,30 @@ authorization is not architectural approval. Runtime log:
 Docker version retry still returned EOF; later Docker checks remain contingent
 on restoring daemon connectivity. The active marketplace plugin was not changed.
 
+### Installed run: explicit architecture approval and verified plan
+
+The user explicitly authorized gate:arch for installed run
+9b290a34-291e-4b1c-9848-0a3d9c6b8fa6. The pinned installed CLI accepted exact
+result 47a5bed6466d4b5e10ed92fb6fb41e6a0adb2bbaf36586bbc324febc3fd7d17a
+under its lock/receipt checks; approvals are two. The controller/pipeline
+module pins remained unchanged before approval and after the stage.
+
+Actual PM and separate Codex verifier returned verified, findings empty,
+for docs/plan.md plus docs/impl-briefs/T1-add.md and T2-tests.md.
+Result digest `ebccac63698a29253213728c1bfd398198cd8ee329f1353b6468d623e723525a`.
+T1 owns src/add.mjs, T2 owns tests/test.mjs, both assigned to senior-dev,
+with T1 preceding T2. The finite-number/binary64/TypeError contract and
+both-position invalid-input/overflow matrix are retained. Estimated timings
+are explicitly estimates, not measurements; parallel review is described as
+a planning possibility rather than observed concurrent execution. Verifier
+inspected all cited documents and Git-visible artifacts; no runtime execution
+was claimed. Resume exited 0 and awaits gate:plan, approvals two, no
+implementation or release created. Architecture permission was not extended
+to plan approval. Log `/Users/Shared/great-cto-installed-full-graph-after-arch.log`.
+
+Fresh Docker version still returned EOF. The next developer/check stage requires
+restored Docker connectivity; no check policy was weakened or bypassed.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
