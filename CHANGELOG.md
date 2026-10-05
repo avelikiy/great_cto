@@ -19,6 +19,27 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.49.2 — 2026-10-05
+
+What is true of one project stays in that project.
+
+### Fixed
+
+- **The global memory layer no longer carries one project into every other.**
+  `~/.great_cto/{preferences,decisions,lessons}.md` is read into every session of every
+  project. An entry there that names a private project, or declares `project: <name>`, is
+  now dropped at the read door and the operator is warned — without the name. Private names
+  are derived the way `pre-push` derives them (your `~/.great_cto/private-terms` plus your
+  workspace directory names, minus `public-terms` and common words), and a test keeps the
+  two lists equal. 3.49.1 stopped one writer (a learner run in the home directory); this
+  holds whoever writes the file.
+- **If you see `PROJECT SCOPE — <file>: entry at line N dropped`** at session start, move
+  that entry into the `.great_cto/` of the project it is about.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.49.1 — 2026-10-05
 
 Every domain reviewer now says the same two words, and says who has to act.
