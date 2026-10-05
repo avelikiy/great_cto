@@ -851,3 +851,35 @@ activation or production deployment. Release approval remains a separate
 human decision and was not inferred from the review-gate authorization.
 The accepted unsupported QA workflow claim remains open in .p4o9.8.3.
 Runtime log: `/Users/Shared/great-cto-full-graph-after-review-gates.log`.
+
+## Authorized local release and terminal full-graph result
+
+The user separately authorized the exact prepared local artifact release and
+Docker smoke. Locked CLI approve-release accepted operation
+`01149800-0bec-419e-a1e2-09ad656fc568` without changing its binding; resume
+exited 0. Docker server was freshly observed as 29.7.2.
+
+Publication directory is
+`/Users/Shared/great-cto-acceptance-501/mixed-release-oAVnmO/releases/01149800-0bec-419e-a1e2-09ad656fc568-31aa391cb3162c0b147376a68da8e6d89870b87e68cee0681c4d6d7dc15e266d`.
+The published dist/add.mjs SHA256 was independently reread and matches the
+approved candidate: `796b46b502bf172ed6c1f00af5912efc33c842df8fad93a43b640dc12e040744`.
+Pinned-image post-release smoke passed, code 0, from 08:13:21.321Z to
+08:13:24.999Z on 2026-10-05, checking finite addition and NaN TypeError.
+Release status became verified at 08:13:26.152Z, activation none.
+
+L3 support then ran on Codex and its verifier accepted the read-only receipt
+and artifact-hash inspection. Support verdict OK, verification verified,
+result digest `48a754dbe98cf0f76f5d2ca5ca9420e273531d73a3d4a41cce0b7008ddfc28ab`.
+Support did not claim independent runtime execution or production monitoring.
+Terminal run status is done, queue empty, ten gate approvals retained, and
+devops local release result verified. Runtime log:
+`/Users/Shared/great-cto-full-graph-local-release.log`.
+
+This is actual full-graph source-candidate evidence for the small arithmetic
+fixture, including real Codex/Claude workers, Docker build/export, explicit
+human gates, local publication and smoke. Devops is controller-operated;
+verifiers are Codex, not independent model-family judges. This single fixture
+does not prove all lifecycle branches, installed-plugin parity, native-hook
+parity, production deployment or measured product-quality improvement.
+The unsupported QA workflow claim .p4o9.8.3 remains open; no broad 100 percent
+compatibility claim, public release, merge or active-plugin update is made.
