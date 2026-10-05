@@ -1,9 +1,11 @@
 # Explicit trusted local checks alongside Docker
 
-Status: Accepted for implementation, not released
-Date: 2026-10-05
-Decider: CTO approval of optional Docker for trusted projects
-Tracking: great_cto-p4o9.8.5
+**Status:** Accepted for implementation, not released
+**Date:** 2026-10-05
+**Decider:** CTO approval of optional Docker for trusted projects
+**Tracking:** great_cto-p4o9.8.5
+**References:** [Backend contract](../HOST-CODEX.md#buildtest-backends),
+[Execution evidence](../analysis/2026-10-05-local-checks-backend.md)
 
 ## Context
 
