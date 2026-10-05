@@ -779,3 +779,50 @@ Current recover() supports interrupted single stages and requires state.active;
 this blocked wave has active null. A bounded receipt-checked parallel recovery
 path is tracked separately. Runtime JSON was not manually changed, neither
 gate nor verifier was bypassed, and successful-half output was not promoted.
+
+## Reauthenticated Claude and bounded parallel recovery
+
+Fresh Claude auth subsequently returned exit 0, loggedIn true, claude.ai.
+Commit `bc169189` adds explicit recovery only for an unapplied blocked dispatch:
+no active stage, pending gate, fetched responses or wave-role results; unchanged
+complete Git receipt and prior artifacts; completed worker observations with
+valid timing/outcome; no live matching shared-budget leases; remaining bounded
+role attempts. The refusal is archived before fresh dispatch with new call IDs.
+Partial/post-write waves are not automatically recovered. No-budget legacy
+runs are supported but do not acquire a retroactive global admission guarantee.
+
+Final pipeline/mixed-host tests passed 50/50, zero skips, 53624.318292 ms;
+eval/contracts/dispatch/budget regression passed 286/286, zero skips,
+4235.167459 ms. Logs `/Users/Shared/great-cto-wave-recovery-tests-v2.log` and
+`/Users/Shared/great-cto-wave-recovery-eval.log`. An earlier 49-test attempt
+had 48 passed and one fixture failure: the active-lease test tried to reuse a
+retired call ID and the existing fence correctly refused it. The fixture now
+uses fresh IDs; that earlier red log is not represented as green.
+
+Actual receipt-checked CLI recovery preserved the old failed wave and all four
+human approvals. Same-run retry `ee02b137-1890-402c-a8f7-8e73667a5075` passed
+with verified Codex code-review and Claude QA. Actual dispatch intervals:
+
+| Worker | Started UTC | Finished UTC |
+| --- | --- | --- |
+| Codex code-reviewer | 06:51:46.798 | 06:52:45.526 |
+| Claude Code QA | 06:51:46.804 | 06:52:29.700 |
+
+Overlap is 42.896 seconds. Security then ran separately on Codex and obtained
+verified. Final controller exit 0; status awaiting-gate, pending code-reviewer
+`gate:ship`, approvals four, release null. Logs:
+`/Users/Shared/great-cto-full-graph-wave-recovered.log` and
+`/Users/Shared/great-cto-full-graph-wave-retry.log`.
+
+Verified report hashes:
+
+- code-review-receipt.md: `3fe463ee476ac7e8619aaff12607d683668f0c85ce3e364f5cb859ab490a7092`
+- qa-report.md: `089976c1584026b365445eda4a9eb698959086650e10317cedf813de856937ea`
+- security-report.md: `b8c1062f062d80437769730fc5e7f31c50adb94a013a6438238067feebdd72d7`
+
+QA discloses no own runtime execution and three nonblocking coverage gaps;
+actual tests are controller evidence. Its statement that security was being
+prepared in parallel is not supported by this wave's membership. This accepted
+workflow-claim defect is tracked in .p4o9.8.3; verified status is not proof that
+every sentence in a report is accurate. No public/production release, active
+plugin parity, broad security admission or 100% compatibility is claimed.
