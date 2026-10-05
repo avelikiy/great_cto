@@ -21,6 +21,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.51.0 — 2026-10-05
+
+The smart-contract auditor prepares code for an external audit.
+
+### Added
+
+- **`/review --contracts --package`** — prepare mode for code headed to an audit firm.
+  Beside its own findings, `smart-contract-auditor` writes a threat model (actors, assets,
+  each privileged role's worst case, trust boundaries, assumptions), an invariant
+  specification (`INV-xx` with statement, expression, kind, the functions that touch it and
+  the test that checks it — with a checklist for staking pools, liquid staking and
+  oracle-driven rates), and a handler-based Foundry invariant suite that it runs. A handler
+  whose calls mostly revert is reported as "not exercised", a fuzzer's result as "no
+  counterexample in N runs × depth D" — never "proven" — and a counterexample goes through
+  the same four gates as any finding.
+- **The auditors' package** — `docs/security/audit-package-<slug>/`: scope and how to run,
+  architecture, threat model, invariants with results, known issues (open findings included,
+  with status), tool triage, testing, where to look first. Every file opens with "Prepared
+  for audit — not audited · commit <sha>".
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.50.0 — 2026-10-05
 
 The gates waiting on you, in the session you are working in.
