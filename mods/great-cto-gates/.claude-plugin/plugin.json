@@ -1,0 +1,9 @@
+{
+  "name": "great-cto-gates",
+  "version": "0.1.0",
+  "description": "great_cto gates waiting on you, in a pane of this session; approve through the board's own route",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "avelikiy"
+  }
+}
