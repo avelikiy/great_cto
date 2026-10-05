@@ -14,7 +14,7 @@ import { runChecks, validateCheckPolicy } from './codex-checks.mjs';
 import { validateReleasePolicy, prepareRelease, executeRelease, recoverRelease } from './codex-release.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateRuntimePolicy, runtimeGatePolicy } from './runtime-gate-policy.mjs';
-import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent } from './agent-execution-budget.mjs';
+import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent, budgetSnapshot } from './agent-execution-budget.mjs';
 import { validateSpecialistPolicy, assertSpecialistEpoch, schedulePreparation, scheduleSpecialists, specialistRole, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
 import { scopedReviewInput, scopedReviewCandidate, attestScopedReview, completeScopeAttestation } from './scoped-review-reuse.mjs';
 import { observeControllerCall } from './controller-dispatch-evidence.mjs';
@@ -311,6 +311,47 @@ function checkSummary(checks) {
 /** Explicit operator recovery; never infer that a partly applied write is safe. */
 export function recover(state) {
   if (state.release && ['publishing', 'failed'].includes(state.release.status)) { recoverRelease(state); return; }
+  if (state.status === 'blocked' && state.wave && !state.active) {
+    const wave = state.wave;
+    const roles = wave.roles;
+    if (wave.status !== 'blocked' || wave.responses || state.pending
+      || typeof wave.id !== 'string' || !wave.id
+      || !Array.isArray(roles) || roles.length !== 2 || new Set(roles).size !== 2
+      || roles.some((role, index) => typeof role !== 'string' || !role || state.results[role]
+        || state.queue[index] !== role || wave.hosts?.[role] !== roleHost(state, role))) {
+      throw Error('parallel recovery refused: only an unapplied failed dispatch can recover');
+    }
+    assertArtifacts(state);
+    const current = treeReceipt(state.root);
+    if (!completeReceipt(wave.receipt) || !completeReceipt(current)
+      || JSON.stringify(current) !== JSON.stringify(wave.receipt)) {
+      throw Error('parallel recovery refused: working tree changed or receipt unavailable');
+    }
+    // Failed authentication is terminal; an interrupted/live worker is not.
+    const calls = roles.map(role => `${wave.id}:${role}`);
+    const records = state.dispatchEvidence?.records || [];
+    if (calls.some((id, index) => {
+      const matches = records.filter(record => record.id === id);
+      return matches.length !== 1 || matches[0].kind !== 'worker'
+        || matches[0].role !== roles[index] || matches[0].host !== wave.hosts[roles[index]]
+        || !['returned', 'threw'].includes(matches[0].outcome)
+        || !Number.isFinite(Date.parse(matches[0].startedAt))
+        || !Number.isFinite(Date.parse(matches[0].finishedAt))
+        || Date.parse(matches[0].finishedAt) < Date.parse(matches[0].startedAt);
+    }) || (state.executionBudget && budgetSnapshot(state.executionBudget).active.some(lease => calls.includes(lease.callId)))) {
+      throw Error('parallel recovery refused: worker completion is not established');
+    }
+    if (roles.some(role => (state.attempts || []).filter(attempt => attempt.role === role).length
+      + (state.waveHistory || []).filter(prior => prior.status === 'blocked' && prior.roles?.includes(role)).length
+      + 1 >= (state.maxAttempts ?? 1))) throw Error('parallel recovery attempt limit reached');
+    // Discard every unverified response and preserve the refusal. A retry gets
+    // fresh workers, context, call identities and budget admission, not a gate.
+    state.waveHistory ??= [];
+    state.waveHistory.push({ id: wave.id, roles: [...roles], hosts: { ...wave.hosts },
+      status: 'blocked', reason: state.reason, receipt: wave.receipt, recoveredAt: new Date().toISOString() });
+    state.wave = null; state.status = 'ready'; delete state.reason;
+    return;
+  }
   if (!['blocked', 'ready'].includes(state.status) || !state.active) throw Error('no recoverable interrupted stage');
   const attempt = state.attempts?.at(-1);
   const expected = attempt?.phase === 'worker' ? attempt.inputReceipt : attempt?.receipt;

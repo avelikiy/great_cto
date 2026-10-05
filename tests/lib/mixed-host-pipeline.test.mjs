@@ -4,7 +4,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { newRun, parallelPair, runParallelWave, runStage, approve } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, parallelPair, runParallelWave, runStage, approve, recover } from '../../scripts/lib/codex-pipeline.mjs';
 import { detectClaude, parseClaudeResult } from '../../scripts/lib/claude-exec.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 import { readExecutionBudget, budgetSnapshot, requireAgents, releaseAgent } from '../../scripts/lib/agent-execution-budget.mjs';
@@ -148,6 +148,76 @@ test('one failed host blocks the whole wave without a write or gate', async t =>
   assert.match(state.reason, /host unavailable/);
   assert.equal(existsSync(join(state.root, 'docs/qa.md')), false);
   assert.equal(state.pending, null);
+});
+
+async function failedWave(t) {
+  const state = fixture(t); budgetFor(t, state);
+  await runParallelWave(state, { runners: {
+    'claude-code': async () => { throw Error('OAuth expired'); },
+    codex: async () => reply('security'),
+  }, verify });
+  assert.equal(state.status, 'blocked');
+  return state;
+}
+
+test('failed dispatch recovery preserves refusal and reruns both hosts under fresh admission', async t => {
+  const state = await failedWave(t), old = state.wave.id;
+  const approvals = structuredClone(state.approvals);
+  recover(state);
+  assert.equal(state.status, 'ready'); assert.equal(state.wave, null);
+  assert.deepEqual(state.approvals, approvals);
+  assert.equal(state.waveHistory[0].id, old);
+  assert.equal(state.waveHistory[0].status, 'blocked');
+  assert.match(state.waveHistory[0].reason, /OAuth expired/);
+  assert.equal(existsSync(join(state.root, 'docs/security.md')), false);
+  let called = 0;
+  await runParallelWave(state, { runners: {
+    'claude-code': async () => { called++; return reply('qa'); },
+    codex: async () => { called++; return reply('security'); },
+  }, verify });
+  assert.equal(called, 2);
+  assert.equal(state.status, 'awaiting-gate');
+  assert.notEqual(state.waveHistory[1].id, old);
+  assert.equal(state.waveHistory[1].status, 'verified');
+  assert.deepEqual(state.approvals, approvals);
+  assert.equal(budgetSnapshot(state.executionBudget).calls, 6);
+});
+
+test('failed wave recovery supports legacy runs without an explicit shared budget', async t => {
+  const state = fixture(t);
+  assert.equal(state.executionBudget, null);
+  await runParallelWave(state, { runners: {
+    'claude-code': async () => { throw Error('OAuth expired'); }, codex: async () => reply('security'),
+  }, verify });
+  recover(state);
+  assert.equal(state.status, 'ready'); assert.equal(state.wave, null);
+  assert.equal(state.waveHistory[0].status, 'blocked');
+  assert.equal(state.approvals.length, 0);
+});
+
+test('failed wave recovery refuses changed tree, incomplete calls and consumed attempt limit', async t => {
+  for (const mutation of ['tree', 'call', 'limit', 'responses', 'partial', 'route', 'active-lease']) {
+    const state = await failedWave(t), old = state.wave.id;
+    let lease;
+    if (mutation === 'tree') writeFileSync(join(state.root, 'unexpected.txt'), 'changed');
+    if (mutation === 'call') delete state.dispatchEvidence.records[0].finishedAt;
+    if (mutation === 'limit') state.maxAttempts = 1;
+    if (mutation === 'responses') state.wave.responses = {};
+    if (mutation === 'partial') state.results.qa = { verification: { state: 'verified' } };
+    if (mutation === 'route') state.hostRoutes.qa = 'codex';
+    if (mutation === 'active-lease') {
+      state.wave.id = `${old}-active`;
+      for (const record of state.dispatchEvidence.records) record.id = record.id.replace(old, state.wave.id);
+      [lease] = requireAgents(state.executionBudget,
+        [{ callId: `${state.wave.id}:qa`, host: 'claude-code', role: 'qa', depth: 1 }]);
+    }
+    const retainedId = state.wave.id;
+    try { assert.throws(() => recover(state), /parallel recovery/); }
+    finally { if (lease) releaseAgent(state.executionBudget, lease); }
+    assert.equal(state.status, 'blocked'); assert.equal(state.wave.id, retainedId);
+    assert.equal(state.waveHistory?.length || 0, 0);
+    assert.equal(state.approvals.length, 0);
+  }
 });
 
 test('invalid second-role contract blocks before the first proposal is applied', async t => {
