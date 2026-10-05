@@ -731,3 +731,29 @@ approvals two; implementation and release have not run. Logs:
 `/Users/Shared/great-cto-full-graph-pm-retry.log` (verified retry).
 Task .p4o9.8.1 closes only this output-protocol remediation. Full compatibility,
 active artifact parity and broad security/release gates remain unproven.
+
+## 2026-10-05: approved plan and real implementation/build export
+
+The human explicitly approved `gate:plan` for the same disposable run
+`61c7cfc9-f449-41c3-855a-6b4394acb792`. Locked approval accepted the current
+receipt-bound result; approvals now three. Source resume completed exit 0,
+Codex senior-dev verification state verified. Final status `awaiting-gate`,
+pending `gate:code`. Logs `/Users/Shared/great-cto-full-graph-plan-approved.log`
+and `/Users/Shared/great-cto-full-graph-after-plan.log`.
+
+Actual files: `src/add.mjs`, `tests/test.mjs`, and
+`docs/implementation-receipt.md` in the durable fixture project. The controller's
+runtime checks passed exit 0 in the previously recorded immutable Node image;
+the verifier inspected actual files and controller runtime evidence without
+claiming its own test execution. A separate direct Node test replay confirmed
+20/20, zero skips. Coverage includes numeric boundaries, signed zero, both
+invalid argument positions, no user coercion hooks and overflow of both signs.
+
+The build exported `dist/add.mjs`, SHA-256
+`796b46b502bf172ed6c1f00af5912efc33c842df8fad93a43b640dc12e040744`;
+artifact bundle digest
+`31aa391cb3162c0b147376a68da8e6d89870b87e68cee0681c4d6d7dc15e266d`.
+This is real implementation/test/build evidence, not synthetic fixture workers.
+Code review and the mixed QA/security wave of this full-graph run have not yet
+executed; the pending code gate needs separate human approval. No local release,
+public release, active plugin refresh or merge is approved by the plan decision.
