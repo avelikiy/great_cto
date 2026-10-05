@@ -131,3 +131,29 @@ must not be attributed to this fresh graph, which has not reached senior-dev.
 No architecture, PM, developer, Claude QA, security or release ran here yet.
 Continuation requires explicit approval of this fresh product result, not reuse
 of the prior Docker run's approvals.
+
+### Explicit fresh product approval and architecture continuation
+
+The user explicitly approved gate:product for the fresh installed local run.
+The pinned CLI accepted c87cf9f4-b93c-4f54-9a81-225419f5a2b5 and exact product
+result af3b176f046dbf1e603298290197551ea583c7211e0f9bdc9923a0eccf08a924
+through its normal lock, receipt and artifact checks. Approvals became one,
+pending null, queue architect. All four installed runtime pins were checked
+unchanged before approval. Actual Codex architect dispatch started at
+2026-10-05T16:42:57.435Z through the installed CLI resume operation.
+Log: /Users/Shared/great-cto-local-installed-after-product.log.
+
+Installed resume exited zero, awaiting gate:arch, active null, queue empty,
+approvals one, release absent. Actual architect worker returned 16:43:50.975Z;
+actual Codex verifier ran 16:43:51.386Z to 16:44:10.385Z and returned verified.
+Its three findings are supportive contract/scope observations, not empty and
+not defect reports. Verification read architecture/brief and inspected Git/file
+state; it explicitly did not execute runtime tests. Result digest:
+300d45fa6e11d84fe192b4ff4a3e8bb503e0d1777b039a8eb500fe737608d7b9;
+pending token 2fd928a1-d950-4231-9788-b13c7d05cffb. Architecture document Git
+blob ID is 69c859805d5575692c97dfb955140d5f98da3ef6, not a raw SHA256.
+It describes pure O(1) synchronous ESM, finite primitive arguments and sum,
+TypeError, binary64/rounding/signed-zero behavior, no coercion, dependency-free
+builtin tests and accurate trusted-local/non-isolation responsibility boundaries.
+All four installed module pins remained unchanged after the stage. No
+gate:arch approval, PM, developer, Claude QA, security or release was executed.
