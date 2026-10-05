@@ -44,8 +44,16 @@ if [ ! -f "$TOOLS/.installed" ]; then
 fi
 
 REPORT=$(mktemp "${TMPDIR:-/tmp}/hol-report.XXXXXX")
-trap 'rm -f "$REPORT"' EXIT
-"$TOOLS/venv/bin/plugin-scanner" scan . --format json --output "$REPORT" >/dev/null 2>&1 \
+SNAP=$(mktemp -d "${TMPDIR:-/tmp}/hol-tree.XXXXXX")
+trap 'rm -f "$REPORT"; rm -rf "$SNAP"' EXIT
+# What a stranger installs is a copy of the repository: tracked files, plus new ones
+# not yet committed, never what .gitignore keeps out. Scanning `.` read the operator's
+# own .claude/settings.local.json — a worktree gets a copy of it — and failed the gate
+# on HARDCODED_SECRET in a file the plugin never ships. That measured the machine.
+git ls-files -z --cached --others --exclude-standard \
+  | tar --null -T - -cf - 2>/dev/null | tar -xf - -C "$SNAP" 2>/dev/null
+[ -f "$SNAP/.claude-plugin/plugin.json" ] || not_measured "could not copy the tracked tree to scan it"
+"$TOOLS/venv/bin/plugin-scanner" scan "$SNAP" --format json --output "$REPORT" >/dev/null 2>&1 \
   || { [ -s "$REPORT" ] || not_measured "the scanner produced no report"; }
 # Findings reviewed as false positives live in baseline.json, each with its reason;
 # anything new still fails.
