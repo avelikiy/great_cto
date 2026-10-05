@@ -36,6 +36,18 @@ Use `~/.great_cto/` notation or environment variable references.
 
 ---
 
+## Privacy — the global memory layer
+
+`~/.great_cto/{preferences,decisions,lessons}.md` is injected into every session of
+every project. Nothing about one project goes there — what is true of a project lives in
+its own `.great_cto/`. `read-global-memory.mjs` enforces it at the read door: an entry
+that names a private project (the same terms `pre-push.sh` derives) or declares
+`project: <name>` is dropped and the operator is warned. Anything that writes to the
+global layer — learner, `/crystallize`, a gate approval — writes cross-project
+patterns only, with the project name replaced by `<private-project>`.
+
+---
+
 ## Privacy — telemetry
 
 `great_cto` ships an **opt-in** telemetry pipeline (`packages/cli/src/telemetry.ts`) that is
