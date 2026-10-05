@@ -971,6 +971,31 @@ to plan approval. Log `/Users/Shared/great-cto-installed-full-graph-after-arch.l
 Fresh Docker version still returned EOF. The next developer/check stage requires
 restored Docker connectivity; no check policy was weakened or bypassed.
 
+### Installed run: explicit plan approval, Docker preflight refusal
+
+The user explicitly authorized gate:plan for installed run
+9b290a34-291e-4b1c-9848-0a3d9c6b8fa6. Pinned installed CLI approved exact
+PM result ebccac63698a29253213728c1bfd398198cd8ee329f1353b6468d623e723525a
+with normal lock, artifact and receipt checks. Runtime module pins were
+unchanged. State is ready, queue senior-dev, pending null, active null,
+approvals three. Product, architect and PM are the only successful role
+results; no implementation or release exists. The controller state was not
+manually changed to blocked or advanced past checks.
+
+Operator readiness preflight prevents launching the developer/check stage:
+Docker version returns EOF in both desktop-linux and default contexts.
+The desktop endpoint is unix:///Users/avelikiy/.docker/run/docker.sock;
+default /var/run/docker.sock is a symlink to that same endpoint. Socket exists
+and com.docker.backend processes exist. Read-only Unix-socket requests to
+/_ping and /version returned HTTP 200 with empty bodies, not the expected
+health/version payloads. Thus socket existence, backend process presence and
+HTTP 200 are insufficient runtime evidence; the internal cause is not yet
+established. No Docker restart, context switch, container stop, cache deletion
+or check-policy bypass was performed. Shared Docker recovery requires a
+separate operator decision because restart may interrupt unrelated containers.
+This is an external execution blocker, not a failed implementation or rejected
+plan. No model worker was spent on a stage whose mandatory checks are unavailable.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
