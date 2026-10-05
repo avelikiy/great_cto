@@ -108,6 +108,9 @@ step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # agents-full/ is what the plugin registers (ADR-027); stale output would ship an
 # agent without the shared contracts its source points at.
 step "agent bundle in sync" node scripts/build-agent-bundle.mjs --check
+# The plugin's mod (hooks/hooks.json → modules: the gate pane) checked by the engine
+# that loads it. No claude CLI is a skipped check, not a pass.
+step "mod: validate + plugin test (gate pane)" bash scripts/mods-test.sh
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no
 # logs. So they were configured, correct, and had not executed: six structural

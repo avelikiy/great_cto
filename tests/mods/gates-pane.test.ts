@@ -8,11 +8,12 @@ const SURFACES = ['terminal', 'desktop'] as const
 
 type Posted = { url: string; body: any }
 
-function board(on: any, inbox: { status?: number; headers?: Record<string, string>; body?: unknown; down?: boolean }) {
+function board(on: any, inbox: { status?: number; headers?: Record<string, string>; body?: unknown; down?: boolean }, env?: Record<string, string>) {
   const posted: Posted[] = []
   const toasts: string[] = []
   const status: (string | undefined)[] = []
   mock.clock(on)
+  mock.env(on, env ?? {})
   const value = (v: unknown) => ({ value: v })
   on('session.root', () => value(ROOT))
   on('command.register', () => value(undefined))
@@ -40,7 +41,7 @@ const SHIP = { id: 'demo-2', title: 'ship checkout', reversibility: { state: 'ex
 async function openPane($: any, surface: (typeof SURFACES)[number]) {
   await $.command.run({ command: 'gates', args: '', origin: 'user' } as any)
   return $.ui.mount({
-    plugin: 'great-cto-gates', surface, component: 'Pane', requestId: 'great-cto-gates',
+    plugin: 'great-cto', surface, component: 'Pane', requestId: 'great-cto-gates',
     props: { title: 'Gates', isFocused: true, bodyColumns: 80 },
   } as any)
 }
@@ -90,4 +91,12 @@ test('the status line counts what waits, and clears when nothing does', async ($
   const b = board(on, { body: { pending_gates: [PLAN, SHIP] } })
   await openPane($, 'terminal')
   expect(b.status.at(-1)).toBe('great_cto: 2 gates waiting — /gates')
+})
+
+test('BOARD_PORT moves the pane to the board where the board is', async ($, on) => {
+  const b = board(on, { body: { pending_gates: [PLAN] } }, { BOARD_PORT: '4242' })
+  await $.session.start({ source: 'startup' } as any).catch(() => {})
+  const ui = await openPane($, 'terminal')
+  await ui.press({ key: 'approve-demo-1' })
+  expect(b.posted[0].url).toBe('http://127.0.0.1:4242/api/gates/demo-1')
 })

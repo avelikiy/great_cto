@@ -477,5 +477,6 @@
     "./agents-full/us-privacy-reviewer.md",
     "./agents-full/voice-ai-reviewer.md",
     "./agents-full/web-store-reviewer.md"
-  ]
+  ],
+  "types": "./types/index.d.ts"
 }

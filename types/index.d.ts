@@ -20,6 +20,6 @@ export type View =
 
 declare module 'claude-code' {
   interface PluginState {
-    'great-cto-gates': { view: View; busy: string | null; seen: number };
+    'great-cto': { view: View; busy: string | null; seen: number };
   }
 }

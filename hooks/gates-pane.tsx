@@ -15,11 +15,16 @@ import type { Gate, View } from '../types'
 // the server compares it. The pane never fills it in, and a button is never offered
 // in its place: a second press is not the same act as typing what you are approving.
 
-const BOARD = 'http://127.0.0.1:3141'
+// The board's address: BOARD_PORT, as packages/board/lib/config.mjs reads it, else 3141.
+let BOARD = 'http://127.0.0.1:3141'
+async function locate($: any): Promise<void> {
+  const port = Number(await $.env.get('BOARD_PORT'))
+  BOARD = `http://127.0.0.1:${Number.isInteger(port) && port > 0 ? port : 3141}`
+}
 const PANE = 'great-cto-gates'
-const view = atom({ plugin: 'great-cto-gates', key: 'view' } as const, { state: 'loading' } as View)
-const busy = atom({ plugin: 'great-cto-gates', key: 'busy' } as const, null as string | null)
-const seen = atom({ plugin: 'great-cto-gates', key: 'seen' } as const, 0)
+const view = atom({ plugin: 'great-cto', key: 'view' } as const, { state: 'loading' } as View)
+const busy = atom({ plugin: 'great-cto', key: 'busy' } as const, null as string | null)
+const seen = atom({ plugin: 'great-cto', key: 'seen' } as const, 0)
 
 const basename = (p: string) => p.replace(/\/+$/, '').split('/').pop() || p
 
@@ -87,7 +92,8 @@ async function decide($: any, gate: Gate, action: 'approve' | 'reject', confirm?
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({ name: 'gates', description: 'great_cto gates waiting on you, in a pane' })
-    $.clock.every(20_000, () => { void refresh($) })
+    await locate($)
+    $.clock.every(30_000, () => { void refresh($) })
     void refresh($)
     return next(e)
   })
