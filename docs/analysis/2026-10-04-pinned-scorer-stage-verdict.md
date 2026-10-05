@@ -757,3 +757,25 @@ This is real implementation/test/build evidence, not synthetic fixture workers.
 Code review and the mixed QA/security wave of this full-graph run have not yet
 executed; the pending code gate needs separate human approval. No local release,
 public release, active plugin refresh or merge is approved by the plan decision.
+
+## 2026-10-05: code approval, mixed-wave authentication refusal
+
+The operator explicitly approved `gate:code`; approvals now four. Actual
+wave `10ab745f-fe87-4eec-91c1-beed7eb0170d` dispatched code-reviewer on Codex
+and QA on Claude Code (not QA/security as the first pair). The wave terminated
+blocked, controller exit 2: `Failed to authenticate: OAuth session expired and
+could not be refreshed`. Log `/Users/Shared/great-cto-full-graph-after-code.log`.
+Fresh Claude auth status returned exit 1, loggedIn false, authMethod none;
+Codex login status still reported ChatGPT login. Human Claude reauthentication
+is required. No review/QA result became accepted stage evidence; security was
+not dispatched and release is absent.
+
+Dispatch records show Codex worker 05:55:08.923–05:56:10.454 UTC and failed
+Claude worker 05:55:08.926–05:55:10.126 UTC. Overlapping failed authentication
+is not successful mixed-host execution. Earlier successful installed-candidate
+wave evidence remains separate and cannot green this run.
+
+Current recover() supports interrupted single stages and requires state.active;
+this blocked wave has active null. A bounded receipt-checked parallel recovery
+path is tracked separately. Runtime JSON was not manually changed, neither
+gate nor verifier was bypassed, and successful-half output was not promoted.
