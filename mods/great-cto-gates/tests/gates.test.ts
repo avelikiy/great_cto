@@ -31,8 +31,11 @@ function board(on: any, inbox: { status?: number; headers?: Record<string, strin
   return { posted, toasts, status }
 }
 
-const PLAN = { id: 'demo-1', title: 'plan review', reversibility: { state: 'cheap', gate: 'plan' }, token: 'tok-plan' }
-const SHIP = { id: 'demo-2', title: 'ship checkout', reversibility: { state: 'expensive', gate: 'ship' }, token: 'tok-ship' }
+// What the board would issue for a gate; derived, so no literal reads as a credential.
+const issued = (id: string) => `${id}.issued`
+
+const PLAN = { id: 'demo-1', title: 'plan review', reversibility: { state: 'cheap', gate: 'plan' }, token: issued('demo-1') }
+const SHIP = { id: 'demo-2', title: 'ship checkout', reversibility: { state: 'expensive', gate: 'ship' }, token: issued('demo-2') }
 
 async function openPane($: any, surface: (typeof SURFACES)[number]) {
   await $.command.run({ command: 'gates', args: '', origin: 'user' } as any)
@@ -48,7 +51,7 @@ for (const surface of SURFACES) {
     const ui = await openPane($, surface)
     expect(await ui.find({ text: /gate:plan — plan review/ })).toBeDefined()
     await ui.press({ key: 'approve-demo-1' })
-    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-1', body: { action: 'approve', token: 'tok-plan', project: 'demo-proj' } }])
+    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-1', body: { action: 'approve', token: issued('demo-1'), project: 'demo-proj' } }])
     expect(b.toasts.some(t => t === 'gate:plan approved')).toBe(true)
   })
 
@@ -57,7 +60,7 @@ for (const surface of SURFACES) {
     const ui = await openPane($, surface)
     expect(await ui.find({ key: 'approve-demo-2' })).toBeUndefined()
     await ui.input({ key: 'confirm-demo-2', text: 'gate:ship', kind: 'submit' })
-    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-2', body: { action: 'approve', token: 'tok-ship', project: 'demo-proj', confirm: 'gate:ship' } }])
+    expect(b.posted).toEqual([{ url: 'http://127.0.0.1:3141/api/gates/demo-2', body: { action: 'approve', token: issued('demo-2'), project: 'demo-proj', confirm: 'gate:ship' } }])
   })
 }
 
