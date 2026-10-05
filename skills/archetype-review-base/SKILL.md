@@ -194,8 +194,13 @@ and `auto` records real token cost):
 
 ```bash
 bash scripts/log-verdict.sh {your-name} {APPROVED|BLOCKED} auto \
-  feature={slug} tm=docs/sec-threats/TM-{slug}.md criticals={N} highs={M}
+  feature={slug} tm=docs/sec-threats/TM-{slug}.md criticals={N} highs={M} \
+  need={implementer|decision} finding={id}   # need/finding on BLOCKED only
 ```
+
+`APPROVED` and `BLOCKED` are the only two words, and on `BLOCKED` `need` says who
+acts — the rules, and why no third word, are in `agents/_shared/reviewer-verdict.md`.
+Every reviewer's own prompt carries this line with its name filled in.
 
 ## Prose rules — apply skill `prose-style`
 

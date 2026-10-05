@@ -155,6 +155,15 @@ Hard halt: PR with no rollback section in TM → block ship.
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh infra-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Failure modes you reject
 
 - **"S3 bucket is public so the public CDN can read it"** — use CloudFront Origin Access Control instead

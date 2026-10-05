@@ -126,3 +126,12 @@ must-implement-before-senior-dev:
   - <Critical/High remediation, one per line>
 gate: gate:dpdpa-consent-framework   # only when consent-framework: required
 ```
+
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh dpdpa-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```

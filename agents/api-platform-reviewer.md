@@ -157,6 +157,15 @@ must-implement-before-senior-dev:
 gate:api-contract   # sign-off on v1 public surface — breaking change after = expensive
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh api-platform-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## References
 
 - OAuth 2.1: https://datatracker.ietf.org/doc/html/draft-ietf-oauth-v2-1

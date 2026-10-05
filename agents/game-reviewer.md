@@ -155,6 +155,15 @@ Beyond the base HANDOFF block, include:
 
 Hands off to: `senior-dev`, `security-officer` (GDPR), `qa-engineer` (a11y testing).
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh game-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Failure modes you reject
 
 - **"Our ToS says 13+ so we don't need COPPA"** — FTC has fined dozens of apps with 13+ ToS but obvious under-13 users; need actual age-gate

@@ -224,6 +224,15 @@ Inside the base `<!-- HANDOFF -->` block, fill these CMS-specific fields:
 - **Schema.org required:** Article, BreadcrumbList, Organization on /blog/*
 - **Compliance:** dmca-512 · ncmec-2258a · wcag-2.2-aa · gdpr · dsa-eu-art-16
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh cms-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Failure modes you reject
 
 - **"We'll add structured data when we have time"** — every week without it loses ranking; first organic week sets baseline
