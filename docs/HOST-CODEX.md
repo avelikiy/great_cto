@@ -311,6 +311,13 @@ any gate, run:
 GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<local-digest> node tests/eval/mixed-host-release-live.mjs
 ```
 
+To exercise an already offline-installed npm candidate instead of the checkout,
+pass its runtime root as the single optional argument (for npm this is
+`<prefix>/node_modules/great-cto/board`). The driver executes that root's
+controller with that root as cwd, records controller and pipeline SHA256 values,
+and rejects runtime drift after the stage. This does not activate the candidate
+as a marketplace plugin or inherit another run's approvals.
+
 It creates a disposable Git project, isolated run store, local release root
 and operator-owned policies under the private, persistent macOS directory
 `/Users/Shared/great-cto-acceptance-<uid>/` (or an absolute, private

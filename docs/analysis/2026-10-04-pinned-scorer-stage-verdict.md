@@ -884,6 +884,45 @@ parity, production deployment or measured product-quality improvement.
 The unsupported QA workflow claim .p4o9.8.3 remains open; no broad 100 percent
 compatibility claim, public release, merge or active-plugin update is made.
 
+## Fresh installed-candidate full-graph start
+
+Current Codex plugin list now reports great-cto installed/enabled at 3.49.0.
+Its controller module SHA256 is
+`b5592ce3b4076cadc69821fa1002949b9694082615dabb292f924c8e8102ed26`;
+it does not contain workflowAttestation or controller-managed replacement-hash
+guidance. It is not the previously tested private npm candidate. Active cache
+and defaults were not changed by this acceptance start.
+
+Fresh Claude auth reports loggedIn true/claude.ai; Codex login reports ChatGPT.
+Docker desktop-linux info/version both returned EOF, so current Docker-backed
+build/export/release execution is not established. Disk had 29 GiB available.
+Product-stage model execution does not require Docker; later mandatory checks do.
+
+The full-graph driver now accepts an explicit installed runtime root, records
+controller/pipeline SHA256 before dispatch and rejects drift afterwards. Its
+entrypoint/fixture-store tests passed 5/5, no skips, 413.19225 ms, log
+`/Users/Shared/great-cto-installed-full-graph-entrypoint-tests.log`.
+
+Actual installed-candidate start exited 0. Run
+`9b290a34-291e-4b1c-9848-0a3d9c6b8fa6` is persisted at
+`/Users/Shared/great-cto-acceptance-501/mixed-release-Z0af82/runs`;
+project at `/Users/Shared/great-cto-acceptance-501/mixed-release-Z0af82/project`.
+Runtime root is `/Users/Shared/great-cto-workflow-candidate-3z57RN/install/node_modules/great-cto/board`.
+Controller SHA256 `9343fed8dec92da76269681bbd5ac27cb4e6b98d4d4461c8669aafcd6d4a9ea5`,
+pipeline SHA256 `ac4d0e74ef59a286b119d746ec773e14da74e4eb7bc9aa7136f90bfcab26c616`.
+Both remained unchanged after real execution.
+
+Product-owner and real Codex verifier produced verified docs/brief.md with
+findings empty. Result digest
+`904cc73f14296f16c6b3ebecb7cebbbebf17a7a33b9ab1e837b51cdb979f6a75`.
+Run awaits gate:product with zero approvals and release null. Routes remain
+QA claude-code/security codex. Arithmetic contract matches the earlier fixture:
+finite-number arguments and sum, TypeError otherwise, package-free node:test,
+no production deployment. No approvals from the earlier done source run were
+inherited. Log `/Users/Shared/great-cto-installed-full-graph-start.log`.
+Installed full lifecycle beyond this first gate remains unexecuted and requires
+the new run's explicit human decisions. Tracked in .p4o9.8.4.
+
 ## Workflow-claim hardening candidate and validation limits
 
 The accepted QA concurrency inaccuracy is addressed in a source candidate:
