@@ -826,3 +826,28 @@ prepared in parallel is not supported by this wave's membership. This accepted
 workflow-claim defect is tracked in .p4o9.8.3; verified status is not proof that
 every sentence in a report is accurate. No public/production release, active
 plugin parity, broad security admission or 100% compatibility is claimed.
+
+## Explicit review-gate approval and prepared local release
+
+On 2026-10-05 the user explicitly authorized the previously enumerated
+review gates for this exact disposable run. Locked CLI approval accepted
+code-reviewer gate:ship, QA gate:qa/gate:ship, and security
+gate:security/gate:compliance/gate:ship. Total approval records are now ten
+(four earlier records plus six review-gate records). No results or reports
+were edited and all approvals retained the controller receipt checks.
+
+The subsequent CLI resume exited 0 and prepared local release operation
+`01149800-0bec-419e-a1e2-09ad656fc568` at 2026-10-05T07:06:40.345Z.
+Run status is awaiting-release, release status awaiting-approval, pending
+review gate null, queue devops. Candidate contains only dist/add.mjs with
+SHA256 `796b46b502bf172ed6c1f00af5912efc33c842df8fad93a43b640dc12e040744`;
+bundle digest remains `31aa391cb3162c0b147376a68da8e6d89870b87e68cee0681c4d6d7dc15e266d`.
+Target is `/Users/Shared/great-cto-acceptance-501/mixed-release-oAVnmO/releases`,
+activation none, rollback consumer-selects-previous. Release smoke policy
+checks add(2,3) == 5 and TypeError for NaN using the pinned Node image.
+
+This preparation is not publication, smoke execution, public release, plugin
+activation or production deployment. Release approval remains a separate
+human decision and was not inferred from the review-gate authorization.
+The accepted unsupported QA workflow claim remains open in .p4o9.8.3.
+Runtime log: `/Users/Shared/great-cto-full-graph-after-review-gates.log`.
