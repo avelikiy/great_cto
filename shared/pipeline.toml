@@ -305,6 +305,20 @@ on = ["DONE", "APPROVED"]
 produces = ["design"]
 next = ["senior-dev"]
 
+# Audits the Solidity/EVM contracts once they exist (web3, or /review --contracts).
+# PASS hands the audit to security-officer, which reads it before gate:ship; FAIL
+# (an open Critical/High) goes back to whoever wrote the contract, like a
+# performance REGRESSION does, instead of stopping the chain silently.
+[transitions.smart-contract-auditor]
+on = ["PASS", "DONE"]
+# the audit report its verdict rests on: docs/security/AUDIT-{slug}.md
+produces = ["report"]
+next = ["security-officer"]
+
+[transitions.smart-contract-auditor.FAIL]
+on = ["FAIL"]
+next = ["senior-dev"]
+
 [transitions.performance-engineer]
 on = ["DONE", "PASS"]
 next = ["qa-engineer"]

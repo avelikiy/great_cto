@@ -699,7 +699,7 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    ```
    Additional scans based on archetype (from ARCHETYPES.md):
    - `web-service` / `commerce`: OWASP Top 10
-   - `web3`: Slither + Echidna (if available)
+   - `web3`: read `docs/security/AUDIT-*.md` from `smart-contract-auditor` (run `/review --contracts` if it is missing or older than the last contract change); an open Critical/High there blocks gate:ship
    - All others: dependency audit only
 
 5. **Compliance checklist** — driven by `compliance:` params → domain packs:

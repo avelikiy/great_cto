@@ -15,19 +15,19 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 676 files in 9 groups.
+Derived from what imports what, across 678 files in 9 groups.
 
 ```mermaid
 flowchart TD
   contracts["Contracts<br/><small>3 files</small>"]
-  agents["Agents<br/><small>71 files</small>"]
+  agents["Agents<br/><small>72 files</small>"]
   commands["Commands<br/><small>21 files</small>"]
   skills["Skills<br/><small>157 files</small>"]
   hooks["Hooks<br/><small>40 files</small>"]
   libs["Libraries<br/><small>177 files</small>"]
   board["Board<br/><small>79 files</small>"]
   cli["CLI<br/><small>37 files</small>"]
-  evals["Evals<br/><small>91 files</small>"]
+  evals["Evals<br/><small>92 files</small>"]
   hooks -->|54| libs
   board -->|34| libs
   libs -->|3| hooks
@@ -37,14 +37,14 @@ flowchart TD
 | Group | Files | What it holds |
 |---|---:|---|
 | `contracts` | 3 | the pipeline map, orchestrator rules |
-| `agents` | 71 | the specialists the pipeline dispatches |
+| `agents` | 72 | the specialists the pipeline dispatches |
 | `commands` | 21 | what a human can invoke directly |
 | `skills` | 157 | knowledge agents load on demand |
 | `hooks` | 40 | what fires on session, tool and stop events |
 | `libs` | 177 | the logic hooks and commands share |
 | `board` | 79 | the admin view, zero runtime dependencies |
 | `cli` | 37 | the published npm package |
-| `evals` | 91 | what each agent is measured against |
+| `evals` | 92 | what each agent is measured against |
 
 ## How a feature moves
 
@@ -106,6 +106,8 @@ flowchart TD
   db_migration_reviewer --> qa_engineer
   design_advisor["design-advisor"]
   design_advisor --> senior_dev
+  smart_contract_auditor["smart-contract-auditor"]
+  smart_contract_auditor --> security_officer
   performance_engineer["performance-engineer"]
   performance_engineer --> qa_engineer
   infra_provisioner["infra-provisioner"]

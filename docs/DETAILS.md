@@ -240,7 +240,7 @@ Next.js, Postgres and Stripe that any engineer can pick up.
 
 ## What makes it different
 
-- **Specialists, not a generalist** — 71 agents with narrow jobs and their own
+- **Specialists, not a generalist** — 72 agents with narrow jobs and their own
   review gates, instead of one assistant that types faster than it thinks.
   [The roster →](reference/agents.md)
 - **Critics before code** — architecture, spec, and schema critics run before

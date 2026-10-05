@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**71 agents** · 31 core & specialists · 40 domain reviewers.
+**72 agents** · 31 core & specialists · 41 domain reviewers.
 
 Grouped by **team role** — after Boris Cherny's (Anthropic, Claude Code) five roles of the
 IT team of the future (Prototyper · Builder · Sweeper · Grower · Maintainer), plus the two
@@ -111,6 +111,7 @@ Pre-implementation compliance and security gates — HIPAA, PCI, SOX, GDPR, AI-g
 | `rcm-reviewer` | sonnet | HIGH | Healthcare Revenue Cycle Management (RCM) / medical-billing specialist pre-implementation reviewer for the healthcare archetype. Outputs threat model TM-rcm-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks. |
 | `regulated-reviewer` | sonnet | HIGH | Regulated-industry specialist pre-implementation reviewer for fintech / regulated archetypes. Outputs threat model TM-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks. |
 | `security-officer` | sonnet | HIGH | Use after QA passes. Runs security audit by project type, writes report, controls gate:ship. |
+| `smart-contract-auditor` | sonnet | HIGH | Use when Solidity/EVM contracts exist — after implementation on web3, or via /review --contracts. Runs Slither, Aderyn, Solhint and Foundry, reviews vector by vector, proves each finding through four gates with file:line and a Foundry PoC, writes docs/security/AUDIT-{slug}.md. Critical/High block gate:ship; a tool that did not run is "not checked", never "clean". |
 | `streaming-reviewer` | sonnet | HIGH | Streaming / event-driven pre-implementation reviewer. Outputs threat model TM-{slug}.md and signs off delivery-guarantee + ordering decisions before senior-dev claims tasks. |
 | `tax-reviewer` | sonnet | HIGH | Tax preparation / filing specialist pre-implementation reviewer for the fintech archetype. Outputs threat model TM-tax-{slug}.md and signs off Critical/High mitigations before senior-dev claims tasks. |
 | `us-ai-reviewer` | sonnet | HIGH | US AI-governance pre-implementation reviewer — the US analogue of the EU AI Act coverage. Outputs threat model TM-usai-{slug}.md and signs off the AI-governance gate before senior-dev claims tasks. |

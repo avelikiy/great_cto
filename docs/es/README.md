@@ -28,7 +28,7 @@ npx great-cto init
 
 **Tu agente de código entrega código. Esto es lo que lo revisa.**
 
-Describe un producto o una funcionalidad. **71 agentes** con tareas acotadas lo llevan
+Describe un producto o una funcionalidad. **72 agentes** con tareas acotadas lo llevan
 por brief, arquitectura, construcción, revisión y seguridad; un segundo modelo de otra
 familia lee el mismo diff. Tres decisiones siguen siendo tuyas — qué se construye,
 cómo y si se publica — y lo que queda es un **repositorio tuyo** y una **URL que

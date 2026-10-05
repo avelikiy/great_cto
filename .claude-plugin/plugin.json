@@ -1,6 +1,6 @@
 {
   "name": "great-cto",
-  "description": "You already have the agent. This is everything around it. great_cto runs Claude Code as a pipeline of 71 specialist agents \u2014 an independent model checks each stage before the next builds on it, spending caps refuse rather than warn, and three decisions stay yours: what gets built, how, and whether it ships.",
+  "description": "You already have the agent. This is everything around it. great_cto runs Claude Code as a pipeline of 72 specialist agents \u2014 an independent model checks each stage before the next builds on it, spending caps refuse rather than warn, and three decisions stay yours: what gets built, how, and whether it ships.",
   "version": "3.48.0",
   "author": {
     "name": "Alexander Velikiy",
@@ -469,6 +469,7 @@
     "./agents-full/regulated-reviewer.md",
     "./agents-full/security-officer.md",
     "./agents-full/senior-dev.md",
+    "./agents-full/smart-contract-auditor.md",
     "./agents-full/streaming-reviewer.md",
     "./agents-full/subscription-billing-engineer.md",
     "./agents-full/tax-reviewer.md",

@@ -1,6 +1,6 @@
 ---
-description: "Before merging a branch: a code review with evidence for every finding and no false alarms — or a domain compliance review (`--domain tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice`). Code review = 12 angles + skeptical triage (3 rounds + arbiter); `--deep` triages every P0/P1 angle, not just security/reliability; creates or closes gate:code. Domain review = the matching compliance reviewer writes docs/sec-threats/TM-<domain>-<slug>.md and raises its gate."
-argument-hint: "[PR/branch name | --deep | --domain <tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice> [arch-slug]]"
+description: "Before merging a branch: a code review with evidence for every finding and no false alarms — a domain compliance review (`--domain tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice`), or a smart-contract audit (`--contracts`). Code review = 12 angles + skeptical triage (3 rounds + arbiter); `--deep` triages every P0/P1 angle, not just security/reliability; creates or closes gate:code. Domain review = the matching compliance reviewer writes docs/sec-threats/TM-<domain>-<slug>.md and raises its gate. Contracts = smart-contract-auditor writes docs/security/AUDIT-<slug>.md."
+argument-hint: "[PR/branch name | --deep | --domain <tax|legal|hr-ai|api|accounting|rcm|msp|procurement|voice> [arch-slug] | --contracts [path ...]]"
 user-invocable: true
 disable-model-invocation: true
 allowed-tools: Read, Write, Bash, Glob, Grep, Agent, advisor_20260301
@@ -14,8 +14,28 @@ You are the great_cto `/review` command. Two modes:
 
 - **Code review** (default) — 12 independent angles over the branch diff, then skeptical triage.
 - **Domain compliance review** (`--domain <name>`) — one regulated-domain reviewer against the ARCH doc.
+- **Smart-contract audit** (`--contracts [path ...]`) — the Solidity/EVM code that exists, audited by `smart-contract-auditor`.
 
 Traceability (REQ → use-case → task → test) is **`/trace`**, not `/review`.
+
+## Contracts mode (`--contracts` — early branch, exits before the code review)
+
+Audits Solidity/EVM code that already exists — no ARCH doc needed, unlike domain mode.
+With no path, the auditor's own scope rule picks the production contracts and deploy
+scripts; a named path is always in scope.
+
+Use the Agent tool with `subagent_type: smart-contract-auditor` and prompt:
+
+> Audit the smart contracts in this repository{ — only: <paths> }. Follow your steps:
+> scope, build and tool inventory, the always-run analyzers, the system map, the
+> vector-by-vector review, four-gate proof with a Foundry PoC for Critical/High, deep
+> checks only if the contracts hold value or `--deep` was passed. Write
+> `docs/security/AUDIT-<slug>.md` and the verdict line.
+
+Then report in ≤ 6 lines: the AUDIT file path, Critical / High / Medium counts, the tools
+that did **not** run, the verdict (PASS | FAIL | BLOCKED), and the next action — FAIL →
+fix and re-run `/review --contracts`; BLOCKED → the build or tool problem to fix first.
+**Do not continue into the code review below.**
 
 ## Domain mode (`--domain` — early branch, exits before the code review)
 
