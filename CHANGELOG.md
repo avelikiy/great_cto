@@ -23,6 +23,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.52.1 — 2026-10-06
+
+The new industry briefs are checked against shipped products, and say what is not.
+
+### Fixed
+
+- **Three of the four 3.52.0 briefs are now compared with a mature product's own data model**,
+  read from its repository, and corrected where they fell short:
+  - *nonprofit* vs CiviCRM — added tribute as a typed soft credit, peer-to-peer pages,
+    reminders per pledge installment, currency and a credit note on refunds, receipt vs
+    thank-you dates, fund → accounting code, the date grant money arrived.
+  - *agrotech* vs farmOS — one claim was wrong: farm platforms do **not** compute
+    pre-harvest, re-entry or withdrawal dates; that rule is now worded as the gap a product
+    fills. Added lot and source on inputs and seed, input stock as adjustments, dated
+    movements, observations and lab tests, plans.
+  - *travel* (small stays) vs QloApps — added ARI, min/max stay by date range, booking
+    window, extras, child ages, tourism-tax collection type.
+- **Each brief ends with a "Checked against" section.** It names the product compared with and
+  what is still unverified: tours, activities and advisors in *travel*, and all of *maritime*,
+  rest on domain knowledge until a live project tests them.
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.52.0 — 2026-10-05
 
 Four more industries a product can be specced for without guessing.
