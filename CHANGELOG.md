@@ -24,6 +24,46 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.53.0 — 2026-10-06
+
+The board shows what Claude Code and Codex actually consumed, side by side.
+
+### Added
+
+- **Usage screen (Tools → Usage)**, read from the hosts' own session logs on this machine
+  (`~/.claude/projects`, `~/.codex/sessions`), for 7 / 30 / 90 days:
+  - tokens per day by kind of work — conversations, subagents, automations, headless runs;
+  - the heaviest conversations with their share, project and subagent part;
+  - models, tools, skills, agents (great_cto's marked), MCP servers, cache share;
+  - Codex's plan window as Codex reports it: percent used, reset time, plan.
+- Claude Code does not record how much of a plan is used, so that figure is **not drawn**;
+  its refusals at the plan limit are, counted apart from server-side throttles.
+- Dollars are the API list-price equivalent from great_cto's price table, priced when read;
+  a model without a price shows n/a, never $0. Not a subscription bill.
+- `node scripts/lib/session-usage.mjs` prints the same summary in a terminal.
+
+### Fixed
+
+- **A response is counted once.** Claude Code writes one response as several lines that
+  repeat its usage; the reader takes it once per message id. Checked against Claude Code's
+  own cost record: equal to the cent on standard sessions. Codex's input is split into fresh
+  and cached, and a forked thread's inherited total is no longer read as usage.
+- Opening Work or History answered 400 into the console: the view counter did not know them.
+- The board E2E sidebar test clicked a tool hidden in the collapsed Tools group and failed on
+  main — unseen while a missing browser made the suite skip.
+
+### Privacy
+
+- The usage index lives in `~/.great_cto/session-usage-index.json`, is served by the board on
+  its own host only, and is not telemetry (`docs/PRIVACY.md`).
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.52.1 — 2026-10-06
 
 The new industry briefs are checked against shipped products, and say what is not.
