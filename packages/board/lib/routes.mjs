@@ -13,6 +13,7 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
+import { usageIndexSnapshot, summarizeUsage, readCodexTitles } from '../../../scripts/lib/session-usage.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
@@ -1492,6 +1493,31 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // What Claude Code and Codex consumed on this machine — tokens, models, the
+  // heaviest conversations, tools, skills, agents, cache, Codex's plan window —
+  // read from the hosts' own session logs (scripts/lib/session-usage.mjs).
+  // Machine-wide like /api/agent-usage: the logs are one history. Served on the
+  // board's own host only; nothing here is sent anywhere.
+  if (pathname === '/api/usage') {
+    const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
+    const snap = boardSessionUsage().get();
+    let body;
+    if (snap.state !== 'ready') {
+      body = { state: snap.state, why: snap.why };
+    } else {
+      const sum = summarizeUsage(snap.index, { days, codexTitles: readCodexTitles() });
+      const ours = new Set(boardAgentNames());
+      for (const host of Object.keys(sum.lists)) {
+        sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));
+      }
+      body = { ...sum, seen: snap.seen, files: snap.files };
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(body));
+    return true;
+  }
+
   // Domain reviewers this project's PROJECT.md requires (archetype, packs,
   // compliance), each with whether a verdict exists — the list gate:ship refuses on.
   // Sessions in this project that wait for a person — written by the
@@ -2141,14 +2167,24 @@ async function dispatch(req, res, url, cwd) {
 
 
 let _usageSnap = null;
+function boardAgentNames() {
+  const agentsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'agents');
+  try { return fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)); } catch { return []; }
+}
+
 function boardUsage() {
   if (!_usageSnap) {
-    const agentsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'agents');
-    let agents = [];
-    try { agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)); } catch { /* none: every count is unavailable-by-omission */ }
+    // No agents dir: every count is unavailable-by-omission.
+    const agents = boardAgentNames();
     _usageSnap = usageSnapshot({ compute: () => agentUsage({ agents }) });
   }
   return _usageSnap;
+}
+
+let _sessionUsageSnap = null;
+function boardSessionUsage() {
+  if (!_sessionUsageSnap) _sessionUsageSnap = usageIndexSnapshot();
+  return _sessionUsageSnap;
 }
 
 export { dispatch, secondOpinionForTree };

@@ -32,7 +32,38 @@ const SCREENS = [
   ['ledger', 'Ledger'],
   ['fleet', 'Fleet'],
   ['harness', 'Harness'],
+  ['usage', 'Usage'],
 ];
+
+/**
+ * Session logs of both hosts, written into the fixture HOME the way the hosts
+ * write them — Usage is then read by the real server path, not a stub. One
+ * Claude Code response is two lines that repeat its usage: the screen must
+ * count it once.
+ */
+function seedHostLogs(fakeHome) {
+  const now = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+  const cdir = path.join(fakeHome, '.claude', 'projects', '-w-acme');
+  fs.mkdirSync(cdir, { recursive: true });
+  const usage = { input_tokens: 1000, output_tokens: 2000, cache_read_input_tokens: 7000, cache_creation_input_tokens: 0 };
+  const line = (block) => ({ type: 'assistant', timestamp: now, cwd: '/w/acme', entrypoint: 'claude-desktop', message: { id: 'm1', model: 'claude-opus-5', usage, content: [block] } });
+  fs.writeFileSync(path.join(cdir, 'e2e-session.jsonl'), [
+    { type: 'custom-title', customTitle: 'Checkout redesign' },
+    line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:senior-dev' } }),
+    line({ type: 'tool_use', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }),
+  ].map((r) => JSON.stringify(r)).join('\n') + '\n');
+  const xdir = path.join(fakeHome, '.codex', 'sessions', '2026', '10', '06');
+  fs.mkdirSync(xdir, { recursive: true });
+  const xu = { input_tokens: 4000, cached_input_tokens: 3000, cache_write_input_tokens: 0, output_tokens: 500, reasoning_output_tokens: 100, total_tokens: 4500 };
+  fs.writeFileSync(path.join(xdir, 'rollout-e2e.jsonl'), [
+    { timestamp: now, type: 'session_meta', payload: { id: 'th-e2e', cwd: '/w/billing', originator: 'Codex Desktop', thread_source: 'user', source: 'vscode' } },
+    { timestamp: now, type: 'turn_context', payload: { model: 'gpt-6.1-sol' } },
+    { timestamp: now, type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', input: 'await tools.exec_command({cmd:"ls"});' } },
+    { timestamp: now, type: 'token_usage_record', payload: { response_id: 'r1', usage: xu } },
+    { timestamp: now, type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: xu }, rate_limits: { primary: { used_percent: 42, window_minutes: 10080, resets_at: Math.floor(Date.now() / 1000) + 86400 }, plan_type: 'prolite' } } },
+  ].map((r) => JSON.stringify(r)).join('\n') + '\n');
+  fs.writeFileSync(path.join(fakeHome, '.codex', 'session_index.jsonl'), JSON.stringify({ id: 'th-e2e', thread_name: 'Invoice export' }) + '\n');
+}
 
 /** Everything the suite needs, or a reason it could not be had. */
 async function boardUnderTest() {
@@ -47,6 +78,7 @@ async function boardUnderTest() {
   fs.mkdirSync(path.join(fakeHome, '.great_cto'), { recursive: true });
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'projects.json'),
     JSON.stringify({ projects: [{ name: FIXTURE_NAME, path: dir }] }, null, 2));
+  seedHostLogs(fakeHome);
   let started;
   try {
     started = await startServerOnFreePort({
@@ -391,4 +423,45 @@ test('Decisions shows a session that waits for the operator, above the status', 
     assert.deepEqual(errors, []);
     await page.close();
   } finally { await env.close(); }
+});
+
+// Usage reads both hosts' own logs. The fixture HOME holds one Claude Code
+// conversation and one Codex thread (seedHostLogs); what is under test is that
+// both reach the screen through the real reader — a response written as two
+// lines counted once, Codex's plan window shown, an unpriced model shown as
+// n/a rather than $0 — and that the host switch changes what is listed.
+test('Usage shows Claude Code and Codex side by side, from their own logs', { timeout: 120_000 }, async (t) => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const page = await env.browser.newPage({ viewport: { width: 1440, height: 900 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error' && !/favicon|net::ERR_/.test(m.text())) errors.push(m.text()); });
+    await page.goto(`${env.url}/#/usage`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.usage-card[data-host="codex"]', { timeout: 20000 });
+
+    const claude = await page.locator('.usage-card[data-host="claude"]').innerText();
+    assert.match(claude, /10\.0k\s*tokens/, `one response, counted once: 1k in + 2k out + 7k cache (got: ${claude.slice(0, 120)})`);
+    assert.match(claude, /\$0\.06/, 'priced at the Opus 5 list rate');
+    assert.match(claude, /refused at the plan limit/, 'Claude Code plan use is not drawn; the refusals are');
+
+    const codex = await page.locator('.usage-card[data-host="codex"]').innerText();
+    assert.match(codex, /4\.5k\s*tokens/);
+    assert.match(codex, /Weekly limit[\s\S]*42% used/, 'the plan window Codex reported');
+    assert.match(codex, /plan prolite/);
+    assert.match(codex, /n\/a/, 'an unpriced model is n/a, not $0');
+
+    const text = await page.locator('#panel-usage').innerText();
+    assert.match(text, /Checkout redesign/, 'the Claude Code conversation by its title');
+    assert.match(text, /Invoice export/, 'the Codex thread by its name');
+    assert.match(text, /senior-dev\s*great_cto/, 'a great_cto agent dispatched under the plugin prefix is ours');
+
+    await page.getByRole('button', { name: 'Codex', exact: true }).click();
+    await page.waitForTimeout(200);
+    assert.match(await page.locator('.usage-lists').innerText(), /exec_command/, 'the host switch lists Codex tools');
+    assert.deepEqual(errors, [], 'nothing threw while Usage was read');
+  } finally {
+    await env.close();
+  }
 });

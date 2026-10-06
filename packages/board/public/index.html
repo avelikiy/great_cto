@@ -2369,6 +2369,63 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* ── Metrics page ─────────────────────────────────────────────────────────── */
 .metrics-page { padding: 24px 32px; }
+
+/* Usage (great_cto-egkw) — two hosts side by side, every block in two columns
+   that fold into one at phone width. */
+.usage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.usage-chips {
+  display: inline-flex; gap: 4px; padding: 3px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+}
+.usage-chip {
+  background: transparent; border: none; color: var(--text2);
+  padding: 5px 12px; min-height: 32px; cursor: pointer;
+  font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; letter-spacing: 0.05em;
+}
+.usage-chip:hover { color: var(--text); }
+.usage-chip.active { background: var(--accent); color: var(--on-accent); }
+.usage-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; margin-bottom: 20px; }
+.usage-card { background: var(--bg-card); border: 1px solid var(--border); padding: 16px 18px; min-width: 0; }
+.usage-card h3 { font-size: var(--fs-title-s); font-weight: 600; margin: 0 0 10px; color: var(--text); display: flex; justify-content: space-between; gap: 8px; }
+.usage-card h3 .muted { font-weight: 400; font-size: var(--fs-caption); }
+.usage-big { font-family: var(--display); font-size: var(--fs-num-m); font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+.usage-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 12px; }
+.usage-stat { min-width: 0; }
+.usage-stat b { display: block; font-family: var(--mono); font-size: var(--fs-title-s); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+.usage-stat span { font-size: var(--fs-caption); color: var(--text3); }
+.usage-limit { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.usage-limit-head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-small); color: var(--text2); }
+.usage-limit-head b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
+.usage-meter { height: 8px; background: var(--bg-muted); border: 1px solid var(--border); margin: 6px 0; }
+.usage-meter > span { display: block; height: 100%; background: var(--accent); }
+.usage-meter.warn > span { background: var(--status-progress); }
+.usage-meter.full > span { background: var(--status-blocked); }
+.usage-sub { font-size: var(--fs-caption); color: var(--text3); line-height: 1.5; }
+.usage-note { font-size: var(--fs-small); color: var(--text2); line-height: 1.55; }
+.usage-chart svg { display: block; width: 100%; height: 120px; }
+.usage-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); margin-top: 4px; }
+.usage-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-caption); color: var(--text2); margin-top: 8px; }
+.usage-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.usage-table-wrap { overflow-x: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.usage-table th { text-align: left; font-weight: 500; color: var(--text3); font-size: var(--fs-caption); padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.usage-table td { padding: 6px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.usage-table td.num, .usage-table th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.usage-title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-tag { display: inline-block; font-family: var(--mono); font-size: var(--fs-eyebrow); letter-spacing: 0.04em; padding: 1px 5px; margin-left: 6px; border: 1px solid var(--border-strong); color: var(--text2); }
+.usage-share { display: inline-block; width: 48px; height: 6px; background: var(--bg-muted); margin-right: 6px; vertical-align: 1px; }
+.usage-share > span { display: block; height: 100%; background: var(--accent); }
+.usage-sec-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.usage-sec-head .mp-section-label { margin: 0; }
+.usage-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 20px; }
+.usage-list { list-style: none; margin: 0; padding: 0; }
+.usage-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: var(--fs-small); padding: 4px 0; position: relative; }
+.usage-list li .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.usage-list li .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text2); }
+.usage-list li .bar { grid-column: 1 / -1; height: 3px; background: var(--bg-muted); }
+.usage-list li .bar > span { display: block; height: 100%; background: var(--accent); opacity: 0.7; }
+@media (max-width: 767px) { .usage-title { max-width: 160px; } .usage-chip { min-height: 44px; } }
 .mp-section-label {
   font-family: var(--mono); font-size: var(--fs-caption);
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -3355,6 +3412,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <span>Harness</span>
         <span class="count" id="nav-harness-count"></span>
       </div>
+      <div class="nav-item" data-tab="usage" role="tab" tabindex="0" aria-label="Usage" title="Usage" onkeydown="navTabKeydown(event, this)" onclick="switchTab('usage', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"/></svg>
+        <span>Usage</span>
+      </div>
     </nav>
     </details>
     <div class="nav-divider"></div>
@@ -3600,6 +3661,23 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              what did it find. Moved here from the caps page — a harness fact. -->
         <div id="judge-status" class="judge-status" hidden style="margin-top:12px"></div>
         <div id="judge-scores" class="jscores" hidden></div>
+      </div>
+    </div>
+
+    <!-- Usage (great_cto-egkw). What Claude Code and Codex consumed on this
+         machine, read from the hosts' own session logs by
+         scripts/lib/session-usage.mjs. Machine-wide, not per project. -->
+    <div class="panel" id="panel-usage" role="tabpanel">
+      <div class="metrics-page">
+        <div class="usage-head">
+          <h1 class="page-title">Usage <span class="muted" style="font-weight:400;font-size:var(--fs-small)">what Claude Code and Codex consumed on this machine</span></h1>
+          <div class="usage-chips" role="group" aria-label="Period">
+            <button type="button" class="usage-chip" data-days="7" onclick="loadUsage(7)">7D</button>
+            <button type="button" class="usage-chip active" data-days="30" onclick="loadUsage(30)">30D</button>
+            <button type="button" class="usage-chip" data-days="90" onclick="loadUsage(90)">90D</button>
+          </div>
+        </div>
+        <div id="usage-body" class="usage-note" role="status">Reading the session logs of Claude Code and Codex on this machine.</div>
       </div>
     </div>
 
@@ -5877,6 +5955,216 @@ function renderAgentActivity(snap) {
 // The Harnesses card. Four states for the second opinion, and the fourth is
 // the reason the card exists: `unavailable` — declared codex, no codex here —
 // must never look like `none` or like a switch someone turned off.
+// ── Usage (great_cto-egkw) ─────────────────────────────────────────────────
+// Both hosts, side by side, from /api/usage. Three honesty rules carried from
+// the reader: an unpriced model is n/a, never $0; Claude Code's plan use is not
+// written anywhere, so it is not drawn — only the refusals are; and a host with
+// no logs on this machine says so instead of showing zeros.
+let usageDays = 30;
+let usageHost = 'claude';
+let usageData = null;
+let _usageTimer = null;
+const USAGE_HOSTS = { claude: 'Claude Code', codex: 'Codex' };
+const USAGE_LOGS = { claude: '~/.claude/projects', codex: '~/.codex/sessions' };
+const USAGE_FN = { chat: 'Conversations', subagent: 'Subagents', automation: 'Automations', headless: 'Headless runs' };
+const USAGE_FN_COLOR = { chat: 'var(--accent)', subagent: 'var(--status-progress)', automation: 'var(--status-gate)', headless: 'var(--text3)' };
+
+function fmtTok(n) {
+  n = Number(n) || 0;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+function fmtUsdEq(n) {
+  if (n == null) return null;
+  return n >= 100 ? `$${Math.round(n).toLocaleString('en-US')}` : `$${n.toFixed(2)}`;
+}
+const fmtPct = (x) => (x == null ? null : `${Math.round(x * 100)}%`);
+
+async function loadUsage(days) {
+  if (days) usageDays = days;
+  document.querySelectorAll('.usage-chip[data-days]').forEach((c) => c.classList.toggle('active', Number(c.dataset.days) === usageDays));
+  clearTimeout(_usageTimer);
+  const d = await api(`/api/usage?days=${usageDays}`);
+  const body = document.getElementById('usage-body');
+  if (!body) return;
+  if (!d || d.error) {
+    body.className = 'usage-note';
+    body.textContent = `Usage could not be read: ${(d && d.error) || 'the board is not reachable — is the server still running?'}`;
+    return;
+  }
+  if (d.state === 'computing') {
+    body.className = 'usage-note';
+    body.textContent = `Counting — ${d.why}`;
+    _usageTimer = setTimeout(() => { if (currentTab === 'usage') loadUsage(); }, 2000);
+    return;
+  }
+  if (d.state !== 'counted') {
+    body.className = 'usage-note';
+    body.textContent = `Usage is not available: ${d.why || d.state}`;
+    return;
+  }
+  usageData = d;
+  renderUsage(d);
+}
+
+function setUsageHost(host) {
+  usageHost = host;
+  if (usageData) renderUsage(usageData);
+}
+
+function usageLimitWindow(minutes) {
+  if (minutes === 10080) return 'Weekly limit';
+  if (minutes === 300) return '5-hour limit';
+  return minutes ? `${minutes}-minute limit` : 'Limit';
+}
+
+function usageHostCard(d, host) {
+  const name = USAGE_HOSTS[host];
+  if (!d.seen || !d.seen[host]) {
+    return `<section class="usage-card" data-host="${host}"><h3>${name}</h3><p class="usage-note">No ${name} session logs on this machine (${USAGE_LOGS[host]}) — nothing to count, which is not the same as nothing used.</p></section>`;
+  }
+  const h = d.hosts[host];
+  const unpricedHere = (d.models || []).filter((m) => m.host === host && m.usd == null).map((m) => m.model);
+  const usd = h.usd == null
+    ? absent('uncomputable', `no price is set for ${unpricedHere.join(', ') || 'these models'} — add one to ~/.great_cto/model-prices.json`)
+    : esc(fmtUsdEq(h.usd)) + (h.unpricedResponses ? ` <span class="usage-tag" title="${esc(`${h.unpricedResponses} responses from unpriced models are not in this figure`)}">partial</span>` : '');
+  const stat = (v, label) => `<div class="usage-stat"><b>${v}</b><span>${label}</span></div>`;
+  let limit;
+  if (host === 'codex') {
+    const L = d.limits && d.limits.codex;
+    const win = (w) => {
+      if (!w) return '';
+      const used = Math.max(0, Math.min(100, Number(w.used) || 0));
+      const cls = used >= 90 ? 'full' : used >= 70 ? 'warn' : '';
+      const resets = w.resets ? fmtDT(new Date(w.resets * 1000).toISOString()) : '—';
+      return `<div class="usage-limit-head"><span>${usageLimitWindow(w.minutes)}</span><b>${used}% used</b></div>
+        <div class="usage-meter ${cls}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${used}" aria-label="${esc(usageLimitWindow(w.minutes))}"><span style="width:${used}%"></span></div>
+        <div class="usage-sub">resets ${esc(resets)}</div>`;
+    };
+    limit = L && (L.primary || L.secondary)
+      ? `<div class="usage-limit">${win(L.primary)}${win(L.secondary)}<div class="usage-sub">plan ${esc(L.plan || '—')} · as Codex last reported it, ${esc(relTime(L.at))} ago</div></div>`
+      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', 'no Codex session has reported its rate-limit window yet')}</div></div>`;
+  } else {
+    const hits = h.limitHits || { plan: 0, server: 0 };
+    limit = `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('uncomputable', 'Claude Code does not write how much of the plan is used — only when a request is refused')}</div>
+      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days</div></div>`;
+  }
+  return `<section class="usage-card" data-host="${host}">
+    <h3><span>${name}</span><span class="muted">${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>
+    <div class="usage-big" title="${esc(`${(h.tokens || 0).toLocaleString('en-US')} tokens, cache reads included`)}">${fmtTok(h.tokens)} <span class="muted" style="font-size:var(--fs-small)">tokens</span></div>
+    <div class="usage-stats">
+      ${stat(usd, 'at API list price')}
+      ${stat(esc((h.sessions || 0).toLocaleString('en-US')), 'conversations')}
+      ${stat(esc((h.responses || 0).toLocaleString('en-US')), 'model responses')}
+      ${stat(h.hitRate == null ? absent('none', 'no input in this window') : esc(fmtPct(h.hitRate)), 'input from cache')}
+      ${stat(esc(fmtTok(h.output)), 'output tokens')}
+    </div>
+    ${limit}
+  </section>`;
+}
+
+function usageDayChart(d, host) {
+  const name = USAGE_HOSTS[host];
+  const head = `<h3><span>${name} by day</span><span class="muted">tokens</span></h3>`;
+  if (!d.seen || !d.seen[host]) return `<section class="usage-card usage-chart">${head}<p class="usage-note">No logs to draw.</p></section>`;
+  const days = d.daily || [];
+  const max = Math.max(0, ...days.map((x) => x[host].tokens));
+  if (!max) return `<section class="usage-card usage-chart">${head}<p class="usage-note">Nothing in this window.</p></section>`;
+  const fns = Object.keys(USAGE_FN).filter((f) => days.some((x) => x[host].byFn[f]));
+  const W = 10;
+  let bars = '';
+  days.forEach((x, i) => {
+    let y = 100;
+    const parts = fns.map((f) => `${USAGE_FN[f]} ${fmtTok(x[host].byFn[f] || 0)}`).join(' · ');
+    const tip = `${x.date}: ${fmtTok(x[host].tokens)} tokens${x[host].usd ? ` · ${fmtUsdEq(x[host].usd)}` : ''}${parts ? ` (${parts})` : ''}`;
+    bars += `<g><title>${esc(tip)}</title>`;
+    for (const f of fns) {
+      const v = x[host].byFn[f] || 0;
+      if (!v) continue;
+      const hgt = (v / max) * 96;
+      y -= hgt;
+      bars += `<rect x="${i * W + 1}" y="${y.toFixed(2)}" width="${W - 2}" height="${hgt.toFixed(2)}" fill="${USAGE_FN_COLOR[f]}"></rect>`;
+    }
+    bars += `<rect x="${i * W}" y="0" width="${W}" height="100" fill="transparent"></rect></g>`;
+  });
+  const legend = fns.map((f) => `<span><i style="background:${USAGE_FN_COLOR[f]}"></i>${USAGE_FN[f]} ${fmtTok(d.hosts[host].byFn[f] || 0)}</span>`).join('');
+  return `<section class="usage-card usage-chart">${head}
+    <svg viewBox="0 0 ${days.length * W} 100" preserveAspectRatio="none" role="img" aria-label="${esc(`${name} tokens per day, peak ${fmtTok(max)}`)}">${bars}</svg>
+    <div class="usage-axis"><span>${esc(days[0].date)}</span><span>peak ${fmtTok(max)}</span><span>${esc(days[days.length - 1].date)}</span></div>
+    <div class="usage-legend">${legend}</div>
+  </section>`;
+}
+
+function usageTopTable(d, host) {
+  const name = USAGE_HOSTS[host];
+  const rows = (d.top && d.top[host]) || [];
+  const head = `<h3><span>${name}: heaviest conversations</span><span class="muted">share of ${name} tokens</span></h3>`;
+  if (!rows.length) return `<section class="usage-card">${head}<p class="usage-note">${d.seen && d.seen[host] ? 'Nothing in this window.' : 'No logs on this machine.'}</p></section>`;
+  const money = host === 'claude';
+  const body = rows.map((r) => {
+    const tag = r.fn && r.fn !== 'chat' ? `<span class="usage-tag">${esc(USAGE_FN[r.fn] || r.fn)}</span>` : '';
+    const sub = r.subagentTokens ? `<div class="usage-sub">${fmtPct(r.subagentTokens / r.tokens)} in subagents</div>` : '';
+    const share = Math.max(1, Math.round(r.share * 100));
+    return `<tr>
+      <td><div class="usage-title" title="${esc(r.title)}">${esc(r.title)}</div>${sub}</td>
+      <td>${esc(r.project || '—')}${tag}</td>
+      <td class="num"><span class="usage-share" aria-hidden="true"><span style="width:${share}%"></span></span>${fmtPct(r.share)}</td>
+      <td class="num">${fmtTok(r.tokens)}</td>
+      ${money ? `<td class="num">${r.usd == null ? absent('uncomputable', 'a model in this conversation has no price') : esc(fmtUsdEq(r.usd))}</td>` : ''}
+    </tr>`;
+  }).join('');
+  return `<section class="usage-card">${head}<div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Conversation</th><th>Project</th><th class="num">Share</th><th class="num">Tokens</th>${money ? '<th class="num">$ list</th>' : ''}</tr></thead>
+    <tbody>${body}</tbody></table></div></section>`;
+}
+
+function usageModels(d) {
+  const rows = d.models || [];
+  if (!rows.length) return '<p class="usage-note">No model responses in this window.</p>';
+  const body = rows.map((m) => {
+    const fast = m.model.endsWith('@fast');
+    const label = fast ? `${m.model.slice(0, -5)} (fast)` : m.model;
+    return `<tr><td>${esc(USAGE_HOSTS[m.host])}</td><td>${esc(label)}</td><td class="num">${m.responses.toLocaleString('en-US')}</td><td class="num">${fmtTok(m.tokens)}</td><td class="num">${fmtTok(m.output)}</td>
+      <td class="num">${m.usd == null ? absent('uncomputable', `no price is set for ${m.model} — add one to ~/.great_cto/model-prices.json`) : esc(fmtUsdEq(m.usd))}</td></tr>`;
+  }).join('');
+  return `<section class="usage-card" style="margin-bottom:20px"><div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Host</th><th>Model</th><th class="num">Responses</th><th class="num">Tokens</th><th class="num">Output</th><th class="num">$ list</th></tr></thead>
+    <tbody>${body}</tbody></table></div></section>`;
+}
+
+function usageList(title, rows, empty) {
+  if (!rows || !rows.length) return `<section class="usage-card"><h3><span>${title}</span></h3><p class="usage-note">${empty}</p></section>`;
+  const max = Math.max(...rows.map((r) => r.n));
+  const items = rows.map((r) => `<li><span class="nm" title="${esc(r.name)}">${esc(r.name)}${r.ours ? '<span class="usage-tag">great_cto</span>' : ''}</span><span class="n">${r.n.toLocaleString('en-US')}</span><span class="bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((r.n / max) * 100))}%"></span></span></li>`).join('');
+  return `<section class="usage-card"><h3><span>${title}</span></h3><ul class="usage-list">${items}</ul></section>`;
+}
+
+function renderUsage(d) {
+  const body = document.getElementById('usage-body');
+  if (!body) return;
+  body.className = '';
+  const l = (d.lists && d.lists[usageHost]) || {};
+  const hostBtn = (h) => `<button type="button" class="usage-chip${usageHost === h ? ' active' : ''}" aria-pressed="${usageHost === h}" onclick="setUsageHost('${h}')">${USAGE_HOSTS[h]}</button>`;
+  body.innerHTML = `
+    <div class="usage-grid">${usageHostCard(d, 'claude')}${usageHostCard(d, 'codex')}</div>
+    <h2 class="mp-section-label">By day, by kind of work</h2>
+    <div class="usage-grid">${usageDayChart(d, 'claude')}${usageDayChart(d, 'codex')}</div>
+    <h2 class="mp-section-label">Heaviest conversations</h2>
+    <div class="usage-grid">${usageTopTable(d, 'claude')}${usageTopTable(d, 'codex')}</div>
+    <h2 class="mp-section-label">Models</h2>
+    ${usageModels(d)}
+    <div class="usage-sec-head"><h2 class="mp-section-label">What was called</h2><div class="usage-chips" role="group" aria-label="Host">${hostBtn('claude')}${hostBtn('codex')}</div></div>
+    <div class="usage-lists">
+      ${usageList('Tools', l.tools, 'No tool calls in this window.')}
+      ${usageList('Skills', l.skills, 'No skills were loaded in this window.')}
+      ${usageList('Agents', l.agents, 'No subagents were dispatched in this window.')}
+      ${usageList('MCP servers', l.mcp, 'No MCP tools were called in this window.')}
+    </div>
+    <p class="usage-note">Read on this machine from ${USAGE_LOGS.claude} and ${USAGE_LOGS.codex}; nothing is sent anywhere. Tokens include cache reads. <b>$ list</b> is the API list-price equivalent from great_cto's price table, not a subscription bill — Claude Code's own estimate can differ for some models. A model without a price shows n/a, never $0.</p>`;
+}
+
 async function renderHarnesses() {
   const body = document.getElementById('harnesses-body');
   const status = document.getElementById('harnesses-status');
@@ -8340,6 +8628,7 @@ function cmdkActions() {
     { group: 'Go', label: 'Ledger — what it cost, what is running', run: () => switchTab('ledger') },
     { group: 'Go', label: 'Fleet — the agents and what they may do', run: () => switchTab('fleet') },
     { group: 'Go', label: 'Harness — host and second opinion', run: () => switchTab('harness') },
+    { group: 'Go', label: 'Usage — what Claude Code and Codex consumed', run: () => switchTab('usage') },
     { group: 'Go', label: 'Settings', run: () => switchTab('settings') },
     { group: 'Go', label: 'Tasks board (#/kanban, deep link)', run: () => switchTab('kanban') },
     { group: 'Do', label: 'New issue', run: () => openNewIssueModal() },
@@ -8532,7 +8821,7 @@ try {
 // panels, not keys.
 const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', dashboard: 'budgets', share: 'settings', notifications: 'settings' };
 const NAV = { inbox: 'decisions', budgets: 'ledger', agents: 'fleet', dashboard: 'ledger', share: 'settings', notifications: 'settings' };
-const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, settings: 1, kanban: 1 };
+const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, usage: 1, settings: 1, kanban: 1 };
 function switchTab(id, el) {
   const lid = DEST[id] || id;          // the panel's own name
   const navKey = NAV[id] || id;        // the destination to highlight
@@ -8541,7 +8830,7 @@ function switchTab(id, el) {
   currentTab = lid;
   document.getElementById('nav-views-label').hidden = lid !== 'agents';
   document.querySelector('.nav-views').hidden = lid !== 'agents';
-  if (['agents', 'budgets', 'harness'].includes(lid)) document.getElementById('tools-nav').open = true;
+  if (['agents', 'budgets', 'harness', 'usage'].includes(lid)) document.getElementById('tools-nav').open = true;
   if (lid === 'work' || lid === 'history') window.GctoWork.refresh();
   if (ROUTES[id]) {
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
@@ -8562,7 +8851,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
+  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', usage: 'Usage', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || TAB_LABELS[lid] || 'Board';
   // Budgets render on Metrics, so the heartbeat that feeds them has to be
   // fetched when Metrics opens — not only from the agents drill-in it used to
@@ -8595,6 +8884,7 @@ function switchTab(id, el) {
   if (lid === 'notifications' || lid === 'settings') loadNotifications();
   if (lid === 'settings') loadSettingsPage();
   if (lid === 'harness') renderHarnesses();
+  if (lid === 'usage') loadUsage();
 }
 
 // Sidebar tabs: Enter/Space activate, arrows move (WAI-ARIA tablist).

@@ -59,6 +59,13 @@ Indicative for a solo-CTO project at ~20 pipeline runs a month:
 | deep (cross-cutting) | $12 | 1 | $12 |
 | | | | **~$34** |
 
+What it actually cost is on the board's **Usage** screen (Tools → Usage): Claude
+Code and Codex side by side, from their own session logs — tokens per day and kind
+of work, the heaviest conversations, models, tools, skills, agents, cache share,
+and the plan window Codex reports. Dollars there are the API list-price
+equivalent, not a subscription bill; Claude Code does not record how much of a
+plan is used, so only its refusals at the limit are shown.
+
 You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage
 auto-routes to a cheaper model (~5× lower cost) for a 60–80% reduction on
 log clustering.

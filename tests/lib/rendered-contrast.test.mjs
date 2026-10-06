@@ -44,7 +44,7 @@ const THEMES = ['dark', 'light'];
 // in Ledger = budgets); Harness and Settings are panels of their own; share and
 // notifications survive as id'd blocks inside Settings, so they stay listed.
 const PANELS = ['work', 'history', 'inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
-  'memory', 'notifications', 'sessions', 'share', 'harness', 'settings'];
+  'memory', 'notifications', 'sessions', 'share', 'harness', 'usage', 'settings'];
 
 /**
  * Runs in the page. For every element that owns visible text, report its

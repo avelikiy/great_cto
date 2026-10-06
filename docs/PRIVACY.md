@@ -244,6 +244,18 @@ name, archetype, description and path. The file stays on your machine. Temp
 directories and agent worktrees are not added; turn it off with
 `GREAT_CTO_NO_AUTO_REGISTER=1`, and remove a project by deleting its entry.
 
+## Local usage index (not telemetry — never sent)
+
+The board's **Usage** screen shows what Claude Code and Codex consumed on this
+machine. It reads the hosts' own session logs — `~/.claude/projects` and
+`~/.codex/sessions` — and keeps per-day totals in `~/.great_cto/session-usage-index.json`:
+tokens per model, tool / skill / agent / MCP call counts, conversation titles,
+project folder names, and the latest plan window Codex reported. The logs are
+only read, never changed. The index stays on your machine, is served by the board
+on its own host only, and is not part of telemetry, even when telemetry is on.
+Delete the file to drop it; the next board open rebuilds it from the logs.
+Source: `scripts/lib/session-usage.mjs`.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
