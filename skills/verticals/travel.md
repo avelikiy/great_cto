@@ -48,10 +48,15 @@ The four products and their incumbents:
   guests, then per extra guest.
 - **OTA** — online travel agency: Viator, GetYourGuide, Booking.com, Airbnb, Expedia.
 - **Channel manager** — the system that keeps availability and rates in step across OTAs.
+  **ARI** — availability, rates and inventory: the three things it pushes.
 - **Net rate vs commission** — the OTA either pays you a net rate or takes a percentage of
   the retail price. **Merchant of record** is whoever charged the traveller's card.
 - **Rate plan** — for stays: refundable / non-refundable / breakfast-included, each with
-  its own price and cancellation terms. **Min-stay**, **closed to arrival**, **blackout**.
+  its own price and cancellation terms. **Min-stay / max-stay** by date range, **closed to
+  arrival**, **blackout**. **Booking window** — how far ahead a date may be booked, and how
+  close to arrival.
+- **Extras / add-ons** — breakfast, a transfer, equipment hire: priced per person or per
+  booking, per night or once.
 - **Rate parity** — an OTA contract clause: your own site may not undercut the OTA.
 - **Voucher / ticket** — what the guest shows; a QR code scanned at check-in.
 - **Manifest** — the list of who is on a departure, with pickup points and notes.
@@ -76,8 +81,9 @@ The four products and their incumbents:
   the card: you receive a booking, a net amount later, and a payout to reconcile.
 - **Weather cancels a whole departure.** Cancelling by operator means bulk rebook-or-refund
   for every booking on it, with a different refund rule than a guest cancellation.
-- **Party composition is data.** Ages, weights (helicopters, zip lines), dietary notes and
-  pickup location are collected per guest and end up on the manifest.
+- **Party composition is data.** Ages (child prices and room occupancy depend on them),
+  weights (helicopters, zip lines), dietary notes and pickup location are collected per
+  guest and end up on the manifest.
 - **Commission is earned after travel.** A supplier pays the advisor weeks after the trip.
   Track expected vs received commission per booking, or the advisor never gets paid.
 - **Price in one currency, charge in another.** Suppliers quote in theirs; record the
@@ -105,8 +111,9 @@ entities; suppliers, guests and channels are their own tables).
   capacity, and the resources it consumes.
 - **Resource** — guide, vehicle, vessel, room; with its own calendar, so shared resources
   block each other.
-- **Booking** — channel (FK), status, **policy snapshot**, guests with category and notes,
-  price lines, deposit and balance schedule, voucher code.
+- **Booking** — channel (FK), status, **policy snapshot**, guests with category, age and
+  notes, price lines including **extras** and taxes, deposit and balance schedule, voucher
+  code.
 - **Hold** — capacity reserved with an expiry, released automatically.
 - **Channel** — direct / OTA / reseller, with commission model (net or percent) and whether
   it is merchant of record.
@@ -143,8 +150,18 @@ entities; suppliers, guests and channels are their own tables).
   trip. Cards go through a hosted payment page, never the app's own forms.
 - **Liability waivers** — signed per guest before the activity; store the signed copy with
   the booking.
-- **Tourist / city tax** — charged per person per night in many places, separate from VAT;
-  keep it as its own price line.
+- **Tourist / city tax** — charged per person per night, per room per night, or as a
+  percentage, depending on the place; separate from VAT. Keep it as its own price line
+  with its collection rule.
+
+## Checked against
+
+Small stays: QloApps (2026-10) — room types and rooms, min/max length of stay by date
+range, booking-offset limits, advance-payment rules per room type, date-based feature
+pricing, closed dates, refund rules per property, adults/children with ages, tourism-tax
+collection type, extra services, a channel-manager ARI interface. The stay rules above have
+counterparts there. **Tours, activities and travel advisors are not yet checked against a
+shipped product** — those sections rest on domain knowledge until a live project tests them.
 
 ---
 

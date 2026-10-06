@@ -73,10 +73,11 @@ The four products and their incumbents:
 - **An application record is a legal record.** Product name and registration number, rate,
   area treated, date and time, applicator, target, and often wind and temperature. It is
   appended and corrected with a note, not edited away.
-- **PHI and REI are computed dates that block actions.** A harvest logged before the PHI
-  has passed, or a task scheduled inside an REI, is a warning the product must raise.
-- **Withdrawal periods block sales.** An animal or its milk cannot be marked sold inside
-  the window.
+- **PHI, REI and withdrawal periods are computed dates that block actions.** A harvest
+  logged before the PHI has passed, a task scheduled inside an REI, an animal or its milk
+  marked sold inside a withdrawal window — each is a warning the product must raise. The
+  established farm platforms record the input and the date and leave this arithmetic to
+  the farmer; doing it is the gap a product can fill, not a feature to assume.
 - **Animals are individuals and groups at once.** A treatment given to a group is recorded
   once and applies to every member that day; animals move between groups and keep their
   own history.
@@ -86,7 +87,11 @@ The four products and their incumbents:
 - **A field is a shape.** Boundaries are polygons; area is computed from them and is the
   divisor for every rate and yield.
 - **The lot code is the join.** It links harvest → field → the inputs applied there, and
-  forward to each customer who received it. A recall is that query.
+  forward to each customer who received it. A recall is that query. Inputs and seed carry
+  their own lot number and source (one-back), so the chain starts at the supplier.
+- **A move is a dated record, never an edit.** Where an animal, a mobile pen or a piece of
+  equipment is comes from its history of movement records; the current location is the
+  latest one, and the history stays.
 - **A share is not a fixed basket.** What is in the box depends on the week's harvest;
   the subscription is for a share of whatever there is.
 
@@ -110,12 +115,20 @@ from spreadsheets and from other farm apps).
 
 - **Field / Block** — boundary polygon, computed area, the unit the farmer uses.
 - **Planting** — place (FK) + season + crop + variety + dates; never overwritten.
-- **Input** — product, registration number, PHI, REI or withdrawal days, unit.
+- **Input** — product, registration number, PHI, REI or withdrawal days, unit; per batch
+  bought: lot number, source, purchase date, and **stock** kept as dated adjustments
+  (received, used, counted) rather than one editable number.
 - **Application** — input (FK), place or group (FK), rate, area, date-time, applicator,
   conditions; append-only with corrections.
 - **Harvest** — planting (FK), date, quantity + unit, **lot code**.
 - **Animal** — IDs, birth, sex, breed, current group; **GroupMembership** with dates.
-- **Treatment** — animal or group, medicine (an Input), dose, date, **withdrawal-until**.
+- **Treatment** — animal or group, medicine (an Input), dose, date, **withdrawal-until**,
+  veterinarian.
+- **Movement** — asset (FK), from, to, date; location is derived from these.
+- **Observation / lab test** — soil tests, scouting notes, weights: dated records against
+  a place or an animal, with the lab and the test type.
+- **Plan** — a season's crop or grazing plan: intended plantings or moves, kept beside what
+  actually happened.
 - **Lot → Shipment line** — which customer received which lot.
 - **Share / Subscription** — size, pickup site and day, holds, the season it covers.
 - **Order line** — with ordered quantity and, for catch weight, packed weight and final
@@ -149,6 +162,16 @@ from spreadsheets and from other farm apps).
 - **Farm data belongs to the farm.** Export of everything, on request, in a plain format;
   no sharing with input suppliers or buyers without explicit consent.
 - **Subsidy and government reporting** — out of scope; flag it if asked.
+
+## Checked against
+
+farmOS data model (2026-10): assets (land, plant, animal, equipment, material, product,
+group) with geometry and ID tags; logs (seeding, input, harvest, medical, observation, lab
+test, maintenance) with quantities in the entered unit; lot numbers on seeding, input and
+harvest logs; location and group membership as dated logs with history; inventory as
+adjustment records; an offline field app. Every entity above has a counterpart there. What
+farmOS does **not** do is compute interval dates, which is why that rule is worded as a gap.
+Not yet checked on a live farm's own data.
 
 ---
 

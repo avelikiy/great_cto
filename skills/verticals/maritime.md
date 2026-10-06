@@ -163,6 +163,12 @@ forwarders both arrive with spreadsheets).
 - **Crew and guest documents** — passport and licence copies are sensitive personal data:
   collect what the handover needs and delete after the charter.
 
+## Checked against
+
+**Not yet checked against a shipped product**: no mature open-source marina, charter or
+container-tracking system exists to compare with, and no live project has used this brief.
+Treat section 4 as a starting shape, and expect the first real project to correct it.
+
 ---
 
 Cross-refs: [[connector-builder]] (carrier and terminal data), [[mobile-app-builder]]

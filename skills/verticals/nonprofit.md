@@ -47,7 +47,8 @@ The four products and their incumbents:
 - **Soft credit** — recognition for a gift someone else legally made (the board member who
   asked, the spouse, the person honoured). No money, no tax receipt.
 - **Tribute gift** — given in honour or in memory of someone, with a notification sent to
-  a third person.
+  a third person. Recorded as a soft credit of type *in honour of* / *in memory of* on the
+  honouree's record, so their page shows what was given for them.
 - **In-kind gift** — goods or services instead of money; valued by the donor, not by you.
 - **Restricted vs unrestricted** — a restricted gift may only be spent on what the donor
   named. **Fund / designation** is where it is booked.
@@ -59,6 +60,9 @@ The four products and their incumbents:
 - **Matching gift** — the donor's employer matches it; a second gift from a second donor.
 - **DAF (donor-advised fund)** — the gift arrives from a fund sponsor; the advisor gets
   the soft credit and no receipt.
+- **Peer-to-peer page** — a supporter's own fundraising page; gifts made through it
+  hard-credit the giver and soft-credit the supporter, who may choose not to appear on the
+  public roll.
 - **LYBUNT / SYBUNT** — gave Last Year / Some Year But Unfortunately Not This.
 - **Retention rate**, **lapsed donor**, **major gift**, **moves management** — the fund-
   raiser's working vocabulary.
@@ -112,16 +116,21 @@ and gifts — every small nonprofit arrives with a spreadsheet or an export).
 
 - **Constituent** — person or organisation, with **household** membership, do-not-contact
   and **anonymous** flags, and a merge history.
-- **Gift** — donor (hard credit, FK), amount, **fee**, **net**, gift date, method, **fund**,
-  **campaign / appeal**, optional pledge (FK), recurring plan (FK), tribute details,
-  fair-market value, receipt reference.
+- **Gift** — donor (hard credit, FK), amount and **currency**, **fee**, **net**, gift date,
+  method, **fund**, **campaign / appeal**, optional pledge (FK), recurring plan (FK),
+  fair-market value, receipt date and thank-you date (two dates: the tax document and the
+  letter are not always the same act), status with cancel date and reason, and a credit
+  note when a gift is refunded — never a deleted row.
 - **SoftCredit** — gift (FK) + constituent (FK) + reason.
-- **Pledge** — total, schedule, payments applied, balance, write-off.
+- **Pledge** — total, schedule of installments, payments applied, balance, write-off;
+  reminders sent per installment (how many, when next).
 - **RecurringPlan** — amount, interval, payment-method token, status, failure count.
-- **Fund** — restricted or not, with its purpose text.
+- **Fund** — restricted or not, with its purpose text and the **accounting code** it posts
+  to, so the export to the bookkeeping system needs no mapping table.
 - **Receipt** — what was sent, when, with which wording; reissued, never edited.
 - **Grant** — funder (FK to an organisation constituent), stage, amounts requested and
-  awarded, award period, report deadlines, the fund it pays into.
+  awarded, **date the money arrived** (an award is not cash), award period, report
+  deadlines with a *report sent* flag, the fund it pays into.
 - **VolunteerShift / Signup / HoursLog** — hours are logged against a shift and confirmed.
 
 ## 5. Per-product notes (wedge + the one domain thing)
@@ -150,6 +159,16 @@ and gifts — every small nonprofit arrives with a spreadsheet or an export).
 - **Cards** — hosted payment fields only; store the processor's token, never the number.
 - **Volunteers with children or vulnerable people** — a background-check status and its
   expiry is a field; running the check is a provider's job.
+
+## Checked against
+
+CiviCRM core schema (2026-10): contributions carry total, fee, net, non-deductible amount,
+receive date, receipt date and thank-you date; soft credits are typed (in honour, in memory,
+solicited, household, workplace, matched gift, donor-advised fund, peer-to-peer page);
+pledges have installments, payments and reminders; recurring contributions carry a failure
+count and retry date; financial types map to accounting codes; grants carry application,
+decision, money-transfer and report dates. Every rule above has a counterpart there. Not yet
+checked on a live nonprofit's own data.
 
 ---
 
