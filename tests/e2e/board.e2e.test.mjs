@@ -146,6 +146,11 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
   if (env.skip) return t.skip(env.skip);
   try {
     const { page } = await openBoard(env, '#/decisions');
+    // Ledger, Fleet, Harness and Usage live in the Tools disclosure, closed by
+    // default since the task-centric navigation (2026-10-02). An operator opens
+    // it first; a test that clicks a hidden item was checking a sidebar that no
+    // longer exists.
+    await page.locator('#tools-nav > summary').click();
     await page.locator('.nav-item', { hasText: 'Fleet' }).first().click();
     await page.waitForTimeout(700);
     assert.match(await page.locator('.panel.active').first().innerText(), /Fleet|agent/i,
