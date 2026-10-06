@@ -135,3 +135,17 @@ test('summarizeViews reports {state:"unreadable", why} when the file exists but 
     assert.ok(typeof summary.why === 'string' && summary.why.length > 0);
   } finally { clean(root); }
 });
+
+// Every destination the page routes to posts its open here (switchTab). A route
+// this list does not know answers 400 into the console on every visit — Work
+// and History did, for as long as they existed.
+test('every routed screen is a view the counter accepts', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { VALID_VIEWS } = await import('./lib/view-counter.mjs');
+  const html = readFileSync(new URL('./public/index.html', import.meta.url), 'utf8');
+  const m = html.match(/const ROUTES = \{([^}]*)\}/);
+  assert.ok(m, 'located ROUTES in index.html');
+  const routes = [...m[1].matchAll(/([a-z]+):\s*1/g)].map((x) => x[1]);
+  assert.ok(routes.length >= 5, `read the routes (got ${routes.join(', ')})`);
+  assert.deepEqual(routes.filter((r) => !VALID_VIEWS.includes(r)), []);
+});
