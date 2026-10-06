@@ -265,3 +265,44 @@ execution failure, not a successful planning correction. `codex login status`
 confirmed ChatGPT login and CLI version 0.160.0. A direct unauthenticated HEAD
 to the models endpoint returned HTTP 405 promptly; that proves endpoint
 reachability, not authenticated model availability or a successful model call.
+
+A separate 30-second connectivity probe with the same strict/read-only/no-plugin
+Codex arguments returned state ok, code 0, finalText PONG, errors [].
+Log: /Users/Shared/great-cto-plan-rework-connectivity.log. The failed attempt's
+input Git receipt was directly compared to the current receipt and matched.
+The normal new installed `recover` operation retained the failure evidence,
+cleared active and queued pm, without any policy/approval changes. The final
+permitted PM attempt 3 started 2026-10-06T06:44:27.727Z.
+Log: /Users/Shared/great-cto-local-installed-plan-rework-retry.log.
+The three-attempt repair budget was not raised.
+
+The actual final installed resume exited zero. PM worker invocation ran
+2026-10-06T06:44:27.901Z to 06:45:58.273Z; independent Codex verifier ran
+06:45:58.707Z to 06:46:19.039Z. PM result timestamp 06:46:19.179Z:
+5da5c8a6682ffac1f749bf71eef0bd6e7841a95ffe5322ace6afbd39640dea6d.
+Verifier state verified, findings [], eight checks including exact frozen
+policy comparison and separating implementation tests from post-release smoke.
+State awaits gate:plan, active null, two predecessor approvals, release absent.
+New token a3b49407-9bec-4439-b354-57bbc457fde8. No approval was issued.
+
+Direct operator audit parsed both JSON command blocks from docs/plan.md and
+docs/impl-briefs/T5-local-release.md and compared them with frozen commands:
+exact matches for checks/build and smoke in both documents. Both include policy
+snapshot SHA256 66601678e6d7a58748305156dbfa79385ffe294c39d154e7fbeb0cfce50e8ad1.
+The unchanged operator files normalize to exactly the persisted policies.
+Smoke imports ./dist/add.mjs and checks add(2,3) and NaN; overflow is explicitly
+implementation-test coverage, not a smoke claim. Approved brief/architecture
+Git blob IDs and the two original approvals are unchanged. New controller pins
+still match source; old installed controller pins also remain unchanged.
+
+This closes the smoke-policy/rework defect great_cto-p4o9.8.6.1, not full graph
+acceptance. A separate plan-completeness finding remains: the plan enumerates
+QA/security but omits mandatory code-reviewer from its task dependency list.
+The controller's frozen three-reviewer join and ship gates still enforce that
+role, so the omission cannot bypass release prerequisites. Follow-up
+great_cto-p4o9.8.6.2 records this mismatch and asks for controlled workflow
+visibility/verification, not a silent budget reset. PM attempts are already 3;
+one was a provider timeout. Further PM repair must not silently increase or
+reset the configured budget. No senior-dev, live Claude QA, actual security
+review, build/test fixture execution or release was dispatched in this turn.
+The full lifecycle parent great_cto-p4o9.8.6 remains in progress.
