@@ -2244,6 +2244,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-size: var(--fs-body);
 }
 .judge-status[hidden] { display: none; }
+/* The "retry" link appears only when the live key check got no answer — a
+   degraded state, so no screenshot ever carried it, and it rendered in the
+   browser's default blue until the on-system check met it on 2026-10-06. */
+.judge-status a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+.judge-status a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 /* What the judge CONCLUDED, under whether it is connected.
    The scores existed for weeks and no page read them: /api/scores had zero
