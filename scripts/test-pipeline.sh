@@ -265,15 +265,19 @@ else
     "
 
   # HMAC tests use canonical name 'github'. Backup/restore any existing config.
+  # Each asks the OS for a free port. They used 3144/3145, and on 2026-10-06 a
+  # board already listening on 3144 answered in place of the server under test —
+  # the check went red with nothing wrong in `serve`.
   check "serve enforces HMAC: invalid signature returns 401" \
     bash -c "
       cfg=~/.great_cto/webhooks.json
       [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
       $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3144 >/dev/null 2>&1 &
+      port=\$(node -e 'const s=require(\"net\").createServer().listen(0,\"127.0.0.1\",()=>{console.log(s.address().port);s.close()})')
+      $CLI serve --port \$port >/dev/null 2>&1 &
       SRV_PID=\$!
-      wait_http http://127.0.0.1:3144/ 10
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:3144/webhook/github)
+      wait_http http://127.0.0.1:\$port/ 10
+      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H 'X-Hub-Signature-256: sha256=baad' -d '{}' http://127.0.0.1:\$port/webhook/github)
       kill \$SRV_PID 2>/dev/null
       wait \$SRV_PID 2>/dev/null
       [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
@@ -288,12 +292,13 @@ else
       cfg=~/.great_cto/webhooks.json
       [ -f \$cfg ] && cp \$cfg \$cfg.gctest-bak
       $CLI webhook add-incoming github --secret testsecret123 >/dev/null 2>&1
-      $CLI serve --port 3145 >/dev/null 2>&1 &
+      port=\$(node -e 'const s=require(\"net\").createServer().listen(0,\"127.0.0.1\",()=>{console.log(s.address().port);s.close()})')
+      $CLI serve --port \$port >/dev/null 2>&1 &
       SRV_PID=\$!
-      wait_http http://127.0.0.1:3145/ 10
+      wait_http http://127.0.0.1:\$port/ 10
       payload='{\"action\":\"opened\",\"number\":1,\"repository\":{\"full_name\":\"x/y\"}}'
       sig=\$(echo -n \"\$payload\" | openssl dgst -sha256 -hmac 'testsecret123' | awk '{print \"sha256=\"\$NF}')
-      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:3145/webhook/github)
+      code=\$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -H 'X-GitHub-Event: pull_request' -H \"X-Hub-Signature-256: \$sig\" -d \"\$payload\" http://127.0.0.1:\$port/webhook/github)
       kill \$SRV_PID 2>/dev/null
       wait \$SRV_PID 2>/dev/null
       [ -f \$cfg.gctest-bak ] && mv \$cfg.gctest-bak \$cfg || $CLI webhook remove github >/dev/null 2>&1
