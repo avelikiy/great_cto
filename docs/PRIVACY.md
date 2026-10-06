@@ -248,9 +248,10 @@ directories and agent worktrees are not added; turn it off with
 
 The board's **Usage** screen shows what Claude Code and Codex consumed on this
 machine. It reads the hosts' own session logs — `~/.claude/projects` and
-`~/.codex/sessions` — and keeps per-day totals in `~/.great_cto/session-usage-index.json`:
+`~/.codex/sessions` — and keeps per-day totals in `~/.great_cto/session-usage-index.v<N>.json` (N is the index format):
 tokens per model, tool / skill / agent / MCP call counts, conversation titles,
-project folder names, and the latest plan window Codex reported. The logs are
+project folder names, hourly spend, the words of each limit refusal, and the plan-window
+readings Codex reported. The logs are
 only read, never changed. The index stays on your machine, is served by the board
 on its own host only, and is not part of telemetry, even when telemetry is on.
 Delete the file to drop it; the next board open rebuilds it from the logs.

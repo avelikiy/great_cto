@@ -40,18 +40,28 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { priceUsage, effectivePrices } from './cost-meter.mjs';
 
-const INDEX_VERSION = 1;
+const INDEX_VERSION = 2;          // 2: hourly buckets, limit kinds, Codex limit series
 const RING = 256;                 // recent response ids remembered across reads
 const KEEP_GONE_DAYS = 400;       // how long a vanished file's days are kept
+const SERIES_MAX = 4000;          // Codex limit readings kept per file
 const CHUNK = 1 << 20;
 
 const home = () => os.homedir();
 export const DEFAULT_CLAUDE_DIR = () => path.join(home(), '.claude', 'projects');
 export const DEFAULT_CODEX_DIRS = () => [path.join(home(), '.codex', 'sessions'), path.join(home(), '.codex', 'archived_sessions')];
 export const DEFAULT_CODEX_TITLES = () => path.join(home(), '.codex', 'session_index.jsonl');
-export const DEFAULT_CACHE_FILE = () => path.join(home(), '.great_cto', 'session-usage-index.json');
+// The version is in the name: a board started on an older release keeps running
+// until restarted, and two versions sharing one file would rebuild it from
+// scratch on every pass, each throwing the other's away.
+export const DEFAULT_CACHE_FILE = () => path.join(home(), '.great_cto', `session-usage-index.v${INDEX_VERSION}.json`);
 
 const short = (s) => createHash('sha1').update(String(s)).digest('hex').slice(0, 16);
+
+/** Local hour (00–23) of an ISO timestamp. */
+export function hourOf(ts) {
+  const d = new Date(ts);
+  return Number.isNaN(d.getTime()) ? null : String(d.getHours()).padStart(2, '0');
+}
 
 /** Local calendar day of an ISO timestamp — the operator's day, not UTC's. */
 export function dayOf(ts) {
@@ -107,7 +117,26 @@ function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return 
 // ── shared accumulation ───────────────────────────────────────────────────────
 
 function emptyDay() {
-  return { in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, models: {}, tools: {}, skills: {}, agents: {}, mcp: {}, lim: { plan: 0, server: 0 } };
+  return { in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, models: {}, tools: {}, skills: {}, agents: {}, mcp: {}, lim: {}, h: {} };
+}
+
+/** The hour inside a day: tokens per model as [in, out, cacheRead, cacheWrite5m, cacheWrite1h], and limit refusals. */
+function hourBucket(b, ts) {
+  const hh = hourOf(ts);
+  if (!hh) return null;
+  return b.h[hh] || (b.h[hh] = { m: {}, lim: {} });
+}
+
+function addUsage(entry, ts, model, t) {
+  const b = dayBucket(entry, ts);
+  if (!b) return null;
+  addTokens(b, model, t);
+  const hb = hourBucket(b, ts);
+  if (hb) {
+    const v = hb.m[model] || (hb.m[model] = [0, 0, 0, 0, 0]);
+    v[0] += t.in; v[1] += t.out; v[2] += t.cr; v[3] += t.cw; v[4] += t.cwh;
+  }
+  return b;
 }
 
 function dayBucket(entry, ts) {
@@ -159,7 +188,22 @@ function claudeFileMeta(file) {
   return { session: base, parent: null, fn: null, agentType: null };
 }
 
-const PLAN_LIMIT_TEXT = /not your usage limit/i;
+/**
+ * Which limit refused a request, from the words Claude Code shows. Seen on this
+ * machine: "session limit" (the 5-hour window), "weekly limit", "monthly spend
+ * limit", "reached your <model> limit", "out of usage credits", and the server's
+ * own throttle, which says outright that it is "not your usage limit".
+ */
+export function limitKind(text) {
+  const t = String(text || '');
+  if (/not your usage limit/i.test(t)) return 'server';
+  if (/monthly spend limit/i.test(t)) return 'spend';
+  if (/out of usage credits/i.test(t)) return 'credits';
+  if (/session limit/i.test(t)) return 'session';
+  if (/weekly limit/i.test(t)) return 'weekly';
+  if (/reached your .{1,40} limit/i.test(t)) return 'model';
+  return 'other';
+}
 
 /** `great-cto:senior-dev` and `senior-dev` are one agent; `feature-dev:code-reviewer` is not ours. */
 export function agentName(raw) {
@@ -201,7 +245,12 @@ export function claudeLine(entry, line) {
   if (r.isApiErrorMessage && r.error === 'rate_limit') {
     const c = r.message?.content;
     const text = Array.isArray(c) ? c.map((x) => x?.text || '').join(' ') : String(c || '');
-    if (PLAN_LIMIT_TEXT.test(text)) b.lim.server += 1; else b.lim.plan += 1;
+    const kind = limitKind(text);
+    bump(b.lim, kind);
+    const hb = hourBucket(b, ts);
+    if (hb) bump(hb.lim, kind);
+    // The words carry the reset time ("resets Sep 12 at 3pm"); the latest is kept to show.
+    if (!meta.lastHit || ts > meta.lastHit.at) meta.lastHit = { at: ts, kind, text: text.replace(/\s+/g, ' ').trim().slice(0, 200) };
     return;
   }
 
@@ -228,7 +277,7 @@ export function claudeLine(entry, line) {
     cwh,
     rs: u.output_tokens_details?.thinking_tokens || 0,
   };
-  addTokens(b, u.speed === 'fast' ? `${model}@fast` : model, t);
+  addUsage(entry, ts, u.speed === 'fast' ? `${model}@fast` : model, t);
   // Older Claude Code wrote subagent turns into the parent's own file.
   if (r.isSidechain && meta.fn !== 'subagent') b.side = (b.side || 0) + t.in + t.out + t.cr + t.cw + t.cwh;
 }
@@ -292,10 +341,8 @@ export function codexLine(entry, line) {
     if (id && st.ids.includes(id)) return;
     if (id) remember(st.ids, id);
     st.records = true;
-    const b = dayBucket(entry, ts);
-    if (!b) return;
+    if (!addUsage(entry, ts, st.model || 'unknown', codexUsage(p.usage))) return;
     touchSpan(meta, ts);
-    addTokens(b, st.model || 'unknown', codexUsage(p.usage));
     return;
   }
 
@@ -308,6 +355,17 @@ export function codexLine(entry, line) {
         secondary: rl.secondary ? { used: rl.secondary.used_percent, minutes: rl.secondary.window_minutes, resets: rl.secondary.resets_at } : null,
         credits: rl.credits ? { has: !!rl.credits.has_credits, unlimited: !!rl.credits.unlimited, balance: rl.credits.balance ?? null } : null,
       };
+      // The window's history: one point per change, not per event — Codex
+      // repeats the same reading after every response.
+      const L = meta.limits;
+      const pt = [Date.parse(ts), L.primary?.used ?? null, L.primary?.minutes ?? null, L.primary?.resets ?? null,
+        L.secondary?.used ?? null, L.secondary?.minutes ?? null, L.secondary?.resets ?? null, L.reached ? 1 : 0];
+      const series = meta.series || (meta.series = []);
+      const last = series[series.length - 1];
+      if (Number.isFinite(pt[0]) && (!last || [1, 3, 4, 6, 7].some((i) => last[i] !== pt[i]))) {
+        series.push(pt);
+        if (series.length > SERIES_MAX) series.splice(0, series.length - SERIES_MAX);
+      }
     }
     // Older sessions have no token_usage_record. Their usage is the growth of
     // the cumulative total — token_count is emitted more than once per response,
@@ -324,10 +382,8 @@ export function codexLine(entry, line) {
       // A thread forked from another opens with a total and no breakdown — the
       // context it inherited, not a response. It is the base, never usage.
       if (!delta.input_tokens && !delta.output_tokens && !delta.cached_input_tokens) return;
-      const b = dayBucket(entry, ts);
-      if (!b) return;
+      if (!addUsage(entry, ts, st.model || 'unknown', codexUsage(delta))) return;
       touchSpan(meta, ts);
-      addTokens(b, st.model || 'unknown', codexUsage(delta));
     }
   }
 }
@@ -471,6 +527,131 @@ export function mcpLabel(server) {
   return UUID.test(server) ? `claude.ai connector ${server.slice(0, 8)}` : server;
 }
 
+const HOUR = 3600000;
+
+/** Start of the local hour for a local day + hour key. */
+function hourStart(day, hh) {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(y, m - 1, d, Number(hh)).getTime();
+}
+
+function median(xs) {
+  if (!xs.length) return null;
+  const s = [...xs].sort((a, b) => a - b);
+  const mid = Math.floor(s.length / 2);
+  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2;
+}
+
+/**
+ * Claude Code's limits as far as its logs can say. The logs carry no plan
+ * percentage — only what was spent and when a request was refused, and by which
+ * limit. So this reports spend in the last 5 hours and 7 days, and, for every
+ * refusal, what had been spent in that window when it came: the ceiling as
+ * observed, an estimate with its count, never a stated limit.
+ */
+function claudeLimits(hourly, { fromMs, now, lastHit }) {
+  const nowH = Math.floor(now / HOUR) * HOUR;
+  const startH = Math.floor(fromMs / HOUR) * HOUR;
+  const at = (t) => hourly.get(t) || { usd: 0, tokens: 0, lim: {} };
+  const roll = (t, n) => {
+    let usd = 0; let tokens = 0;
+    for (let i = 0; i < n; i++) { const x = at(t - i * HOUR); usd += x.usd; tokens += x.tokens; }
+    return { usd, tokens };
+  };
+  const series = [];
+  const hits = [];
+  const ceilings = { session: [], weekly: [] };
+  for (let t = startH; t <= nowH; t += HOUR) {
+    series.push(Number(roll(t, 5).usd.toFixed(4)));
+    const lim = at(t).lim;
+    for (const [kind, n] of Object.entries(lim)) {
+      hits.push({ t, kind, n });
+      // One reading per refused hour: ten retries against the same wall are one wall.
+      if (kind === 'session') ceilings.session.push(roll(t, 5).usd);
+      if (kind === 'weekly') ceilings.weekly.push(roll(t, 168).usd);
+    }
+  }
+  const est = (xs) => (xs.length ? { median: median(xs), min: Math.min(...xs), max: Math.max(...xs), n: xs.length } : null);
+  return {
+    fiveHour: roll(nowH, 5),
+    sevenDay: roll(nowH, 168),
+    series: { from: startH, stepMs: HOUR, usd5h: series },
+    hits,
+    ceilings: { session: est(ceilings.session), weekly: est(ceilings.weekly) },
+    lastHit: lastHit || null,
+  };
+}
+
+/** A Codex window by its length — the field that carries it moved from `secondary` to `primary` between plans. */
+export function laneName(minutes) {
+  if (minutes === 10080) return 'weekly';
+  if (minutes === 300) return 'fiveHour';
+  return `${minutes}m`;
+}
+
+/**
+ * Codex's plan windows from its own readings: every window the period touched
+ * with its peak and when it filled, the readings to draw, and — for the window
+ * still open — where the current pace ends up by the reset.
+ *
+ * Windows are keyed by their length, not by `primary`/`secondary`: on one plan
+ * the 5-hour window was primary and the week secondary, on the next the week was
+ * primary. And `resets_at` drifts by seconds between readings of one window, so
+ * it is grouped to ten minutes — unrounded, one week read as forty windows.
+ */
+function codexLimitDetail(points, { fromMs, now }) {
+  if (!points.length) return null;
+  const pts = [...points].sort((a, b) => a[0] - b[0]);
+  const lanes = {};
+  for (const p of pts) {
+    for (const [iu, im, ir] of [[1, 2, 3], [4, 5, 6]]) {
+      const used = p[iu]; const minutes = p[im]; const resets = p[ir];
+      if (used == null || !minutes || !resets) continue;
+      const resetMs = resets * 1000;
+      if (resetMs < fromMs) continue;
+      const lane = lanes[laneName(minutes)] || (lanes[laneName(minutes)] = { minutes, windows: new Map(), series: [] });
+      if (p[0] >= fromMs) {
+        const prev = lane.series[lane.series.length - 1];
+        if (!prev || prev[1] !== used) lane.series.push([p[0], used]);
+      }
+      const key = Math.round(resets / 600);
+      const w = lane.windows.get(key) || { start: resetMs - minutes * 60000, resets: resetMs, peak: 0, fullAt: null, last: null };
+      w.resets = Math.max(w.resets, resetMs);
+      w.peak = Math.max(w.peak, used);
+      if (used >= 100 && !w.fullAt) w.fullAt = p[0];
+      if (!w.last || p[0] >= w.last[0]) w.last = [p[0], used];
+      lane.windows.set(key, w);
+    }
+  }
+  const out = {};
+  for (const [name, lane] of Object.entries(lanes)) {
+    const list = [...lane.windows.values()].sort((a, b) => a.start - b.start);
+    // The open window is the one the LATEST reading belongs to. Codex has reset a
+    // week early more than once, so an older window can still look "open" on paper.
+    const latest = list.reduce((a, w) => (!a || (w.last && w.last[0] > a.last[0]) ? w : a), null);
+    const cur = latest && latest.resets > now ? latest : null;
+    let projection = null;
+    if (cur && cur.last) {
+      const [t, used] = cur.last;
+      if (used >= 100) projection = { state: 'full', resets: cur.resets, readAt: t };
+      else if (used > 0 && t > cur.start) {
+        const fullBy = cur.start + ((t - cur.start) * 100) / used;
+        projection = fullBy < cur.resets
+          ? { state: 'will-fill', fullBy, resets: cur.resets, readAt: t, used }
+          : { state: 'fits', atReset: (used * (cur.resets - cur.start)) / (t - cur.start), resets: cur.resets, readAt: t, used };
+      }
+    }
+    out[name] = {
+      minutes: lane.minutes,
+      windows: list.map((w) => ({ start: w.start, resets: w.resets, peak: w.peak, fullAt: w.fullAt })),
+      filled: list.filter((w) => w.fullAt).length,
+      series: lane.series,
+      projection,
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 /**
  * The window the board shows.
  * @param {object} index  from scanUsage
@@ -483,7 +664,7 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
   const inWindow = new Set(dates);
   const from = dates[0];
 
-  const blank = () => ({ in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, usd: 0, unpricedMsgs: 0, sessions: 0, byFn: {}, lim: { plan: 0, server: 0 } });
+  const blank = () => ({ in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, usd: 0, unpricedMsgs: 0, sessions: 0, byFn: {}, lim: {} });
   const hosts = { claude: blank(), codex: blank() };
   const daily = Object.fromEntries(dates.map((d) => [d, { claude: { tokens: 0, usd: 0, byFn: {} }, codex: { tokens: 0, usd: 0, byFn: {} } }]));
   const models = {};
@@ -492,6 +673,12 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
   const unpriced = new Set();
   let codexLimits = null;
   let codexPlan = null;
+  const fromMs = hourStart(from, '00');
+  // Hours from a week before the period: a 7-day window ending on its first day needs them.
+  const hourlyFrom = dayOf(fromMs - 7 * 86400000);
+  const hourly = { claude: new Map(), codex: new Map() };
+  const codexPoints = [];
+  let lastHit = null;
 
   for (const e of Object.values(index.files || {})) {
     const host = e.host;
@@ -499,14 +686,29 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     const lim = host === 'codex' ? e.meta?.limits : null;
     if (lim && (!codexLimits || lim.at > codexLimits.at)) codexLimits = lim;
     if (lim?.plan && (!codexPlan || lim.at > codexPlan.at)) codexPlan = { at: lim.at, plan: lim.plan };
+    if (host === 'codex' && Array.isArray(e.meta?.series)) for (const p of e.meta.series) codexPoints.push(p);
+    if (host === 'claude' && e.meta?.lastHit && (!lastHit || e.meta.lastHit.at > lastHit.at)) lastHit = e.meta.lastHit;
+    for (const [day, b] of Object.entries(e.days || {})) {
+      if (day < hourlyFrom || !b.h) continue;
+      for (const [hh, hb] of Object.entries(b.h)) {
+        const t = hourStart(day, hh);
+        const slot = hourly[host].get(t) || { usd: 0, tokens: 0, lim: {} };
+        for (const [model, v] of Object.entries(hb.m || {})) {
+          const { usd } = priceBucket(model, { in: v[0], out: v[1], cr: v[2], cw: v[3], cwh: v[4] }, prices);
+          if (usd != null) slot.usd += usd;
+          slot.tokens += v[0] + v[1] + v[2] + v[3] + v[4];
+        }
+        for (const [k, n] of Object.entries(hb.lim || {})) bump(slot.lim, k, n);
+        hourly[host].set(t, slot);
+      }
+    }
     const fn = e.meta?.fn || 'chat';
     let touched = false;
     for (const [day, b] of Object.entries(e.days || {})) {
       if (!inWindow.has(day)) continue;
       touched = true;
       const h = hosts[host];
-      h.lim.plan += b.lim?.plan || 0;
-      h.lim.server += b.lim?.server || 0;
+      for (const [k, n] of Object.entries(b.lim || {})) bump(h.lim, k, n);
       for (const kind of ['tools', 'skills', 'agents', 'mcp']) for (const [k, n] of Object.entries(b[kind] || {})) bump(lists[host][kind], k, n);
       let dayUsd = 0;
       let dayUnpriced = false;
@@ -568,7 +770,9 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     hosts: Object.fromEntries(Object.entries(hosts).map(([k, h]) => [k, {
       tokens: tokensOf(h), input: h.in, output: h.out, cacheRead: h.cr, cacheWrite: h.cw + h.cwh, reasoning: h.rs,
       responses: h.msgs, sessions: h.sessions, usd: h.unpricedMsgs === h.msgs && h.msgs > 0 ? null : h.usd,
-      unpricedResponses: h.unpricedMsgs, byFn: h.byFn, limitHits: h.lim, ...cache(h),
+      unpricedResponses: h.unpricedMsgs, byFn: h.byFn, ...cache(h),
+      // `plan` is every refusal by a limit of the account; `server` is the API's own throttle.
+      limitHits: { ...h.lim, plan: Object.entries(h.lim).filter(([k]) => k !== 'server').reduce((a, [, n]) => a + n, 0), server: h.lim.server || 0 },
     }])),
     daily: dates.map((d) => ({ date: d, ...daily[d] })),
     models: Object.values(models).sort((a, b) => tokensOf(b) - tokensOf(a)).map((m) => ({
@@ -578,7 +782,10 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     lists: Object.fromEntries(Object.entries(lists).map(([host, l]) => [host, {
       tools: rank(l.tools, 15), skills: rank(l.skills, 15), agents: rank(l.agents, 15), mcp: rank(l.mcp, 15, mcpLabel),
     }])),
-    limits: { codex: codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null } : null },
+    limits: {
+      codex: codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null, detail: codexLimitDetail(codexPoints, { fromMs, now }) } : null,
+      claude: claudeLimits(hourly.claude, { fromMs, now, lastHit }),
+    },
     unpricedModels: [...unpriced].sort(),
   };
 }

@@ -9,7 +9,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {
-  scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot,
+  scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot, limitKind,
 } from '../../scripts/lib/session-usage.mjs';
 
 const made = [];
@@ -98,7 +98,48 @@ test('a server-side throttle is not a plan limit', async () => {
     err("You've hit your limit · resets 3pm"),
   ]));
   const { sum } = await scanned(r);
-  assert.deepEqual(sum.hosts.claude.limitHits, { plan: 1, server: 1 });
+  assert.equal(sum.hosts.claude.limitHits.plan, 1);
+  assert.equal(sum.hosts.claude.limitHits.server, 1);
+});
+
+test('a refusal is filed under the limit that refused it, in Claude Code\'s own words', () => {
+  assert.equal(limitKind('API Error: Server is temporarily limiting requests (not your usage limit) · Rate limited'), 'server');
+  assert.equal(limitKind("You've hit your session limit · resets 3:30pm (Europe/Vienna)"), 'session');
+  assert.equal(limitKind("You've hit your weekly limit · resets Sep 12 at 3pm (Europe/Vienna)"), 'weekly');
+  assert.equal(limitKind("You've hit your monthly spend limit · raise it at claude.ai/settings/usage · your weekly limit resets Sep 9 at 2pm"), 'spend',
+    'the spend limit is what refused, even when the message also names the weekly reset');
+  assert.equal(limitKind("You've reached your Fable 5 limit. Run /usage-credits to continue"), 'model');
+  assert.equal(limitKind("You're out of usage credits. Switch to another model"), 'credits');
+  assert.equal(limitKind('something new'), 'other');
+});
+
+test('Claude Code: spend in the last 5 hours and 7 days, and what had been spent when a limit refused', async () => {
+  const r = roots();
+  const dir = path.join(r.claudeDir, '-w-acme');
+  fs.mkdirSync(dir);
+  // $5 per response: 1M input on Opus 5.
+  const u = { input_tokens: 1_000_000, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 };
+  const at = (h, day = 6) => new Date(2026, 9, day, h, 10).toISOString();
+  const resp = (id, ts) => claudeResponse({ id, ts, usage: u, blocks: [{ type: 'text', text: 'x' }] });
+  const refuse = (ts, text) => ({ type: 'assistant', timestamp: ts, isApiErrorMessage: true, error: 'rate_limit', message: { id: ts, model: '<synthetic>', content: [{ type: 'text', text }] } });
+  fs.writeFileSync(path.join(dir, 's.jsonl'), jsonl([
+    ...resp('a', at(1, 3)),                       // three days ago: inside 7 days, outside 5 hours
+    ...resp('b', at(8)), ...resp('c', at(9)), ...resp('d', at(10)),
+    refuse(at(10), "You've hit your session limit · resets 1pm (Europe/Vienna)"),
+    refuse(at(10), "You've hit your session limit · resets 1pm (Europe/Vienna)"),
+  ]));
+  const now = new Date(2026, 9, 6, 11, 30).getTime();
+  const s = await scanUsage({ claudeDir: r.claudeDir, codexDirs: r.codexDirs, cacheFile: r.cacheFile, now });
+  const sum = summarizeUsage(s.index, { days: 7, now, prices: PRICES });
+  const L = sum.limits.claude;
+  assert.equal(L.fiveHour.usd, 15, 'responses at 8, 9 and 10 are inside the last 5 hours');
+  assert.equal(L.sevenDay.usd, 20);
+  assert.deepEqual(L.ceilings.session, { median: 15, min: 15, max: 15, n: 1 }, 'two retries in one hour are one wall, met at $15');
+  assert.equal(L.ceilings.weekly, null, 'no weekly refusal, no weekly estimate');
+  assert.equal(L.lastHit.kind, 'session');
+  assert.match(L.lastHit.text, /resets 1pm/);
+  assert.equal(sum.hosts.claude.limitHits.session, 2);
+  assert.equal(L.series.usd5h.length, 7 * 24 - (24 - 12), 'one reading per hour from the period start to now');
 });
 
 test('Codex: cached input is split out, a response is counted once, tools inside exec are named', async () => {
@@ -135,6 +176,52 @@ test('Codex: cached input is split out, a response is counted once, tools inside
   assert.equal(sum.limits.codex.plan, 'prolite', 'a reading without a plan keeps the last known one');
   assert.equal(sum.top.codex[0].title, 'Nightly billing check', 'thread names: last write wins');
   assert.equal(sum.top.codex[0].project, 'billing', 'a Codex worktree is folded into its repository');
+});
+
+test('Codex: every plan window the period touched, its peak, when it filled, and where the open one is heading', async () => {
+  const r = roots();
+  const H = 3600;
+  const reset1 = Math.floor(Date.parse('2026-10-03T12:00:00Z') / 1000);           // a week that filled
+  const reset2 = reset1 + 7 * 24 * H;                                              // the open one
+  const tc = (iso, used, resets) => ({ timestamp: iso, type: 'event_msg', payload: { type: 'token_count', info: null,
+    rate_limits: { primary: { used_percent: used, window_minutes: 10080, resets_at: resets }, plan_type: 'prolite' } } });
+  fs.writeFileSync(path.join(r.codexDirs[1], 'rollout-lim.jsonl'), jsonl([
+    { timestamp: '2026-09-28T08:00:00Z', type: 'session_meta', payload: { id: 'lim', cwd: '/w/acme', originator: 'Codex Desktop', thread_source: 'user', source: 'vscode' } },
+    // resets_at drifts by seconds between readings of the same window.
+    tc('2026-09-28T09:00:00Z', 40, reset1), tc('2026-09-28T09:05:00Z', 40, reset1 + 7),
+    tc('2026-10-01T09:00:00Z', 100, reset1),
+    // An earlier window that was cut short by an early reset: on paper still open.
+    tc('2026-09-30T12:00:00Z', 5, reset2 + 3 * 24 * H),
+    // The open window started 2026-10-03 12:00Z; 24 h in, 10% used → 70% at the reset.
+    tc('2026-10-04T12:00:00Z', 10, reset2),
+  ]));
+  const now = Date.parse('2026-10-04T13:00:00Z');
+  const s = await scanUsage({ claudeDir: r.claudeDir, codexDirs: r.codexDirs, cacheFile: r.cacheFile, now });
+  const d = summarizeUsage(s.index, { days: 14, now, prices: PRICES }).limits.codex.detail.weekly;
+  assert.equal(d.minutes, 10080);
+  assert.equal(d.windows.length, 3, 'a reset that drifts by seconds is the same window');
+  assert.equal(d.filled, 1);
+  assert.equal(d.windows[0].peak, 100);
+  assert.equal(d.windows[0].fullAt, Date.parse('2026-10-01T09:00:00Z'), 'filled 2 days 3 hours before its reset');
+  assert.equal(d.series.length, 4, 'a reading repeated after every response is one point');
+  assert.equal(d.projection.state, 'fits');
+  assert.equal(Math.round(d.projection.atReset), 70);
+});
+
+test('a Codex window is known by its length, whichever field carried it', async () => {
+  const r = roots();
+  const rl = (primary, secondary) => ({ timestamp: '2026-10-04T12:00:00Z', type: 'event_msg', payload: { type: 'token_count', rate_limits: { primary, secondary } } });
+  const fiveH = Math.floor(Date.parse('2026-10-04T15:00:00Z') / 1000);
+  const week = Math.floor(Date.parse('2026-10-09T12:00:00Z') / 1000);
+  fs.writeFileSync(path.join(r.codexDirs[1], 'rollout-lanes.jsonl'), jsonl([
+    rl({ used_percent: 30, window_minutes: 300, resets_at: fiveH }, { used_percent: 57, window_minutes: 10080, resets_at: week }),
+    { ...rl({ used_percent: 60, window_minutes: 10080, resets_at: week }, null), timestamp: '2026-10-04T12:30:00Z' },
+  ]));
+  const now = Date.parse('2026-10-04T13:00:00Z');
+  const s = await scanUsage({ claudeDir: r.claudeDir, codexDirs: r.codexDirs, cacheFile: r.cacheFile, now });
+  const d = summarizeUsage(s.index, { days: 7, now, prices: PRICES }).limits.codex.detail;
+  assert.deepEqual(Object.keys(d).sort(), ['fiveHour', 'weekly']);
+  assert.deepEqual(d.weekly.series.map((x) => x[1]), [57, 60], 'secondary on one reading, primary on the next — one week');
 });
 
 test('Codex without usage records: the growth of the running total, not every repeated event', async () => {

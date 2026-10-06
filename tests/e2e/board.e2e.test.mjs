@@ -51,6 +51,7 @@ function seedHostLogs(fakeHome) {
     { type: 'custom-title', customTitle: 'Checkout redesign' },
     line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:senior-dev' } }),
     line({ type: 'tool_use', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }),
+    { type: 'assistant', timestamp: now, isApiErrorMessage: true, error: 'rate_limit', message: { id: 'refused', model: '<synthetic>', content: [{ type: 'text', text: "You've hit your session limit · resets 3pm (Europe/Vienna)" }] } },
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   const xdir = path.join(fakeHome, '.codex', 'sessions', '2026', '10', '06');
   fs.mkdirSync(xdir, { recursive: true });
@@ -444,7 +445,14 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
     const claude = await page.locator('.usage-card[data-host="claude"]').innerText();
     assert.match(claude, /10\.0k\s*tokens/, `one response, counted once: 1k in + 2k out + 7k cache (got: ${claude.slice(0, 120)})`);
     assert.match(claude, /\$0\.06/, 'priced at the Opus 5 list rate');
-    assert.match(claude, /refused at the plan limit/, 'Claude Code plan use is not drawn; the refusals are');
+    assert.match(claude, /1 refused at the plan limit/, 'Claude Code plan use is not drawn; the refusals are');
+
+    const climits = await page.locator('[data-limits="claude"]').innerText();
+    assert.match(climits, /1\s*5-hour session/, 'the refusal is filed under the limit that refused it');
+    assert.match(climits, /Refused at about \$0\.06 in 5 hours/, 'and the spend it came at is the observed ceiling');
+    assert.match(climits, /hit your session limit · resets 3pm/, 'in Claude Code\'s own words');
+    const xlimits = await page.locator('[data-limits="codex"]').innerText();
+    assert.match(xlimits, /Weekly limit[\s\S]*42% used\. At this pace about \d+% by the reset/, 'the open week and where its pace ends');
 
     const codex = await page.locator('.usage-card[data-host="codex"]').innerText();
     assert.match(codex, /4\.5k\s*tokens/);

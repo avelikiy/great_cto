@@ -62,9 +62,13 @@ Indicative for a solo-CTO project at ~20 pipeline runs a month:
 What it actually cost is on the board's **Usage** screen (Tools → Usage): Claude
 Code and Codex side by side, from their own session logs — tokens per day and kind
 of work, the heaviest conversations, models, tools, skills, agents, cache share,
-and the plan window Codex reports. Dollars there are the API list-price
-equivalent, not a subscription bill; Claude Code does not record how much of a
-plan is used, so only its refusals at the limit are shown.
+and limits. For Codex: each 5-hour and weekly window it reported, how full it got,
+when it filled, and where the open window ends at the current pace. For Claude
+Code, which records no plan percentage: spend in the last 5 hours and 7 days,
+every refusal filed under the limit that refused it (session, weekly, monthly
+spend, per-model, credits — server throttles apart), and the spend at which those
+refusals came, as an estimate with its count. Dollars there are the API
+list-price equivalent, not a subscription bill.
 
 You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage
 auto-routes to a cheaper model (~5× lower cost) for a 60–80% reduction on

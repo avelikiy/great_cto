@@ -2404,7 +2404,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-sub { font-size: var(--fs-caption); color: var(--text3); line-height: 1.5; }
 .usage-note { font-size: var(--fs-small); color: var(--text2); line-height: 1.55; }
 .usage-chart svg { display: block; width: 100%; height: 120px; }
-.usage-axis { display: flex; justify-content: space-between; font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); margin-top: 4px; }
+.usage-axis { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); margin-top: 4px; }
+.usage-axis span { white-space: nowrap; }
+.usage-axis span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .usage-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-caption); color: var(--text2); margin-top: 8px; }
 .usage-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
 .usage-table-wrap { overflow-x: auto; }
@@ -2425,6 +2427,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-list li .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text2); }
 .usage-list li .bar { grid-column: 1 / -1; height: 3px; background: var(--bg-muted); }
 .usage-list li .bar > span { display: block; height: 100%; background: var(--accent); opacity: 0.7; }
+.usage-line svg { display: block; width: 100%; height: 110px; overflow: visible; }
+.usage-line .ln { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.usage-line .ceil { stroke: var(--status-progress); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.usage-line .grid { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.usage-kinds { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-small); color: var(--text2); margin: 10px 0 4px; }
+.usage-kinds b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; margin-right: 4px; }
+.usage-quote { font-size: var(--fs-small); color: var(--text2); border-left: 2px solid var(--border-strong); padding: 2px 0 2px 10px; margin: 10px 0 0; overflow-wrap: anywhere; }
+.usage-pace { font-size: var(--fs-small); color: var(--text); margin: 4px 0 8px; }
+.usage-pace.bad { color: var(--status-blocked-ink); }
 @media (max-width: 767px) { .usage-title { max-width: 160px; } .usage-chip { min-height: 44px; } }
 .mp-section-label {
   font-family: var(--mono); font-size: var(--fs-caption);
@@ -6017,6 +6028,7 @@ function setUsageHost(host) {
 function usageLimitWindow(minutes) {
   if (minutes === 10080) return 'Weekly limit';
   if (minutes === 300) return '5-hour limit';
+  if (minutes === 43200) return 'Monthly limit';
   return minutes ? `${minutes}-minute limit` : 'Limit';
 }
 
@@ -6141,6 +6153,90 @@ function usageList(title, rows, empty) {
   return `<section class="usage-card"><h3><span>${title}</span></h3><ul class="usage-list">${items}</ul></section>`;
 }
 
+// ── Limits (great_cto-egkw stage 2) ────────────────────────────────────────
+const USAGE_LIMIT_KIND = { session: '5-hour session', weekly: 'weekly', spend: 'monthly spend', model: 'per-model', credits: 'usage credits', other: 'other' };
+const USAGE_LIMIT_COLOR = { session: 'var(--status-blocked)', weekly: 'var(--status-progress)', spend: 'var(--status-gate)', model: 'var(--text2)', credits: 'var(--text2)', other: 'var(--text3)' };
+const fmtWhen = (ms) => (ms ? fmtDT(new Date(ms).toISOString()) : '—');
+function fmtHours(ms) {
+  const h = ms / 3600000;
+  return h >= 48 ? `${Math.round(h / 24)} days` : `${Math.max(1, Math.round(h))} h`;
+}
+
+/** A line over the period: points [ms, value]; marks [{t, color, title}] drawn as ticks. */
+function usageLineSvg({ from, to, points, max, marks = [], ceiling = null, label }) {
+  const W = 1000; const H = 100;
+  const x = (t) => (((t - from) / Math.max(1, to - from)) * W).toFixed(1);
+  const y = (v) => (H - (Math.min(v, max) / max) * (H - 4)).toFixed(1);
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(p[0])},${y(p[1])}`).join('');
+  const ticks = marks.map((m) => `<g><title>${esc(m.title)}</title><line x1="${x(m.t)}" x2="${x(m.t)}" y1="0" y2="${H}" stroke="${m.color}" stroke-width="2" vector-effect="non-scaling-stroke" opacity="0.8"></line></g>`).join('');
+  const ceil = ceiling != null ? `<line class="ceil" x1="0" x2="${W}" y1="${y(ceiling)}" y2="${y(ceiling)}"></line>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}">
+    <line class="grid" x1="0" x2="${W}" y1="${H}" y2="${H}"></line>${ceil}${ticks}<path class="ln" d="${path}"></path></svg>`;
+}
+
+function usageClaudeLimits(d) {
+  const head = `<h3><span>Claude Code limits</span><span class="muted">from refusals — no plan percentage is recorded</span></h3>`;
+  if (!d.seen || !d.seen.claude) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">No Claude Code logs on this machine.</p></section>`;
+  const L = d.limits && d.limits.claude;
+  if (!L) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">Not computed.</p></section>`;
+  const hits = (d.hosts.claude && d.hosts.claude.limitHits) || {};
+  const stat = (v, label) => `<div class="usage-stat"><b>${v}</b><span>${label}</span></div>`;
+  const ceilLine = (c, span) => c
+    ? `Refused at about <b>${esc(fmtUsdEq(c.median))}</b> in ${span} <span class="muted">(median of ${c.n} refused hour${c.n === 1 ? '' : 's'}, ${esc(fmtUsdEq(c.min))}–${esc(fmtUsdEq(c.max))})</span>`
+    : null;
+  const ceilings = [ceilLine(L.ceilings.session, '5 hours'), ceilLine(L.ceilings.weekly, '7 days')].filter(Boolean);
+  const kinds = Object.keys(USAGE_LIMIT_KIND).filter((k) => hits[k]).map((k) => `<span><b>${hits[k]}</b>${USAGE_LIMIT_KIND[k]}</span>`).join('');
+  const s = L.series || { usd5h: [] };
+  const to = s.from + (s.usd5h.length - 1) * s.stepMs;
+  const pts = s.usd5h.map((v, i) => [s.from + i * s.stepMs, v]);
+  const max = Math.max(1, ...s.usd5h, L.ceilings.session ? L.ceilings.session.max : 0);
+  const marks = (L.hits || []).filter((h) => h.kind !== 'server').map((h) => ({ t: h.t, color: USAGE_LIMIT_COLOR[h.kind] || 'var(--text3)', title: `${fmtWhen(h.t)} — refused by the ${USAGE_LIMIT_KIND[h.kind] || h.kind} limit ×${h.n}` }));
+  const chart = pts.length > 1 ? `<div class="usage-line">${usageLineSvg({ from: s.from, to, points: pts, max, marks, ceiling: L.ceilings.session ? L.ceilings.session.median : null, label: 'Claude Code spend in the trailing 5 hours, with refusals marked' })}</div>
+    <div class="usage-axis"><span>${esc(d.window.from)}</span><span>$ in the trailing 5 hours · peak ${esc(fmtUsdEq(max))}</span><span>${esc(d.window.to)}</span></div>` : '';
+  const last = L.lastHit ? `<p class="usage-quote" title="${esc(fmtDate(L.lastHit.at))}">${esc(L.lastHit.text)} <span class="muted">— ${esc(relTime(L.lastHit.at))} ago</span></p>` : '';
+  return `<section class="usage-card" data-limits="claude">${head}
+    <div class="usage-stats">${stat(esc(fmtUsdEq(L.fiveHour.usd)), 'last 5 hours, $ list')}${stat(esc(fmtUsdEq(L.sevenDay.usd)), 'last 7 days, $ list')}${stat(esc(String(hits.plan || 0)), `refusals in ${d.window.days} days`)}</div>
+    ${kinds ? `<div class="usage-kinds">${kinds}</div>` : `<p class="usage-note">No request was refused by a limit in this period.</p>`}
+    ${ceilings.length ? `<p class="usage-note">${ceilings.join('<br>')}. <span class="muted">An estimate from what had been spent when Claude Code refused — not a published limit.</span></p>` : ''}
+    ${chart}
+    ${hits.server ? `<p class="usage-sub">${hits.server} server-side throttles (not your limit) are not marked.</p>` : ''}
+    ${last}
+  </section>`;
+}
+
+function usageCodexLane(name, lane, d) {
+  const title = usageLimitWindow(lane.minutes);
+  const P = lane.projection;
+  const lastRead = lane.series.length ? lane.series[lane.series.length - 1][0] : null;
+  let pace = `<p class="usage-pace muted">No open window${lastRead ? ` — the last reading of it is from ${esc(fmtWhen(lastRead))}; the plan may no longer have it` : ''}.</p>`;
+  if (P && P.state === 'full') pace = `<p class="usage-pace bad">Full — resets ${esc(fmtWhen(P.resets))}.</p>`;
+  else if (P && P.state === 'will-fill') pace = `<p class="usage-pace bad">${P.used}% used. At this pace it is full by ${esc(fmtWhen(P.fullBy))} — ${esc(fmtHours(P.resets - P.fullBy))} before the reset.</p>`;
+  else if (P && P.state === 'fits') pace = `<p class="usage-pace">${P.used}% used. At this pace about ${Math.round(P.atReset)}% by the reset, ${esc(fmtWhen(P.resets))}.</p>`;
+  const from = Date.parse(`${d.window.from}T00:00:00`);
+  const to = Date.now();
+  const pts = [];
+  for (const [t, v] of lane.series) { if (pts.length) pts.push([t, pts[pts.length - 1][1]]); pts.push([t, v]); }
+  const marks = lane.windows.filter((w) => w.fullAt && w.fullAt >= from).map((w) => ({ t: w.fullAt, color: 'var(--status-blocked)', title: `filled ${fmtWhen(w.fullAt)}, ${fmtHours(w.resets - w.fullAt)} before its reset` }));
+  const chart = pts.length > 1 ? `<div class="usage-line">${usageLineSvg({ from, to, points: pts, max: 100, marks, label: `Codex ${title} percent used over the period` })}</div>
+    <div class="usage-axis"><span>${esc(d.window.from)}</span><span>% used · red = filled</span><span>${esc(d.window.to)}</span></div>` : '';
+  const touched = lane.windows.filter((w) => w.peak > 0);
+  const early = lane.windows.filter((w) => w.fullAt).map((w) => w.resets - w.fullAt);
+  const summary = touched.length
+    ? `${lane.filled} of ${touched.length} used windows filled${early.length ? `, on median ${esc(fmtHours(early.sort((a, b) => a - b)[Math.floor(early.length / 2)]))} before the reset` : ''}.`
+    : 'No window was used in this period.';
+  return `<div class="usage-limit" data-lane="${esc(name)}"><div class="usage-limit-head"><span>${esc(title)}</span></div>${pace}${chart}<p class="usage-sub">${summary}</p></div>`;
+}
+
+function usageCodexLimits(d) {
+  const head = `<h3><span>Codex limits</span><span class="muted">as Codex reported them</span></h3>`;
+  if (!d.seen || !d.seen.codex) return `<section class="usage-card" data-limits="codex">${head}<p class="usage-note">No Codex logs on this machine.</p></section>`;
+  const D = d.limits && d.limits.codex && d.limits.codex.detail;
+  if (!D) return `<section class="usage-card" data-limits="codex">${head}<p class="usage-note">No Codex session reported its plan window in this period.</p></section>`;
+  const order = ['fiveHour', 'weekly', ...Object.keys(D).filter((k) => k !== 'fiveHour' && k !== 'weekly')];
+  const lanes = order.filter((k) => D[k]).map((k) => usageCodexLane(k, D[k], d)).join('');
+  return `<section class="usage-card" data-limits="codex">${head}${lanes}<p class="usage-sub">A window Codex reset early shows as its own window.</p></section>`;
+}
+
 function renderUsage(d) {
   const body = document.getElementById('usage-body');
   if (!body) return;
@@ -6149,6 +6245,8 @@ function renderUsage(d) {
   const hostBtn = (h) => `<button type="button" class="usage-chip${usageHost === h ? ' active' : ''}" aria-pressed="${usageHost === h}" onclick="setUsageHost('${h}')">${USAGE_HOSTS[h]}</button>`;
   body.innerHTML = `
     <div class="usage-grid">${usageHostCard(d, 'claude')}${usageHostCard(d, 'codex')}</div>
+    <h2 class="mp-section-label">Limits</h2>
+    <div class="usage-grid">${usageClaudeLimits(d)}${usageCodexLimits(d)}</div>
     <h2 class="mp-section-label">By day, by kind of work</h2>
     <div class="usage-grid">${usageDayChart(d, 'claude')}${usageDayChart(d, 'codex')}</div>
     <h2 class="mp-section-label">Heaviest conversations</h2>
