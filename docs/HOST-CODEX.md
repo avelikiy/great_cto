@@ -173,6 +173,26 @@ receipts, non-Git projects, exhausted budgets and tree drift require inspection.
 `cancel` invalidates a pending gate, not files already written. Both commands
 take the existing exclusive lock: cancellation does not interrupt a running CLI.
 
+An operator can reject an unchanged, pending sequential gate for controlled
+same-role rework, without approving it:
+
+```bash
+node <plugin-root>/scripts/codex-pipeline.mjs reject <run-uuid> --token <pending-token> --reason 'Explain the concrete defect'
+node <plugin-root>/scripts/codex-pipeline.mjs resume <run-uuid>
+```
+
+`reject` binds the pending token, result, complete Git receipt and managed file
+hashes exactly as approval does. It archives the rejected result and affected
+descendant approvals, retains unaffected ancestors and existing file bytes,
+and queues the same role within the existing repair budget. The rejection log
+retains the old pending decision and actual controller module path/SHA256.
+It does not dispatch a model, alter frozen policies or grant an approval.
+Parallel-wave and active-stage rejection are refused; release approval is a
+separate operation, not a sequential stage gate. Exhausted budgets block rework.
+Workers and verifiers receive frozen check/release configuration separately
+from execution evidence, including exact commands and a policy snapshot digest.
+Configured commands must not be presented as executed checks or different smoke.
+
 ## Build/test backends
 
 Docker is optional for the product, not silently optional for a pinned run.

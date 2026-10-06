@@ -197,3 +197,71 @@ verified gate. Safe reconciliation requires a controlled rework mechanism and
 policy-context audit, or an explicitly chosen fresh-run approach; it must not
 silently mutate a pinned candidate. Full lifecycle acceptance .8.6 remains
 in progress pending correction and a new bound planning result.
+
+### Bound operator rejection and frozen-policy context (2026-10-06)
+
+The user approved fixing the pending planning defect, not approving gate:plan.
+Both worker and verifier now receive the exact frozen check/release policy JSON,
+a shared SHA256 snapshot digest, and a distinction between configured commands
+and actual execution. Contradictory smoke paths/assertions require rework.
+The new sequential `reject` operation shares approval's token/result/managed
+artifact/complete Git receipt checks. It preserves the old decision, result,
+affected approvals and actual executing controller module path/SHA256, then
+uses bounded same-role rewind. Ancestor approvals and policies are unchanged;
+no model is dispatched by rejection. Active stages and parallel waves refuse
+this operation. Release approval remains separate.
+
+A separate private npm candidate was built, packed and installed offline with
+install scripts disabled at:
+/Users/Shared/great-cto-plan-rework-candidate-6QO7py/install/node_modules/great-cto.
+Archive: /Users/Shared/great-cto-plan-rework-candidate-6QO7py/great-cto-3.48.0.tgz;
+SHA256 e7b0fa38af2422ff3c7db066f774047ea4d2d5853779773fd6ad3b272c003496.
+This is another private candidate with the unchanged package version, not an
+npm/public/marketplace release. Installed runtime pins match source:
+
+- scripts/codex-pipeline.mjs:
+  637a99c5597682b3876eaf97269ad33c056aab45a7f2c87d88988897c7e04b58
+- scripts/lib/codex-pipeline.mjs:
+  9e19ec9232eba4d339125274fa0b7e84c8cc75f3ba10c491eb2d8f6e48abebd5
+- scripts/lib/codex-checks.mjs:
+  c0a3e831a14c49a57f295850de5c2eb410fdda2c52fd7c6d080607193983f910
+- scripts/lib/codex-release.mjs:
+  61074d4df3a58d3ce8ec099e6f6aab98e1b41629f4a9b2cc776d8467e2b34561
+
+The actual new installed CLI rejected run
+928d1344-5546-425b-af9c-f1de5e0fec74's token
+f46f891b-4b43-4356-b4f0-b6f99aebe126 with explicit smoke-contract feedback.
+The run became ready, pending null, queue [pm], two approvals retained, release
+absent. The old package's four module hashes were checked unchanged before
+this operation. Existing state.pluginRoot still points to the old immutable
+package for graph/contracts; this is an explicitly recorded controller upgrade,
+not a same-runtime claim or manual runtime/policy/state migration.
+Actual new installed resume dispatched PM attempt 2 at
+2026-10-06T06:38:39.113Z. Its rework context contains only approved predecessor
+results and archived operator feedback; no approval was added.
+Log: /Users/Shared/great-cto-local-installed-plan-rework.log.
+
+Checks: npm TypeScript build passed; first focused suite 50/50; expanded suite
+55/55, no skips (23063.869375 ms); npm bridge/board packaging suite 14/14, no
+skips. A subsequent 38/38 pipeline-only pass includes real reject CLI persistence,
+stale-token refusal, actual executor provenance and no automatic dispatch.
+These are bounded regression results, not whole-repository CI or a live
+two-model release outcome. The debug skill guided reproducing the discrepancy,
+isolating missing policy context and adding receipt/token/budget regression cases.
+
+Final focused suite adds missing-receipt and unmanaged Git-tree-drift rejection:
+57/57, zero failures/skips, 22060.3865 ms. Syntax checks passed for both controller
+modules. Package build and bridge/board tests are separate from this suite.
+Backend/release regression: 38 tests, 35 passed, zero failures, 3 Docker skips,
+8469.531083 ms. Docker skips do not establish container execution acceptance.
+
+The actual PM attempt 2 did NOT produce a corrected result: the installed
+controller exited 2, status blocked, active pm, phase worker, pending null,
+two approvals retained, release absent. Codex reported
+`failed to refresh available models: request timed out` at
+2026-10-06T06:38:44.294710Z and timed out after 300000 ms. No worker proposal
+was applied and no verifier was dispatched for this attempt. This is a host
+execution failure, not a successful planning correction. `codex login status`
+confirmed ChatGPT login and CLI version 0.160.0. A direct unauthenticated HEAD
+to the models endpoint returned HTTP 405 promptly; that proves endpoint
+reachability, not authenticated model availability or a successful model call.

@@ -2,7 +2,7 @@
 import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
 import { join, resolve, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage, runParallelWave, parallelPair, approve, recover, cancel } from './lib/codex-pipeline.mjs';
+import { newRun, runStage, runParallelWave, parallelPair, approve, reject, recover, cancel } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
 import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
@@ -122,7 +122,7 @@ try {
       } else projectLease = acquireProjectLease(state.root, { reuseToken: inheritedLease });
     }
   }
-  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
+  if (!['start', 'resume', 'status', 'approve', 'reject', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, reject, approve-release, recover, cancel, list or doctor');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;
@@ -137,6 +137,7 @@ try {
       if (decision.kind === 'release') approveRelease(state, state.release.token); else approve(state, state.pending.token);
       save(state);
     } else if (command === 'approve') { approve(state, value('--token')); save(state); }
+    else if (command === 'reject') { reject(state, value('--token'), value('--reason')); save(state); }
     else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
     else if (command === 'recover') { recover(state); save(state); }
     else if (command === 'cancel') { cancel(state); save(state); }

@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, runStage as stage, approve, reject, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
 import { commitFixture } from '../helpers/committed-fixture.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
@@ -23,6 +23,114 @@ function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["r
 }
 const response = (verdict = 'DONE', files = [{ path: 'src/app.js', before: null, content: 'export const x = 1;\n' }]) =>
   ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict, summary: 'fixture', meta: { report: 'src/app.js' }, files }), usage: null });
+
+test('operator rejection is bound, preserves policies and ancestors, and reruns without approval', async t => {
+  const s = fixture(t);
+  s.checkPolicy = { backend: 'local', trusted: true, commands: [['node', '--test']] };
+  s.releasePolicy = { smokeCommands: [['node', 'dist/add.mjs']] };
+  const policies = JSON.stringify([s.checkPolicy, s.releasePolicy]);
+  await runStage(s, { execute: async options => {
+    assert.match(options.prompt, /FROZEN OPERATOR POLICIES/);
+    assert.match(options.prompt, /dist\/add.mjs/);
+    return response();
+  } });
+  const token = s.pending.token;
+  const unchanged = JSON.stringify(s);
+  assert.throws(() => reject(s, 'wrong', 'fix smoke'), /token/);
+  assert.throws(() => reject(s, token, ''), /nonempty/);
+  assert.throws(() => reject(s, token, 'x'.repeat(4097)), /4096/);
+  assert.equal(JSON.stringify(s), unchanged);
+  s.wave = { id: 'parallel' };
+  assert.throws(() => reject(s, token, 'fix smoke'), /sequential/);
+  delete s.wave;
+  const originalDigest = s.results.writer.digest;
+  s.approvals.push({ role: 'ancestor', gate: 'gate:arch', result: 'ancestor-result' });
+  reject(s, token, 'fix smoke');
+  assert.equal(s.status, 'ready');
+  assert.equal(s.pending, null);
+  assert.deepEqual(s.queue, ['writer']);
+  assert.equal(s.results.writer, undefined);
+  assert.equal(s.invalidations.at(-1).results.writer.digest, originalDigest);
+  assert.equal(s.rejections.at(-1).pending.token, token);
+  assert.equal(s.approvals.length, 1);
+  assert.equal(JSON.stringify([s.checkPolicy, s.releasePolicy]), policies);
+  assert.throws(() => reject(s, token, 'again'), /token/);
+  assert.throws(() => approve(s, token), /token/);
+  await runStage(s, { execute: async () => response('DONE', []) });
+  assert.equal(s.status, 'awaiting-gate');
+  assert.notEqual(s.pending.token, token);
+  assert.equal(s.approvals.length, 1);
+});
+
+test('reject refuses missing receipts and Git drift outside managed writes without mutating state', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const token = s.pending.token;
+  const receipt = s.pending.receipt;
+  delete s.pending.receipt;
+  const incomplete = JSON.stringify(s);
+  assert.throws(() => reject(s, token, 'fix'), /complete receipt/);
+  assert.equal(JSON.stringify(s), incomplete);
+  s.pending.receipt = receipt;
+  writeFileSync(join(s.root, 'unmanaged.txt'), 'outside managed writes');
+  const drifted = JSON.stringify(s);
+  assert.throws(() => reject(s, token, 'fix'), /working tree changed/);
+  assert.equal(JSON.stringify(s), drifted);
+});
+
+test('reject refuses stale result and artifact drift, and honors repair budget', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const token = s.pending.token;
+  const digest = s.results.writer.digest;
+  s.results.writer.digest = 'stale';
+  assert.throws(() => reject(s, token, 'fix'), /stale/);
+  s.results.writer.digest = digest;
+  writeFileSync(join(s.root, 'src/app.js'), 'drift');
+  assert.throws(() => reject(s, token, 'fix'), /artifact changed/);
+  writeFileSync(join(s.root, 'src/app.js'), 'export const x = 1;\n');
+  s.maxAttempts = 1;
+  reject(s, token, 'fix');
+  assert.equal(s.status, 'blocked');
+  assert.match(s.reason, /attempt limit/);
+  assert.equal(s.approvals.length, 0);
+});
+
+test('verifier receives exact frozen policies separately from execution evidence', async t => {
+  const s = fixture(t);
+  s.releasePolicy = { smokeCommands: [['node', 'dist/add.mjs']] };
+  await verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /dist\/add.mjs/);
+    assert.match(options.prompt, /A contradiction requires rework/);
+    assert.match(options.prompt, /not execution evidence/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['policy checked'] }) };
+  });
+});
+
+test('reject CLI persists bound rework, records installed executor provenance, and does not dispatch', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const store = mkdtempSync(join(tmpdir(), 'reject-cli-'));
+  t.after(() => rmSync(store, { recursive: true, force: true }));
+  const file = join(store, `${s.id}.json`);
+  writeFileSync(file, JSON.stringify(s));
+  const controller = fileURLToPath(new URL('../../scripts/codex-pipeline.mjs', import.meta.url));
+  const invoke = token => spawnSync(process.execPath, [controller, 'reject', s.id, '--token', token, '--reason', 'Fix the frozen smoke contract'],
+    { env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_DISABLE_EVENTS: '1' }, encoding: 'utf8', timeout: 10000 });
+  const before = readFileSync(file, 'utf8');
+  assert.notEqual(invoke('wrong').status, 0);
+  assert.equal(readFileSync(file, 'utf8'), before);
+  const result = invoke(s.pending.token);
+  assert.equal(result.status, 0, result.stderr);
+  const saved = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(saved.status, 'ready');
+  assert.equal(saved.attempts.length, s.attempts.length);
+  assert.equal(saved.approvals.length, 0);
+  assert.equal(saved.pending, null);
+  assert.match(saved.rejections[0].controller.sha256, /^[a-f0-9]{64}$/);
+  assert.match(saved.rejections[0].controller.modulePath, /codex-pipeline\.mjs$/);
+  assert.notEqual(invoke(s.pending.token).status, 0);
+});
 
 test('scoped verifier distinguishes unresolved findings from successful checks', async t => {
   const s = fixture(t);
