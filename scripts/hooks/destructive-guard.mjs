@@ -37,6 +37,7 @@
  *
  * Opt out for a whole session (operator's environment): GREAT_CTO_DISABLE_DESTRUCTIVE_GUARD=1
  */
+import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { homedir, tmpdir } from 'node:os';
@@ -345,31 +346,20 @@ function currentBranch(cwd) {
   } catch { return null; }
 }
 
-function main() {
-  if (process.env.GREAT_CTO_DISABLE_DESTRUCTIVE_GUARD === '1') return process.exit(0);
-  let raw = '';
-  try { raw = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
+/** The decision for one tool-call payload, as a value (scripts/lib/guard-result.mjs). */
+export function run(raw, env = process.env) {
+  if (env.GREAT_CTO_DISABLE_DESTRUCTIVE_GUARD === '1') return PASS;
   let d;
-  try { d = JSON.parse(raw || '{}'); } catch { return process.exit(0); }
-  if (d.tool_name && d.tool_name !== 'Bash') return process.exit(0);
+  try { d = JSON.parse(raw || '{}'); } catch { return PASS; }
+  if (d.tool_name && d.tool_name !== 'Bash') return PASS;
   const cmd = (d.tool_input || d.toolInput || {}).command || d.command;
-  if (typeof cmd !== 'string' || !cmd.trim()) return process.exit(0);
+  if (typeof cmd !== 'string' || !cmd.trim()) return PASS;
   const cwd = typeof d.cwd === 'string' && d.cwd ? d.cwd : process.cwd();
   const needsBranch = /\bpush\b/.test(cmd);
   const hit = findDestructive(cmd, { cwd, branch: needsBranch ? currentBranch(cwd) : null });
-  if (!hit) return process.exit(0);
-  if (isCovered(GATE)) return process.exit(0);
-
-  const reason = blockReason(hit);
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: `great_cto destructive-command guard blocked the command — ${reason}`,
-    },
-  }) + '\n');
-  process.stderr.write(`[great_cto:destructive] BLOCKED — ${reason}\n`);
-  return process.exit(2);
+  if (!hit) return PASS;
+  if (isCovered(GATE)) return PASS;
+  return deny({ guard: 'destructive-command', tag: 'destructive', reason: blockReason(hit) });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdinOnce()));

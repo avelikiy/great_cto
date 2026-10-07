@@ -17,6 +17,7 @@
 //
 // Idea from agentlas-ai/Agentlas-OS (tripwire lessons), rebuilt; see NOTICE.md.
 
+import { PASS, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
@@ -146,15 +147,24 @@ function seenStore(session) {
   };
 }
 
-function main() {
-  if (process.env.GREAT_CTO_DISABLE_LESSON_TRIPWIRES === '1') return;
+/**
+ * The reminder for one tool-call payload, as a value (scripts/lib/guard-result.mjs):
+ * never blocks, at most adds context. Wrapped so a broken lessons file costs the
+ * reminder, not the call.
+ */
+export function run(raw, env = process.env) {
+  try { return remind(raw, env) || PASS; } catch { return PASS; }
+}
+
+function remind(raw, env) {
+  if (env.GREAT_CTO_DISABLE_LESSON_TRIPWIRES === '1') return null;
   let p;
-  try { p = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { return; }
+  try { p = JSON.parse(raw || '{}'); } catch { return null; }
   const cwd = p.cwd || process.cwd();
   const root = projectRoot(cwd) || cwd;
   const sources = [join(root, '.great_cto', 'lessons.md'), join(homedir(), '.great_cto', 'lessons.md')];
   const lessons = sources.flatMap((f) => { try { return splitLessons(readFileSync(f, 'utf8')); } catch { return []; } });
-  if (!lessons.length) return;
+  if (!lessons.length) return null;
   const index = buildIndex(lessons);
 
   const ti = p.tool_input || {};
@@ -165,21 +175,20 @@ function main() {
     const abs = isAbsolute(ti.file_path) ? ti.file_path : resolve(cwd, ti.file_path);
     const text = [ti.new_string, ti.content, ...(Array.isArray(ti.edits) ? ti.edits.map((e) => e.new_string) : [])].filter(Boolean).join('\n');
     call = { file: relative(root, abs), text };
-  } else return;
+  } else return null;
 
   const seen = seenStore(p.session_id);
   const fresh = matchCall(index, call).filter((h) => !seen.has(h.lesson.title)).slice(0, MAX_LESSONS);
   const out = formatHits(fresh);
-  if (!out) return;
+  if (!out) return null;
   seen.add(fresh.map((h) => h.lesson.title));
-  process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: out } }));
   if (existsSync(join(root, '.great_cto'))) {
     appendEvent(join(root, '.great_cto'), { kind: 'hint', hook: 'lesson-tripwire', session: p.session_id, tool: p.tool_name,
-      paths: call.file ? [call.file] : [], chars: out.length, host: process.env.GREAT_CTO_HOST === 'codex' ? 'codex' : 'claude' });
+      paths: call.file ? [call.file] : [], chars: out.length, host: env.GREAT_CTO_HOST === 'codex' ? 'codex' : 'claude' });
   }
+  return { code: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: out } }), stderr: '' };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  try { main(); } catch { /* a reminder must never cost the call */ }
-  process.exit(0);
+  emit({ ...run(readStdinOnce()), code: 0 });
 }

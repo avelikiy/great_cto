@@ -19,58 +19,7 @@ import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
 import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 
-// ─── Locate orchestrator.toml ────────────────────────────────────────────────
-// The plugin's contract, or a project's marked override (scripts/lib/contract-path.mjs).
-function findToml() {
-  const p = contractPath('orchestrator.toml');
-  return existsSync(p) ? p : null;
-}
-
-// ─── Minimal TOML parser (booleans + strings + integers only) ────────────────
-function parseToml(text) {
-  const result = {};
-  let section = '_root';
-  for (const raw of text.split('\n')) {
-    const line = raw.trim();
-    if (!line || line.startsWith('#')) continue;
-    const sectionMatch = line.match(/^\[([^\]]+)\]$/);
-    if (sectionMatch) { section = sectionMatch[1]; result[section] = result[section] || {}; continue; }
-    const kvMatch = line.match(/^([^=]+)=(.+)$/);
-    if (!kvMatch) continue;
-    const key = kvMatch[1].trim();
-    const rawVal = kvMatch[2].trim().replace(/#.*$/, '').trim();
-    let val;
-    if (rawVal === 'true') val = true;
-    else if (rawVal === 'false') val = false;
-    else if (/^\d+$/.test(rawVal)) val = parseInt(rawVal, 10);
-    else val = rawVal.replace(/^["']|["']$/g, '');
-    if (section === '_root') result[key] = val;
-    else result[section][key] = val;
-  }
-  return result;
-}
-
-// ─── Inline subagent detection (stdin JSON from PreToolUse/Bash) ──────────────
-function checkInlineSubagent() {
-  let input = '';
-  try {
-    // Non-blocking: only read if stdin has data (TTY check)
-    if (process.stdin.isTTY) return false;
-    // Read once at the top of the script (STDIN); a pipe cannot be read twice.
-    input = STDIN;
-  } catch {
-    return false;
-  }
-  let cmd = '';
-  try {
-    const parsed = JSON.parse(input);
-    cmd = parsed?.command ?? '';
-  } catch {
-    cmd = input;
-  }
-  // Detect: `claude -p`, `claude --print`, `claude -c -p`
-  return /\bclaude\b.*\s(-p\b|--print\b)/.test(cmd);
-}
+import { findToml, parseToml, run as inlineSubagentCheck } from '../lib/inline-subagent.mjs';
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
 let STDIN = '';
@@ -80,10 +29,22 @@ try { if (!process.stdin.isTTY) STDIN = readFileSync(0, 'utf8'); } catch { /* no
 // which exits for projects without a contract — the event is still a fact there.
 try {
   const started = JSON.parse(STDIN || '{}');
-  if (started.hook_event_name === 'SubagentStart' || started.agent_type) {
+  // Only a START is a start. Inside a subagent every Bash payload names the agent,
+  // and this used to log each of those calls as one more agent starting.
+  if (started.hook_event_name === 'SubagentStart') {
     appendEvent(process.env.GREAT_CTO_DIR || '.great_cto', { kind: 'agent-start', agent: started.agent_type, session: started.session_id });
   }
 } catch { /* not JSON — a Bash-context payload, not a start */ }
+
+// A Bash call gets the one rule that applies to it, and nothing else: the
+// contract below is context for a starting agent, not output for every command.
+let payloadEvent = '';
+try { payloadEvent = JSON.parse(STDIN || '{}').hook_event_name || ''; } catch { /* raw text */ }
+if (payloadEvent === 'PreToolUse' || (STDIN && !payloadEvent && !/"agent_type"/.test(STDIN))) {
+  const r = inlineSubagentCheck(STDIN);
+  if (r.stderr) process.stderr.write(r.stderr);
+  process.exit(r.code);
+}
 
 const tomlPath = findToml();
 
@@ -97,18 +58,6 @@ try {
   cfg = parseToml(readFileSync(tomlPath, 'utf8'));
 } catch {
   process.exit(0);
-}
-
-// Inline subagent anti-pattern check (PreToolUse / Bash context)
-if (checkInlineSubagent()) {
-  const allowed = cfg?.parallelism?.inline_subagents_allowed ?? true;
-  if (!allowed) {
-    console.error(
-      'ORCHESTRATOR-BLOCK: inline subagent dispatch (claude -p) is forbidden by shared/orchestrator.toml.\n' +
-      'Use the Agent tool with subagent_type specified instead.'
-    );
-    process.exit(2); // exit 2 → Claude Code blocks the tool call
-  }
 }
 
 // SubagentStart context injection — print active rules

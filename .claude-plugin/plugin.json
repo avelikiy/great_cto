@@ -146,39 +146,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/orchestrator-check.mjs\" 2>/dev/null; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
-            "timeout": 5,
-            "statusMessage": "Inline subagent check..."
-          },
-          {
-            "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/shared-tree-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
-            "timeout": 5,
-            "statusMessage": "Checking shared working tree..."
-          },
-          {
-            "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/gate-bypass-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
-            "timeout": 5,
-            "statusMessage": "Checking git hooks are not skipped..."
-          },
-          {
-            "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/destructive-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
-            "timeout": 5,
-            "statusMessage": "Destructive-command check..."
-          },
-          {
-            "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/frozen-gates-guard.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
-            "timeout": 5,
-            "statusMessage": "Checking for writes to frozen gates..."
-          },
-          {
-            "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/lesson-tripwire.mjs\"; exit 0",
-            "timeout": 5,
-            "statusMessage": "Checking recorded lessons..."
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/bash-guards.mjs\"; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0",
+            "timeout": 15,
+            "statusMessage": "Checking the command (great_cto guards)..."
           }
         ]
       },
