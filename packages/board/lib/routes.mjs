@@ -13,6 +13,7 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
+import { isProjectState } from '../../../scripts/lib/great-cto-scope.mjs';
 import { usageIndexSnapshot, summarizeUsage, readCodexTitles, readClaudeLimits, claudeRecorder } from '../../../scripts/lib/session-usage.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
@@ -276,6 +277,13 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       const view = String(parsed.view || '');
+      // Only into a project. The board's cwd can be a directory that is not one —
+      // a release worktree, deleted since — and mkdir here recreated it (3.58.1).
+      if (!isProjectState(path.join(c, '.great_cto'))) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, view, recorded: false, why: 'not a project' }));
+        return;
+      }
       try {
         recordView({ root: c, view });
       } catch (e) {
@@ -284,7 +292,7 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, view }));
+      res.end(JSON.stringify({ ok: true, view, recorded: true }));
     });
     return true;
   }
