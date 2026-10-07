@@ -695,28 +695,83 @@ export function laneName(minutes) {
  * it is grouped to ten minutes — unrounded, one week read as forty windows.
  */
 function codexLimitDetail(points, { fromMs, now }) {
-  if (!points.length) return null;
-  const pts = [...points].sort((a, b) => a[0] - b[0]);
-  const lanes = {};
-  for (const p of pts) {
+  const samples = [];
+  for (const p of points) {
     for (const [iu, im, ir] of [[1, 2, 3], [4, 5, 6]]) {
-      const used = p[iu]; const minutes = p[im]; const resets = p[ir];
-      if (used == null || !minutes || !resets) continue;
-      const resetMs = resets * 1000;
-      if (resetMs < fromMs) continue;
-      const lane = lanes[laneName(minutes)] || (lanes[laneName(minutes)] = { minutes, windows: new Map(), series: [] });
-      if (p[0] >= fromMs) {
-        const prev = lane.series[lane.series.length - 1];
-        if (!prev || prev[1] !== used) lane.series.push([p[0], used]);
-      }
-      const key = Math.round(resets / 600);
-      const w = lane.windows.get(key) || { start: resetMs - minutes * 60000, resets: resetMs, peak: 0, fullAt: null, last: null };
-      w.resets = Math.max(w.resets, resetMs);
-      w.peak = Math.max(w.peak, used);
-      if (used >= 100 && !w.fullAt) w.fullAt = p[0];
-      if (!w.last || p[0] >= w.last[0]) w.last = [p[0], used];
-      lane.windows.set(key, w);
+      if (p[iu] == null || !p[im] || !p[ir]) continue;
+      samples.push({ t: p[0], lane: laneName(p[im]), minutes: p[im], used: p[iu], resets: p[ir] });
     }
+  }
+  return laneDetail(samples, { fromMs, now });
+}
+
+/** Window lengths of the plan windows Claude Code reports, by the name it gives them. */
+const CLAUDE_WINDOWS = { five_hour: 300 };
+export function claudeWindowMinutes(name) {
+  return CLAUDE_WINDOWS[name] ?? (/^seven_day/.test(name) ? 10080 : null);
+}
+
+/**
+ * Claude's plan windows, from the readings the great_cto status line recorded
+ * (~/.great_cto/claude-limits.jsonl — Claude Code hands plan use to the status
+ * line and to nothing else). Same shape as Codex's.
+ */
+export function claudePlanDetail(readings, { fromMs, now }) {
+  const samples = [];
+  for (const r of readings) {
+    const t = Date.parse(r?.ts);
+    if (!Number.isFinite(t)) continue;
+    for (const [name, w] of Object.entries(r.windows || {})) {
+      const minutes = claudeWindowMinutes(name);
+      if (!minutes || !Number.isFinite(w?.used) || !w?.resets) continue;
+      samples.push({ t, lane: name === 'five_hour' ? 'fiveHour' : name === 'seven_day' ? 'weekly' : name, minutes, used: w.used, resets: w.resets });
+    }
+  }
+  return laneDetail(samples, { fromMs, now });
+}
+
+/** The readings file, oldest first; [] when the status line was never installed. */
+export function readClaudeLimits(file = path.join(home(), '.great_cto', 'claude-limits.jsonl')) {
+  const out = [];
+  for (const f of [`${file}.1`, file]) {
+    let text = '';
+    try { text = fs.readFileSync(f, 'utf8'); } catch { continue; }
+    for (const line of text.split('\n')) {
+      if (!line.trim()) continue;
+      try { out.push(JSON.parse(line)); } catch { /* partial line */ }
+    }
+  }
+  return out;
+}
+
+/**
+ * Plan windows from readings [{t, lane, minutes, used, resets}]: every window the
+ * period touched with its peak and when it filled, the readings to draw, and —
+ * for the window still open — where the current pace ends up by the reset.
+ *
+ * `resets` drifts by seconds between readings of one window, so it is grouped to
+ * ten minutes — unrounded, one week read as forty windows.
+ */
+function laneDetail(samples, { fromMs, now }) {
+  if (!samples.length) return null;
+  const sorted = [...samples].sort((a, b) => a.t - b.t);
+  const lanes = {};
+  for (const s of sorted) {
+    const { t, minutes, used, resets } = s;
+    const resetMs = resets * 1000;
+    if (resetMs < fromMs) continue;
+    const lane = lanes[s.lane] || (lanes[s.lane] = { minutes, windows: new Map(), series: [] });
+    if (t >= fromMs) {
+      const prev = lane.series[lane.series.length - 1];
+      if (!prev || prev[1] !== used) lane.series.push([t, used]);
+    }
+    const key = Math.round(resets / 600);
+    const w = lane.windows.get(key) || { start: resetMs - minutes * 60000, resets: resetMs, peak: 0, fullAt: null, last: null };
+    w.resets = Math.max(w.resets, resetMs);
+    w.peak = Math.max(w.peak, used);
+    if (used >= 100 && !w.fullAt) w.fullAt = t;
+    if (!w.last || t >= w.last[0]) w.last = [t, used];
+    lane.windows.set(key, w);
   }
   const out = {};
   for (const [name, lane] of Object.entries(lanes)) {
@@ -742,6 +797,7 @@ function codexLimitDetail(points, { fromMs, now }) {
       filled: list.filter((w) => w.fullAt).length,
       series: lane.series,
       projection,
+      current: latest ? { used: latest.last[1], readAt: latest.last[0], resets: latest.resets, open: latest.resets > now } : null,
     };
   }
   return Object.keys(out).length ? out : null;
@@ -752,7 +808,7 @@ function codexLimitDetail(points, { fromMs, now }) {
  * @param {object} index  from scanUsage
  * @param {{days?:number, now?:number, codexTitles?:Record<string,string>, prices?:object, top?:number}} opts
  */
-export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10 } = {}) {
+export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10, claudeReadings = [] } = {}) {
   const span = Math.max(1, Math.min(365, Math.floor(days) || 30));
   const dates = [];
   for (let i = span - 1; i >= 0; i--) dates.push(dayOf(now - i * 86400000));
@@ -887,7 +943,7 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     }])),
     limits: {
       codex: codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null, detail: codexLimitDetail(codexPoints, { fromMs, now }) } : null,
-      claude: claudeLimits(hourly.claude, { fromMs, now, lastHit }),
+      claude: { ...claudeLimits(hourly.claude, { fromMs, now, lastHit }), plan: claudePlanDetail(claudeReadings, { fromMs, now }) },
     },
     unpricedModels: [...unpriced].sort(),
     // Claude Code only: Codex does not write hook outcomes to its session logs.

@@ -13,7 +13,7 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
-import { usageIndexSnapshot, summarizeUsage, readCodexTitles } from '../../../scripts/lib/session-usage.mjs';
+import { usageIndexSnapshot, summarizeUsage, readCodexTitles, readClaudeLimits } from '../../../scripts/lib/session-usage.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
@@ -1507,7 +1507,7 @@ async function dispatch(req, res, url, cwd) {
     if (snap.state !== 'ready') {
       body = { state: snap.state, why: snap.why };
     } else {
-      const sum = summarizeUsage(snap.index, { days, codexTitles: readCodexTitles() });
+      const sum = summarizeUsage(snap.index, { days, codexTitles: readCodexTitles(), claudeReadings: readClaudeLimits() });
       const ours = new Set(boardAgentNames());
       for (const host of Object.keys(sum.lists)) {
         sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));

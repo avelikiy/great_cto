@@ -260,6 +260,18 @@ on its own host only, and is not part of telemetry, even when telemetry is on.
 Delete the file to drop it; the next board open rebuilds it from the logs.
 Source: `scripts/lib/session-usage.mjs`.
 
+## Claude plan use, from the status line (opt-in, never sent)
+
+Claude Code hands its plan use — the 5-hour window, the week, the per-model weeks, each
+with a used percentage and a reset time — to the status line command, and to nothing
+else. `great-cto statusline install` replaces the `statusLine` entry in
+`~/.claude/settings.json` with a small script copied to `~/.great_cto/statusline.mjs`
+(the settings file is backed up first). The script runs the status line you already had
+and prints its output unchanged, and appends one line per *change* of those numbers to
+`~/.great_cto/claude-limits.jsonl`: a timestamp and the windows — no prompt, no path, no
+project. The board's Usage → Limits reads it. `great-cto statusline uninstall` restores
+your previous status line exactly. Nothing is sent anywhere.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

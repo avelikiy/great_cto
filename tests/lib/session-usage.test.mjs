@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot, limitKind,
-  guardOf, stopBlockName, hookLabel, removeOlderIndexes,
+  guardOf, stopBlockName, hookLabel, removeOlderIndexes, claudePlanDetail, readClaudeLimits,
 } from '../../scripts/lib/session-usage.mjs';
 
 const made = [];
@@ -370,4 +370,25 @@ test('an index of an older format is removed; a newer one and other files are no
   assert.deepEqual(removed, ['session-usage-index.json', 'session-usage-index.v2.json']);
   assert.deepEqual(fs.readdirSync(d).sort(), ['session-usage-index.v3.json', 'session-usage-index.v4.json', 'usage-index.json']);
   assert.deepEqual(removeOlderIndexes(path.join(d, 'my-cache.json'), 3), [], 'a caller\'s own cache path is not a licence to clean');
+});
+
+test('Claude\'s plan windows from the status line\'s readings: the open week, its pace, and the per-model weeks', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'su-cl-')); made.push(d);
+  const f = path.join(d, 'claude-limits.jsonl');
+  const reset5h = Math.floor(Date.parse('2026-10-07T15:00:00Z') / 1000);
+  const resetWk = Math.floor(Date.parse('2026-10-10T12:00:00Z') / 1000);   // week opened 10-03 12:00Z
+  const line = (ts, h5, wk, opus) => JSON.stringify({ ts, windows: { five_hour: { used: h5, resets: reset5h }, seven_day: { used: wk, resets: resetWk }, ...(opus != null ? { seven_day_opus: { used: opus, resets: resetWk + 3 } } : {}) } });
+  fs.writeFileSync(`${f}.1`, `${line('2026-10-06T12:00:00Z', 10, 30)}\n`);       // rotated file is read too
+  fs.writeFileSync(f, [line('2026-10-07T11:00:00Z', 55, 60, 20), 'half a li'].join('\n'));
+  const readings = readClaudeLimits(f);
+  assert.equal(readings.length, 2, 'both files, a partial line skipped');
+  const now = Date.parse('2026-10-07T12:00:00Z');
+  const p = claudePlanDetail(readings, { fromMs: now - 7 * 86400000, now });
+  assert.deepEqual(Object.keys(p).sort(), ['fiveHour', 'seven_day_opus', 'weekly']);
+  assert.equal(p.weekly.minutes, 10080);
+  assert.equal(p.weekly.current.used, 60);
+  // 4 of 7 days in, 60% used: full in 4 * 100/60 = 6.67 days, before the 7-day reset.
+  assert.equal(p.weekly.projection.state, 'will-fill');
+  assert.equal(p.seven_day_opus.current.used, 20);
+  assert.deepEqual(readClaudeLimits(path.join(d, 'none.jsonl')), [], 'never installed: no readings, not an error');
 });

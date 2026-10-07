@@ -2443,6 +2443,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-kinds b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; margin-right: 4px; }
 .usage-quote { font-size: var(--fs-small); color: var(--text2); border-left: 2px solid var(--border-strong); padding: 2px 0 2px 10px; margin: 10px 0 0; overflow-wrap: anywhere; }
 .usage-pace { font-size: var(--fs-small); color: var(--text); margin: 4px 0 8px; }
+.usage-card code, .usage-note code, .usage-sub code { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text); background: var(--bg-muted); padding: 1px 4px; }
 .usage-pace.bad { color: var(--status-blocked-ink); }
 .usage-prios { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
 .usage-prio { border: 1px solid var(--border); padding: 8px 10px; min-width: 0; }
@@ -6077,8 +6078,21 @@ function usageHostCard(d, host) {
       : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', 'no Codex session has reported its rate-limit window yet')}</div></div>`;
   } else {
     const hits = h.limitHits || { plan: 0, server: 0 };
-    limit = `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('uncomputable', 'Claude Code does not write how much of the plan is used — only when a request is refused')}</div>
-      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days</div></div>`;
+    const P = d.limits && d.limits.claude && d.limits.claude.plan;
+    const meter = (lane) => {
+      const c = lane && lane.current;
+      if (!c || !c.open) return '';
+      const used = Math.max(0, Math.min(100, Number(c.used) || 0));
+      const cls = used >= 90 ? 'full' : used >= 70 ? 'warn' : '';
+      return `<div class="usage-limit-head"><span>${usageLimitWindow(lane.minutes)}</span><b>${used}% used</b></div>
+        <div class="usage-meter ${cls}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${used}" aria-label="${esc(usageLimitWindow(lane.minutes))}"><span style="width:${used}%"></span></div>
+        <div class="usage-sub">resets ${esc(fmtWhen(c.resets))}</div>`;
+    };
+    const meters = P ? meter(P.fiveHour) + meter(P.weekly) : '';
+    limit = meters
+      ? `<div class="usage-limit">${meters}<div class="usage-sub">as Claude Code reported it to the status line, ${esc(relTime(new Date(Math.max(...Object.values(P).map((l) => (l.current && l.current.readAt) || 0))).toISOString()))} ago · ${hits.plan} refused at a limit in ${d.window.days} days</div></div>`
+      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', 'Claude Code reports plan use only to the status line — turn on the recorder: great-cto statusline install')}</div>
+      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days · plan percentage: <code>great-cto statusline install</code></div></div>`;
   }
   return `<section class="usage-card" data-host="${host}">
     <h3><span>${name}</span><span class="muted">${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>
@@ -6192,7 +6206,8 @@ function usageLineSvg({ from, to, points, max, marks = [], ceiling = null, label
 }
 
 function usageClaudeLimits(d) {
-  const head = `<h3><span>Claude Code limits</span><span class="muted">from refusals — no plan percentage is recorded</span></h3>`;
+  const plan = d.limits && d.limits.claude && d.limits.claude.plan;
+  const head = `<h3><span>Claude Code limits</span><span class="muted">${plan ? 'as Claude Code reported them to the status line' : 'from refusals — turn on the status line recorder for plan percentages'}</span></h3>`;
   if (!d.seen || !d.seen.claude) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">No Claude Code logs on this machine.</p></section>`;
   const L = d.limits && d.limits.claude;
   if (!L) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">Not computed.</p></section>`;
@@ -6211,7 +6226,12 @@ function usageClaudeLimits(d) {
   const chart = pts.length > 1 ? `<div class="usage-line">${usageLineSvg({ from: s.from, to, points: pts, max, marks, ceiling: L.ceilings.session ? L.ceilings.session.median : null, label: 'Claude Code spend in the trailing 5 hours, with refusals marked' })}</div>
     <div class="usage-axis"><span>${esc(d.window.from)}</span><span>$ in the trailing 5 hours · peak ${esc(fmtUsdEq(max))}</span><span>${esc(d.window.to)}</span></div>` : '';
   const last = L.lastHit ? `<p class="usage-quote" title="${esc(fmtDate(L.lastHit.at))}">${esc(L.lastHit.text)} <span class="muted">— ${esc(relTime(L.lastHit.at))} ago</span></p>` : '';
+  const CLAUDE_LANE = { fiveHour: '5-hour limit', weekly: 'Weekly limit', seven_day_opus: 'Weekly limit · Opus', seven_day_sonnet: 'Weekly limit · Sonnet', seven_day_oauth_apps: 'Weekly limit · apps' };
+  const lanes = plan
+    ? ['fiveHour', 'weekly', ...Object.keys(plan).filter((k) => k !== 'fiveHour' && k !== 'weekly')].filter((k) => plan[k]).map((k) => usageCodexLane(k, plan[k], d, CLAUDE_LANE[k] || k)).join('')
+    : `<p class="usage-note">Claude Code hands its plan percentage to the status line and to nothing else. <code>great-cto statusline install</code> records it here and keeps your own status line.</p>`;
   return `<section class="usage-card" data-limits="claude">${head}
+    ${lanes}
     <div class="usage-stats">${stat(esc(fmtUsdEq(L.fiveHour.usd)), 'last 5 hours, $ list')}${stat(esc(fmtUsdEq(L.sevenDay.usd)), 'last 7 days, $ list')}${stat(esc(String(hits.plan || 0)), `refusals in ${d.window.days} days`)}</div>
     ${kinds ? `<div class="usage-kinds">${kinds}</div>` : `<p class="usage-note">No request was refused by a limit in this period.</p>`}
     ${ceilings.length ? `<p class="usage-note">${ceilings.join('<br>')}. <span class="muted">An estimate from what had been spent when Claude Code refused — not a published limit.</span></p>` : ''}
@@ -6221,8 +6241,8 @@ function usageClaudeLimits(d) {
   </section>`;
 }
 
-function usageCodexLane(name, lane, d) {
-  const title = usageLimitWindow(lane.minutes);
+function usageCodexLane(name, lane, d, label = null) {
+  const title = label || usageLimitWindow(lane.minutes);
   const P = lane.projection;
   const lastRead = lane.series.length ? lane.series[lane.series.length - 1][0] : null;
   let pace = `<p class="usage-pace muted">No open window${lastRead ? ` — the last reading of it is from ${esc(fmtWhen(lastRead))}; the plan may no longer have it` : ''}.</p>`;

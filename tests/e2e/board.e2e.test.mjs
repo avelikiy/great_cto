@@ -66,6 +66,10 @@ function seedHostLogs(fakeHome) {
     { timestamp: now, type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: xu }, rate_limits: { primary: { used_percent: 42, window_minutes: 10080, resets_at: Math.floor(Date.now() / 1000) + 86400 }, plan_type: 'prolite' } } },
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   fs.writeFileSync(path.join(fakeHome, '.codex', 'session_index.jsonl'), JSON.stringify({ id: 'th-e2e', thread_name: 'Invoice export' }) + '\n');
+  // What the great_cto status line records from Claude Code's own rate_limits.
+  const sec = (h) => Math.floor(Date.now() / 1000) + h * 3600;
+  fs.writeFileSync(path.join(fakeHome, '.great_cto', 'claude-limits.jsonl'), JSON.stringify({ ts: now,
+    windows: { five_hour: { used: 35, resets: sec(2) }, seven_day: { used: 64, resets: sec(72) }, seven_day_opus: { used: 20, resets: sec(72) } } }) + '\n');
 }
 
 /** Everything the suite needs, or a reason it could not be had. */
@@ -456,9 +460,11 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
     const claude = await page.locator('.usage-card[data-host="claude"]').innerText();
     assert.match(claude, /10\.0k\s*tokens/, `one response, counted once: 1k in + 2k out + 7k cache (got: ${claude.slice(0, 120)})`);
     assert.match(claude, /\$0\.06/, 'priced at the Opus 5 list rate');
-    assert.match(claude, /1 refused at the plan limit/, 'Claude Code plan use is not drawn; the refusals are');
+    assert.match(claude, /5-hour limit[\s\S]*35% used[\s\S]*Weekly limit[\s\S]*64% used/, 'the plan use Claude Code reported to the status line');
+    assert.match(claude, /1 refused at a limit/, 'and the refusals still counted');
 
     const climits = await page.locator('[data-limits="claude"]').innerText();
+    assert.match(climits, /Weekly limit · Opus/, 'a per-model week has its own lane');
     assert.match(climits, /1\s*5-hour session/, 'the refusal is filed under the limit that refused it');
     assert.match(climits, /Refused at about \$0\.06 in 5 hours/, 'and the spend it came at is the observed ceiling');
     assert.match(climits, /hit your session limit · resets 3pm/, 'in Claude Code\'s own words');

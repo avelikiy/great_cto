@@ -64,7 +64,9 @@ Code and Codex side by side, from their own session logs — tokens per day and 
 of work, the heaviest conversations, models, tools, skills, agents, cache share,
 and limits. For Codex: each 5-hour and weekly window it reported, how full it got,
 when it filled, and where the open window ends at the current pace. For Claude
-Code, which records no plan percentage: spend in the last 5 hours and 7 days,
+Code — whose plan percentage reaches only the status line, so `great-cto statusline
+install` records it (opt-in, your own status line is kept) — the same windows and pace;
+and from its logs: spend in the last 5 hours and 7 days,
 every refusal filed under the limit that refused it (session, weekly, monthly
 spend, per-model, credits — server throttles apart), and the spend at which those
 refusals came, as an estimate with its count. Below that, across every
