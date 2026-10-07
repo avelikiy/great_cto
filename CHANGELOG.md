@@ -25,6 +25,46 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.54.0 — 2026-10-07
+
+The board shows how close Claude Code and Codex are to their plan limits, and when they hit them.
+
+### Added
+
+- **Usage → Limits.** For Codex, from its own readings: every 5-hour and weekly window in the
+  period, how full it got, when it filled and how long before the reset, a line of percent used,
+  and for the open window where the current pace ends — "full by Thu 14:00, 2 days before the
+  reset" or "about 58% by the reset".
+- For Claude Code, which records no plan percentage (so none is drawn): spend in the last
+  5 hours and 7 days at API list price; every refusal filed under the limit that refused it —
+  5-hour session, weekly, monthly spend, per-model, usage credits — with server throttles apart;
+  the spend in the window at each refused hour as an observed ceiling with its count; and the
+  latest refusal in Claude Code's own words, which carry the reset time.
+
+### Fixed
+
+- Codex windows are known by their length: the week moved from `secondary` to `primary`
+  between plans, and a reset that drifts by seconds is one window, not forty.
+- The open Codex window is the one the latest reading belongs to — Codex has reset a week
+  early, and an older window could still look open on paper.
+- The judge key's "retry" link on Harness rendered in the browser's default blue when the live
+  check got no answer; it now uses the design system's colours.
+- The `serve enforces HMAC` gate checks take a free port instead of 3144/3145, where a board
+  already listening answered in place of the server under test.
+
+### Changed
+
+- The usage index is format v2 (hourly buckets, limit kinds, Codex readings) and is named by its
+  version, `~/.great_cto/session-usage-index.v2.json`, so a board still on 3.53.0 does not rebuild
+  the same file in turn. The 3.53.0 file can be deleted.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.53.0 — 2026-10-06
 
 The board shows what Claude Code and Codex actually consumed, side by side.
