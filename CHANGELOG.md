@@ -27,6 +27,36 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.56.0 — 2026-10-07
+
+An agent that ends without a verdict is asked for it on every run, and told where log-verdict is.
+
+### Fixed
+
+- **The completion check asked each agent once, ever.** "Asked before" was keyed by the agent's
+  name and never expired: on one project code-reviewer was asked on 15.09 and never again, and
+  43 of its next 46 runs ended with no verdict and no question. It is now keyed by the run, and
+  markers older than a week are removed.
+- **Another agent's verdict counted for this one.** "A verdict exists" meant any verdict log
+  touched in the last five minutes; with agents in parallel that was usually someone else's. It is
+  now the stopping agent's own log, written at or after its run began.
+- **The remedy pointed at a file that is not there.** Every hint said `bash scripts/log-verdict.sh`,
+  which exists only in the great_cto repository; in a project, calls died with "No such file". The
+  completion check, the pipeline dispatcher and the stop-shape remedy now give the plugin's script
+  by absolute path, and every agent is told at start that `scripts/log-verdict.sh` means that file.
+
+### Added
+
+- Each agent stop records how the run ended — verdict, asked, finished without one, cut off — and
+  **Usage → Agents** shows a **No verdict** column with the reasons on hover.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.55.0 — 2026-10-07
 
 The board shows what each agent concluded, what reviews found, and which guards and hooks fired.
