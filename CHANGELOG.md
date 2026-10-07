@@ -29,6 +29,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.58.0 — 2026-10-07
+
+The board shows Claude's exact plan use, recorded from the status line.
+
+### Added
+
+- **`great-cto statusline install`** (opt-in). Claude Code hands its plan use — the 5-hour window,
+  the week, the per-model weeks, each with a used percentage and a reset time — to the status line
+  command and to nothing else. This installs a small zero-dependency script as your status line:
+  it prints the status line you already had, unchanged (or a short one: model · folder · 5h % · 7d %),
+  and appends one line per change of the plan numbers to `~/.great_cto/claude-limits.jsonl`.
+  `settings.json` is backed up first; `great-cto statusline uninstall` puts your previous status
+  line back exactly. Nothing is sent anywhere (`docs/PRIVACY.md`).
+- **Usage → Limits for Claude** now draws real windows — percent used, reset time, when a window
+  filled, where the open one is heading at the current pace — and the host card shows the 5-hour
+  and weekly meters. Without the recorder it says how to turn it on instead of showing n/a. Plan
+  history starts when the recorder is installed: Claude Code kept none before.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.57.0 — 2026-10-07
 
 Hooks no longer treat the home directory as a project, and every check of a Bash call runs in one process.
