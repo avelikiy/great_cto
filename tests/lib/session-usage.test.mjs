@@ -10,11 +10,11 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot, limitKind,
-  guardOf, stopBlockName, hookLabel, removeOlderIndexes, claudePlanDetail, readClaudeLimits,
+  guardOf, stopBlockName, hookLabel, removeOlderIndexes, claudePlanDetail, readClaudeLimits, claudeRecorder,
 } from '../../scripts/lib/session-usage.mjs';
 
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 // Midday UTC, so the local calendar day is the same in every timezone a CI box has.
 const NOW = Date.parse('2026-10-06T12:00:00Z');
@@ -391,4 +391,17 @@ test('Claude\'s plan windows from the status line\'s readings: the open week, it
   assert.equal(p.weekly.projection.state, 'will-fill');
   assert.equal(p.seven_day_opus.current.used, 20);
   assert.deepEqual(readClaudeLimits(path.join(d, 'none.jsonl')), [], 'never installed: no readings, not an error');
+});
+
+test('the board tells an installed recorder with no reading yet from one never installed', () => {
+  const h = fs.mkdtempSync(path.join(os.tmpdir(), 'su-rec-')); made.push(h);
+  assert.equal(claudeRecorder(h), 'off', 'no settings at all');
+  fs.mkdirSync(path.join(h, '.claude'));
+  const settings = path.join(h, '.claude', 'settings.json');
+  fs.writeFileSync(settings, JSON.stringify({ statusLine: { type: 'command', command: 'my-own-line.sh' } }));
+  assert.equal(claudeRecorder(h), 'off', 'someone else\'s status line');
+  fs.writeFileSync(settings, JSON.stringify({ statusLine: { type: 'command', command: `node "${h}/.great_cto/statusline.mjs"` } }));
+  assert.equal(claudeRecorder(h), 'on', 'ours, wherever the home is');
+  fs.writeFileSync(settings, '{ not json');
+  assert.equal(claudeRecorder(h), 'off', 'unreadable settings: not claimed as installed');
 });

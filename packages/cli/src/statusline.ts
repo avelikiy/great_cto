@@ -128,6 +128,7 @@ export function runStatuslineCommand(argv: string[]): number {
     if (!r.ok) { warn(r.message); return 1; }
     success(`${r.message} ${dim(r.backup ? `(settings backup: ${r.backup})` : "")}`);
     console.log("  Claude's plan use is recorded on the next status line refresh; the board shows it under Usage → Limits.");
+    console.log("  Readings come from `claude` in a terminal: the desktop app's Code tab does not draw a status line.");
     console.log(`  Undo: ${dim("great-cto statusline uninstall")}`);
     return 0;
   }
@@ -142,6 +143,7 @@ export function runStatuslineCommand(argv: string[]): number {
     console.log(`installed: ${st.installed ? "yes" : "no"}`);
     if (st.chain) console.log(`your status line (shown through it): ${st.chain}`);
     console.log(`last reading: ${st.lastReading ? JSON.stringify(st.lastReading) : "none yet"}`);
+    if (st.installed && !st.lastReading) console.log("  (readings come from `claude` in a terminal; the desktop app's Code tab does not draw a status line)");
     return 0;
   }
   warn(`unknown: great-cto statusline ${sub} — use install, uninstall or status`);

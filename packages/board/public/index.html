@@ -6091,8 +6091,8 @@ function usageHostCard(d, host) {
     const meters = P ? meter(P.fiveHour) + meter(P.weekly) : '';
     limit = meters
       ? `<div class="usage-limit">${meters}<div class="usage-sub">as Claude Code reported it to the status line, ${esc(relTime(new Date(Math.max(...Object.values(P).map((l) => (l.current && l.current.readAt) || 0))).toISOString()))} ago · ${hits.plan} refused at a limit in ${d.window.days} days</div></div>`
-      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', 'Claude Code reports plan use only to the status line — turn on the recorder: great-cto statusline install')}</div>
-      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days · plan percentage: <code>great-cto statusline install</code></div></div>`;
+      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', usageRecorderHint(d).short)}</div>
+      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days · plan percentage: ${d.limits && d.limits.claude && d.limits.claude.recorder === 'on' ? 'from <code>claude</code> in a terminal' : '<code>great-cto statusline install</code>'}</div></div>`;
   }
   return `<section class="usage-card" data-host="${host}">
     <h3><span>${name}</span><span class="muted">${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>
@@ -6205,9 +6205,21 @@ function usageLineSvg({ from, to, points, max, marks = [], ceiling = null, label
     <line class="grid" x1="0" x2="${W}" y1="${H}" y2="${H}"></line>${ceil}${ticks}<path class="ln" d="${path}"></path></svg>`;
 }
 
+// Plan percentage reaches only a status line Claude Code draws: the terminal
+// `claude` draws one, the desktop app's Code tab does not. So "recorder on, no
+// reading yet" gets its own words — sending the operator to install what they
+// already installed is the hint that misled on the first day.
+function usageRecorderHint(d) {
+  const on = d.limits && d.limits.claude && d.limits.claude.recorder === 'on';
+  return on
+    ? { short: 'recorder on, no reading yet — readings come from claude in a terminal', long: 'The recorder is on and has no reading yet. Claude Code passes its plan percentage only to a status line it draws: the terminal <code>claude</code> does, the desktop app\'s Code tab does not. One terminal session fills this in.' }
+    : { short: 'Claude Code reports plan use only to the status line — turn on the recorder: great-cto statusline install', long: 'Claude Code hands its plan percentage to the status line and to nothing else. <code>great-cto statusline install</code> records it here and keeps your own status line; readings come from <code>claude</code> in a terminal.' };
+}
+
 function usageClaudeLimits(d) {
-  const plan = d.limits && d.limits.claude && d.limits.claude.plan;
-  const head = `<h3><span>Claude Code limits</span><span class="muted">${plan ? 'as Claude Code reported them to the status line' : 'from refusals — turn on the status line recorder for plan percentages'}</span></h3>`;
+  const L0 = d.limits && d.limits.claude;
+  const plan = L0 && L0.plan;
+  const head = `<h3><span>Claude Code limits</span><span class="muted">${plan ? 'as Claude Code reported them to the status line' : L0 && L0.recorder === 'on' ? 'from refusals — plan percentages arrive from claude in a terminal' : 'from refusals — turn on the status line recorder for plan percentages'}</span></h3>`;
   if (!d.seen || !d.seen.claude) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">No Claude Code logs on this machine.</p></section>`;
   const L = d.limits && d.limits.claude;
   if (!L) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">Not computed.</p></section>`;
@@ -6229,7 +6241,7 @@ function usageClaudeLimits(d) {
   const CLAUDE_LANE = { fiveHour: '5-hour limit', weekly: 'Weekly limit', seven_day_opus: 'Weekly limit · Opus', seven_day_sonnet: 'Weekly limit · Sonnet', seven_day_oauth_apps: 'Weekly limit · apps' };
   const lanes = plan
     ? ['fiveHour', 'weekly', ...Object.keys(plan).filter((k) => k !== 'fiveHour' && k !== 'weekly')].filter((k) => plan[k]).map((k) => usageCodexLane(k, plan[k], d, CLAUDE_LANE[k] || k)).join('')
-    : `<p class="usage-note">Claude Code hands its plan percentage to the status line and to nothing else. <code>great-cto statusline install</code> records it here and keeps your own status line.</p>`;
+    : `<p class="usage-note">${usageRecorderHint(d).long}</p>`;
   return `<section class="usage-card" data-limits="claude">${head}
     ${lanes}
     <div class="usage-stats">${stat(esc(fmtUsdEq(L.fiveHour.usd)), 'last 5 hours, $ list')}${stat(esc(fmtUsdEq(L.sevenDay.usd)), 'last 7 days, $ list')}${stat(esc(String(hits.plan || 0)), `refusals in ${d.window.days} days`)}</div>

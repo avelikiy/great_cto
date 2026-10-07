@@ -745,6 +745,21 @@ export function readClaudeLimits(file = path.join(home(), '.great_cto', 'claude-
 }
 
 /**
+ * Is the plan-use recorder on? `great-cto statusline install` points Claude Code's
+ * statusLine at ~/.great_cto/statusline.mjs. On with no reading yet is not the
+ * same as never installed: only a status line Claude Code DRAWS gets the plan
+ * percentage — the terminal `claude` draws one, the desktop app's Code tab does
+ * not — so the board must say which of the two the operator is in.
+ */
+export function claudeRecorder(homeDir = home()) {
+  try {
+    const s = JSON.parse(fs.readFileSync(path.join(homeDir, '.claude', 'settings.json'), 'utf8'));
+    const cmd = s && s.statusLine && s.statusLine.command;
+    return typeof cmd === 'string' && /\.great_cto[\\/]statusline\.mjs/.test(cmd) ? 'on' : 'off';
+  } catch { return 'off'; }
+}
+
+/**
  * Plan windows from readings [{t, lane, minutes, used, resets}]: every window the
  * period touched with its peak and when it filled, the readings to draw, and —
  * for the window still open — where the current pace ends up by the reset.
@@ -808,7 +823,7 @@ function laneDetail(samples, { fromMs, now }) {
  * @param {object} index  from scanUsage
  * @param {{days?:number, now?:number, codexTitles?:Record<string,string>, prices?:object, top?:number}} opts
  */
-export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10, claudeReadings = [] } = {}) {
+export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10, claudeReadings = [], claudeRecorderState = 'off' } = {}) {
   const span = Math.max(1, Math.min(365, Math.floor(days) || 30));
   const dates = [];
   for (let i = span - 1; i >= 0; i--) dates.push(dayOf(now - i * 86400000));
@@ -943,7 +958,7 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     }])),
     limits: {
       codex: codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null, detail: codexLimitDetail(codexPoints, { fromMs, now }) } : null,
-      claude: { ...claudeLimits(hourly.claude, { fromMs, now, lastHit }), plan: claudePlanDetail(claudeReadings, { fromMs, now }) },
+      claude: { ...claudeLimits(hourly.claude, { fromMs, now, lastHit }), plan: claudePlanDetail(claudeReadings, { fromMs, now }), recorder: claudeRecorderState },
     },
     unpricedModels: [...unpriced].sort(),
     // Claude Code only: Codex does not write hook outcomes to its session logs.

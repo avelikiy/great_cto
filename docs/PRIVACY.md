@@ -272,6 +272,12 @@ and prints its output unchanged, and appends one line per *change* of those numb
 project. The board's Usage → Limits reads it. `great-cto statusline uninstall` restores
 your previous status line exactly. Nothing is sent anywhere.
 
+Readings arrive only from a status line Claude Code draws: the terminal `claude` draws
+one, the desktop app's Code tab does not. To tell "on, no reading yet" from "never
+installed", the board reads the `statusLine.command` entry of `~/.claude/settings.json`
+and checks whether it points at `~/.great_cto/statusline.mjs` — that one field, nothing
+else from the file, and only on the machine the board runs on.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
