@@ -6296,16 +6296,19 @@ function usageAgentsCard(d) {
     const rate = a.stopRate == null ? absent('none', 'no run of this agent reached a conclusion in this period') : `<span class="usage-rate" aria-hidden="true"><span style="width:${Math.round(a.stopRate * 100)}%"></span></span>${Math.round(a.stopRate * 100)}%`;
     const disp = dispatched[a.agent];
     const gap = disp != null && disp > a.runs ? ` title="${esc(`dispatched ${disp} times in Claude Code, ${a.runs} verdicts recorded — the rest ran without one`)}"` : '';
-    return `<tr><td>${esc(a.agent)}</td><td class="num">${a.runs}</td><td class="num">${a.pass}</td><td class="num">${a.stopped}</td><td class="num">${a.failed}</td><td class="num">${rate}</td><td class="num"${gap}>${disp == null ? '—' : disp}</td></tr>`;
+    const nv = a.noVerdictTotal || 0;
+    const why = Object.entries(a.noVerdict || {}).map(([k, n]) => `${n} ${k === 'reported' ? 'finished without recording one' : k === 'cut-off' ? 'cut off mid-run' : 'ended, shape unknown'}`).join(', ');
+    const noVerdict = nv ? `<span title="${esc(why)}">${nv}</span>` : '0';
+    return `<tr><td>${esc(a.agent)}</td><td class="num">${a.runs}</td><td class="num">${a.pass}</td><td class="num">${a.stopped}</td><td class="num">${a.failed}</td><td class="num">${rate}</td><td class="num">${noVerdict}</td><td class="num"${gap}>${disp == null ? '—' : disp}</td></tr>`;
   }).join('');
   const notes = [];
   if (A.agents.some((a) => a.unknown)) notes.push(`${A.agents.reduce((n, a) => n + a.unknown, 0)} verdicts used a word no rule classifies — counted as runs, not as passes.`);
   if (A.other && A.other.runs) notes.push(`${A.other.runs} verdicts from names outside great_cto's roster (${esc(A.other.names.slice(0, 4).join(', '))}) are not shown.`);
   if (A.unreadable) notes.push(`${A.unreadable} verdict files could not be read.`);
   return `<section class="usage-card" data-outcomes="agents">${head}<div class="usage-table-wrap"><table class="usage-table">
-    <thead><tr><th>Agent</th><th class="num">Verdicts</th><th class="num">Pass</th><th class="num">Stopped</th><th class="num">Failed</th><th class="num">Stop rate</th><th class="num" title="Agent dispatches seen in Claude Code's logs in the same period">Dispatched</th></tr></thead>
+    <thead><tr><th>Agent</th><th class="num">Verdicts</th><th class="num">Pass</th><th class="num">Stopped</th><th class="num">Failed</th><th class="num">Stop rate</th><th class="num" title="Runs the completion check saw end with no verdict — hover a number for how they ended">No verdict</th><th class="num" title="Agent dispatches seen in Claude Code's logs in the same period">Dispatched</th></tr></thead>
     <tbody>${rows}</tbody></table></div>
-    <p class="usage-sub">Stopped = BLOCKED, REWORK, REJECTED, ESCALATED — the pipeline halted on the agent's word. Stop rate is of the verdicts that concluded.${notes.length ? ` ${notes.join(' ')}` : ''}</p></section>`;
+    <p class="usage-sub">Stopped = BLOCKED, REWORK, REJECTED, ESCALATED — the pipeline halted on the agent's word. Stop rate is of the verdicts that concluded. No verdict counts runs that ended without one, as the completion check recorded them (from 3.56).${notes.length ? ` ${notes.join(' ')}` : ''}</p></section>`;
 }
 
 function usageFindingsCard(d) {

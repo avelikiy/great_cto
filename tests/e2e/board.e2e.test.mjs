@@ -89,6 +89,8 @@ async function boardUnderTest() {
     { v: 1, ts: vt(5), agent: 'security-officer', verdict: 'BLOCKED', meta: { need: 'implementer' } },
     { v: 1, ts: vt(3), agent: 'security-officer', verdict: 'APPROVED' },
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
+  fs.appendFileSync(path.join(dir, '.great_cto', 'events.jsonl'),
+    `${JSON.stringify({ v: 1, ts: vt(4), kind: 'agent-stop', agent: 'great-cto:security-officer', outcome: 'no-verdict-reported' })}\n`);
   let started;
   try {
     started = await startServerOnFreePort({
@@ -476,7 +478,7 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
 
     await page.waitForSelector('[data-outcomes="agents"]', { timeout: 20000 });
     const agents = await page.locator('[data-outcomes="agents"]').innerText();
-    assert.match(agents, /security-officer\s+2\s+1\s+1\s+0\s+50%/, 'two verdicts: one pass, one stop — half stopped the pipeline');
+    assert.match(agents, /security-officer\s+2\s+1\s+1\s+0\s+50%\s+1/, 'two verdicts: one pass, one stop — half stopped the pipeline; and one run ended with none');
     assert.match(await page.locator('[data-outcomes="findings"]').innerText(), /P0 filed\s*0/, 'no Beads in the fixture: zero filed, and the card says so');
     const hooks = await page.locator('#panel-usage').innerText();
     assert.match(hooks, /Guards refused a call · 1[\s\S]*shared-tree\s*great_cto/, 'the guard that refused, marked as ours');

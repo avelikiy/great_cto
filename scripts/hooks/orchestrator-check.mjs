@@ -17,6 +17,7 @@ import { resolve, join } from 'node:path';
 import { cwd } from 'node:process';
 import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
+import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 
 // ─── Locate orchestrator.toml ────────────────────────────────────────────────
 // The plugin's contract, or a project's marked override (scripts/lib/contract-path.mjs).
@@ -117,6 +118,11 @@ const c = cfg.completion ?? {};
 const o = cfg.ownership ?? {};
 
 console.log('=== ORCHESTRATOR CONTRACT (shared/orchestrator.toml) ===');
+// Agent instructions say `bash scripts/log-verdict.sh` — a path that exists in the
+// great_cto repository, not in the project this agent works in. Runs that could
+// not find it died with "No such file", or recorded nothing. Say where it is.
+console.log(`Record your verdict with      : ${logVerdictCommand()} <agent> <VERDICT> auto [meta...]`);
+console.log('  → `scripts/log-verdict.sh` in your instructions means exactly this file.');
 console.log(`Decomposition matrix required : ${p.decomposition_matrix_required ?? '—'}`);
 console.log(`Inline subagents allowed      : ${p.inline_subagents_allowed ?? '—'}`);
 console.log(`Max parallel streams          : ${p.max_parallel_streams ?? '—'}`);

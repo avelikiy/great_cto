@@ -33,6 +33,7 @@
  */
 
 import { readFileSync, statSync } from 'node:fs';
+import { logVerdictCommand } from './log-verdict-path.mjs';
 
 /** A transcript larger than this is not read — a hook must not stall on I/O. */
 const MAX_BYTES = 64 * 1024 * 1024;
@@ -102,7 +103,7 @@ export function stopRemedy({ shape, turns, hasVerdict, agent = null }) {
     return {
       kind: 'record',
       text: `${who} finished normally but recorded no verdict — it has context and budget, so ask it for the last step: `
-        + `bash scripts/log-verdict.sh ${who} <VERDICT> auto [meta...]`,
+        + `${logVerdictCommand()} ${who} <VERDICT> auto [meta...]`,
     };
   }
   return {

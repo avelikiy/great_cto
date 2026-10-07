@@ -93,3 +93,24 @@ test('bugs by priority: filed in the window, open now, time to close — and unr
   assert.equal(r.projects.length, 1);
   assert.equal(r.projects[0].open.P0, 1);
 });
+
+test('runs that ended without a verdict are counted per agent, by how they ended', () => {
+  const root = tmp();
+  const proj = path.join(root, 'acme');
+  fs.mkdirSync(path.join(proj, '.great_cto', 'verdicts'), { recursive: true });
+  const ev = (ts, agent, outcome) => JSON.stringify({ v: 1, ts, kind: 'agent-stop', agent, outcome });
+  fs.writeFileSync(path.join(proj, '.great_cto', 'events.jsonl'), [
+    ev('2026-10-06T10:00:00Z', 'great-cto:code-reviewer', 'no-verdict-reported'),
+    ev('2026-10-06T11:00:00Z', 'code-reviewer', 'no-verdict-cut-off'),
+    ev('2026-10-06T12:00:00Z', 'code-reviewer', 'asked'),                 // sent back, not an ending
+    ev('2026-10-06T12:30:00Z', 'code-reviewer', 'verdict'),
+    ev('2026-06-01T12:00:00Z', 'code-reviewer', 'no-verdict-reported'),   // outside the window
+    JSON.stringify({ v: 1, ts: '2026-10-06T12:00:00Z', kind: 'tool', tool: 'Bash' }),
+  ].join('\n'));
+  const r = agentOutcomes({ projects: [{ name: 'acme', path: proj }], globalDir: path.join(root, 'none'), days: 30, now: NOW, roster: ['code-reviewer'] });
+  const cr = r.agents.find((a) => a.agent === 'code-reviewer');
+  assert.ok(cr, 'an agent that recorded no verdict at all still appears');
+  assert.equal(cr.runs, 0);
+  assert.equal(cr.noVerdictTotal, 2);
+  assert.deepEqual(cr.noVerdict, { reported: 1, 'cut-off': 1 });
+});

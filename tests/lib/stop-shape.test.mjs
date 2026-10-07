@@ -71,7 +71,7 @@ test('a cut-off agent is resumed, not re-run', () => {
 test('an agent that finished and forgot is simply asked for the last step', () => {
   const r = stopRemedy({ shape: 'reported', turns: 40, hasVerdict: false, agent: 'code-reviewer' });
   assert.equal(r.kind, 'record');
-  assert.match(r.text, /log-verdict\.sh code-reviewer/);
+  assert.match(r.text, /log-verdict\.sh'? code-reviewer/);
   assert.ok(!/RESUME/.test(r.text), 'it has context and budget — resuming would be theatre');
 });
 
@@ -92,6 +92,6 @@ test('an unknown agent stays a visible placeholder, not a plausible name', () =>
   // point is that there isn't one. `log-verdict.sh the agent APPROVED` is a
   // command that silently does the wrong thing.
   const r = stopRemedy({ shape: 'reported', turns: 40, hasVerdict: false });
-  assert.match(r.text, /log-verdict\.sh <agent>/);
+  assert.match(r.text, /log-verdict\.sh'? <agent>/);
   assert.ok(!/the agent finished/.test(r.text));
 });

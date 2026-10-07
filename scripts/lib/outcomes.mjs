@@ -85,7 +85,7 @@ export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.
         seen.add(key);
         const agent = verdictAgent(rec.agent || fileAgent) || fileAgent;
         if (known.size && !known.has(agent)) { other.runs++; other.names.add(agent); continue; }
-        const a = agents[agent] || (agents[agent] = { agent, runs: 0, pass: 0, stopped: 0, failed: 0, skipped: 0, unknown: 0, needImplementer: 0, needDecision: 0, last: null, projects: new Set() });
+        const a = agents[agent] || (agents[agent] = blankAgent(agent));
         a.runs++;
         a[outcomeOf(rec.verdict)]++;
         if (rec.meta?.need === 'implementer') a.needImplementer++;
@@ -96,13 +96,37 @@ export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.
       }
     }
   }
+  // How runs ENDED, from the completion hook's agent-stop events: a run that
+  // recorded nothing leaves no verdict line, so only these can count it.
+  for (const p of projects) {
+    let text = '';
+    try { text = fs.readFileSync(path.join(p.path, '.great_cto', 'events.jsonl'), 'utf8'); } catch { continue; }
+    for (const line of text.split('\n')) {
+      if (!line.includes('"agent-stop"') || !line.includes('no-verdict')) continue;
+      let e;
+      try { e = JSON.parse(line); } catch { continue; }
+      const t = Date.parse(e.ts);
+      if (!Number.isFinite(t) || t < from || t > now || !/^no-verdict-/.test(e.outcome || '')) continue;
+      const agent = verdictAgent(e.agent);
+      if (!agent || (known.size && !known.has(agent))) continue;
+      const a = agents[agent] || (agents[agent] = blankAgent(agent));
+      const why = e.outcome.slice('no-verdict-'.length);
+      a.noVerdict[why] = (a.noVerdict[why] || 0) + 1;
+      a.noVerdictTotal++;
+      a.projects.add(p.name);
+    }
+  }
   const rows = Object.values(agents).map((a) => ({
     ...a,
     projects: a.projects.size,
     // Of the runs that reached a conclusion, how many stopped the pipeline.
     stopRate: a.pass + a.stopped + a.failed ? (a.stopped + a.failed) / (a.pass + a.stopped + a.failed) : null,
-  })).sort((x, y) => y.runs - x.runs);
+  })).sort((x, y) => (y.runs + y.noVerdictTotal) - (x.runs + x.noVerdictTotal));
   return { agents: rows, other: { runs: other.runs, names: [...other.names].sort().slice(0, 20) }, unreadable };
+}
+
+function blankAgent(agent) {
+  return { agent, runs: 0, pass: 0, stopped: 0, failed: 0, skipped: 0, unknown: 0, needImplementer: 0, needDecision: 0, noVerdict: {}, noVerdictTotal: 0, last: null, projects: new Set() };
 }
 
 /** Run `bd` in a project; resolves to parsed JSON or a reason it could not. */
