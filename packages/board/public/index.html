@@ -2428,7 +2428,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 20px; }
 .usage-list { list-style: none; margin: 0; padding: 0; }
 .usage-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: var(--fs-small); padding: 4px 0; position: relative; }
-.usage-list li .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text); }
+.usage-list li .nm { display: flex; align-items: baseline; min-width: 0; color: var(--text); }
+.usage-list li .nm .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.usage-list li .nm .usage-tag { flex-shrink: 0; }
+[data-outcomes="agents"] .usage-table td:first-child { white-space: nowrap; }
 .usage-list li .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text2); }
 .usage-list li .bar { grid-column: 1 / -1; height: 3px; background: var(--bg-muted); }
 .usage-list li .bar > span { display: block; height: 100%; background: var(--accent); opacity: 0.7; }
@@ -2441,7 +2444,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-quote { font-size: var(--fs-small); color: var(--text2); border-left: 2px solid var(--border-strong); padding: 2px 0 2px 10px; margin: 10px 0 0; overflow-wrap: anywhere; }
 .usage-pace { font-size: var(--fs-small); color: var(--text); margin: 4px 0 8px; }
 .usage-pace.bad { color: var(--status-blocked-ink); }
-@media (max-width: 767px) { .usage-title { max-width: 160px; } .usage-chip { min-height: 44px; } }
+.usage-prios { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.usage-prio { border: 1px solid var(--border); padding: 8px 10px; min-width: 0; }
+.usage-prio b { display: block; font-family: var(--display); font-size: var(--fs-num-s); font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+.usage-prio .k { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text2); }
+.usage-prio.hot { border-color: var(--status-blocked); }
+.usage-prio.hot .k { color: var(--status-blocked-ink); }
+.usage-rate { display: inline-block; width: 44px; height: 6px; background: var(--bg-muted); margin-right: 6px; vertical-align: 1px; }
+.usage-rate > span { display: block; height: 100%; background: var(--status-blocked); }
+@media (max-width: 767px) { .usage-title { max-width: 160px; } .usage-chip { min-height: 44px; } .usage-prios { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .mp-section-label {
   font-family: var(--mono); font-size: var(--fs-caption);
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -6023,11 +6034,12 @@ async function loadUsage(days) {
   }
   usageData = d;
   renderUsage(d);
+  loadOutcomes();
 }
 
 function setUsageHost(host) {
   usageHost = host;
-  if (usageData) renderUsage(usageData);
+  if (usageData) { renderUsage(usageData); loadOutcomes(); }
 }
 
 function usageLimitWindow(minutes) {
@@ -6154,7 +6166,7 @@ function usageModels(d) {
 function usageList(title, rows, empty) {
   if (!rows || !rows.length) return `<section class="usage-card"><h3><span>${title}</span></h3><p class="usage-note">${empty}</p></section>`;
   const max = Math.max(...rows.map((r) => r.n));
-  const items = rows.map((r) => `<li><span class="nm" title="${esc(r.name)}">${esc(r.name)}${r.ours ? '<span class="usage-tag">great_cto</span>' : ''}</span><span class="n">${r.n.toLocaleString('en-US')}</span><span class="bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((r.n / max) * 100))}%"></span></span></li>`).join('');
+  const items = rows.map((r) => `<li><span class="nm" title="${esc(r.name)}"><span class="t">${esc(r.name)}</span>${r.ours ? '<span class="usage-tag">great_cto</span>' : ''}</span><span class="n">${r.n.toLocaleString('en-US')}</span><span class="bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((r.n / max) * 100))}%"></span></span></li>`).join('');
   return `<section class="usage-card"><h3><span>${title}</span></h3><ul class="usage-list">${items}</ul></section>`;
 }
 
@@ -6242,6 +6254,90 @@ function usageCodexLimits(d) {
   return `<section class="usage-card" data-limits="codex">${head}${lanes}<p class="usage-sub">A window Codex reset early shows as its own window.</p></section>`;
 }
 
+// ── Agents and reviews (great_cto-egkw stage 3) ────────────────────────────
+// Outcomes come from /api/outcomes (verdicts of every registered project, Beads
+// bugs by priority); hook refusals and failures from /api/usage (Claude Code's
+// own logs). Counts only — no bug title reaches the page.
+let _outcomesTimer = null;
+function fmtSpan(days) {
+  if (days == null) return '—';
+  const h = days * 24;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`;
+  if (h < 48) return `${Math.round(h)} h`;
+  return `${Math.round(days)} days`;
+}
+
+async function loadOutcomes() {
+  clearTimeout(_outcomesTimer);
+  if (!document.getElementById('usage-outcomes')) return;
+  const d = await api(`/api/outcomes?days=${usageDays}`);
+  // Looked up AFTER the answer: Usage may have re-rendered while it was on the
+  // way, and an answer written into the replaced element is an answer nobody sees.
+  const el = document.getElementById('usage-outcomes');
+  if (!el) return;
+  if (!d || d.error) { el.className = 'usage-note'; el.textContent = `Outcomes could not be read: ${(d && d.error) || 'the board is not reachable'}`; return; }
+  if (d.state === 'computing') {
+    el.className = 'usage-note';
+    el.textContent = `Counting — ${d.why}`;
+    _outcomesTimer = setTimeout(() => { if (currentTab === 'usage') loadOutcomes(); }, 2000);
+    return;
+  }
+  if (d.state !== 'counted') { el.className = 'usage-note'; el.textContent = `Outcomes are not available: ${d.why || d.state}`; return; }
+  el.className = 'usage-grid';
+  el.innerHTML = usageAgentsCard(d) + usageFindingsCard(d);
+}
+
+function usageAgentsCard(d) {
+  const A = d.agents || { agents: [] };
+  const head = `<h3><span>Agents: what they concluded</span><span class="muted">${d.projects} projects · ${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>`;
+  if (!A.agents.length) return `<section class="usage-card" data-outcomes="agents">${head}<p class="usage-note">No great_cto agent recorded a verdict in this period.</p></section>`;
+  const dispatched = Object.fromEntries(((usageData && usageData.lists && usageData.lists.claude && usageData.lists.claude.agents) || []).map((a) => [a.name, a.n]));
+  const rows = A.agents.map((a) => {
+    const rate = a.stopRate == null ? absent('none', 'no run of this agent reached a conclusion in this period') : `<span class="usage-rate" aria-hidden="true"><span style="width:${Math.round(a.stopRate * 100)}%"></span></span>${Math.round(a.stopRate * 100)}%`;
+    const disp = dispatched[a.agent];
+    const gap = disp != null && disp > a.runs ? ` title="${esc(`dispatched ${disp} times in Claude Code, ${a.runs} verdicts recorded — the rest ran without one`)}"` : '';
+    return `<tr><td>${esc(a.agent)}</td><td class="num">${a.runs}</td><td class="num">${a.pass}</td><td class="num">${a.stopped}</td><td class="num">${a.failed}</td><td class="num">${rate}</td><td class="num"${gap}>${disp == null ? '—' : disp}</td></tr>`;
+  }).join('');
+  const notes = [];
+  if (A.agents.some((a) => a.unknown)) notes.push(`${A.agents.reduce((n, a) => n + a.unknown, 0)} verdicts used a word no rule classifies — counted as runs, not as passes.`);
+  if (A.other && A.other.runs) notes.push(`${A.other.runs} verdicts from names outside great_cto's roster (${esc(A.other.names.slice(0, 4).join(', '))}) are not shown.`);
+  if (A.unreadable) notes.push(`${A.unreadable} verdict files could not be read.`);
+  return `<section class="usage-card" data-outcomes="agents">${head}<div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Agent</th><th class="num">Verdicts</th><th class="num">Pass</th><th class="num">Stopped</th><th class="num">Failed</th><th class="num">Stop rate</th><th class="num" title="Agent dispatches seen in Claude Code's logs in the same period">Dispatched</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p class="usage-sub">Stopped = BLOCKED, REWORK, REJECTED, ESCALATED — the pipeline halted on the agent's word. Stop rate is of the verdicts that concluded.${notes.length ? ` ${notes.join(' ')}` : ''}</p></section>`;
+}
+
+function usageFindingsCard(d) {
+  const F = d.findings;
+  const head = `<h3><span>Findings by priority</span><span class="muted">Beads bugs — reviewers file every P0/P1</span></h3>`;
+  if (!F) return `<section class="usage-card" data-outcomes="findings">${head}<p class="usage-note">Not read.</p></section>`;
+  const tiles = ['P0', 'P1', 'P2', 'P3'].map((p) => {
+    const hot = (p === 'P0' || p === 'P1') && F.openNow[p] > 0;
+    const close = F.daysToClose[p];
+    return `<div class="usage-prio${hot ? ' hot' : ''}"><span class="k">${p} filed</span><b>${F.filed[p]}</b><span class="usage-sub">${F.openNow[p]} open now${close ? ` · closed in ${esc(fmtSpan(close.median))} (median of ${close.n})` : ''}</span></div>`;
+  }).join('');
+  const rows = (F.projects || []).slice(0, 10).map((r) => `<tr><td>${esc(r.project)}</td><td class="num">${r.open.P0 || 0}</td><td class="num">${r.open.P1 || 0}</td><td class="num">${r.open.P2 || 0}</td><td class="num">${(r.filed.P0 || 0) + (r.filed.P1 || 0) + (r.filed.P2 || 0) + (r.filed.P3 || 0)}</td></tr>`).join('');
+  const table = rows ? `<div class="usage-table-wrap"><table class="usage-table"><thead><tr><th>Project</th><th class="num">P0 open</th><th class="num">P1 open</th><th class="num">P2 open</th><th class="num">Filed in period</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="usage-note">No project has a bug filed or open.</p>';
+  const unread = (F.unread || []).length
+    ? `<p class="usage-sub">Not read, so not counted: ${F.unread.map((u) => `<span title="${esc(u.why)}">${esc(u.project)}</span>`).join(', ')} — hover for the reason.</p>` : '';
+  return `<section class="usage-card" data-outcomes="findings">${head}<div class="usage-prios">${tiles}</div>${table}${unread}</section>`;
+}
+
+function usageHooksCards(d) {
+  const H = d.hooks;
+  if (!d.seen || !d.seen.claude) return '<p class="usage-note">No Claude Code logs on this machine — hook outcomes are read from them.</p>';
+  if (!H) return '';
+  const total = (rows) => (rows || []).reduce((n, r) => n + r.n, 0);
+  return `<div class="usage-lists">
+    ${usageList(`Guards refused a call · ${total(H.blocks)}`, H.blocks, 'No guard refused a tool call in this period.')}
+    ${usageList(`Stop hooks sent the turn back · ${total(H.stopBlocks)}`, H.stopBlocks, 'No Stop hook sent a turn back.')}
+    ${usageList(`Hooks that failed · ${total(H.errors)}`, H.errors, 'No hook failed in this period.')}
+    ${usageList(`Hooks that timed out · ${total(H.timeouts)}`, H.timeouts, 'No hook timed out in this period.')}
+  </div>
+  <p class="usage-sub">From Claude Code's logs; Codex does not write hook outcomes. A refusal is counted only where Claude Code marked the result an error — a command that merely prints one is not a refusal.</p>`;
+}
+
 function renderUsage(d) {
   const body = document.getElementById('usage-body');
   if (!body) return;
@@ -6265,6 +6361,10 @@ function renderUsage(d) {
       ${usageList('Agents', l.agents, 'No subagents were dispatched in this window.')}
       ${usageList('MCP servers', l.mcp, 'No MCP tools were called in this window.')}
     </div>
+    <h2 class="mp-section-label">Agents and reviews</h2>
+    <div id="usage-outcomes" class="usage-note" role="status">Reading every project's verdicts and Beads.</div>
+    <h2 class="mp-section-label">Guards and hooks</h2>
+    ${usageHooksCards(d)}
     <p class="usage-note">Read on this machine from ${USAGE_LOGS.claude} and ${USAGE_LOGS.codex}; nothing is sent anywhere. Tokens include cache reads. <b>$ list</b> is the API list-price equivalent from great_cto's price table, not a subscription bill — Claude Code's own estimate can differ for some models. A model without a price shows n/a, never $0.</p>`;
 }
 

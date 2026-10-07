@@ -67,7 +67,11 @@ when it filled, and where the open window ends at the current pace. For Claude
 Code, which records no plan percentage: spend in the last 5 hours and 7 days,
 every refusal filed under the limit that refused it (session, weekly, monthly
 spend, per-model, credits — server throttles apart), and the spend at which those
-refusals came, as an estimate with its count. Dollars there are the API
+refusals came, as an estimate with its count. Below that, across every
+registered project: what each great_cto agent concluded (pass, stopped, failed —
+and how often a dispatch left no verdict), bugs by priority from Beads (filed,
+open now, time to close), and which guards refused a call, which Stop hooks sent
+a turn back, and which hooks failed or timed out. Dollars there are the API
 list-price equivalent, not a subscription bill.
 
 You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage

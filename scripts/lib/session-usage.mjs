@@ -40,7 +40,7 @@ import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { priceUsage, effectivePrices } from './cost-meter.mjs';
 
-const INDEX_VERSION = 2;          // 2: hourly buckets, limit kinds, Codex limit series
+const INDEX_VERSION = 3;          // 2: hourly buckets, limit kinds, Codex limit series · 3: hook blocks, errors, timeouts
 const RING = 256;                 // recent response ids remembered across reads
 const KEEP_GONE_DAYS = 400;       // how long a vanished file's days are kept
 const SERIES_MAX = 4000;          // Codex limit readings kept per file
@@ -117,7 +117,10 @@ function isDir(p) { try { return fs.statSync(p).isDirectory(); } catch { return 
 // ── shared accumulation ───────────────────────────────────────────────────────
 
 function emptyDay() {
-  return { in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, models: {}, tools: {}, skills: {}, agents: {}, mcp: {}, lim: {}, h: {} };
+  // g: a guard hook refused a tool call · sb: a Stop hook sent the turn back ·
+  // he: a hook failed · ht: a hook timed out. Keyed by the guard's name or the
+  // hook's status message — the only name a transcript gives a hook.
+  return { in: 0, out: 0, cr: 0, cw: 0, cwh: 0, rs: 0, msgs: 0, models: {}, tools: {}, skills: {}, agents: {}, mcp: {}, lim: {}, h: {}, g: {}, sb: {}, he: {}, ht: {} };
 }
 
 /** The hour inside a day: tokens per model as [in, out, cacheRead, cacheWrite5m, cacheWrite1h], and limit refusals. */
@@ -211,16 +214,86 @@ export function agentName(raw) {
   return raw.replace(/^great[-_]cto:/, '');
 }
 
+/**
+ * A hook that refused a tool call, from the tool result Claude Code wrote:
+ *   "PreToolUse:Bash hook error: [<cmd>]: great_cto shared-tree guard blocked …"
+ * Named by the guard when the hook names itself, else by the event and tool.
+ */
+export function guardOf(text) {
+  const m = String(text || '').trimStart().match(/^(PreToolUse|PostToolUse|PermissionRequest|UserPromptSubmit):?([^\s]*) hook (?:error|blocking error)/);
+  if (!m) return null;
+  const g = text.match(/great_cto ([a-z0-9-]+(?: [a-z0-9-]+)?) guard\b/);
+  if (g) return { name: g[1], ours: true };
+  return { name: `${m[1]}${m[2] ? `:${m[2]}` : ''}`, ours: /\bgreat_cto\b/.test(text) };
+}
+
+/** A Stop-hook continuation: "PIPELINE-NEXT: senior-dev succeeded …" → PIPELINE-NEXT. */
+export function stopBlockName(event, text) {
+  const m = String(text || '').match(/^\s*([A-Z][A-Z0-9_-]{2,40}):/);
+  return m ? `${event}: ${m[1]}` : event || 'hook';
+}
+
+/**
+ * A short name for a hook. Claude Code records a hook by its status message
+ * ("Safety check...") or, when it has none, by its whole shell command — a
+ * 200-character `PLUGIN_DIR=$(ls -d …)` line. The script it runs is the name.
+ */
+export function hookLabel(command) {
+  const c = String(command || '').trim();
+  const m = c.match(/scripts\/hooks\/([A-Za-z0-9_.-]+?)(?:\.(?:mjs|js|py|sh))?(?=["'\s]|$)/);
+  if (m) return m[1];
+  return c.length > 60 ? `${c.slice(0, 57)}…` : c || 'hook';
+}
+
+function hookRecord(entry, r) {
+  const a = r.attachment || {};
+  const ts = typeof r.timestamp === 'string' ? r.timestamp : null;
+  if (!ts) return;
+  const b = dayBucket(entry, ts);
+  if (!b) return;
+  for (const k of ['g', 'sb', 'he', 'ht']) if (!b[k]) b[k] = {};
+  if (a.type === 'hook_blocking_error') {
+    const text = a.blockingError?.blockingError ?? a.blockingError ?? '';
+    bump(b.sb, stopBlockName(a.hookEvent || a.hookName, typeof text === 'string' ? text : ''));
+  } else if (a.type === 'hook_non_blocking_error') {
+    bump(b.he, `${a.hookEvent || a.hookName}: ${hookLabel(a.command || a.hookName)}`);
+  } else if (a.type === 'hook_cancelled' && a.timedOut) {
+    bump(b.ht, `${a.hookEvent || a.hookName}: ${hookLabel(a.command || a.hookName)}`);
+  }
+}
+
 export function claudeLine(entry, line) {
   // Most bytes in a transcript are tool RESULTS in user lines. They carry no
-  // usage, so they are not parsed — except to name a session that has no title.
+  // usage, so they are not parsed — except to name a session that has no title,
+  // and when a hook refused the call the result answers.
   const isAssistant = line.includes('"type":"assistant"');
   const isTitle = line.includes('"custom-title"');
   const wantsPrompt = !entry.meta.prompt && !entry.meta.title && line.includes('"type":"user"');
-  if (!isAssistant && !isTitle && !wantsPrompt) return;
+  const isHookResult = line.includes(' hook error') && line.includes('"tool_result"');
+  const isHookRecord = line.includes('"hook_blocking_error"') || line.includes('"hook_non_blocking_error"') || line.includes('"hook_cancelled"');
+  if (!isAssistant && !isTitle && !wantsPrompt && !isHookResult && !isHookRecord) return;
   let r;
   try { r = JSON.parse(line); } catch { return; }
   const meta = entry.meta;
+
+  if (r.type === 'attachment') { if (isHookRecord) hookRecord(entry, r); return; }
+  if (r.type === 'user' && isHookResult) {
+    const ts = typeof r.timestamp === 'string' ? r.timestamp : null;
+    const b = ts && dayBucket(entry, ts);
+    for (const block of Array.isArray(r.message?.content) ? r.message.content : []) {
+      // Only a result Claude Code marked as an error: a command whose OUTPUT
+      // quotes a refusal (a grep over these logs, say) is not one.
+      if (block?.type !== 'tool_result' || block.is_error !== true) continue;
+      const c = block.content;
+      const text = typeof c === 'string' ? c : Array.isArray(c) ? c.map((x) => x?.text || '').join(' ') : '';
+      const g = guardOf(text);
+      if (g && b) {
+        if (!b.g) b.g = {};
+        bump(b.g, g.ours ? g.name : `other: ${g.name}`);
+      }
+    }
+    if (!wantsPrompt) return;
+  }
 
   if (r.type === 'custom-title' && r.customTitle) { meta.title = String(r.customTitle).slice(0, 160); return; }
   if (r.type === 'user') {
@@ -441,6 +514,28 @@ function saveIndex(cacheFile, index) {
     fs.writeFileSync(tmp, JSON.stringify(index));
     fs.renameSync(tmp, cacheFile);
   } catch { /* unsaved: the next pass re-reads, nothing else is lost */ }
+  removeOlderIndexes(cacheFile);
+}
+
+/**
+ * An index of an older format is a copy nothing current reads — megabytes each.
+ * Only names this module writes, only versions below the current one, and only
+ * next to the default file: a caller's own cache path is the caller's business.
+ */
+export function removeOlderIndexes(cacheFile, version = INDEX_VERSION) {
+  if (path.basename(cacheFile) !== `session-usage-index.v${version}.json`) return [];
+  const dir = path.dirname(cacheFile);
+  const removed = [];
+  let names = [];
+  try { names = fs.readdirSync(dir); } catch { return removed; }
+  for (const name of names) {
+    const m = name.match(/^session-usage-index(?:\.v(\d+))?\.json$/);
+    if (!m) continue;
+    const v = m[1] ? Number(m[1]) : 1;
+    if (v >= version) continue;
+    try { fs.rmSync(path.join(dir, name)); removed.push(name); } catch { /* in use or gone: next save tries again */ }
+  }
+  return removed;
 }
 
 /**
@@ -669,6 +764,8 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
   const daily = Object.fromEntries(dates.map((d) => [d, { claude: { tokens: 0, usd: 0, byFn: {} }, codex: { tokens: 0, usd: 0, byFn: {} } }]));
   const models = {};
   const lists = { claude: { tools: {}, skills: {}, agents: {}, mcp: {} }, codex: { tools: {}, skills: {}, agents: {}, mcp: {} } };
+  const hooks = { blocks: {}, stopBlocks: {}, errors: {}, timeouts: {} };
+  const hookDaily = Object.fromEntries(dates.map((d) => [d, { blocks: 0, stopBlocks: 0 }]));
   const sessions = {};
   const unpriced = new Set();
   let codexLimits = null;
@@ -710,6 +807,12 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
       const h = hosts[host];
       for (const [k, n] of Object.entries(b.lim || {})) bump(h.lim, k, n);
       for (const kind of ['tools', 'skills', 'agents', 'mcp']) for (const [k, n] of Object.entries(b[kind] || {})) bump(lists[host][kind], k, n);
+      for (const [field, key] of [['g', 'blocks'], ['sb', 'stopBlocks'], ['he', 'errors'], ['ht', 'timeouts']]) {
+        for (const [k, n] of Object.entries(b[field] || {})) {
+          bump(hooks[key], k, n);
+          if (key === 'blocks' || key === 'stopBlocks') hookDaily[day][key] += n;
+        }
+      }
       let dayUsd = 0;
       let dayUnpriced = false;
       for (const [model, m] of Object.entries(b.models || {})) {
@@ -787,6 +890,12 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
       claude: claudeLimits(hourly.claude, { fromMs, now, lastHit }),
     },
     unpricedModels: [...unpriced].sort(),
+    // Claude Code only: Codex does not write hook outcomes to its session logs.
+    hooks: {
+      blocks: rank(hooks.blocks, 20), stopBlocks: rank(hooks.stopBlocks, 15),
+      errors: rank(hooks.errors, 15), timeouts: rank(hooks.timeouts, 15),
+      daily: dates.map((d) => ({ date: d, ...hookDaily[d] })),
+    },
   };
 }
 

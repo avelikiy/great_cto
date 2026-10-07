@@ -14,6 +14,7 @@ import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInf
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
 import { usageIndexSnapshot, summarizeUsage, readCodexTitles } from '../../../scripts/lib/session-usage.mjs';
+import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
@@ -1511,10 +1512,30 @@ async function dispatch(req, res, url, cwd) {
       for (const host of Object.keys(sum.lists)) {
         sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));
       }
+      // Which hooks are great_cto's: a guard that names itself, a status message
+      // from our plugin.json, or a script in our scripts/hooks.
+      const mine = boardHookNames();
+      const tag = (rows, kind) => rows.map((r) => ({
+        ...r,
+        ours: kind === 'blocks' ? !r.name.startsWith('other: ') : mine.has(r.name.replace(/^[A-Za-z]+:\s*/, '')),
+      }));
+      for (const k of ['blocks', 'stopBlocks', 'errors', 'timeouts']) sum.hooks[k] = tag(sum.hooks[k], k);
       body = { ...sum, seen: snap.seen, files: snap.files };
     }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify(body));
+    return true;
+  }
+
+  // What the agents concluded and what reviews found, across every registered
+  // project (scripts/lib/outcomes.mjs): verdicts per agent, Beads bugs by
+  // priority. Counts only — no bug title leaves the server. Answers at once:
+  // `computing` until the first read of every project's Beads lands.
+  if (pathname === '/api/outcomes') {
+    const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(boardOutcomes(days)));
     return true;
   }
 
@@ -2179,6 +2200,44 @@ function boardUsage() {
     _usageSnap = usageSnapshot({ compute: () => agentUsage({ agents }) });
   }
   return _usageSnap;
+}
+
+let _hookNames = null;
+function boardHookNames() {
+  if (_hookNames) return _hookNames;
+  const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..');
+  const names = new Set();
+  try {
+    const text = fs.readFileSync(path.join(root, '.claude-plugin', 'plugin.json'), 'utf8');
+    for (const m of text.matchAll(/"statusMessage"\s*:\s*"([^"]+)"/g)) names.add(m[1]);
+  } catch { /* no manifest: only scripts count */ }
+  try {
+    for (const f of fs.readdirSync(path.join(root, 'scripts', 'hooks'))) {
+      names.add(f.replace(/\.(mjs|js|py|sh)$/, ''));
+      // A Stop hook that sends the turn back opens its message with a label —
+      // "PIPELINE-NEXT: senior-dev succeeded …"; the labels our hooks write are ours.
+      try {
+        const src = fs.readFileSync(path.join(root, 'scripts', 'hooks', f), 'utf8');
+        for (const m of src.matchAll(/['"`]([A-Z][A-Z0-9_-]{2,40}):\s/g)) names.add(m[1]);
+      } catch { /* a directory or unreadable: its name is enough */ }
+    }
+  } catch { /* none */ }
+  _hookNames = names;
+  return names;
+}
+
+const _outcomes = new Map();
+const OUTCOMES_TTL = 5 * 60 * 1000;
+function boardOutcomes(days) {
+  const slot = _outcomes.get(days) || {};
+  const fresh = slot.value && Date.now() - slot.at < OUTCOMES_TTL;
+  if (!fresh && !slot.running) {
+    slot.running = computeOutcomes({ days, roster: boardAgentNames() })
+      .then((v) => { slot.value = v; }, (e) => { slot.value = slot.value || { state: 'unavailable', why: `outcomes could not be read: ${e?.message || e}` }; })
+      .finally(() => { slot.at = Date.now(); slot.running = null; });
+    _outcomes.set(days, slot);
+  }
+  return slot.value || { state: 'computing', why: 'reading every project\'s verdicts and Beads' };
 }
 
 let _sessionUsageSnap = null;

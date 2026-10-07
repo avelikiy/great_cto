@@ -250,8 +250,11 @@ The board's **Usage** screen shows what Claude Code and Codex consumed on this
 machine. It reads the hosts' own session logs — `~/.claude/projects` and
 `~/.codex/sessions` — and keeps per-day totals in `~/.great_cto/session-usage-index.v<N>.json` (N is the index format):
 tokens per model, tool / skill / agent / MCP call counts, conversation titles,
-project folder names, hourly spend, the words of each limit refusal, and the plan-window
-readings Codex reported. The logs are
+project folder names, hourly spend, the words of each limit refusal, the plan-window
+readings Codex reported, and counts of hook refusals, failures and timeouts. The same screen
+reads every registered project's verdict logs and runs `bd list` in each project that keeps
+Beads, to count bugs by priority; it keeps counts only — no bug title or description reaches
+the page. The logs are
 only read, never changed. The index stays on your machine, is served by the board
 on its own host only, and is not part of telemetry, even when telemetry is on.
 Delete the file to drop it; the next board open rebuilds it from the logs.

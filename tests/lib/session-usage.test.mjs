@@ -10,6 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot, limitKind,
+  guardOf, stopBlockName, hookLabel, removeOlderIndexes,
 } from '../../scripts/lib/session-usage.mjs';
 
 const made = [];
@@ -323,4 +324,50 @@ test('the snapshot answers at once and runs one pass at a time', async () => {
   const done = await snap.settle();
   assert.equal(done.state, 'ready');
   assert.equal(passes, 1, 'two requests during the first pass did not start a second');
+});
+
+test('a guard that refused a call is counted from the error Claude Code wrote — not from output that quotes one', async () => {
+  const r = roots();
+  const dir = path.join(r.claudeDir, '-w-acme');
+  fs.mkdirSync(dir);
+  const result = (text, isError) => ({ type: 'user', timestamp: T(), message: { content: [{ type: 'tool_result', tool_use_id: 'x', is_error: isError, content: text }] } });
+  const att = (attachment) => ({ type: 'attachment', timestamp: T(), attachment });
+  fs.writeFileSync(path.join(dir, 's.jsonl'), jsonl([
+    result('PreToolUse:Bash hook error: great_cto shared-tree guard blocked the command — `git checkout -- x`', true),
+    result('PreToolUse:Bash hook error: [cmd]: great_cto destructive-command guard blocked the command', true),
+    result('PreToolUse:mcp__terminal__run_in_terminal hook error: Running in an existing tab is turned off', true),
+    // A grep over these very logs prints the same words — it refused nothing.
+    result('110 PreToolUse:Bash hook error: great_cto shared-tree guard blocked the command', undefined),
+    result('PreToolUse:Bash hook error: great_cto shared-tree guard blocked the command', false),
+    att({ type: 'hook_blocking_error', hookEvent: 'Stop', hookName: 'Stop', blockingError: { blockingError: 'PIPELINE-NEXT: senior-dev succeeded → spawn code-reviewer' } }),
+    att({ type: 'hook_non_blocking_error', hookEvent: 'Stop', hookName: 'Stop', command: 'node "${CLAUDE_PLUGIN_ROOT}/scripts/hooks/pipeline-stall-guard.mjs" 2>/dev/null || true', exitCode: 1 }),
+    att({ type: 'hook_cancelled', hookEvent: 'PreToolUse', hookName: 'PreToolUse:Bash', command: 'Safety check...', timedOut: true, timeoutMs: 5000 }),
+    att({ type: 'hook_cancelled', hookEvent: 'PreToolUse', hookName: 'PreToolUse:Bash', command: 'Safety check...', timedOut: false }),
+  ]));
+  const { sum } = await scanned(r);
+  const H = sum.hooks;
+  assert.deepEqual(H.blocks.map((x) => [x.name, x.n]).sort(), [['destructive-command', 1], ['other: PreToolUse:mcp__terminal__run_in_terminal', 1], ['shared-tree', 1]]);
+  assert.deepEqual(H.stopBlocks, [{ name: 'Stop: PIPELINE-NEXT', n: 1 }]);
+  assert.deepEqual(H.errors, [{ name: 'Stop: pipeline-stall-guard', n: 1 }], 'a hook without a status message is named by its script');
+  assert.deepEqual(H.timeouts, [{ name: 'PreToolUse: Safety check...', n: 1 }], 'a cancel that did not time out is not a timeout');
+  assert.equal(H.daily[H.daily.length - 1].blocks, 3);
+});
+
+test('hook names: a guard, a Stop label, a script', () => {
+  assert.deepEqual(guardOf('PreToolUse:Write hook error: great_cto gate-weakening guard blocked the edit'), { name: 'gate-weakening', ours: true });
+  assert.equal(guardOf('Exit code 1\nPreToolUse:Bash hook error: x'), null, 'only a result that IS the refusal');
+  assert.equal(stopBlockName('Stop', 'PIPELINE: devops was cut off'), 'Stop: PIPELINE');
+  assert.equal(stopBlockName('Stop', 'please continue'), 'Stop');
+  assert.equal(hookLabel('PLUGIN_DIR=$(ls -d ~/.claude/plugins/cache/x/*/ | tail -1); python3 "${PLUGIN_DIR}/scripts/hooks/user-prompt-submit.py" 2>/dev/null; true'), 'user-prompt-submit');
+  assert.equal(hookLabel('Checking frozen gates...'), 'Checking frozen gates...');
+});
+
+test('an index of an older format is removed; a newer one and other files are not', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'su-idx-'));
+  made.push(d);
+  for (const f of ['session-usage-index.json', 'session-usage-index.v2.json', 'session-usage-index.v3.json', 'session-usage-index.v4.json', 'usage-index.json']) fs.writeFileSync(path.join(d, f), '{}');
+  const removed = removeOlderIndexes(path.join(d, 'session-usage-index.v3.json'), 3).sort();
+  assert.deepEqual(removed, ['session-usage-index.json', 'session-usage-index.v2.json']);
+  assert.deepEqual(fs.readdirSync(d).sort(), ['session-usage-index.v3.json', 'session-usage-index.v4.json', 'usage-index.json']);
+  assert.deepEqual(removeOlderIndexes(path.join(d, 'my-cache.json'), 3), [], 'a caller\'s own cache path is not a licence to clean');
 });

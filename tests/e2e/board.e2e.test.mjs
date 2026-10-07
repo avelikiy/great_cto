@@ -52,6 +52,8 @@ function seedHostLogs(fakeHome) {
     line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:senior-dev' } }),
     line({ type: 'tool_use', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }),
     { type: 'assistant', timestamp: now, isApiErrorMessage: true, error: 'rate_limit', message: { id: 'refused', model: '<synthetic>', content: [{ type: 'text', text: "You've hit your session limit · resets 3pm (Europe/Vienna)" }] } },
+    { type: 'user', timestamp: now, message: { content: [{ type: 'tool_result', tool_use_id: 't1', is_error: true, content: 'PreToolUse:Bash hook error: great_cto shared-tree guard blocked the command — `git stash`' }] } },
+    { type: 'attachment', timestamp: now, attachment: { type: 'hook_cancelled', hookEvent: 'PreToolUse', hookName: 'PreToolUse:Bash', command: 'Destructive-command check...', timedOut: true, timeoutMs: 5000 } },
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   const xdir = path.join(fakeHome, '.codex', 'sessions', '2026', '10', '06');
   fs.mkdirSync(xdir, { recursive: true });
@@ -80,6 +82,13 @@ async function boardUnderTest() {
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'projects.json'),
     JSON.stringify({ projects: [{ name: FIXTURE_NAME, path: dir }] }, null, 2));
   seedHostLogs(fakeHome);
+  // Verdicts as agents write them — one JSON line each — so Usage reads the
+  // fixture project's outcomes through the registry, like any other project.
+  const vt = (h) => new Date(Date.now() - h * 3600000).toISOString().replace(/\.\d+Z$/, 'Z');
+  fs.writeFileSync(path.join(dir, '.great_cto', 'verdicts', 'security-officer.log'), [
+    { v: 1, ts: vt(5), agent: 'security-officer', verdict: 'BLOCKED', meta: { need: 'implementer' } },
+    { v: 1, ts: vt(3), agent: 'security-officer', verdict: 'APPROVED' },
+  ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   let started;
   try {
     started = await startServerOnFreePort({
@@ -465,9 +474,17 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
     assert.match(text, /Invoice export/, 'the Codex thread by its name');
     assert.match(text, /senior-dev\s*great_cto/, 'a great_cto agent dispatched under the plugin prefix is ours');
 
+    await page.waitForSelector('[data-outcomes="agents"]', { timeout: 20000 });
+    const agents = await page.locator('[data-outcomes="agents"]').innerText();
+    assert.match(agents, /security-officer\s+2\s+1\s+1\s+0\s+50%/, 'two verdicts: one pass, one stop — half stopped the pipeline');
+    assert.match(await page.locator('[data-outcomes="findings"]').innerText(), /P0 filed\s*0/, 'no Beads in the fixture: zero filed, and the card says so');
+    const hooks = await page.locator('#panel-usage').innerText();
+    assert.match(hooks, /Guards refused a call · 1[\s\S]*shared-tree\s*great_cto/, 'the guard that refused, marked as ours');
+    assert.match(hooks, /Hooks that timed out · 1[\s\S]*Destructive-command check/);
+
     await page.getByRole('button', { name: 'Codex', exact: true }).click();
     await page.waitForTimeout(200);
-    assert.match(await page.locator('.usage-lists').innerText(), /exec_command/, 'the host switch lists Codex tools');
+    assert.match(await page.locator('.usage-lists').first().innerText(), /exec_command/, 'the host switch lists Codex tools');
     assert.deepEqual(errors, [], 'nothing threw while Usage was read');
   } finally {
     await env.close();
