@@ -28,6 +28,45 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.57.0 — 2026-10-07
+
+Hooks no longer treat the home directory as a project, and every check of a Bash call runs in one process.
+
+### Fixed
+
+- **The global layer was taken for a project.** Hooks find the project by walking up to the first
+  `.great_cto/PROJECT.md`, and `~/.great_cto` — the global layer every session reads — has one. A
+  session in a repository without its own PROJECT.md walked up to `$HOME`: the completion check
+  wrote one project's cut-off agent there, and the stall guard told another project's session to
+  resume it; agents were handed the global PROJECT.md as their project's. The walk in every hook
+  wrapper and in `projectRoot()` now skips `$HOME`, the event log refuses the global layer, and the
+  completion check and stall guard act only in a project's own `.great_cto`.
+- **Agents that are not great_cto's were asked for verdicts** — `general-purpose`, `Explore`, another
+  plugin's `code-reviewer`. Only great_cto's roster is asked now.
+- **The inline-subagent rule never fired.** It read the command from a field Claude Code does not
+  send. It now reads `tool_input.command` and judges each simple command by its program, so a
+  `.claude` path next to a `-p` flag is not mistaken for `claude -p`. ⚠️ The plugin's contract sets
+  `inline_subagents_allowed = false`, so an agent running `claude -p` from Bash is now refused in
+  Claude Code; a project that needs it sets `inline_subagents_allowed = true` in its own
+  `orchestrator.toml`. Codex never had the rule and still does not.
+- **Every Bash call inside a subagent was logged as an agent start** (one project: 1109 starts against
+  140 stops). A start is logged only at SubagentStart, and a Bash call no longer prints the contract.
+
+### Changed
+
+- **One process for the PreToolUse checks of a Bash call.** Six hooks started six Node processes per
+  call, each with a five-second limit; on loaded days Claude Code cancelled the late ones, and a
+  cancelled guard does not block. `scripts/hooks/bash-guards.mjs` runs them back to back — the first
+  refusal decides — with a 15-second limit. On `ls -la`, 30 calls: p95 47 → 33 ms idle, 103 → 71 ms
+  under CPU load. The Codex adapter runs the same file once instead of five checks.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.56.0 — 2026-10-07
 
 An agent that ends without a verdict is asked for it on every run, and told where log-verdict is.
