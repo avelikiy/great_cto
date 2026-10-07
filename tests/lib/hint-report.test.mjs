@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { collectHints, summarize, formatReport } from '../../scripts/lib/hint-report.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function projectWith(lines) {
   const d = mkdtempSync(join(tmpdir(), 'hint-report-'));

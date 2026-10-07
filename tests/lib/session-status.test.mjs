@@ -8,7 +8,7 @@ import { spawnSync } from 'node:child_process';
 import { recordHookEvent, readSessionStatus, STALE_WORKING_MS } from '../../scripts/lib/session-status.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project() {
   const d = mkdtempSync(join(tmpdir(), 'sess-status-'));
   made.push(d);

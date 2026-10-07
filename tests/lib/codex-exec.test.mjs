@@ -9,7 +9,7 @@ import path from 'node:path';
 
 // Every fake `codex` lives in a temp dir this file removes when it is done.
 const TMP_DIRS = [];
-after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (prefix) => { const d = mkdtempSync(path.join(tmpdir(), prefix)); TMP_DIRS.push(d); return d; };
 
 test('no binary is absent, and says how to get one', () => {

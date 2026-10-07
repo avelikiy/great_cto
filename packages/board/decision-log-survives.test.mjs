@@ -98,7 +98,7 @@ test('an approval that cannot reach beads still records its decision, and says s
     assert.match(logged, /g-1/);
   } finally {
     await reap(board);
-    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ } }
+    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* best effort */ } }
   }
 });
 

@@ -9,7 +9,7 @@ import path from 'node:path';
 import { splitSections, searchMemory, gatherCorpus } from '../../scripts/lib/memory-search.mjs';
 
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 test('a document splits at #, ## and ### headings, with line numbers', () => {
   const s = splitSections('# Title\nintro\n\n## Why\nbecause\n### Detail\nmore\n#### Not a split\nstill detail\n');

@@ -134,7 +134,7 @@ test('evaluateReviewers: no PROJECT.md requires nothing', () => {
 
 const GATE = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'lib', 'gate-check.mjs');
 const madeDirs = [];
-after(() => { for (const d of madeDirs) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of madeDirs) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project(md, verdicts = {}) {
   const dir = mkdtempSync(join(tmpdir(), 'gate-rev-'));
   madeDirs.push(dir);

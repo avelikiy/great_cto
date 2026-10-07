@@ -18,7 +18,7 @@ const HERE = path.dirname(fileURLToPath(import.meta.url));
 const COMPLETION = path.resolve(HERE, '../../scripts/hooks/subagent-stop-completion.mjs');
 const STALL = path.resolve(HERE, '../../scripts/hooks/pipeline-stall-guard.mjs');
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'glob-')); made.push(d); return d; };
 
 /** A fake home whose global layer looks exactly like a project's: PROJECT.md, verdicts, a last stop. */

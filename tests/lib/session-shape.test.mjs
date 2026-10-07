@@ -15,7 +15,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const CLI = join(ROOT, 'scripts/lib/session-shape.mjs');
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 // Synthetic message marker, not a credential. The output must omit these bytes.
 const PROMPT_SENTINEL = 'SECRET-PROMPT-TEXT-do-not-print';

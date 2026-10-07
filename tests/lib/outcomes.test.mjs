@@ -11,7 +11,7 @@ import path from 'node:path';
 import { outcomeOf, verdictAgent, agentOutcomes, bugFindings } from '../../scripts/lib/outcomes.mjs';
 
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-')); made.push(d); return d; };
 const NOW = Date.parse('2026-10-07T12:00:00Z');
 const v = (ts, agent, verdict, extra = {}) => JSON.stringify({ v: 1, ts, agent, verdict, ...extra });

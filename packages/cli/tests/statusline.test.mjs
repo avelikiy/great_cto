@@ -13,7 +13,7 @@ import { installStatusline, uninstallStatusline, statuslineStatus, ourCommand } 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ASSET = path.resolve(HERE, '../assets/statusline.mjs');
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function paths() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'sl-'));

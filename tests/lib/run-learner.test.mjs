@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { learnerArgs, redact, digestTranscript, runLearner, learnerPrompt } from '../../scripts/lib/run-learner.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); made.push(d); return d; };
 
 // A stand-in that behaves like the real CLI where it matters: without -p and a

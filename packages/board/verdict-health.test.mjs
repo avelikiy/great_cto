@@ -26,7 +26,7 @@ function project({ verdictsDirIsFile = false, lines = null } = {}) {
   }
   return dir;
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 
 test('an unreadable verdict directory is named, not reported as an empty project', () => {
   const dir = project({ verdictsDirIsFile: true });

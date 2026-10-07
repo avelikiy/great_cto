@@ -22,7 +22,7 @@ import { stopRemedy } from '../../scripts/lib/stop-shape.mjs';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOOK = path.resolve(HERE, '../../scripts/hooks/subagent-stop-completion.mjs');
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 /** A project, and one agent run that finished normally (one end_turn) at `startedAgoMs`. */
 function project() {

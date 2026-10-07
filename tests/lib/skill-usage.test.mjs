@@ -9,7 +9,7 @@ import path from 'node:path';
 import { skillUsage, skillOf } from '../../scripts/lib/skill-usage.mjs';
 
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const SKILLS = ['done-blocked', 'prose-style', 'test-strategy', 'pre-mortem', 'brainstorming', 'well-architected', 'verticals'];
 // Synthetic message marker, not a credential. The output must omit these bytes.

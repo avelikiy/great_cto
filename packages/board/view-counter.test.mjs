@@ -16,7 +16,7 @@ const { recordView, summarizeViews } = await import('./lib/view-counter.mjs');
 function tmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-viewcounter-'));
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 const logPath = (root) => path.join(root, '.great_cto', 'view-counter.log');
 
 test('recordView appends one JSON line to .great_cto/view-counter.log', () => {

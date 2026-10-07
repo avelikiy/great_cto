@@ -17,7 +17,7 @@ import { parsePatch, payloadsForPatch } from '../../scripts/hooks/codex-adapter.
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ADAPTER = join(REPO, 'scripts', 'hooks', 'codex-adapter.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const patch = (body) => `*** Begin Patch\n${body}\n*** End Patch`;
 const run = (payload, guards, cwd) => spawnSync(process.execPath, [ADAPTER, ...guards], {

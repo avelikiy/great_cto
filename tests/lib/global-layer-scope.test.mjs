@@ -14,7 +14,7 @@ import { privateTerms, termMatcher, STOPWORDS } from '../../scripts/lib/private-
 import { screenProjectScope } from '../../scripts/lib/global-layer-scope.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); made.push(d); return d; };
 
 /** A workspace with two private projects, a nested one, and the noise pre-push ignores. */

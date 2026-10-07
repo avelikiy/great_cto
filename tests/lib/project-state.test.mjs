@@ -16,7 +16,7 @@ import { contractPath, OVERRIDE_MARK } from '../../scripts/lib/contract-path.mjs
 import { ensureStateGitignore, mergeGitignore, BEGIN, END } from '../../scripts/lib/state-gitignore.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project() {
   const d = realpathSync(mkdtempSync(join(tmpdir(), 'proj-state-')));
   made.push(d);

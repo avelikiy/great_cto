@@ -37,5 +37,5 @@ test('blocked only when the contract forbids it', () => {
   assert.equal(run(payload, {}, { toml: no }).code, 2);
   assert.equal(run(payload, {}, { toml: yes }).code, 0);
   assert.equal(run(payload, {}, { toml: null }).code, 0, 'no contract, no rule');
-  fs.rmSync(d, { recursive: true, force: true });
+  fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });

@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { reportLine } from '../../scripts/hooks/learner-report.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project(marker) {
   const d = mkdtempSync(join(tmpdir(), 'learner-report-')); made.push(d);
   mkdirSync(join(d, '.great_cto'));

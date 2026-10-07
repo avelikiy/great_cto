@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import { operatorMessages, isCorrection, hasDoneWhen, requestQuality, formatReport } from '../../scripts/lib/request-quality.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 let clock = Date.parse('2026-09-01T10:00:00Z');
 const at = () => new Date((clock += 60_000)).toISOString();

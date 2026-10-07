@@ -31,7 +31,7 @@ function project({ codebase = null, files = 3 } = {}) {
 }
 const run = (dir) => execFileSync('node', [SCRIPT], { cwd: dir, stdio: 'ignore' });
 const read = (dir) => { const p = path.join(dir, '.great_cto', 'CODEBASE.md'); return fs.existsSync(p) ? fs.readFileSync(p, 'utf8') : null; };
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 
 test('a missing map is generated', () => {
   const dir = project();

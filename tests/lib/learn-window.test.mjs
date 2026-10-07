@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { tick, learnEvery, windowStart, forget } from '../../scripts/lib/learn-window.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = () => { const d = mkdtempSync(join(tmpdir(), 'learn-window-')); made.push(d); return d; };
 
 function setup({ every = 3, autoLearn = true } = {}) {

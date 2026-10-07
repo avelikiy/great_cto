@@ -17,7 +17,7 @@ import { create, write } from '../../scripts/lib/exceptions.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HOOK = join(ROOT, 'scripts', 'hooks', 'destructive-guard.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 // A fixed, fictional layout so the decision does not depend on the machine.
 const CTX = { cwd: '/home/dev/work/app', home: '/home/dev', tmp: '/tmp', branch: 'feature-x' };

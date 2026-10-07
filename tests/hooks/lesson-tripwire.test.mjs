@@ -14,7 +14,7 @@ import { splitLessons, gist, keysOf, buildIndex, matchCall, formatHits } from '.
 
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'lesson-tripwire.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const LESSONS = `# Project Lessons
 
