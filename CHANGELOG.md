@@ -30,6 +30,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.58.1 — 2026-10-07
+
+The board says where Claude's plan readings come from once the recorder is on.
+
+### Fixed
+
+- **Usage → Limits no longer asks you to install what you installed.** Claude Code passes its plan
+  percentage only to a status line it draws: the terminal `claude` draws one, the desktop app's
+  Code tab does not. With the recorder on and no reading yet, the board kept saying "turn on the
+  recorder". It now reads one field — `statusLine.command` in `~/.claude/settings.json` — to tell
+  "on, no reading yet" from "never installed", and says that readings come from `claude` in a
+  terminal. `great-cto statusline install` and `status` say the same (`docs/PRIVACY.md`).
+- **Temp-dir teardowns retry.** The 3.58.0 publish gate went red on a test whose cleanup ran while
+  the board's bd was still writing into the temp home (`ENOTEMPTY`); a rerun passed 1278/1278. Every
+  `rmSync(d, { recursive: true, force: true })` teardown across 85 suites now retries
+  (`maxRetries: 5`), as `pipeline-contracts` already did.
+
+---
+
 ## v3.58.0 — 2026-10-07
 
 The board shows Claude's exact plan use, recorded from the status line.
