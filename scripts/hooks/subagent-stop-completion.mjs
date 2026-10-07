@@ -23,6 +23,7 @@
  *           2 = block stop (only when GREAT_CTO_ENFORCE_COMPLETION=block AND incomplete)
  */
 
+import { isGlobalLayer, isProjectState, isOurAgent } from '../lib/great-cto-scope.mjs';
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
@@ -419,9 +420,12 @@ async function main() {
     appendEvent(PROJ_DIR, outcome ? { ...stopEvent, outcome } : stopEvent);
   };
   const leave = (code, outcome) => { emit(outcome); return process.exit(code); };
+  // Not a project, or not our agent: nothing to record, nothing to ask.
+  if (isGlobalLayer(PROJ_DIR)) return process.exit(0);
   if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return leave(0);
   await recordMeasuredCost(stdin);
 
+  if (!isProjectState(PROJ_DIR)) return leave(0);
   let flags = { threeState: false, acceptanceRequired: false };
   try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return leave(0); }
 
@@ -431,6 +435,7 @@ async function main() {
   let payload = {};
   try { payload = JSON.parse(stdin || '{}'); } catch { /* no payload */ }
   const stoppedAgent = stopAgent(payload);
+  if (payload.agent_type && !isOurAgent(payload.agent_type)) return leave(0);
   const tr = stopTranscript(payload);
   const runId = tr.source === 'agent' && tr.path ? tr.path.split('/').pop().replace(/\.jsonl$/, '') : null;
   const startedAt = tr.source === 'agent' && tr.path ? runStartMs(tr.path) : null;
