@@ -27,6 +27,7 @@ import { isGlobalLayer, isProjectState, isOurAgent } from '../lib/great-cto-scop
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
+import { KNOWN_VERDICTS } from '../lib/verdict-record.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
 import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
@@ -173,6 +174,14 @@ export function freshestVerdictLine(dir, withinMs, now, agent = null) {
     if (!body) continue;
     const parsed = parseVerdictLine(body.split('\n').pop());
     if (!parsed) continue;
+    if (!KNOWN_VERDICTS.includes(parsed.verdict)) continue;
+    const role = parsed.agent?.replace(/^great[-_]cto:/, '');
+    // Older space-form records omit the role; only their exact role filename
+    // can supply it. An explicit conflicting role is never replaced.
+    if (agent && role !== agent && !(role == null && !parsed.canonical)) continue;
+    // Touching an old record does not make its evidence fresh.
+    const timestamp = Date.parse(parsed.ts);
+    if (!Number.isFinite(timestamp) || timestamp < now - withinMs || timestamp > now + 1000) continue;
     bestMt = mt; best = parsed;
   }
   return best;
@@ -183,15 +192,14 @@ export function freshestVerdictLine(dir, withinMs, now, agent = null) {
  *
  * The old question was "was any verdict log touched in the last five minutes",
  * and with agents running in parallel the answer was usually yes — another
- * agent's. Its own log, written at or after the run began (a second of slack
- * for the clock), is the evidence.
+ * agent's. Require a parsed record naming this role, with both record time and
+ * file time at or after the run began. Legacy logs have no invocation identity:
+ * this is role/time evidence, not proof of identity for concurrent same-role runs.
  */
 export function agentVerdictSince(dir, agent, sinceMs) {
   if (!agent || !/^[A-Za-z0-9_-]+$/.test(agent)) return false;
-  try {
-    const st = statSync(join(dir, `${agent}.log`));
-    return st.size > 0 && st.mtimeMs >= sinceMs - 1000;
-  } catch { return false; }
+  const now = Date.now();
+  return !!freshestVerdictLine(dir, now - sinceMs + 1000, now, agent);
 }
 
 /** When a run began: the first timestamp in its own transcript; null when unknown. */
@@ -462,9 +470,7 @@ async function main() {
   } catch { /* no transcript — the generic message still applies */ }
   const decision = completionDecision({
     threeState: flags.threeState,
-    recentVerdictExists: stoppedAgent
-      ? agentVerdictSince(VERDICT_DIR, stoppedAgent, since)
-      : recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
+    recentVerdictExists: !!fresh,
     canonical: fresh ? fresh.canonical !== false : true,
     hasCost: fresh ? fresh.hasCost !== false : true,
     stop,
@@ -491,7 +497,7 @@ async function main() {
     if (note) process.stderr.write(`[great_cto:worktree] ${note}\n`);
   } catch { /* never break a subagent stop over a report */ }
 
-  const hadVerdict = stoppedAgent ? agentVerdictSince(VERDICT_DIR, stoppedAgent, since) : !!fresh;
+  const hadVerdict = !!fresh;
   const ending = hadVerdict ? "verdict-incomplete" : `no-verdict-${stop?.shape || "unknown"}`;
   if (decision.ok) return leave(0, flags.threeState ? 'verdict' : undefined);
 

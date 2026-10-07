@@ -69,6 +69,39 @@ test('its own verdict, written during the run, completes it', () => {
   assert.equal(r.status, 0, r.stderr);
 });
 
+test('a fresh malformed log cannot stand in for a verdict', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), 'NOT A VERDICT\n');
+  assert.equal(run(p).status, 2);
+});
+
+test('a valid record for another role in this role log cannot complete it', () => {
+  const p = project();
+  verdict(p, 'code-reviewer', 10_000);
+  fs.copyFileSync(path.join(p.gc, 'verdicts', 'code-reviewer.log'), path.join(p.gc, 'verdicts', 'senior-dev.log'));
+  assert.equal(run(p).status, 2);
+});
+
+test('touching a stale record does not make it evidence for this run', () => {
+  const p = project();
+  verdict(p, 'senior-dev', 120_000);
+  const f = path.join(p.gc, 'verdicts', 'senior-dev.log');
+  fs.utimesSync(f, new Date(), new Date());
+  assert.equal(run(p, { startedAgoMs: 60_000 }).status, 2);
+});
+
+test('unknown verdict words do not satisfy completion', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} senior-dev NONSENSE cost=$0.1\n`);
+  assert.equal(run(p).status, 2);
+});
+
+test('legacy records without an embedded role retain filename attribution', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} APPROVED cost=$0.1\n`);
+  assert.equal(run(p).status, 0);
+});
+
 test('a verdict from before this run started is the previous run\'s, not this one\'s', () => {
   const p = project();
   verdict(p, 'senior-dev', 120_000);

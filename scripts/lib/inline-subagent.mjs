@@ -12,6 +12,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { contractPath } from './contract-path.mjs';
 import { PASS } from './guard-result.mjs';
+import { simpleCommands, base } from './shell-commands.mjs';
 
 export function findToml() {
   const p = contractPath('orchestrator.toml');
@@ -60,15 +61,28 @@ export function commandOf(raw) {
  * command is split into simple commands and each is judged by its own program:
  * `claude` (or a path ending in /claude), after env assignments and wrappers.
  */
-const WRAPPERS = new Set(['sudo', 'exec', 'env', 'nohup', 'time', 'npx', 'command', 'xargs']);
 export function isInlineSubagent(cmd) {
-  for (const part of String(cmd || '').split(/&&|\|\||[;|&\n(){}]/)) {
-    const words = part.trim().split(/\s+/).filter(Boolean);
+  for (const { words } of simpleCommands(String(cmd || ''))) {
     let i = 0;
-    while (i < words.length && (/^[A-Za-z_][A-Za-z0-9_]*=/.test(words[i]) || WRAPPERS.has(words[i]))) i++;
-    const prog = (words[i] || '').replace(/^["']|["']$/g, '');
+    // The shared parser handles quoting, substitutions, shell -c and env.
+    // command/exec prefixes may leave their option terminator behind.
+    if (words[i] === '--') i++;
+    if (['npx', 'xargs'].includes(base(words[i] || ''))) {
+      const wrapper = base(words[i++]);
+      const withValue = wrapper === 'npx'
+        ? new Set(['-p', '--package', '-c', '--call'])
+        : new Set(['-I', '-n', '-P', '-s', '-a', '-E', '-d', '--replace', '--max-args', '--max-procs', '--arg-file', '--delimiter']);
+      while (i < words.length && words[i].startsWith('-')) {
+        const option = words[i++];
+        if (option === '--') break;
+        if (withValue.has(option)) i++;
+      }
+    }
+    const prog = words[i] || '';
     if (prog !== 'claude' && !prog.endsWith('/claude')) continue;
-    const args = words.slice(i + 1);
+    const rest = words.slice(i + 1);
+    const end = rest.indexOf('--');
+    const args = end < 0 ? rest : rest.slice(0, end);
     if (args.some((a) => a === '-p' || a === '--print' || /^-[a-z]*p[a-z]*$/.test(a))) return true;
   }
   return false;
