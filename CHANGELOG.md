@@ -26,6 +26,35 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.55.0 — 2026-10-07
+
+The board shows what each agent concluded, what reviews found, and which guards and hooks fired.
+
+### Added
+
+- **Usage → Agents and reviews**, across every registered project:
+  - per great_cto agent: verdicts in the period — pass, stopped (BLOCKED, REWORK, REJECTED,
+    ESCALATED), failed — its stop rate, and how many times it was dispatched in Claude Code
+    against the verdicts it left. A verdict word no rule classifies is a run, not a pass.
+  - bugs by priority from each project's Beads: P0–P3 filed, open now, median time to close,
+    per project. A project whose Beads cannot be read is listed with bd's reason, never as zero.
+    Counts only — no bug title reaches the page.
+- **Usage → Guards and hooks**, from Claude Code's logs: which guard refused a call, which Stop
+  hook sent the turn back, which hooks failed and which timed out. A refusal is counted only where
+  Claude Code marked the result an error — output that merely quotes one is not a refusal.
+
+### Changed
+
+- The usage index is format v3 (`~/.great_cto/session-usage-index.v3.json`); older-format index
+  files next to it are removed by the collector.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.54.0 — 2026-10-07
 
 The board shows how close Claude Code and Codex are to their plan limits, and when they hit them.
