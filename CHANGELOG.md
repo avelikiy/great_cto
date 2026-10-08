@@ -31,6 +31,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.58.2 — 2026-10-07
+
+The board stays in a project: `--port` is honored, and restarts no longer carry it into a stray directory.
+
+### Fixed
+
+- **`server.mjs --port N` works**, as its usage line always said. Only `BOARD_PORT`/`PORT` counted, so
+  a test board started with `--port 3177` took :3141 instead.
+- **A restart keeps the board's directory only when it is a project.** `install-local` restarts the
+  board in the old board's cwd so it opens on the same project; it kept any cwd, and after a release
+  run from a scratch worktree the board lived in that worktree — deleted since — and titled itself
+  after it. Now: the old cwd if it holds `.great_cto/PROJECT.md`, else the most recently active
+  registered project, else `$HOME`.
+- **The view log is written only into a project.** `POST /api/view` created `.great_cto/` in whatever
+  directory the board ran in, which recreated the deleted worktree; it now answers `recorded: false`
+  outside a project.
+
+---
+
 ## v3.58.1 — 2026-10-07
 
 The board says where Claude's plan readings come from once the recorder is on.
