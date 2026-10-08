@@ -28,6 +28,7 @@ import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirS
 import { join, dirname } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
 import { KNOWN_VERDICTS } from '../lib/verdict-record.mjs';
+import { invocationIdentity } from '../lib/invocation-identity.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { checkExecution, explainExecution } from '../lib/execution-claims.mjs';
 import { stopShape, stopRemedy } from '../lib/stop-shape.mjs';
@@ -158,7 +159,7 @@ function safeRead(p) {
  * The freshest verdict line, parsed — so the check can look at its FORMAT and
  * not only at whether a file was touched.
  */
-export function freshestVerdictLine(dir, withinMs, now, agent = null) {
+export function freshestVerdictLine(dir, withinMs, now, agent = null, invocationId = null) {
   let best = null, bestMt = 0;
   let files;
   try { files = readdirSync(dir).filter((f) => f.endsWith('.log')); } catch { return null; }
@@ -172,7 +173,13 @@ export function freshestVerdictLine(dir, withinMs, now, agent = null) {
     let body;
     try { body = readFileSync(join(dir, f), 'utf8').trim(); } catch { continue; }
     if (!body) continue;
-    const parsed = parseVerdictLine(body.split('\n').pop());
+    // Same-role runs append to one log. The last line may belong to another
+    // invocation; look backwards for this invocation rather than borrowing it.
+    const line = invocationId ? body.split('\n').reverse().find((line) => {
+      const record = parseVerdictLine(line);
+      return record?.meta?.invocation_id === invocationId;
+    }) : body.split('\n').pop();
+    const parsed = parseVerdictLine(line);
     if (!parsed) continue;
     if (!KNOWN_VERDICTS.includes(parsed.verdict)) continue;
     const role = parsed.agent?.replace(/^great[-_]cto:/, '');
@@ -445,10 +452,13 @@ async function main() {
   const stoppedAgent = stopAgent(payload);
   if (payload.agent_type && !isOurAgent(payload.agent_type)) return leave(0);
   const tr = stopTranscript(payload);
-  const runId = tr.source === 'agent' && tr.path ? tr.path.split('/').pop().replace(/\.jsonl$/, '') : null;
+  const invocationId = invocationIdentity(payload);
+  const runId = invocationId || (tr.source === 'agent' && tr.path ? tr.path.split('/').pop().replace(/\.jsonl$/, '') : null);
   const startedAt = tr.source === 'agent' && tr.path ? runStartMs(tr.path) : null;
   const since = startedAt ?? Date.now() - RECENT_MS;
-  const fresh = freshestVerdictLine(VERDICT_DIR, Date.now() - since + 1000, Date.now(), stoppedAgent);
+  const fresh = freshestVerdictLine(VERDICT_DIR, Date.now() - since + 1000, Date.now(), stoppedAgent, invocationId);
+  if (!invocationId) process.stderr.write('[great_cto:completion] invocation identity unavailable — role/time evidence only; concurrent same-role isolation is unverified.\n');
+  else if (!fresh) process.stderr.write(`[great_cto:completion] Record this invocation with ${logVerdictCommand()} ${stoppedAgent || '<agent>'} <VERDICT> auto invocation_id=${invocationId} [meta...]\n`);
   // How the subagent stopped — read from the transcript the hook is already given.
   let stop = null;
   try {
