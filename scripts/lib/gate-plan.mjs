@@ -24,8 +24,9 @@ import { fileURLToPath } from 'node:url';
 
 import { classify } from './change-tier.mjs';
 import { selectJudgeModel } from './judge-model.mjs';
-// effectiveGates lives in the built CLI package (TS → dist).
-import { effectiveGates } from '../../packages/cli/dist/archetypes.js';
+// Generated from the canonical CLI policy, but shipped in Git too: marketplace
+// installs do not contain the gitignored CLI build.
+import { effectiveGates } from './gate-policy.mjs';
 
 /** Parse archetype + project_size out of a .great_cto/PROJECT.md body. */
 export function parseProject(text) {

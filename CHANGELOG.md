@@ -33,6 +33,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.59.1 — 2026-10-09
+
+Run the board directly from a Git-installed plugin, with the same gate policy as the CLI.
+
+### What's new
+
+- **Self-contained plugin runtime.** The board no longer imports the gitignored CLI
+  build to calculate gates. A dependency-free policy module is generated from the
+  authoritative TypeScript policy and checked for drift in local and CLI CI.
+- **Isolated installer checks.** Postinstall does not launch a detached board under
+  Node's test runner, CI or explicit opt-out environments. Normal installs retain
+  automatic board startup; `GREAT_CTO_NO_BOARD=1` disables it.
+
+### Verification
+
+- Regression coverage boots a clean plugin fixture without CLI `dist` or
+  `node_modules`, resolves a registered project without falling back, and compares
+  the generated policy with the CLI across archetypes, sizes and risk tiers.
+- Gate requirements and approval authority are unchanged. This patch does not
+  claim a product-quality uplift or a new live dual-host benchmark result.
+
+---
+
 ## v3.59.0 — 2026-10-09
 
 Inspect tasks and publish verified work as a draft PR from the board.

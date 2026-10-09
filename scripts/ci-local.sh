@@ -73,14 +73,15 @@ echo "ci-local: node $(node -v) on $(uname -s)"
 
 # ── The privacy guard is actually in force ──
 #
-# The build comes FIRST, before anything that reads it. scripts/lib/gate-plan.mjs
-# (and through it the board) imports packages/cli/dist/archetypes.js, and the
-# "installs for a stranger" step checks dist is complete — both read a gitignored
-# build artefact. With the build at the end of this file a fresh worktree failed
+# The build comes FIRST, before CLI tests and the "installs for a stranger" step
+# read its gitignored output. The board now ships a dependency-free gate policy,
+# but its parity test still compares that policy with the built CLI. With the
+# build at the end of this file a fresh worktree failed
 # them before it ran, and --quick never built at all. 3.46.2 moved it ahead of the
 # unit tests only; the stranger step sits earlier still and kept failing in a
 # fresh worktree. It takes about a second.
 step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
+step "plugin gate policy in sync" node scripts/build-gate-policy.mjs --check
 
 # First, because it is the check that fails silently. The pre-push hook was
 # installed, executable and current for months while `core.hooksPath` pointed at

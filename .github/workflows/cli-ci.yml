@@ -43,6 +43,10 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Plugin gate policy matches the canonical CLI
+        working-directory: .
+        run: node scripts/build-gate-policy.mjs --check
+
       - name: Run tests
         run: node --test tests/*.test.mjs
 
