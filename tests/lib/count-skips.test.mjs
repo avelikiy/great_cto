@@ -22,6 +22,11 @@ test('TAP summaries are summed across every runner in the output', () => {
   assert.equal(countSkips('1..4\n# tests 4\n# skip 2\n# todo 0\n...\n1..9\n# skip 3\n'), 5);
 });
 
+test('modern Node TAP skipped summaries count, including mixed runner formats', () => {
+  assert.equal(countSkips('1..2576\n# tests 2576\n# pass 2572\n# fail 0\n# skipped 4\n'), 4);
+  assert.equal(countSkips('# skipped 4\n# skip 2\nℹ skipped 3\n'), 9);
+});
+
 test('the spec reporter summary counts too', () => {
   assert.equal(countSkips('ℹ tests 12\nℹ skipped 4\nℹ todo 0\n'), 4);
 });
@@ -41,7 +46,7 @@ test('only summary lines count — a test named "skip" and its own # SKIP direct
 test('the CLI prints the count for a log, and refuses a log it cannot read', () => {
   const dir = mkdtempSync(join(tmpdir(), 'skips-'));
   const log = join(dir, 'step.log');
-  writeFileSync(log, '# skip 2\n');
+  writeFileSync(log, '# skipped 2\n');
   const ok = spawnSync(process.execPath, [CLI, log], { encoding: 'utf8' });
   assert.equal(ok.status, 0);
   assert.equal(ok.stdout.trim(), '2');
@@ -62,10 +67,12 @@ function runStep(body, { pipefail = true } = {}) {
 }
 
 test('step() counts a step that passed with skipped tests, and still passes it', () => {
-  const r = runStep(`step "board e2e" bash -c 'echo "# skip 2"; exit 0'`);
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /RESULT FAIL=0 SKIP_TOTAL=2/);
-  assert.match(r.stdout, /board e2e: 2/);
+  for (const summary of ['# skip 2', '# skipped 2']) {
+    const r = runStep(`step "board e2e" bash -c 'echo "${summary}"; exit 0'`);
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /RESULT FAIL=0 SKIP_TOTAL=2/);
+    assert.match(r.stdout, /board e2e: 2/);
+  }
 });
 
 test('step() keeps the command\'s own exit status through the tee', () => {

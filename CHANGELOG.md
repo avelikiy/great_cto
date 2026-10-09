@@ -46,6 +46,9 @@ Run the board directly from a Git-installed plugin, with the same gate policy as
 - **Isolated installer checks.** Postinstall does not launch a detached board under
   Node's test runner, CI or explicit opt-out environments. Normal installs retain
   automatic board startup; `GREAT_CTO_NO_BOARD=1` disables it.
+- **Accurate local-CI coverage.** The skip counter recognizes modern Node TAP
+  `# skipped N` summaries as well as the older spelling, so opt-in live checks
+  are reported as not checked instead of disappearing from the gate verdict.
 
 ### Verification
 
