@@ -284,3 +284,29 @@ goal и acceptance не выводятся из совпадения текст�
 Composer и ready-run resume только копируют команды; mutations C не реализованы.
 Следующие целевые sections этого handoff остаются спецификацией, а не утверждением
 о capabilities текущего backend.
+
+## 12. Sidebar row pattern (2026-10-09)
+
+Destinations, ToolsDisclosure и Fleet filters используют одну геометрию:
+`--nav-row-height: 36px` на desktop/rail, `44px` на телефоне; padding `10px`,
+иконка `16px`, gap `10px`, шрифт `--fs-body`. Цвета берутся из существующих
+theme tokens. Work и History тоже имеют outline SVG, без текстовых исключений
+в icon rail 768–1199px. В rail остаются иконки, aria-label и title; Views скрыты.
+
+Default: `--text`, иконка `--text2`; hover: `--bg-muted`; selected/pressed:
+`--bg-strong`, weight 500, иконка `--accent-text`; focus-visible: inset outline
+2px `--focus-ring`. Счётчики выровнены справа и используют `--mono`,
+`--fs-caption`, tabular numerals. Заголовок Views остаётся eyebrow, не control.
+
+Различия только семантические: destination имеет `role=tab` и `aria-selected`,
+Fleet filter имеет `role=button` и `aria-pressed`. Один активный destination
+может содержать один выбранный filter. Tools сохраняет native details/summary
+и клавиатурное раскрытие, но browser marker заменён SVG chevron в той же колонке.
+Все декоративные новые SVG скрыты от screen reader. Enter/Space активируют
+пункты, arrows перемещают focus между видимыми destinations, Escape закрывает
+мобильный drawer. В rail видимые labels/counters скрыты; имена destinations
+и Tools остаются доступны через aria-label, а полный текст возвращается на desktop.
+
+Browser regression проверяет фактические размеры на 1440, 1000, 375px,
+выбор фильтров клавиатурой, единственный selected destination и скрытие Views
+вне Fleet. Этот контракт не меняет API, grants, бюджеты или pipeline gates.

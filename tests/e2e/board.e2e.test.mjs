@@ -189,6 +189,74 @@ test('every screen paints its own content, and nothing throws on the way', { tim
   } finally { await env.close(); }
 });
 
+test('sidebar rows share geometry, icons and accessible states at every breakpoint', { timeout: 120_000 }, async (t) => {
+  const b = await boardUnderTest();
+  if (b.skip) { t.skip(b.skip); return; }
+  try {
+    const { page } = await openBoard(b);
+    assert.equal(await page.locator('.nav-item[data-tab="work"] svg.icon').count(), 1, 'Work has the same icon column as other destinations');
+    await page.locator('#tools-nav summary').click();
+    await page.locator('.nav-item[data-tab="fleet"]').click();
+    await page.waitForSelector('#nav-view-all .nav-label');
+    for (const width of [1440, 1000, 375]) {
+      await page.setViewportSize({ width, height: 1000 });
+      if (width === 375) await page.locator('button[aria-controls="sidebar"]').click();
+      const rows = await page.locator('.nav-item, #tools-nav summary, .nav-view-item').evaluateAll(els => els
+        .filter(el => el.getClientRects().length && getComputedStyle(el).display !== 'none')
+        .map(el => {
+          const s = getComputedStyle(el), icon = el.querySelector('svg.icon'), label = el.querySelector('.nav-label');
+          return { name: el.getAttribute('aria-label') || label?.textContent, height: el.getBoundingClientRect().height,
+            font: s.fontSize, padding: s.paddingLeft, gap: s.gap,
+            icon: icon?.getBoundingClientRect().width, labelVisible: label && getComputedStyle(label).display !== 'none' };
+        }));
+      assert.ok(rows.length >= 8);
+      for (const row of rows) {
+        assert.equal(row.height, width === 375 ? 44 : 36, `${row.name} row height at ${width}`);
+        assert.equal(row.font, rows[0].font, `${row.name} typography at ${width}`);
+        assert.equal(row.padding, rows[0].padding, `${row.name} padding at ${width}`);
+        assert.equal(row.gap, rows[0].gap, `${row.name} icon gap at ${width}`);
+        assert.equal(row.icon, 16, `${row.name} has a consistent icon at ${width}`);
+        assert.equal(row.labelVisible, width !== 1000, `${row.name} rail label visibility`);
+      }
+      assert.equal(await page.locator('.nav-item[aria-selected="true"]').count(), 1);
+      assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'true');
+      if (process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS) {
+        fs.mkdirSync(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, { recursive: true });
+        await page.locator('#sidebar').screenshot({ path: path.join(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, `sidebar-${width}.png`) });
+      }
+      if (width === 375) await page.keyboard.press('Escape');
+    }
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    const settledStyle = async (locator, property) => locator.evaluate(async (el, property) => {
+      await Promise.all(el.getAnimations().map(a => a.finished.catch(() => {})));
+      return getComputedStyle(el)[property];
+    }, property);
+    for (const theme of ['light', 'dark']) {
+      await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
+      const work = page.locator('.nav-item[data-tab="work"]'), view = page.locator('#nav-view-all');
+      await work.hover();
+      const hover = await settledStyle(work, 'backgroundColor');
+      await view.hover();
+      assert.equal(await settledStyle(view, 'backgroundColor'), hover, `shared hover colour in ${theme}`);
+      await page.keyboard.press('Tab'); // keyboard modality makes :focus-visible explicit
+      await work.focus();
+      const focus = await settledStyle(work, 'outlineColor');
+      await view.focus();
+      assert.equal(await settledStyle(view, 'outlineColor'), focus, `shared focus colour in ${theme}`);
+      assert.equal(await view.evaluate(el => getComputedStyle(el).outlineWidth), '2px');
+    }
+    await page.evaluate(() => document.documentElement.dataset.theme = 'light');
+    await page.locator('#nav-view-all').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await page.locator('#nav-view-all').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'false');
+    await page.locator('.nav-item[data-tab="history"]').click();
+    assert.equal(await page.locator('.nav-item.active').count(), 1, 'only the current destination is active');
+    assert.equal(await page.locator('.nav-item[data-tab="history"]').getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('.nav-views').isVisible(), false, 'Fleet filters stay contextual');
+  } finally { await b.close(); }
+});
+
 test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 120_000 }, async (t) => {
   const env = await boardUnderTest();
   if (env.skip) return t.skip(env.skip);

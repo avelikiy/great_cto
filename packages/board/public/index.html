@@ -561,19 +561,23 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text3);
 }
 
-.nav { padding: 12px 8px; flex: 0 0 auto; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  height: 32px; padding: 0 10px;
+.sidebar { --nav-row-height: 36px; --nav-row-pad: 10px; --nav-icon-size: 16px; --nav-row-gap: 10px; }
+.nav { padding: 8px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
+/* One row pattern for destinations, disclosure and Fleet filters. */
+.nav-item, .nav-view-item, .nav-group-toggle {
+  display: flex; align-items: center; gap: var(--nav-row-gap);
+  height: var(--nav-row-height); padding: 0 var(--nav-row-pad);
   border-radius: 0;
   font-size: var(--fs-body);
+  font-weight: 400;
   color: var(--text);
   cursor: pointer;
   position: relative;
   user-select: none;
 }
-.nav-item:hover { background: var(--bg-muted); }
-.nav-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item:hover, .nav-view-item:hover, .nav-group-toggle:hover { background: var(--bg-muted); }
+.nav-item.active, .nav-view-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item:focus-visible, .nav-view-item:focus-visible, .nav-group-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .nav-item.active::before {
   content: "";
   position: absolute;
@@ -582,13 +586,19 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: var(--accent);
   border-radius: 0;
 }
-.nav-item .icon { width: 16px; height: 16px; color: var(--text2); flex-shrink: 0; }
-.nav-item.active .icon { color: var(--accent-text); }
-.nav-item .count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); }
+.sidebar .icon { width: var(--nav-icon-size); height: var(--nav-icon-size); color: var(--text2); flex-shrink: 0; }
+.nav-item.active .icon, .nav-view-item.active .icon { color: var(--accent-text); }
+.nav-label { flex: 1; min-width: 0; }
+.nav-item .count, .nav-view-count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+#tools-nav { flex: 0 0 auto; }
+#tools-nav > summary { margin: 0 8px; list-style: none; }
+#tools-nav > summary::-webkit-details-marker { display: none; }
+#tools-nav > summary::marker { content: ''; }
+#tools-nav[open] > summary .icon { transform: rotate(90deg); }
+#tools-nav .nav { padding-top: 2px; }
 .nav-divider { height: 1px; background: var(--border); margin: 12px 8px; }
 .nav-views-label { padding: 0 18px; font-size: var(--fs-caption); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
 .nav-views { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 12px; }
-.nav-view-item { height: 28px; display: flex; align-items: center; padding: 0 10px; font-size: var(--fs-small); color: var(--text3); }
 
 .sidebar-footer {
   margin-top: auto;
@@ -1512,10 +1522,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
-  .nav-view-item { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
-  .nav-view-item:hover { background: var(--bg-muted); color: var(--text); }
-  .nav-view-item.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
-  .nav-view-count { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); font-variant-numeric: tabular-nums; }
   .fleet-group-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
   .fleet-group-collapsed { display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
   .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
@@ -3160,7 +3166,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    operator caused, none for state the machine caused. Hover and focus 90ms
    linear; the drawer 200ms out / 140ms in (exit faster than enter); SSE
    arrival 0ms — rows and figures swap, they do not animate in. ── */
-.nav-item, .nav-view-item, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
+.nav-item, .nav-view-item, .nav-group-toggle, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
@@ -3208,8 +3214,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    labels; the destinations stay one tap away. ── */
 @media (min-width: 768px) and (max-width: 1199px) {
   .sidebar { width: 56px; }
-  .nav-item { justify-content: center; padding: 0; gap: 0; }
+  .nav-item, .nav-group-toggle { justify-content: center; padding: 0; gap: 0; }
   .nav-item > span { display: none; }
+  .nav-group-toggle .nav-label { display: none; }
   .nav-item .count.abs { display: inline; position: absolute; top: 2px; right: 6px; }
   .nav-item { position: relative; }
   .nav-divider, .nav-views-label, .nav-views { display: none; }
@@ -3367,8 +3374,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .work-warning { color: var(--absent-warn-fg); background: var(--bg-card); border: 1px solid var(--absent-warn-fg); padding: 12px; }
 .work-page pre { font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
 #work-compose textarea, #work-compose input, #work-compose select { display: block; width: 100%; margin: 8px 0 12px; padding: 8px; background: var(--bg-muted); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; }
-#tools-nav summary { padding: 12px 16px; cursor: pointer; }
-@media (min-width: 768px) and (max-width: 1199px) { .nav-item[data-tab="work"] > span, .nav-item[data-tab="history"] > span { display: inline; font-size: var(--fs-caption); } #tools-nav summary { padding: 12px 4px; } }
+@media (max-width: 767px) { .sidebar { --nav-row-height: 44px; } }
 @media (max-width: 767px) { .work-page { padding: 12px; } .work-page button, #work-compose select { min-height: 44px; } }
 </style>
 </head>
@@ -3411,19 +3417,28 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
     </div>
     <nav class="nav" id="nav-tablist" role="tablist" aria-orientation="vertical">
-      <div class="nav-item active" data-tab="work" role="tab" tabindex="0" aria-label="Work" title="Work" onkeydown="navTabKeydown(event, this)" onclick="switchTab('work', this)"><span>Work</span></div>
+      <div class="nav-item active" data-tab="work" role="tab" tabindex="0" aria-selected="true" aria-label="Work" title="Work" onkeydown="navTabKeydown(event, this)" onclick="switchTab('work', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v3h4v-3"/></svg>
+        <span class="nav-label">Work</span>
+      </div>
       <div class="nav-item" data-tab="decisions" role="tab" tabindex="0" aria-label="Decisions" title="Decisions" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        <span>Decisions</span>
+        <span class="nav-label">Decisions</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" data-tab="history" role="tab" tabindex="0" aria-label="History" title="History" onkeydown="navTabKeydown(event, this)" onclick="switchTab('history', this)"><span>History</span></div>
+      <div class="nav-item" data-tab="history" role="tab" tabindex="0" aria-label="History" title="History" onkeydown="navTabKeydown(event, this)" onclick="switchTab('history', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/></svg>
+        <span class="nav-label">History</span>
+      </div>
     </nav>
-    <details id="tools-nav"><summary>Tools</summary>
+    <details id="tools-nav"><summary class="nav-group-toggle" aria-label="Tools" title="Tools">
+      <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="nav-label">Tools</span>
+    </summary>
     <nav class="nav" role="tablist" aria-label="Technical tools" aria-orientation="vertical">
       <div class="nav-item" data-tab="ledger" role="tab" tabindex="0" aria-label="Ledger" title="Ledger" onkeydown="navTabKeydown(event, this)" onclick="switchTab('ledger', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <span>Ledger</span>
+        <span class="nav-label">Ledger</span>
         <!-- Real spend total is Ledger's own content (.7); this keeps the count
              of agent budget caps the old Budgets tab already computed, rather
              than inventing a $ figure with nothing behind it yet. -->
@@ -3431,7 +3446,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
       <div class="nav-item" data-tab="fleet" role="tab" tabindex="0" aria-label="Fleet" title="Fleet" onkeydown="navTabKeydown(event, this)" onclick="switchTab('fleet', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h8M6 8v8M18 8v8M8 18h8"/></svg>
-        <span>Fleet</span>
+        <span class="nav-label">Fleet</span>
         <!-- The absence glyph, not a count (DESIGN §5): something in Fleet is
              unclassified. Left hidden — the classification read lives in the
              Fleet screen body (.8/.9), out of this shell task's scope. -->
@@ -3439,22 +3454,18 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
       <div class="nav-item" data-tab="harness" role="tab" tabindex="0" aria-label="Harness" title="Harness" onkeydown="navTabKeydown(event, this)" onclick="switchTab('harness', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-5 3 10 2-5h7"/></svg>
-        <span>Harness</span>
+        <span class="nav-label">Harness</span>
         <span class="count" id="nav-harness-count"></span>
       </div>
       <div class="nav-item" data-tab="usage" role="tab" tabindex="0" aria-label="Usage" title="Usage" onkeydown="navTabKeydown(event, this)" onclick="switchTab('usage', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"/></svg>
-        <span>Usage</span>
+        <span class="nav-label">Usage</span>
       </div>
     </nav>
     </details>
     <div class="nav-divider"></div>
     <div class="nav-views-label" id="nav-views-label" hidden>Views</div>
-    <!-- Saved views over Fleet (DESIGN §5 point 2). Static for this shell —
-         filtering the fleet list is the Fleet screen body's job (.8), not this
-         task's; deliberately not `.nav-item`/`role="tab"`, since they neither
-         switch a top-level destination nor do anything yet, and a control that
-         looks live and isn't fails `ui-ux-pro-max` empty-nav-state. -->
+    <!-- Fleet filters share the row pattern, but stay buttons, not destinations. -->
     <div class="nav-views" hidden>
       <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
       <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
@@ -9117,7 +9128,9 @@ function switchTab(id, el) {
   closeMenu(false);   // choosing a destination is the end of using the menu
   // sidebar nav
   document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === navKey);
+    const selected = t.dataset.tab === navKey;
+    t.classList.toggle('active', selected);
+    t.setAttribute('aria-selected', String(selected));
   });
   // top tabs
   document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
@@ -9428,8 +9441,11 @@ function renderFleetViews() {
     const el = document.getElementById(`nav-view-${key}`);
     if (!el) continue;
     const n = agents.filter((a) => inFleetView(a, key)).length;
-    el.classList.toggle('active', fleetState.view === key);
-    el.innerHTML = `<span>${esc(label)}</span><span class="nav-view-count">${n}</span>`;
+    const selected = fleetState.view === key;
+    el.classList.toggle('active', selected);
+    el.setAttribute('aria-pressed', String(selected));
+    // A filter glyph keeps the same icon/label columns as the destinations.
+    el.innerHTML = `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg><span class="nav-label">${esc(label)}</span><span class="nav-view-count">${n}</span>`;
   }
   const abs = document.getElementById('nav-fleet-abs');
   if (abs) abs.hidden = !agents.some((a) => a.posture?.state === 'unclassified' || a.posture?.state === 'unreadable');
