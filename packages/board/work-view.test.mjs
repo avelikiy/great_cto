@@ -45,3 +45,55 @@ test('late read from a previous project cannot replace the selected project', as
   assert.match(node('work-list').innerHTML, /Selected project/);
   assert.doesNotMatch(node('work-list').innerHTML, /Wrong project/);
 });
+
+test('task cockpit escapes activity and does not treat successful process output as verified completion', () => {
+  const html = view.render({ observedAt: 'now', health: 'current', sources: [], sessions: [], entries: [{
+    key: 'run:one', kind: 'run', terminal: false, title: 'Feature', nativeState: 'blocked', stage: '<qa>',
+    capabilities: [], acceptance: [], evidence: [], decisions: [], reason: 'timeout',
+    inspector: { state: 'recorded', partial: true, lastEventAt: 'now', events: [
+      { ts: 'now', kind: 'agent-stop', agent: '<script>evil()</script>', host: 'codex', ok: true, durationMs: 10 },
+    ] },
+  }] });
+  assert.match(html, /Stage: &lt;qa&gt;/); assert.match(html, /Live activity inspector/);
+  assert.match(html, /not proof of liveness or acceptance/); assert.match(html, /window is incomplete/);
+  assert.doesNotMatch(html, /<script>|verified completion|success: true/);
+});
+
+test('publication command explicitly confirms only draft PR and quotes literal scope/base', () => {
+  const taskId = '00000000-0000-4000-8000-000000000000';
+  const command = view.publicationCommand({ taskId, revision: 3, approval: 'a'.repeat(64), base: "topic'base", allow: ['src', 'docs'] });
+  const args = JSON.parse(execFileSync('/bin/sh', ['-c', command.replace('great-cto', "python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))'")], { encoding: 'utf8' }));
+  assert.deepEqual(args.slice(-6), ['--base', "topic'base", '--allow', 'src,docs', '--confirm', 'publish-draft-pr']);
+  assert.throws(() => view.publicationCommand({ taskId, revision: 3, approval: 'a'.repeat(64), allow: ['a,b'] }), /Invalid/);
+});
+
+test('browser publication requires exact branch and sends only one scoped confirmation', async () => {
+  const nodes = new Map(), handlers = new Map();
+  const node = id => { if (!nodes.has(id)) nodes.set(id, { textContent: '', innerHTML: '', addEventListener(kind, fn) { handlers.set(`${id}:${kind}`, fn); } }); return nodes.get(id); };
+  const key = 'task:one', taskId = '00000000-0000-4000-8000-000000000000';
+  const panel = { dataset: { publicationPreview: key }, isConnected: true };
+  const scope = { dataset: { publicationAllow: key }, value: 'src,tests' };
+  const confirm = { dataset: { publicationConfirm: key }, value: 'wrong' };
+  const selectors = { '[data-publication-preview]': [panel], '[data-publication-allow]': [scope], '[data-publication-confirm]': [confirm] };
+  const ctx = { window: {}, document: { getElementById: node, querySelectorAll: s => selectors[s] || [], activeElement: null }, setInterval() {} };
+  vm.createContext(ctx); vm.runInContext(readFileSync(new URL('./public/assets/work-view.js', import.meta.url), 'utf8'), ctx);
+  const requests = [], writes = [];
+  const snapshot = { schemaVersion: 1, revision: 'one', observedAt: '', health: 'current', sources: [], sessions: [], entries: [{ key, taskId, revision: 3, terminal: false, publicationPreview: true, kind: 'task', title: 'Feature', acceptance: [], evidence: [], decisions: [], capabilities: [] }] };
+  ctx.window.GctoWork.bind({ project: () => 'selected', visible: () => true,
+    read: async url => { requests.push(url); return url.includes('publication-preview') ? { taskId, revision: 3, approval: 'a'.repeat(64), branch: 'topic', base: 'main', allow: ['src', 'tests'], ticket: 'one-time' } : snapshot; },
+    publish: async (url, body) => { writes.push({ url, body }); return { error: 'Uncertain outcome: reconcile' }; },
+  });
+  await ctx.window.GctoWork.refresh();
+  const click = action => { const button = { dataset: { workKey: key, workAction: action } }; handlers.get('work-list:click')({ target: { closest: () => button } }); return button; };
+  click('preview_publication'); await new Promise(resolve => setImmediate(resolve));
+  assert.match(requests.at(-1), /allow=src%2Ctests&project=selected/);
+  click('publish_publication'); assert.equal(writes.length, 0);
+  confirm.value = 'topic'; const button = click('publish_publication'); click('publish_publication');
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(button.disabled, true); assert.equal(writes.length, 1);
+  assert.equal(writes[0].url, '/api/work/publication?project=selected');
+  assert.equal(writes[0].body.confirm, 'publish-draft-pr');
+  assert.equal(writes[0].body.ticket, 'one-time');
+  assert.match(node('work-feedback').textContent, /reconcile/);
+  assert.doesNotMatch(node('work-feedback').textContent, /publication recorded/);
+});

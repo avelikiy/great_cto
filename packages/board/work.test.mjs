@@ -58,6 +58,9 @@ test('HTTP projection scopes reads, fails unknown project closed and refuses exe
   assert.equal(snapshot.entries.find(e => e.issueIds.includes('i-1')).runId, null);
   assert.equal((await fetch(base + '/api/work?project=unknown-no-fallback')).status, 404);
   assert.equal((await fetch(base + '/api/work', { method: 'POST', headers: { Origin: base } })).status, 405);
+  assert.equal((await fetch(base + '/api/work/publication-preview?project=unknown-no-fallback&task=' + id)).status, 404);
+  assert.equal((await fetch(base + '/api/work/publication-preview?task=' + id, { method: 'POST', headers: { Origin: base } })).status, 405);
+  assert.equal((await fetch(base + '/api/work/publication-preview?task=bad-id')).status, 409);
 });
 test('HTTP degraded store reports unreadable records instead of all clear', async () => {
   writeFileSync(join(home, '.great_cto', 'codex-runs', `${randomUUID()}.json`), '{bad');
@@ -65,6 +68,22 @@ test('HTTP degraded store reports unreadable records instead of all clear', asyn
   assert.equal(snapshot.health, 'degraded');
   assert.match(snapshot.sources.find(s => s.id === 'codex').reason, /could not be read/);
   assert.equal(snapshot.entries.some(e => e.runId === id), true);
+});
+
+test('HTTP cockpit links project activity without exposing other sessions or raw event contents', async () => {
+  writeFileSync(join(cwd, '.great_cto', 'events.jsonl'), [
+    { kind: 'tool', session: id, ts: '2026-10-09T12:00:00Z', tool: 'Read', prompt: 'PRIVATE_PROMPT', output: 'PRIVATE_OUTPUT' },
+    { kind: 'agent-stop', session: 'unrelated', agent: 'UNRELATED_AGENT', ok: true },
+  ].map(e => JSON.stringify(e)).join('\n') + '\n');
+  const snapshot = await (await fetch(base + '/api/work')).json();
+  const inspector = snapshot.entries.find(e => e.runId === id).inspector;
+  assert.equal(inspector.state, 'recorded'); assert.equal(inspector.events.length, 1);
+  assert.equal(inspector.events[0].tool, 'Read');
+  assert.doesNotMatch(JSON.stringify(snapshot), /PRIVATE_PROMPT|PRIVATE_OUTPUT|UNRELATED_AGENT/);
+  writeFileSync(join(cwd, '.great_cto', 'events.jsonl'), '{bad\n');
+  const degraded = await (await fetch(base + '/api/work')).json();
+  assert.equal(degraded.sources.find(s => s.id === 'activity').health, 'degraded');
+  assert.equal(degraded.entries.find(e => e.runId === id).inspector.partial, true);
 });
 
 test('shared tasks use explicit links, goal and host capabilities instead of duplicate run rows', () => {

@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
+import { fileURLToPath } from 'node:url';
 import os from 'os';
 import {
   getVapidKeys,
@@ -14,7 +15,7 @@ import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInf
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
 import { isProjectState } from '../../../scripts/lib/great-cto-scope.mjs';
-import { usageIndexSnapshot, summarizeUsage, readCodexTitles, readClaudeLimits, claudeRecorder } from '../../../scripts/lib/session-usage.mjs';
+import { usageReports } from './usage-report.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
@@ -44,6 +45,19 @@ import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../.
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
 import { getWork } from './work.mjs';
+let publicationPreviewBusy = false;
+let publicationWriteBusy = false;
+import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
+const publicationTicketStore = publicationTickets();
+
+function publicationWorker(args, cwd, timeout = 20000) {
+  const controller = fileURLToPath(new URL('../../../scripts/work-task.mjs', import.meta.url));
+  return new Promise((resolve, reject) => execFile(process.execPath, [controller, ...args, '--dir', cwd],
+    { timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
+      if (error) { reject(Error('publication worker failed; inspect host state before retry')); return; }
+      try { resolve(JSON.parse(stdout)); } catch { reject(Error('publication response is unreadable')); }
+    }));
+}
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
@@ -101,6 +115,60 @@ async function dispatch(req, res, url, cwd) {
     if (info.resolved === 'fallback' && typeof res.setHeader === 'function') {
       try { res.setHeader('X-Project-Fallback', String(info.requested || requestedProject)); } catch { /* headers already sent */ }
     }
+  }
+
+  if (pathname === '/api/work/publication') {
+    const respond = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') { respond(404, { error: 'Unknown project' }); return true; }
+    if (req.method !== 'POST') { respond(405, { error: 'Use explicit POST confirmation' }); return true; }
+    const origin = localPublicationOrigin(req);
+    // A missing Origin is acceptable for preview, never for an external write.
+    if (!origin || req.headers.origin !== origin || !originAllowed(req)) { respond(403, { error: 'Publication is available only from the local same-origin board' }); return true; }
+    if (publicationWriteBusy) { respond(429, { error: 'Another publication is running; inspect its outcome before retry' }); return true; }
+    publicationWriteBusy = true;
+    try {
+      let bytes = 0, body = '';
+      req.setTimeout(10000, () => req.destroy());
+      for await (const chunk of req) { bytes += chunk.length; if (bytes > 2048) throw Error('confirmation body too large'); body += chunk; }
+      req.setTimeout(0);
+      const parsed = JSON.parse(body);
+      if (parsed.confirm !== 'publish-draft-pr') throw Error('explicit draft PR confirmation required');
+      const ticket = publicationTicketStore.consume(parsed.ticket, { root: fs.realpathSync(cwd), origin, branch: parsed.branch });
+      const result = await publicationWorker(['publish', '--task', ticket.taskId, '--revision', String(ticket.expectedRevision),
+        '--approval', ticket.approval, '--base', ticket.base, '--allow', ticket.allow.join(','), '--confirm', 'publish-draft-pr'], cwd, 120000);
+      respond(200, { publication: result.task.publication });
+    } catch { respond(409, { error: 'Publication was not confirmed. Refresh task state and reconcile the original operation; no automatic retry was sent.' }); }
+    finally { publicationWriteBusy = false; }
+    return true;
+  }
+
+  // Preview never pushes. Local UI receives a short-lived confirmation ticket.
+  if (pathname === '/api/work/publication-preview') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'GET' }); res.end(JSON.stringify({ error: 'Publication requires explicit host CLI confirmation' })); return true;
+    }
+    if (publicationPreviewBusy) {
+      res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '2' });
+      res.end(JSON.stringify({ error: 'Another publication preview is being read; retry shortly' })); return true;
+    }
+    publicationPreviewBusy = true;
+    try {
+      const taskId = url.searchParams.get('task'), base = url.searchParams.get('base') || 'main', allow = url.searchParams.get('allow');
+      if (!/^[0-9a-f-]{36}$/.test(taskId || '') || !/^[A-Za-z0-9][A-Za-z0-9/_-]{0,120}$/.test(base)) throw Error('invalid preview options');
+      // Git/receipt reads run off the board event loop, with one bounded worker.
+      const preview = await publicationWorker(['preview', '--task', taskId, '--base', base, ...(allow ? ['--allow', allow] : [])], cwd);
+      const origin = localPublicationOrigin(req);
+      if (origin) preview.ticket = publicationTicketStore.issue({ root: fs.realpathSync(cwd), origin, taskId,
+        branch: preview.branch, base: preview.base, allow: preview.allow, ...preview.confirmation });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(preview));
+    } catch {
+      res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Publication preview unavailable: require verified delivery, a clean committed feature branch, explicit path scope and canonical GitHub origin. Inspect with the host CLI.' }));
+    } finally { publicationPreviewBusy = false; }
+    return true;
   }
 
   // New read model refuses project fallback rather than relabeling another project.
@@ -1510,12 +1578,12 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/usage') {
     const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
     const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
-    const snap = boardSessionUsage().get();
+    const snap = boardSessionUsage().get(days);
     let body;
-    if (snap.state !== 'ready') {
+    if (snap.state !== 'counted') {
       body = { state: snap.state, why: snap.why };
     } else {
-      const sum = summarizeUsage(snap.index, { days, codexTitles: readCodexTitles(), claudeReadings: readClaudeLimits(), claudeRecorderState: claudeRecorder() });
+      const sum = snap;
       const ours = new Set(boardAgentNames());
       for (const host of Object.keys(sum.lists)) {
         sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));
@@ -2250,7 +2318,7 @@ function boardOutcomes(days) {
 
 let _sessionUsageSnap = null;
 function boardSessionUsage() {
-  if (!_sessionUsageSnap) _sessionUsageSnap = usageIndexSnapshot();
+  if (!_sessionUsageSnap) _sessionUsageSnap = usageReports();
   return _sessionUsageSnap;
 }
 

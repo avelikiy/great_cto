@@ -32,6 +32,50 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.59.0 — 2026-10-09
+
+Inspect tasks and publish verified work as a draft PR from the board.
+
+### What's new
+
+- **Task cockpit.** Read the current stage, recorded evidence, blockers and bounded activity
+  from the existing task/controller stores. The inspector is read-only: it does not inject
+  terminal input or start another controller.
+- **Explicit draft-PR publication.** A managed, verified delivery task on a clean, committed
+  feature branch can preview publication, then confirm it from the CLI or a same-origin
+  loopback browser. An explicit path scope, current verification receipt, exact Git inputs,
+  historical patch scan, project lease and create-only remote ref protect the operation.
+  Creating a PR does not approve its merge or release. Live GitHub acceptance for this new
+  publication path remains unverified; automated tests use local Git remotes and mocked GitHub.
+- **Consistent navigation.** Work, History, Tools and view filters share row sizing, icons,
+  hover/focus and selected states. Tools sits with the other navigation, not at the bottom.
+- **Responsive statistics and project discovery.** Usage scans run in a bounded background
+  worker with a stale-while-refresh cache. The project switcher refreshes its inventory and
+  filters it as you type.
+
+### Safety and implementation
+
+- [ADR-028](docs/adr/ADR-028-task-cockpit.md) defines the publication checkpoints and authority
+  limits. Outgoing commit history is scanned, not just the final diff. Existing remote branch
+  content is never overwritten; uncertain PR creation is reconciled rather than blindly retried.
+- Browser publication tickets are single-use, expire after 120 seconds and are bound to the
+  project, origin, branch and approved inputs. Remote/tunneled browser writes are refused.
+  Workers and request bodies have explicit deadlines and size limits.
+- The sidebar has browser regression coverage for desktop, icon rail and mobile layouts,
+  theme tokens and keyboard navigation. The release gate is `bash scripts/ci-local.sh --e2e`;
+  opt-in live Docker/model tests are reported as skipped when not enabled, not as verified.
+
+### Known limits
+
+- Dirty-tree autocommit, changed-operation cancellation/reapproval and live GitHub publication
+  acceptance are not part of this slice. The local browser boundary is not account authentication.
+- The admin audit still has open follow-ups for selected-project drawer scoping, rapid project
+  switch races, intermittent server stalls and legacy projection/capability reporting. Moving
+  usage scans off the HTTP thread does not establish that all latency sources are fixed.
+
+---
+
 ## v3.58.2 — 2026-10-07
 
 The board stays in a project: `--port` is honored, and restarts no longer carry it into a stray directory.
