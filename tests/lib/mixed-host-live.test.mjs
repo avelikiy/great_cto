@@ -60,7 +60,7 @@ test('live Claude Code and Codex workers complete one frozen QA/security wave',
     save(state);
 
     const result = spawnSync(process.execPath, [CONTROLLER, 'resume', state.id], {
-      cwd: REPO, env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_DISABLE_EVENTS: '1' },
+      cwd: REPO, env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_DISABLE_EVENTS: '0' },
       encoding: 'utf8', timeout: 900000, maxBuffer: 2 * 1024 * 1024,
     });
     assert.equal(result.status, 0, `controller failed: ${result.error?.message || result.stderr || result.stdout}`);
@@ -73,17 +73,26 @@ test('live Claude Code and Codex workers complete one frozen QA/security wave',
     assert.deepEqual(wave.hosts,
       { 'qa-engineer': 'claude-code', 'security-officer': 'codex' });
     const reports = {};
+    const events = readFileSync(join(root, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
     for (const [role, host] of Object.entries(wave.hosts)) {
       const stage = saved.results[role];
+      const attempt = saved.attempts.find(a => a.id === stage.attemptId);
+      assert.match(stage.invocationId, /^[a-f0-9]{64}$/);
+      assert.equal(attempt?.invocationId, stage.invocationId);
+      const agent = `${host === 'codex' ? 'codex' : 'claude'}-${role}`;
+      const lifecycle = events.filter(e => e.agent === agent && e.invocation_id === stage.invocationId);
+      assert.equal(lifecycle.filter(e => e.kind === 'agent-start').length, 1);
+      assert.equal(lifecycle.filter(e => e.kind === 'agent-stop').length, 1);
       assert.equal(stage.host, host);
       assert.equal(stage.verification.state, 'verified');
       const report = join(root, stage.meta.report);
       assert.equal(existsSync(report), true);
       const bytes = readFileSync(report);
       assert.ok(bytes.length > 0);
-      reports[role] = { path: report, sha256: sha256(bytes), verification: stage.verification };
+      reports[role] = { path: report, sha256: sha256(bytes), invocationId: stage.invocationId, verification: stage.verification };
     }
     assert.notEqual(reports['qa-engineer'].path, reports['security-officer'].path);
+    assert.notEqual(reports['qa-engineer'].invocationId, reports['security-officer'].invocationId);
     console.log(JSON.stringify({ run: state.id, pluginRoot: PLUGIN_ROOT, status: output.status, pendingGates: saved.pending.gates,
       claudeVersion: execFileSync('claude', ['--version'], { encoding: 'utf8' }).trim(),
       codexVersion: execFileSync('codex', ['--version'], { encoding: 'utf8' }).trim(), reports }));
