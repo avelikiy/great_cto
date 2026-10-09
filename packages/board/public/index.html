@@ -3407,6 +3407,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <input id="proj-search" type="text" placeholder="Filter projects…" aria-label="Filter projects" oninput="renderProjMenu(this.value)" />
         </div>
         <div id="proj-menu-list"></div>
+        <div id="proj-menu-status" role="status"></div>
       </div>
     </div>
     <nav class="nav" id="nav-tablist" role="tablist" aria-orientation="vertical">
@@ -7498,8 +7499,28 @@ function toggleProjMenu(e) {
   const isOpen = sw.classList.toggle('open');
   if (isOpen) {
     document.getElementById('proj-search').focus();
-    renderProjMenu('');
+    renderProjMenu();
+    refreshProjMenu();
   }
+}
+let _projMenuRead = 0, _projMenuAbort;
+async function refreshProjMenu() {
+  const request = ++_projMenuRead;
+  _projMenuAbort?.abort();
+  const controller = new AbortController(); _projMenuAbort = controller;
+  const note = document.getElementById('proj-menu-status');
+  if (note) note.textContent = 'Refreshing projects…';
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const projects = await api('/api/projects', { signal: controller.signal });
+    if (request !== _projMenuRead) return;
+    if (!Array.isArray(projects) || projects.some(p => !p || typeof p.slug !== 'string')) throw Error('Invalid project list');
+    allProjects = projects;
+    if (note) note.textContent = '';
+    if (document.getElementById('proj-switch').classList.contains('open')) renderProjMenu();
+  } catch {
+    if (request === _projMenuRead && note) note.textContent = 'Could not refresh projects; showing the last loaded list.';
+  } finally { clearTimeout(timer); }
 }
 function closeProjMenu() {
   document.getElementById('proj-switch')?.classList.remove('open');
@@ -7549,14 +7570,14 @@ function archetypeIcon(arch, size = 14) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${meta.d}"/></svg>`;
 }
 
-function renderProjMenu(filter = '') {
+function renderProjMenu(filter = document.getElementById('proj-search')?.value || '') {
   const list = document.getElementById('proj-menu-list');
   if (!list) return;
   if (!allProjects.length) {
     list.innerHTML = '<div class="proj-menu-empty">No projects registered yet</div>';
     return;
   }
-  const f = filter.toLowerCase();
+  const f = filter.trim().toLowerCase();
   const filtered = allProjects.filter(p =>
     !f || (p.slug || '').toLowerCase().includes(f) ||
     (p.archetype || '').toLowerCase().includes(f) ||
