@@ -41,12 +41,12 @@ const SCREENS = [
  * Claude Code response is two lines that repeat its usage: the screen must
  * count it once.
  */
-function seedHostLogs(fakeHome) {
+function seedHostLogs(fakeHome, projectPath) {
   const now = new Date(Date.now() - 5 * 60 * 1000).toISOString();
   const cdir = path.join(fakeHome, '.claude', 'projects', '-w-acme');
   fs.mkdirSync(cdir, { recursive: true });
   const usage = { input_tokens: 1000, output_tokens: 2000, cache_read_input_tokens: 7000, cache_creation_input_tokens: 0 };
-  const line = (block) => ({ type: 'assistant', timestamp: now, cwd: '/w/acme', entrypoint: 'claude-desktop', message: { id: 'm1', model: 'claude-opus-5', usage, content: [block] } });
+  const line = (block) => ({ type: 'assistant', timestamp: now, cwd: projectPath, entrypoint: 'claude-desktop', message: { id: 'm1', model: 'claude-opus-5', usage, content: [block] } });
   fs.writeFileSync(path.join(cdir, 'e2e-session.jsonl'), [
     { type: 'custom-title', customTitle: 'Checkout redesign' },
     line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:senior-dev' } }),
@@ -59,13 +59,24 @@ function seedHostLogs(fakeHome) {
   fs.mkdirSync(xdir, { recursive: true });
   const xu = { input_tokens: 4000, cached_input_tokens: 3000, cache_write_input_tokens: 0, output_tokens: 500, reasoning_output_tokens: 100, total_tokens: 4500 };
   fs.writeFileSync(path.join(xdir, 'rollout-e2e.jsonl'), [
-    { timestamp: now, type: 'session_meta', payload: { id: 'th-e2e', cwd: '/w/billing', originator: 'Codex Desktop', thread_source: 'user', source: 'vscode' } },
+    { timestamp: now, type: 'session_meta', payload: { id: 'th-e2e', cwd: projectPath, originator: 'Codex Desktop', thread_source: 'user', source: 'vscode' } },
     { timestamp: now, type: 'turn_context', payload: { model: 'gpt-6.1-sol' } },
     { timestamp: now, type: 'response_item', payload: { type: 'custom_tool_call', name: 'exec', input: 'await tools.exec_command({cmd:"ls"});' } },
     { timestamp: now, type: 'token_usage_record', payload: { response_id: 'r1', usage: xu } },
     { timestamp: now, type: 'event_msg', payload: { type: 'token_count', info: { total_token_usage: xu }, rate_limits: { primary: { used_percent: 42, window_minutes: 10080, resets_at: Math.floor(Date.now() / 1000) + 86400 }, plan_type: 'prolite' } } },
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   fs.writeFileSync(path.join(fakeHome, '.codex', 'session_index.jsonl'), JSON.stringify({ id: 'th-e2e', thread_name: 'Invoice export' }) + '\n');
+  // Foreign transcripts live alongside this project's logs. Their directory
+  // is not attribution; their large usage must not reach any aggregate.
+  fs.writeFileSync(path.join(cdir, 'foreign.jsonl'), [
+    { type: 'custom-title', customTitle: 'Foreign checkout' },
+    { ...line({ type: 'text', text: 'foreign' }), cwd: `${projectPath}-other`, message: { id: 'foreign', model: 'foreign-model', usage: { input_tokens: 9000000, output_tokens: 1 }, content: [] } },
+  ].map(JSON.stringify).join('\n') + '\n');
+  fs.writeFileSync(path.join(xdir, 'foreign.jsonl'), [
+    { type: 'session_meta', payload: { id: 'foreign', cwd: `${projectPath}-other` } },
+    { type: 'turn_context', payload: { model: 'foreign-model' } },
+    { type: 'token_usage_record', timestamp: now, payload: { response_id: 'foreign', usage: { input_tokens: 9000000, output_tokens: 1 } } },
+  ].map(JSON.stringify).join('\n') + '\n');
   // What the great_cto status line records from Claude Code's own rate_limits.
   const sec = (h) => Math.floor(Date.now() / 1000) + h * 3600;
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'claude-limits.jsonl'), JSON.stringify({ ts: now,
@@ -85,7 +96,7 @@ async function boardUnderTest() {
   fs.mkdirSync(path.join(fakeHome, '.great_cto'), { recursive: true });
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'projects.json'),
     JSON.stringify({ projects: [{ name: FIXTURE_NAME, path: dir }] }, null, 2));
-  seedHostLogs(fakeHome);
+  seedHostLogs(fakeHome, dir);
   // Verdicts as agents write them — one JSON line each — so Usage reads the
   // fixture project's outcomes through the registry, like any other project.
   const vt = (h) => new Date(Date.now() - h * 3600000).toISOString().replace(/\.\d+Z$/, 'Z');
@@ -512,7 +523,7 @@ test('Decisions shows a session that waits for the operator, above the status', 
 // Usage reads both hosts' own logs. The fixture HOME holds one Claude Code
 // conversation and one Codex thread (seedHostLogs); what is under test is that
 // both reach the screen through the real reader — a response written as two
-// lines counted once, Codex's plan window shown, an unpriced model shown as
+// lines counted once, account-wide quotas excluded, an unpriced model shown as
 // n/a rather than $0 — and that the host switch changes what is listed.
 test('Usage shows Claude Code and Codex side by side, from their own logs', { timeout: 120_000 }, async (t) => {
   const env = await boardUnderTest();
@@ -528,24 +539,17 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
     const claude = await page.locator('.usage-card[data-host="claude"]').innerText();
     assert.match(claude, /10\.0k\s*tokens/, `one response, counted once: 1k in + 2k out + 7k cache (got: ${claude.slice(0, 120)})`);
     assert.match(claude, /\$0\.06/, 'priced at the Opus 5 list rate');
-    assert.match(claude, /5-hour limit[\s\S]*35% used[\s\S]*Weekly limit[\s\S]*64% used/, 'the plan use Claude Code reported to the status line');
-    assert.match(claude, /1 refused at a limit/, 'and the refusals still counted');
-
-    const climits = await page.locator('[data-limits="claude"]').innerText();
-    assert.match(climits, /Weekly limit · Opus/, 'a per-model week has its own lane');
-    assert.match(climits, /1\s*5-hour session/, 'the refusal is filed under the limit that refused it');
-    assert.match(climits, /Refused at about \$0\.06 in 5 hours/, 'and the spend it came at is the observed ceiling');
-    assert.match(climits, /hit your session limit · resets 3pm/, 'in Claude Code\'s own words');
-    const xlimits = await page.locator('[data-limits="codex"]').innerText();
-    assert.match(xlimits, /Weekly limit[\s\S]*42% used\. At this pace about \d+% by the reset/, 'the open week and where its pace ends');
+    assert.match(claude, /In this project: 1 plan-limit refusals/, 'project-local refusals still counted');
+    assert.equal(await page.locator('[data-limits]').count(), 0, 'account-wide quotas are not drawn as project statistics');
 
     const codex = await page.locator('.usage-card[data-host="codex"]').innerText();
     assert.match(codex, /4\.5k\s*tokens/);
-    assert.match(codex, /Weekly limit[\s\S]*42% used/, 'the plan window Codex reported');
-    assert.match(codex, /plan prolite/);
+    assert.doesNotMatch(codex, /42% used|plan prolite/);
     assert.match(codex, /n\/a/, 'an unpriced model is n/a, not $0');
 
     const text = await page.locator('#panel-usage').innerText();
+    assert.match(text, /selected project|Statistics for/);
+    assert.doesNotMatch(text, /Foreign checkout|foreign-model/);
     assert.match(text, /Checkout redesign/, 'the Claude Code conversation by its title');
     assert.match(text, /Invoice export/, 'the Codex thread by its name');
     assert.match(text, /senior-dev\s*great_cto/, 'a great_cto agent dispatched under the plugin prefix is ours');

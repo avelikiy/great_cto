@@ -1570,15 +1570,19 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
-  // What Claude Code and Codex consumed on this machine — tokens, models, the
+  // What Claude Code and Codex consumed in the selected project — tokens, models, the
   // heaviest conversations, tools, skills, agents, cache, Codex's plan window —
   // read from the hosts' own session logs (scripts/lib/session-usage.mjs).
-  // Machine-wide like /api/agent-usage: the logs are one history. Served on the
+  // Filter before aggregation, including linked worktrees. Served on the
   // board's own host only; nothing here is sent anywhere.
   if (pathname === '/api/usage') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
+    }
     const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
     const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
-    const snap = boardSessionUsage().get(days);
+    const snap = boardSessionUsage().get(days, cwd);
     let body;
     if (snap.state !== 'counted') {
       body = { state: snap.state, why: snap.why };
@@ -1603,15 +1607,19 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
-  // What the agents concluded and what reviews found, across every registered
-  // project (scripts/lib/outcomes.mjs): verdicts per agent, Beads bugs by
+  // What the agents concluded and what reviews found in this project
+  // (scripts/lib/outcomes.mjs): verdicts per agent, Beads bugs by
   // priority. Counts only — no bug title leaves the server. Answers at once:
-  // `computing` until the first read of every project's Beads lands.
+  // `computing` until the first read of this project's Beads lands.
   if (pathname === '/api/outcomes') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
+    }
     const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
     const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify(boardOutcomes(days)));
+    res.end(JSON.stringify(boardOutcomes(days, cwd, requestedProject)));
     return true;
   }
 
@@ -2304,16 +2312,23 @@ function boardHookNames() {
 
 const _outcomes = new Map();
 const OUTCOMES_TTL = 5 * 60 * 1000;
-function boardOutcomes(days) {
-  const slot = _outcomes.get(days) || {};
+function boardOutcomes(days, cwd, slug) {
+  const projectPath = path.resolve(cwd);
+  const key = JSON.stringify([days, projectPath, slug || null]);
+  const slot = _outcomes.get(key) || {};
   const fresh = slot.value && Date.now() - slot.at < OUTCOMES_TTL;
   if (!fresh && !slot.running) {
-    slot.running = computeOutcomes({ days, roster: boardAgentNames() })
-      .then((v) => { slot.value = v; }, (e) => { slot.value = slot.value || { state: 'unavailable', why: `outcomes could not be read: ${e?.message || e}` }; })
+    const project = { name: slug || path.basename(projectPath), path: projectPath };
+    slot.running = computeOutcomes({ days, roster: boardAgentNames(), projects: [project], projectScope: true })
+      .then((v) => { slot.value = { ...v, scope: { kind: 'project', path: projectPath } }; }, () => { slot.value = slot.value || { state: 'unavailable', why: 'Outcomes could not be read.' }; })
       .finally(() => { slot.at = Date.now(); slot.running = null; });
-    _outcomes.set(days, slot);
+    if (_outcomes.size >= 32 && !_outcomes.has(key)) {
+      const evict = [..._outcomes].find(([, s]) => !s.running);
+      if (evict) _outcomes.delete(evict[0]);
+    }
+    _outcomes.set(key, slot);
   }
-  return slot.value || { state: 'computing', why: 'reading every project\'s verdicts and Beads' };
+  return slot.value || { state: 'computing', why: 'reading this project\'s verdicts and Beads' };
 }
 
 let _sessionUsageSnap = null;

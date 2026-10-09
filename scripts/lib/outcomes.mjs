@@ -60,7 +60,7 @@ function verdictFiles(dir) {
  * Per-agent outcomes in the window.
  * @param {{projects:{name:string,path:string}[], globalDir?:string, days?:number, now?:number, roster?:string[]}} opts
  */
-export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.great_cto', 'verdicts'), days = 30, now = Date.now(), roster = [] }) {
+export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.great_cto', 'verdicts'), days = 30, now = Date.now(), roster = [], projectScope = false }) {
   const from = now - days * DAY;
   const known = new Set(roster);
   const seen = new Set();
@@ -78,6 +78,9 @@ export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.
         const p = parseVerdictLine(line);
         if (!p.ok) continue;
         const rec = p.rec;
+        // The global layer also contains verdicts with no project. They cannot
+        // be attributed safely and must not leak into a selected project's count.
+        if (projectScope && project === null && !projects.some(p => rec.project === p.name || rec.project === p.path)) continue;
         const t = Date.parse(rec.ts);
         if (!Number.isFinite(t) || t < from || t > now) continue;
         const key = line.trim();
@@ -207,13 +210,13 @@ export async function bugFindings({ projects, days = 30, now = Date.now(), list 
 const sum = (o) => Object.values(o).reduce((a, n) => a + n, 0);
 
 /** Both, for the board. */
-export async function outcomes({ days = 30, now = Date.now(), roster = [], projects = registeredProjects(), globalDir, list } = {}) {
+export async function outcomes({ days = 30, now = Date.now(), roster = [], projects = registeredProjects(), globalDir, list, projectScope = false } = {}) {
   const findings = await bugFindings({ projects, days, now, list });
   return {
     state: 'counted',
     window: { days, from: dayOf(now - (days - 1) * DAY), to: dayOf(now) },
     projects: projects.length,
-    agents: agentOutcomes({ projects, globalDir, days, now, roster }),
+    agents: agentOutcomes({ projects, globalDir, days, now, roster, projectScope }),
     findings,
   };
 }
