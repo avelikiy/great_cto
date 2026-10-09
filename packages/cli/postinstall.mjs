@@ -138,32 +138,38 @@ function main() {
  *   - never block. The board takes the better part of a minute to become
  *     responsive; the installer does not wait for it. Detached, unref'd, output
  *     discarded.
- *   - never in CI, and never when asked not to. Both already guard the notice
- *     above; `GREAT_CTO_NO_BOARD=1` opts out of this specifically.
+ *   - never in CI or a Node test runner, and never when asked not to. A test
+ *     HOME isolates files, NOT ports: a detached board would still claim the
+ *     user's :3141 and serve fixture projects after the test exits.
+ *     `GREAT_CTO_NO_BOARD=1` opts out of this specifically.
  *   - never twice. `ensure` probes the port first and adopts a board that is
  *     already answering, whoever started it.
  */
-function ensureBoard() {
-  if (process.env.GREAT_CTO_NO_BOARD) return;
+export function ensureBoard({ env = process.env, spawnFn = spawn,
+  write = (text) => process.stdout.write(text) } = {}) {
+  if (env.CI || env.GREAT_CTO_QUIET_POSTINSTALL || env.GREAT_CTO_NO_BOARD || env.NODE_TEST_CONTEXT) return false;
   try {
     const here = dirname(fileURLToPath(import.meta.url));
     const entry = join(here, 'index.mjs');
-    if (!existsSync(entry)) return;
+    if (!existsSync(entry)) return false;
 
-    const child = spawn(process.execPath, [entry, 'board', 'ensure'], {
+    const child = spawnFn(process.execPath, [entry, 'board', 'ensure'], {
       detached: true,
       stdio: 'ignore',
+      env,
     });
     child.unref();
-    process.stdout.write('  great-cto: starting the board — http://localhost:3141\n');
+    write('  great-cto: starting the board — http://localhost:3141\n');
+    return true;
   } catch (e) {
     // Never fail the install — but never fail SILENTLY either. The first version
     // of this function referenced an import that was not there; the catch ate the
     // ReferenceError and the hook printed nothing, so the board simply did not
     // start and nothing said why. A swallowed error is the defect this project
     // spends most of its checks on.
-    process.stdout.write(`  great-cto: could not start the board — ${e?.message || e}\n`);
-    process.stdout.write('  Start it yourself with: great-cto board\n');
+    write(`  great-cto: could not start the board — ${e?.message || e}\n`);
+    write('  Start it yourself with: great-cto board\n');
+    return false;
   }
 }
 
