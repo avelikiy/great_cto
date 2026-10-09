@@ -15,7 +15,7 @@ import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInf
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
 import { isProjectState } from '../../../scripts/lib/great-cto-scope.mjs';
-import { usageIndexSnapshot, summarizeUsage, readCodexTitles, readClaudeLimits, claudeRecorder } from '../../../scripts/lib/session-usage.mjs';
+import { usageReports } from './usage-report.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
@@ -1578,12 +1578,12 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/usage') {
     const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
     const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
-    const snap = boardSessionUsage().get();
+    const snap = boardSessionUsage().get(days);
     let body;
-    if (snap.state !== 'ready') {
+    if (snap.state !== 'counted') {
       body = { state: snap.state, why: snap.why };
     } else {
-      const sum = summarizeUsage(snap.index, { days, codexTitles: readCodexTitles(), claudeReadings: readClaudeLimits(), claudeRecorderState: claudeRecorder() });
+      const sum = snap;
       const ours = new Set(boardAgentNames());
       for (const host of Object.keys(sum.lists)) {
         sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));
@@ -2318,7 +2318,7 @@ function boardOutcomes(days) {
 
 let _sessionUsageSnap = null;
 function boardSessionUsage() {
-  if (!_sessionUsageSnap) _sessionUsageSnap = usageIndexSnapshot();
+  if (!_sessionUsageSnap) _sessionUsageSnap = usageReports();
   return _sessionUsageSnap;
 }
 

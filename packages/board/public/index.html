@@ -561,7 +561,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text3);
 }
 
-.nav { padding: 12px 8px; flex: 1; }
+.nav { padding: 12px 8px; flex: 0 0 auto; }
 .nav-item {
   display: flex; align-items: center; gap: 10px;
   height: 32px; padding: 0 10px;
@@ -591,6 +591,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .nav-view-item { height: 28px; display: flex; align-items: center; padding: 0 10px; font-size: var(--fs-small); color: var(--text3); }
 
 .sidebar-footer {
+  margin-top: auto;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   font-family: var(--mono);
@@ -5996,6 +5997,7 @@ let usageDays = 30;
 let usageHost = 'claude';
 let usageData = null;
 let _usageTimer = null;
+let _usageRequest = 0;
 const USAGE_HOSTS = { claude: 'Claude Code', codex: 'Codex' };
 const USAGE_LOGS = { claude: '~/.claude/projects', codex: '~/.codex/sessions' };
 const USAGE_FN = { chat: 'Conversations', subagent: 'Subagents', automation: 'Automations', headless: 'Headless runs' };
@@ -6018,7 +6020,13 @@ async function loadUsage(days) {
   if (days) usageDays = days;
   document.querySelectorAll('.usage-chip[data-days]').forEach((c) => c.classList.toggle('active', Number(c.dataset.days) === usageDays));
   clearTimeout(_usageTimer);
+  const request = ++_usageRequest, requestedDays = usageDays;
+  const loadingBody = document.getElementById('usage-body');
+  if (loadingBody && (!usageData || usageData.window?.days !== requestedDays)) {
+    loadingBody.className = 'usage-note'; loadingBody.textContent = 'Loading session statistics…';
+  }
   const d = await api(`/api/usage?days=${usageDays}`);
+  if (request !== _usageRequest || requestedDays !== usageDays || currentTab !== 'usage') return;
   const body = document.getElementById('usage-body');
   if (!body) return;
   if (!d || d.error) {
@@ -6039,6 +6047,12 @@ async function loadUsage(days) {
   }
   usageData = d;
   renderUsage(d);
+  if (d.stale || d.refreshing) {
+    const note = document.createElement('p'); note.className = 'usage-note';
+    note.textContent = d.refreshError || 'Showing the last counted statistics while refreshing in the background.';
+    body.prepend(note);
+  }
+  if (d.refreshing) _usageTimer = setTimeout(() => { if (currentTab === 'usage') loadUsage(); }, 2000);
   loadOutcomes();
 }
 
