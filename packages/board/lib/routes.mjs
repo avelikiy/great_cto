@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
+import { fileURLToPath } from 'node:url';
 import os from 'os';
 import {
   getVapidKeys,
@@ -44,6 +45,7 @@ import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../.
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
 import { getWork } from './work.mjs';
+let publicationPreviewBusy = false;
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
@@ -101,6 +103,38 @@ async function dispatch(req, res, url, cwd) {
     if (info.resolved === 'fallback' && typeof res.setHeader === 'function') {
       try { res.setHeader('X-Project-Fallback', String(info.requested || requestedProject)); } catch { /* headers already sent */ }
     }
+  }
+
+  // Read-only preview. Writes stay in the explicit host CLI, not a browser GET.
+  if (pathname === '/api/work/publication-preview') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'GET' }); res.end(JSON.stringify({ error: 'Publication requires explicit host CLI confirmation' })); return true;
+    }
+    if (publicationPreviewBusy) {
+      res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '2' });
+      res.end(JSON.stringify({ error: 'Another publication preview is being read; retry shortly' })); return true;
+    }
+    publicationPreviewBusy = true;
+    try {
+      const taskId = url.searchParams.get('task'), base = url.searchParams.get('base') || 'main';
+      if (!/^[0-9a-f-]{36}$/.test(taskId || '') || !/^[A-Za-z0-9][A-Za-z0-9/_-]{0,120}$/.test(base)) throw Error('invalid preview options');
+      // Git/receipt reads run off the board event loop, with one bounded worker.
+      const controller = fileURLToPath(new URL('../../../scripts/work-task.mjs', import.meta.url));
+      const preview = await new Promise((resolve, reject) => execFile(process.execPath,
+        [controller, 'preview', '--dir', cwd, '--task', taskId, '--base', base],
+        { timeout: 20000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
+          if (error) { reject(Error('preview worker failed')); return; }
+          try { resolve(JSON.parse(stdout)); } catch { reject(Error('preview response is unreadable')); }
+        }));
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(preview));
+    } catch {
+      res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Publication preview unavailable: require verified delivery, a clean committed feature branch, explicit path scope and canonical GitHub origin. Inspect with the host CLI.' }));
+    } finally { publicationPreviewBusy = false; }
+    return true;
   }
 
   // New read model refuses project fallback rather than relabeling another project.

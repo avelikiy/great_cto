@@ -58,6 +58,9 @@ test('HTTP projection scopes reads, fails unknown project closed and refuses exe
   assert.equal(snapshot.entries.find(e => e.issueIds.includes('i-1')).runId, null);
   assert.equal((await fetch(base + '/api/work?project=unknown-no-fallback')).status, 404);
   assert.equal((await fetch(base + '/api/work', { method: 'POST', headers: { Origin: base } })).status, 405);
+  assert.equal((await fetch(base + '/api/work/publication-preview?project=unknown-no-fallback&task=' + id)).status, 404);
+  assert.equal((await fetch(base + '/api/work/publication-preview?task=' + id, { method: 'POST', headers: { Origin: base } })).status, 405);
+  assert.equal((await fetch(base + '/api/work/publication-preview?task=bad-id')).status, 409);
 });
 test('HTTP degraded store reports unreadable records instead of all clear', async () => {
   writeFileSync(join(home, '.great_cto', 'codex-runs', `${randomUUID()}.json`), '{bad');

@@ -58,3 +58,11 @@ test('task cockpit escapes activity and does not treat successful process output
   assert.match(html, /not proof of liveness or acceptance/); assert.match(html, /window is incomplete/);
   assert.doesNotMatch(html, /<script>|verified completion|success: true/);
 });
+
+test('publication command explicitly confirms only draft PR and quotes literal scope/base', () => {
+  const taskId = '00000000-0000-4000-8000-000000000000';
+  const command = view.publicationCommand({ taskId, revision: 3, approval: 'a'.repeat(64), base: "topic'base", allow: ['src', 'docs'] });
+  const args = JSON.parse(execFileSync('/bin/sh', ['-c', command.replace('great-cto', "python3 -c 'import json,sys; print(json.dumps(sys.argv[1:]))'")], { encoding: 'utf8' }));
+  assert.deepEqual(args.slice(-6), ['--base', "topic'base", '--allow', 'src,docs', '--confirm', 'publish-draft-pr']);
+  assert.throws(() => view.publicationCommand({ taskId, revision: 3, approval: 'a'.repeat(64), allow: ['a,b'] }), /Invalid/);
+});

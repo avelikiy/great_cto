@@ -81,6 +81,9 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       decisions: decisionCapabilities(t).map(d => ({ ...d, id: d.decisionId, label: d.label || 'Host decision' })), evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
       release: run?.release || null, revision: t.revision, metrics: t.metrics,
       inspector: taskInspector([...t.links.runs, ...t.links.sessions], activity),
+      publication: t.publication || null,
+      publicationPreview: t.managed !== false && t.intent !== 'research' && t.phase === 'verified' && !owner && !t.decisions?.length
+        && Array.isArray(t.authority?.writeScope) && t.authority.writeScope.length > 0,
       capabilities: [...(approval ? [{ action: 'copy_approve', enabled: true, reason: null }] : []), { action: 'copy_resume', enabled, reason: enabled ? null : owner ? 'Host operation is active; duplicate resume is refused'
         : t.managed === false ? 'Continue this observed session inside its native host'
         : t.phase === 'needs_decision' ? 'Resolve the native host decision first' : 'Execution link or resumable host state is unavailable' }],

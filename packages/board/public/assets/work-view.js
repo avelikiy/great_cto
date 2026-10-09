@@ -28,6 +28,11 @@
           + action + (e.command ? `<pre>${esc(e.command)}</pre>` : '')
           + (!cap && e.capabilities[0]?.reason ? `<p>${esc(e.capabilities[0].reason)}</p>` : '')
           + renderInspector(e.inspector)
+          + (e.publicationPreview ? `<button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="preview_publication">Preview draft PR publication</button><div data-publication-preview="${esc(e.key)}"></div>` : '')
+          + (e.publication ? `<p>PR publication: ${esc(e.publication.state)} · ${esc(e.publication.head || '')}</p>`
+            + (typeof e.publication.url === 'string' && /^https:\/\/github\.com\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/pull\/[1-9][0-9]*$/.test(e.publication.url) ? `<a href="${esc(e.publication.url)}" target="_blank" rel="noopener noreferrer">Open draft PR result</a>` : '')
+            + (e.publication.lastError ? `<p>${esc(e.publication.lastError)}</p>` : '') : '')
+          + (e.publication?.resumeCommand ? `<p>Reconcile the original publication in the selected project; do not create another PR blindly.</p><pre>${esc(e.publication.resumeCommand)}</pre>` : '')
           + `<details data-work-detail="technical"><summary>Technical details</summary><p>${esc(e.key)} · ${esc(e.nativeState || 'unknown')}</p>`
           + `<p>Task linkage: ${esc(e.taskId || 'not recorded')}</p>${e.revision ? `<p>Task revision: ${esc(e.revision)}</p>` : ''}`
           + (e.taskOutcome ? `<p>Outcome evidence: ${esc(e.taskOutcome.source || 'operator-attestation')} · ${esc(e.taskOutcome.state)}</p>` : '')
@@ -50,6 +55,28 @@
         + (e.verdict ? ` · verdict: ${esc(e.verdict)}` : '')
         + (e.durationMs !== null ? ` · ${esc(e.durationMs)} ms` : '') + '</li>').join('') + '</ol>' : '')
       + '</details>';
+  }
+  function publicationCommand(preview) {
+    if (!/^[0-9a-f-]{36}$/.test(preview.taskId || '') || !Number.isInteger(preview.revision) || preview.revision < 1
+      || !/^[0-9a-f]{64}$/.test(preview.approval || '') || !Array.isArray(preview.allow) || preview.allow.some(p => typeof p !== 'string' || p.includes(','))) throw Error('Invalid publication preview. Use the host CLI.');
+    return `great-cto task work publish --task ${preview.taskId} --revision ${preview.revision} --approval ${preview.approval} --base ${quote(preview.base)} --allow ${quote(preview.allow.join(','))} --confirm publish-draft-pr`;
+  }
+  async function previewPublication(entry) {
+    const project = config.project(), seq = generation;
+    const panel = [...document.querySelectorAll('[data-publication-preview]')].find(n => n.dataset.publicationPreview === entry.key);
+    if (!panel) return;
+    panel.textContent = 'Reading publication preview…';
+    try {
+      const preview = await config.read(`/api/work/publication-preview?task=${encodeURIComponent(entry.taskId)}${project ? '&project=' + encodeURIComponent(project) : ''}`);
+      if (project !== config.project() || seq !== generation || !panel.isConnected) return;
+      if (!preview || preview.error || preview.taskId !== entry.taskId || preview.revision !== entry.revision) throw Error(preview?.error || 'Task changed; refresh before publication.');
+      const command = publicationCommand(preview);
+      panel.innerHTML = `<p>${esc(preview.repository)} · ${esc(preview.branch)} → ${esc(preview.base)} · SHA ${esc(preview.head)}</p>`
+        + `<p>${esc(preview.scope)}</p><pre>${esc(preview.summary)}</pre><details><summary>Review every commit being published</summary><pre>${esc(preview.patch)}</pre></details>`
+        + `<p>Review the diff, then run this confirmation in the selected project. This page does not publish or approve anything.</p><pre>${esc(command)}</pre>`;
+    } catch (error) {
+      if (project === config.project() && seq === generation && panel.isConnected) panel.textContent = error.message;
+    }
   }
   let config, snapshot, generation = 0, filter = '';
   const status = message => { document.getElementById('work-feedback').textContent = message; };
@@ -103,6 +130,7 @@
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
       const button = event.target.closest('[data-work-action]'); if (!button || !snapshot) return;
       const entry = snapshot.entries.find(e => e.key === button.dataset.workKey);
+      if (button.dataset.workAction === 'preview_publication' && entry?.publicationPreview) { previewPublication(entry); return; }
       const action = entry?.capabilities.find(c => c.action === button.dataset.workAction && c.enabled);
       if (!action) return;
       if (action.action === 'copy_resume' || action.action === 'copy_approve') copy(entry.command);
@@ -110,5 +138,5 @@
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, render, commandFor, search(value) { filter = value; paint(); } };
+  window.GctoWork = { bind, refresh, reset, render, commandFor, publicationCommand, search(value) { filter = value; paint(); } };
 })();
