@@ -46,6 +46,18 @@ import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
 import { getWork } from './work.mjs';
 let publicationPreviewBusy = false;
+let publicationWriteBusy = false;
+import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
+const publicationTicketStore = publicationTickets();
+
+function publicationWorker(args, cwd, timeout = 20000) {
+  const controller = fileURLToPath(new URL('../../../scripts/work-task.mjs', import.meta.url));
+  return new Promise((resolve, reject) => execFile(process.execPath, [controller, ...args, '--dir', cwd],
+    { timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
+      if (error) { reject(Error('publication worker failed; inspect host state before retry')); return; }
+      try { resolve(JSON.parse(stdout)); } catch { reject(Error('publication response is unreadable')); }
+    }));
+}
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
@@ -105,7 +117,32 @@ async function dispatch(req, res, url, cwd) {
     }
   }
 
-  // Read-only preview. Writes stay in the explicit host CLI, not a browser GET.
+  if (pathname === '/api/work/publication') {
+    const respond = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') { respond(404, { error: 'Unknown project' }); return true; }
+    if (req.method !== 'POST') { respond(405, { error: 'Use explicit POST confirmation' }); return true; }
+    const origin = localPublicationOrigin(req);
+    // A missing Origin is acceptable for preview, never for an external write.
+    if (!origin || req.headers.origin !== origin || !originAllowed(req)) { respond(403, { error: 'Publication is available only from the local same-origin board' }); return true; }
+    if (publicationWriteBusy) { respond(429, { error: 'Another publication is running; inspect its outcome before retry' }); return true; }
+    publicationWriteBusy = true;
+    try {
+      let bytes = 0, body = '';
+      req.setTimeout(10000, () => req.destroy());
+      for await (const chunk of req) { bytes += chunk.length; if (bytes > 2048) throw Error('confirmation body too large'); body += chunk; }
+      req.setTimeout(0);
+      const parsed = JSON.parse(body);
+      if (parsed.confirm !== 'publish-draft-pr') throw Error('explicit draft PR confirmation required');
+      const ticket = publicationTicketStore.consume(parsed.ticket, { root: fs.realpathSync(cwd), origin, branch: parsed.branch });
+      const result = await publicationWorker(['publish', '--task', ticket.taskId, '--revision', String(ticket.expectedRevision),
+        '--approval', ticket.approval, '--base', ticket.base, '--allow', ticket.allow.join(','), '--confirm', 'publish-draft-pr'], cwd, 120000);
+      respond(200, { publication: result.task.publication });
+    } catch { respond(409, { error: 'Publication was not confirmed. Refresh task state and reconcile the original operation; no automatic retry was sent.' }); }
+    finally { publicationWriteBusy = false; }
+    return true;
+  }
+
+  // Preview never pushes. Local UI receives a short-lived confirmation ticket.
   if (pathname === '/api/work/publication-preview') {
     if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
       res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
@@ -119,16 +156,13 @@ async function dispatch(req, res, url, cwd) {
     }
     publicationPreviewBusy = true;
     try {
-      const taskId = url.searchParams.get('task'), base = url.searchParams.get('base') || 'main';
+      const taskId = url.searchParams.get('task'), base = url.searchParams.get('base') || 'main', allow = url.searchParams.get('allow');
       if (!/^[0-9a-f-]{36}$/.test(taskId || '') || !/^[A-Za-z0-9][A-Za-z0-9/_-]{0,120}$/.test(base)) throw Error('invalid preview options');
       // Git/receipt reads run off the board event loop, with one bounded worker.
-      const controller = fileURLToPath(new URL('../../../scripts/work-task.mjs', import.meta.url));
-      const preview = await new Promise((resolve, reject) => execFile(process.execPath,
-        [controller, 'preview', '--dir', cwd, '--task', taskId, '--base', base],
-        { timeout: 20000, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
-          if (error) { reject(Error('preview worker failed')); return; }
-          try { resolve(JSON.parse(stdout)); } catch { reject(Error('preview response is unreadable')); }
-        }));
+      const preview = await publicationWorker(['preview', '--task', taskId, '--base', base, ...(allow ? ['--allow', allow] : [])], cwd);
+      const origin = localPublicationOrigin(req);
+      if (origin) preview.ticket = publicationTicketStore.issue({ root: fs.realpathSync(cwd), origin, taskId,
+        branch: preview.branch, base: preview.base, allow: preview.allow, ...preview.confirmation });
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(preview));
     } catch {
       res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });

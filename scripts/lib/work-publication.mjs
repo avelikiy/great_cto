@@ -23,10 +23,21 @@ function command(bin, args, root, execute = execFileSync) {
     env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_NO_REPLACE_OBJECTS: '1', GH_PROMPT_DISABLED: '1' } })); }
   catch { throw Error(`${bin} ${args[0]} failed; inspect local authentication, hooks or network (output withheld)`); }
 }
-function repository(url) {
-  const m = /^(?:https:\/\/github\.com\/|git@github\.com:)([A-Za-z0-9_-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(url);
-  if (!m) throw Error('publication requires a credential-free canonical github.com origin; SSH aliases and other forges are not supported yet');
-  return `${m[1]}/${m[2]}`;
+function repository(url, root, execute) {
+  const https = /^https:\/\/github\.com\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(url);
+  if (https) return `${https[1]}/${https[2]}`;
+  const ssh = /^git@([A-Za-z0-9_.-]+):([A-Za-z0-9_-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(url);
+  if (!ssh || ssh[1].startsWith('-')) throw Error('publication requires a credential-free GitHub origin');
+  if (ssh[1] !== 'github.com') {
+    // Inspect OpenSSH's effective config without connecting; never echo identity paths.
+    const config = command('ssh', ['-G', '-o', 'CanonicalizeHostname=no', '-o', 'BatchMode=yes', `git@${ssh[1]}`], root, execute);
+    const values = new Map(config.split('\n').map(line => line.trim().split(/\s+/, 2)));
+    if (values.get('hostname')?.toLowerCase() !== 'github.com' || values.get('user') !== 'git' || values.get('port') !== '22')
+      throw Error('SSH alias does not resolve to git@github.com:22');
+    if (process.env.GIT_SSH || process.env.GIT_SSH_COMMAND || /(?:^|\0)(?:core\.sshcommand|ssh\.variant)\n/i.test(command('git', ['config', '--list', '--null'], root, execute)))
+      throw Error('custom SSH transport cannot be verified for publication');
+  }
+  return `${ssh[2]}/${ssh[3]}`;
 }
 function ready(task, root) {
   if (task.managed === false || task.intent === 'research' || task.phase !== 'verified' || task.outcome?.state !== 'verified')
@@ -48,7 +59,7 @@ export function previewPublication({ root, taskId, base = 'main', allow = null }
   const origins = git(['remote', 'get-url', '--all', 'origin']).trim().split('\n');
   const pushOrigins = git(['remote', 'get-url', '--push', '--all', 'origin']).trim().split('\n');
   if (origins.length !== 1 || pushOrigins.length !== 1 || origins[0] !== pushOrigins[0]) throw Error('origin must have exactly one identical fetch and push URL');
-  const repo = repository(origins[0]);
+  const repo = repository(origins[0], root, options.execute);
   const head = git(['rev-parse', '--verify', 'HEAD^{commit}']).trim();
   const baseHead = git(['rev-parse', '--verify', `refs/remotes/origin/${base}^{commit}`]).trim();
   git(['merge-base', '--is-ancestor', baseHead, head]);
@@ -65,7 +76,14 @@ export function previewPublication({ root, taskId, base = 'main', allow = null }
   if (scan(patch).length) throw Error('publication diff contains a possible secret; resolve locally before preview');
   const binding = { taskId, revision: task.revision, repository: repo, origin: origins[0], branch, base,
     head, baseHead, tree: git(['rev-parse', 'HEAD^{tree}']).trim(), paths, allow: [...allowed], patchDigest: digest(patch) };
-  return { ...binding, approval: digest(binding), patch,
+  let confirmation = { expectedRevision: task.revision, approval: digest(binding) };
+  const pending = task.publication;
+  if (pending && pending.state !== 'pr-linked') {
+    if (task.revision !== pending.guardRevision || digest(bindingOf(binding, pending.approvedRevision)) !== pending.approval
+      || digest(bindingOf(pending, pending.approvedRevision)) !== pending.approval) throw Error('unfinished publication changed; reconcile before a new preview');
+    confirmation = { expectedRevision: pending.approvedRevision, approval: pending.approval };
+  }
+  return { ...binding, approval: digest(binding), confirmation, patch,
     summary: git(['diff', '--no-ext-diff', '--no-textconv', '--stat', baseHead, head, '--']),
     scope: 'push approved commit and create/find draft PR only; no commit, merge, release or deploy' };
 }

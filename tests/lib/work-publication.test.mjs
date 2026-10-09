@@ -139,6 +139,29 @@ test('saved checkpoint corruption cannot change the content authorized by the or
   const f = fixture(), request = f.request(f.preview()); f.timeout = true;
   assert.throws(() => publishPublication(request, f));
   mutateWorkTask(f.taskId, t => { t.publication.head = 'c'.repeat(40); t.publication.guardRevision = t.revision + 1; }, f);
-  assert.throws(() => publishPublication(request, f), /inputs changed/);
+  assert.throws(() => publishPublication(request, f), /inputs changed|unfinished publication changed/);
   assert.equal(f.creates, 1); assert.equal(f.pushes, 1);
+});
+
+test('SSH alias resolves only to GitHub and custom transport is refused', () => {
+  const f = fixture(), original = f.execute;
+  let hostname = 'github.com', custom = false;
+  f.execute = (bin, args, opts) => {
+    if (bin === 'ssh') { assert.equal(args[0], '-G'); return `hostname ${hostname}\nuser git\nport 22\nidentityfile /private/key\n`; }
+    if (bin === 'git' && args[0] === 'remote') return 'git@github-work:example/fixture.git\n';
+    if (bin === 'git' && args[0] === 'config') return custom ? 'core.sshcommand\nevil\0' : '';
+    return original(bin, args, opts);
+  };
+  assert.equal(f.preview().repository, 'example/fixture'); assert.doesNotMatch(JSON.stringify(f.preview()), /private\/key/);
+  hostname = 'evil.test'; assert.throws(() => f.preview(), /does not resolve/);
+  hostname = 'github.com'; custom = true; assert.throws(() => f.preview(), /custom SSH/);
+});
+test('fresh preview after an uncertain publication retains the original confirmation identity', () => {
+  const f = fixture(), preview = f.preview(); f.timeout = true;
+  assert.throws(() => publishPublication(f.request(preview), f));
+  const retry = f.preview(); assert.notEqual(retry.revision, preview.revision);
+  assert.equal(retry.confirmation.expectedRevision, preview.revision);
+  assert.equal(retry.confirmation.approval, preview.approval);
+  f.timeout = false; assert.equal(publishPublication({ ...f.request(preview), ...retry.confirmation }, f).publication.state, 'pr-linked');
+  assert.equal(f.creates, 1);
 });

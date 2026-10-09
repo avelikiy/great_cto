@@ -28,7 +28,7 @@
           + action + (e.command ? `<pre>${esc(e.command)}</pre>` : '')
           + (!cap && e.capabilities[0]?.reason ? `<p>${esc(e.capabilities[0].reason)}</p>` : '')
           + renderInspector(e.inspector)
-          + (e.publicationPreview ? `<button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="preview_publication">Preview draft PR publication</button><div data-publication-preview="${esc(e.key)}"></div>` : '')
+          + (e.publicationPreview ? `<label>Publication paths (comma-separated) <input data-publication-allow="${esc(e.key)}" value="${esc(e.publicationAllow || '')}" placeholder="src,tests"></label><button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="preview_publication">Preview draft PR publication</button><div data-publication-preview="${esc(e.key)}"></div>` : '')
           + (e.publication ? `<p>PR publication: ${esc(e.publication.state)} · ${esc(e.publication.head || '')}</p>`
             + (typeof e.publication.url === 'string' && /^https:\/\/github\.com\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/pull\/[1-9][0-9]*$/.test(e.publication.url) ? `<a href="${esc(e.publication.url)}" target="_blank" rel="noopener noreferrer">Open draft PR result</a>` : '')
             + (e.publication.lastError ? `<p>${esc(e.publication.lastError)}</p>` : '') : '')
@@ -57,9 +57,10 @@
       + '</details>';
   }
   function publicationCommand(preview) {
-    if (!/^[0-9a-f-]{36}$/.test(preview.taskId || '') || !Number.isInteger(preview.revision) || preview.revision < 1
-      || !/^[0-9a-f]{64}$/.test(preview.approval || '') || !Array.isArray(preview.allow) || preview.allow.some(p => typeof p !== 'string' || p.includes(','))) throw Error('Invalid publication preview. Use the host CLI.');
-    return `great-cto task work publish --task ${preview.taskId} --revision ${preview.revision} --approval ${preview.approval} --base ${quote(preview.base)} --allow ${quote(preview.allow.join(','))} --confirm publish-draft-pr`;
+    const confirmation = preview.confirmation || { expectedRevision: preview.revision, approval: preview.approval };
+    if (!/^[0-9a-f-]{36}$/.test(preview.taskId || '') || !Number.isInteger(confirmation.expectedRevision) || confirmation.expectedRevision < 1
+      || !/^[0-9a-f]{64}$/.test(confirmation.approval || '') || !Array.isArray(preview.allow) || preview.allow.some(p => typeof p !== 'string' || p.includes(','))) throw Error('Invalid publication preview. Use the host CLI.');
+    return `great-cto task work publish --task ${preview.taskId} --revision ${confirmation.expectedRevision} --approval ${confirmation.approval} --base ${quote(preview.base)} --allow ${quote(preview.allow.join(','))} --confirm publish-draft-pr`;
   }
   async function previewPublication(entry) {
     const project = config.project(), seq = generation;
@@ -67,16 +68,35 @@
     if (!panel) return;
     panel.textContent = 'Reading publication preview…';
     try {
-      const preview = await config.read(`/api/work/publication-preview?task=${encodeURIComponent(entry.taskId)}${project ? '&project=' + encodeURIComponent(project) : ''}`);
+      const allow = [...document.querySelectorAll('[data-publication-allow]')].find(n => n.dataset.publicationAllow === entry.key)?.value?.trim();
+      if (!allow) throw Error('Enter an explicit publication path scope first.');
+      const preview = await config.read(`/api/work/publication-preview?task=${encodeURIComponent(entry.taskId)}&allow=${encodeURIComponent(allow)}${project ? '&project=' + encodeURIComponent(project) : ''}`);
       if (project !== config.project() || seq !== generation || !panel.isConnected) return;
       if (!preview || preview.error || preview.taskId !== entry.taskId || preview.revision !== entry.revision) throw Error(preview?.error || 'Task changed; refresh before publication.');
       const command = publicationCommand(preview);
+      previews.set(entry.key, { preview, project });
       panel.innerHTML = `<p>${esc(preview.repository)} · ${esc(preview.branch)} → ${esc(preview.base)} · SHA ${esc(preview.head)}</p>`
         + `<p>${esc(preview.scope)}</p><pre>${esc(preview.summary)}</pre><details><summary>Review every commit being published</summary><pre>${esc(preview.patch)}</pre></details>`
-        + `<p>Review the diff, then run this confirmation in the selected project. This page does not publish or approve anything.</p><pre>${esc(command)}</pre>`;
+        + (preview.ticket && config.publish ? `<label>Type ${esc(preview.branch)} to confirm draft PR publication <input data-publication-confirm="${esc(entry.key)}" autocomplete="off"></label><button type="button" class="gate-btn" data-work-key="${esc(entry.key)}" data-work-action="publish_publication">Publish approved draft PR</button>` : '<p>Browser publication is unavailable on this connection. Confirm using the host CLI.</p>')
+        + `<p>Only push and draft PR are authorized. No commit, merge, release or deploy.</p><pre>${esc(command)}</pre>`;
     } catch (error) {
       if (project === config.project() && seq === generation && panel.isConnected) panel.textContent = error.message;
     }
+  }
+  const previews = new Map();
+  async function publish(entry, button) {
+    const saved = previews.get(entry.key), project = config.project();
+    if (!saved || saved.project !== project || !saved.preview.ticket || !config.publish) return;
+    const branch = [...document.querySelectorAll('[data-publication-confirm]')].find(n => n.dataset.publicationConfirm === entry.key)?.value;
+    if (branch !== saved.preview.branch) { status('Type the exact preview branch to authorize publication.'); return; }
+    button.disabled = true; previews.delete(entry.key); status('Publishing the approved candidate; do not retry until its outcome is known.');
+    try {
+      const result = await config.publish(`/api/work/publication${project ? '?project=' + encodeURIComponent(project) : ''}`, { ticket: saved.preview.ticket, branch, confirm: 'publish-draft-pr' });
+      if (project !== config.project()) return;
+      if (!result || result.error || result.publication?.state !== 'pr-linked' || !/^https:\/\/github\.com\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/pull\/[1-9][0-9]*$/.test(result.publication?.url || ''))
+        throw Error(result?.error || 'Publication result is not linked to a draft PR; reconcile task state.');
+      status('Draft PR publication recorded. Merge and release remain separate decisions.'); await refresh();
+    } catch (error) { if (project === config.project()) { status(error.message); await refresh(); } }
   }
   let config, snapshot, generation = 0, filter = '';
   const status = message => { document.getElementById('work-feedback').textContent = message; };
@@ -96,6 +116,7 @@
   }
   function paint() {
     if (!snapshot) return;
+    previews.clear(); // Repaint removes the reviewed diff and its confirmation controls.
     const expanded = [...document.querySelectorAll('.work-card details[open]')].map(d => `${d.closest('[data-entry-key]').dataset.entryKey}:${d.dataset.workDetail}`);
     const focused = document.activeElement;
     const focusKey = focused?.dataset?.workKey, focusAction = focused?.dataset?.workAction;
@@ -106,7 +127,7 @@
     if (focusKey) [...document.querySelectorAll('[data-work-key]')].find(b => b.dataset.workKey === focusKey && b.dataset.workAction === focusAction)?.focus();
   }
   function reset() {
-    generation++; snapshot = null; status('');
+    generation++; snapshot = null; previews.clear(); status('');
     for (const id of ['work-list', 'history-list']) document.getElementById(id).textContent = 'Loading project work…';
     refresh();
   }
@@ -131,6 +152,7 @@
       const button = event.target.closest('[data-work-action]'); if (!button || !snapshot) return;
       const entry = snapshot.entries.find(e => e.key === button.dataset.workKey);
       if (button.dataset.workAction === 'preview_publication' && entry?.publicationPreview) { previewPublication(entry); return; }
+      if (button.dataset.workAction === 'publish_publication' && entry?.publicationPreview) { publish(entry, button); return; }
       const action = entry?.capabilities.find(c => c.action === button.dataset.workAction && c.enabled);
       if (!action) return;
       if (action.action === 'copy_resume' || action.action === 'copy_approve') copy(entry.command);

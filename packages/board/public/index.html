@@ -4085,6 +4085,10 @@ window.GctoWork.bind({
   project: () => new URLSearchParams(location.search).get('project') || '',
   visible: () => currentTab === 'work' || currentTab === 'history',
   read: url => api(url),
+  publish: async (url, body) => {
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return response.json();
+  },
   openIssue: (id, decision) => { if (decision) switchTab('decisions'); openSideById(id); },
 });
 let searchQuery = '';
