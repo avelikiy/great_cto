@@ -59,22 +59,23 @@ Indicative for a solo-CTO project at ~20 pipeline runs a month:
 | deep (cross-cutting) | $12 | 1 | $12 |
 | | | | **~$34** |
 
-What it actually cost is on the board's **Usage** screen (Tools → Usage): Claude
-Code and Codex side by side, from their own session logs — tokens per day and kind
-of work, the heaviest conversations, models, tools, skills, agents, cache share,
-and limits. For Codex: each 5-hour and weekly window it reported, how full it got,
-when it filled, and where the open window ends at the current pace. For Claude
-Code — whose plan percentage reaches only the status line, so `great-cto statusline
-install` records it (opt-in, your own status line is kept) — the same windows and pace;
-and from its logs: spend in the last 5 hours and 7 days,
-every refusal filed under the limit that refused it (session, weekly, monthly
-spend, per-model, credits — server throttles apart), and the spend at which those
-refusals came, as an estimate with its count. Below that, across every
-registered project: what each great_cto agent concluded (pass, stopped, failed —
-and how often a dispatch left no verdict), bugs by priority from Beads (filed,
-open now, time to close), and which guards refused a call, which Stop hooks sent
-a turn back, and which hooks failed or timed out. Dollars there are the API
-list-price equivalent, not a subscription bill.
+The board's **Usage** screen (Tools → Usage) shows Claude Code and Codex side by
+side for the **selected project only**: tokens per day and kind of work, heaviest
+conversations, models, tools, skills, agents, cache share and recorded limit
+refusals. Attribution uses the transcript's working directory and Git repository
+identity, including linked worktrees, never its conversation title. Children
+without a working directory inherit their parent's project. Unattributed logs
+are excluded rather than guessed; missing observations are not proof of no use.
+Account-wide subscription quota percentages are deliberately not shown as
+project usage. Switching projects clears old data immediately; background
+responses and caches are project-scoped. Unknown project identifiers return an
+error, not another project's statistics.
+
+Below the usage totals, the same selected project supplies agent verdicts
+(pass, stopped, failed, ended without a verdict), Beads bugs (filed, open now,
+time to close), guard refusals and hook failures. Global verdicts enter this
+view only when explicitly tagged with the selected project's identifier.
+Dollars are the API list-price equivalent, not a subscription bill.
 
 You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage
 auto-routes to a cheaper model (~5× lower cost) for a 60–80% reduction on

@@ -86,6 +86,62 @@ export function projectName(cwd, homeDir = home()) {
   return path.basename(cwd) || null;
 }
 
+const canonical = (p) => { try { return fs.realpathSync(p); } catch { return path.resolve(p); } };
+
+/** Stable repository identity, including linked worktrees. Never infer it from a title/basename. */
+function repositoryIdentity(cwd) {
+  for (let dir = canonical(cwd); ; dir = path.dirname(dir)) {
+    const marker = path.join(dir, '.git');
+    try {
+      const stat = fs.statSync(marker);
+      let gitDir;
+      if (stat.isDirectory()) gitDir = marker;
+      else {
+        const match = fs.readFileSync(marker, 'utf8').match(/^gitdir:\s*(.+)\s*$/m);
+        if (!match) return null;
+        gitDir = path.resolve(dir, match[1].trim());
+      }
+      let common = gitDir;
+      try { common = path.resolve(gitDir, fs.readFileSync(path.join(gitDir, 'commondir'), 'utf8').trim()); } catch { /* main checkout */ }
+      return canonical(common);
+    } catch { /* continue to parent */ }
+    if (path.dirname(dir) === dir) return null;
+  }
+}
+
+/** Filter before aggregation: children without cwd inherit only their own host's parent. */
+export function projectUsageIndex(index, projectPath) {
+  if (!projectPath) return index;
+  const root = canonical(projectPath);
+  const git = repositoryIdentity(root);
+  const identities = new Map();
+  const entries = Object.entries(index.files || {});
+  const sessions = new Map();
+  for (const [, e] of entries) if (e.meta?.session) sessions.set(`${e.host}|${e.meta.session}`, e);
+  const inheritedCwd = e => {
+    const visited = new Set();
+    while (e) {
+      if (e.meta?.cwd) return e.meta.cwd;
+      const key = `${e.host}|${e.meta?.parent}`;
+      if (!e.meta?.parent || visited.has(key)) return null;
+      visited.add(key); e = sessions.get(key);
+    }
+    return null;
+  };
+  const matches = (cwd) => {
+    if (!cwd || typeof cwd !== 'string' || !path.isAbsolute(cwd)) return false;
+    if (identities.has(cwd)) return identities.get(cwd);
+    const actual = canonical(cwd);
+    const repo = repositoryIdentity(actual);
+    const rel = path.relative(root, actual);
+    const inside = rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel));
+    const match = git && repo ? git === repo : inside;
+    identities.set(cwd, match);
+    return match;
+  };
+  return { ...index, files: Object.fromEntries(entries.filter(([, e]) => matches(inheritedCwd(e)))) };
+}
+
 // ── file discovery ────────────────────────────────────────────────────────────
 
 function walk(dir, maxDepth, out) {
@@ -823,7 +879,8 @@ function laneDetail(samples, { fromMs, now }) {
  * @param {object} index  from scanUsage
  * @param {{days?:number, now?:number, codexTitles?:Record<string,string>, prices?:object, top?:number}} opts
  */
-export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10, claudeReadings = [], claudeRecorderState = 'off' } = {}) {
+export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles = {}, prices = effectivePrices(), top = 10, claudeReadings = [], claudeRecorderState = 'off', projectPath = null } = {}) {
+  index = projectUsageIndex(index, projectPath);
   const span = Math.max(1, Math.min(365, Math.floor(days) || 30));
   const dates = [];
   for (let i = span - 1; i >= 0; i--) dates.push(dayOf(now - i * 86400000));
@@ -918,7 +975,7 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
     // The conversation's own file names it; a subagent's file only fills a gap.
     const own = !e.meta?.parent;
     if (own || !s.title) s.title = (host === 'codex' ? codexTitles[e.meta?.session] : null) || e.meta?.title || e.meta?.prompt || s.title;
-    if (own || !s.project) s.project = projectName(e.meta?.cwd) || s.project;
+    if (own || !s.project) s.project = projectName(projectPath || e.meta?.cwd) || s.project;
     if (own || !s.fn) s.fn = fn;
   }
 
@@ -940,6 +997,11 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
 
   return {
     state: 'counted',
+    ...(projectPath ? {
+      scope: { kind: 'project', path: canonical(projectPath) },
+      files: Object.keys(index.files || {}).length,
+      seen: Object.fromEntries(['claude', 'codex'].map(host => [host, Object.values(index.files || {}).some(e => e.host === host)])),
+    } : {}),
     window: { from, to: dates[dates.length - 1], days: span },
     hosts: Object.fromEntries(Object.entries(hosts).map(([k, h]) => [k, {
       tokens: tokensOf(h), input: h.in, output: h.out, cacheRead: h.cr, cacheWrite: h.cw + h.cwh, reasoning: h.rs,
@@ -957,8 +1019,8 @@ export function summarizeUsage(index, { days = 30, now = Date.now(), codexTitles
       tools: rank(l.tools, 15), skills: rank(l.skills, 15), agents: rank(l.agents, 15), mcp: rank(l.mcp, 15, mcpLabel),
     }])),
     limits: {
-      codex: codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null, detail: codexLimitDetail(codexPoints, { fromMs, now }) } : null,
-      claude: { ...claudeLimits(hourly.claude, { fromMs, now, lastHit }), plan: claudePlanDetail(claudeReadings, { fromMs, now }), recorder: claudeRecorderState },
+      codex: !projectPath && codexLimits ? { ...codexLimits, plan: codexLimits.plan || codexPlan?.plan || null, detail: codexLimitDetail(codexPoints, { fromMs, now }) } : null,
+      claude: { ...claudeLimits(hourly.claude, { fromMs, now, lastHit }), plan: projectPath ? null : claudePlanDetail(claudeReadings, { fromMs, now }), recorder: claudeRecorderState },
     },
     unpricedModels: [...unpriced].sort(),
     // Claude Code only: Codex does not write hook outcomes to its session logs.

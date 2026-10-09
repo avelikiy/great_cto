@@ -4,6 +4,24 @@ import { Worker } from 'node:worker_threads';
 import { readFileSync } from 'node:fs';
 import { usageReports } from './lib/usage-report.mjs';
 const tick = () => new Promise(resolve => setImmediate(resolve));
+test('project and window are separate cache identities, including in-flight refreshes', async () => {
+  let finish;
+  const calls = [];
+  const reports = usageReports({ compute: (days, projectPath) => {
+    calls.push([days, projectPath]);
+    return new Promise(resolve => { finish = resolve; });
+  } });
+  reports.get(7, '/work/alpha'); await tick();
+  assert.equal(reports.get(7, '/work/beta').state, 'computing');
+  finish({ state: 'counted', tokens: 11 }); await tick();
+  assert.equal(reports.get(7, '/work/alpha').tokens, 11);
+  assert.equal(reports.get(7, '/work/beta').state, 'computing'); await tick();
+  assert.equal(reports.get(7, '/work/alpha').refreshing, false, 'another project is not refreshing alpha');
+  finish({ state: 'counted', tokens: 99 }); await tick();
+  assert.equal(reports.get(7, '/work/beta').tokens, 99);
+  assert.equal(reports.get(7, '/work/alpha').tokens, 11);
+  assert.deepEqual(calls, [[7, '/work/alpha'], [7, '/work/beta']]);
+});
 test('cold statistics returns immediately and single-flights all window requests', async () => {
   let resolve, calls = 0;
   const reports = usageReports({ compute: () => { calls++; return new Promise(r => { resolve = r; }); } });

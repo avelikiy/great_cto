@@ -8,13 +8,35 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { outcomeOf, verdictAgent, agentOutcomes, bugFindings } from '../../scripts/lib/outcomes.mjs';
+import { outcomeOf, verdictAgent, agentOutcomes, bugFindings, outcomes } from '../../scripts/lib/outcomes.mjs';
 
 const made = [];
 after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = () => { const d = fs.mkdtempSync(path.join(os.tmpdir(), 'oc-')); made.push(d); return d; };
 const NOW = Date.parse('2026-10-07T12:00:00Z');
 const v = (ts, agent, verdict, extra = {}) => JSON.stringify({ v: 1, ts, agent, verdict, ...extra });
+
+test('project outcomes exclude foreign and unattributed global verdicts and read only selected Beads', async () => {
+  const root = tmp(), globalDir = path.join(root, 'global');
+  const projects = ['alpha', 'beta'].map(name => ({ name, path: path.join(root, name) }));
+  fs.mkdirSync(globalDir);
+  for (const p of projects) {
+    fs.mkdirSync(path.join(p.path, '.great_cto', 'verdicts'), { recursive: true });
+    fs.mkdirSync(path.join(p.path, '.beads'));
+    fs.writeFileSync(path.join(p.path, '.great_cto', 'verdicts', 'senior-dev.log'), v('2026-10-06T10:00:00Z', 'senior-dev', p.name === 'alpha' ? 'PASS' : 'FAIL'));
+  }
+  fs.writeFileSync(path.join(globalDir, 'reviewer.log'), [
+    v('2026-10-06T11:00:00Z', 'code-reviewer', 'PASS', { project: 'alpha' }),
+    v('2026-10-06T12:00:00Z', 'code-reviewer', 'FAIL', { project: 'beta' }),
+    v('2026-10-06T13:00:00Z', 'code-reviewer', 'FAIL'),
+  ].join('\n'));
+  const asked = [];
+  const report = await outcomes({ projects: [projects[0]], globalDir, now: NOW, projectScope: true, list: async cwd => { asked.push(cwd); return { ok: true, data: [] }; } });
+  assert.equal(report.projects, 1);
+  assert.deepEqual(asked, [projects[0].path]);
+  assert.equal(report.agents.agents.reduce((n, a) => n + a.runs, 0), 2);
+  assert.equal(report.agents.agents.reduce((n, a) => n + a.failed, 0), 0);
+});
 
 test('a verdict means pass, stopped, failed, skipped — or unknown, never a quiet pass', () => {
   for (const x of ['APPROVED', 'PASS', 'DONE', 'TASK_DONE']) assert.equal(outcomeOf(x), 'pass', x);
