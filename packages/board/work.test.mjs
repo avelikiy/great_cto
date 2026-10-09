@@ -67,6 +67,22 @@ test('HTTP degraded store reports unreadable records instead of all clear', asyn
   assert.equal(snapshot.entries.some(e => e.runId === id), true);
 });
 
+test('HTTP cockpit links project activity without exposing other sessions or raw event contents', async () => {
+  writeFileSync(join(cwd, '.great_cto', 'events.jsonl'), [
+    { kind: 'tool', session: id, ts: '2026-10-09T12:00:00Z', tool: 'Read', prompt: 'PRIVATE_PROMPT', output: 'PRIVATE_OUTPUT' },
+    { kind: 'agent-stop', session: 'unrelated', agent: 'UNRELATED_AGENT', ok: true },
+  ].map(e => JSON.stringify(e)).join('\n') + '\n');
+  const snapshot = await (await fetch(base + '/api/work')).json();
+  const inspector = snapshot.entries.find(e => e.runId === id).inspector;
+  assert.equal(inspector.state, 'recorded'); assert.equal(inspector.events.length, 1);
+  assert.equal(inspector.events[0].tool, 'Read');
+  assert.doesNotMatch(JSON.stringify(snapshot), /PRIVATE_PROMPT|PRIVATE_OUTPUT|UNRELATED_AGENT/);
+  writeFileSync(join(cwd, '.great_cto', 'events.jsonl'), '{bad\n');
+  const degraded = await (await fetch(base + '/api/work')).json();
+  assert.equal(degraded.sources.find(s => s.id === 'activity').health, 'degraded');
+  assert.equal(degraded.entries.find(e => e.runId === id).inspector.partial, true);
+});
+
 test('shared tasks use explicit links, goal and host capabilities instead of duplicate run rows', () => {
   const taskId = randomUUID();
   const task = { taskId, host: 'codex', goal: 'Export authorized CSV', acceptance: ['Check row access'], phase: 'accepted',

@@ -45,3 +45,16 @@ test('late read from a previous project cannot replace the selected project', as
   assert.match(node('work-list').innerHTML, /Selected project/);
   assert.doesNotMatch(node('work-list').innerHTML, /Wrong project/);
 });
+
+test('task cockpit escapes activity and does not treat successful process output as verified completion', () => {
+  const html = view.render({ observedAt: 'now', health: 'current', sources: [], sessions: [], entries: [{
+    key: 'run:one', kind: 'run', terminal: false, title: 'Feature', nativeState: 'blocked', stage: '<qa>',
+    capabilities: [], acceptance: [], evidence: [], decisions: [], reason: 'timeout',
+    inspector: { state: 'recorded', partial: true, lastEventAt: 'now', events: [
+      { ts: 'now', kind: 'agent-stop', agent: '<script>evil()</script>', host: 'codex', ok: true, durationMs: 10 },
+    ] },
+  }] });
+  assert.match(html, /Stage: &lt;qa&gt;/); assert.match(html, /Live activity inspector/);
+  assert.match(html, /not proof of liveness or acceptance/); assert.match(html, /window is incomplete/);
+  assert.doesNotMatch(html, /<script>|verified completion|success: true/);
+});

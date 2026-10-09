@@ -8,6 +8,8 @@ import { listWorkTasks, publicWorkTask } from '../../../scripts/lib/work-tasks.m
 import { decisionCapabilities } from '../../../scripts/lib/work-decisions.mjs';
 import { measureWork, compareWork } from '../../../scripts/lib/work-metrics.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
+import { agentActivity } from './agent-activity.mjs';
+import { taskInspector } from './task-inspector.mjs';
 
 const text = v => typeof v === 'string' ? v : null;
 const date = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null;
@@ -15,7 +17,7 @@ const RUN_PHASE = { ready: 'accepted', 'awaiting-gate': 'needs_decision',
   'awaiting-release': 'needs_decision', blocked: 'blocked', 'manual-action': 'blocked' };
 
 export function projectWork({ projectId, issues = [], codex = { state: 'absent', runs: [] },
-  tasks = [], sessions = [], sources = [], observedAt = new Date().toISOString() }) {
+  tasks = [], sessions = [], sources = [], activity = { state: 'none', events: [] }, observedAt = new Date().toISOString() }) {
   const entries = [];
   for (const r of codex.runs || []) {
     // Completion of a controller run is not proof of the user's acceptance criteria.
@@ -38,6 +40,8 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
           : terminal ? 'This run is terminal' : 'This state does not permit ordinary resume' }],
       command: canCopyResume ? `great-cto resume ${r.id} --host codex` : null,
       evidence: (r.rolesCompleted || []).map(role => ({ kind: 'recorded_role', label: role })),
+      stage: text(r.active) || text(r.pending?.role) || (r.wave?.status === 'running' && Array.isArray(r.wave.roles) ? r.wave.roles.filter(role => typeof role === 'string').join(', ') : null),
+      inspector: taskInspector([r.id], activity),
       release: r.release ? { status: text(r.release.status), url: text(r.release.url), verifiedAt: date(r.release.verifiedAt) } : null,
     });
   }
@@ -52,6 +56,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       decisions: pending ? [{ id: t.id, engine: 'beads', label: 'Review decision' }] : [],
       capabilities: [{ action: pending ? 'review_decision' : 'view_issue', enabled: true, reason: null }],
       command: null, evidence: [], release: null,
+      inspector: taskInspector([], activity),
     });
   }
   for (const t of tasks) {
@@ -75,6 +80,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       intent: t.intent || 'delivery', stage: t.stage || null, taskOutcome: t.outcome || null,
       decisions: decisionCapabilities(t).map(d => ({ ...d, id: d.decisionId, label: d.label || 'Host decision' })), evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
       release: run?.release || null, revision: t.revision, metrics: t.metrics,
+      inspector: taskInspector([...t.links.runs, ...t.links.sessions], activity),
       capabilities: [...(approval ? [{ action: 'copy_approve', enabled: true, reason: null }] : []), { action: 'copy_resume', enabled, reason: enabled ? null : owner ? 'Host operation is active; duplicate resume is refused'
         : t.managed === false ? 'Continue this observed session inside its native host'
         : t.phase === 'needs_decision' ? 'Resolve the native host decision first' : 'Execution link or resumable host state is unavailable' }],
@@ -98,8 +104,13 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
 
 export function getWork(cwd) {
   const observedAt = new Date().toISOString();
+  let activity;
+  try { activity = agentActivity(cwd, { limit: 200 }); }
+  catch { activity = { state: 'unreadable', events: [] }; }
   const sources = []; let issues = [], codex = { state: 'absent', runs: [] }, sessions = [], tasks = [];
   const source = (id, health, reason = null) => sources.push({ id, health, reason, observedAt });
+  source('activity', activity.state === 'unreadable' || activity.bad ? 'degraded' : 'current',
+    activity.state === 'unreadable' ? 'Cannot read project activity' : activity.bad ? 'Some activity records are malformed' : null);
   try {
     const listing = listWorkTasks(cwd); tasks = listing.tasks.map(publicWorkTask);
     source('tasks', listing.state === 'degraded' ? 'degraded' : 'current', listing.unreadable ? `${listing.unreadable} task state file(s) could not be read` : null);
@@ -132,5 +143,5 @@ export function getWork(cwd) {
   let canonical = cwd;
   try { canonical = realpathSync(cwd); } catch { /* source health already reports inaccessible data */ }
   const projectId = 'project:' + createHash('sha256').update(canonical).digest('hex');
-  return { ...projectWork({ projectId, issues, codex, tasks, sessions, sources, observedAt }), projectName: basename(cwd) };
+  return { ...projectWork({ projectId, issues, codex, tasks, sessions, sources, activity, observedAt }), projectName: basename(cwd) };
 }
