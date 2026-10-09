@@ -10,6 +10,7 @@ beads: great_cto-3ae3.5
 
 **Дата:** 2026-10-02. **Статус:** целевой контракт; read-side инкремент реализован в `.6`, полный lifecycle и host operations остаются в `.2`/`.3`.
 **Связанный план:** [единый пользовательский вход](../plans/PLAN-2026-10-02-simple-user-entry.md).
+**Task cockpit и публикация:** [ADR-028](../adr/ADR-028-task-cockpit.md) задаёт read-only инспектор, подтверждение публикации и ограничения authority.
 **Tracking:** `great_cto-3ae3.5` (спецификация), `.2` (UI), `.3` (durable state и действия хостов).
 
 ## Design dials
