@@ -32,7 +32,7 @@ export const EVENTS_FILE = 'events.jsonl';
 // `hint`: a context hook (edit-impact, lesson-tripwire) put text in front of the model.
 // Recorded so its noise can be measured — how often, on what, how long — not what it said.
 export const EVENT_KINDS = Object.freeze(['agent-start', 'agent-stop', 'tool', 'denied', 'stop', 'pipeline', 'hint']);
-export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict', 'hook', 'chars', 'host']);
+export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict', 'hook', 'chars', 'host', 'invocation_id']);
 export const MAX_BYTES = 5 * 1024 * 1024;
 
 const MAX_PATHS = 10;
@@ -49,6 +49,7 @@ export function makeEvent(input, { now = Date.now() } = {}) {
   const e = { v: 1, ts: iso(now), kind: input.kind };
   const session = short(input.session, 80); if (session) e.session = session;
   const agent = short(input.agent, 80); if (agent) e.agent = agent;
+  if (typeof input.invocation_id === 'string' && /^[a-f0-9]{64}$/.test(input.invocation_id)) e.invocation_id = input.invocation_id;
   const tool = short(input.tool, 80); if (tool) e.tool = tool;
   if (Array.isArray(input.paths)) {
     const paths = input.paths.filter((p) => typeof p === 'string' && p.trim()).map((p) => p.slice(0, 300)).slice(0, MAX_PATHS);

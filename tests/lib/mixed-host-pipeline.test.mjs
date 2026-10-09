@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -33,12 +33,15 @@ const reply = (role, path = `docs/${role}.md`) => ({ state: 'ok', code: 0, error
 const verify = async () => ({ state: 'verified', findings: [], checks: ['inspected actual report'] });
 
 test('two hosts execute concurrently, proposals apply once, and gates remain human-owned', async t => {
-  const state = fixture(t), started = [];
+  const state = fixture(t), started = [], identities = {};
   assert.deepEqual(parallelPair(state), ['qa', 'security']);
   let release;
   const barrier = new Promise(resolve => { release = resolve; });
   const runner = role => async options => {
     started.push(role);
+    assert.match(options.invocationId, /^[a-f0-9]{64}$/);
+    identities[role] = options.invocationId;
+    assert.ok(state.wave.attemptIds[role], 'identity allocated before worker dispatch');
     assert.equal(options.sandbox, 'read-only');
     assert.match(options.prompt, new RegExp(`You are the ${role} specialist`));
     assert.ok(options.prompt.includes(state.wave.id), 'both hosts receive the frozen wave ID');
@@ -59,6 +62,18 @@ test('two hosts execute concurrently, proposals apply once, and gates remain hum
   assert.equal(state.results.qa.host, 'claude-code');
   assert.equal(state.results.security.host, 'codex');
   assert.deepEqual(state.attempts.map(a => a.host), ['claude-code', 'codex']);
+  assert.notEqual(state.results.qa.invocationId, state.results.security.invocationId);
+  for (const attempt of state.attempts) {
+    assert.match(attempt.invocationId, /^[a-f0-9]{64}$/);
+    assert.equal(state.results[attempt.role].invocationId, attempt.invocationId);
+    assert.equal(attempt.invocationId, identities[attempt.role]);
+  }
+  const events = readFileSync(join(state.root, '.great_cto/events.jsonl'), 'utf8').trim().split('\n').map(JSON.parse);
+  for (const [role, id] of Object.entries(identities)) {
+    const lifecycle = events.filter(e => e.agent === `${role === 'qa' ? 'claude' : 'codex'}-${role}`);
+    assert.deepEqual(lifecycle.map(e => e.kind), ['agent-start', 'agent-stop']);
+    assert.ok(lifecycle.every(e => e.invocation_id === id));
+  }
   assert.equal(state.waveHistory[0].status, 'verified');
   assert.equal(state.wave, null);
   const qaToken = state.pending.token; approve(state, qaToken);
@@ -142,6 +157,7 @@ test('persisted fetched wave resumes without invoking either host again', async 
   // The controller has already received both model results, then crashed before
   // applying. The saved responses are the only authority for resume.
   state.wave = { id: 'saved', roles: ['qa', 'security'], status: 'fetched', receipt: treeReceipt(state.root),
+    attemptIds: { qa: 'persisted-qa', security: 'persisted-security' },
     hosts: { qa: 'claude-code', security: 'codex' }, context: { record: { mode: 'inline', results: [] }, text: '' },
     responses: { qa: reply('qa'), security: reply('security') } };
   const restored = JSON.parse(JSON.stringify(state));
@@ -150,6 +166,9 @@ test('persisted fetched wave resumes without invoking either host again', async 
   assert.equal(restored.status, 'awaiting-gate');
   assert.equal(restored.wave, null);
   assert.equal(restored.waveHistory[0].id, 'saved');
+  assert.deepEqual(restored.attempts.map(a => a.id), ['persisted-qa', 'persisted-security']);
+  assert.equal(restored.results.qa.attemptId, 'persisted-qa');
+  assert.equal(restored.results.security.attemptId, 'persisted-security');
 });
 
 test('resume after first verified role applies only the retained second response', async t => {

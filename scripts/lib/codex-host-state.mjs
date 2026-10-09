@@ -21,8 +21,9 @@ export function projectCodexState(state) {
     hostRoutes: state.hostRoutes || {},
     wave: state.wave ? { id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results || {}),
-    attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt }) =>
-      ({ id, role, host: host || 'codex', number, phase, status, startedAt, finishedAt })),
+    attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt, invocationId }) =>
+      ({ id, role, host: host || 'codex', number, phase, status, startedAt, finishedAt,
+        ...(invocationId ? { invocationId } : {}) })),
     pending: state.pending ? { role: state.pending.role, gates: state.pending.gates || [], createdAt: state.pending.createdAt } : null,
     release: state.release ? {
       adapter: state.release.adapter,

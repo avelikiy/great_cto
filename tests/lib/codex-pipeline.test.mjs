@@ -373,6 +373,9 @@ test('a Codex stage records its start, its tool calls and its end — as facts',
   assert.equal(stop.ok, true, 'the stage completed');
   assert.ok(Number.isFinite(stop.duration_ms));
   assert.ok(ev.every(e => e.session === s.id), 'events carry the run id, so two runs can be told apart');
+  assert.match(s.attempts[0].invocationId, /^[a-f0-9]{64}$/);
+  assert.equal(s.results.writer.invocationId, s.attempts[0].invocationId);
+  assert.ok(ev.every(e => e.invocation_id === s.attempts[0].invocationId), 'start/tool/stop refer to the same attempt');
   const raw = readFileSync(join(s.root, '.great_cto', 'events.jsonl'), 'utf8');
   for (const leak of ['secrets.env', 'npm test', 'OUTPUT-TEXT', 'Build a fixture']) assert.ok(!raw.includes(leak), `events carried ${leak}`);
   assert.equal(s.status, 'awaiting-gate', 'recording changed nothing about the run');
