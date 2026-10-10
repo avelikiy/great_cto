@@ -37,13 +37,17 @@ for(const phase of ['readiness','completion'])test('broker rejects changed resou
  const pause=ms=>new Promise(r=>setTimeout(r,ms));
  const gone=async()=>{for(let i=0;i<60;i++){if(!live().length)return true;await pause(50);}return false;};
  try{
-  broker=startBrowserGuardianProbe('normal',event=>{
+  // Completion scope validation needs a real completed browser probe, not the
+  // full multi-viewport benchmark (whose own budget is 20s). The fixed DOM
+  // refusal probe uses the same scorer/resource owner and emits a real done.
+  // An unchecked completion would emit false, not null, and still fail below.
+  broker=startBrowserGuardianProbe(phase==='completion'?'dom-refusal':'normal',event=>{
    events.push(event);
    if(event.kind==='probe-ready'){assert.equal(phase,'completion');capture();broker.continue();}
    if(event.kind==='probe-ended')resolveEnd(event);
   });
   root=broker.privateResources().root;rootIdentity=fs.lstatSync(root);
-  const result=await Promise.race([end,new Promise((_,reject)=>timer=setTimeout(()=>reject(Error('broker refusal did not terminate')),10000))]);
+  const result=await Promise.race([end,new Promise((_,reject)=>timer=setTimeout(()=>reject(Error(`broker refusal did not terminate: phase=${phase} injected=${injected} events=${events.slice(-8).map(e=>e.kind).join(',')}`)),10000))]);
   clearTimeout(timer);assert.equal(injected,true);assert.ok(events.some(e=>e.kind==='probe-unavailable'));
   assert.equal(events.filter(e=>e.kind==='probe-ready').length,phase==='completion'?1:0);
   assert.equal(result.probeAdmitted,null,'invalid resource scope cannot emit an admitted completion');

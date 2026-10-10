@@ -199,7 +199,9 @@ if [ "$SKIP_L2" = "1" ]; then
 elif [ -z "$PLUGIN_DIR" ]; then
   skipped "L2 (no plugin dir found in ~/.claude/plugins/cache/*/great_cto/)"
 else
-  CLI="node $PLUGIN_DIR/packages/cli/index.mjs"
+  # These legacy smoke commands use bash -c. Quote the executable path once,
+  # so operator-selected artifact names remain data, not shell source.
+  CLI="node $(printf '%q' "$PLUGIN_DIR/packages/cli/index.mjs")"
 
   check "great-cto --version returns semver" \
     bash -c "$CLI --version 2>&1 | grep -qE '^[0-9]+\\.[0-9]+\\.[0-9]+'"
@@ -273,19 +275,24 @@ else
   [ -d "$HOOKS" ] || HOOKS="$ROOT/scripts/hooks"
 
   check "secret-scan blocks AKIA key (exit 2)" \
-    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const k = \\\"${_EXAMPLE_KEY}\\\"\"}}' | node $HOOKS/secret-scan.mjs; [ \$? -eq 2 ]"
+    bash -c 'printf "%s\n" "$2" | node "$1"; [ "$?" -eq 2 ]' _ "$HOOKS/secret-scan.mjs" \
+      "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const k = \\\"${_EXAMPLE_KEY}\\\"\"}}"
 
   check "secret-scan allows clean code (exit 0)" \
-    bash -c "echo '{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"const x = 1;\"}}' | node $HOOKS/secret-scan.mjs"
+    bash -c 'printf "%s\n" "$2" | node "$1"' _ "$HOOKS/secret-scan.mjs" \
+      '{"tool_name":"Write","tool_input":{"file_path":"/tmp/x.ts","content":"const x = 1;"}}'
 
   check "secret-scan respects opt-out env" \
-    bash -c "GREAT_CTO_DISABLE_SECRET_SCAN=1 bash -c 'echo \"{\\\"tool_name\\\":\\\"Write\\\",\\\"tool_input\\\":{\\\"file_path\\\":\\\"/tmp/x.ts\\\",\\\"content\\\":\\\"${_EXAMPLE_KEY}\\\"}}\" | node $HOOKS/secret-scan.mjs'"
+    bash -c 'printf "%s\n" "$2" | GREAT_CTO_DISABLE_SECRET_SCAN=1 node "$1"' _ "$HOOKS/secret-scan.mjs" \
+      "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"/tmp/x.ts\",\"content\":\"${_EXAMPLE_KEY}\"}}"
 
   check "format-check accepts arbitrary input without crashing" \
-    bash -c "echo '{\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"/tmp/none.txt\"}}' | node $HOOKS/format-check.mjs"
+    bash -c 'printf "%s\n" "$2" | node "$1"' _ "$HOOKS/format-check.mjs" \
+      '{"tool_name":"Edit","tool_input":{"file_path":"/tmp/none.txt"}}'
 
   check "cost-guard runs cleanly without budget" \
-    bash -c "echo '{\"hook_event_name\":\"UserPromptSubmit\",\"prompt\":\"/start foo\"}' | node $HOOKS/cost-guard.mjs"
+    bash -c 'printf "%s\n" "$2" | node "$1"' _ "$HOOKS/cost-guard.mjs" \
+      '{"hook_event_name":"UserPromptSubmit","prompt":"/start foo"}'
 
   check "session-end writes an actual isolated fixture snapshot" \
     node "$ROOT/scripts/lib/session-end-smoke.mjs" "$HOOKS/session-end.mjs"

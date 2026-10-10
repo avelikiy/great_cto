@@ -13,7 +13,7 @@
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
 #   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
-# Exit 0 = all gates green. Non-zero = first failing gate (fail-fast).
+# Exit 0 = no executed gate failed. All gates run; skipped checks are reported.
 
 set -uo pipefail
 cd "$(dirname "$0")/.."   # repo root
@@ -458,21 +458,17 @@ run_bounded() {   # run_bounded <seconds> <command...>
   return "$rc"
 }
 
-PIPELINE_ARGS=()
-if [ -n "${GREAT_CTO_TEST_PLUGIN_DIR:-}" ]; then
-  PIPELINE_ARGS+=("--plugin-dir=$GREAT_CTO_TEST_PLUGIN_DIR")
-fi
 if [ "$QUICK" -eq 1 ]; then
   # The fast inner loop gets L1+L2 (~90s). Named as a subset rather than passed
   # off as the suite: --quick skips the board and the plugin-sync levels.
-  if [ "${#PIPELINE_ARGS[@]}" -gt 0 ]; then
-    step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick "${PIPELINE_ARGS[@]}"
+  if [ -n "${GREAT_CTO_TEST_PLUGIN_DIR:-}" ]; then
+    step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick "--plugin-dir=$GREAT_CTO_TEST_PLUGIN_DIR"
   else
     step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick
   fi
 else
-  if [ "${#PIPELINE_ARGS[@]}" -gt 0 ]; then
-    step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh "${PIPELINE_ARGS[@]}"
+  if [ -n "${GREAT_CTO_TEST_PLUGIN_DIR:-}" ]; then
+    step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh "--plugin-dir=$GREAT_CTO_TEST_PLUGIN_DIR"
   else
     step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
   fi

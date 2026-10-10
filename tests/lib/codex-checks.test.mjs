@@ -62,13 +62,16 @@ test('local argv is literal and parent credential environment is not inherited',
 
 test('local failure, missing executable, signal and timeout are never passing', async t => {
   for (const [command, expected] of [
-    [['node', '-e', 'process.exit(1)'], 'failed'],
+    // A tiny real executable isolates nonzero classification from hashing and
+    // starting a large Node binary under load. Node execution is tested above.
+    [['/usr/bin/false'], 'failed'],
     [['/great-cto-does-not-exist'], 'unverifiable'],
     [['node', '-e', "process.kill(process.pid,'SIGTERM')"], 'unverifiable'],
     [['node', '-e', 'setInterval(()=>{},1000)'], 'unverifiable'],
   ]) {
     const s = localFixture(t); s.checkPolicy.commands = [command]; s.checkPolicy.timeoutMs = 1000;
-    const result = await runChecks(s, { safePath }); assert.equal(result.state, expected);
+    const result = await runChecks(s, { safePath }); assert.equal(result.state, expected,
+      JSON.stringify({ command, code: result.code, killed: result.killed, stderr: result.stderr }));
   }
 });
 
