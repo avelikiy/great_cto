@@ -251,3 +251,44 @@ REQUEST_CHANGES for that limited scope. The author executed the canonical gate;
 the reviewer independently read its evidence, did not re-run it, and granted no
 merge/release or OS cleanup authority. Original helper failure cause, live skips
 and installed-board latency remain explicitly unresolved, not waived.
+
+## Delivered experimental opt-in release 3.62.0
+
+The operator-authorized delivery is now complete. PR167 merged at
+ddb55ae3f1f7ff3bb6708e4f2eccf50f231f4018; merge tree is byte-identical to
+reviewed head351cab93964586eaa8afe6a82932766c6ef01416. Release source is
+08a95f4b2e79f690d145730f9a38dfba08920975. Version-only release preparation
+synchronized manifests/CLI, release notes and five new synthetic screenshots;
+application runtime did not change. Normal main/tag pushes ran existing guards.
+No new privacy exception, security baseline, default enablement or guardian
+activation. GitHub Release v3.62.0 published2026-10-10T18:14:40Z.
+
+Build and112focused version/package/documentation checks passed0fail0skip;
+screenshot freshness passed. Tested archive contains178files, SHA256
+6b108f2d868a17c114ba3d523d791d137fa627bf52d7008bbbf3f97809e4f159,
+integrity sha512-bfbLPOcApR112kMfrLlzQgfQBHncK6neG6pMXNCOIpIpuXKwUm3Vl3QLxy9s+isPaE7AKl/MsstELdjSdF6gpQ==.
+npm accepted the exact archive with a processing notice; initial404 registry
+responses are retained. Later metadata independently returned exact/latest3.62.0.
+Downloaded registry archive is byte-identical to tested archive. Fresh isolated
+consumer installation used an empty cache and disabled lifecycle scripts.
+
+Actual downloaded-archive smoke verifies CLI3.62.0 and empty isolated controller
+store. Controller construction/selection passed12cases/8refusals with zero
+dispatch/approvals, providerCalls=null, executionArtifactProvenanceVerified=false
+and benchmarkEligible=false. Isolated consumer board returnedHTTP200 for version,
+HTML andprojects in165ms/16ms/5ms, using a fixed empty synthetic Beads adapter and
+dedicated state/discovery scope. It proves standalone package operation, not real
+Beads performance, paid-model execution or a full deployment workflow.
+
+Both Claude user registrations, installed/enabled Codex plugin and user-prefix
+CLI independently report3.62.0. CLI installed from tested archive with lifecycle
+scripts disabled. Prior3.61CLI archive and host caches retained for rollback.
+Existing sessions still require restart and changed hooks require host review.
+
+There was no listener on3141 before scoped installed-board ensure. The started
+board returnedHTTP200 version=installed=3.62.0 stale=no in1.148s, then HTML and
+version requests each timed out at5s with zero bytes. No unrelated process was
+killed. Installed-board latency P1 remains open; no permanent repair or sustained
+health is claimed. Private delivery evidence is retained under
+/Users/Shared/great-cto-release-3.62.0.PXDEH5. The updated article remains PR177
+draft; no external blog publication or fresh model-quality benchmark.
