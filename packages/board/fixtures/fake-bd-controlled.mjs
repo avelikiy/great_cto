@@ -13,11 +13,15 @@ if (process.argv.includes('--descendant')) {
   setInterval(() => {}, 1000);
 } else {
   fs.appendFileSync(marker('started'), `${process.pid}\n`);
+  fs.writeFileSync(marker('worker'), String(process.ppid));
   if (process.env.FAKE_BD_CONTROL_MODE === 'fail') {
     process.exit(1);
-  } else if (process.env.FAKE_BD_CONTROL_MODE === 'hang') {
+  } else if (['hang', 'leader-exit'].includes(process.env.FAKE_BD_CONTROL_MODE)) {
     process.on('SIGTERM', () => {});
     spawn(process.execPath, [new URL(import.meta.url).pathname, '--descendant'], { stdio: 'inherit' });
+    if (process.env.FAKE_BD_CONTROL_MODE === 'leader-exit') {
+      setInterval(() => { if (fs.existsSync(marker('descendant'))) process.exit(0); }, 25);
+    }
     setInterval(() => {}, 1000);
   } else if (process.env.FAKE_BD_CONTROL_MODE === 'oversize') {
     process.stdout.write(Buffer.alloc(16 * 1024 * 1024 + 1, 120));

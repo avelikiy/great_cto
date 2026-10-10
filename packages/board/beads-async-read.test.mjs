@@ -4,6 +4,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { bdCache } from './lib/state.mjs';
 const fixture = fileURLToPath(new URL('./fixtures/fake-bd-controlled.mjs', import.meta.url));
 async function setup(t, mode = 'hold') {
@@ -84,4 +86,37 @@ test('concurrent tasks.md-only readers all receive the supported fallback', asyn
   fs.writeFileSync(path.join(f.cwd, '.great_cto', 'tasks.md'), '# Tasks\n\n- [ ] MD-1: Keep fallback readable\n');
   const answers = await Promise.all([f.getTasksAsync(f.cwd), f.getTasksAsync(f.cwd), f.getTasksAsync(f.cwd)]);
   for (const tasks of answers) assert.ok(tasks.length > 0);
+});
+for (const mode of ['hang', 'leader-exit']) test(`actual owner SIGKILL closes ${mode} read through IPC disconnect`, async t => {
+  const f = await setup(t, mode);
+  const owner = spawn(process.execPath, [fileURLToPath(new URL('./fixtures/beads-read-owner.mjs', import.meta.url))], {
+    cwd: f.cwd, env: { ...process.env }, stdio: 'ignore'
+  });
+  let leader, descendant, worker;
+  const dead = pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } };
+  try {
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')));
+    leader = Number(fs.readFileSync(path.join(f.root, 'project.started'), 'utf8').trim());
+    descendant = Number(fs.readFileSync(path.join(f.root, 'project.descendant'), 'utf8'));
+    worker = Number(fs.readFileSync(path.join(f.root, 'project.worker'), 'utf8'));
+    const exited = once(owner, 'exit');owner.kill('SIGKILL');await exited;
+    await waitFor(() => dead(leader) && dead(descendant) && dead(worker));
+  } finally {
+    // Fixed captured fixture PIDs only; cleanup is not the preceding assertion.
+    try { owner.kill('SIGKILL'); } catch {}
+    for (const pid of [leader, descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+  }
+});
+test('queued read expires within the original budget without spawning a fifth group', { timeout: 30000 }, async t => {
+  const f = await setup(t, 'hang');
+  const dirs = Array.from({ length: 5 }, (_, i) => path.join(f.root, `queued${i}`));
+  for (const dir of dirs) fs.mkdirSync(path.join(dir, '.beads'), { recursive: true });
+  const settled = dirs.map(dir => assert.rejects(f.getTasksAsync(dir), /timed out|exited/));
+  await waitFor(() => dirs.slice(0, 4).every(dir => fs.existsSync(path.join(f.root, path.basename(dir) + '.descendant'))));
+  await Promise.all(settled);
+  assert.equal(fs.existsSync(path.join(f.root, 'queued4.started')), false);
+  assert.match(f.bdFailureFor(dirs[4]), /waiting for a slot/);
+  const captured = dirs.slice(0, 4).flatMap(dir => ['started', 'descendant', 'worker'].map(suffix =>
+    Number(fs.readFileSync(path.join(f.root, path.basename(dir) + '.' + suffix), 'utf8').trim())));
+  await waitFor(() => captured.every(pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } }));
 });

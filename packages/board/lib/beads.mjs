@@ -5,6 +5,7 @@ import { spawnSync, spawn } from 'child_process';
 import { readSafe } from './util.mjs';
 import { bdCache } from './state.mjs';
 import { log } from './log.mjs';
+import { spawnBdRead } from './bd-read-worker.mjs';
 
 // ── Beads data ─────────────────────────────────────────────────────────────────
 // Cache bdList output per cwd for BD_CACHE_TTL_MS. Invalidated when the project's
@@ -315,23 +316,38 @@ function drainRefreshQueue() {
  * `spawnSync` is what made this board unanswerable: `bd list` costs seconds and
  * blocks everything for the whole of it — /api/version, one readdirSync,
  * measured at 1-10 s because it was queued behind a task read. Warming at boot
- * moved the first stall out of sight; this removes the rest.
+ * moved the first stall out of sight; HTTP cold reads now await this path.
+ * Direct synchronous write broadcasts and background readers remain separate.
  *
  * `onDone`, if given, fires exactly once when the shared read finishes. A
  * concurrent reader joins it rather than receiving a premature "skipped".
- * Every existing background caller omits it and stays
- * fire-and-forget — the ONE caller that wants to know when the fill finished
- * is the boot warm-up (see `warmTasksAsync`), which logs how long it took.
+ * Background callers omit it and stay fire-and-forget. Boot warm-up and
+ * interactive cold reads join the same completion through `warmTasksAsync`.
  */
 function bdRefreshAsync(cwd, onDone = null) {
   if (refreshing.has(cwd)) { if (onDone) refreshWaiters.get(cwd).push(onDone); return; }
   refreshing.add(cwd);
   refreshWaiters.set(cwd, onDone ? [onDone] : []);
-  refreshQueue.push(() => startRefresh(cwd));
+  const due = performance.now() + READ_TIMEOUT_MS;
+  const run = () => {
+    clearTimeout(queuedDeadline);
+    startRefresh(cwd, Math.max(1, due - performance.now()));
+  };
+  const queuedDeadline = setTimeout(() => {
+    const index = refreshQueue.indexOf(run);
+    if (index < 0) return;
+    refreshQueue.splice(index, 1);
+    refreshing.delete(cwd);
+    bdFailures.set(cwd, 'bd read timed out waiting for a slot');
+    const waiters = refreshWaiters.get(cwd) || [];
+    refreshWaiters.delete(cwd);
+    for (const done of waiters) done({ ok: false });
+  }, READ_TIMEOUT_MS);
+  refreshQueue.push(run);
   drainRefreshQueue();
 }
 
-function startRefresh(cwd) {
+function startRefresh(cwd, remainingMs) {
   const startedAt = Date.now();
   lastBdRunAt.set(cwd, startedAt);
   let out = '', outBytes = 0;
@@ -367,8 +383,8 @@ function startRefresh(cwd) {
     // At most four reads run concurrently. The fixed deadline escalates TERM
     // to KILL for this newly owned process group; Node's TERM-only timeout did
     // not release the slot when a child ignored it or inherited pipes stayed open.
-    child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv(), detached: grouped });
-    deadline = setTimeout(() => stop('bd read timed out'), READ_TIMEOUT_MS);
+    child = spawnBdRead(BD_BIN, { cwd, env: bdEnv(), detached: grouped, readDeadlineMs: Math.ceil(remainingMs) + 250 });
+    deadline = setTimeout(() => stop('bd read timed out'), remainingMs);
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (d) => {
       if (finished || killDeadline) return;
