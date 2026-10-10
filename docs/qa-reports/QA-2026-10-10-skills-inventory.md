@@ -10,7 +10,7 @@ Branch: codex/skills-inventory, based on codex/board-english-ui
 | --- | --- |
 | Board unit/API/UI-source suite | 490 passed, 0 failed, 0 skipped |
 | Board Chromium E2E suite | 13 passed, 0 failed, 0 skipped |
-| CLI package-files contract | 4 passed, 0 failed, 0 skipped |
+| CLI package-files validation | 4 passed, 0 failed, 0 skipped |
 | CLI TypeScript build | Passed |
 | Generated npm bundle Skills import from isolated fixture cwd/home | Passed, included in board suite |
 | git diff --check | Passed |

@@ -1,6 +1,6 @@
 # ADR-029: Read-only multi-host skill inventory
 
-Date: 2026-10-10
+**Date:** 2026-10-10
 Status: Proposed; implemented in a review branch, not released
 Owner: great_cto maintainers
 Tracking: Beads epic great_cto-f33n, implementation great_cto-f33n.1
@@ -94,7 +94,7 @@ Untrusted names/declarations/warnings are escaped as text in the UI. Original
 document content is not executed or adopted as instructions. The existing
 loopback-only board security remains in force.
 
-## UI contract
+## UI behavior
 
 Skills lives in Tools and uses the existing navigation row, typography, surface,
 border, accent and focus-ring tokens. Search, host-location and scope controls
