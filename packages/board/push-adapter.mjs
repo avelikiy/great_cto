@@ -12,6 +12,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { URL } from 'node:url';
+import { readPrivateState, writePrivateState } from '../cli/src/private-state.mjs';
 
 // ── Helpers: base64url ────────────────────────────────────────────────────
 
@@ -74,7 +75,7 @@ export function getVapidKeys(keyPath) {
   // Load existing keys from disk
   if (fs.existsSync(keyPath)) {
     try {
-      const stored = JSON.parse(fs.readFileSync(keyPath, 'utf8'));
+      const stored = JSON.parse(readPrivateState(keyPath));
       if (stored.publicKey && stored.privateKey) return stored;
     } catch { /* regenerate if corrupt */ }
   }
@@ -93,8 +94,7 @@ export function getVapidKeys(keyPath) {
   const keys = { publicKey, privateKey: jwk };
 
   // Persist — best effort
-  try { fs.mkdirSync(path.dirname(keyPath), { recursive: true }); } catch { /* ignore */ }
-  try { fs.writeFileSync(keyPath, JSON.stringify(keys, null, 2)); } catch { /* best-effort */ }
+  writePrivateState(keyPath, JSON.stringify(keys, null, 2));
 
   return keys;
 }

@@ -23,12 +23,12 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { adaptiveSpecialistPlan, planNotice } from '../lib/specialist-plan.mjs';
 
 const cwd = process.cwd();
 const greatCtoDir = join(cwd, ".great_cto");
 
-// Only run inside great_cto projects
-if (!existsSync(greatCtoDir)) process.exit(0);
+// Imports expose rules without exiting the caller outside a project.
 
 // Pattern → reviewer mapping. Ordered specific-first.
 // Each pattern is matched against the changed-file paths via simple substring.
@@ -403,6 +403,9 @@ function scanVerdictDir(verdictDir, day24Ago, seen) {
 }
 
 function main() {
+  if (!existsSync(greatCtoDir)) process.exit(0);
+  const plan = adaptiveSpecialistPlan(cwd, RULES);
+  if (plan) { console.log(planNotice(plan)); return; }
   const files = getChangedFiles();
   if (files.length === 0) process.exit(0);
 

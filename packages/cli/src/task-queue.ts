@@ -1,7 +1,7 @@
 // ZRS bounded task-runner — queue + worker-owned state (see docs/strategy/ZRS-TASK-RUNNER-DESIGN.md).
 // Producer appends to task-queue.jsonl; the single worker owns task-state.json (atomic rewrite).
 // State lives under ~/.great_cto/ (override with GREAT_CTO_HOME) so a VPS worker is self-contained.
-import { homedir } from "node:os";
+import { stateHome } from "./state-home.mjs";
 import { join } from "node:path";
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync, renameSync } from "node:fs";
 
@@ -35,7 +35,7 @@ export interface TaskState {
   log?: string;
 }
 
-const ROOT = process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto");
+const ROOT = stateHome();
 export const QUEUE = join(ROOT, "task-queue.jsonl");
 export const STATE = join(ROOT, "task-state.json");
 

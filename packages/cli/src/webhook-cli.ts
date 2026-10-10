@@ -11,7 +11,7 @@ import {
   loadConfig, saveConfig, addIncoming, addOutgoing, removeHook,
   getConfigPath,
 } from "./webhook-config.js";
-import { dispatch } from "./webhook-dispatch.js";
+import { dispatch, getDlqPath } from "./webhook-dispatch.js";
 
 export interface WebhookCliArgs {
   action: "list" | "add-incoming" | "add-outgoing" | "remove" | "test";
@@ -106,7 +106,7 @@ export async function runWebhookCli(args: WebhookCliArgs): Promise<number> {
         meta: { test: true, timestamp: new Date().toISOString() },
       });
       console.log(`✓ test event dispatched to ${result.fired} hook(s)`);
-      console.log(`  (delivery is async — check destination shortly; check ~/.great_cto/webhook-dlq.log if it doesn't arrive)`);
+      console.log(`  (delivery is async — check destination shortly; check ${getDlqPath()} if it doesn't arrive)`);
       // Give the in-flight request a moment before exit
       await new Promise(r => setTimeout(r, 500));
       return 0;

@@ -3,6 +3,8 @@
 Date: 2026-10-10. Tracking: great_cto-932g.5.
 Scope: PR #163 delivery. Adaptive PR #167 is excluded.
 
+Related installation and host contract: [Codex host](../HOST-CODEX.md).
+
 ## Review and source gate
 
 Independent read-only Claude review APPROVED application commit `9f457935`,

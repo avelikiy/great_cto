@@ -29,6 +29,7 @@ import path from 'node:path';
 // the real path before the line below ever runs.
 const REGISTRY = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-pf-reg-')), 'projects.json');
 process.env.GREAT_CTO_PROJECTS_FILE = REGISTRY;
+process.env.GREAT_CTO_DISCOVERY_ROOT = path.dirname(REGISTRY);
 
 const { projectRow, portfolio, needsAttention } = await import('./lib/portfolio.mjs');
 const { autoRegisterProject } = await import('./lib/projects.mjs');
@@ -165,7 +166,7 @@ test('the installed plugin is refused for the same reason', () => {
 test('a real project directory is still registered', () => {
   // The guard must be about the location, not about having a .great_cto — every
   // project has one.
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-real-'));
+  const dir = fs.mkdtempSync(path.join(path.dirname(REGISTRY), 'gcto-real-'));
   try {
     fs.mkdirSync(path.join(dir, '.great_cto'), { recursive: true });
     fs.writeFileSync(path.join(dir, '.great_cto', 'PROJECT.md'), 'primary: devtools\nslug: a-real-project\n');

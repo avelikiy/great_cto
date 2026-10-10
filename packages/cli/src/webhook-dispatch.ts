@@ -14,12 +14,12 @@
 //   - resend: HTML email via Resend API ({from, to, subject, html})
 //   - generic: arbitrary JSON POST
 
-import { appendFileSync, existsSync, mkdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { stateHome } from "./state-home.mjs";
+import { writePrivateState } from "./private-state.mjs";
 import { OutgoingHook, loadConfig } from "./webhook-config.js";
 
-const DLQ_PATH = join(homedir(), ".great_cto", "webhook-dlq.log");
+const DLQ_PATH = join(stateHome(), "webhook-dlq.log");
 const RETRY_DELAYS_MS = [1_000, 4_000, 16_000, 64_000]; // 4 attempts total
 
 export interface DispatchEvent {
@@ -192,8 +192,6 @@ async function deliver(
 
 function writeToDlq(hook: OutgoingHook, ev: DispatchEvent, err: Error): void {
   try {
-    const dir = dirname(DLQ_PATH);
-    if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
     const entry = {
       ts: new Date().toISOString(),
       hook: hook.name,
@@ -201,7 +199,7 @@ function writeToDlq(hook: OutgoingHook, ev: DispatchEvent, err: Error): void {
       event: ev,
       error: err.message,
     };
-    appendFileSync(DLQ_PATH, JSON.stringify(entry) + "\n");
+    writePrivateState(DLQ_PATH, JSON.stringify(entry) + "\n", true);
     process.stderr.write(`webhook-dispatch: ${hook.name} dead-lettered: ${err.message}\n`);
   } catch {
     /* even DLQ failed — no recovery */

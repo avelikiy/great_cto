@@ -43,6 +43,10 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
       fs.cpSync(path.join(root, dir), path.join(plugin, dir), { recursive: true,
         filter: (src) => !/node_modules|\.test\.mjs$/.test(src) });
     }
+    // Namespace helpers are shipped source, not CLI dist. Copy only .mjs
+    // modules; this still proves the runtime cannot use a build or dependencies.
+    fs.cpSync(path.join(root, 'packages/cli/src'), path.join(plugin, 'packages/cli/src'),
+      { recursive: true, filter: src => fs.statSync(src).isDirectory() || src.endsWith('.mjs') });
     assert.equal(fs.existsSync(path.join(plugin, 'packages/cli/dist')), false);
     const started = await startServerOnFreePort({ entry: path.join(plugin, 'packages/board/server.mjs'),
       cwd: project, env: { HOME: home, USERPROFILE: home, NODE_PATH: '',

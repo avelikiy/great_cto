@@ -168,6 +168,12 @@ read-only Codex verifier inspects actual files after each stage; `rework` and
 `unverifiable` block downstream dispatch. Same-stage repair does not approve any
 gate. Artifact hashes are checked before the next attempt or resumed stage and
 after verification. Its findings and checks are retained.
+Parallel-wave reports additionally require a workflow attestation bound to the
+exact wave ID and role list. Workers and verifiers receive bounded controller
+invocation observations; queued roles are not running, and wave membership does
+not establish successful execution or measured overlap. Missing or mismatched
+attestation cannot verify a report; unsupported factual workflow claims require
+rework. This is semantic inspection, not a deterministic proof of every sentence.
 This is a fresh session, not a guarantee of a different model family. It is not
 the legacy `independent-verify` scoring/board integration. Test execution is
 limited to commands the read-only sandbox permits; a model's `verified` verdict
@@ -197,7 +203,83 @@ receipts, non-Git projects, exhausted budgets and tree drift require inspection.
 `cancel` invalidates a pending gate, not files already written. Both commands
 take the existing exclusive lock: cancellation does not interrupt a running CLI.
 
-## Offline build/test executor
+An operator can reject an unchanged, pending sequential gate for controlled
+same-role rework, without approving it:
+
+```bash
+node <plugin-root>/scripts/codex-pipeline.mjs reject <run-uuid> --token <pending-token> --reason 'Explain the concrete defect'
+node <plugin-root>/scripts/codex-pipeline.mjs resume <run-uuid>
+```
+
+`reject` binds the pending token, result, complete Git receipt and managed file
+hashes exactly as approval does. It archives the rejected result and affected
+descendant approvals, retains unaffected ancestors and existing file bytes,
+and queues the same role within the existing repair budget. The rejection log
+retains the old pending decision and actual controller module path/SHA256.
+It does not dispatch a model, alter frozen policies or grant an approval.
+Parallel-wave and active-stage rejection are refused; release approval is a
+separate operation, not a sequential stage gate. Exhausted budgets block rework.
+Workers and verifiers receive frozen check/release configuration separately
+from execution evidence, including exact commands and a policy snapshot digest.
+Configured commands must not be presented as executed checks or different smoke.
+
+## Build/test backends
+
+Docker is optional for the product, not silently optional for a pinned run.
+Policies without `backend` retain the existing Docker behavior. Explicit
+`"backend": "docker"` also requires a pinned image. There is no automatic
+fallback when Docker is unavailable. Start a new run to change the policy;
+existing approval and policy digests must not be rewritten.
+
+For small **trusted** projects, an operator-owned local policy can be used:
+
+```json
+{
+  "backend": "local",
+  "trusted": true,
+  "inputs": ["src", "tests"],
+  "commands": [["node", "--test", "tests/test.mjs"]],
+  "timeoutMs": 60000
+}
+```
+
+Local commands execute as the current OS user, without a shell, in a private
+temporary copy of selected inputs. `node` resolves to the controller's Node;
+other executables require absolute paths. Dependencies are not installed or
+copied implicitly. Commands receive only PATH (controller Node directory),
+HOME/TMPDIR (temporary work directory), LANG and LC_ALL, not the inherited
+credential environment. Selected inputs and exported outputs have the same
+path/secret/size validation as Docker. The total command deadline is bounded;
+each command has bounded captured output and same-process-group descendants
+are terminated on POSIX. Code that escapes that group is not contained.
+
+**Local is not a sandbox.** Code can access the user's filesystem, credentials
+stored on disk, network and other processes. Snapshotting and environment
+filtering prevent accidental exposure, not malicious access. Use Docker or
+another separately implemented/verified sandbox for untrusted code. Local
+evidence reports `backend: local`, `isolation: none`, `image: null`, Node/OS/arch
+and executable SHA256 identities; these observed identities are not immutable
+runtime pins or container-equivalence claims. No CPU/memory/network isolation
+is asserted. Trust is explicit operator consent, not inferred from project size.
+
+Release policy can independently select `backend: local, trusted: true` for
+its smoke commands (omit `image`); release adapter `local` describes artifact
+publication, **not** execution backend. Release approval remains mandatory.
+
+The disposable mixed-host full-graph harness supports explicit trusted local
+acceptance without Docker. It starts a fresh run and stops at the first human
+gate; it never inherits or automatically grants approvals:
+
+```sh
+GREAT_CTO_LIVE_CHECKS_BACKEND=local GREAT_CTO_TRUST_LOCAL_FIXTURE=1 node tests/eval/mixed-host-release-live.mjs /absolute/private/install/node_modules/great-cto/board
+```
+
+Omitting those variables retains the pinned Docker acceptance contract. The
+harness checks controller, pipeline, checks and release module hashes before
+and after execution. This command incurs actual model usage; fixture trust
+does not authorize public release or execution of an untrusted product.
+
+### Offline Docker executor
 
 At `start`, pass `--checks-policy /absolute/operator-owned/checks.json`. The JSON
 must be outside the target workspace; its content is snapshotted into run state.
@@ -334,6 +416,13 @@ any gate, run:
 ```sh
 GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<local-digest> node tests/eval/mixed-host-release-live.mjs
 ```
+
+To exercise an already offline-installed npm candidate instead of the checkout,
+pass its runtime root as the single optional argument (for npm this is
+`<prefix>/node_modules/great-cto/board`). The driver executes that root's
+controller with that root as cwd, records controller and pipeline SHA256 values,
+and rejects runtime drift after the stage. This does not activate the candidate
+as a marketplace plugin or inherit another run's approvals.
 
 It creates a disposable Git project, isolated run store, local release root
 and operator-owned policies under the private, persistent macOS directory

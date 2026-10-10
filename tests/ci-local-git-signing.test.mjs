@@ -31,3 +31,11 @@ test('the CLI build is the first step the gate runs', () => {
   const first = /^\s*step "([^"]+)"/m.exec(SRC)?.[1];
   assert.equal(first, 'cli build (tests import it)');
 });
+
+test('the local gate prevents Python imports from adding opaque bytecode to scanned source', () => {
+  const declaration = /^export PYTHONDONTWRITEBYTECODE=1$/m.exec(SRC)?.[0];
+  assert.ok(declaration);
+  assert.ok(SRC.indexOf(declaration) < SRC.indexOf('step "cli build'));
+  const out = execFileSync('bash', ['-c', `${declaration}; python3 -c 'import sys; print(sys.dont_write_bytecode)'`], { encoding: 'utf8' });
+  assert.equal(out.trim(), 'True');
+});

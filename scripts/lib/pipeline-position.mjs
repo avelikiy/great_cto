@@ -52,6 +52,7 @@ import {
   parsePipelineToml, parseVerdictLine, normalizeAgent, decideNext, FRESH_MS,
 } from '../hooks/pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from './approval-level.mjs';
+import { nativeRuntimePolicy } from './runtime-gate-policy.mjs';
 import { readGateBeads, gateStates as readGateStates } from './gate-state.mjs';
 
 // Any verdict of BLOCKED / FAIL / REJECTED halts the chain at that stage —
@@ -486,17 +487,22 @@ function main() {
 
   let level = 'gates-only';
   let activeGates = null;
+  let adaptive = null;
   try {
     const pm = readFileSync(join(projDir, 'PROJECT.md'), 'utf8');
     const archetype = (pm.match(/^archetype:\s*(\S+)/m) || [])[1];
     level = levelFromProjectMd(pm);
     activeGates = gatesForApprovalLevel(level, { archetype });
+    adaptive = nativeRuntimePolicy({ root: resolve(projDir, '..'), level, archetype, briefReadable: level !== 'ship-only' });
+    if (adaptive) activeGates = adaptive.activeGates;
   } catch { /* no PROJECT.md — honour every declared gate, matches dispatcher's own fallback */ }
 
   const result = pipelinePosition({ transitions, verdicts, activeGates, now });
 
   if (asJson) {
-    process.stdout.write(JSON.stringify({ ...result, source }, null, 2) + '\n');
+    const output = { ...result, source };
+    if (adaptive) output.adaptive = adaptive;
+    process.stdout.write(JSON.stringify(output, null, 2) + '\n');
   } else {
     process.stdout.write(renderHuman(result, { label: readProjectLabel(projDir), level, source }) + '\n');
   }

@@ -7,7 +7,7 @@
 // the same reason.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -31,6 +31,21 @@ test('the spec reporter summary counts too', () => {
   assert.equal(countSkips('ℹ tests 12\nℹ skipped 4\nℹ todo 0\n'), 4);
 });
 
+test('modern TAP skipped summaries and final pipeline summary are not silently zero', () => {
+  assert.equal(countSkips('# tests 10\n# skipped 5\n# skipped 9\n'), 14);
+  assert.equal(countSkips('\u001b[32m  ✓ 22 passed    – 5 skipped    (38s)\u001b[0m\n'), 5);
+  assert.equal(countSkips('  – L3 (skipped)\n  ✓ 22 passed    – 5 skipped    (38s)\n'), 5);
+});
+
+test('a real Node test runner with one skipped test contributes one unverified check', t => {
+  const dir = mkdtempSync(join(tmpdir(), 'modern-skips-')); t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const file = join(dir, 'skip.test.mjs');
+  writeFileSync(file, 'import {test} from "node:test"; test("unavailable fixture", {skip:true}, () => {});\n');
+  const env = { ...process.env }; delete env.NODE_TEST_CONTEXT;
+  const r = spawnSync(process.execPath, ['--test', '--test-reporter=tap', file], { env, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr); assert.equal(countSkips(r.stdout), 1, r.stdout);
+});
+
 test('no skips is zero, and a zero summary is zero', () => {
   assert.equal(countSkips('# tests 3\n# pass 3\n# skip 0\n'), 0);
   assert.equal(countSkips(''), 0);
@@ -43,8 +58,9 @@ test('only summary lines count — a test named "skip" and its own # SKIP direct
   assert.equal(countSkips(tap), 1);
 });
 
-test('the CLI prints the count for a log, and refuses a log it cannot read', () => {
+test('the CLI prints the count for a log, and refuses a log it cannot read', t => {
   const dir = mkdtempSync(join(tmpdir(), 'skips-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const log = join(dir, 'step.log');
   writeFileSync(log, '# skipped 2\n');
   const ok = spawnSync(process.execPath, [CLI, log], { encoding: 'utf8' });
@@ -73,6 +89,11 @@ test('step() counts a step that passed with skipped tests, and still passes it',
     assert.match(r.stdout, /RESULT FAIL=0 SKIP_TOTAL=2/);
     assert.match(r.stdout, /board e2e: 2/);
   }
+});
+
+test('step() accounts for the modern Node summary before printing its gate verdict', () => {
+  const r = runStep(`step "board e2e" bash -c 'echo "# skipped 9"; exit 0'`);
+  assert.equal(r.status, 0, r.stderr); assert.match(r.stdout, /RESULT FAIL=0 SKIP_TOTAL=9/);
 });
 
 test('step() keeps the command\'s own exit status through the tee', () => {
