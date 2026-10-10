@@ -7,14 +7,15 @@ This file is an editorial fact sheet, not part of the public article and not a t
 
 ## Snapshot
 
-- Inspected main: `97dd037c91ce1e740bef500b0952e6dce28a8445`.
-- Published package: `npm view great-cto@latest version --json` returned `3.59.1`.
-- GitHub release: `v3.59.1`, published `2026-10-09T16:17:26Z`.
-- Release Git object: `22627b8d4764406370af7fa7901f9a8d87d22048`.
+- Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
+- Published package: fresh `npm view great-cto@latest version --json` returned `3.60.0`.
+- GitHub release: `v3.60.0`, published `2026-10-10T10:05:52Z`.
+- Release Git object: `5cca27d21f0ab922be56b6ebdfe7a6a5282aef69`.
 - September 10 changelog version: `3.28.4`; baseline commit `66da3465`.
-- Article links to released documents use `v3.59.1`, not moving main.
+- Historical release-document links retain `v3.59.1`; the new inventory contract is pinned to `v3.60.0`. The QA report links to main because its postpublication verification was added after the tag.
 - GitHub PR states were checked with `gh pr list` and benchmark merge with `gh pr view 166`.
-- Drafting does not install, update, merge, publish or deploy a product.
+- This deployment follow-up installed 3.60.0 into local Claude Code and Codex caches. Independent board readback returned version=installed=3.60.0 and stale=no; live Usage and Skills/filter navigation were inspected. Deployment does not prove hot-loading into pre-existing model sessions. The initial installer-started board disappeared; a detached restart was verified afterwards.
+- A fresh focused source run passed 31 Usage/English/Skills checks with zero failures or skips. The complete release gate and independent reviews are recorded in the release QA report; no new live model benchmark is claimed.
 
 ## Claims and boundaries
 
@@ -34,15 +35,17 @@ This file is an editorial fact sheet, not part of the public article and not a t
 | Dual-host usage and local accounting | CHANGELOG 3.53.0, 3.54.0, 3.58.0, 3.59.0 | List-price equivalent, not subscription invoice; Claude plan data requires opt-in recorder; background scanning does not prove all stalls fixed |
 | Draft PR publication | CHANGELOG 3.59.0; ADR-028 | Clean, committed, managed and verified task only; explicit approval; live GitHub acceptance remains unverified |
 | Self-contained installed board runtime | CHANGELOG 3.59.1 | Gate policy no longer imports ignored CLI build; not an entirely dependency-free product |
+| Selected-project Usage and English formatting | CHANGELOG 3.60.0; PR #173/#175; release QA | Released and installed; unresolved attribution excluded, existing linked worktrees only; original user content preserved |
+| Read-only multi-host Skills inventory | ADR-029; PR #176; release QA | Released and installed; document-only hash; no loaded/enabled, upstream trust or task-quality inference; partial scans remain partial |
 | Mixed quality gain observed as 0 pp | docs/analysis/2026-10-02-host-quality-recheck.md; merged PR #166 | Two tasks; each arm 24/24; ceiling effect; no population equivalence, reliability, full-product or cost improvement estimate |
 
-## Not released at the snapshot
+## Feature delivery at the updated snapshot
 
 | PR | Verified state / base | Editorial treatment |
 | --- | --- | --- |
-| #173 selected-project Usage | Open draft / main | Explicit upcoming review item; do not label current Usage project-isolated |
-| #175 English UI formatting | Open draft / codex/project-scoped-usage | Upcoming; preserve original task/document content |
-| #176 Skills inventory | Open draft / codex/board-english-ui | Upcoming read-only inventory; no enabled/loaded/upstream/quality inference |
+| #173 selected-project Usage | Merged / shipped 3.60.0 | Describe released project-attributed statistics and attribution limitations |
+| #175 English UI formatting | Merged / shipped 3.60.0 | Released; preserve original task/document content |
+| #176 Skills inventory | Merged / shipped 3.60.0 | Released read-only inventory; no enabled/loaded/upstream/quality inference |
 | #167 adaptive pipeline | Open draft / main | Upcoming; do not claim released adaptive gates or budgets |
 | #163 automatic Codex plugin refresh | Open / main | Upcoming; released Codex plugin update remains explicit |
 | #143–148 canonical evidence ledger chain | Open stacked PRs | Not described as shipped architecture; existing task/run stores remain authoritative |
@@ -69,7 +72,7 @@ Use a synthetic public demo project, not an operator's real workspace:
 2. Harness: a mixed-host review wave and the resulting verifier/gate state.
 3. Usage: two host panels, clearly marked sample data and price semantics.
 
-Capture only the released behavior for the main article. If showing project-scoped Usage, English formatting or Skills from a development branch, label the image unreleased and name its PR. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+Capture released 3.60.0 behavior for project-scoped Usage, English formatting and Skills. Label any remaining adaptive/updater development behavior unreleased and name its PR. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
 
 ## Validation scope
 
@@ -81,4 +84,4 @@ Documentation-only change. Completed editorial checks:
 - Article contains no private project identifiers, personal workspace paths or attached operator screenshots; normal pre-push privacy scanning also remains enabled.
 - `git diff --cached --check` passed.
 
-Do not represent these editorial checks as a fresh application build, model benchmark, UI deployment or installed-plugin acceptance run. Publication on the blog remains a separately authorized action.
+The original editorial checks above are historical. This follow-up additionally verifies published 3.60.0 metadata, local installation/version readback and live UI navigation. It does not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
