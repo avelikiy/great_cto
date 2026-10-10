@@ -35,6 +35,40 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.61.0 — 2026-10-10
+
+Keep the Codex plugin current with an optional macOS refresh schedule.
+
+### What's new
+
+- An opt-in per-user launchd job refreshes the configured great-cto Git
+  marketplace every six hours and at load using Codex's own upgrade command.
+  Enable, status and disable are explicit operations; installation alone does
+  not enable the schedule.
+- Every refresh revalidates the marketplace's origin against the official
+  repository before downloading or replacing an artifact. An unexpected origin
+  fails closed. The timer does not edit the plugin cache itself.
+- The job records Node and Codex paths for launchd's non-interactive environment.
+  Enable refuses to interrupt a running refresh; RunAtLoad starts the first job
+  without a forced kickstart. Use a stable script path and inspect the logs:
+  enabled status is scheduling state, not proof that an upgrade succeeded.
+
+### Verification and boundaries
+
+PR #163's dc02e807 full local gate completed with exit 0, including ten updater
+tests, 14 browser scenarios, build and package creation. Independent application
+review returned APPROVED after fixing launchd PATH. The merged cf12f95c tree is
+byte-identical to the tested candidate. Fresh Snyk status on that head is SUCCESS.
+Four opt-in live library scenarios and one absent legacy pytest suite remain
+NOT CHECKED. HOL policy passes with the existing baseline; no security exception
+or baseline addition is used. Adaptive pipeline PR #167 is not included.
+
+The scheduler is macOS-only and opt-in. It does not prove hot-loading into an
+existing model session or a full mixed-host development cycle. Removing Node,
+Codex or the pinned script requires re-enabling from a stable installation.
+
+---
 ## v3.60.0 — 2026-10-10
 
 Inspect local skills and compare host usage within one selected project.

@@ -76,8 +76,7 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex сам плагин не обновляет — это делает `great-cto upgrade`. Подробности,
-смешанные прогоны Claude + Codex и Codex как второй ревьюер:
+По умолчанию обновление остаётся явной операцией (`great-cto upgrade codex`). На macOS `sh scripts/codex-auto-update.sh enable` включает опциональный пользовательский таймер каждые шесть часов; `status` проверяет его состояние, `disable` удаляет. Перед каждым запуском проверяется Git origin. Таймер следует настроенному Git ref, а не npm-релизам; изменённые hooks требуют одобрения хоста в новой сессии. Подробности и смешанные прогоны:
 [руководство по Codex host](../HOST-CODEX.md).
 
 ## Когда он вас останавливает
