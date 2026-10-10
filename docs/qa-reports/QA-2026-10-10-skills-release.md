@@ -91,9 +91,33 @@ The first metadata wrapper could not parse lifecycle output preceding npm's
 JSON; npm pack itself succeeded. The parser was corrected, the archive was
 regenerated and the actual artifact verified. No production source changed.
 
-Registry publication, dist-tag propagation and a fresh registry download are
-not yet certified by this revision of the report. Operator localhost:3141 and
-installed host plugins are separate deployments, not implied by an npm release.
+Release source/tag: 5cca27d21f0ab922be56b6ebdfe7a6a5282aef69 / v3.60.0.
+The release commit only changes synchronized version files and changelog;
+application code remains the tested candidate. The tag was pushed and its
+peeled remote revision checked against that commit.
+
+npm publish accepted the verified tarball. Registry processing initially
+returned 404 and retained latest=3.59.1; this was not reported as completed
+delivery or retried as another publish. Subsequent online npm reads confirmed
+version 3.60.0 and latest=3.60.0. A download using a new empty npm cache matched
+both the full SHA-512 integrity above and the SHA-256 of the prepublication
+archive. A fresh npm install of great-cto@3.60.0 into a temporary consumer prefix
+passed the same standalone CLI/board, Skills/hash, two-host project statistics,
+verdict-alias and unknown-selection checks.
+
+That consumer install used --ignore-scripts: it verifies the delivered runtime,
+not host-plugin setup or execution of postinstall on the operator machine.
+Local postinstall fixture coverage is part of the earlier full source gate.
+
+[GitHub Release](https://github.com/avelikiy/great_cto/releases/tag/v3.60.0)
+is published, not draft or prerelease, at 2026-10-10T10:05:52Z.
+[npm version](https://www.npmjs.com/package/great-cto/v/3.60.0) is available.
+Relevant GitHub publish workflows remained disabled; npm delivery was manual,
+not inferred from the tag push or a workflow status.
+
+Operator localhost:3141 was read back as 3.59.1 and was not restarted or replaced.
+Installed Claude Code/Codex plugins were not upgraded to 3.60.0. These are
+separate deployments, not implied by the npm release. Old caches are preserved.
 
 ## Remaining boundaries
 

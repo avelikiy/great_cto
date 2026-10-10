@@ -1,7 +1,7 @@
 # ADR-029: Read-only multi-host skill inventory
 
 **Date:** 2026-10-10
-Status: Accepted; merged for release candidate 3.60.0
+Status: Accepted; released in 3.60.0
 Owner: great_cto maintainers
 Tracking: Beads epic great_cto-f33n, implementation great_cto-f33n.1
 

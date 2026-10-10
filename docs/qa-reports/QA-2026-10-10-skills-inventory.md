@@ -10,6 +10,8 @@ and [English UI formatting](QA-2026-10-10-board-english-ui.md).
 Release-stage review and corrections are recorded separately in the
 [independent review report](REVIEW-2026-10-10-skills-release.md). The results
 below describe the original implementation run, not a later release approval.
+Subsequent complete gate, independent approval and verified npm/GitHub delivery
+of 3.60.0 are recorded in [release QA](QA-2026-10-10-skills-release.md).
 
 ## Results
 
