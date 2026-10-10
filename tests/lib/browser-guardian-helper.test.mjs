@@ -3,7 +3,7 @@ import assert from'node:assert/strict';
 import{fork,spawn,spawnSync}from'node:child_process';
 import{fileURLToPath}from'node:url';
 import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync,renameSync}from'node:fs';
-import{join}from'node:path';
+import{join,basename}from'node:path';
 import{boardAccessibilityBenchmarkFixture}from'../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 import{performance}from'node:perf_hooks';
 import{createBrowserCaseDeadline,BROWSER_CASE_MS}from'../helpers/browser-case-deadline.mjs';
@@ -109,7 +109,19 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
    if(mode==='scorer-kill'){assert.equal(ended.signal,'SIGKILL');assert.equal(ended.probeAdmitted,null);}
    else{assert.equal(ended.code,0);assert.equal(ended.probeAdmitted,mode!=='dom-refusal');}
   }
-  assert.ok(await gone(),'captured scorer/browser must stop before fallback cleanup');
+  const stopped=await gone();
+  if(!stopped){
+   // Bounded failure metadata only, before fallback. Diagnostics grant no
+   // signal/deletion authority and cannot extend the fixed case deadline.
+   const rows=table(),remaining=live().slice(0,4).map(([pid,p])=>{
+    const command=spawnSync('/bin/ps',['-p',String(pid),'-o','comm='],
+     {env,encoding:'utf8',timeout:250,killSignal:'SIGKILL',maxBuffer:1024});
+    return {pid,birth:p.birth,...rows.get(pid),command:command.status===0?basename(command.stdout.trim()).slice(0,80):'unknown'};
+   });
+   t.diagnostic(mode+': failed closure before fallback '+JSON.stringify({helper:f.child.pid,scorer,
+    remaining,stages:f.probeTimings.slice(-8)}));
+  }
+  assert.ok(stopped,'captured scorer/browser must stop before fallback cleanup');
   let retained=false;try{assert.equal(lstatSync(profile).ino,profileIdentity.ino);retained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
   assert.equal(retained,mode==='scorer-kill');
   let artifactsRetained=false;try{assert.equal(lstatSync(artifact).ino,artifactIdentity.ino);artifactsRetained=true;}catch(error){if(error.code!=='ENOENT')throw error;}

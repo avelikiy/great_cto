@@ -1,6 +1,6 @@
 # Adaptive candidate: independent review and Git execution boundary
 
-Date: 2026-10-10. Tracking: great_cto-932g.3.3.
+Date: 2026-10-10. Tracking: great_cto-932g.3.3 and great_cto-932g.3.5.
 Scope: PR #167. This report does not authorize merge or release.
 
 Related contract: [adaptive runtime gates](../architecture/ADR-adaptive-runtime-gates.md).
@@ -96,3 +96,60 @@ both QA reports to their existing contracts. It changes documentation only;
 application files remain byte-identical to independently approved 735554b9.
 A fresh full canonical replay is required before merge/release. The installed
 board P1 remains open; no new paid-model quality measurement is claimed.
+
+## Complete canonical execution at 1babcab2: FAIL
+
+The unchanged exact1b replay completed with exit1. Libraries:3314pass3fail6skip.
+Root/hooks/board1360,eval242,docs76,browser14,CLI369,archetypes34 passed without
+failures/skips; candidate pipeline36pass0fail9skip. Counts overlap, not unique
+tests. Full log SHA-256:
+4eac057aa8bea5fbbe0bc6215435fe788acee1fd97ff6600e3690d5e8b647e32.
+
+The three failures require captured processes to stop before fixture fallback:
+direct owner-kill (case457,9.87s), external helper scorer-kill (case557,9.46s)
+and helper-kill (case558,8.91s). Normal/refusal/TERM and parent-disconnect passed.
+Failure-time surviving identities were not captured; the specific remaining
+process and cause are Unknown. This is retained canonical red evidence.
+
+Six predetermined raw-owner diagnostic repetitions each passed1/0fail/0skip.
+A two-case helper crash run passed2/0fail/0skip. A paired concurrent lifecycle
+inventory passed30/0fail/0skip in55.6s (log SHA-256
+3673abfa32eed9ac26d99bb624267f6faab0c03bdeb5f903eda06540b8db78e8).
+These diagnostic runs used a private copy with bounded failure metadata only,
+unchanged budgets/assertions, and do not replace the canonical verdict.
+
+## Independent lifecycle assessment: delivery REQUEST_CHANGES
+
+The same authorized read-only reviewer examined the exact application735 and
+confirmed the1b delta is QA-only. Source-level Git-boundary approval stands;
+delivery remains REQUEST_CHANGES. The reviewer did not run cleanup or edit code.
+
+The [guardian ADR](../adr/ADR-028-browser-profile-guardian.md) remains Proposed.
+Abrupt scorer SIGKILL cannot execute the observer's JavaScript finally, and the
+read-only resource owner has no independent signal/deletion authority. Natural
+Chromium drain after such a crash is a measured result, not an implemented
+complete-tree guarantee. A future characterization correction must refuse
+quiescent/completed/eligible outcomes when captured resources remain, retain all
+false authority flags, and add a deterministic surviving-real-process negative.
+That correction has not been implemented or used to clear these failures.
+
+Helper SIGKILL is different: scorer IPC disconnect rejects the held barrier and
+must unwind through observer finally/browser.close. Its strict closure assertion,
+normal/refusal and TERM assertions must remain. Increasing deadlines or treating
+these reds as green retries is not an accepted fix. No independent teardown is
+activated, no runtime-policy closure changed, and no release waiver was granted.
+
+After the canonical run finished, the two lifecycle test files gained bounded
+failure-time PID/start/state, executable-basename and recent allowlisted stage
+diagnostics before fallback; raw argv, paths, environment and capabilities stay
+withheld. Existing closure assertions/deadlines remain. Direct SIGKILL also now
+explicitly requires no completed scoring result. This observability follow-up
+is not a runtime repair or inherited full-gate approval. Installed3.61.0 and
+main remain unchanged; PR167 is not merged, tagged or published.
+
+Author-run post-instrumentation checks: paired actual lifecycle30pass0fail0skip
+(39.4s), documentation/link81pass0fail0skip. Focused lifecycle log SHA-256:
+75769081d1a8122a1f0661304e735ec38ce5ad44a0d733f7aa7db09f55c04a6e.
+The failure-only metadata branch did not fire in this focused pass; its utility
+for identifying the original orphan remains unproven. No new canonical pass or
+independent approval of a runtime fix is inferred.

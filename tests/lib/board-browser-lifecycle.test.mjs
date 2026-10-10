@@ -130,13 +130,27 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   }
   const exit=await Promise.race([closed,new Promise((_,reject)=>{exitTimer=setTimeout(()=>reject(Error('observer owner did not terminate')),15000);})]);
   clearTimeout(exitTimer);
-  if(mode==='owner-kill')assert.equal(exit.signal,'SIGKILL');
+  if(mode==='owner-kill'){
+   assert.equal(exit.signal,'SIGKILL');
+   assert.equal(done,undefined,'killed observer must not emit a completed scoring result');
+  }
   else if(mode==='owner-term'){
    assert.equal(exit.code,1,'interrupted observer must report failure after test barrier release');
    assert.equal(done,undefined,'terminated observer must not emit a completed scoring result');
   }
   else{assert.equal(exit.code,0,'actual observer completes without launch error');assert.ok(done);assert.equal(done.admitted,mode==='normal');}
-  assert.ok(await waitGone(owned),'captured browser tree must stop without test cleanup assistance');
+  const stopped=await waitGone(owned);
+  if(!stopped){
+   // Failure evidence only, before fixture cleanup. Never print argv, paths,
+   // environment or capabilities. No diagnostic renews the existing deadline.
+   const rows=processes(),remaining=living(owned).slice(0,4).map(([pid,birth])=>{
+    const command=spawnSync('/bin/ps',['-p',String(pid),'-o','comm='],
+     {env,encoding:'utf8',timeout:250,killSignal:'SIGKILL',maxBuffer:1024});
+    return {pid,birth,...rows.get(pid),command:command.status===0?basename(command.stdout.trim()).slice(0,80):'unknown'};
+   });
+   t.diagnostic(mode+': failed closure before cleanup '+JSON.stringify({owner:child.pid,remaining}));
+  }
+  assert.ok(stopped,'captured browser tree must stop without test cleanup assistance');
   t.diagnostic(mode+': captured '+owned.size+' owned processes; none remained running before cleanup');
   let retained=false;
   try{const after=lstatSync(profile);assert.equal(after.ino,initial.ino,'profile identity must not change');retained=true;}
