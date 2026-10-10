@@ -373,7 +373,11 @@ step "docs screen classifies more than it shrugs at" bash -c '
 
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
 step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
-step "lib tests" node --test tests/lib/*.test.mjs scripts/lib/*.test.mjs
+# Each library file can launch Git, browsers and signal-handling fixtures.
+# Unbounded file parallelism starved the fixed 1s scorer-ready window in a
+# canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
+# retain the full inventory and every original assertion.
+step "lib tests" node --test --test-concurrency=2 tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1
@@ -454,12 +458,24 @@ run_bounded() {   # run_bounded <seconds> <command...>
   return "$rc"
 }
 
+PIPELINE_ARGS=()
+if [ -n "${GREAT_CTO_TEST_PLUGIN_DIR:-}" ]; then
+  PIPELINE_ARGS+=("--plugin-dir=$GREAT_CTO_TEST_PLUGIN_DIR")
+fi
 if [ "$QUICK" -eq 1 ]; then
   # The fast inner loop gets L1+L2 (~90s). Named as a subset rather than passed
   # off as the suite: --quick skips the board and the plugin-sync levels.
-  step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick
+  if [ "${#PIPELINE_ARGS[@]}" -gt 0 ]; then
+    step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick "${PIPELINE_ARGS[@]}"
+  else
+    step "pipeline suite L1+L2 (--quick)" run_bounded 300 bash scripts/test-pipeline.sh --quick
+  fi
 else
-  step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
+  if [ "${#PIPELINE_ARGS[@]}" -gt 0 ]; then
+    step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh "${PIPELINE_ARGS[@]}"
+  else
+    step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
+  fi
 fi
 
 # ── CLI tests + pack (cli-ci + release); the build ran before the unit tests ──

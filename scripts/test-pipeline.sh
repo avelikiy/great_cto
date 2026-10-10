@@ -10,6 +10,7 @@
 #   scripts/test-pipeline.sh --skip-l3         # skip hooks (slow on cold ruff)
 #   scripts/test-pipeline.sh --skip-l4         # skip board (no Node port)
 #   scripts/test-pipeline.sh --verbose         # show command output
+#   scripts/test-pipeline.sh --plugin-dir=/absolute/artifact # explicit candidate
 #
 # Levels:
 #   L1  Static & unit       npm test · archetype regression · syntax checks
@@ -33,6 +34,7 @@ _EXAMPLE_KEY="AKIA""IOSFODNN7""EXAMPLE"
 QUICK=0
 SKIP_L1=0; SKIP_L2=0; SKIP_L3=0; SKIP_L4=0; SKIP_L5=0
 VERBOSE=0
+EXPLICIT_PLUGIN_DIR=""
 for arg in "$@"; do
   case "$arg" in
     --quick)    QUICK=1; SKIP_L3=1; SKIP_L4=1; SKIP_L5=1 ;;
@@ -42,6 +44,11 @@ for arg in "$@"; do
     --skip-l4)  SKIP_L4=1 ;;
     --skip-l5)  SKIP_L5=1 ;;
     --verbose|-v) VERBOSE=1 ;;
+    --plugin-dir=*)
+      [ -z "$EXPLICIT_PLUGIN_DIR" ] || { echo 'duplicate --plugin-dir' >&2; exit 2; }
+      EXPLICIT_PLUGIN_DIR="${arg#--plugin-dir=}"
+      case "$EXPLICIT_PLUGIN_DIR" in /*) ;; *) echo '--plugin-dir must be absolute and nonempty' >&2; exit 2 ;; esac
+      ;;
     -h|--help)
       sed -n '2,21p' "$0" | sed 's/^# \?//'
       exit 0 ;;
@@ -58,8 +65,19 @@ cd "$ROOT"
 
 # Find latest installed plugin dir (for L2/L4/L5 — runs against the SYNCED
 # version, not the working tree, to catch packaging issues)
-PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null \
+if [ -n "$EXPLICIT_PLUGIN_DIR" ]; then
+  # Do not install an unreviewed candidate over the operator's plugin just to
+  # test it. This explicit artifact seam leaves HOME and host registries alone.
+  for required in .claude-plugin/plugin.json packages/cli/index.mjs packages/cli/dist/main.js packages/board/server.mjs; do
+    [ -f "$EXPLICIT_PLUGIN_DIR/$required" ] || { echo "candidate artifact missing: $required" >&2; exit 2; }
+  done
+  PLUGIN_DIR="$(cd "$EXPLICIT_PLUGIN_DIR" && pwd -P)" || exit 2
+  PLUGIN_MODE='explicit candidate artifact (not operator installed-plugin evidence)'
+else
+  PLUGIN_DIR="$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null \
               | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')"
+  PLUGIN_MODE='operator installed plugin'
+fi
 
 if [ -t 1 ]; then
   C_OK=$'\033[32m'; C_FAIL=$'\033[31m'; C_DIM=$'\033[2m'
@@ -114,6 +132,7 @@ START_TS=$(date +%s)
 echo "${C_HEAD}great_cto pipeline test${C_RESET}"
 echo "${C_DIM}root: $ROOT${C_RESET}"
 echo "${C_DIM}plugin dir: ${PLUGIN_DIR:-<not synced>}${C_RESET}"
+echo "${C_DIM}artifact mode: $PLUGIN_MODE${C_RESET}"
 [ "$QUICK" = "1" ] && echo "${C_DIM}mode: quick (L1 + L2 only)${C_RESET}"
 
 # =============================================================================
