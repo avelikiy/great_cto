@@ -153,3 +153,28 @@ Author-run post-instrumentation checks: paired actual lifecycle30pass0fail0skip
 The failure-only metadata branch did not fire in this focused pass; its utility
 for identifying the original orphan remains unproven. No new canonical pass or
 independent approval of a runtime fix is inferred.
+
+## Diagnostic inventory at 9eed8808
+
+One predetermined diagnostic replay on exact commit
+9eed88088d69b061ee31d8d879d19cd32ce666e0 ran all tests/lib files with concurrency
+2 and the canonical per-child signing overrides: 3297 passed, 0 failed, 6 skipped
+(715s). It was not the canonical command: the latter also includes scripts/lib.
+Those two files ran separately: 20 passed, 0 failed, 0 skipped.
+Do not label the separate executions a new canonical gate. Log SHA-256 values:
+
+- tests/lib:8e38479be9dfa2e7879ada4c54c6b9b4df33b24cf42ecab0c616551ecffc59e4.
+- scripts/lib:6059346b234066fa624403e9d127d318059aeba10fe567f28844598cf3a6c6bb.
+
+All three target crash cases passed, so failure-only metadata did not fire.
+The original remaining PID/cause is still Unknown; no runtime repair or delivery
+approval is inferred. The exact1b full canonical red remains authoritative.
+
+A separate private deterministic negative used a real detached Node child and
+synthetic scratch, not Chromium. It survived actual owner SIGKILL; the unchanged
+resource owner observed liveProcesses=1 and retainedScratchDirectories=2 with all
+authority flags false. The fixed private caller sent fault, not quiescent, and
+the protocol remained PRESERVED. This is not a production-controller automatic
+refusal proof, browser teardown, independent admission or a committed regression.
+Log SHA-256:0b5894a947708e3969e4fa689781b2921827b8a7d94215e9e9fe63d7acf8487f.
+No experimental guardian was activated and no OS cleanup authority broadened.
