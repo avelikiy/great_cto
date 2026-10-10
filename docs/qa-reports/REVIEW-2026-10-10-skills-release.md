@@ -93,8 +93,11 @@ limitations are tracked in great_cto-f33n.10.
 ## Release status
 
 PR #173, #175 and #176 are merged in dependency order. The resulting complete
-tree matches the tested candidate. The final complete local gate passed;
-publication and fresh registry-consumer verification remain separate steps.
+tree matches the tested candidate. The final complete local gate passed.
+Version 3.60.0 is published on npm and GitHub; latest propagation, archive
+integrity and fresh registry-consumer runtime checks are recorded in
+[release QA](QA-2026-10-10-skills-release.md). Operator installation remains
+unchanged; it is not inferred from publication.
 Evidence-ledger implementation,
 unrelated pull requests, live-model benchmarks and full host-compatibility
 claims are outside this release scope. No security exception is being used.
