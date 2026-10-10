@@ -253,9 +253,30 @@ Complete log SHA-256:
 Tracked source archive SHA-256:
 eed929f97f9fad79cdcd219d8c80d2b3387d618409c55ae0b29ad0d6effaa6fb.
 
-After explicit operator authorization, an independent read-only reviewer was
-started on this exact application pin. No verdict has been received yet;
-no #167 merge, publication or installed-candidate claim is made by this report.
+After explicit operator authorization, an independent read-only reviewer
+returned REQUEST_CHANGES on c33 for one P1: raw adaptive diagnostic Git
+commands can execute project-configured helpers before worker sandbox admission.
+No additional confirmed P0/P1/P2 was reported. This canonical pass did not
+authorize shipment of the unsafe candidate.
+
+### Git execution boundary fix at 735554b9
+
+Risk, specialist inventory and scoped-reuse observers now share the existing
+bounded receipt readOnlyGit helper. Per-child fsmonitor/filter/external-driver/
+textconv overrides do not affect commit, push, hooks or release commands.
+NUL/literal inventory and fail-closed unknown behavior remain intact.
+Author-run regressions:84pass0fail0skip across real helper marker witnesses,
+protected observers and failure/bounds checks. Focused log SHA-256:
+b886286501779b44fca0d9277dbf9fe0c01003eb2bff89f43528b2cc167a401c.
+
+The independent read-only reviewer APPROVED the exact application
+735554b98021681ce54f38641c0fb5ede5c8cce4, independently probing disabled
+fsmonitor, NUL/literal inventory, clean diff and missing revision behavior.
+No new confirmed P0/P1/P2 was found. This is source review, not a release gate.
+Fresh735 Snyk is SUCCESS. The original735 canonical attempt was interrupted
+with the host turn before suite totals; it is INCOMPLETE, not green or red.
+A separate unchanged-source full replay is running. Previous c33 CI is not
+inherited; #167 remains unmerged and absent from installed3.61.0.
 
 ## Article and delivery boundary
 
