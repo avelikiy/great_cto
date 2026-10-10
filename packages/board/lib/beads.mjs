@@ -297,6 +297,17 @@ const EMPTY_TTL_MS = Number(process.env.GREAT_CTO_BD_EMPTY_TTL_MS || 5000);
  * Without this, ten requests arriving while one refresh runs start ten more.
  */
 const refreshing = new Set();
+const refreshWaiters = new Map();
+const refreshQueue = [];
+let activeReads = 0;
+const READ_TIMEOUT_MS = 20000;
+const READ_MAX_BYTES = 16 * 1024 * 1024;
+function drainRefreshQueue() {
+  while (activeReads < 4 && refreshQueue.length) {
+    activeReads++;
+    refreshQueue.shift()();
+  }
+}
 
 /**
  * Refresh a directory's entry WITHOUT holding the event loop.
@@ -306,42 +317,83 @@ const refreshing = new Set();
  * measured at 1-10 s because it was queued behind a task read. Warming at boot
  * moved the first stall out of sight; this removes the rest.
  *
- * `onDone`, if given, fires exactly once at every exit point (success,
- * failure, or "already refreshing"). Every existing caller omits it and stays
+ * `onDone`, if given, fires exactly once when the shared read finishes. A
+ * concurrent reader joins it rather than receiving a premature "skipped".
+ * Every existing background caller omits it and stays
  * fire-and-forget — the ONE caller that wants to know when the fill finished
  * is the boot warm-up (see `warmTasksAsync`), which logs how long it took.
  */
-function bdRefreshAsync(cwd, onDone = () => {}) {
-  if (refreshing.has(cwd)) { onDone({ ok: false, skipped: true }); return; }
+function bdRefreshAsync(cwd, onDone = null) {
+  if (refreshing.has(cwd)) { if (onDone) refreshWaiters.get(cwd).push(onDone); return; }
   refreshing.add(cwd);
+  refreshWaiters.set(cwd, onDone ? [onDone] : []);
+  refreshQueue.push(() => startRefresh(cwd));
+  drainRefreshQueue();
+}
+
+function startRefresh(cwd) {
   const startedAt = Date.now();
   lastBdRunAt.set(cwd, startedAt);
-  let out = '';
+  let out = '', outBytes = 0;
+  let child, deadline, killDeadline, finished = false;
+  const grouped = process.platform !== 'win32';
+  function signalOwned(signal) {
+    if (!child?.pid) return;
+    try { if (grouped) process.kill(-child.pid, signal); else child.kill(signal); } catch { /* already exited */ }
+  }
+  function finish(result) {
+    if (finished) return;
+    finished = true;
+    clearTimeout(deadline); clearTimeout(killDeadline);
+    refreshing.delete(cwd);
+    const waiters = refreshWaiters.get(cwd) || [];
+    refreshWaiters.delete(cwd);
+    activeReads--;
+    for (const done of waiters) done(result);
+    drainRefreshQueue();
+  }
+  function stop(reason) {
+    if (finished || killDeadline) return;
+    bdFailures.set(cwd, reason);
+    signalOwned('SIGTERM');
+    // TERM alone can leave a read and inherited pipes alive indefinitely.
+    killDeadline = setTimeout(() => {
+      signalOwned('SIGKILL');
+      child.stdout?.destroy(); child.stderr?.destroy();
+      finish({ ok: false });
+    }, 250);
+  }
   try {
-    // Bounded like every other bd call. Without a timeout a hung bd never fires
-    // 'close', so `refreshing` stays held for this cwd forever and the cache
-    // silently serves stale tasks with no error anywhere — the async twin of the
-    // sync path's 500s. Node kills on timeout, which DOES fire 'close' with a
-    // non-zero code, so the failure handling below reports it rather than the
-    // board simply going quiet.
-    const child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv(), timeout: 20000 });
-    child.stdout?.on('data', (d) => { out += d; });
+    // At most four reads run concurrently. The fixed deadline escalates TERM
+    // to KILL for this newly owned process group; Node's TERM-only timeout did
+    // not release the slot when a child ignored it or inherited pipes stayed open.
+    child = spawn(BD_BIN, ['list', '--json', '--all', '--include-gates'], { cwd, env: bdEnv(), detached: grouped });
+    deadline = setTimeout(() => stop('bd read timed out'), READ_TIMEOUT_MS);
+    child.stdout?.setEncoding('utf8');
+    child.stdout?.on('data', (d) => {
+      if (finished || killDeadline) return;
+      outBytes += Buffer.byteLength(d);
+      if (outBytes > READ_MAX_BYTES) { stop('bd output exceeded limit'); return; }
+      out += d;
+    });
+    // Drain stderr without retaining arbitrary private subprocess output.
+    child.stderr?.resume();
     child.on('error', (e) => {
-      refreshing.delete(cwd);
       bdFailures.set(cwd, `bd could not be run: ${e?.message || e}`.slice(0, 300));
-      onDone({ ok: false });
+      finish({ ok: false });
     });
     child.on('close', (code) => {
-      refreshing.delete(cwd);
+      if (finished) return;
+      if (killDeadline) { signalOwned('SIGKILL'); finish({ ok: false }); return; }
       lastBdRunAt.set(cwd, Date.now());
-      if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); onDone({ ok: false }); return; }
+      if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); finish({ ok: false }); return; }
       try {
         const parsed = JSON.parse(out || '[]');
         // Same guard as the sync path: bd 0.6x can answer 0 with a JSON object,
         // and a non-array rendered as no tasks is the silent zero again.
         if (!Array.isArray(parsed)) {
           bdFailures.set(cwd, String(parsed?.error || 'bd returned something that is not a task list').slice(0, 300));
-          onDone({ ok: false });
+          finish({ ok: false });
           return;
         }
         // This fetch answers "what was true at `startedAt`?" — if anyone has
@@ -356,21 +408,20 @@ function bdRefreshAsync(cwd, onDone = () => {}) {
         const supersededByInvalidation = (lastInvalidatedAt.get(cwd) || 0) >= startedAt;
         const supersededByFresherEntry = (bdCache.get(cwd)?.ts || 0) >= startedAt;
         if (supersededByInvalidation || supersededByFresherEntry) {
-          onDone({ ok: true, count: parsed.length, discarded: true });
+          finish({ ok: true, count: parsed.length, discarded: true });
           return;
         }
         bdFailures.delete(cwd);
         bdCache.set(cwd, { ts: Date.now(), data: parsed });
-        onDone({ ok: true, count: parsed.length });
+        finish({ ok: true, count: parsed.length });
       } catch (e) {
         bdFailures.set(cwd, `bd output could not be parsed: ${e?.message || e}`.slice(0, 300));
-        onDone({ ok: false });
+        finish({ ok: false });
       }
     });
   } catch (e) {
-    refreshing.delete(cwd);
     bdFailures.set(cwd, `bd could not be spawned: ${e?.message || e}`.slice(0, 300));
-    onDone({ ok: false });
+    finish({ ok: false });
   }
 }
 
@@ -408,6 +459,34 @@ function warmTasksAsync(cwd) {
   return new Promise((resolve) => {
     bdRefreshAsync(cwd, (result) => resolve({ ...result, ms: Date.now() - t0 }));
   });
+}
+
+/** Wait for an actual cold snapshot without blocking Node or inventing []. */
+async function getTasksAsync(cwd = process.cwd()) {
+  if (!bdCache.has(cwd)) {
+    const result = await warmTasksAsync(cwd);
+    if (!bdCache.has(cwd)) {
+      // tasks.md-only projects remain supported, but never hide a failed
+      // initialized Beads store or a snapshot invalidated during this read.
+      if (!result.ok && checkBeadsAvailable(cwd)) {
+        bdCache.set(cwd, { ts: Date.now(), data: [] });
+        return getTasks(cwd);
+      }
+      throw new Error(bdFailureFor(cwd) || 'Task snapshot changed while being read; retry');
+    }
+  }
+  return getTasks(cwd);
+}
+
+/** Other-project badges may be incomplete, but must never block HTTP. */
+function getTasksCached(cwd = process.cwd()) {
+  if (!bdCache.has(cwd)) {
+    bdRefreshAsync(cwd);
+    throw new Error('Task snapshot is loading');
+  }
+  const tasks = getTasks(cwd);
+  if (getReadDegradation(cwd)) throw new Error('Task snapshot is unavailable');
+  return tasks;
 }
 
 function bdList(cwd = process.cwd(), runner = bd, opts = {}) {
@@ -864,6 +943,8 @@ export {
   getReadDegradation,
   setTaskStatusInTasksMd,
   getTasks,
+  getTasksAsync,
+  getTasksCached,
   mapStatus,
   detectAgent,
 };
