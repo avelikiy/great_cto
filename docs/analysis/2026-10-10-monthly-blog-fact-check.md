@@ -1,0 +1,153 @@
+# Monthly blog draft: editorial evidence
+
+Date: 2026-10-10. Scope: 2026-09-10 through 2026-10-10.
+
+Article: [Russian draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md).
+This file is an editorial fact sheet, not part of the public article and not a task tracker.
+
+[October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
+records installation evidence and the remaining candidate gates.
+
+## Current delivery snapshot: 3.62.0
+
+- PR #167 merged at ddb55ae3f1f7ff3bb6708e4f2eccf50f231f4018; its tree is identical to reviewed head351cab93. Release commit08a95f4b2e79f690d145730f9a38dfba08920975 changes synchronized versions, release notes and five synthetic screenshots, not application runtime.
+- GitHub Release v3.62.0 published2026-10-10T18:14:40Z. Normal main/tag pushes completed with privacy and existing security checks; no new public-term exception or baseline entry.
+- Exact8542e41e canonical gate exited0: root1360, libraries3320pass6skip, eval242, docs76, browser14, CLI369, archetypes34, candidate36pass9skip. Counts overlap. Complete log SHA25699972f581bcf4ef90935491b506fce2fd4c09ed7a565b0919df5ce0553ecc44f. Independent approval is experimental-only, not production or live quality certification.
+- Release build and112focused package/version/documentation checks passed0fail0skip; fresh five synthetic screenshots and screenshot freshness passed. Archive178files, SHA2566b108f2d868a17c114ba3d523d791d137fa627bf52d7008bbbf3f97809e4f159; pinned extracted CLI/controller construction smoke passed12cases/8refusals, zero dispatch or approvals, providerCalls=null, benchmarkEligible=false.
+- npm publish returned+great-cto@3.62.0 with a processing notice. Initial exact-version registry requests returned404, then fresh metadata returned3.62.0 and latest3.62.0. Registry archive SHA256 and integrity match the tested archive. A fresh isolated consumer installation with lifecycle scripts disabled reports3.62.0; downloaded-archive CLI/controller smoke passed12cases/8refusals and178-file inventory.
+- Actual isolated consumer board servedHTTP200 for version,HTML andprojects. Beads is a fixed empty synthetic adapter and discovery/state scopes are private; this proves standalone delivered runtime, not operator-board latency, real model execution or Beads performance.
+- Both Claude user registrations and installed/enabled Codex plugin independently report3.62.0. User-prefix CLI is3.62.0, installed from the tested archive with lifecycle scripts disabled. Prior3.61CLI archive and plugin caches retained. Existing sessions need restart/hook review; no hot-loading claim.
+- No board listener was present before the scoped start. InstalledCLI board ensure started it; actual /api/version returnedHTTP200 with version=installed=3.62.0, stale=no in1.148s. Subsequent HTML probe timed out at5s with zero bytes. P1 great_cto-932g.7 remains open; no healthy sustained UI or fixed latency claim.
+- Later probes recovered without another restart: versionHTTP2001.231ms andHTMLHTTP2003.342ms. This is current availability, not sustained health, exclusive startup-cause diagnosis or permanent Beads latency repair.
+
+## Historical delivery snapshot: 3.61.0
+
+- Published package: fresh registry queries returned latest=3.61.0 and exact-version integrity matching the tested archive.
+- Release/tag source: `11e8774a1f1ac31cad3284d3b2835e0b1e6dacd8`; GitHub release published at 2026-10-10T14:02:45Z.
+- PR #163 merged at `cf12f95c583a00fd483086748044cd922cb86f61`; tested candidate and merge trees are identical. Version-bump application directories remained unchanged.
+- Fresh registry consumer verified CLI version, standalone inventory, document hash and manifest. The downloaded archive is byte-identical to the tested local archive. Details: [updater release QA](../qa-reports/QA-2026-10-10-updater-release.md).
+- Both Claude registrations, enabled Codex plugin and user-prefix CLI report 3.61.0. Repeated board readback returned version=installed=3.61.0, stale=no. New sessions/hook trust remain distinct from artifact installation.
+- New launchd helper's first run ended with exit 0, updated marketplace and no errors. Six-hour recurring execution is not yet observed; installer also refreshed Codex, so exclusive version-transition attribution is not established.
+- Migration from an already-loaded legacy job with no plist required exact-label local repair. That edge is a tracked bug, not silently represented as shipped automatic repair.
+- Later live board probes timed out at 5s/10s for version and 3s for HTML. Exact-board restart restored initial48.6ms/5ms responses, but the replacement stalled again after about17minutes. A private preload on the second restart identifies inboxElsewhere -> getInbox -> getTasks -> bdList -> spawnSync, one actual call19379.18ms. This proves one blocking request path, not the exclusive cause of previous indefinite stalls; installed source is unchanged. P1 great_cto-932g.7 remains open; no permanent latency fix is claimed.
+- PR #167 is not released. Prior canonical272b6a4a gate exited1; that red evidence is retained. Complete c33ae765 gate exited0 with libraries3300pass0fail6skip, candidate pipeline36pass0fail9skip, root/hooks/board1360pass0skip, eval242/docs76/browser14/CLI369/archetypes34 all passing. Canonical verdict was GREEN WITH15SKIPPED, not full paid-model/production readiness. Actual candidate MCP/SSE,HMAC401/200,11BoardAPIs and isolated realBeads lifecycle ran. Complete log SHA25608b3ccf79113a73206e107485bfab5ae9021b227a31b94b74891688ada8898d7. Existing assertions/deadlines remain, the complete source inventory is retained. Independent c33 review returned REQUEST_CHANGES for one P1 Git helper execution boundary. The exact735554b98021681ce54f38641c0fb5ede5c8cce4 fix passed84focused author tests0fail0skip and an independent read-only delta review APPROVED it after actual ephemeral Git probes. Its fresh full canonical replay is pending; an interrupted prior735 attempt has no verdict. Fresh Snyk on735 is SUCCESS. No inherited canonical approval, adaptive merge or release is claimed.
+
+## Historical adaptive follow-up
+
+Adaptive follow-up: complete canonical735 replay exited1 with a single orphan
+document failure, libraries3316pass1fail6skip. Other suites: root1360,
+eval242,docs76,browser14,CLI369,archetypes34,candidate36pass9skip. Red log
+SHA2562ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f
+is retained, not replaced by focused green. The docs-only1babcab2 integrates
+main16d and connects both QA reports to existing contracts; frozen count48
+unchanged. Focused81pass0fail0skip. Application delta excluding QA files is
+zero against independently approved735. Complete canonical1b replay exited1:
+libraries3314pass3fail6skip; root1360,eval242,docs76,browser14,CLI369,
+archetypes34 all passed; candidate36pass0fail9skip. Full log SHA256
+4eac057aa8bea5fbbe0bc6215435fe788acee1fd97ff6600e3690d5e8b647e32.
+Reds: raw owner-kill457, helper scorer-kill557 and helper-kill558, all captured
+tree closure before fallback. Six raw-owner diagnostic repetitions each passed1,
+two helper crash cases passed2 and paired lifecycle files passed30/0fail/0skip.
+No diagnostic pass replaces canonical red or identifies original surviving PIDs.
+Independent delivery verdict REQUEST_CHANGES: raw/scorer abrupt-death teardown
+is unimplemented, ADR028 Proposed; helper-kill has implemented disconnect/finally
+unwind and must keep its strict assertion. Author added bounded pre-fallback
+failure metadata in two test files only, preserving deadlines/closure assertions
+and explicitly asserting no completed result after owner SIGKILL. No runtime
+repair, weakened gate or new full-source approval is claimed. Fresh Snyk on1b
+is SUCCESS. No167merge/release claim.
+
+Post-instrumentation diagnostic tests/lib inventory at 9eed8808 completed with
+3297 passed, 0 failed, 6 skipped; scripts/lib separately passed 20 without failures
+or skips. This is not a new canonical gate. The three target cases passed,
+failure metadata did not fire, and the original surviving process/cause is Unknown.
+Logs SHA2568e38479be9dfa2e7879ada4c54c6b9b4df33b24cf42ecab0c616551ecffc59e4
+and6059346b234066fa624403e9d127d318059aeba10fe567f28844598cf3a6c6bb.
+A private real-Node/synthetic-scratch negative measured one surviving child after
+actual parent SIGKILL, sampler liveProcesses=1, false authority flags and a fixed
+private caller fault/PRESERVED instead of quiescent. This is not Chromium,
+production automatic refusal, cleanup admission or a committed regression;
+it does not clear canonical failures. Log SHA-256:
+0b5894a947708e3969e4fa689781b2921827b8a7d94215e9e9fe63d7acf8487f.
+
+## Historical delivery snapshot: 3.60.0
+
+- Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
+- Published package: fresh `npm view great-cto@latest version --json` returned `3.60.0`.
+- GitHub release: `v3.60.0`, published `2026-10-10T10:05:52Z`.
+- Release Git object: `5cca27d21f0ab922be56b6ebdfe7a6a5282aef69`.
+- September 10 changelog version: `3.28.4`; baseline commit `66da3465`.
+- Historical release-document links retain `v3.59.1`; the new inventory contract is pinned to `v3.60.0`. The QA report links to main because its postpublication verification was added after the tag.
+- GitHub PR states were checked with `gh pr list` and benchmark merge with `gh pr view 166`.
+- This deployment follow-up installed 3.60.0 into local Claude Code and Codex caches. Independent board readback returned version=installed=3.60.0 and stale=no; live Usage and Skills/filter navigation were inspected. Deployment does not prove hot-loading into pre-existing model sessions. The initial installer-started board disappeared; a detached restart was verified afterwards.
+- A fresh focused source run passed 31 Usage/English/Skills checks with zero failures or skips. The complete release gate and independent reviews are recorded in the release QA report; no new live model benchmark is claimed.
+
+## Claims and boundaries
+
+| Article claim | Primary source | Interpretation |
+| --- | --- | --- |
+| Controlled Codex lifecycle and local turn diffs | CHANGELOG 3.29.0; docs/HOST-CODEX.md | Released; ordinary Codex sessions are not controller runs |
+| Concurrent mixed-host review | CHANGELOG 3.47.0; docs/HOST-CODEX.md | Released; same input snapshot; controller writes sequentially; implementation is not concurrent shared-tree editing |
+| Context packet budget is 64 KiB | ADR-026; scripts/lib/codex-pipeline.mjs `CONTEXT_BUDGET_BYTES` | Implemented; packets are in the external run store; hashes checked before dispatch |
+| Optional independent architectural drafts | ADR-025; agents/architect.md council step | Native architect workflow; opt-in; unavailable members visible; Codex subscription cost is unknown, not zero |
+| 43 commands reduced to 21, then three daily entry points | CHANGELOG 3.40.0 and 3.48.0 | Advanced commands remain; resume does not approve gates |
+| Shared task identity and lease | Shared work task specification; CHANGELOG 3.48.0 | Managed operations only; no exclusion guarantee for unrelated native sessions |
+| Required domain reviewers and stale/negative verdict refusals | CHANGELOG 3.30.0, 3.31.0, 3.32.0 | Gate implementations are host-specific; no universal 100% compatibility claim |
+| Quotes checked against sources and role eval coverage | CHANGELOG 3.39.0 and 3.30.0 | Dataset presence is not live model validation |
+| Six Codex safety guards and optional offline Docker checks | CHANGELOG 3.42.0; docs/HOST-CODEX.md | Hooks require host trust; optional Docker executor is not required for the whole product; skipped checks are not passing checks |
+| 72 agents; Solidity audit and package | CHANGELOG 3.49.0 and 3.51.0 | Tool-dependent workflow; not checked is not clean; no compliance/security certification |
+| Task cockpit and consistent navigation | CHANGELOG 3.59.0; ADR-028 | Released read-side projection; no PTY or second controller |
+| Dual-host usage and local accounting | CHANGELOG 3.53.0, 3.54.0, 3.58.0, 3.59.0 | List-price equivalent, not subscription invoice; Claude plan data requires opt-in recorder; background scanning does not prove all stalls fixed |
+| Draft PR publication | CHANGELOG 3.59.0; ADR-028 | Clean, committed, managed and verified task only; explicit approval; live GitHub acceptance remains unverified |
+| Self-contained installed board runtime | CHANGELOG 3.59.1 | Gate policy no longer imports ignored CLI build; not an entirely dependency-free product |
+| Selected-project Usage and English formatting | CHANGELOG 3.60.0; PR #173/#175; release QA | Released and installed; unresolved attribution excluded, existing linked worktrees only; original user content preserved |
+| Read-only multi-host Skills inventory | ADR-029; PR #176; release QA | Released and installed; document-only hash; no loaded/enabled, upstream trust or task-quality inference; partial scans remain partial |
+| Optional macOS Codex plugin refresh | CHANGELOG 3.61.0; HOST-CODEX.md; PR #163; updater release QA | Released and enabled locally; origin revalidated every refresh; schedule is not upgrade evidence; follows Git ref, not npm latest; no automatic gate approval or hot-load claim |
+| Mixed quality gain observed as 0 pp | docs/analysis/2026-10-02-host-quality-recheck.md; merged PR #166 | Two tasks; each arm 24/24; ceiling effect; no population equivalence, reliability, full-product or cost improvement estimate |
+
+## Feature delivery at the updated snapshot
+
+| PR | Verified state / base | Editorial treatment |
+| --- | --- | --- |
+| #173 selected-project Usage | Merged / shipped 3.60.0 | Describe released project-attributed statistics and attribution limitations |
+| #175 English UI formatting | Merged / shipped 3.60.0 | Released; preserve original task/document content |
+| #176 Skills inventory | Merged / shipped 3.60.0 | Released read-only inventory; no enabled/loaded/upstream/quality inference |
+| #167 adaptive pipeline | Merged / shipped3.62.0 GitHub and npm; installed locally | Experimental opt-in; preserved mandatory floors and shared local budgets; 15not checked; no production guardian/cleanup guarantee |
+| #163 automatic Codex plugin refresh | Merged / shipped 3.61.0 | Released opt-in macOS schedule, independent of npm CLI; first refresh checked, recurring six-hour tick not yet observed |
+| #143–148 canonical evidence ledger chain | Open stacked PRs | Not described as shipped architecture; existing task/run stores remain authoritative |
+| #170 completion invocation evidence | Open draft / main | Do not imply all verdicts already have verified immutable invocation identity |
+
+Some source reports retain historical pre-merge text. PR #166 is currently merged despite the report's original draft-status footer. The article uses the numerical results, not that stale footer. HOST-CODEX.md retains an older sentence about routes arriving in a subsequent package; CHANGELOG 3.47.0 establishes shipment. The article therefore avoids copying that sentence or prescribing a version-specific route command from it.
+
+## Editorial choices
+
+- Lead with workflow and user-visible consequences, not release count.
+- Distinguish deterministic checks, model verifier, human decision and delivery.
+- Avoid claiming measured speedup, cheaper delivery, 100% dual-host parity or general code-quality uplift.
+- Do not repeat benchmark examples predating this month as newly measured results.
+- Do not call roadmap ledger features current architecture.
+- Do not imply every ordinary Codex session follows the complete pipeline.
+- Keep draft-PR live-acceptance and known board latency boundaries visible.
+- All screenshots supplied from real private projects are excluded.
+
+## Illustrations for an eventual publication
+
+Use a synthetic public demo project, not an operator's real workspace:
+
+1. Work task cockpit: criterion, current stage, evidence and pending decision.
+2. Harness: a mixed-host review wave and the resulting verifier/gate state.
+3. Usage: two host panels, clearly marked sample data and price semantics.
+
+Capture released3.62.0 behavior using synthetic fixtures. Label adaptive behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+
+## Validation scope
+
+Documentation-only change. Completed editorial checks:
+
+- All 18 unique article source links belong to the public project; six pinned release-document paths exist in `v3.59.1`.
+- All seven linked GitHub release tags have published release metadata, verified with the GitHub API.
+- Frontmatter, balanced code fences, linked local article, release identifier, zero-pp benchmark wording and all five pending-feature PR links checked.
+- Article contains no private project identifiers, personal workspace paths or attached operator screenshots; normal pre-push privacy scanning also remains enabled.
+- `git diff --cached --check` passed.
+
+The original editorial checks above are historical. Follow-ups verify published3.60/3.61metadata and3.62GitHub/npm metadata, downloaded archive identity, fresh isolated consumer and scoped installation. Operator-board sustained UI responsiveness remains unproven. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
