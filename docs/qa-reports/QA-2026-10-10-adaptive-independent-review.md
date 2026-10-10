@@ -3,6 +3,8 @@
 Date: 2026-10-10. Tracking: great_cto-932g.3.3.
 Scope: PR #167. This report does not authorize merge or release.
 
+Related contract: [adaptive runtime gates](../architecture/ADR-adaptive-runtime-gates.md).
+
 ## Independent verdict on c33ae765
 
 An explicitly authorized separate read-only reviewer inspected
@@ -55,5 +57,42 @@ All fixtures are isolated; no operator Git configuration is changed.
 
 Combined executable-boundary/runtime-policy/specialist/reuse regression:
 84 pass, zero failures, zero skips. This is focused author evidence only.
-Fresh complete canonical CI and independent delta review are still required
-for the changed application; the c33 pass is not inherited by this fix.
+The c33 pass is not inherited by this fix.
+
+## Independent delta review at 735554b9
+
+The authorized read-only reviewer APPROVED the exact application
+735554b98021681ce54f38641c0fb5ede5c8cce4. Independent ephemeral Git probes
+confirmed fsmonitor was not executed, literal/NUL inventory was preserved,
+clean diff remained empty and a missing revision returned null. No new
+confirmed P0/P1/P2 was found. This source verdict is not canonical execution.
+
+## Canonical execution at 735554b9
+
+The first attempt was interrupted before suite totals: INCOMPLETE, not green
+or red. An unchanged-source complete replay then exited with code 1. Its sole failure
+was doc-links: this newly added QA report was an orphan, 49 versus the frozen
+48. Do not increase the baseline or inherit green from the previous application.
+
+| Suite | Pass | Fail | Not checked |
+| --- | ---: | ---: | ---: |
+| Root, hooks and board | 1360 | 0 | 0 |
+| Libraries | 3316 | 1 | 6 |
+| Eval | 242 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Browser board scenarios | 14 | 0 | 0 |
+| CLI | 369 | 0 | 0 |
+| Archetypes | 34 | 0 | 0 |
+| Candidate pipeline L1-L5 | 36 | 0 | 9 |
+
+Suite counts overlap, not unique tests. The candidate pipeline used an explicit
+private artifact, not the operator's installed plugin. Its real isolated MCP/
+SSE, HMAC, Board API and Beads lifecycle checks ran; the 15 live/fixture absences
+remain not checked. Canonical red log SHA-256:
+2ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f.
+
+The follow-up integrates current main's updater delivery report and connects
+both QA reports to their existing contracts. It changes documentation only;
+application files remain byte-identical to independently approved 735554b9.
+A fresh full canonical replay is required before merge/release. The installed
+board P1 remains open; no new paid-model quality measurement is claimed.
