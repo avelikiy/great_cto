@@ -34,6 +34,57 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.60.0 — 2026-10-10
+
+Inspect local skills and compare host usage within one selected project.
+
+### What's new
+
+- A read-only Skills screen lists local Claude Code, Codex and project skill
+  documents, observed metadata, document hashes and declared provenance.
+  Search and host/source filters do not install, enable or execute skills.
+- Usage aggregates Claude Code and Codex sessions only after project
+  attribution, including existing linked Git worktrees and monorepo scopes.
+  Switching projects invalidates stale UI replies and separates cached reports.
+- Board-owned date, time and number formatting is pinned to English. Task
+  descriptions and document content retain their original language and timezone.
+
+### Fixed
+
+- Scoped outcomes recognize registered and PROJECT.md identities used by the
+  actual verdict writer. Copied foreign tags and ambiguous aliases do not count.
+- Skills and statistics refuse arbitrary HOME directories as project selectors.
+  An unregistered server root works without invented query identifiers; explicit
+  unknown selections fail closed instead of displaying another project's data.
+- In-flight Usage results survive bounded-cache pressure. Background scans keep
+  navigation responsive and surface unavailable/stale states explicitly.
+- The npm board bundler includes top-level script dependencies used by Skills,
+  keeping the generated board usable outside the source checkout.
+- ADR browser fixtures use the architecture-decision directory; dependency QA
+  reports are connected and the generated architecture map is current. Browser
+  startup waits for bounded project initialization, retaining all data assertions.
+
+### Verification and boundaries
+
+The complete local gate passed on 6afe445b; the merged tree was identical.
+Main suites: 1,336 root/hooks/board, 2,579 library, 238 eval, 76 documentation,
+14 browser, 55 pipeline, 362 CLI and 34 archetype checks passed. Four opt-in
+live library tests and one absent legacy pytest suite remain NOT CHECKED;
+this is not a no-skip global run. Independent application and test-delta
+reviews returned APPROVED. No security-gate exception is used.
+
+Inventory presence is not activation, trust, upstream verification or evidence
+that a skill improves task quality. Project usage excludes sessions whose
+identity cannot be recovered; missing history is not proof of no activity.
+Evidence ledger and live-model quality comparisons are not in this release.
+Read [ADR-029](docs/adr/ADR-029-read-only-skill-inventory.md),
+[independent review](docs/qa-reports/REVIEW-2026-10-10-skills-release.md) and
+[release QA](docs/qa-reports/QA-2026-10-10-skills-release.md) for source pins,
+retained failures, scanner policy, package checks and delivery status.
+
+---
+
 ## v3.59.1 — 2026-10-09
 
 Run the board directly from a Git-installed plugin, with the same gate policy as the CLI.
