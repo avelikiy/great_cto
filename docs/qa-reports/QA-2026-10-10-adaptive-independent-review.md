@@ -208,3 +208,37 @@ The same authorized independent read-only reviewer approved this test-only delta
 for the narrow scope, finding no new blocking issue. This source-level approval
 is separate from delivery readiness; a fresh full canonical gate is still required.
 PR167 is not merged or released; installed3.61.0 and the local board are unchanged.
+
+## Complete canonical execution at 8542e41e: GREEN WITH 15 NOT CHECKED
+
+Exact source commit 8542e41e1796a86f977b01e0b8a9c62ddbed6eb7 ran
+`bash scripts/ci-local.sh --e2e` with a fresh archived candidate plugin and freshly
+built CLI dist. It completed with exit0. Source stayed frozen during execution.
+The complete private log is
+`/Users/Shared/great-cto-adaptive-characterization.sESAhq/ci-local.log`, SHA-256
+99972f581bcf4ef90935491b506fce2fd4c09ed7a565b0919df5ce0553ecc44f.
+
+| Suite | Passed | Failed | Not checked |
+| --- | ---: | ---: | ---: |
+| Root/hooks/board | 1360 | 0 | 0 |
+| Libraries, including scripts/lib | 3320 | 0 | 6 |
+| Eval | 242 | 0 | 0 |
+| Docs | 76 | 0 | 0 |
+| Browser E2E | 14 | 0 | 0 |
+| CLI | 369 | 0 | 0 |
+| Archetype E2E | 34 | 0 | 0 |
+| Candidate pipeline | 36 | 0 | 9 |
+
+Counts overlap; do not add them into a unique-test total. Strict helper-kill,
+normal/refusal/TERM and active-parent-death assertions passed in this full run.
+The three real-process negatives also passed. Abrupt scorer death is now
+characterized without cleanup authority, not repaired by a production guardian.
+The original exact1b red and its unknown surviving identity/cause remain recorded.
+
+Candidate smoke exercised actual MCP/SSE, HMAC401/200, 11 isolated board APIs and
+five real isolated Beads lifecycle checks. Nine candidate checks still do not
+prove actual role/model execution, deployment/human approval, paid learning,
+operator inventory, real capture/notification delivery or release cron. Six
+library skips remain not checked. This is not live two-host product quality,
+production readiness or a fix for the separate installed-board latency P1.
+No npm tag/release, plugin installation or local-board restart occurred here.
