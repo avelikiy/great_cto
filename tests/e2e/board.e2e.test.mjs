@@ -85,10 +85,11 @@ function seedHostLogs(fakeHome, projectPath) {
 }
 
 /** Everything the suite needs, or a reason it could not be had. */
-async function boardUnderTest({ seed = () => {} } = {}) {
+async function boardUnderTest({ seed = () => {}, registerProject = true } = {}) {
   if (!chromium) return { skip: 'playwright is not installed — not checked, not passed' };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-e2e-'));
   buildFixture(dir);
+  if (!registerProject) fs.rmSync(path.join(dir, '.great_cto', 'PROJECT.md'), { force: true });
   seed(dir);
   // The board resolves its project from the working directory, not from a flag
   // — and its registry from HOME. Both have to point at the fixture, or the
@@ -97,7 +98,7 @@ async function boardUnderTest({ seed = () => {} } = {}) {
   const fakeHome = path.join(dir, '.home');
   fs.mkdirSync(path.join(fakeHome, '.great_cto'), { recursive: true });
   fs.writeFileSync(path.join(fakeHome, '.great_cto', 'projects.json'),
-    JSON.stringify({ projects: [{ name: FIXTURE_NAME, path: dir }] }, null, 2));
+    JSON.stringify({ projects: registerProject ? [{ name: FIXTURE_NAME, path: dir }] : [] }, null, 2));
   seedHostLogs(fakeHome, dir);
   // Verdicts as agents write them — one JSON line each — so Usage reads the
   // fixture project's outcomes through the registry, like any other project.
@@ -153,6 +154,7 @@ async function openBoard(env, route = '', pageOptions = {}) {
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('response', response => { if (response.status() >= 400) errors.push(`HTTP ${response.status()} ${new URL(response.url()).pathname}${new URL(response.url()).search}`); });
   await page.goto(`${env.url}/${route}`, { waitUntil: 'domcontentloaded' });
   // A later panel (e.g. Skills) follows the hidden Inbox in DOM order. The
   // comma selector waited on that hidden first match even with a visible active panel.
@@ -204,16 +206,39 @@ test('Skills shows safe local observations with filters, failures and no install
   } finally { await env.close(); }
 });
 
+test('an unregistered server project can open Skills and Usage without invented query slugs', { timeout: 120_000 }, async t => {
+  const env = await boardUnderTest({ registerProject: false, seed(dir) {
+    const root = path.join(dir, '.agents', 'skills', 'local-observation');
+    fs.mkdirSync(root, { recursive: true });
+    fs.writeFileSync(path.join(root, 'SKILL.md'), '---\nname: local-observation\ndescription: A project metadata fixture for an empty project registry.\n---\n');
+  } });
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const { page, errors } = await openBoard(env, '#/skills');
+    await page.waitForSelector('#skills-table tbody tr', { timeout: 10000 });
+    assert.match(await page.locator('#skills-table').innerText(), /local-observation/);
+    const requests = [];
+    page.on('request', req => { if (/\/api\/(usage|outcomes)[?]/.test(req.url())) requests.push(req.url()); });
+    await page.getByRole('tab', { name: 'Usage', exact: true }).click();
+    await page.waitForSelector('.usage-card[data-host="codex"]', { timeout: 20000 });
+    assert.ok(requests.length > 0);
+    assert.ok(requests.every(url => !new URL(url).searchParams.has('project')));
+    assert.equal((await page.request.get(`${env.url}/api/skills?project=explicit-unknown`)).status(), 404);
+    assert.deepEqual(errors, []);
+  } finally { await env.close(); }
+});
+
 test('Russian browser locale keeps UI English and task/document text unchanged', { timeout: 120_000 }, async (t) => {
   const title = 'Проверить повторную оплату';
-  const description = 'Не списывать деньги дважды. См. docs/decisions/ADR-002-retry.md';
+  const description = 'Не списывать деньги дважды. См. docs/adr/ADR-002-retry.md';
   const documentTitle = 'Повторная оплата';
   const documentBody = 'Повторный запрос использует тот же ключ идемпотентности.';
   const env = await boardUnderTest({ seed(dir) {
     fs.appendFileSync(path.join(dir, '.great_cto', 'tasks.md'),
       `\n| id | title | status | owner |\n|----|-------|--------|-------|\n`
       + `| acme-locale | ${title} [${description}] | blocked | senior-dev |\n`);
-    fs.writeFileSync(path.join(dir, 'docs', 'decisions', 'ADR-002-retry.md'),
+    fs.mkdirSync(path.join(dir, 'docs', 'adr'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'docs', 'adr', 'ADR-002-retry.md'),
       `# ${documentTitle}\n\n${documentBody}\n`);
   } });
   if (env.skip) return t.skip(env.skip);
@@ -244,7 +269,7 @@ test('Russian browser locale keeps UI English and task/document text unchanged',
     assert.equal(timestamps.short, timestamps.expectedShort);
     assert.equal(timestamps.offset, -120, 'retain Vienna local time, not forced UTC');
 
-    await page.getByRole('button', { name: 'docs/decisions/ADR-002-retry.md open →' }).click();
+    await page.getByRole('button', { name: 'docs/adr/ADR-002-retry.md open →' }).click();
     await page.waitForSelector('#side-body .side-desc h1');
     assert.equal(await page.locator('#side-body .side-desc h1').innerText(), documentTitle);
     assert.equal(await page.locator('#side-body .side-desc p').innerText(), documentBody);

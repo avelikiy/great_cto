@@ -55,3 +55,10 @@ test('concurrent requests share an observed snapshot rather than racing source w
   assert.equal(new Set(a.map(r => r.body.observed_at)).size, 1);
   assert.ok(a.every(r => r.status === 200));
 });
+
+test('project parameter cannot select arbitrary HOME roots; registered paths and server default remain readable', async () => {
+  const raw = path.join(dir, 'unregistered-directory'); fs.mkdirSync(raw);
+  assert.equal((await request('GET', '?project=' + encodeURIComponent(raw))).status, 404);
+  assert.equal((await request('GET', '?project=' + encodeURIComponent(projects[1].path))).status, 200);
+  assert.equal((await request('GET')).status, 200);
+});

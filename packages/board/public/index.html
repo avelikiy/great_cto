@@ -4136,6 +4136,7 @@ window.GctoWork.bind({
 let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
+let serverDefaultProject = false;
 let inboxData = null;
 let activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
 // Period selector for dashboard (1/7/30/90/365 days). Persists in localStorage.
@@ -4143,12 +4144,12 @@ let currentPeriod = parseInt(localStorage.getItem('gcto.period') || '30', 10) ||
 
 // Returns ?project=slug query string for all API calls after init() sets currentProject
 function pqs() {
-  return currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+  return currentProject && !serverDefaultProject ? `?project=${encodeURIComponent(currentProject)}` : '';
 }
 // Combined query string: ?project=X&days=Y (for metrics/cost APIs)
 function pqsd() {
   const parts = [];
-  if (currentProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
+  if (currentProject && !serverDefaultProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
   parts.push(`days=${currentPeriod}`);
   return '?' + parts.join('&');
 }
@@ -5159,7 +5160,7 @@ async function loadJudgeScores() {
   const el = document.getElementById('judge-scores');
   if (!el) return;
   let d;
-  try { d = await api(`/api/scores${pqs()}&limit=40`); } catch { d = null; }
+  try { d = await api(`/api/scores?limit=40${pqs().replace('?', '&')}`); } catch { d = null; }
 
   // Three states, and the empty one earns a sentence rather than a blank space:
   // "nothing has been verified yet" and "the panel is broken" look identical
@@ -6121,7 +6122,7 @@ async function loadUsage(days) {
   if (loadingBody && (!usageData || usageData.window?.days !== requestedDays)) {
     loadingBody.className = 'usage-note'; loadingBody.textContent = 'Loading session statistics…';
   }
-  const d = await api(`/api/usage?days=${requestedDays}&project=${encodeURIComponent(requestedProject)}`);
+  const d = await api(`/api/usage?days=${requestedDays}${pqs().replace('?', '&')}`);
   if (request !== _usageRequest || requestedDays !== usageDays || requestedProject !== currentProject || currentTab !== 'usage') return;
   const body = document.getElementById('usage-body');
   if (!body) return;
@@ -6423,7 +6424,7 @@ async function loadOutcomes() {
   if (!document.getElementById('usage-outcomes')) return;
   const request = ++_outcomesRequest;
   const requestedProject = currentProject, requestedDays = usageDays, requestedHost = usageHost;
-  const d = await api(`/api/outcomes?days=${requestedDays}&project=${encodeURIComponent(requestedProject)}`);
+  const d = await api(`/api/outcomes?days=${requestedDays}${pqs().replace('?', '&')}`);
   if (request !== _outcomesRequest || requestedProject !== currentProject || requestedDays !== usageDays || requestedHost !== usageHost || currentTab !== 'usage') return;
   // Looked up AFTER the answer: Usage may have re-rendered while it was on the
   // way, and an answer written into the replaced element is an answer nobody sees.
@@ -6503,7 +6504,7 @@ function renderUsage(d) {
   const hostBtn = (h) => `<button type="button" class="usage-chip${usageHost === h ? ' active' : ''}" aria-pressed="${usageHost === h}" onclick="setUsageHost('${h}')">${USAGE_HOSTS[h]}</button>`;
   body.innerHTML = `
     <div class="usage-grid">${usageHostCard(d, 'claude')}${usageHostCard(d, 'codex')}</div>
-    <p class="usage-note">Statistics for <b>${esc(currentProject || 'the current project')}</b> only, including its linked Git worktrees. Account-wide subscription quotas are not project statistics and are not shown here.</p>
+    <p class="usage-note">Statistics attributable to <b>${esc(currentProject || 'the current project')}</b> only, including existing linked Git worktrees. Sessions without a recoverable project identity are excluded; missing history is not proof of no activity. Account-wide subscription quotas are not project statistics and are not shown here.</p>
     <h2 class="mp-section-label">By day, by kind of work</h2>
     <div class="usage-grid">${usageDayChart(d, 'claude')}${usageDayChart(d, 'codex')}</div>
     <h2 class="mp-section-label">Heaviest conversations</h2>
@@ -7463,7 +7464,7 @@ async function searchTranscripts() {
   const body = document.getElementById('sessions-body');
   if (q.length < 3) { loadSessions(); return; }
   body.innerHTML = '<div class="muted">Searching…</div>';
-  const d = await api(`/api/session-search${pqs()}&q=${encodeURIComponent(q)}`);
+  const d = await api(`/api/session-search?q=${encodeURIComponent(q)}${pqs().replace('?', '&')}`);
   if (!d) { body.innerHTML = '<div class="muted">Search failed.</div>'; return; }
   if (!d.hits?.length) {
     body.innerHTML = `<div class="muted">No match for “${esc(q)}”.${d.note ? ' ' + esc(d.note) : ''}
@@ -7712,6 +7713,7 @@ async function switchProject(slug) {
   if (lbl) lbl.textContent = `loading ${slug}…`;
   // Close existing SSE so it doesn't push the wrong project's data
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
+  serverDefaultProject = false;
   currentProject = slug;
   document.getElementById('project-name').textContent = slug;
   document.getElementById('crumb-project').textContent = slug;
@@ -7928,6 +7930,7 @@ async function init() {
     || (allProjects[0]?.slug)
     || fromTaskId
     || 'project';
+  serverDefaultProject = !urlProject && !(allProjects || []).some(p => p.slug === proj);
   currentProject = proj;
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
