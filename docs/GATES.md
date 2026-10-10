@@ -16,7 +16,8 @@ Unregulated archetype (`web-service`, `cli-tool`, `library`, …):
 |---|---|---|
 | `auto` | — | 0 |
 | `product-only` | `product` · `ship` | 2 |
-| **`gates-only`** (default) | `arch` · `ship` | 2 |
+| **`gates-only`** (default) | `product` · `arch` · `ship` | 3 |
+| `ship-only` | `ship`, with a product briefing (unreadable brief restores product gate) | 1 normally |
 | `strict` | `arch` · `code` · `ship` | 3 |
 | `expert` | `product` · `arch` · `plan` · `code` · `qa` · `security` · `ship` | 7 |
 | `step-by-step` | same as `expert`, plus checkpoints inside each agent | 7+ |
@@ -31,7 +32,11 @@ including `auto`:
 |---|---|
 | `auto` | `security` · `compliance` · `ship` |
 | `product-only` | `product` · `security` · `compliance` · `ship` |
-| `gates-only` | `arch` · `security` · `compliance` · `ship` |
+| `gates-only` | `product` · `arch` · `security` · `compliance` · `ship` |
+
+The irreversible `import` gate also applies at every level, including auto, when
+the import branch is reached. Counts above describe normal paths without import;
+not every active gate is reached by every request.
 
 Choosing a lighter level is a delegation of judgement, not a compliance bypass.
 An unrecognised value in `PROJECT.md` falls back to the default — a typo cannot
@@ -81,9 +86,30 @@ create must not stall the run.
 `effectiveGates(archetype, size, tier)` in `packages/cli/src/archetypes.ts`
 models a second question: how reversible is *this particular change*
 (`change_tier` T0/T1/T2). It is used by planning tools and ADR-003 describes the
-two-axis model. **It does not currently drive the running pipeline** — the
-dispatcher reads `approval-level` only. If you are reasoning about what your next
-run will actually ask you, use the table at the top of this file.
+two-axis model. **That planning function does not drive runtime gates.** Runtime
+has a separate conservative opt-in policy, documented in
+[the adaptive-gates ADR](architecture/ADR-adaptive-runtime-gates.md). Without
+opt-in the native dispatcher still uses approval-level only, and the controlled
+Codex pipeline still enforces all gates declared by its graph.
+
+With explicit opt-in and a known T0/T1 diff, gates-only omits the architecture
+pause, not the architect or verification. Product/import/ship and regulated
+floors remain. Unknown evidence keeps all declared gates. Strict/expert do not
+lose their architecture pause. This is not a general authorization to deploy.
+
+Native Claude opt-in uses operator environment `GREAT_CTO_ADAPTIVE_GATES=1` and
+`GREAT_CTO_CHANGE_BASE=<full commit SHA>`. The hook records stand-down evidence
+before proceeding; position is conservative until matching evidence is recorded.
+Codex uses `start --gate-policy /absolute/operator-owned-policy.json`, outside the
+target project, with this shape:
+
+```json
+{"mode":"adaptive","level":"gates-only","archetype":"web-service","base":"<full commit SHA>"}
+```
+
+Do not enable globally until the policy has been reviewed for the project. Path
+classification cannot prove semantic safety, and this first increment does not
+reduce agents or enforce a global cross-host concurrency budget.
 
 ## Scope, at write time
 

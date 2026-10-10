@@ -25,7 +25,7 @@ async function stub(code) {
   return { base: `http://127.0.0.1:${srv.address().port}`, close: () => new Promise((r) => srv.close(r)) };
 }
 
-async function board(openrouterBase) {
+async function board(openrouterBase, entry = SERVER) {
   const home = tmp('gcto-keyverify-home-');
   mkdirSync(join(home, '.great_cto'), { recursive: true });
   writeFileSync(join(home, '.great_cto', 'secrets.env'), `OPENROUTER_API_KEY=${KEY}\n`);
@@ -33,15 +33,16 @@ async function board(openrouterBase) {
   mkdirSync(join(cwd, '.great_cto'), { recursive: true });
   writeFileSync(join(cwd, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
   const { port, proc } = await startServerOnFreePort({
-    entry: SERVER, cwd,
+    entry, cwd,
     env: { HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1', OPENROUTER_API_KEY: '', GREAT_CTO_OPENROUTER_BASE: openrouterBase },
     readyPath: '/api/heartbeat', portEnv: 'BOARD_PORT',
   });
   return { port, proc, home };
 }
 
-test('verify asks OpenRouter; GET then reports the answer, and never the key', async () => {
+test('verify asks OpenRouter; GET then reports the answer, and never the key', async t => {
   const or = await stub(200);
+  t.after(() => or.close());
   const { port, proc } = await board(or.base);
   try {
     const before = await (await fetch(`http://127.0.0.1:${port}/api/router-key`)).json();
@@ -57,29 +58,31 @@ test('verify asks OpenRouter; GET then reports the answer, and never the key', a
     const text = await (await fetch(`http://127.0.0.1:${port}/api/router-key`)).text();
     assert.equal(JSON.parse(text).verification.state, 'verified');
     assert.equal(text.includes(KEY), false, 'GET never carries the key');
-  } finally { proc.kill(); await or.close(); }
+  } finally { proc.kill(); }
 });
 
-test('a rejected key is reported as rejected', async () => {
+test('a rejected key is reported as rejected', async t => {
   const or = await stub(401);
+  t.after(() => or.close());
   const { port, proc } = await board(or.base);
   try {
     const v = await fetch(`http://127.0.0.1:${port}/api/router-key/verify`, {
       method: 'POST', headers: { Origin: `http://127.0.0.1:${port}` },
     });
     assert.equal((await v.json()).state, 'rejected');
-  } finally { proc.kill(); await or.close(); }
+  } finally { proc.kill(); }
 });
 
-test('another origin cannot make the board spend the key', async () => {
+test('another origin cannot make the board spend the key', async t => {
   const or = await stub(200);
+  t.after(() => or.close());
   const { port, proc } = await board(or.base);
   try {
     const v = await fetch(`http://127.0.0.1:${port}/api/router-key/verify`, {
       method: 'POST', headers: { Origin: 'https://evil.example' },
     });
     assert.equal(v.status, 403);
-  } finally { proc.kill(); await or.close(); }
+  } finally { proc.kill(); }
 });
 
 test('the page shows the check, not a permanent "not verified"', () => {
@@ -88,4 +91,10 @@ test('the page shows the check, not a permanent "not verified"', () => {
   assert.match(html, /· verified</);
   assert.match(html, /rejected by OpenRouter/);
   assert.match(html, /could not check/);
+});
+
+test('failed board startup still tears down its local provider stub', async t => {
+  const or = await stub(200);
+  t.after(() => or.close());
+  await assert.rejects(board(or.base, join(HERE, 'nonexistent-fixture-server.mjs')), /server exited|Cannot find module/);
 });

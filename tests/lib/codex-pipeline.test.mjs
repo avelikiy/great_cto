@@ -3,24 +3,145 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, symlinkSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { execSync } from 'node:child_process';
+import { execSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage as stage, approve, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, runStage as stage, approve, reject, safePath, validateProposal, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 
-function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\ngate = "gate:code"\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\ngate = "gate:ship"\nnext = []') {
+function fixture(t, graph = '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\ngate = "gate:code"\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\ngate = "gate:ship"\nnext = []', { git = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'codex-host-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const pluginRoot = join(root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), graph);
   for (const role of ['writer', 'reviewer', 'qa', 'security']) writeFileSync(join(pluginRoot, `agents/${role}.md`), `You are ${role}.\nRun bd close forbidden-host-task and write .great_cto/gate.json.`);
+  if (git) commitFixture(root);
   return newRun({ root, pluginRoot, prompt: 'Build a fixture', allowed: ['src', 'docs'], entry: 'writer' });
 }
 const response = (verdict = 'DONE', files = [{ path: 'src/app.js', before: null, content: 'export const x = 1;\n' }]) =>
   ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict, summary: 'fixture', meta: { report: 'src/app.js' }, files }), usage: null });
+
+test('operator rejection is bound, preserves policies and ancestors, and reruns without approval', async t => {
+  const s = fixture(t);
+  s.checkPolicy = { backend: 'local', trusted: true, commands: [['node', '--test']] };
+  s.releasePolicy = { smokeCommands: [['node', 'dist/add.mjs']] };
+  const policies = JSON.stringify([s.checkPolicy, s.releasePolicy]);
+  await runStage(s, { execute: async options => {
+    assert.match(options.prompt, /FROZEN OPERATOR POLICIES/);
+    assert.match(options.prompt, /dist\/add.mjs/);
+    return response();
+  } });
+  const token = s.pending.token;
+  const unchanged = JSON.stringify(s);
+  assert.throws(() => reject(s, 'wrong', 'fix smoke'), /token/);
+  assert.throws(() => reject(s, token, ''), /nonempty/);
+  assert.throws(() => reject(s, token, 'x'.repeat(4097)), /4096/);
+  assert.equal(JSON.stringify(s), unchanged);
+  s.wave = { id: 'parallel' };
+  assert.throws(() => reject(s, token, 'fix smoke'), /sequential/);
+  delete s.wave;
+  const originalDigest = s.results.writer.digest;
+  s.approvals.push({ role: 'ancestor', gate: 'gate:arch', result: 'ancestor-result' });
+  reject(s, token, 'fix smoke');
+  assert.equal(s.status, 'ready');
+  assert.equal(s.pending, null);
+  assert.deepEqual(s.queue, ['writer']);
+  assert.equal(s.results.writer, undefined);
+  assert.equal(s.invalidations.at(-1).results.writer.digest, originalDigest);
+  assert.equal(s.rejections.at(-1).pending.token, token);
+  assert.equal(s.approvals.length, 1);
+  assert.equal(JSON.stringify([s.checkPolicy, s.releasePolicy]), policies);
+  assert.throws(() => reject(s, token, 'again'), /token/);
+  assert.throws(() => approve(s, token), /token/);
+  await runStage(s, { execute: async () => response('DONE', []) });
+  assert.equal(s.status, 'awaiting-gate');
+  assert.notEqual(s.pending.token, token);
+  assert.equal(s.approvals.length, 1);
+});
+
+test('reject refuses missing receipts and Git drift outside managed writes without mutating state', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const token = s.pending.token;
+  const receipt = s.pending.receipt;
+  delete s.pending.receipt;
+  const incomplete = JSON.stringify(s);
+  assert.throws(() => reject(s, token, 'fix'), /complete receipt/);
+  assert.equal(JSON.stringify(s), incomplete);
+  s.pending.receipt = receipt;
+  writeFileSync(join(s.root, 'unmanaged.txt'), 'outside managed writes');
+  const drifted = JSON.stringify(s);
+  assert.throws(() => reject(s, token, 'fix'), /working tree changed/);
+  assert.equal(JSON.stringify(s), drifted);
+});
+
+test('reject refuses stale result and artifact drift, and honors repair budget', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const token = s.pending.token;
+  const digest = s.results.writer.digest;
+  s.results.writer.digest = 'stale';
+  assert.throws(() => reject(s, token, 'fix'), /stale/);
+  s.results.writer.digest = digest;
+  writeFileSync(join(s.root, 'src/app.js'), 'drift');
+  assert.throws(() => reject(s, token, 'fix'), /artifact changed/);
+  writeFileSync(join(s.root, 'src/app.js'), 'export const x = 1;\n');
+  s.maxAttempts = 1;
+  reject(s, token, 'fix');
+  assert.equal(s.status, 'blocked');
+  assert.match(s.reason, /attempt limit/);
+  assert.equal(s.approvals.length, 0);
+});
+
+test('verifier receives exact frozen policies separately from execution evidence', async t => {
+  const s = fixture(t);
+  s.releasePolicy = { smokeCommands: [['node', 'dist/add.mjs']] };
+  await verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /dist\/add.mjs/);
+    assert.match(options.prompt, /A contradiction requires rework/);
+    assert.match(options.prompt, /not execution evidence/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['policy checked'] }) };
+  });
+});
+
+test('reject CLI persists bound rework, records installed executor provenance, and does not dispatch', async t => {
+  const s = fixture(t);
+  await runStage(s, { execute: async () => response() });
+  const store = mkdtempSync(join(tmpdir(), 'reject-cli-'));
+  t.after(() => rmSync(store, { recursive: true, force: true }));
+  const file = join(store, `${s.id}.json`);
+  writeFileSync(file, JSON.stringify(s));
+  const controller = fileURLToPath(new URL('../../scripts/codex-pipeline.mjs', import.meta.url));
+  const invoke = token => spawnSync(process.execPath, [controller, 'reject', s.id, '--token', token, '--reason', 'Fix the frozen smoke contract'],
+    { env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_DISABLE_EVENTS: '1' }, encoding: 'utf8', timeout: 10000 });
+  const before = readFileSync(file, 'utf8');
+  assert.notEqual(invoke('wrong').status, 0);
+  assert.equal(readFileSync(file, 'utf8'), before);
+  const result = invoke(s.pending.token);
+  assert.equal(result.status, 0, result.stderr);
+  const saved = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(saved.status, 'ready');
+  assert.equal(saved.attempts.length, s.attempts.length);
+  assert.equal(saved.approvals.length, 0);
+  assert.equal(saved.pending, null);
+  assert.match(saved.rejections[0].controller.sha256, /^[a-f0-9]{64}$/);
+  assert.match(saved.rejections[0].controller.modulePath, /codex-pipeline\.mjs$/);
+  assert.notEqual(invoke(s.pending.token).status, 0);
+});
+
+test('scoped verifier distinguishes unresolved findings from successful checks', async t => {
+  const s = fixture(t);
+  s.attempts.push({ role: 'writer', scopedInput: { digest: 'a'.repeat(64), binding: { inputs: [] } } });
+  await verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /findings must contain only defects or unresolved blockers/);
+    assert.match(options.prompt, /Successful observations belong in checks, not findings/);
+    assert.match(options.prompt, /verified scoped attestation requires findings:\[\]/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected files'] }) };
+  });
+});
 
 test('role -> guarded write -> human gate -> resume -> terminal gate -> done', async t => {
   const s = fixture(t); const calls = [];
@@ -98,6 +219,39 @@ test('secret in any proposed file prevents ALL writes', async t => {
   assert.doesNotMatch(s.reason, /AKIA/);
 });
 
+test('controlled PM prompt specifies both plan and nonempty briefs directory protocol', async t => {
+  const s = fixture(t);
+  s.graph.pm = { on: ['PLAN_READY'], produces: ['plan', 'briefs'], gate: 'gate:plan', next: [] };
+  s.queue = ['pm'];
+  await runStage(s, { execute: async options => {
+    assert.match(options.prompt, /meta\.plan names the plan Markdown file/);
+    assert.match(options.prompt, /meta\.briefs names.*trailing slash/);
+    assert.match(options.prompt, /one implementation brief per planned task/);
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ verdict: 'PLAN_READY', summary: 'fixture',
+      meta: { plan: 'docs/plan.md', briefs: 'docs/impl-briefs/' }, files: [
+        { path: 'docs/plan.md', before: null, content: '# Plan\nOne task.\n' },
+        { path: 'docs/impl-briefs/task.md', before: null, content: '# Task\nOwnership, implementation and acceptance.\n' },
+      ] }) };
+  } });
+  assert.equal(s.status, 'awaiting-gate', s.reason);
+  assert.deepEqual(s.pending.gates, ['gate:plan']);
+  assert.equal(s.approvals.length, 0);
+});
+
+test('controlled PM missing briefs refuses before any proposed write', async t => {
+  const s = fixture(t);
+  s.graph.pm = { on: ['PLAN_READY'], produces: ['plan', 'briefs'], gate: 'gate:plan', next: [] };
+  s.queue = ['pm'];
+  await runStage(s, { execute: async () => ({ state: 'ok', code: 0, errors: [], text: JSON.stringify({
+    verdict: 'PLAN_READY', summary: 'incomplete fixture', meta: { plan: 'docs/plan.md' },
+    files: [{ path: 'docs/plan.md', before: null, content: '# Plan\nIncomplete.\n' }],
+  }) }) });
+  assert.equal(s.status, 'blocked');
+  assert.equal(s.reason, 'missing artifact: briefs');
+  assert.equal(existsSync(join(s.root, 'docs/plan.md')), false);
+  assert.equal(s.approvals.length, 0);
+});
+
 test('reject path escapes, protected files, symlinks and changes outside ownership', t => {
   const s = fixture(t);
   for (const path of ['../outside', '/tmp/outside', 'docs/../outside', 'docs/AGENTS.md', '.great_cto/gate.json', '.codex/config.toml', 'other/file', 'src/.env', 'src\\escape']) {
@@ -130,6 +284,9 @@ test('verifier rework survives serialization, carries findings and opens gate on
   assert.deepEqual(s.attempts.map(a => a.status), ['rework', 'verified']);
   assert.notEqual(s.attempts[0].id, s.attempts[1].id);
   assert.equal(s.results.writer.attemptId, s.attempts[1].id);
+  assert.equal(s.dispatchEvidence.records.length, 4, 'rework includes both worker and verifier attempts');
+  assert.equal(new Set(s.dispatchEvidence.records.map(r => r.id)).size, 4);
+  assert.deepEqual(s.dispatchEvidence.records.map(r => r.kind), ['worker', 'verifier', 'worker', 'verifier']);
 });
 
 test('bounded rework cannot dispatch forever or approve failed output', async t => {
@@ -187,6 +344,38 @@ test('verifier runs separately with actual file paths and refuses empty evidence
   });
   assert.equal(result.state, 'verified');
   await assert.rejects(verifyStage(s, 'writer', proposal, async () => ({ ...response(), text: '{"state":"verified","checks":[],"findings":[]}' })), /empty/);
+});
+
+test('parallel verifier requires a bound workflow attestation and rejects unsupported concurrency claims', async t => {
+  const s = fixture(t);
+  s.wave = { id: 'review-wave', roles: ['writer', 'reviewer'], hosts: { writer: 'claude-code', reviewer: 'codex' }, receipt: {} };
+  s.queue.push('security');
+  const check = attestation => verifyStage(s, 'writer', { files: [], meta: {} }, async options => {
+    assert.match(options.prompt, /Only roles listed in the frozen wave/);
+    assert.match(options.prompt, /queued roles are not running/);
+    return { ...response(), text: JSON.stringify({ state: 'verified', findings: [], checks: ['read report'], workflowAttestation: attestation }) };
+  });
+  assert.equal((await check(undefined)).state, 'unverifiable');
+  assert.equal((await check({ state: 'supported', waveId: 'different', roles: s.wave.roles, checks: ['checked'] })).state, 'unverifiable');
+  assert.equal((await check({ state: 'supported', waveId: s.wave.id, roles: ['writer', 'security'], checks: ['checked'] })).state, 'unverifiable');
+  const bad = await check({ state: 'unsupported', waveId: s.wave.id, roles: s.wave.roles, checks: ['report incorrectly says security runs in parallel'] });
+  assert.equal(bad.state, 'rework');
+  assert.match(bad.findings.join(' '), /workflow/);
+  assert.equal((await check({ state: 'supported', waveId: s.wave.id, roles: s.wave.roles, checks: ['no unsupported timing claims'] })).state, 'verified');
+});
+
+test('same-role rework worker receives exact current replacement SHA256, not a Git blob ID', async t => {
+  const s = fixture(t); s.maxAttempts = 2;
+  await runStage(s, { execute: async () => response(), verify: async () => ({ state: 'rework', findings: ['correct report'], checks: ['read report'] }) });
+  const before = s.writes['src/app.js'];
+  assert.match(before, /^[a-f0-9]{64}$/);
+  await runStage(s, { execute: async options => {
+    assert.ok(options.prompt.includes(`"src/app.js":"${before}"`));
+    assert.match(options.prompt, /not Git blob IDs/);
+    const proposal = JSON.parse(response().text); proposal.files[0].before = before;
+    return { ...response(), text: JSON.stringify(proposal) };
+  } });
+  assert.equal(s.status, 'awaiting-gate'); assert.equal(s.approvals.length, 0);
 });
 
 test('post-release worker and verifier receive bounded controller evidence without artifact bytes', async t => {
@@ -423,16 +612,16 @@ import { listTurns as listTurnRefs } from '../../scripts/lib/turn-snapshot.mjs';
 
 test('a stage in a git project leaves one turn snapshot under the run id', async t => {
   const s = fixture(t);
-  execSync('git init -q && git config user.email t@t && git config user.name t && git add -A && git commit -q -m init', { cwd: s.root });
+  commitFixture(s.root);
   await runStage(s, { execute: async () => response() });
   const turns = listTurnRefs(s.root, { session: s.id });
   assert.equal(turns.length, 1, 'the stage that just ran is one turn');
   assert.equal(s.status, 'awaiting-gate', 'recording it changed nothing about the run');
 });
 
-test('a stage outside git runs exactly as before, with no snapshot', async t => {
-  const s = fixture(t);
-  await runStage(s, { execute: async () => response() });
-  assert.equal(s.status, 'awaiting-gate');
+test('delivery outside git cannot dispatch or mint a gate or snapshot', async t => {
+  const s = fixture(t, undefined, { git: false });
+  await assert.rejects(runStage(s, { execute: async () => { assert.fail('worker must not launch'); } }), /complete Git receipt/);
+  assert.equal(s.pending, null); assert.equal(s.attempts.length, 0);
   assert.deepEqual(listTurnRefs(s.root, { session: s.id }), []);
 });

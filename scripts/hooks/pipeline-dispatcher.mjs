@@ -32,6 +32,8 @@ import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
+import { nativeRuntimePolicy } from '../lib/runtime-gate-policy.mjs';
+import { recordStandDown } from '../lib/stand-down.mjs';
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { parseVerdictLine as parseVerdictRecord, needOf } from '../lib/verdict-record.mjs';
 import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../lib/agent-budget.mjs';
@@ -1066,6 +1068,7 @@ async function main() {
   let activeGates = null;
   /** ship-only's product briefing: the screen, null (not applicable), or 'unavailable'. */
   let briefing = null;
+  let adaptive = null;
   try {
     const pm = readFileSync(join(process.cwd(), '.great_cto', 'PROJECT.md'), 'utf8');
     const archetype = (pm.match(/^archetype:\s*(\S+)/m) || [])[1];
@@ -1081,6 +1084,8 @@ async function main() {
       archetype,
       briefReadable: briefing !== 'unavailable',
     });
+    adaptive = nativeRuntimePolicy({ root: process.cwd(), level, archetype, briefReadable: briefing !== 'unavailable', record: rec => recordStandDown(process.cwd(), rec) });
+    if (adaptive) activeGates = adaptive.activeGates;
   } catch { /* no PROJECT.md or helper — keep every gate */ }
 
   const shape = stopShapeFor(agentIdFrom(payload));
@@ -1189,7 +1194,8 @@ async function main() {
   // written, so a crash between them re-briefs rather than skipping.
   const brief = briefing && briefing !== 'unavailable' && !briefedAlready() ? briefing : '';
   if (brief) markBriefed();
-  if (decision) emit(brief ? brief + '\n' + decision.text : decision.text);
+  const riskNotice = adaptive ? `Adaptive gates: ${adaptive.assessment.known ? adaptive.assessment.tier : 'unavailable, full gates'}; removed=${adaptive.removed.join(',') || 'none'}; ${adaptive.assessment.reasons.join('; ')}\n` : '';
+  if (decision) emit(riskNotice + (brief ? brief + '\n' + decision.text : decision.text));
   else if (brief) emit(brief);
   return process.exit(0);
 }

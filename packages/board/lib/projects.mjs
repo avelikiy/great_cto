@@ -204,7 +204,15 @@ function getChangeTier(dir) {
     return { tier: 'T2', error: e.message };  // fail-safe: unknown → full gates
   }
 }
+function isGlobalStateProject(dir) {
+  const canonical = value => { try { return fs.realpathSync(value); } catch { return path.resolve(value); } };
+  const resolved = canonical(dir);
+  const state = canonical(GREAT_CTO_DIR);
+  return isInsideDir(state, resolved) || canonical(path.join(resolved, '.great_cto')) === state;
+}
+
 function autoRegisterProject(dir) {
+  if (isGlobalStateProject(dir)) return null;
   // The home directory is never a project.
   //
   // `~/.great_cto/` is the GLOBAL store — cross-project verdicts, decisions,
@@ -228,18 +236,29 @@ function autoRegisterProject(dir) {
   // the board there added it as a separate project reading great_cto's beads —
   // 228 tasks counted twice, under two names, in a fleet of seventeen.
   try {
+    // Automatic discovery/cwd must not bypass the raw-path registration
+    // boundary. An explicit isolated discovery scope replaces HOME, never
+    // falls back to it, and is canonicalized before containment checks.
+    const scope = getDiscoveryScope();
+    const boundary = fs.realpathSync(scope.includeClaudeProjects ? os.homedir() : scope.roots[0]);
+    const canonical = fs.realpathSync(dir);
+    if (!isInsideDir(boundary, canonical)) return null;
     const resolved = path.resolve(dir);
     if (resolved === path.resolve(os.homedir())) return null;
     if (isInsideDir(path.join(os.homedir(), '.claude', 'plugins'), resolved)) return null;
     const enclosing = readProjectsRegistry().projects
       .find((e) => e.path && path.resolve(e.path) !== resolved && isInsideDir(path.resolve(e.path), resolved));
     if (enclosing) return null;
-  } catch { /* if we cannot resolve it, fall through to the normal checks */ }
+  } catch { return null; } // Unknown scope is not permission to register it.
 
   const meta = readProjectMd(dir);
   if (!meta) return null;
   const reg = readProjectsRegistry();
-  const existingByPath = reg.projects.find(p => p.path === meta.path);
+  const existingByPath = reg.projects.find(p => {
+    if (p.path === meta.path) return true;
+    try { return fs.realpathSync(p.path) === fs.realpathSync(meta.path); }
+    catch { return false; }
+  });
   if (existingByPath) return meta; // already registered at this path, nothing to do
   // Only an entry whose path is GONE is this repo having moved. An entry whose
   // path still exists is a different project that happens to share a name, and
@@ -264,20 +283,40 @@ function autoRegisterProject(dir) {
 // project that ran /audit or /start (which writes .great_cto/PROJECT.md) gets
 // auto-registered without the user having to do anything.
 // Fully async — never blocks the event loop.
+function getDiscoveryScope() {
+  const scoped = process.env.GREAT_CTO_DISCOVERY_ROOT;
+  if (scoped) {
+    if (!path.isAbsolute(scoped)) throw new Error('GREAT_CTO_DISCOVERY_ROOT must be absolute');
+    const root = fs.realpathSync(scoped);
+    if (!fs.statSync(root).isDirectory()) throw new Error('GREAT_CTO_DISCOVERY_ROOT must be a directory');
+    return { roots: [root], includeClaudeProjects: false };
+  }
+  const home = os.homedir();
+  return { roots: [
+    path.join(home, 'work'), path.join(home, 'dev'),
+    path.join(home, 'development'), path.join(home, 'code'),
+    path.join(home, 'projects'), path.join(home, 'src'),
+    path.join(home, 'Documents', 'projects'), home,
+  ], includeClaudeProjects: true };
+}
+
 async function discoverProjects() {
   const fsAsync = fs.promises;
   const HOME = os.homedir();
   const seen = new Set();
   const found = [];
+  // Resolve before scanning. A broken explicit scope must never fall back to
+  // scanning the operator's home or Claude project cache.
+  const scope = getDiscoveryScope();
 
   async function scanDir(dir, depth) {
-    if (depth < 0 || seen.has(dir)) return;
+    if (depth < 0 || seen.has(dir) || isInsideDir(GREAT_CTO_DIR, dir)) return;
     seen.add(dir);
     try {
       // Check the dir itself first — but NEVER treat HOME's own .great_cto as a
       // project: ~/.great_cto is the global config dir, not a project. Without
       // this guard, $HOME gets registered as a bogus project (great_cto-…).
-      if (dir !== HOME) {
+      if (dir !== HOME && !isGlobalStateProject(dir)) {
         try {
           await fsAsync.access(path.join(dir, '.great_cto', 'PROJECT.md'));
           found.push(dir);
@@ -298,22 +337,13 @@ async function discoverProjects() {
   }
 
   // 1) Common dev folders — top-level scan, 1-level deep
-  const roots = [
-    path.join(HOME, 'work'),
-    path.join(HOME, 'dev'),
-    path.join(HOME, 'development'),
-    path.join(HOME, 'code'),
-    path.join(HOME, 'projects'),
-    path.join(HOME, 'src'),
-    path.join(HOME, 'Documents', 'projects'),
-    HOME,
-  ];
+  const roots = scope.roots;
   for (const root of roots) {
     try { await fsAsync.access(root); await scanDir(root, 1); } catch {}
   }
 
   // 2) Claude Code's known project list (~/.claude/projects/<encoded-path>/)
-  try {
+  if (scope.includeClaudeProjects) try {
     const ccProj = path.join(HOME, '.claude', 'projects');
     await fsAsync.access(ccProj);
     const entries = await fsAsync.readdir(ccProj);
@@ -322,7 +352,7 @@ async function discoverProjects() {
       const decoded = '/' + dir.replace(/^-+/, '').replace(/-/g, '/');
       try {
         await fsAsync.access(path.join(decoded, '.great_cto', 'PROJECT.md'));
-        found.push(decoded);
+        if (!isGlobalStateProject(decoded)) found.push(decoded);
       } catch {}
     }
   } catch {}
@@ -342,7 +372,7 @@ function listProjects() {
   // .great_cto has no project marker or task source left (no PROJECT.md,
   // no tasks.md, no .beads → nothing to show, just clutters the switcher).
   reg.projects = reg.projects.filter(p =>
-    p.path !== HOME &&
+    p.path !== HOME && !isGlobalStateProject(p.path) &&
     fs.existsSync(p.path) &&
     (fs.existsSync(path.join(p.path, '.great_cto', 'PROJECT.md')) ||
      fs.existsSync(path.join(p.path, '.great_cto', 'tasks.md')) ||
@@ -457,6 +487,7 @@ export {
   getChangeTier,
   autoRegisterProject,
   getRegistryDegradation,
+  getDiscoveryScope,
   discoverProjects,
   listProjects,
   resolveProjectCwd,

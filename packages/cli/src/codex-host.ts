@@ -14,7 +14,7 @@ export function codexControllerCandidates(moduleUrl = import.meta.url): string[]
 
 export function runCodexHost(args: string[], { exists = existsSync, spawn = spawnSync } = {}): number {
   if (!args.length) {
-    process.stderr.write('usage: great-cto codex-host start|resume|status|approve|approve-release|recover|cancel|list|doctor ...\n');
+    process.stderr.write('usage: great-cto codex-host start|resume|status|approve|reject|approve-release|recover|cancel|list|doctor ...\n');
     return 2;
   }
   const controller = codexControllerCandidates().find(exists);

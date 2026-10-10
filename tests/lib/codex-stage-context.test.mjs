@@ -12,19 +12,30 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { newRun, runStage as stage, approve, buildStageContext, verifyStage, CONTEXT_BUDGET_BYTES } from '../../scripts/lib/codex-pipeline.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 
 const runStage = (state, options = {}) => stage(state, { verify: async () => ({ state: 'verified', findings: [], checks: ['test fixture'] }), ...options });
 const sha = (t) => createHash('sha256').update(t).digest('hex');
 
+test('stage context preserves local backend and non-isolation provenance', () => {
+  const ctx = buildStageContext({ results: { 'senior-dev': { at: '2026-10-05T00:00:00Z',
+    checks: { state: 'passed', code: 0, backend: 'local', isolation: 'none', image: null,
+      runtime: { node: 'v22', platform: 'darwin', arch: 'arm64' } } } } });
+  assert.match(ctx.text, /"backend": "local"/); assert.match(ctx.text, /"isolation": "none"/);
+  assert.match(ctx.text, /"image": null/); assert.match(ctx.text, /"platform": "darwin"/);
+});
+
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'codex-context-'));
-  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const dir = mkdtempSync(join(tmpdir(), 'codex-context-')), root = join(dir, 'project');
+  mkdirSync(root);
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
   const pluginRoot = join(root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'),
     '[transitions.writer]\non = ["DONE"]\nproduces = ["report"]\nnext = ["reviewer"]\n[transitions.reviewer]\non = ["PASS"]\nnext = []');
   for (const role of ['writer', 'reviewer']) writeFileSync(join(pluginRoot, `agents/${role}.md`), `You are ${role}.`);
-  const store = join(root, 'store');
+  const store = join(dir, 'store');
+  commitFixture(root);
   const state = newRun({ root, pluginRoot, prompt: 'Build a fixture', allowed: ['src', 'docs'], entry: 'writer' });
   return { state, store };
 }
@@ -121,7 +132,8 @@ test('worker context identifies frozen review snapshot with explicit hash proven
   assert.match(context.text, /wave-fixture/);
   assert.match(context.text, /untracked-digest/);
   assert.match(context.text, /Git blob object IDs, not raw SHA256/);
-  assert.match(context.text, /Sibling reports are produced concurrently/);
+  assert.match(context.text, /Only roles listed in the frozen wave are parallel siblings/);
+  assert.match(context.text, /queued roles are not running/);
 });
 
 test('verifier receives controller checks and snapshot separately from worker claims', async t => {
@@ -132,7 +144,8 @@ test('verifier receives controller checks and snapshot separately from worker cl
   let prompt;
   const result = await verifyStage(state, 'reviewer', { files: [], meta: {} }, async options => {
     prompt = options.prompt;
-    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected fixture'] }) };
+    return { state: 'ok', code: 0, errors: [], text: JSON.stringify({ state: 'verified', findings: [], checks: ['inspected fixture'],
+      workflowAttestation: { state: 'supported', waveId: state.wave.id, roles: state.wave.roles, checks: ['checked workflow assertions'] } }) };
   });
   assert.equal(result.state, 'verified');
   for (const value of ['tested-input', 'current-input', '44 passed', 'frozen-wave', 'snapshot-digest']) assert.ok(prompt.includes(value));

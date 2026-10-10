@@ -67,7 +67,7 @@ test('the bundler ships exactly what the board needs, derived rather than listed
   const bundler = readFileSync(join(REPO, 'packages', 'cli', 'scripts', 'bundle-board.mjs'), 'utf8');
   assert.match(bundler, /scripts\\\/lib\\\/\(\[\\w\.-\]\+\\\.mjs\)/,
     'the bundler should scan board sources for scripts/lib imports');
-  assert.match(bundler, /grew/, 'and follow their transitive imports to a fixpoint');
+  assert.match(bundler, /runtimeImportClosure\(repoRoot/, 'and follow relative runtime imports across directories');
   assert.doesNotMatch(
     bundler,
     /for \(const f of \[\s*["']gate-plan\.mjs["']/,
@@ -93,8 +93,7 @@ test('the npm bundle seeds the controlled Codex host and its dependency closure'
   assert.ok(direct.length > 0, 'the controller must have runtime dependencies for this test to protect');
   assert.match(bundler, /const codexController =/);
   assert.match(bundler, /readFileSync\(taskController/);
-  assert.match(bundler, /copyFileSync\(taskController/);
-  assert.match(bundler, /copyFileSync\(codexController/);
+  assert.match(bundler, /runtimeImportClosure\(repoRoot, \[codexController, taskController/);
   assert.match(bundler, /shared["'], ["']pipeline\.toml/);
   assert.match(bundler, /readFileSync\(codexController/,
     'controller imports must seed the same transitive dependency fixpoint as board imports');

@@ -3,14 +3,15 @@
 import { spawn, spawnSync } from "node:child_process";
 import { createServer } from "node:http";
 import { existsSync, mkdirSync, openSync, writeFileSync, unlinkSync } from "node:fs";
-import { homedir, hostname } from "node:os";
+import { hostname } from "node:os";
+import { stateHome } from "./state-home.mjs";
 import { join, resolve } from "node:path";
 import {
   appendTask, readQueue, readState, setState, nextRunnable, recoverCrashed, isTerminal, type Task,
 } from "./task-queue.js";
 import { land } from "./land.js";
 
-const ROOT = process.env.GREAT_CTO_HOME || join(homedir(), ".great_cto");
+const ROOT = stateHome();
 const LOGDIR = join(ROOT, "worker-logs");
 const LOCK = join(ROOT, "worker.lock");
 

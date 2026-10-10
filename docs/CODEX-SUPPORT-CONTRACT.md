@@ -25,11 +25,18 @@ Codex sessions outside this controller do not inherit its guarantees.
 | Same-stage verifier rework | Bounded attempts with retained findings | Correction, exhaustion, serialization and artifact-drift tests |
 | Cross-role repair and graph back-edges | Core review-to-developer repair and declared back-edges; dependent results/approvals invalidated | Golden repair and invalidation tests |
 | Bounded crash recovery | Explicit unchanged pre-write/fully applied Git stage recovery; partial writes refused | Interruption, serialization, drift and reconciliation tests |
-| Write-requiring build/test | Offline Docker checks and bounded explicit-file artifact export; no network install | Export regression tests and opt-in live Docker acceptance |
+| Write-requiring build/test | Docker default with pinned image; explicit trusted local backend without isolation; bounded explicit-file export, no automatic fallback | Checks/release regression tests, real local execution and opt-in live Docker acceptance |
 | Release and post-release verification | Approval-bound local and GitHub Release adapters, exact-byte verification, smoke and same-operation reconciliation | Adapter fault tests plus opt-in live local/GitHub acceptance |
 | Board/Beads integration | Separate from controller authority | Consistent projections; task closure cannot authorize release |
 
 ## Execution and release requirements
+
+Controlled delivery requires a readable Git repository with an initial commit
+and complete input/output/gate receipts. Missing or truncated receipts refuse
+dispatch, verification and approval, including saved legacy records; no null-to-null
+comparison attests source identity. Explicit non-Git research is report-only and
+labeled as artifact evidence, not Git-tree or product-delivery attestation. See
+the [controlled receipt boundary](analysis/2026-10-02-controlled-receipt-boundary.md).
 
 Build/test commands execute repository code. Command-name allowlists alone are
 not a sandbox. An executor must enforce writable paths, network policy, secret

@@ -2,11 +2,13 @@
 import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
 import { join, resolve, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage, runParallelWave, parallelPair, approve, recover, cancel } from './lib/codex-pipeline.mjs';
+import { newRun, runStage, runParallelWave, parallelPair, approve, reject, recover, cancel } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
 import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
 import { detectClaude } from './lib/claude-exec.mjs';
+import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs';
+import { readBenchmarkRegistration, bindBenchmarkTrial } from './lib/adaptive-benchmark-collector.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
@@ -81,11 +83,31 @@ try {
       if (rel !== '..' && !rel.startsWith(`..${sep}`)) throw Error('release policy must be operator-owned outside the target workspace');
       releasePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
     }
-    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy,
+    let gatePolicy = null;
+    if (args.includes('--gate-policy')) {
+      if (!value('--gate-policy')) throw Error('--gate-policy requires an operator-owned policy file');
+      const policyPath = realpathSync(value('--gate-policy'));
+      const rel = relative(root, policyPath);
+      if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('gate policy must be operator-owned outside the target workspace');
+      gatePolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    let specialistPolicy = null;
+    if (args.includes('--specialist-policy')) {
+      if (!value('--specialist-policy')) throw Error('--specialist-policy requires an operator-owned policy file');
+      const policyPath = realpathSync(value('--specialist-policy'));
+      const rel = relative(root, policyPath);
+      if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('specialist policy must be operator-owned outside the target workspace');
+      specialistPolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
+    }
+    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
-      maxAttempts, hostRoutes });
+      maxAttempts, hostRoutes, gatePolicy });
     state.taskId = taskId || work.task.taskId;
     state.acceptance = acceptance;
+    if (args.includes('--benchmark-trial')) {
+      if (!value('--benchmark-trial')) throw Error('--benchmark-trial requires an operator-owned trial registration');
+      bindBenchmarkTrial(state, readBenchmarkRegistration(root, value('--benchmark-trial')));
+    }
     linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
     save(state);
   } else {
@@ -100,7 +122,7 @@ try {
       } else projectLease = acquireProjectLease(state.root, { reuseToken: inheritedLease });
     }
   }
-  if (!['start', 'resume', 'status', 'approve', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, approve-release, recover, cancel, list or doctor');
+  if (!['start', 'resume', 'status', 'approve', 'reject', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, reject, approve-release, recover, cancel, list or doctor');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
     mkdirSync(lock); locked = lock;
@@ -115,6 +137,7 @@ try {
       if (decision.kind === 'release') approveRelease(state, state.release.token); else approve(state, state.pending.token);
       save(state);
     } else if (command === 'approve') { approve(state, value('--token')); save(state); }
+    else if (command === 'reject') { reject(state, value('--token'), value('--reason')); save(state); }
     else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
     else if (command === 'recover') { recover(state); save(state); }
     else if (command === 'cancel') { cancel(state); save(state); }
@@ -126,10 +149,16 @@ try {
     }
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
+    controllerDispatch: dispatchEvidenceSummary(state),
     release: state.release ? { status: state.release.status, token: state.release.token, adapter: state.release.adapter,
       artifactDigest: state.release.artifactDigest, target: state.release.target, path: state.release.path, url: state.release.url,
       activation: state.release.activation, rollback: state.release.rollback } : null,
-    pending: state.pending, queue: state.queue, hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
+    pending: state.pending, queue: state.queue, specialistPreparation: state.specialistPreparation ? {
+      roles: state.specialistPreparation.roles, status: state.specialistPreparation.status,
+      fingerprint: state.specialistPreparation.fingerprint, reusablePass: false } : null,
+    specialistReview: state.specialistReview ? {
+      roles: state.specialistReview.roles, fingerprint: state.specialistReview.fingerprint, reusablePass: false } : null,
+    hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
       id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;

@@ -91,11 +91,11 @@ test('a restart preserves the working directory it found', () => {
   assert.match(sh, /\$4=="cwd"/);
 });
 
-test('the installer never claims a restart it did not verify', () => {
+test('local publication does not implicitly restart or claim running-board adoption', () => {
   const sh = read('scripts', 'install-local.sh');
-  assert.match(sh, /board did not come back/, 'a board that did not return is reported, not assumed');
-  assert.match(sh, /could not free/, 'and so is a port it failed to free');
-  assert.match(sh, /board restarted/, 'success is only printed when a version came back');
+  assert.doesNotMatch(sh, /board_stop|board_start|board-restart\.sh|board restarted/,
+    'cache publication cannot kill a port owner or claim adoption by a live board');
+  assert.match(sh, /No board restart/, 'explicitly report the unperformed runtime step');
 });
 
 test('board_start returns only the version', () => {

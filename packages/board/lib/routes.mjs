@@ -598,7 +598,8 @@ async function dispatch(req, res, url, cwd) {
       let transitions = null;
       try {
         const { pipelineMapFor } = await import('../../../scripts/lib/pipeline-health.mjs');
-        const { parsePipelineToml } = await import('../../../scripts/hooks/pipeline-dispatcher.mjs');
+        // Use the pure parser, not the native hook that merely reexports it.
+        const { parsePipelineToml } = await import('../../../scripts/lib/pipeline-toml.mjs');
         const map = pipelineMapFor(cwd);
         if (map.path) transitions = parsePipelineToml(fs.readFileSync(map.path, 'utf8'));
       } catch { transitions = null; }

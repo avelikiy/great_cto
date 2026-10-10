@@ -18,12 +18,16 @@
  *   SessionStart's cache cleanup uses 3.
  *   stdout: one directory to remove per line; stderr: what was kept, and why.
  */
-import { readdirSync, statSync, realpathSync } from 'node:fs';
-import { join } from 'node:path';
+import { readdirSync, lstatSync, realpathSync, readFileSync, rmSync, mkdirSync, rmdirSync } from 'node:fs';
+import { join, dirname, basename, isAbsolute, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { homedir } from 'node:os';
+import { randomUUID } from 'node:crypto';
 
 const norm = (p) => String(p).replace(/\/+$/, '');
+const versionName = name => /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.+-]+)?$/.test(name);
+const identity = p => { try { return realpathSync(norm(p)); } catch { return norm(p); } };
 
 /** Plugin roots named in process environments (`ps eww` output), each once. */
 export function liveRootsFromPs(text) {
@@ -50,29 +54,85 @@ const byVersionDesc = (a, b) => {
  * @param {{versionDirs:string[], keep:string, liveRoots:string[]|null, keepNewest?:number}} a
  * @returns {{remove:string[], kept:{dir:string, why:string}[], why:string}}
  */
-export function pruneVersionsPlan({ versionDirs, keep, liveRoots, keepNewest = 0 }) {
-  const k = norm(keep);
-  const others = versionDirs.map(norm).filter((d) => d !== k);
+export function pruneVersionsPlan({ versionDirs, keep, liveRoots, protectedRoots = [], keepNewest = 0 }) {
+  const k = identity(keep);
+  const others = versionDirs.map(norm).filter((d) => identity(d) !== k);
   if (liveRoots == null) {
     return { remove: [], kept: others.map((dir) => ({ dir, why: 'open sessions could not be read' })),
       why: 'could not read which versions open sessions run from — removed nothing' };
   }
-  const live = new Set(liveRoots.map(norm));
+  const live = new Set(liveRoots.map(identity));
+  const registered = new Set(protectedRoots.map(identity));
   const newest = new Set([...versionDirs.map(norm)].sort(byVersionDesc).slice(0, Math.max(0, keepNewest)));
   const remove = []; const kept = [];
   for (const d of others) {
-    if (live.has(d)) kept.push({ dir: d, why: 'a live session runs hooks from it' });
+    if (registered.has(identity(d))) kept.push({ dir: d, why: 'a host registration names it' });
+    else if (live.has(identity(d))) kept.push({ dir: d, why: 'a live session runs hooks from it' });
     else if (newest.has(d)) kept.push({ dir: d, why: `one of the newest ${keepNewest}` });
     else remove.push(d);
   }
   return { remove, kept, why: '' };
 }
 
-function readLiveRoots() {
+export function readLiveRoots({ probeToken = randomUUID(), readPs } = {}) {
   try {
-    return liveRootsFromPs(execFileSync('ps', ['eww', '-A', '-o', 'command='],
-      { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'] }));
+    const text = readPs ? readPs(probeToken) : execFileSync('ps', ['eww', '-A', '-o', 'command='],
+      { encoding: 'utf8', maxBuffer: 32 * 1024 * 1024, stdio: ['ignore', 'pipe', 'ignore'],
+        env: { ...process.env, GREAT_CTO_PRUNE_VISIBILITY: probeToken } });
+    // The ps child itself carries a fresh control. Exit0 without environments
+    // is unknown, not evidence that no session uses an older version.
+    if (!text.includes(`GREAT_CTO_PRUNE_VISIBILITY=${probeToken}`)) return null;
+    for (const line of text.split('\n')) {
+      const command = line.split(/\s+[A-Za-z_][A-Za-z0-9_]*=/)[0];
+      if (/(?:^|[\s/])(?:claude|codex)(?:\s|$|\.app\/)/i.test(command)
+        && !/\bCLAUDE_PLUGIN_ROOT=\S/.test(line)) return null;
+    }
+    return liveRootsFromPs(text);
   } catch { return null; }
+}
+
+export function readRegisteredRoots(registry) {
+  try {
+    const stat = lstatSync(registry);
+    if (stat.isSymbolicLink() || !stat.isFile()) return null;
+    const data = JSON.parse(readFileSync(registry, 'utf8'));
+    if (data.version !== 2 || !data.plugins || typeof data.plugins !== 'object' || Array.isArray(data.plugins)) return null;
+    const roots = [];
+    for (const entries of Object.values(data.plugins)) {
+      if (!Array.isArray(entries)) return null;
+      for (const entry of entries) {
+        if (!entry || typeof entry.installPath !== 'string' || !isAbsolute(entry.installPath)) return null;
+        roots.push(entry.installPath);
+      }
+    }
+    return roots;
+  } catch { return null; }
+}
+
+export function applyPrunePlan({ root, keep, remove }) {
+  if (!isAbsolute(root) || lstatSync(root).isSymbolicLink()) throw new Error('unsafe prune root');
+  const canonical = realpathSync(root);
+  const current = realpathSync(keep);
+  if (dirname(current) !== canonical || lstatSync(keep).isSymbolicLink()) throw new Error('unsafe kept version');
+  const lock = join(canonical, '.local-install-lock');
+  mkdirSync(lock, { mode: 0o700 });
+  try {
+    // Validate ALL paths before the first removal, not just a lexical prefix.
+    const targets = remove.map(dir => {
+      if (!isAbsolute(dir) || dirname(resolve(dir)) !== resolve(root)
+        || !versionName(basename(dir))) {
+        throw new Error('prune target is not a direct version child');
+      }
+      const stat = lstatSync(dir);
+      const actual = realpathSync(dir);
+      if (stat.isSymbolicLink() || !stat.isDirectory() || dirname(actual) !== canonical || actual === current) {
+        throw new Error('unsafe prune target');
+      }
+      return actual;
+    });
+    for (const target of targets) rmSync(target, { recursive: true, force: false });
+    return targets.length;
+  } finally { rmdirSync(lock); }
 }
 
 const invokedDirectly = (() => {
@@ -87,12 +147,26 @@ if (invokedDirectly) {
   if (!root || !keep) { process.stderr.write('usage: prune-versions.mjs --cache-root <dir> --keep <dir>\n'); process.exit(2); }
   let versionDirs = [];
   try {
+    if (!isAbsolute(root) || lstatSync(root).isSymbolicLink()) throw new Error('unsafe cache root');
     versionDirs = readdirSync(root).map((f) => join(root, f))
-      .filter((p) => { try { return statSync(p).isDirectory(); } catch { return false; } });
-  } catch { process.exit(0); }
+      .filter((p) => {
+        try {
+          const s = lstatSync(p);
+          if (s.isSymbolicLink() || !s.isDirectory() || basename(p).startsWith('.')) return false;
+          if (!versionName(basename(p))) { process.stderr.write('  · non-version cache directory left alone\n'); return false; }
+          return true;
+        } catch { return false; }
+      });
+  } catch (error) { process.stderr.write(`prune refused: ${error.message}\n`); process.exit(1); }
   const keepNewest = Number.parseInt(arg('--keep-newest') || '0', 10) || 0;
-  const plan = pruneVersionsPlan({ versionDirs, keep, liveRoots: readLiveRoots(), keepNewest });
+  const protectedRoots = readRegisteredRoots(arg('--registry') || join(homedir(), '.claude', 'plugins', 'installed_plugins.json'));
+  const plan = pruneVersionsPlan({ versionDirs, keep, liveRoots: protectedRoots === null ? null : readLiveRoots(),
+    protectedRoots: protectedRoots || [], keepNewest });
+  if (protectedRoots === null) process.stderr.write('  · host registrations could not be read; cleanup skipped\n');
   if (plan.why) process.stderr.write(`  · ${plan.why}\n`);
   for (const k of plan.kept) process.stderr.write(`  · kept ${k.dir} — ${k.why}\n`);
-  for (const d of plan.remove) process.stdout.write(`${d}\n`);
+  if (process.argv.includes('--apply')) {
+    try { process.stdout.write(`pruned ${applyPrunePlan({ root, keep, remove: plan.remove })} version(s)\n`); }
+    catch (error) { process.stderr.write(`prune refused: ${error.message}\n`); process.exit(1); }
+  } else for (const d of plan.remove) process.stdout.write(`${d}\n`);
 }

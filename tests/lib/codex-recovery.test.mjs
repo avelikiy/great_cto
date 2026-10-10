@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { newRun, runStage, approve, recover, cancel } from '../../scripts/lib/codex-pipeline.mjs';
+import { commitFixture } from '../helpers/committed-fixture.mjs';
 
 const graph = `
 [transitions.pm]
@@ -32,13 +33,14 @@ on=["DONE"]
 join=["qa-engineer"]
 next=[]
 `;
-function fixture(t) {
+function fixture(t, { git = true } = {}) {
   const root = mkdtempSync(join(tmpdir(), 'codex-recovery-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const pluginRoot = join(root, 'plugin');
   mkdirSync(join(pluginRoot, 'shared'), { recursive: true }); mkdirSync(join(pluginRoot, 'agents'));
   writeFileSync(join(pluginRoot, 'shared/pipeline.toml'), graph);
   for (const role of ['pm', 'senior-dev', 'code-reviewer', 'qa-engineer', 'security-officer']) writeFileSync(join(pluginRoot, 'agents', `${role}.md`), role);
+  if (git) commitFixture(root);
   return newRun({ root, pluginRoot, prompt: 'fixture', allowed: ['src'], entry: 'pm' });
 }
 const verified = async () => ({ state: 'verified', findings: [], checks: ['fixture inspected'] });
@@ -94,9 +96,7 @@ test('repair cannot exceed the implementation attempt budget', async t => {
 });
 
 function gitBase(s) {
-  execFileSync('git', ['init', '-q'], { cwd: s.root });
-  execFileSync('git', ['add', 'plugin'], { cwd: s.root });
-  execFileSync('git', ['-c', 'user.name=Test', '-c', 'user.email=test@example.invalid', 'commit', '-qm', 'base'], { cwd: s.root });
+  commitFixture(s.root);
 }
 test('explicit recovery of unchanged pre-write Git stage survives serialization', async t => {
   let s = fixture(t); gitBase(s);
@@ -111,8 +111,9 @@ test('recovery refuses drift, non-Git roots and partially applied uncertainty', 
   await stage(s, 'DONE', { execute: async () => { throw Error('transport gone'); } });
   writeFileSync(join(s.root, 'new-file'), 'external change');
   assert.throws(() => recover(s), /working tree changed/);
-  const other = fixture(t);
-  await stage(other, 'DONE', { execute: async () => { throw Error('transport gone'); } });
+  const other = fixture(t, { git: false });
+  other.status = 'blocked'; other.active = 'pm';
+  other.attempts = [{ id: 'legacy', role: 'pm', phase: 'worker', inputReceipt: null }];
   assert.throws(() => recover(other), /only unchanged pre-write/);
   const applied = fixture(t); gitBase(applied);
   await stage(applied, 'DONE', { verify: async () => { throw Error('verifier crashed'); } });

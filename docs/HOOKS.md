@@ -297,6 +297,14 @@ export GREAT_CTO_DISABLE_HOOKS=1
 
 ## Testing hooks locally
 
+The stock pipeline uses [an exclusively owned phase lifecycle fixture](analysis/2026-10-03-phase-smoke-isolation.md)
+for its actual Beads checks; synthetic task closure is not human gate approval
+or proof of role/model execution.
+Its [MCP smoke checks an owned listener](analysis/2026-10-03-mcp-smoke-isolation.md)
+before making transport requests, and captures logs without predictable files.
+The [full-CI verdict and cleanup boundary](analysis/2026-10-03-full-ci-isolation-verdict.md)
+keep source tests, installed compatibility and release readiness separate.
+
 ```bash
 # Run all hook tests
 node --test tests/hooks/*.test.mjs

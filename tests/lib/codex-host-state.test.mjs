@@ -1,8 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, chmodSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { listCodexRuns, projectCodexState, codexHostDoctor } from '../../scripts/lib/codex-host-state.mjs';
 
 function fixture(t) {
@@ -30,6 +32,7 @@ test('Codex run projection excludes prompts, approval tokens and artifact bytes'
   assert.equal(encoded.includes(root), false);
   assert.equal(encoded.includes(store), false);
   assert.equal(result.runs[0].project, 'project');
+  assert.equal(result.runs[0].controllerDispatch.workerCalls, null);
   assert.deepEqual(result.runs[0].rolesCompleted, ['senior-dev']);
 });
 
@@ -65,4 +68,32 @@ test('projectCodexState keeps only bounded operational evidence', () => {
   assert.equal(projected.project, 'p');
   assert.equal(projected.attempts[0].host, 'claude-code');
   assert.equal(projected.wave.status, 'fetched');
+});
+
+test('run projection exposes only invocation aggregates, never raw dispatch records', () => {
+  const state = { id: 'x', version: 1, root: '/p', status: 'ready', dispatchEvidence: {
+    version: 1, completeHistory: true, records: [{ id: 'private-call-id', host: 'codex', role: 'qa', kind: 'worker',
+      startedAt: '2026-10-02T00:00:00.000Z', finishedAt: '2026-10-02T00:00:00.010Z', outcome: 'returned',
+      incidentalField: 'private-payload' }] } };
+  const projected = projectCodexState(state);
+  assert.equal(projected.controllerDispatch.activeMs, 10);
+  assert.equal(projected.controllerDispatch.workerCalls, 1);
+  assert.equal(projected.controllerDispatch.actualCostUsd, null);
+  for (const value of ['private-call-id', 'private-payload', 'startedAt']) assert.ok(!JSON.stringify(projected).includes(value));
+});
+
+test('actual CLI status reads telemetry aggregates without dispatch or approval mutation', t => {
+  const { root, store } = fixture(t), id = '66666666-6666-4666-8666-666666666666';
+  const path = join(store, `${id}.json`);
+  const raw = JSON.stringify({ version: 1, id, root, status: 'ready', results: {}, approvals: [], queue: [],
+    dispatchEvidence: { version: 1, completeHistory: true, records: [] } });
+  writeFileSync(path, raw, { mode: 0o600 });
+  const cli = fileURLToPath(new URL('../../scripts/codex-pipeline.mjs', import.meta.url));
+  const result = JSON.parse(execFileSync(process.execPath, [cli, 'status', id], {
+    encoding: 'utf8', env: { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store }, timeout: 10000 }));
+  assert.equal(result.controllerDispatch.workerCalls, 0);
+  assert.equal(result.controllerDispatch.activeMs, 0);
+  assert.equal(result.controllerDispatch.actualCostUsd, null);
+  assert.equal(result.status, 'ready');
+  assert.equal(readFileSync(path, 'utf8'), raw, 'read-only status leaves state bytes unchanged');
 });

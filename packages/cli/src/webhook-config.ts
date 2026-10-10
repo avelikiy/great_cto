@@ -12,9 +12,9 @@
 //     ]
 //   }
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
+import { stateHome } from "./state-home.mjs";
+import { readPrivateState, writePrivateState } from "./private-state.mjs";
 
 export interface IncomingHook {
   name: string;          // unique slug (github, sentry, custom-1)
@@ -41,32 +41,36 @@ export interface WebhookConfig {
   outgoing: OutgoingHook[];
 }
 
-const CONFIG_PATH = join(homedir(), ".great_cto", "webhooks.json");
-
-const DEFAULT_CONFIG: WebhookConfig = { incoming: [], outgoing: [] };
+// Same dedicated state namespace as the task queue and update checker.
+const CONFIG_PATH = join(stateHome(), "webhooks.json");
 
 export function getConfigPath(): string {
   return CONFIG_PATH;
 }
 
 export function loadConfig(): WebhookConfig {
-  if (!existsSync(CONFIG_PATH)) return { ...DEFAULT_CONFIG };
   try {
-    const raw = readFileSync(CONFIG_PATH, "utf8");
+    const raw = readPrivateState(CONFIG_PATH);
     const parsed = JSON.parse(raw) as Partial<WebhookConfig>;
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)
+      || (parsed.incoming !== undefined && !Array.isArray(parsed.incoming))
+      || (parsed.outgoing !== undefined && !Array.isArray(parsed.outgoing))) {
+      throw new Error("Invalid webhook configuration shape");
+    }
     return {
       incoming: parsed.incoming ?? [],
       outgoing: parsed.outgoing ?? [],
     };
-  } catch {
-    return { ...DEFAULT_CONFIG };
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === "ENOENT") return { incoming: [], outgoing: [] };
+    // A failed read is not an authoritative empty configuration. Never allow
+    // an add/remove operation to overwrite a corrupt or inaccessible store.
+    throw error;
   }
 }
 
 export function saveConfig(cfg: WebhookConfig): void {
-  const dir = dirname(CONFIG_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  writeFileSync(CONFIG_PATH, JSON.stringify(cfg, null, 2));
+  writePrivateState(CONFIG_PATH, JSON.stringify(cfg, null, 2));
 }
 
 export function addIncoming(hook: IncomingHook): void {
