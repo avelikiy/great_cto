@@ -8,7 +8,18 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Current delivery snapshot: 3.61.0
+## Current delivery snapshot: 3.62.0
+
+- PR #167 merged at ddb55ae3f1f7ff3bb6708e4f2eccf50f231f4018; its tree is identical to reviewed head351cab93. Release commit08a95f4b2e79f690d145730f9a38dfba08920975 changes synchronized versions, release notes and five synthetic screenshots, not application runtime.
+- GitHub Release v3.62.0 published2026-10-10T18:14:40Z. Normal main/tag pushes completed with privacy and existing security checks; no new public-term exception or baseline entry.
+- Exact8542e41e canonical gate exited0: root1360, libraries3320pass6skip, eval242, docs76, browser14, CLI369, archetypes34, candidate36pass9skip. Counts overlap. Complete log SHA25699972f581bcf4ef90935491b506fce2fd4c09ed7a565b0919df5ce0553ecc44f. Independent approval is experimental-only, not production or live quality certification.
+- Release build and112focused package/version/documentation checks passed0fail0skip; fresh five synthetic screenshots and screenshot freshness passed. Archive178files, SHA2566b108f2d868a17c114ba3d523d791d137fa627bf52d7008bbbf3f97809e4f159; pinned extracted CLI/controller construction smoke passed12cases/8refusals, zero dispatch or approvals, providerCalls=null, benchmarkEligible=false.
+- npm publish returned+great-cto@3.62.0 with a processing notice. Initial exact-version registry requests returned404, then fresh metadata returned3.62.0 and latest3.62.0. Registry archive SHA256 and integrity match the tested archive. A fresh isolated consumer installation with lifecycle scripts disabled reports3.62.0; downloaded-archive CLI/controller smoke passed12cases/8refusals and178-file inventory.
+- Actual isolated consumer board servedHTTP200 for version,HTML andprojects. Beads is a fixed empty synthetic adapter and discovery/state scopes are private; this proves standalone delivered runtime, not operator-board latency, real model execution or Beads performance.
+- Both Claude user registrations and installed/enabled Codex plugin independently report3.62.0. User-prefix CLI is3.62.0, installed from the tested archive with lifecycle scripts disabled. Prior3.61CLI archive and plugin caches retained. Existing sessions need restart/hook review; no hot-loading claim.
+- No board listener was present before the scoped start. InstalledCLI board ensure started it; actual /api/version returnedHTTP200 with version=installed=3.62.0, stale=no in1.148s. Subsequent HTML probe timed out at5s with zero bytes. P1 great_cto-932g.7 remains open; no healthy sustained UI or fixed latency claim.
+
+## Historical delivery snapshot: 3.61.0
 
 - Published package: fresh registry queries returned latest=3.61.0 and exact-version integrity matching the tested archive.
 - Release/tag source: `11e8774a1f1ac31cad3284d3b2835e0b1e6dacd8`; GitHub release published at 2026-10-10T14:02:45Z.
@@ -20,7 +31,7 @@ records installation evidence and the remaining candidate gates.
 - Later live board probes timed out at 5s/10s for version and 3s for HTML. Exact-board restart restored initial48.6ms/5ms responses, but the replacement stalled again after about17minutes. A private preload on the second restart identifies inboxElsewhere -> getInbox -> getTasks -> bdList -> spawnSync, one actual call19379.18ms. This proves one blocking request path, not the exclusive cause of previous indefinite stalls; installed source is unchanged. P1 great_cto-932g.7 remains open; no permanent latency fix is claimed.
 - PR #167 is not released. Prior canonical272b6a4a gate exited1; that red evidence is retained. Complete c33ae765 gate exited0 with libraries3300pass0fail6skip, candidate pipeline36pass0fail9skip, root/hooks/board1360pass0skip, eval242/docs76/browser14/CLI369/archetypes34 all passing. Canonical verdict was GREEN WITH15SKIPPED, not full paid-model/production readiness. Actual candidate MCP/SSE,HMAC401/200,11BoardAPIs and isolated realBeads lifecycle ran. Complete log SHA25608b3ccf79113a73206e107485bfab5ae9021b227a31b94b74891688ada8898d7. Existing assertions/deadlines remain, the complete source inventory is retained. Independent c33 review returned REQUEST_CHANGES for one P1 Git helper execution boundary. The exact735554b98021681ce54f38641c0fb5ede5c8cce4 fix passed84focused author tests0fail0skip and an independent read-only delta review APPROVED it after actual ephemeral Git probes. Its fresh full canonical replay is pending; an interrupted prior735 attempt has no verdict. Fresh Snyk on735 is SUCCESS. No inherited canonical approval, adaptive merge or release is claimed.
 
-## Current adaptive follow-up
+## Historical adaptive follow-up
 
 Adaptive follow-up: complete canonical735 replay exited1 with a single orphan
 document failure, libraries3316pass1fail6skip. Other suites: root1360,
@@ -100,7 +111,7 @@ it does not clear canonical failures. Log SHA-256:
 | #173 selected-project Usage | Merged / shipped 3.60.0 | Describe released project-attributed statistics and attribution limitations |
 | #175 English UI formatting | Merged / shipped 3.60.0 | Released; preserve original task/document content |
 | #176 Skills inventory | Merged / shipped 3.60.0 | Released read-only inventory; no enabled/loaded/upstream/quality inference |
-| #167 adaptive pipeline | Open draft / main | Upcoming; do not claim released adaptive gates or budgets |
+| #167 adaptive pipeline | Merged / shipped3.62.0 GitHub and npm; installed locally | Experimental opt-in; preserved mandatory floors and shared local budgets; 15not checked; no production guardian/cleanup guarantee |
 | #163 automatic Codex plugin refresh | Merged / shipped 3.61.0 | Released opt-in macOS schedule, independent of npm CLI; first refresh checked, recurring six-hour tick not yet observed |
 | #143–148 canonical evidence ledger chain | Open stacked PRs | Not described as shipped architecture; existing task/run stores remain authoritative |
 | #170 completion invocation evidence | Open draft / main | Do not imply all verdicts already have verified immutable invocation identity |
@@ -126,7 +137,7 @@ Use a synthetic public demo project, not an operator's real workspace:
 2. Harness: a mixed-host review wave and the resulting verifier/gate state.
 3. Usage: two host panels, clearly marked sample data and price semantics.
 
-Capture released 3.61.0 behavior for project-scoped Usage, English formatting and Skills. Label remaining adaptive development behavior unreleased and name its PR. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+Capture released3.62.0 behavior using synthetic fixtures. Label adaptive behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
 
 ## Validation scope
 
@@ -138,4 +149,4 @@ Documentation-only change. Completed editorial checks:
 - Article contains no private project identifiers, personal workspace paths or attached operator screenshots; normal pre-push privacy scanning also remains enabled.
 - `git diff --cached --check` passed.
 
-The original editorial checks above are historical. Follow-ups verify published 3.60.0 and 3.61.0 metadata, artifact delivery and independent local readback. The new 3.61.0 updater section links released source and delivery QA; adaptive work stays explicitly unreleased. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
+The original editorial checks above are historical. Follow-ups verify published3.60/3.61metadata and3.62GitHub/npm metadata, downloaded archive identity, fresh isolated consumer and scoped installation. Operator-board sustained UI responsiveness remains unproven. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.

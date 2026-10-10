@@ -121,7 +121,47 @@ The preload now identifies a concrete blocking chain: inboxElsewhere -> getInbox
 -> getTasks -> bdList -> bd spawnSync; one actual call took 19379.18ms. This
 proves one slow cross-project request path, not every earlier indefinite stall.
 
-## PR #167: full gate failed; do not deploy
+## PR #167: delivered experimental opt-in scope in 3.62.0
+
+The later frozen8542e41e complete canonical execution exited0 and the independent
+reviewer approved the experimental-only scope. Full counts,15not checked,
+retained earlier reds and lifecycle limits are recorded in
+[adaptive independent review](QA-2026-10-10-adaptive-independent-review.md).
+The original helper-kill cause remains Unknown; no production guardian is active.
+
+PR167 merged at ddb55ae3f1f7ff3bb6708e4f2eccf50f231f4018. Merge tree equals
+reviewed head351cab93. Release source08a95f4b2e79f690d145730f9a38dfba08920975;
+GitHub Release v3.62.0 published2026-10-10T18:14:40Z after normal main/tag pushes.
+Existing privacy/security hooks ran; no waiver, baseline or public-term addition.
+Release changes synchronize versions, notes and five freshly captured synthetic
+screenshots. Build,112focused checks and screenshot freshness passed.
+
+Tested npm archive contains178files, SHA256
+6b108f2d868a17c114ba3d523d791d137fa627bf52d7008bbbf3f97809e4f159.
+Pinned archive CLI smoke passed; packaged controller construction/selection
+passed12cases and8refusals with zero dispatch/approvals, providerCalls=null and
+benchmarkEligible=false. This is not model execution or full-workflow proof.
+npm accepted publication with a processing notice; initial registry404 responses
+were retained. Later exact-version metadata andlatest report3.62.0. Downloaded
+registry archive SHA256 andSHA512 integrity match the tested archive byte-for-byte.
+Fresh isolated consumer installation with lifecycle scripts disabled reports3.62.0;
+downloaded-archive CLI/controller smoke passed12cases/8refusals and178-file inventory.
+Actual isolated consumer board servedHTTP200 for version,HTML andprojects using
+a fixed empty synthetic Beads adapter and dedicated discovery/state scope. This
+is standalone runtime evidence, not real Beads/model execution or operator health.
+
+Both Claude user registrations, enabled Codex plugin and user-prefix CLI now
+report3.62.0 by independent readback. CLI installed from the tested archive,
+without lifecycle scripts. Prior3.61CLI archive and plugin caches retained.
+Defaults unchanged; installed artifacts do not prove hot-load or hook trust.
+
+There was no listener on3141 before starting the installed board with its scoped
+ensure command. Version API returnedHTTP200 version=installed=3.62.0 stale=no
+in1.148s. Following HTML request timed out at5s with no bytes. This is not sustained
+health or a latency fix; P1 great_cto-932g.7 remains open. No unrelated process was
+killed and no experimental guardian was activated.
+
+## PR #167: historical full gate failures
 
 Current main was integrated at 699d9b57. Complete local gate exited 1.
 
