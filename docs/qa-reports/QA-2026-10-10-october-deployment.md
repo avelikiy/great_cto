@@ -62,8 +62,26 @@ versions and nine README translation-history checks; missing browser dependencie
 left scenarios not checked. Fixture shell data now travels as environment/argv,
 the nine guides are synchronized and five screenshots are recaptured against a
 synthetic 3.60.0 project. Browser dependencies are installed. The fresh complete
-gate at dc02e807 is still pending at this report revision. No updater release,
-operator timer change or newer-version transition is claimed.
+gate at dc02e8072dfbe578b5af91f149ff99ed12e05d45 completed with exit 0:
+
+| Suite | Pass | Fail | Not executed |
+| --- | ---: | ---: | ---: |
+| Root, hooks and board | 1,346 | 0 | 0 |
+| Libraries | 2,579 | 0 | 4 |
+| Eval | 238 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Browser board scenarios | 14 | 0 | 0 |
+| Installed pipeline L1-L5 | 55 | 0 | 1 |
+| CLI | 362 | 0 | 0 |
+| Archetype scenarios | 34 | 0 | 0 |
+
+Build, package creation and the pinned HOL policy also passed. The four library
+skips are opt-in live Docker/controller/export/mixed-worker scenarios. The
+pipeline separately reports its absent historical pytest suite; ci-local's
+four-skip summary does not include that additional absence. Neither is a pass.
+Separate-suite counts overlap and are not a unique-test total. Complete log hash:
+a621cd57cf5502827f712a244d6c0c6851f0f4d814dd9b65b025de569aff32a8.
+No updater release, operator timer change or newer-version transition is claimed.
 
 Historical GitHub HOL run 36684344586 attempt 3 failed before execution because
 of billing lock, with steps=[]. Current main already removed that workflow and
@@ -107,6 +125,17 @@ without copying CLI dist or node_modules. The combined regression run passed
 45b0be9d3a408675deb274338ecdfe7e387d46517a2b3f0190b789c1482fa365.
 The initial fixture repair still lacked private-state.mjs; that failed rerun is
 retained, not counted as success. The final fixture copies only source .mjs.
+
+After the updater gate finished, a bounded isolated rerun at cab730db executed
+browser-guardian-helper and pinned-benchmark-scorer with test-concurrency=1.
+All 59 tests passed, with zero failures or skips; log hash:
+ed5e77c8263b55c5c6f174afec8ef76c6c216e6d816cf730846415411b1ce406.
+The scorer-kill/helper-kill quiescence and hostile SIGTERM timeout checks did
+not reproduce outside the heavily concurrent library gate. This suggests a
+load-sensitive test-lifetime boundary, not a proven production cause or a fixed
+full gate. No assertion, timeout or cleanup authority was weakened. The contrast
+deadline failure was not included in this isolated rerun. A fresh complete
+adaptive gate and installed candidate-isolation proof remain outstanding.
 
 Remaining failures and fresh independent review are tracked in
 great_cto-932g.3.1. No adaptive merge or release is approved by this report.
