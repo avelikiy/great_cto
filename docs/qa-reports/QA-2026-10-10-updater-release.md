@@ -91,6 +91,21 @@ or sustained-responsiveness proof. P1 bug great_cto-932g.7 remains open.
 Private sample SHA-256:
 `fe8870213ccfd0a49520a19c5de90412e7ad33f05122f78b81901f6ab9aa9885`.
 
+The replacement stalled again about 17 minutes later: version at a fixed 3s
+probe deadline returned HTTP000 and zero bytes. A second exact-board restart
+adds a private diagnostic preload, leaving installed source unchanged. The
+preload preserves subprocess options/results and records no raw argv/cwd/output.
+It identifies one concrete blocking path: routes.mjs:863 inbox elsewhere read,
+data-readers.mjs:516 inboxElsewhere ->407 getInbox, beads.mjs:788 getTasks
+->459 bdList ->112 bd spawnSync. One actual synchronous `bd` call took
+19379.18ms; subsequent cross-project reads added further serial delay.
+This proves an event-loop blocking request path, not the exclusive cause of
+earlier indefinite stalls. Owned async `bd list` children also exceeded six
+minutes despite a declared 20s timeout; their full lifecycle still needs repair.
+The second native sample SHA-256 is
+`31dbf849f9c01113a8b633faf66b3756a55e27edb49b5a860536a79425dc08eb`.
+P1 remains open; a diagnostically instrumented restart is not a product fix.
+
 The standalone helper was deployed to a stable global configuration location.
 Its SHA-256 matches both reviewed source and installed Codex plugin:
 `3e0ab7ae9f0eef74070a8669587f650a40ed94bf41e66ea27f53c1aae05df0da`.
