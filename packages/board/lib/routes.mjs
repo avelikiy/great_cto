@@ -67,6 +67,7 @@ import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecis
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
+import { getSkillsInventory } from './skills-inventory.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -168,6 +169,30 @@ async function dispatch(req, res, url, cwd) {
       res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ error: 'Publication preview unavailable: require verified delivery, a clean committed feature branch, explicit path scope and canonical GitHub origin. Inspect with the host CLI.' }));
     } finally { publicationPreviewBusy = false; }
+    return true;
+  }
+
+  // Inventory is a read-only local observation. Query parameters cannot choose
+  // filesystem roots, install skills or ask for network/upstream checks.
+  if (pathname === '/api/skills') {
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (req.method !== 'GET') {
+      res.writeHead(405, { ...headers, Allow: 'GET' });
+      res.end(JSON.stringify({ error: 'Skill inventory is read-only' }));
+      return true;
+    }
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, headers);
+      res.end(JSON.stringify({ error: 'Unknown project; skill inventory was not read' }));
+      return true;
+    }
+    try {
+      const snapshot = await getSkillsInventory(cwd);
+      res.writeHead(200, headers); res.end(JSON.stringify(snapshot));
+    } catch {
+      res.writeHead(503, headers);
+      res.end(JSON.stringify({ error: 'Skill inventory could not be read' }));
+    }
     return true;
   }
 
