@@ -78,7 +78,7 @@ test('launchd PATH runs an env-node launcher with Node outside the system direct
   const runtime = join(f.dir, 'runtime & tools');
   mkdirSync(runtime);
   symlinkSync(process.execPath, join(runtime, 'node'));
-  f.env.PATH = `${runtime}:/usr/bin:/bin:/usr/sbin:/sbin`;
+  f.env.PATH = [runtime, '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(':');
   writeFileSync(f.codex, '#!/usr/bin/env node\nconst fs=require("node:fs"); const args=process.argv.slice(2);\nif(args.join(" ")==="plugin marketplace list") console.log("great-cto  "+process.env.CODEX_FIXTURE_MARKETPLACE);\nelse fs.appendFileSync(process.env.CODEX_FIXTURE_CALLS,args.join(" ")+"\\n");\n');
   const xml = execFileSync('sh', [script, 'render'], { env: f.env, encoding: 'utf8' });
   const path = xml.match(/<key>PATH<\/key><string>([^<]*)<\/string>/)?.[1].replaceAll('&amp;', '&');
@@ -97,7 +97,7 @@ test('enable and disable refuse a foreign launch agent without replacing or remo
   writeFileSync(plist, foreign);
   const fakeUname = join(f.dir, 'uname');
   writeFileSync(fakeUname, '#!/bin/sh\necho Darwin\n', { mode: 0o755 });
-  f.env.PATH = `${f.dir}:${f.env.PATH}`;
+  f.env.PATH = [f.dir, f.env.PATH].join(':');
   for (const action of ['enable', 'disable']) {
     const result = spawnSync('sh', [script, action], { env: f.env, encoding: 'utf8' });
     assert.equal(result.status, 1);
@@ -120,7 +120,7 @@ test('enable registers a user timer, and disable removes only that timer', (t) =
   writeFileSync(fakeLaunchctl, `#!/bin/sh\nprintf '%s\\n' "$*" >> "${dir}/launchctl.calls"\n`);
   chmodSync(fakeUname, 0o755);
   chmodSync(fakeLaunchctl, 0o755);
-  env.PATH = `${dir}:${env.PATH}`;
+  env.PATH = [dir, env.PATH].join(':');
   env.GREAT_CTO_LAUNCHCTL = fakeLaunchctl;
   const plist = join(dir, 'Library', 'LaunchAgents', 'com.great-cto.codex-auto-update.plist');
 
@@ -139,7 +139,7 @@ test('enable refuses an unconfigured great-cto marketplace', (t) => {
   const fakeUname = join(dir, 'uname');
   writeFileSync(fakeUname, '#!/bin/sh\necho Darwin\n');
   chmodSync(fakeUname, 0o755);
-  env.PATH = `${dir}:${env.PATH}`;
+  env.PATH = [dir, env.PATH].join(':');
   const result = spawnSync('sh', [script, 'enable'], { env, encoding: 'utf8' });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /great-cto Git marketplace is not configured/);
