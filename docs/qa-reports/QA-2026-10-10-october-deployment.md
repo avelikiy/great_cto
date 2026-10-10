@@ -34,7 +34,7 @@ Old caches and private installation backups are preserved. Artifact installation
 does not prove hot-loading into an existing model session; new or changed Codex
 hooks still require the host's review.
 
-## PR #163: updater remains a candidate
+## PR #163: historical candidate verification
 
 Current main was integrated and each scheduled refresh now revalidates the Git
 marketplace origin before the host-managed upgrade. A fresh read-only Claude
@@ -81,7 +81,7 @@ pipeline separately reports its absent historical pytest suite; ci-local's
 four-skip summary does not include that additional absence. Neither is a pass.
 Separate-suite counts overlap and are not a unique-test total. Complete log hash:
 a621cd57cf5502827f712a244d6c0c6851f0f4d814dd9b65b025de569aff32a8.
-No updater release, operator timer change or newer-version transition is claimed.
+That prepublication run did not yet verify updater release, operator timer or a newer-version transition.
 
 Historical GitHub HOL run 36684344586 attempt 3 failed before execution because
 of billing lock, with steps=[]. Current main already removed that workflow and
@@ -91,6 +91,20 @@ were checked; none are configured. This does not waive the local security gate.
 Remaining review notes include no scheduled-command timeout, a pinned script
 path requiring a stable checkout, scheduling status not proving a successful
 refresh, and frozen Node/Codex paths needing re-enable after removal.
+
+### Delivered in 3.61.0
+
+PR #163 is now merged; the merge tree is identical to tested dc02e807. Exact
+release source is 11e8774a1f1ac31cad3284d3b2835e0b1e6dacd8. Fresh npm queries
+confirm 3.61.0 as latest; its registry archive matches the tested artifact.
+Both Claude registrations, enabled Codex plugin, global CLI and running board
+now report 3.61.0. The new owned macOS scheduler's first refresh ended with exit0,
+updated marketplace and no errors. Schedule readback confirms 21600 seconds;
+the recurring tick has not yet been observed. The installer also refreshed Codex,
+so exclusive attribution of the version transition to the timer is unproven.
+The loaded legacy-job/missing-plist edge required scoped local repair and is
+tracked separately. [3.61.0 delivery QA](QA-2026-10-10-updater-release.md)
+contains exact source pins, checksums, skips and rollback boundaries.
 
 ## PR #167: full gate failed; do not deploy
 
@@ -140,17 +154,34 @@ adaptive gate and installed candidate-isolation proof remain outstanding.
 Remaining failures and fresh independent review are tracked in
 great_cto-932g.3.1. No adaptive merge or release is approved by this report.
 
+### Fresh replay and candidate-isolation work
+
+Synthetic screenshots were recaptured for current versions. An unbounded
+3301-test library replay at ac30dc3b recorded 3294 pass, one failure and six
+skips. The remaining failure is a fixed-window scorer-ready observation under
+load; no assertion or deadline is weakened. Log SHA-256:
+de6c69a8e9556acf75d65eb4d413358214e320a0481670209f39be170be33c6f.
+
+At 1db5923d the canonical library gate limits file concurrency to two, retaining
+the complete inventory and original case/IPC/cleanup budgets. An explicit
+absolute candidate-artifact selector refuses incomplete artifacts before probes
+and labels its evidence separately from operator installation. Its nine focused
+regression tests passed with no skips. After merging released main, the fresh
+complete gate at 272b6a4a runs against an archived candidate with built CLI in
+private state, without overwriting the operator's installed 3.61.0. Its final
+verdict and independent application review are still outstanding at this note.
+
 ## Article and delivery boundary
 
 [Article draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md) now
-distinguishes installed 3.60.0 features from #163/#167 still in review.
+distinguishes installed 3.60.0/3.61.0 features from #167 still in review.
 [Editorial evidence](../analysis/2026-10-10-monthly-blog-fact-check.md) records
 source pins and limitations. Initial documentation validation passed 76 tests,
 zero failures/skips; hash:
 a821fca9f5ff9ac3787f557b5d274cef1a3c745c6793df22668466ca7fa41eb0.
 
-Feature-branch pushes are currently blocked by a workspace-derived common-word
-privacy match. A narrowly scoped operator decision was requested; the privacy
-configuration and hooks have not been weakened or bypassed. Article PR #177's
-remote head therefore does not yet include the local update. Publishing the
-article on the blog remains a separate action.
+The operator explicitly authorized only technical terms contract and launchd
+in the local public-terms override. Normal feature pushes then succeeded with
+privacy hooks enabled; shipped privacy policy and private-term lists were not
+changed. No security exception was used. The article update targets draft PR
+#177; publishing it on the external blog remains a separate action.

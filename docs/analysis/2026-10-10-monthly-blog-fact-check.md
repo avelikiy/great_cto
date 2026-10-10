@@ -8,7 +8,18 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Snapshot
+## Current delivery snapshot: 3.61.0
+
+- Published package: fresh registry queries returned latest=3.61.0 and exact-version integrity matching the tested archive.
+- Release/tag source: `11e8774a1f1ac31cad3284d3b2835e0b1e6dacd8`; GitHub release published at 2026-10-10T14:02:45Z.
+- PR #163 merged at `cf12f95c583a00fd483086748044cd922cb86f61`; tested candidate and merge trees are identical. Version-bump application directories remained unchanged.
+- Fresh registry consumer verified CLI version, standalone inventory, document hash and manifest. The downloaded archive is byte-identical to the tested local archive. Details: [updater release QA](../qa-reports/QA-2026-10-10-updater-release.md).
+- Both Claude registrations, enabled Codex plugin and user-prefix CLI report 3.61.0. Repeated board readback returned version=installed=3.61.0, stale=no. New sessions/hook trust remain distinct from artifact installation.
+- New launchd helper's first run ended with exit 0, updated marketplace and no errors. Six-hour recurring execution is not yet observed; installer also refreshed Codex, so exclusive version-transition attribution is not established.
+- Migration from an already-loaded legacy job with no plist required exact-label local repair. That edge is a tracked bug, not silently represented as shipped automatic repair.
+- PR #167 is not released. The latest unbounded library replay at ac30dc3b recorded 3294 pass, one failure and six skips; bounded canonical scheduling and a private candidate-artifact seam are under fresh full-gate verification at 272b6a4a. No weakened deadlines/assertions and no fresh independent application approval are claimed.
+
+## Historical delivery snapshot: 3.60.0
 
 - Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
 - Published package: fresh `npm view great-cto@latest version --json` returned `3.60.0`.
@@ -40,6 +51,7 @@ records installation evidence and the remaining candidate gates.
 | Self-contained installed board runtime | CHANGELOG 3.59.1 | Gate policy no longer imports ignored CLI build; not an entirely dependency-free product |
 | Selected-project Usage and English formatting | CHANGELOG 3.60.0; PR #173/#175; release QA | Released and installed; unresolved attribution excluded, existing linked worktrees only; original user content preserved |
 | Read-only multi-host Skills inventory | ADR-029; PR #176; release QA | Released and installed; document-only hash; no loaded/enabled, upstream trust or task-quality inference; partial scans remain partial |
+| Optional macOS Codex plugin refresh | CHANGELOG 3.61.0; HOST-CODEX.md; PR #163; updater release QA | Released and enabled locally; origin revalidated every refresh; schedule is not upgrade evidence; follows Git ref, not npm latest; no automatic gate approval or hot-load claim |
 | Mixed quality gain observed as 0 pp | docs/analysis/2026-10-02-host-quality-recheck.md; merged PR #166 | Two tasks; each arm 24/24; ceiling effect; no population equivalence, reliability, full-product or cost improvement estimate |
 
 ## Feature delivery at the updated snapshot
@@ -50,7 +62,7 @@ records installation evidence and the remaining candidate gates.
 | #175 English UI formatting | Merged / shipped 3.60.0 | Released; preserve original task/document content |
 | #176 Skills inventory | Merged / shipped 3.60.0 | Released read-only inventory; no enabled/loaded/upstream/quality inference |
 | #167 adaptive pipeline | Open draft / main | Upcoming; do not claim released adaptive gates or budgets |
-| #163 automatic Codex plugin refresh | Open / main | Upcoming; released Codex plugin update remains explicit |
+| #163 automatic Codex plugin refresh | Merged / shipped 3.61.0 | Released opt-in macOS schedule, independent of npm CLI; first refresh checked, recurring six-hour tick not yet observed |
 | #143–148 canonical evidence ledger chain | Open stacked PRs | Not described as shipped architecture; existing task/run stores remain authoritative |
 | #170 completion invocation evidence | Open draft / main | Do not imply all verdicts already have verified immutable invocation identity |
 
@@ -75,7 +87,7 @@ Use a synthetic public demo project, not an operator's real workspace:
 2. Harness: a mixed-host review wave and the resulting verifier/gate state.
 3. Usage: two host panels, clearly marked sample data and price semantics.
 
-Capture released 3.60.0 behavior for project-scoped Usage, English formatting and Skills. Label any remaining adaptive/updater development behavior unreleased and name its PR. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+Capture released 3.61.0 behavior for project-scoped Usage, English formatting and Skills. Label remaining adaptive development behavior unreleased and name its PR. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
 
 ## Validation scope
 
@@ -87,4 +99,4 @@ Documentation-only change. Completed editorial checks:
 - Article contains no private project identifiers, personal workspace paths or attached operator screenshots; normal pre-push privacy scanning also remains enabled.
 - `git diff --cached --check` passed.
 
-The original editorial checks above are historical. This follow-up additionally verifies published 3.60.0 metadata, local installation/version readback and live UI navigation. It does not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
+The original editorial checks above are historical. Follow-ups verify published 3.60.0 and 3.61.0 metadata, artifact delivery and independent local readback. The new 3.61.0 updater section links released source and delivery QA; adaptive work stays explicitly unreleased. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.

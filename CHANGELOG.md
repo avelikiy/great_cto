@@ -69,6 +69,7 @@ existing model session or a full mixed-host development cycle. Removing Node,
 Codex or the pinned script requires re-enabling from a stable installation.
 
 ---
+
 ## v3.60.0 — 2026-10-10
 
 Inspect local skills and compare host usage within one selected project.
