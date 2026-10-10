@@ -9,12 +9,14 @@ function harness() {
   const requests = [], rendered = [];
   const ctx = vm.createContext({
     currentProject: 'alpha', currentTab: 'usage', usageDays: 30, usageHost: 'claude', usageData: null,
+    serverDefaultProject: false,
     _usageRequest: 0, _outcomesRequest: 0, _usageTimer: null, _outcomesTimer: null,
     document: { querySelectorAll: () => [], getElementById: () => body },
     clearTimeout, setTimeout,
     api: url => new Promise(resolve => requests.push({ url, resolve })),
     renderUsage: d => rendered.push(d), usageAgentsCard: d => d.marker, usageFindingsCard: () => '',
   });
+  vm.runInContext(html.slice(html.indexOf('function pqs()'), html.indexOf('// Combined query string')), ctx);
   vm.runInContext(html.slice(html.indexOf('function resetProjectUsage()'), html.indexOf('const USAGE_HOSTS')), ctx);
   vm.runInContext(html.slice(html.indexOf('async function loadUsage(days)'), html.indexOf('\nfunction setUsageHost')), ctx);
   vm.runInContext(html.slice(html.indexOf('async function loadOutcomes()'), html.indexOf('\nfunction usageAgentsCard')), ctx);
@@ -62,4 +64,15 @@ test('project switching clears cached data immediately and drops late outcomes',
   h.requests[1].resolve({ state: 'counted', scope: { kind: 'project' }, marker: 'beta' }); await next;
   h.requests[0].resolve({ state: 'counted', scope: { kind: 'project' }, marker: 'alpha' }); await old;
   assert.equal(h.body.innerHTML, 'beta');
+});
+
+test('unregistered server default omits invented project parameters; explicit unknown selections remain explicit', async () => {
+  const h = harness(); h.ctx.currentProject = 'unregistered-display'; h.ctx.serverDefaultProject = true;
+  const run = h.ctx.loadUsage();
+  assert.equal(h.requests[0].url, '/api/usage?days=30');
+  h.requests[0].resolve({ state: 'counted', scope: { kind: 'project' } }); await run;
+  assert.equal(h.requests[1].url, '/api/outcomes?days=30');
+  h.requests[1].resolve({ state: 'unavailable' });
+  h.ctx.serverDefaultProject = false; h.ctx.currentProject = 'explicit-unknown';
+  assert.match(h.ctx.pqs(), /project=explicit-unknown/);
 });

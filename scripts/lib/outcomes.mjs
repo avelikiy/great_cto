@@ -82,7 +82,7 @@ export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.
         // An explicit foreign tag cannot be overridden by a copied local log;
         // untagged global records remain unattributable.
         if (projectScope && (project === null || rec.project != null)
-          && !projects.some(p => rec.project === p.name || rec.project === p.path)) continue;
+          && !projects.some(p => (p.aliases || [p.name, p.path]).includes(rec.project))) continue;
         const t = Date.parse(rec.ts);
         if (!Number.isFinite(t) || t < from || t > now) continue;
         const key = line.trim();

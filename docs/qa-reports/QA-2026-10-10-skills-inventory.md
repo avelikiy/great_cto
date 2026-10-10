@@ -4,6 +4,13 @@ Date: 2026-10-10
 Scope: Beads great_cto-f33n.1, ADR-029
 Branch: codex/skills-inventory, based on codex/board-english-ui
 
+Dependency verification: [selected-project Usage](QA-2026-10-10-project-scoped-usage.md)
+and [English UI formatting](QA-2026-10-10-board-english-ui.md).
+
+Release-stage review and corrections are recorded separately in the
+[independent review report](REVIEW-2026-10-10-skills-release.md). The results
+below describe the original implementation run, not a later release approval.
+
 ## Results
 
 | Check | Result |

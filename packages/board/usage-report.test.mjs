@@ -59,3 +59,13 @@ test('Tools follows primary navigation; only footer consumes remaining vertical 
   assert.match(html, /\.sidebar-footer \{\s*margin-top: auto/);
   assert.ok(html.indexOf('id="nav-tablist"') < html.indexOf('id="tools-nav"'));
 });
+
+test('cache pressure cannot evict an in-flight project and discard its result', async () => {
+  let finish, calls = 0;
+  const reports = usageReports({ limit: 2, compute: () => { calls++; return new Promise(resolve => { finish = resolve; }); } });
+  reports.get(7, '/work/active'); await tick();
+  for (let n = 0; n < 9; n++) reports.get(7, `/work/waiting-${n}`);
+  finish({ state: 'counted', tokens: 42 }); await tick();
+  assert.equal(reports.get(7, '/work/active').tokens, 42);
+  await tick(); assert.equal(calls, 1);
+});
