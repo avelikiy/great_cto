@@ -159,7 +159,10 @@ async function openBoard(env, route = '', pageOptions = {}) {
   // A later panel (e.g. Skills) follows the hidden Inbox in DOM order. The
   // comma selector waited on that hidden first match even with a visible active panel.
   await page.waitForSelector('.panel.active', { timeout: 15000 });
-  await page.waitForTimeout(1200);   // the board paints, then fills from /api/*
+  // An active panel is only the shell. init() still waits for its API reads;
+  // a fixed 1.2s pause asserted on empty cards under full-suite load.
+  await page.waitForFunction(() => typeof currentProject === 'string' && currentProject.length > 0,
+    null, { timeout: 15000 });
   return { page, errors };
 }
 

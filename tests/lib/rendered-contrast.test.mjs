@@ -262,14 +262,15 @@ test('every panel, both themes: text can be read against what is behind it', { t
       state: 'partial', observed_at: '2026-10-10T00:00:00Z', registry: { state: 'unreadable' },
       sources: [{ label: 'Project fixture', scope: 'project', state: 'partial', warnings: ['source-limit'] }],
       skills: [
-        { name: 'observed-fixture', host: 'codex', location: 'project/.codex/skills/observed-fixture/SKILL.md', scope: 'project', read_state: 'observed', document_sha256: 'a'.repeat(64), bytes: 120, warnings: [] },
-        { name: 'unreadable-fixture', host: 'claude', location: 'home/.claude/skills/unreadable-fixture/SKILL.md', scope: 'machine', read_state: 'unreadable', warnings: ['invalid-frontmatter'] },
+        { name: 'observed-fixture', host: 'Codex', location: 'project/.codex/skills/observed-fixture/SKILL.md', scope: 'project', read_state: 'observed', document_sha256: 'a'.repeat(64), bytes: 120, warnings: [] },
+        { name: 'unreadable-fixture', host: 'Claude Code', location: '~/.claude/skills/unreadable-fixture/SKILL.md', scope: 'machine', read_state: 'unreadable', warnings: ['invalid-frontmatter'] },
       ],
     } }));
     await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(2500);
     await page.evaluate(async () => { await loadSkillsInventory(); });
     assert.equal(await page.locator('#skills-table tbody tr').count(), 2);
+    await page.evaluate(() => { document.querySelector('#skills-body details').open = true; });
 
     // The page's own panel list must be the one this file walks.
     const shipped = await page.evaluate(() => [...document.querySelectorAll('[id^="panel-"]')].map((e) => e.id.slice(6)).sort());
