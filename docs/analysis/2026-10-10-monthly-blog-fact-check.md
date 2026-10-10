@@ -29,13 +29,21 @@ SHA2562ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f
 is retained, not replaced by focused green. The docs-only1babcab2 integrates
 main16d and connects both QA reports to existing contracts; frozen count48
 unchanged. Focused81pass0fail0skip. Application delta excluding QA files is
-zero against independently approved735. Full canonical1b replay is still running
-but has already failed the actual observer owner-kill closure assertion (case457,
-about9.87s). Six predetermined private diagnostic reproductions, three sequential
-and three concurrent, each passed1/0fail/0skip without changing budgets/assertions;
-they do not replace the canonical red or establish its cause. The same authorized
-independent reviewer is checking the supported lifecycle contract read-only.
-Fresh Snyk on1b is SUCCESS. No167merge/release claim.
+zero against independently approved735. Complete canonical1b replay exited1:
+libraries3314pass3fail6skip; root1360,eval242,docs76,browser14,CLI369,
+archetypes34 all passed; candidate36pass0fail9skip. Full log SHA256
+4eac057aa8bea5fbbe0bc6215435fe788acee1fd97ff6600e3690d5e8b647e32.
+Reds: raw owner-kill457, helper scorer-kill557 and helper-kill558, all captured
+tree closure before fallback. Six raw-owner diagnostic repetitions each passed1,
+two helper crash cases passed2 and paired lifecycle files passed30/0fail/0skip.
+No diagnostic pass replaces canonical red or identifies original surviving PIDs.
+Independent delivery verdict REQUEST_CHANGES: raw/scorer abrupt-death teardown
+is unimplemented, ADR028 Proposed; helper-kill has implemented disconnect/finally
+unwind and must keep its strict assertion. Author added bounded pre-fallback
+failure metadata in two test files only, preserving deadlines/closure assertions
+and explicitly asserting no completed result after owner SIGKILL. No runtime
+repair, weakened gate or new full-source approval is claimed. Fresh Snyk on1b
+is SUCCESS. No167merge/release claim.
 
 ## Historical delivery snapshot: 3.60.0
 

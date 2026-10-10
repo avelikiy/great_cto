@@ -291,17 +291,28 @@ is empty against approved735; application approval is unchanged. Fresh1b Snyk
 SUCCESS and a new full canonical replay pending. No canonical-green inheritance,
 no waiver, no167merge or delivered adaptive feature claimed.
 
-The exact1b canonical replay subsequently failed case457, actual observer browser
-processes stop after owner-kill: the captured browser tree did not stop before
-test cleanup assistance (about9.87s). The full gate is still running; final suite
-totals and log digest are not yet available. Normal, DOM-refusal and owner-term
-cases passed. Six predetermined private diagnostic repetitions, three sequential
-and three concurrent, each passed1/0fail/0skip. Their bounded surviving-process
-metadata did not fire, so the original remaining process identities and cause
-are unknown. No deadlines/assertions were relaxed and no diagnostic pass replaced
-the canonical failure. The same authorized independent reviewer is assessing
-the observer's actual SIGKILL/cleanup contract without editing source. PR167
-remains unmerged, untagged and unpublished; installed3.61.0 is unchanged.
+The exact1b canonical replay completed exit1. Libraries3314pass3fail6skip;
+root1360,eval242,docs76,browser14,CLI369,archetypes34 all passed; candidate
+pipeline36pass0fail9skip. Suite counts overlap, not unique tests. Full log SHA256:
+4eac057aa8bea5fbbe0bc6215435fe788acee1fd97ff6600e3690d5e8b647e32.
+Failures: raw owner-kill457 (9.87s), external helper scorer-kill557 (9.46s)
+and helper-kill558 (8.91s), captured tree closure before fixture fallback.
+Normal/refusal/TERM and parent-disconnect passed. Six predetermined raw-owner
+diagnostic runs each passed1; two helper crash cases passed2; paired lifecycle
+files passed30/0fail/0skip in55.6s. Their survivor metadata did not fire; the
+original remaining process identities and specific cause are Unknown.
+
+Independent read-only delivery verdict REQUEST_CHANGES: raw/scorer SIGKILL
+teardown is unimplemented, ADR028 remains Proposed. Helper-kill does implement
+disconnect->barrier rejection->finally/browser.close and must keep its strict
+closure assertion, as must normal/refusal/TERM. No weakened gate or deadline
+extension was accepted. After the exact canonical completed, author added bounded
+pre-fallback PID/start/state, executable-basename and recent allowlisted stage
+diagnostics in two test files; raw argv/paths/environment/capabilities stay
+withheld. Direct owner-kill now explicitly asserts no completed scoring result.
+Existing closure assertions remain; no runtime repair or full-gate approval is
+claimed. PR167 remains unmerged, untagged and unpublished; installed3.61.0 and
+main are unchanged.
 
 ## Article and delivery boundary
 
