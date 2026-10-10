@@ -95,6 +95,31 @@ test('linked Git worktrees and symlinks use repository identity, not a matching 
   assert.deepEqual(Object.keys(projectUsageIndex(index, worktree).files), ['root', 'linked', 'alias']);
 });
 
+test('monorepo project boundaries survive linked worktrees without admitting sibling projects', () => {
+  const r = roots();
+  const repo = path.join(r.d, 'mono'), worktree = path.join(r.d, 'linked');
+  const gitDir = path.join(repo, '.git'), wtGit = path.join(gitDir, 'worktrees', 'job');
+  fs.mkdirSync(wtGit, { recursive: true });
+  for (const base of [repo, worktree]) for (const name of ['alpha', 'alpha-other', 'beta']) {
+    fs.mkdirSync(path.join(base, 'apps', name, 'src'), { recursive: true });
+  }
+  fs.writeFileSync(path.join(worktree, '.git'), `gitdir: ${wtGit}\n`);
+  fs.writeFileSync(path.join(wtGit, 'commondir'), '../..\n');
+  const entry = cwd => ({ host: 'codex', meta: { cwd } });
+  const index = { files: {
+    alpha: entry(path.join(repo, 'apps', 'alpha', 'src')),
+    linkedAlpha: entry(path.join(worktree, 'apps', 'alpha')),
+    beta: entry(path.join(repo, 'apps', 'beta')),
+    linkedBeta: entry(path.join(worktree, 'apps', 'beta')),
+    prefix: entry(path.join(repo, 'apps', 'alpha-other')),
+    repoRoot: entry(repo),
+  } };
+  for (const base of [repo, worktree]) {
+    assert.deepEqual(Object.keys(projectUsageIndex(index, path.join(base, 'apps', 'alpha')).files), ['alpha', 'linkedAlpha']);
+  }
+  assert.equal(Object.keys(projectUsageIndex(index, repo).files).length, 6, 'whole-repository scope still includes all its worktrees');
+});
+
 test('nested child attribution follows same-host ancestry and terminates corrupt parent cycles', () => {
   const entry = (host, session, parent, cwd = null) => ({ host, meta: { session, parent, cwd } });
   const index = { files: {

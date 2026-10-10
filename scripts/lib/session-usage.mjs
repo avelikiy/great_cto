@@ -103,7 +103,7 @@ function repositoryIdentity(cwd) {
       }
       let common = gitDir;
       try { common = path.resolve(gitDir, fs.readFileSync(path.join(gitDir, 'commondir'), 'utf8').trim()); } catch { /* main checkout */ }
-      return canonical(common);
+      return { common: canonical(common), root: dir };
     } catch { /* continue to parent */ }
     if (path.dirname(dir) === dir) return null;
   }
@@ -114,6 +114,7 @@ export function projectUsageIndex(index, projectPath) {
   if (!projectPath) return index;
   const root = canonical(projectPath);
   const git = repositoryIdentity(root);
+  const projectRelative = git ? path.relative(git.root, root) : null;
   const identities = new Map();
   const entries = Object.entries(index.files || {});
   const sessions = new Map();
@@ -133,9 +134,14 @@ export function projectUsageIndex(index, projectPath) {
     if (identities.has(cwd)) return identities.get(cwd);
     const actual = canonical(cwd);
     const repo = repositoryIdentity(actual);
-    const rel = path.relative(root, actual);
+    // Transfer the selected project's relative directory to this worktree.
+    // A shared Git database alone does not make sibling monorepo apps one project.
+    const scopeRoot = git && repo && git.common === repo.common
+      ? path.resolve(repo.root, projectRelative)
+      : root;
+    const rel = path.relative(scopeRoot, actual);
     const inside = rel === '' || (!rel.startsWith(`..${path.sep}`) && rel !== '..' && !path.isAbsolute(rel));
-    const match = git && repo ? git === repo : inside;
+    const match = git && repo ? git.common === repo.common && inside : inside;
     identities.set(cwd, match);
     return match;
   };
