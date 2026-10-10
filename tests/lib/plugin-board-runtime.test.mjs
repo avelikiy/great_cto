@@ -36,7 +36,7 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
     fs.writeFileSync(path.join(project, '.great_cto/PROJECT.md'), 'project: sample-project\narchetype: fintech\n');
     fs.mkdirSync(path.join(home, '.great_cto'), { recursive: true });
     fs.writeFileSync(path.join(home, '.great_cto/projects.json'), JSON.stringify({ projects: [{ slug: 'sample-project', path: project }] }));
-    for (const dir of ['packages/board', 'scripts/lib', 'shared', '.claude-plugin']) {
+    for (const dir of ['packages/board', 'scripts', 'shared', '.claude-plugin']) {
       fs.cpSync(path.join(root, dir), path.join(plugin, dir), { recursive: true,
         filter: (src) => !/node_modules|\.test\.mjs$/.test(src) });
     }
@@ -51,6 +51,9 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
     assert.equal(response.headers.get('X-Project-Fallback'), null);
     const projects = await (await fetch(`http://127.0.0.1:${started.port}/api/projects`)).json();
     assert.ok(projects.some((p) => p.slug === 'sample-project' && p.path === project));
+    const skillsResponse = await fetch(`http://127.0.0.1:${started.port}/api/skills?project=sample-project`);
+    assert.equal(skillsResponse.status, 200);
+    assert.ok(Array.isArray((await skillsResponse.json()).skills));
   } finally {
     if (proc) await reap(proc);
     fs.rmSync(tmp, { recursive: true, force: true });

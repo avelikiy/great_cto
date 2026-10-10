@@ -46,6 +46,29 @@ not replace the mandatory full release gate or a fresh approving review.
 
 ## Release status
 
-Not yet approved or published by this report. Evidence-ledger implementation,
+## Fresh independent review: APPROVED
+
+Reviewed source: 5db1d3ea2fc0b960f2bbf152c791e11945eac950.
+Fresh read-only Claude Code session: adbe5060-af1a-4792-9e89-3a042c2ae169.
+The reviewer verified the scoped-identity, default-root, cache and bundle fixes
+and returned APPROVED with no blocking finding. There were no tool permission
+denials or delegated agents. Approval remains static and scope-limited.
+
+Two Low findings are tracked in great_cto-f33n.8: Outcomes may exceed its cache
+bound when every slot computes; same-basename registered roots conservatively
+exclude ambiguous tagged verdicts without an exclusion counter. No cross-project
+leakage was found, and neither finding was classified as blocking by the reviewer.
+
+The subsequent full gate reached completion but failed two library checks:
+the marketplace fixture copied only scripts/lib rather than the full shipped
+scripts tree, and the rendered-contrast walker omitted the Skills panel. The
+fixture now copies the full tree and exercises the Skills API. The contrast
+walker includes Skills with synthetic observed/unreadable rows in both themes,
+without scanning the operator's skill inventory. The four targeted checks pass
+with no failures or skips. These are test-only corrections; application code
+remains byte-identical to the independently reviewed revision.
+
+Not yet published by this report. A final complete gate is still required.
+Evidence-ledger implementation,
 unrelated pull requests, live-model benchmarks and full host-compatibility
 claims are outside this release scope. No security exception is being used.
