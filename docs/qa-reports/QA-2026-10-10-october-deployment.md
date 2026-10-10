@@ -161,6 +161,10 @@ in1.148s. Following HTML request timed out at5s with no bytes. This is not susta
 health or a latency fix; P1 great_cto-932g.7 remains open. No unrelated process was
 killed and no experimental guardian was activated.
 
+Later probes recovered without another restart: versionHTTP2001.231ms and
+HTMLHTTP2003.342ms. Current availability does not clear earlier5s timeouts or
+prove sustained health, exclusive startup cause or a permanent Beads latency fix.
+
 ## PR #167: historical full gate failures
 
 Current main was integrated at 699d9b57. Complete local gate exited 1.

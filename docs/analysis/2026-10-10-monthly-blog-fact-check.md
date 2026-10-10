@@ -18,6 +18,7 @@ records installation evidence and the remaining candidate gates.
 - Actual isolated consumer board servedHTTP200 for version,HTML andprojects. Beads is a fixed empty synthetic adapter and discovery/state scopes are private; this proves standalone delivered runtime, not operator-board latency, real model execution or Beads performance.
 - Both Claude user registrations and installed/enabled Codex plugin independently report3.62.0. User-prefix CLI is3.62.0, installed from the tested archive with lifecycle scripts disabled. Prior3.61CLI archive and plugin caches retained. Existing sessions need restart/hook review; no hot-loading claim.
 - No board listener was present before the scoped start. InstalledCLI board ensure started it; actual /api/version returnedHTTP200 with version=installed=3.62.0, stale=no in1.148s. Subsequent HTML probe timed out at5s with zero bytes. P1 great_cto-932g.7 remains open; no healthy sustained UI or fixed latency claim.
+- Later probes recovered without another restart: versionHTTP2001.231ms andHTMLHTTP2003.342ms. This is current availability, not sustained health, exclusive startup-cause diagnosis or permanent Beads latency repair.
 
 ## Historical delivery snapshot: 3.61.0
 
