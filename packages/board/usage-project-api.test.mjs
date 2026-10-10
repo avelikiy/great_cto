@@ -12,7 +12,11 @@ after(() => {
   process.env.HOME = previousHome;
   fs.rmSync(fixture, { recursive: true, force: true });
 });
-const projects = ['alpha', 'beta'].map(slug => ({ slug, name: slug, path: path.join(fixture, slug) }));
+// Two registered projects share one Git database: workers must retain their
+// subdirectory scopes rather than treating the entire monorepo as one project.
+const monorepo = path.join(fixture, 'monorepo');
+fs.mkdirSync(path.join(monorepo, '.git'), { recursive: true });
+const projects = ['alpha', 'beta'].map(slug => ({ slug, name: slug, path: path.join(monorepo, 'apps', slug) }));
 const ts = new Date().toISOString();
 const jsonl = rows => rows.map(r => JSON.stringify(r)).join('\n') + '\n';
 fs.mkdirSync(path.join(fixture, '.great_cto'));
@@ -20,7 +24,10 @@ fs.writeFileSync(process.env.GREAT_CTO_PROJECTS_FILE, JSON.stringify({ projects 
 for (const [i, p] of projects.entries()) {
   fs.mkdirSync(path.join(p.path, '.great_cto', 'verdicts'), { recursive: true });
   fs.writeFileSync(path.join(p.path, '.great_cto', 'PROJECT.md'), `# ${p.slug}\nproject: ${p.slug}\n`);
-  fs.writeFileSync(path.join(p.path, '.great_cto', 'verdicts', 'senior-dev.log'), jsonl([{ v: 1, ts, agent: 'senior-dev', verdict: i ? 'FAIL' : 'PASS' }]));
+  fs.writeFileSync(path.join(p.path, '.great_cto', 'verdicts', 'senior-dev.log'), jsonl([
+    { v: 1, ts, agent: 'senior-dev', verdict: i ? 'FAIL' : 'PASS' },
+    { v: 1, ts, agent: 'senior-dev', verdict: i ? 'PASS' : 'FAIL', project: i ? 'alpha' : 'beta' },
+  ]));
   const claude = path.join(fixture, '.claude', 'projects', p.slug);
   fs.mkdirSync(claude, { recursive: true });
   fs.writeFileSync(path.join(claude, `${p.slug}.jsonl`), jsonl([{ type: 'assistant', timestamp: ts, cwd: p.path, message: {
@@ -63,6 +70,7 @@ test('actual worker/API isolates both hosts and cache between two selected proje
     const outcomes = (await counted('/api/outcomes', p.slug)).body;
     assert.equal(outcomes.projects, 1);
     assert.equal(outcomes.agents.agents[0][i ? 'failed' : 'pass'], 1);
+    assert.equal(outcomes.agents.agents[0].runs, 1, 'foreign tags in local logs cannot override project attribution');
   }
   assert.equal((await counted('/api/usage', 'alpha')).body.hosts.claude.tokens, 11);
   assert.equal((await counted('/api/usage')).body.hosts.codex.tokens, 101, 'default is server project, not machine-wide');

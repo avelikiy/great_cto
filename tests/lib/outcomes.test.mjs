@@ -38,6 +38,23 @@ test('project outcomes exclude foreign and unattributed global verdicts and read
   assert.equal(report.agents.agents.reduce((n, a) => n + a.failed, 0), 0);
 });
 
+test('explicit foreign project tags cannot enter selected outcomes through a project-local log', () => {
+  const root = tmp(), proj = path.join(root, 'alpha'), globalDir = path.join(root, 'global');
+  const dir = path.join(proj, '.great_cto', 'verdicts');
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'senior-dev.log'), [
+    v('2026-10-06T09:00:00Z', 'senior-dev', 'PASS'),
+    v('2026-10-06T10:00:00Z', 'senior-dev', 'PASS', { project: 'alpha' }),
+    v('2026-10-06T11:00:00Z', 'senior-dev', 'PASS', { project: proj }),
+    v('2026-10-06T12:00:00Z', 'senior-dev', 'FAIL', { project: 'beta' }),
+  ].join('\n'));
+  const opts = { projects: [{ name: 'alpha', path: proj }], globalDir, now: NOW };
+  const scoped = agentOutcomes({ ...opts, projectScope: true }).agents[0];
+  assert.equal(scoped.runs, 3);
+  assert.equal(scoped.failed, 0);
+  assert.equal(agentOutcomes(opts).agents[0].runs, 4, 'legacy machine-wide aggregation remains unchanged');
+});
+
 test('a verdict means pass, stopped, failed, skipped — or unknown, never a quiet pass', () => {
   for (const x of ['APPROVED', 'PASS', 'DONE', 'TASK_DONE']) assert.equal(outcomeOf(x), 'pass', x);
   for (const x of ['BLOCKED', 'REWORK', 'ESCALATED', 'REJECTED']) assert.equal(outcomeOf(x), 'stopped', x);

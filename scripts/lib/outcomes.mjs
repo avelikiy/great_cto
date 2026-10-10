@@ -78,9 +78,11 @@ export function agentOutcomes({ projects, globalDir = path.join(os.homedir(), '.
         const p = parseVerdictLine(line);
         if (!p.ok) continue;
         const rec = p.rec;
-        // The global layer also contains verdicts with no project. They cannot
-        // be attributed safely and must not leak into a selected project's count.
-        if (projectScope && project === null && !projects.some(p => rec.project === p.name || rec.project === p.path)) continue;
+        // Local placement supplies attribution only when the record has no tag.
+        // An explicit foreign tag cannot be overridden by a copied local log;
+        // untagged global records remain unattributable.
+        if (projectScope && (project === null || rec.project != null)
+          && !projects.some(p => rec.project === p.name || rec.project === p.path)) continue;
         const t = Date.parse(rec.ts);
         if (!Number.isFinite(t) || t < from || t > now) continue;
         const key = line.trim();
