@@ -75,8 +75,7 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex는 플러그인을 스스로 업데이트하지 않습니다 — `great-cto upgrade`가 합니다.
-자세한 내용, Claude + Codex 혼합 실행, 두 번째 리뷰어로서의 Codex:
+업데이트는 기본적으로 명시적 작업입니다(`great-cto upgrade codex`). macOS에서 `sh scripts/codex-auto-update.sh enable`은 선택적 사용자 타이머를 활성화해 6시간마다 갱신합니다. `status`는 타이머를 확인하고 `disable`은 제거합니다. 매번 Git 원격 주소를 검증하며 npm 릴리스가 아닌 설정된 Git ref를 따릅니다. 변경된 훅은 새 세션에서 호스트의 승인이 필요합니다. 자세한 내용과 혼합 실행:
 [Codex 호스트 가이드](../HOST-CODEX.md).
 
 ## 멈추는 시점

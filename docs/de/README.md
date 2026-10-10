@@ -78,8 +78,7 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex aktualisiert das Plugin nie selbst — das macht `great-cto upgrade`. Details,
-gemischte Claude-+-Codex-Läufe und Codex als zweiter Reviewer:
+Plugin-Updates sind standardmäßig explizit (`great-cto upgrade codex`). Unter macOS aktiviert `sh scripts/codex-auto-update.sh enable` einen optionalen Benutzertimer alle sechs Stunden; `status` prüft den Timer und `disable` entfernt ihn. Vor jedem Lauf wird der Git-Ursprung geprüft. Der Timer folgt dem konfigurierten Git-Ref, nicht npm-Releases; geänderte Hooks brauchen weiterhin die Freigabe des Hosts in einer neuen Sitzung. Details und gemischte Läufe:
 [Codex-Host-Leitfaden](../HOST-CODEX.md).
 
 ## Wann es dich stoppt

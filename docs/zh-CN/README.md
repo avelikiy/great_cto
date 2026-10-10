@@ -72,8 +72,8 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex 不会自行更新插件——由 `great-cto upgrade` 完成。详情、Claude + Codex 混合
-运行以及将 Codex 作为第二评审者：[Codex host 指南](../HOST-CODEX.md)。
+默认需要显式更新（`great-cto upgrade codex`）。在 macOS 上，`sh scripts/codex-auto-update.sh enable` 启用可选的用户定时器，每六小时刷新一次；`status` 查看定时器，`disable` 将其移除。每次运行前都会验证 Git 来源。它跟随配置的 Git ref，而非 npm 发布；更改的钩子仍需在新会话中获得主机批准。详情与混合运行：
+[Codex host 指南](../HOST-CODEX.md).
 
 ## 何时会停下来
 
