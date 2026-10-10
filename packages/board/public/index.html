@@ -3711,14 +3711,14 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="panel" id="panel-usage" role="tabpanel">
       <div class="metrics-page">
         <div class="usage-head">
-          <h1 class="page-title">Usage <span class="muted" style="font-weight:400;font-size:var(--fs-small)">what Claude Code and Codex consumed on this machine</span></h1>
+          <h1 class="page-title">Usage <span class="muted" style="font-weight:400;font-size:var(--fs-small)">what Claude Code and Codex consumed in the selected project</span></h1>
           <div class="usage-chips" role="group" aria-label="Period">
             <button type="button" class="usage-chip" data-days="7" onclick="loadUsage(7)">7D</button>
             <button type="button" class="usage-chip active" data-days="30" onclick="loadUsage(30)">30D</button>
             <button type="button" class="usage-chip" data-days="90" onclick="loadUsage(90)">90D</button>
           </div>
         </div>
-        <div id="usage-body" class="usage-note" role="status">Reading the session logs of Claude Code and Codex on this machine.</div>
+        <div id="usage-body" class="usage-note" role="status">Reading this project's Claude Code and Codex session logs.</div>
       </div>
     </div>
 
@@ -6004,12 +6004,19 @@ function renderAgentActivity(snap) {
 // Both hosts, side by side, from /api/usage. Three honesty rules carried from
 // the reader: an unpriced model is n/a, never $0; Claude Code's plan use is not
 // written anywhere, so it is not drawn — only the refusals are; and a host with
-// no logs on this machine says so instead of showing zeros.
+// no logs attributed to this project says so instead of showing zeros.
 let usageDays = 30;
 let usageHost = 'claude';
 let usageData = null;
 let _usageTimer = null;
 let _usageRequest = 0;
+function resetProjectUsage() {
+  clearTimeout(_usageTimer); clearTimeout(_outcomesTimer);
+  ++_usageRequest; ++_outcomesRequest;
+  usageData = null;
+  const body = document.getElementById('usage-body');
+  if (body) { body.className = 'usage-note'; body.textContent = 'Reading the selected project’s statistics…'; }
+}
 const USAGE_HOSTS = { claude: 'Claude Code', codex: 'Codex' };
 const USAGE_LOGS = { claude: '~/.claude/projects', codex: '~/.codex/sessions' };
 const USAGE_FN = { chat: 'Conversations', subagent: 'Subagents', automation: 'Automations', headless: 'Headless runs' };
@@ -6029,16 +6036,17 @@ function fmtUsdEq(n) {
 const fmtPct = (x) => (x == null ? null : `${Math.round(x * 100)}%`);
 
 async function loadUsage(days) {
+  if (!currentProject) return; // init() loads again after resolving the project.
   if (days) usageDays = days;
   document.querySelectorAll('.usage-chip[data-days]').forEach((c) => c.classList.toggle('active', Number(c.dataset.days) === usageDays));
   clearTimeout(_usageTimer);
-  const request = ++_usageRequest, requestedDays = usageDays;
+  const request = ++_usageRequest, requestedDays = usageDays, requestedProject = currentProject;
   const loadingBody = document.getElementById('usage-body');
   if (loadingBody && (!usageData || usageData.window?.days !== requestedDays)) {
     loadingBody.className = 'usage-note'; loadingBody.textContent = 'Loading session statistics…';
   }
-  const d = await api(`/api/usage?days=${usageDays}`);
-  if (request !== _usageRequest || requestedDays !== usageDays || currentTab !== 'usage') return;
+  const d = await api(`/api/usage?days=${requestedDays}&project=${encodeURIComponent(requestedProject)}`);
+  if (request !== _usageRequest || requestedDays !== usageDays || requestedProject !== currentProject || currentTab !== 'usage') return;
   const body = document.getElementById('usage-body');
   if (!body) return;
   if (!d || d.error) {
@@ -6052,9 +6060,9 @@ async function loadUsage(days) {
     _usageTimer = setTimeout(() => { if (currentTab === 'usage') loadUsage(); }, 2000);
     return;
   }
-  if (d.state !== 'counted') {
+  if (d.state !== 'counted' || d.scope?.kind !== 'project') {
     body.className = 'usage-note';
-    body.textContent = `Usage is not available: ${d.why || d.state}`;
+    body.textContent = `Usage is not available: ${d.why || (d.scope?.kind !== 'project' ? 'the server did not confirm project-scoped statistics; update the board' : d.state)}`;
     return;
   }
   usageData = d;
@@ -6083,7 +6091,7 @@ function usageLimitWindow(minutes) {
 function usageHostCard(d, host) {
   const name = USAGE_HOSTS[host];
   if (!d.seen || !d.seen[host]) {
-    return `<section class="usage-card" data-host="${host}"><h3>${name}</h3><p class="usage-note">No ${name} session logs on this machine (${USAGE_LOGS[host]}) — nothing to count, which is not the same as nothing used.</p></section>`;
+    return `<section class="usage-card" data-host="${host}"><h3>${name}</h3><p class="usage-note">No ${name} session logs attributed to this project — nothing to count, which is not the same as nothing used.</p></section>`;
   }
   const h = d.hosts[host];
   const unpricedHere = (d.models || []).filter((m) => m.host === host && m.usd == null).map((m) => m.model);
@@ -6123,6 +6131,10 @@ function usageHostCard(d, host) {
       ? `<div class="usage-limit">${meters}<div class="usage-sub">as Claude Code reported it to the status line, ${esc(relTime(new Date(Math.max(...Object.values(P).map((l) => (l.current && l.current.readAt) || 0))).toISOString()))} ago · ${hits.plan} refused at a limit in ${d.window.days} days</div></div>`
       : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', usageRecorderHint(d).short)}</div>
       <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days · plan percentage: ${d.limits && d.limits.claude && d.limits.claude.recorder === 'on' ? 'from <code>claude</code> in a terminal' : '<code>great-cto statusline install</code>'}</div></div>`;
+  }
+  if (d.scope?.kind === 'project') {
+    const hits = h.limitHits || { plan: 0, server: 0 };
+    limit = `<div class="usage-sub">In this project: ${hits.plan} plan-limit refusals · ${hits.server} server-side throttles in ${d.window.days} days.</div>`;
   }
   return `<section class="usage-card" data-host="${host}">
     <h3><span>${name}</span><span class="muted">${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>
@@ -6174,7 +6186,7 @@ function usageTopTable(d, host) {
   const name = USAGE_HOSTS[host];
   const rows = (d.top && d.top[host]) || [];
   const head = `<h3><span>${name}: heaviest conversations</span><span class="muted">share of ${name} tokens</span></h3>`;
-  if (!rows.length) return `<section class="usage-card">${head}<p class="usage-note">${d.seen && d.seen[host] ? 'Nothing in this window.' : 'No logs on this machine.'}</p></section>`;
+  if (!rows.length) return `<section class="usage-card">${head}<p class="usage-note">${d.seen && d.seen[host] ? 'Nothing in this window.' : 'No logs attributed to this project.'}</p></section>`;
   const money = host === 'claude';
   const body = rows.map((r) => {
     const tag = r.fn && r.fn !== 'chat' ? `<span class="usage-tag">${esc(USAGE_FN[r.fn] || r.fn)}</span>` : '';
@@ -6317,10 +6329,11 @@ function usageCodexLimits(d) {
 }
 
 // ── Agents and reviews (great_cto-egkw stage 3) ────────────────────────────
-// Outcomes come from /api/outcomes (verdicts of every registered project, Beads
+// Outcomes come from /api/outcomes (verdicts of the selected project, Beads
 // bugs by priority); hook refusals and failures from /api/usage (Claude Code's
 // own logs). Counts only — no bug title reaches the page.
 let _outcomesTimer = null;
+let _outcomesRequest = 0;
 function fmtSpan(days) {
   if (days == null) return '—';
   const h = days * 24;
@@ -6332,7 +6345,10 @@ function fmtSpan(days) {
 async function loadOutcomes() {
   clearTimeout(_outcomesTimer);
   if (!document.getElementById('usage-outcomes')) return;
-  const d = await api(`/api/outcomes?days=${usageDays}`);
+  const request = ++_outcomesRequest;
+  const requestedProject = currentProject, requestedDays = usageDays, requestedHost = usageHost;
+  const d = await api(`/api/outcomes?days=${requestedDays}&project=${encodeURIComponent(requestedProject)}`);
+  if (request !== _outcomesRequest || requestedProject !== currentProject || requestedDays !== usageDays || requestedHost !== usageHost || currentTab !== 'usage') return;
   // Looked up AFTER the answer: Usage may have re-rendered while it was on the
   // way, and an answer written into the replaced element is an answer nobody sees.
   const el = document.getElementById('usage-outcomes');
@@ -6344,14 +6360,14 @@ async function loadOutcomes() {
     _outcomesTimer = setTimeout(() => { if (currentTab === 'usage') loadOutcomes(); }, 2000);
     return;
   }
-  if (d.state !== 'counted') { el.className = 'usage-note'; el.textContent = `Outcomes are not available: ${d.why || d.state}`; return; }
+  if (d.state !== 'counted' || d.scope?.kind !== 'project') { el.className = 'usage-note'; el.textContent = `Project outcomes are not available: ${d.why || d.state}`; return; }
   el.className = 'usage-grid';
   el.innerHTML = usageAgentsCard(d) + usageFindingsCard(d);
 }
 
 function usageAgentsCard(d) {
   const A = d.agents || { agents: [] };
-  const head = `<h3><span>Agents: what they concluded</span><span class="muted">${d.projects} projects · ${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>`;
+  const head = `<h3><span>Agents: what they concluded</span><span class="muted">this project · ${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>`;
   if (!A.agents.length) return `<section class="usage-card" data-outcomes="agents">${head}<p class="usage-note">No great_cto agent recorded a verdict in this period.</p></section>`;
   const dispatched = Object.fromEntries(((usageData && usageData.lists && usageData.lists.claude && usageData.lists.claude.agents) || []).map((a) => [a.name, a.n]));
   const rows = A.agents.map((a) => {
@@ -6391,7 +6407,7 @@ function usageFindingsCard(d) {
 
 function usageHooksCards(d) {
   const H = d.hooks;
-  if (!d.seen || !d.seen.claude) return '<p class="usage-note">No Claude Code logs on this machine — hook outcomes are read from them.</p>';
+  if (!d.seen || !d.seen.claude) return '<p class="usage-note">No Claude Code logs attributed to this project — hook outcomes are read from them.</p>';
   if (!H) return '';
   const total = (rows) => (rows || []).reduce((n, r) => n + r.n, 0);
   return `<div class="usage-lists">
@@ -6411,8 +6427,7 @@ function renderUsage(d) {
   const hostBtn = (h) => `<button type="button" class="usage-chip${usageHost === h ? ' active' : ''}" aria-pressed="${usageHost === h}" onclick="setUsageHost('${h}')">${USAGE_HOSTS[h]}</button>`;
   body.innerHTML = `
     <div class="usage-grid">${usageHostCard(d, 'claude')}${usageHostCard(d, 'codex')}</div>
-    <h2 class="mp-section-label">Limits</h2>
-    <div class="usage-grid">${usageClaudeLimits(d)}${usageCodexLimits(d)}</div>
+    <p class="usage-note">Statistics for <b>${esc(currentProject || 'the current project')}</b> only, including its linked Git worktrees. Account-wide subscription quotas are not project statistics and are not shown here.</p>
     <h2 class="mp-section-label">By day, by kind of work</h2>
     <div class="usage-grid">${usageDayChart(d, 'claude')}${usageDayChart(d, 'codex')}</div>
     <h2 class="mp-section-label">Heaviest conversations</h2>
@@ -6427,7 +6442,7 @@ function renderUsage(d) {
       ${usageList('MCP servers', l.mcp, 'No MCP tools were called in this window.')}
     </div>
     <h2 class="mp-section-label">Agents and reviews</h2>
-    <div id="usage-outcomes" class="usage-note" role="status">Reading every project's verdicts and Beads.</div>
+    <div id="usage-outcomes" class="usage-note" role="status">Reading this project's verdicts and Beads.</div>
     <h2 class="mp-section-label">Guards and hooks</h2>
     ${usageHooksCards(d)}
     <p class="usage-note">Read on this machine from ${USAGE_LOGS.claude} and ${USAGE_LOGS.codex}; nothing is sent anywhere. Tokens include cache reads. <b>$ list</b> is the API list-price equivalent from great_cto's price table, not a subscription bill — Claude Code's own estimate can differ for some models. A model without a price shows n/a, never $0.</p>`;
@@ -7622,6 +7637,11 @@ async function switchProject(slug) {
   // Close existing SSE so it doesn't push the wrong project's data
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
   currentProject = slug;
+  document.getElementById('project-name').textContent = slug;
+  document.getElementById('crumb-project').textContent = slug;
+  document.title = `${slug} · great_cto`;
+  resetProjectUsage();
+  if (currentTab === 'usage') loadUsage();
   window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
@@ -7634,12 +7654,10 @@ async function switchProject(slug) {
     api(`/api/share${pqs()}`),
     api(`/api/inbox${pqs()}`),
   ]);
+  if (slug !== currentProject) return;
   allTasks = tasks || [];
   metrics = met || {};
   shareState = share || { enabled: false, url: null };
-  document.getElementById('project-name').textContent = slug;
-  document.getElementById('crumb-project').textContent = slug;
-  document.title = `${slug} · great_cto`;
   const me = (allProjects || []).find(p => p.slug === slug);
   const arch = me?.archetype || 'default';
   const swIcon = document.getElementById('proj-switch-icon');
@@ -7834,6 +7852,8 @@ async function init() {
     || fromTaskId
     || 'project';
   currentProject = proj;
+  resetProjectUsage();
+  if (currentTab === 'usage') loadUsage();
   window.GctoWork.reset();
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;

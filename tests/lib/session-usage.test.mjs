@@ -10,7 +10,7 @@ import os from 'node:os';
 import path from 'node:path';
 import {
   scanUsage, summarizeUsage, readCodexTitles, projectName, dayOf, agentName, mcpLabel, usageIndexSnapshot, limitKind,
-  guardOf, stopBlockName, hookLabel, removeOlderIndexes, claudePlanDetail, readClaudeLimits, claudeRecorder,
+  guardOf, stopBlockName, hookLabel, removeOlderIndexes, claudePlanDetail, readClaudeLimits, claudeRecorder, projectUsageIndex,
 } from '../../scripts/lib/session-usage.mjs';
 
 const made = [];
@@ -41,6 +41,96 @@ async function scanned(r, days = 30, extra = {}) {
   const s = await scanUsage({ claudeDir: r.claudeDir, codexDirs: r.codexDirs, cacheFile: r.cacheFile, now: NOW });
   return { scan: s, sum: summarizeUsage(s.index, { days, now: NOW, prices: PRICES, ...extra }) };
 }
+
+test('selected project filters both hosts before all aggregates, inherits children, never matches titles or sibling prefixes', async () => {
+  const r = roots();
+  const dir = path.join(r.claudeDir, '-w-alpha');
+  fs.mkdirSync(path.join(dir, 'parent', 'subagents'), { recursive: true });
+  const text = [{ type: 'text', text: 'done' }];
+  fs.writeFileSync(path.join(dir, 'parent.jsonl'), jsonl(claudeResponse({ id: 'p', cwd: '/w/alpha/src', blocks: text })));
+  fs.writeFileSync(path.join(dir, 'parent', 'subagents', 'agent-child.jsonl'), jsonl(claudeResponse({ id: 'c', cwd: null, blocks: text, sidechain: true })));
+  fs.writeFileSync(path.join(dir, 'other.jsonl'), jsonl([
+    { type: 'custom-title', customTitle: 'alpha' },
+    ...claudeResponse({ id: 'b', cwd: '/w/alpha-other', model: 'foreign-model', blocks: [{ type: 'tool_use', name: 'ForeignTool', input: {} }] }),
+  ]));
+  fs.writeFileSync(path.join(dir, 'unknown.jsonl'), jsonl(claudeResponse({ id: 'u', cwd: null, blocks: text })));
+  for (const [id, cwd, tokens] of [['a', '/w/alpha', 7], ['b', '/w/beta', 99]]) {
+    fs.writeFileSync(path.join(r.codexDirs[0], `${id}.jsonl`), jsonl([
+      { type: 'session_meta', payload: { id, cwd } },
+      { type: 'turn_context', payload: { model: 'codex-fixture' } },
+      { timestamp: T(), type: 'token_usage_record', payload: { response_id: id, usage: { input_tokens: tokens, output_tokens: 1 } } },
+    ]));
+  }
+  const { sum } = await scanned(r, 30, { projectPath: '/w/alpha', codexTitles: { b: 'alpha' } });
+  assert.equal(sum.scope.kind, 'project');
+  assert.equal(sum.hosts.claude.tokens, 2220);
+  assert.equal(sum.hosts.codex.tokens, 8);
+  assert.equal(sum.top.claude.length, 1);
+  assert.equal(sum.top.claude[0].subagentTokens, 1110);
+  assert.equal(sum.top.codex.length, 1);
+  assert.equal(sum.daily.reduce((n, d) => n + d.claude.tokens, 0), 2220);
+  assert.ok(!sum.models.some(m => m.model === 'foreign-model'));
+  assert.ok(!sum.lists.claude.tools.some(t => t.name === 'ForeignTool'));
+  assert.equal(sum.limits.codex, null, 'account-wide quotas are not project statistics');
+  assert.equal(sum.limits.claude.plan, null);
+  const { sum: empty } = await scanned(r, 30, { projectPath: '/w/empty' });
+  assert.equal(empty.hosts.claude.tokens, 0);
+  assert.equal(empty.top.codex.length, 0);
+  assert.deepEqual(empty.seen, { claude: false, codex: false });
+});
+
+test('linked Git worktrees and symlinks use repository identity, not a matching directory name', () => {
+  const r = roots();
+  const repo = path.join(r.d, 'alpha'), worktree = path.join(r.d, 'wt', 'alpha'), foreign = path.join(r.d, 'foreign', 'alpha');
+  const gitDir = path.join(repo, '.git'), wtGit = path.join(gitDir, 'worktrees', 'job');
+  fs.mkdirSync(wtGit, { recursive: true });
+  for (const p of [worktree, foreign]) fs.mkdirSync(p, { recursive: true });
+  fs.mkdirSync(path.join(foreign, '.git'));
+  fs.writeFileSync(path.join(worktree, '.git'), `gitdir: ${wtGit}\n`);
+  fs.writeFileSync(path.join(wtGit, 'commondir'), '../..\n');
+  const link = path.join(r.d, 'alias'); fs.symlinkSync(repo, link);
+  const entry = cwd => ({ host: 'codex', meta: { cwd } });
+  const index = { files: { root: entry(repo), linked: entry(worktree), alias: entry(link), foreign: entry(foreign), unknown: entry(null) } };
+  assert.deepEqual(Object.keys(projectUsageIndex(index, repo).files), ['root', 'linked', 'alias']);
+  assert.deepEqual(Object.keys(projectUsageIndex(index, worktree).files), ['root', 'linked', 'alias']);
+});
+
+test('monorepo project boundaries survive linked worktrees without admitting sibling projects', () => {
+  const r = roots();
+  const repo = path.join(r.d, 'mono'), worktree = path.join(r.d, 'linked');
+  const gitDir = path.join(repo, '.git'), wtGit = path.join(gitDir, 'worktrees', 'job');
+  fs.mkdirSync(wtGit, { recursive: true });
+  for (const base of [repo, worktree]) for (const name of ['alpha', 'alpha-other', 'beta']) {
+    fs.mkdirSync(path.join(base, 'apps', name, 'src'), { recursive: true });
+  }
+  fs.writeFileSync(path.join(worktree, '.git'), `gitdir: ${wtGit}\n`);
+  fs.writeFileSync(path.join(wtGit, 'commondir'), '../..\n');
+  const entry = cwd => ({ host: 'codex', meta: { cwd } });
+  const index = { files: {
+    alpha: entry(path.join(repo, 'apps', 'alpha', 'src')),
+    linkedAlpha: entry(path.join(worktree, 'apps', 'alpha')),
+    beta: entry(path.join(repo, 'apps', 'beta')),
+    linkedBeta: entry(path.join(worktree, 'apps', 'beta')),
+    prefix: entry(path.join(repo, 'apps', 'alpha-other')),
+    repoRoot: entry(repo),
+  } };
+  for (const base of [repo, worktree]) {
+    assert.deepEqual(Object.keys(projectUsageIndex(index, path.join(base, 'apps', 'alpha')).files), ['alpha', 'linkedAlpha']);
+  }
+  assert.equal(Object.keys(projectUsageIndex(index, repo).files).length, 6, 'whole-repository scope still includes all its worktrees');
+});
+
+test('nested child attribution follows same-host ancestry and terminates corrupt parent cycles', () => {
+  const entry = (host, session, parent, cwd = null) => ({ host, meta: { session, parent, cwd } });
+  const index = { files: {
+    root: entry('codex', 'root', null, '/w/alpha'),
+    child: entry('codex', 'child', 'root'),
+    grandchild: entry('codex', 'grandchild', 'child'),
+    foreignHost: entry('claude', 'other', 'root'),
+    cycle1: entry('codex', 'cycle1', 'cycle2'), cycle2: entry('codex', 'cycle2', 'cycle1'),
+  } };
+  assert.deepEqual(Object.keys(projectUsageIndex(index, '/w/alpha').files), ['root', 'child', 'grandchild']);
+});
 
 test('a response written as three lines is counted once; its tool calls are counted per line', async () => {
   const r = roots();
