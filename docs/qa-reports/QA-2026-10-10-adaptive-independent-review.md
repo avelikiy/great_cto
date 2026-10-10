@@ -178,3 +178,33 @@ the protocol remained PRESERVED. This is not a production-controller automatic
 refusal proof, browser teardown, independent admission or a committed regression.
 Log SHA-256:0b5894a947708e3969e4fa689781b2921827b8a7d94215e9e9fe63d7acf8487f.
 No experimental guardian was activated and no OS cleanup authority broadened.
+
+## Narrow characterization correction after ea6a24f2
+
+The follow-up implements the recommended experimental-only scope. The earlier
+exact1b canonical red is retained above, not rewritten as a pass. Application
+runtime files are unchanged. Raw owner-kill and helper scorer-kill now measure
+bounded abrupt-death outcomes rather than assert an unimplemented complete-tree
+drain guarantee. Profile and artifacts are measured independently before fixture
+fallback. Actual SIGKILL and absence of a completed scoring result remain strict.
+Direct scorer-death protocol characterization sends fault/PRESERVED, never
+quiescent, even when the local process sample happens to reach zero. All OS
+closure, cleanup, independent admission and benchmark eligibility flags stay false.
+
+Three committed-source negative tests use fixed real Node subprocesses and
+synthetic scratch, explicitly not Chromium or a production supervisor. The
+captured child survives actual parent SIGKILL with liveProcesses=1. The fixed
+test caller sends fault, not quiescent. Separate guaranteed-retained fixtures
+exercise profile-mode mutation and artifact inode replacement without relying on
+Playwright crash retention. Exact fixture identities are reclaimed only after
+the refusal observation; that fallback is not product lifecycle evidence.
+
+Helper-kill, parent-disconnect, normal/refusal and TERM retain their strict
+closure assertions and budgets. The original helper-kill failure cause remains
+Unknown. Focused author verification ran the three changed test files together
+with concurrency2: 43 passed, 0 failed, 0 skipped, 35.66s. This includes the
+existing fixed 20s absent-reply deadline and three new real-process negatives.
+The same authorized independent read-only reviewer approved this test-only delta
+for the narrow scope, finding no new blocking issue. This source-level approval
+is separate from delivery readiness; a fresh full canonical gate is still required.
+PR167 is not merged or released; installed3.61.0 and the local board are unchanged.

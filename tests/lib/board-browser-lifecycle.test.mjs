@@ -2,8 +2,8 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawn,spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-import {lstatSync,rmSync,chmodSync} from 'node:fs';
-import {dirname,basename} from 'node:path';
+import {lstatSync,rmSync,chmodSync,readdirSync} from 'node:fs';
+import {dirname,basename,join} from 'node:path';
 import {createHash} from 'node:crypto';
 import {boardAccessibilityBenchmarkFixture} from '../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 import {createBrowserGuardianProtocol} from '../../scripts/lib/browser-guardian-protocol.mjs';
@@ -64,7 +64,7 @@ function living(owned){const table=processes();return [...owned].filter(([pid,bi
 const pause=ms=>new Promise(r=>setTimeout(r,ms));
 async function waitGone(owned){for(let i=0;i<50;i++){if(!living(owned).length)return true;await pause(100);}return false;}
 
-for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
+for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test(mode==='owner-kill'?'actual observer abrupt owner death is characterized without cleanup authority':'actual observer browser processes stop after '+mode,{timeout:30000},async t=>{
  if(process.platform!=='darwin'&&process.platform!=='linux')return t.skip('process-tree inventory unsupported; lifecycle NOT CHECKED');
  const recipe=boardAccessibilityBenchmarkFixture();if(!recipe.oracle.browser)return t.skip('Playwright unavailable; lifecycle NOT CHECKED');
  const resources=createBrowserResourceOwner({ownerPid:process.pid}),scratch=resources.privateRoot();
@@ -93,6 +93,9 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
   assert.equal(dirname(profile),scratch,'profile must be a direct child of this test private temporary root');
   assert.match(basename(profile),/^playwright_chromiumdev_profile-[A-Za-z0-9]+$/);
   const initial=lstatSync(profile);
+  const artifactNames=readdirSync(scratch).filter(name=>/^playwright-artifacts-[A-Za-z0-9]+$/.test(name));
+  assert.equal(artifactNames.length,1);
+  const artifact=join(scratch,artifactNames[0]),artifactIdentity=lstatSync(artifact);
   assert.ok(initial.isDirectory()&&!initial.isSymbolicLink(),'captured profile must be a real directory');
   assert.equal(initial.uid,process.getuid(),'captured profile belongs to test user');
   const registration=resources.register({scorerPid:child.pid,browserRoots:ready.roots,profilePath:profile});
@@ -150,33 +153,41 @@ for(const mode of ['normal','dom-refusal','owner-term','owner-kill'])test('actua
    });
    t.diagnostic(mode+': failed closure before cleanup '+JSON.stringify({owner:child.pid,remaining}));
   }
-  assert.ok(stopped,'captured browser tree must stop without test cleanup assistance');
-  t.diagnostic(mode+': captured '+owned.size+' owned processes; none remained running before cleanup');
+  if(mode!=='owner-kill')assert.ok(stopped,'captured browser tree must stop without test cleanup assistance');
+  t.diagnostic(mode+': captured '+owned.size+' owned processes; stopped before fixture cleanup: '+stopped);
   let retained=false;
   try{const after=lstatSync(profile);assert.equal(after.ino,initial.ino,'profile identity must not change');retained=true;}
   catch(error){if(error.code!=='ENOENT')throw error;}
+  let artifactsRetained=false;
+  try{assert.equal(lstatSync(artifact).ino,artifactIdentity.ino,'artifact identity must not change');artifactsRetained=true;}
+  catch(error){if(error.code!=='ENOENT')throw error;}
   t.diagnostic(mode+': temporary profile '+(retained?'retained':'removed')+' before test cleanup');
-  if(mode!=='owner-kill')assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
+  if(mode!=='owner-kill'){
+   assert.equal(retained,false,'ordinary/refusal browser close must remove temporary profile');
+   assert.equal(artifactsRetained,false,'ordinary/refusal browser close must remove temporary artifacts');
+  }
   const observation=resources.observe();
-  assert.equal(observation.state,'OBSERVING');
-  assert.equal(observation.liveProcesses,0);
-  assert.equal(observation.profileState,retained?'retained':'removed');
-  assert.equal(observation.artifactsState,retained?'retained':'removed');
-  assert.equal(observation.retainedScratchDirectories,retained?2:0);
-  assert.equal(observation.cleanupAuthorized,false);
-  assert.equal(observation.resourceClosureVerified,false);
-  if(mode==='owner-kill'){
-   chmodSync(profile,0o755);
-   assert.equal(resources.observe().state,'PRESERVED','changed private profile must invalidate the registered observation');
-   chmodSync(profile,0o700);
-   assert.equal(resources.observe().state,'PRESERVED','restoring mode cannot revive a preserved owner');
-  }else if(mode==='normal'){
+  if(mode!=='owner-kill'){
+   assert.equal(observation.state,'OBSERVING');
+   assert.equal(observation.liveProcesses,0);
+   assert.equal(observation.profileState,retained?'retained':'removed');
+   assert.equal(observation.artifactsState,artifactsRetained?'retained':'removed');
+   assert.equal(observation.retainedScratchDirectories,Number(retained)+Number(artifactsRetained));
+  }else{
+   assert.ok(['OBSERVING','PRESERVED'].includes(observation.state));
+   t.diagnostic('owner-kill: abrupt-death observation before fallback '+JSON.stringify({observation,profileRetained:retained,artifactsRetained}));
+  }
+  for(const flag of ['cleanupAuthorized','resourceClosureVerified','osQuiescenceVerified','independentAdmissionVerified','benchmarkEligible'])assert.equal(observation[flag],false);
+  if(mode==='normal'){
    chmodSync(scratch,0o755);
    assert.equal(resources.observe().state,'PRESERVED','changed root must invalidate an otherwise completed observation');
    chmodSync(scratch,0o700);
   }
-  const protocolResult=send('quiescent',{processes:processIds,profile:profileId,profileState:retained?'retained':'removed'});
-  assert.equal(protocolResult.state,'QUIESCENT');
+  // Abrupt scorer death has no admitted external teardown. Even a zero-count
+  // local sample is not closure proof. Never manufacture quiescent on this path.
+  const protocolResult=mode==='owner-kill'?send('fault',{reason:'timeout'}):
+   send('quiescent',{processes:processIds,profile:profileId,profileState:retained?'retained':'removed'});
+  assert.equal(protocolResult.state,mode==='owner-kill'?'PRESERVED':'QUIESCENT');
   assert.equal(protocolResult.cleanupAuthorized,false,'trace consistency never authorizes OS deletion');
   assert.equal(protocolResult.benchmarkEligible,false);
   assert.equal(errors,mode==='owner-term'?'trusted browser lifecycle child failed\n':'','observer child must report only expected bounded error');

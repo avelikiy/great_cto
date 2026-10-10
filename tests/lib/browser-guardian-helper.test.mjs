@@ -2,7 +2,7 @@ import{test}from'node:test';
 import assert from'node:assert/strict';
 import{fork,spawn,spawnSync}from'node:child_process';
 import{fileURLToPath}from'node:url';
-import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync,renameSync}from'node:fs';
+import{lstatSync,readdirSync,rmSync,mkdirSync,symlinkSync}from'node:fs';
 import{join,basename}from'node:path';
 import{boardAccessibilityBenchmarkFixture}from'../../scripts/lib/board-accessibility-benchmark-fixture.mjs';
 import{performance}from'node:perf_hooks';
@@ -121,18 +121,24 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
    t.diagnostic(mode+': failed closure before fallback '+JSON.stringify({helper:f.child.pid,scorer,
     remaining,stages:f.probeTimings.slice(-8)}));
   }
-  assert.ok(stopped,'captured scorer/browser must stop before fallback cleanup');
+  if(mode!=='scorer-kill')assert.ok(stopped,'captured scorer/browser must stop before fallback cleanup');
   let retained=false;try{assert.equal(lstatSync(profile).ino,profileIdentity.ino);retained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
-  assert.equal(retained,mode==='scorer-kill');
+  if(mode!=='scorer-kill')assert.equal(retained,false);
   let artifactsRetained=false;try{assert.equal(lstatSync(artifact).ino,artifactIdentity.ino);artifactsRetained=true;}catch(error){if(error.code!=='ENOENT')throw error;}
-  assert.equal(artifactsRetained,mode==='scorer-kill','both bound scratch directories follow measured crash lifetime');
+  if(mode!=='scorer-kill')assert.equal(artifactsRetained,false,'graceful unwind removes both bound scratch directories');
   assert.equal(lstatSync(root).ino,rootIdentity.ino,'guardian retains its private root, never reclaims it');
   if(!['helper-kill','parent-disconnect','duplicate-start','tainted-continue'].includes(mode)){
    command('probe-observe');const observation=await f.next();assert.equal(observation.kind,'probe-observation');
-   assert.equal(observation.snapshot.liveProcesses,0);assert.equal(observation.snapshot.profileState,retained?'retained':'removed');
-   assert.equal(observation.snapshot.artifactsState,retained?'retained':'removed');
-   assert.equal(observation.snapshot.retainedScratchDirectories,retained?2:0);
-   assert.equal(observation.snapshot.independentAdmissionVerified,false);
+   if(mode!=='scorer-kill'){
+    assert.equal(observation.snapshot.state,'OBSERVING');
+    assert.equal(observation.snapshot.liveProcesses,0);assert.equal(observation.snapshot.profileState,retained?'retained':'removed');
+    assert.equal(observation.snapshot.artifactsState,artifactsRetained?'retained':'removed');
+    assert.equal(observation.snapshot.retainedScratchDirectories,Number(retained)+Number(artifactsRetained));
+   }else{
+    assert.ok(['OBSERVING','PRESERVED'].includes(observation.snapshot.state));
+    t.diagnostic('scorer-kill: abrupt-death observation before fallback '+JSON.stringify({snapshot:observation.snapshot,profileRetained:retained,artifactsRetained,stopped}));
+   }
+   for(const flag of ['cleanupAuthorized','resourceClosureVerified','osQuiescenceVerified','independentAdmissionVerified','benchmarkEligible'])assert.equal(observation.snapshot[flag],false);
    if(mode==='normal'){
     // Even a directory named exactly like the removed resource is late and
     // cannot be re-adopted, regardless of possible inode reuse.
@@ -141,19 +147,13 @@ for(const mode of ['normal','dom-refusal','scorer-kill','helper-kill','parent-di
    }else if(mode==='dom-refusal'){
     mkdirSync(join(root,'unknown-late-directory'),{mode:0o700});command('probe-observe');
     assert.equal((await f.next()).snapshot.state,'PRESERVED');
-   }else if(mode==='scorer-kill'){
-    // Scorer/browser are already proven stopped. Retain the original inode
-    // inside another owned directory while replacing only its registered name.
-    const holder=join(profile,'held-artifact');renameSync(artifact,holder);mkdirSync(artifact,{mode:0o700});
-    command('probe-observe');assert.equal((await f.next()).snapshot.state,'PRESERVED');
-    assert.equal(lstatSync(holder).ino,artifactIdentity.ino,'sampler must not touch original artifacts');
    }else if(mode==='symlink-scratch'){
     symlinkSync(root,join(root,'playwright-artifacts-Link123'));command('probe-observe');
     assert.equal((await f.next()).snapshot.state,'PRESERVED');
    }
    f.sendFrame({version:1,kind:'close'});assert.equal((await f.next()).kind,'closed');assert.equal((await f.closed).code,0);
   }
-  t.diagnostic(mode+': external helper owns '+owned.size+' captured scorer/browser processes; profile/artifacts '+(retained?'retained':'removed')+' before fixture cleanup');
+  t.diagnostic(mode+': external helper owns '+owned.size+' captured scorer/browser processes; stopped='+stopped+'; profileRetained='+retained+'; artifactsRetained='+artifactsRetained+' before fixture cleanup');
   assert.ok(f.probeTimings.some(x=>x.stage==='resource-barrier'),'actual actor stage evidence required');
   t.diagnostic(mode+': private actor timing '+JSON.stringify(f.probeTimings));
  }finally{
