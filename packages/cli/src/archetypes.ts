@@ -1192,7 +1192,7 @@ export const REVIEWERS_BY_ARCHETYPE: Record<Archetype, string[]> = {
   "marketplace":       ["marketplace-reviewer", "pci-reviewer"],
   "fintech":           ["pci-reviewer", "regulated-reviewer"],
   "healthcare":        ["healthcare-reviewer", "security-officer"],
-  "web3":              ["oracle-reviewer"],
+  "web3":              ["oracle-reviewer", "smart-contract-auditor"],
   "iot-embedded":      ["firmware-reviewer"],
   "regulated":         ["regulated-reviewer"],
   "devtools":          ["devtools-reviewer"],

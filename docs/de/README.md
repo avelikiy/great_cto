@@ -28,7 +28,7 @@ npx great-cto init
 
 **Dein Coding-Agent liefert Code. Das hier prüft ihn.**
 
-Beschreibe ein Produkt oder ein Feature. **71 Agenten** mit eng umrissenen Aufgaben
+Beschreibe ein Produkt oder ein Feature. **72 Agenten** mit eng umrissenen Aufgaben
 führen es durch Brief, Architektur, Build, Review und Security; ein zweites Modell
 aus einer anderen Familie liest denselben Diff. Drei Entscheidungen bleiben deine —
 was gebaut wird, wie, und ob es ausgeliefert wird — und am Ende steht ein

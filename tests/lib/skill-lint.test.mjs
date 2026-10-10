@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 import { lintSkills, parseFrontmatter, strictYamlIssues } from '../../scripts/skill-lint.mjs';
 
 const made = [];
-after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DESC = 'A description long enough for the model to route on, well over forty characters.';

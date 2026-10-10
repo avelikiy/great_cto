@@ -11,7 +11,7 @@ import { test, after } from 'node:test';
 // run left them in TMPDIR: thousands had built up per prefix (great_cto-7179).
 const TMP_DIRS = [];
 const tmpDir = (d) => (TMP_DIRS.push(d), d);
-after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';

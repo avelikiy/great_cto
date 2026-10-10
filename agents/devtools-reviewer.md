@@ -175,6 +175,15 @@ For every crash / error reported to remote:
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh devtools-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"npm provenance is enough, we don't need cosign"** — provenance is metadata; cosign signs the artifact itself

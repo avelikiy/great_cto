@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const plugin = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'plugin.json'), 'utf8'));
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 // Fields Claude Code nests under tool_input. `tool_name` is genuinely top-level.
 const NESTED = ['command', 'file_path', 'content', 'old_string', 'new_string', 'path'];

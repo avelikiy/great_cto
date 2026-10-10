@@ -116,6 +116,15 @@ The must-implement list the orchestrator hands to senior-dev:
 - Pack reference: `skills/great_cto/packs/commerce-pack.md`
 - gate: `gate:pci-signoff`
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh pci-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Failure modes you reject
 
 - **"We use Stripe so we're PCI-compliant by default"** — false. Stripe is one component of compliance; merchant still needs SAQ self-assessment + AOC inventory.

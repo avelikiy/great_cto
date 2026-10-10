@@ -98,7 +98,44 @@ test('an approval that cannot reach beads still records its decision, and says s
     assert.match(logged, /g-1/);
   } finally {
     await reap(board);
-    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ } }
+    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* best effort */ } }
+  }
+});
+
+test('a decision asked for by project PATH logs the project name, never the path', async () => {
+  // The gate pane in a Claude Code session names its project by the session root's
+  // absolute path (it resolves for any project under HOME, registered or not). The
+  // log line took parsed.project verbatim, so it carried /Users/<name>/… into a
+  // project file that may be committed. The name is the directory's, as it is when
+  // no project is given.
+  const home = mkdtempSync(join(tmpdir(), 'gcto-dl-home-'));
+  const project = join(home, 'work', 'pathy-proj');
+  mkdirSync(join(project, '.great_cto'), { recursive: true });
+  writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
+  writeFileSync(join(project, '.great_cto', 'tasks.md'),
+    '# Tasks\n\n| ID | Title | Status | Labels |\n|---|---|---|---|\n'
+    + '| g-2 | gate:plan — plan it | open | gate |\n');
+  const port = await freePort();
+  const board = spawn('node', [CLI, 'board', '--port', String(port), '--no-open'], {
+    cwd: home, env: { ...process.env, HOME: home }, stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+  });
+  try {
+    await waitForBoard(port);
+    const q = encodeURIComponent(project);
+    const inbox = await api(port, `/api/inbox?project=${q}`);
+    const token = (inbox.body.pending_gates || []).find((g) => g.id === 'g-2')?.token;
+    assert.ok(token, `the inbox issued a token for g-2 by path: ${JSON.stringify(inbox.body.approval_tokens)}`);
+    const r = await api(port, '/api/gates/g-2', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'approve', token, project }),
+    });
+    assert.equal(r.status, 200, JSON.stringify(r.body));
+    const logged = readFileSync(join(project, '.great_cto', 'decisions.md'), 'utf8');
+    assert.match(logged, /\[pathy-proj\] \[APPROVED\] g-2/);
+    assert.ok(!logged.includes(home), 'no absolute path in the decision log');
+  } finally {
+    await reap(board);
+    try { rmSync(home, { recursive: true, force: true }); } catch { /* best effort */ }
   }
 });
 
@@ -109,7 +146,7 @@ test('the record does not ride on the title lookup', () => {
   // behaviour impossible to regress: two separate try blocks, the lookup's
   // failure defaulting to `id` rather than escaping.
   const src = readFileSync(join(dirname(fileURLToPath(import.meta.url)), 'lib', 'routes.mjs'), 'utf8');
-  const i = src.indexOf('const projectSlug = parsed.project || path.basename(gateCwd);');
+  const i = src.indexOf('const projectSlug = ');
   assert.ok(i > 0, 'the approve handler still builds the decision line here');
   const block = src.slice(i, i + 1600);
 

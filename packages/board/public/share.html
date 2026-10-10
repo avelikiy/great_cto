@@ -783,7 +783,7 @@ if (paused) {
   // (b) Cost source explicitly comes from plans/verdicts (independent measurement)
   const savingsTrustworthy = realLlmUsd > 0 || (m.cost?.source && m.cost.source !== 'tasks');
   const effectiveSavings  = savingsTrustworthy && effectiveLlmUsd > 0 && effectiveHumanUsd > 0
-    ? Math.round(effectiveHumanUsd / effectiveLlmUsd).toLocaleString() + '×' : null;
+    ? Math.round(effectiveHumanUsd / effectiveLlmUsd).toLocaleString('en-US') + '×' : null;
   const effectiveAiH = totalAiMin > 0 ? totalAiMin / 60 : totalTimeMin / 60;
 
   // Hero narrative — focus on cost difference, not time
@@ -800,7 +800,7 @@ if (paused) {
     // Human equivalent: standard 4h per feature × $150/hr
     const humanCost = done * 4 * 150;
     if (aiCostDisplay && humanCost > 0) {
-      line += `. Human team estimate: $${humanCost.toLocaleString()}.`;
+      line += `. Human team estimate: $${humanCost.toLocaleString('en-US')}.`;
     }
     return line;
   })();
@@ -1037,7 +1037,7 @@ if (paused) {
                 const costRatio = (effectiveHumanUsd > 0 && effectiveLlmUsd > 0)
                   ? effectiveHumanUsd / effectiveLlmUsd : 0;
                 const costRatioStr = costRatio >= 2
-                  ? Math.round(costRatio).toLocaleString() + '×'
+                  ? Math.round(costRatio).toLocaleString('en-US') + '×'
                   : null;
                 if (effectiveSavings) {
                   return `<div class="big">${effectiveSavings} cheaper</div>
@@ -1058,7 +1058,7 @@ if (paused) {
             <div class="cost-bar-row human">
               <div class="cb-name">Humans</div>
               <div class="cb-rail"><div class="cb-fill" style="width:${humanPct.toFixed(1)}%"></div></div>
-              <div class="cb-val">$${Number((effectiveHumanUsd > 0 ? effectiveHumanUsd : humanH * 150).toFixed(0)).toLocaleString()}</div>
+              <div class="cb-val">$${Number((effectiveHumanUsd > 0 ? effectiveHumanUsd : humanH * 150).toFixed(0)).toLocaleString('en-US')}</div>
             </div>
             <div class="cost-bar-row ai">
               <div class="cb-name">AI</div>

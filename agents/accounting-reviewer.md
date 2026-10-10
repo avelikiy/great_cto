@@ -216,6 +216,15 @@ must-implement-before-senior-dev:
 gate: gate:close-signoff
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh accounting-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-accounting-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## What NOT to flag
 
 - General multi-tenant isolation / SSO / SCIM mechanics (enterprise-saas-reviewer)

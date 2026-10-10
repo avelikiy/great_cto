@@ -8,7 +8,7 @@ import { waitForChange, diffSnapshots } from '../../scripts/lib/board-watch.mjs'
 import { recordHookEvent } from '../../scripts/lib/session-status.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project() {
   const d = mkdtempSync(join(tmpdir(), 'board-watch-'));
   made.push(d);

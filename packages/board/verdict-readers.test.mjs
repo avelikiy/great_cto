@@ -31,7 +31,7 @@ function project({ verdicts = {}, costHistory = null, plans = {} } = {}) {
   }
   return dir;
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 const TS = '2026-08-01T10:00:00Z';
 
 // ── reading ────────────────────────────────────────────────────────────────

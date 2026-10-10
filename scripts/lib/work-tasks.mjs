@@ -34,6 +34,11 @@ function validate(t) {
   if (t.intent !== undefined && !['delivery', 'research'].includes(t.intent)) throw Error('invalid task intent');
   if (t.decisions !== undefined && (!Array.isArray(t.decisions) || t.decisions.some(d => !d || !/^[0-9a-f]{64}$/.test(d.decisionId) || !['codex', 'claude-code'].includes(d.engine)))) throw Error('invalid task decisions');
   if (t.outcome && (!['research', 'delivery'].includes(t.outcome.kind) || !['verified', 'completed'].includes(t.outcome.state) || !Array.isArray(t.outcome.artifacts) || !Array.isArray(t.outcome.criteria))) throw Error('invalid task outcome');
+  if (t.publication && (!['prepared', 'pushed', 'pr-linked'].includes(t.publication.state)
+    || !/^[0-9a-f]{64}$/.test(t.publication.approval || '') || t.publication.taskId !== t.taskId
+    || !Number.isInteger(t.publication.approvedRevision) || !Number.isInteger(t.publication.guardRevision)
+    || typeof t.publication.repository !== 'string' || typeof t.publication.head !== 'string'
+    || !Array.isArray(t.publication.paths) || !Array.isArray(t.publication.allow))) throw Error('invalid publication state');
   return t;
 }
 export function readWorkTask(id, { store = workTaskStore(), root = null } = {}) {
@@ -257,10 +262,16 @@ export function observeWorkSession(payload, { store = workTaskStore() } = {}) {
     kind: event === 'Notification' ? 'native_permission_or_input' : 'native_session' }); }, { store, root: payload.cwd });
 }
 export function publicWorkTask(t) {
+  const quote = value => "'" + String(value).replace(/'/g, "'\\''") + "'";
+  const publication = t.publication;
   return { schemaVersion: 1, taskId: t.taskId, projectId: t.projectId, managed: t.managed, host: t.host, goal: t.goal,
     acceptance: t.acceptance, authority: t.authority, intent: t.intent || 'delivery', budget: t.budget || null, stage: t.stage || null,
     decisions: (t.decisions || []).map(({ receipt, ...d }) => ({ ...d, ...(['pipeline_gate', 'gate', 'release'].includes(d.kind) ? { bindingState: !receipt ? (d.bindingState || 'unverifiable') : JSON.stringify(treeReceipt(t.root)) === JSON.stringify(receipt) ? 'current' : 'stale' } : {}) })), outcome: t.outcome ? { source: t.outcome.source, kind: t.outcome.kind, state: t.outcome.state, verifiedAt: t.outcome.verifiedAt, completedAt: t.outcome.completedAt || null, artifacts: t.outcome.artifacts, criteria: t.outcome.criteria } : null, rework: t.rework || null, revision: t.revision, phase: t.phase, reason: t.reason,
     createdAt: t.createdAt, updatedAt: t.updatedAt, links: t.links, evidence: t.evidence, metrics: t.metrics,
+    publication: t.publication ? { state: t.publication.state, repository: t.publication.repository, branch: t.publication.branch,
+      base: t.publication.base, head: t.publication.head, url: t.publication.url, lastError: t.publication.lastError,
+      // A content digest is not a bearer credential. Running this command explicitly authorizes only the original operation.
+      resumeCommand: publication.state !== 'pr-linked' ? `great-cto task work publish --task ${t.taskId} --revision ${publication.approvedRevision} --approval ${publication.approval} --base ${quote(publication.base)} --allow ${quote(publication.allow.join(','))} --confirm publish-draft-pr` : null } : null,
     operations: t.operations.map(({ operationId, kind, state, startedAt, finishedAt, exitCode, resume }) => ({ operationId, kind, state, startedAt, finishedAt, exitCode, ...(resume ? { resume } : {}) })) };
 }
 

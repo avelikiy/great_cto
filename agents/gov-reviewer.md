@@ -154,6 +154,15 @@ must-implement-before-senior-dev:
 gate: gate:gov-review
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh gov-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## What NOT to flag
 
 - General OWASP (security-officer)

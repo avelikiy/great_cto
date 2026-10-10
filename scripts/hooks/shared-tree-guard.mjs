@@ -33,6 +33,7 @@
  * Opt out (a tree nobody else works in): GREAT_CTO_DISABLE_SHARED_TREE_GUARD=1
  */
 
+import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { readFileSync } from 'node:fs';
 import { simpleCommands, gitParts } from '../lib/shell-commands.mjs';
 
@@ -112,24 +113,13 @@ function commandFrom(raw) {
   return ti.command || d.command || null;
 }
 
-function main() {
-  if (process.env.GREAT_CTO_DISABLE_SHARED_TREE_GUARD === '1') return process.exit(0);
-  let raw = '';
-  try { raw = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
+/** The decision for one tool-call payload, as a value (scripts/lib/guard-result.mjs). */
+export function run(raw, env = process.env) {
+  if (env.GREAT_CTO_DISABLE_SHARED_TREE_GUARD === '1') return PASS;
   const cmd = raw ? commandFrom(raw) : null;
   const hit = cmd ? findDestructive(cmd) : null;
-  if (!hit) return process.exit(0);
-
-  const reason = blockReason(hit);
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: `great_cto shared-tree guard blocked the command — ${reason}`,
-    },
-  }) + '\n');
-  process.stderr.write(`[great_cto:shared-tree] BLOCKED — ${reason}\n`);
-  return process.exit(2);
+  if (!hit) return PASS;
+  return deny({ guard: 'shared-tree', tag: 'shared-tree', reason: blockReason(hit) });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdinOnce()));

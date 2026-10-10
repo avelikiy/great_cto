@@ -180,7 +180,8 @@ test('an agent that finished and forgot is asked for the last step only', () => 
     threeState: true, recentVerdictExists: false,
     stop: { shape: 'reported', turns: 40, agent: 'code-reviewer' },
   });
-  assert.match(d.reason, /log-verdict\.sh code-reviewer/);
+  // The plugin's own script, by absolute path — `scripts/` exists only in great_cto's repository.
+  assert.match(d.reason, /\/log-verdict\.sh' code-reviewer/);
   assert.ok(!/CUT OFF/.test(d.reason));
 });
 

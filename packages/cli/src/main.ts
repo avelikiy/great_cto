@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "telemetry" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -132,6 +132,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "report") args.command = "report";
     else if (a === "upgrade") args.command = "upgrade";
     else if (a === "uninstall") args.command = "uninstall";
+    else if (a === "statusline") { args.command = "statusline"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "--purge-data") args.purgeData = true;
     else if (a === "--projects") args.projects = true;
     else if (a === "--self") args.upgradeSelf = true;
@@ -709,11 +710,13 @@ ${bold("Usage:")}
   npx great-cto ci [path] [--no-archetype] [--no-budget]
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
-  npx great-cto task work decisions|approve|verify|complete|metrics ...
+  npx great-cto task work decisions|approve|verify|complete|metrics|preview|publish ...
   npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
   npx great-cto upgrade --self                Upgrade the great-cto CLI itself, in place
+  npx great-cto statusline install            Record Claude's plan use (5h / weekly %) for the board; keeps your status line
+  npx great-cto statusline uninstall          Put your previous status line back
   npx great-cto uninstall [--yes]             Show what great_cto installed; --yes removes it (your data stays)
   npx great-cto help
   npx great-cto version
@@ -1680,6 +1683,10 @@ async function main(): Promise<void> {
       error((e as Error).message);
       await finish(2);
     }
+  }
+  if (args.command === "statusline") {
+    const { runStatuslineCommand } = await import("./statusline.js");
+    await finish(runStatuslineCommand(args.taskArgs ?? []));
   }
   if (args.command === "upgrade") {
     try {

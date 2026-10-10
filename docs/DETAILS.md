@@ -59,6 +59,24 @@ Indicative for a solo-CTO project at ~20 pipeline runs a month:
 | deep (cross-cutting) | $12 | 1 | $12 |
 | | | | **~$34** |
 
+The board's **Usage** screen (Tools → Usage) shows Claude Code and Codex side by
+side for the **selected project only**: tokens per day and kind of work, heaviest
+conversations, models, tools, skills, agents, cache share and recorded limit
+refusals. Attribution uses the transcript's working directory and Git repository
+identity, including linked worktrees, never its conversation title. Children
+without a working directory inherit their parent's project. Unattributed logs
+are excluded rather than guessed; missing observations are not proof of no use.
+Account-wide subscription quota percentages are deliberately not shown as
+project usage. Switching projects clears old data immediately; background
+responses and caches are project-scoped. Unknown project identifiers return an
+error, not another project's statistics.
+
+Below the usage totals, the same selected project supplies agent verdicts
+(pass, stopped, failed, ended without a verdict), Beads bugs (filed, open now,
+time to close), guard refusals and hook failures. Global verdicts enter this
+view only when explicitly tagged with the selected project's identifier.
+Dollars are the API list-price equivalent, not a subscription bill.
+
 You pay your own LLM provider. No per-seat fee, no SaaS. Routine triage
 auto-routes to a cheaper model (~5× lower cost) for a 60–80% reduction on
 log clustering.
@@ -240,7 +258,7 @@ Next.js, Postgres and Stripe that any engineer can pick up.
 
 ## What makes it different
 
-- **Specialists, not a generalist** — 71 agents with narrow jobs and their own
+- **Specialists, not a generalist** — 72 agents with narrow jobs and their own
   review gates, instead of one assistant that types faster than it thinks.
   [The roster →](reference/agents.md)
 - **Critics before code** — architecture, spec, and schema critics run before

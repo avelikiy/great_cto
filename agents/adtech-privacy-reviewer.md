@@ -106,6 +106,15 @@ Block the gate unless ALL hold:
   no health-facility geofencing.
 - **Privacy policy matches reality** — disclosed tags == actual tags (FTC § 5).
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh adtech-privacy-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-adtech-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Domain severity anchors
 
 | Severity | What it means IN THIS DOMAIN |

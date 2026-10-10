@@ -32,7 +32,7 @@ function project({ verdictAgeMs = null } = {}) {
   }
   return dir;
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 // The hook asks the board on 3141 what is waiting. On the author's machine a
 // board IS running there, serving great_cto — and for a temp fixture it answers
 // with great_cto's gates under a fallback header. Point the hook at a port

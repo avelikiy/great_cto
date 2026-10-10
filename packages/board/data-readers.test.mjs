@@ -33,7 +33,7 @@ function project({ files = {}, plans = {}, verdicts = {}, tasks = null } = {}) {
   }
   return dir;
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 const today = () => new Date().toISOString().slice(0, 10);
 
 // ── getMemory ──────────────────────────────────────────────────────────────

@@ -106,6 +106,15 @@ Block the gate unless ALL hold (for the in-scope obligations):
 - **UT/TX:** generative-AI interactions are disclosed to the user.
 - **CA:** AB 2013 training-data documentation + SB 942 content provenance where applicable.
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh us-ai-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-usai-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Anti-patterns you refuse
 
 - Treating "voluntary" NIST AI RMF as optional governance — it's the evidence backbone state AGs expect.

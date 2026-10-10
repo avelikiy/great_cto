@@ -10,7 +10,7 @@ import { spawnSync } from 'node:child_process';
 import { mergePreflight, exitFor } from '../../scripts/lib/merge-preflight.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function repo() {
   const d = mkdtempSync(join(tmpdir(), 'merge-pre-'));
   made.push(d);

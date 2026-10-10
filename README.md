@@ -25,7 +25,7 @@ npx great-cto init
 
 **Your coding agent ships code. This is what checks it.**
 
-Describe a product or a feature. **71 agents** with narrow jobs take it through
+Describe a product or a feature. **72 agents** with narrow jobs take it through
 brief, architecture, build, review and security; a second model from another family
 reads the same diff. Three decisions stay yours — what gets built, how, and
 whether it ships — and what lands is a **repository you own** and a **URL that

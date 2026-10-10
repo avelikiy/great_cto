@@ -49,7 +49,7 @@ const groupBy = (vs) => vs.reduce((a, v) => {
   (a[v.agent] ||= []).push(JSON.stringify({ v: 1, ts: v.ts, agent: v.agent, verdict: v.verdict, cost_usd: v.cost_usd }));
   return a;
 }, {});
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 
 // ── a cell that cannot be read says so ────────────────────────────────────
 

@@ -561,19 +561,23 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   color: var(--text3);
 }
 
-.nav { padding: 12px 8px; flex: 1; }
-.nav-item {
-  display: flex; align-items: center; gap: 10px;
-  height: 32px; padding: 0 10px;
+.sidebar { --nav-row-height: 36px; --nav-row-pad: 10px; --nav-icon-size: 16px; --nav-row-gap: 10px; }
+.nav { padding: 8px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
+/* One row pattern for destinations, disclosure and Fleet filters. */
+.nav-item, .nav-view-item, .nav-group-toggle {
+  display: flex; align-items: center; gap: var(--nav-row-gap);
+  height: var(--nav-row-height); padding: 0 var(--nav-row-pad);
   border-radius: 0;
   font-size: var(--fs-body);
+  font-weight: 400;
   color: var(--text);
   cursor: pointer;
   position: relative;
   user-select: none;
 }
-.nav-item:hover { background: var(--bg-muted); }
-.nav-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item:hover, .nav-view-item:hover, .nav-group-toggle:hover { background: var(--bg-muted); }
+.nav-item.active, .nav-view-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item:focus-visible, .nav-view-item:focus-visible, .nav-group-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .nav-item.active::before {
   content: "";
   position: absolute;
@@ -582,15 +586,22 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   background: var(--accent);
   border-radius: 0;
 }
-.nav-item .icon { width: 16px; height: 16px; color: var(--text2); flex-shrink: 0; }
-.nav-item.active .icon { color: var(--accent-text); }
-.nav-item .count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); }
+.sidebar .icon { width: var(--nav-icon-size); height: var(--nav-icon-size); color: var(--text2); flex-shrink: 0; }
+.nav-item.active .icon, .nav-view-item.active .icon { color: var(--accent-text); }
+.nav-label { flex: 1; min-width: 0; }
+.nav-item .count, .nav-view-count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+#tools-nav { flex: 0 0 auto; }
+#tools-nav > summary { margin: 0 8px; list-style: none; }
+#tools-nav > summary::-webkit-details-marker { display: none; }
+#tools-nav > summary::marker { content: ''; }
+#tools-nav[open] > summary .icon { transform: rotate(90deg); }
+#tools-nav .nav { padding-top: 2px; }
 .nav-divider { height: 1px; background: var(--border); margin: 12px 8px; }
 .nav-views-label { padding: 0 18px; font-size: var(--fs-caption); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
 .nav-views { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 12px; }
-.nav-view-item { height: 28px; display: flex; align-items: center; padding: 0 10px; font-size: var(--fs-small); color: var(--text3); }
 
 .sidebar-footer {
+  margin-top: auto;
   padding: 12px 16px;
   border-top: 1px solid var(--border);
   font-family: var(--mono);
@@ -1511,10 +1522,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .bar { height: 6px; background: var(--bg-strong); border-radius: 999px; overflow: hidden; }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
-  .nav-view-item { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; }
-  .nav-view-item:hover { background: var(--bg-muted); color: var(--text); }
-  .nav-view-item.active { background: var(--bg-strong); color: var(--text); font-weight: 500; }
-  .nav-view-count { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); font-variant-numeric: tabular-nums; }
   .fleet-group-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
   .fleet-group-collapsed { display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
   .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
@@ -2244,6 +2251,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   font-size: var(--fs-body);
 }
 .judge-status[hidden] { display: none; }
+/* The "retry" link appears only when the live key check got no answer — a
+   degraded state, so no screenshot ever carried it, and it rendered in the
+   browser's default blue until the on-system check met it on 2026-10-06. */
+.judge-status a { color: var(--accent-text); text-decoration: underline; text-underline-offset: 2px; }
+.judge-status a:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
 
 /* What the judge CONCLUDED, under whether it is connected.
    The scores existed for weeks and no page read them: /api/scores had zero
@@ -2369,6 +2381,93 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
 /* ── Metrics page ─────────────────────────────────────────────────────────── */
 .metrics-page { padding: 24px 32px; }
+
+/* Usage (great_cto-egkw) — two hosts side by side, every block in two columns
+   that fold into one at phone width. */
+.usage-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.usage-chips {
+  display: inline-flex; gap: 4px; padding: 3px;
+  background: var(--bg-muted); border: 1px solid var(--border);
+}
+.usage-chip {
+  background: transparent; border: none; color: var(--text2);
+  padding: 5px 12px; min-height: 32px; cursor: pointer;
+  font-family: var(--mono); font-size: var(--fs-caption); font-weight: 500; letter-spacing: 0.05em;
+}
+.usage-chip:hover { color: var(--text); }
+.usage-chip.active { background: var(--accent); color: var(--on-accent); }
+.usage-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.usage-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 12px; margin-bottom: 20px; }
+.usage-card { background: var(--bg-card); border: 1px solid var(--border); padding: 16px 18px; min-width: 0; }
+.usage-card h3 { font-size: var(--fs-title-s); font-weight: 600; margin: 0 0 10px; color: var(--text); display: flex; justify-content: space-between; gap: 8px; }
+.usage-card h3 .muted { font-weight: 400; font-size: var(--fs-caption); }
+.usage-big { font-family: var(--display); font-size: var(--fs-num-m); font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+.usage-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; margin-top: 12px; }
+.usage-stat { min-width: 0; }
+.usage-stat b { display: block; font-family: var(--mono); font-size: var(--fs-title-s); font-weight: 500; font-variant-numeric: tabular-nums; color: var(--text); }
+.usage-stat span { font-size: var(--fs-caption); color: var(--text3); }
+.usage-limit { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border); }
+.usage-limit-head { display: flex; justify-content: space-between; gap: 8px; font-size: var(--fs-small); color: var(--text2); }
+.usage-limit-head b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; }
+.usage-meter { height: 8px; background: var(--bg-muted); border: 1px solid var(--border); margin: 6px 0; }
+.usage-meter > span { display: block; height: 100%; background: var(--accent); }
+.usage-meter.warn > span { background: var(--status-progress); }
+.usage-meter.full > span { background: var(--status-blocked); }
+.usage-sub { font-size: var(--fs-caption); color: var(--text3); line-height: 1.5; }
+.usage-note { font-size: var(--fs-small); color: var(--text2); line-height: 1.55; }
+.usage-chart svg { display: block; width: 100%; height: 120px; }
+.usage-axis { display: flex; justify-content: space-between; gap: 8px; font-family: var(--mono); font-size: var(--fs-caption); color: var(--text3); margin-top: 4px; }
+.usage-axis span { white-space: nowrap; }
+.usage-axis span:nth-child(2) { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.usage-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: var(--fs-caption); color: var(--text2); margin-top: 8px; }
+.usage-legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; vertical-align: -1px; }
+.usage-table-wrap { overflow-x: auto; }
+.usage-table { width: 100%; border-collapse: collapse; font-size: var(--fs-small); }
+.usage-table th { text-align: left; font-weight: 500; color: var(--text3); font-size: var(--fs-caption); padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.usage-table td { padding: 6px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
+.usage-table td.num, .usage-table th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.skills-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.skills-controls label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text2); }
+.skills-controls input, .skills-controls select { min-height: 32px; max-width: 100%; padding: 5px 8px; border: 1px solid var(--border); color: var(--text); background: var(--bg-muted); font: inherit; }
+.skills-controls :is(input, select):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+#skills-table td { max-width: 320px; overflow-wrap: anywhere; }
+#skills-table code { word-break: break-all; font-family: var(--mono); font-size: var(--fs-caption); }
+@media (max-width: 767px) { .skills-controls :is(input, select) { min-height: 44px; } }
+.usage-title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.usage-tag { display: inline-block; font-family: var(--mono); font-size: var(--fs-eyebrow); letter-spacing: 0.04em; padding: 1px 5px; margin-left: 6px; border: 1px solid var(--border-strong); color: var(--text2); }
+.usage-share { display: inline-block; width: 48px; height: 6px; background: var(--bg-muted); margin-right: 6px; vertical-align: 1px; }
+.usage-share > span { display: block; height: 100%; background: var(--accent); }
+.usage-sec-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 12px; }
+.usage-sec-head .mp-section-label { margin: 0; }
+.usage-lists { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px; margin-bottom: 20px; }
+.usage-list { list-style: none; margin: 0; padding: 0; }
+.usage-list li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; font-size: var(--fs-small); padding: 4px 0; position: relative; }
+.usage-list li .nm { display: flex; align-items: baseline; min-width: 0; color: var(--text); }
+.usage-list li .nm .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+.usage-list li .nm .usage-tag { flex-shrink: 0; }
+[data-outcomes="agents"] .usage-table td:first-child { white-space: nowrap; }
+.usage-list li .n { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text2); }
+.usage-list li .bar { grid-column: 1 / -1; height: 3px; background: var(--bg-muted); }
+.usage-list li .bar > span { display: block; height: 100%; background: var(--accent); opacity: 0.7; }
+.usage-line svg { display: block; width: 100%; height: 110px; overflow: visible; }
+.usage-line .ln { fill: none; stroke: var(--accent); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.usage-line .ceil { stroke: var(--status-progress); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.usage-line .grid { stroke: var(--border-strong); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.usage-kinds { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: var(--fs-small); color: var(--text2); margin: 10px 0 4px; }
+.usage-kinds b { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--text); font-weight: 500; margin-right: 4px; }
+.usage-quote { font-size: var(--fs-small); color: var(--text2); border-left: 2px solid var(--border-strong); padding: 2px 0 2px 10px; margin: 10px 0 0; overflow-wrap: anywhere; }
+.usage-pace { font-size: var(--fs-small); color: var(--text); margin: 4px 0 8px; }
+.usage-card code, .usage-note code, .usage-sub code { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text); background: var(--bg-muted); padding: 1px 4px; }
+.usage-pace.bad { color: var(--status-blocked-ink); }
+.usage-prios { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+.usage-prio { border: 1px solid var(--border); padding: 8px 10px; min-width: 0; }
+.usage-prio b { display: block; font-family: var(--display); font-size: var(--fs-num-s); font-variant-numeric: tabular-nums; color: var(--text); line-height: 1.1; }
+.usage-prio .k { font-family: var(--mono); font-size: var(--fs-caption); color: var(--text2); }
+.usage-prio.hot { border-color: var(--status-blocked); }
+.usage-prio.hot .k { color: var(--status-blocked-ink); }
+.usage-rate { display: inline-block; width: 44px; height: 6px; background: var(--bg-muted); margin-right: 6px; vertical-align: 1px; }
+.usage-rate > span { display: block; height: 100%; background: var(--status-blocked); }
+@media (max-width: 767px) { .usage-title { max-width: 160px; } .usage-chip { min-height: 44px; } .usage-prios { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .mp-section-label {
   font-family: var(--mono); font-size: var(--fs-caption);
   letter-spacing: 0.1em; text-transform: uppercase;
@@ -3074,7 +3173,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    operator caused, none for state the machine caused. Hover and focus 90ms
    linear; the drawer 200ms out / 140ms in (exit faster than enter); SSE
    arrival 0ms — rows and figures swap, they do not animate in. ── */
-.nav-item, .nav-view-item, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
+.nav-item, .nav-view-item, .nav-group-toggle, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
@@ -3122,8 +3221,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    labels; the destinations stay one tap away. ── */
 @media (min-width: 768px) and (max-width: 1199px) {
   .sidebar { width: 56px; }
-  .nav-item { justify-content: center; padding: 0; gap: 0; }
+  .nav-item, .nav-group-toggle { justify-content: center; padding: 0; gap: 0; }
   .nav-item > span { display: none; }
+  .nav-group-toggle .nav-label { display: none; }
   .nav-item .count.abs { display: inline; position: absolute; top: 2px; right: 6px; }
   .nav-item { position: relative; }
   .nav-divider, .nav-views-label, .nav-views { display: none; }
@@ -3281,8 +3381,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .work-warning { color: var(--absent-warn-fg); background: var(--bg-card); border: 1px solid var(--absent-warn-fg); padding: 12px; }
 .work-page pre { font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
 #work-compose textarea, #work-compose input, #work-compose select { display: block; width: 100%; margin: 8px 0 12px; padding: 8px; background: var(--bg-muted); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; }
-#tools-nav summary { padding: 12px 16px; cursor: pointer; }
-@media (min-width: 768px) and (max-width: 1199px) { .nav-item[data-tab="work"] > span, .nav-item[data-tab="history"] > span { display: inline; font-size: var(--fs-caption); } #tools-nav summary { padding: 12px 4px; } }
+@media (max-width: 767px) { .sidebar { --nav-row-height: 44px; } }
 @media (max-width: 767px) { .work-page { padding: 12px; } .work-page button, #work-compose select { min-height: 44px; } }
 </style>
 </head>
@@ -3321,22 +3420,32 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <input id="proj-search" type="text" placeholder="Filter projects…" aria-label="Filter projects" oninput="renderProjMenu(this.value)" />
         </div>
         <div id="proj-menu-list"></div>
+        <div id="proj-menu-status" role="status"></div>
       </div>
     </div>
     <nav class="nav" id="nav-tablist" role="tablist" aria-orientation="vertical">
-      <div class="nav-item active" data-tab="work" role="tab" tabindex="0" aria-label="Work" title="Work" onkeydown="navTabKeydown(event, this)" onclick="switchTab('work', this)"><span>Work</span></div>
+      <div class="nav-item active" data-tab="work" role="tab" tabindex="0" aria-selected="true" aria-label="Work" title="Work" onkeydown="navTabKeydown(event, this)" onclick="switchTab('work', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="7" width="18" height="14" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v3h4v-3"/></svg>
+        <span class="nav-label">Work</span>
+      </div>
       <div class="nav-item" data-tab="decisions" role="tab" tabindex="0" aria-label="Decisions" title="Decisions" onkeydown="navTabKeydown(event, this)" onclick="switchTab('decisions', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M22 12h-6l-2 3h-4l-2-3H2 M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/></svg>
-        <span>Decisions</span>
+        <span class="nav-label">Decisions</span>
         <span class="count" id="nav-inbox-count">0</span>
       </div>
-      <div class="nav-item" data-tab="history" role="tab" tabindex="0" aria-label="History" title="History" onkeydown="navTabKeydown(event, this)" onclick="switchTab('history', this)"><span>History</span></div>
+      <div class="nav-item" data-tab="history" role="tab" tabindex="0" aria-label="History" title="History" onkeydown="navTabKeydown(event, this)" onclick="switchTab('history', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 10a9 9 0 1 1 2 8M3 4v6h6M12 7v5l3 2"/></svg>
+        <span class="nav-label">History</span>
+      </div>
     </nav>
-    <details id="tools-nav"><summary>Tools</summary>
+    <details id="tools-nav"><summary class="nav-group-toggle" aria-label="Tools" title="Tools">
+      <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 6l6 6-6 6"/></svg>
+      <span class="nav-label">Tools</span>
+    </summary>
     <nav class="nav" role="tablist" aria-label="Technical tools" aria-orientation="vertical">
       <div class="nav-item" data-tab="ledger" role="tab" tabindex="0" aria-label="Ledger" title="Ledger" onkeydown="navTabKeydown(event, this)" onclick="switchTab('ledger', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M12 1v22 M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
-        <span>Ledger</span>
+        <span class="nav-label">Ledger</span>
         <!-- Real spend total is Ledger's own content (.7); this keeps the count
              of agent budget caps the old Budgets tab already computed, rather
              than inventing a $ figure with nothing behind it yet. -->
@@ -3344,7 +3453,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
       <div class="nav-item" data-tab="fleet" role="tab" tabindex="0" aria-label="Fleet" title="Fleet" onkeydown="navTabKeydown(event, this)" onclick="switchTab('fleet', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="6" cy="6" r="2"/><circle cx="18" cy="6" r="2"/><circle cx="6" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M8 6h8M6 8v8M18 8v8M8 18h8"/></svg>
-        <span>Fleet</span>
+        <span class="nav-label">Fleet</span>
         <!-- The absence glyph, not a count (DESIGN §5): something in Fleet is
              unclassified. Left hidden — the classification read lives in the
              Fleet screen body (.8/.9), out of this shell task's scope. -->
@@ -3352,18 +3461,22 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
       <div class="nav-item" data-tab="harness" role="tab" tabindex="0" aria-label="Harness" title="Harness" onkeydown="navTabKeydown(event, this)" onclick="switchTab('harness', this)">
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M3 12h4l2-5 3 10 2-5h7"/></svg>
-        <span>Harness</span>
+        <span class="nav-label">Harness</span>
         <span class="count" id="nav-harness-count"></span>
+      </div>
+      <div class="nav-item" data-tab="usage" role="tab" tabindex="0" aria-label="Usage" title="Usage" onkeydown="navTabKeydown(event, this)" onclick="switchTab('usage', this)">
+        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"/></svg>
+        <span class="nav-label">Usage</span>
+      </div>
+      <div class="nav-item" data-tab="skills" role="tab" tabindex="0" aria-label="Skills" title="Skills" onkeydown="navTabKeydown(event, this)" onclick="switchTab('skills', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3h6a2 2 0 0 1 2 2v16a3 3 0 0 0-3-3H4V3zM20 3h-6a2 2 0 0 0-2 2v16a3 3 0 0 1 3-3h5V3z"/></svg>
+        <span class="nav-label">Skills</span>
       </div>
     </nav>
     </details>
     <div class="nav-divider"></div>
     <div class="nav-views-label" id="nav-views-label" hidden>Views</div>
-    <!-- Saved views over Fleet (DESIGN §5 point 2). Static for this shell —
-         filtering the fleet list is the Fleet screen body's job (.8), not this
-         task's; deliberately not `.nav-item`/`role="tab"`, since they neither
-         switch a top-level destination nor do anything yet, and a control that
-         looks live and isn't fails `ui-ux-pro-max` empty-nav-state. -->
+    <!-- Fleet filters share the row pattern, but stay buttons, not destinations. -->
     <div class="nav-views" hidden>
       <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
       <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
@@ -3600,6 +3713,41 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              what did it find. Moved here from the caps page — a harness fact. -->
         <div id="judge-status" class="judge-status" hidden style="margin-top:12px"></div>
         <div id="judge-scores" class="jscores" hidden></div>
+      </div>
+    </div>
+
+    <!-- Usage (great_cto-egkw). What Claude Code and Codex consumed on this
+         machine, read from the hosts' own session logs by
+         scripts/lib/session-usage.mjs. Machine-wide, not per project. -->
+    <div class="panel" id="panel-usage" role="tabpanel">
+      <div class="metrics-page">
+        <div class="usage-head">
+          <h1 class="page-title">Usage <span class="muted" style="font-weight:400;font-size:var(--fs-small)">what Claude Code and Codex consumed in the selected project</span></h1>
+          <div class="usage-chips" role="group" aria-label="Period">
+            <button type="button" class="usage-chip" data-days="7" onclick="loadUsage(7)">7D</button>
+            <button type="button" class="usage-chip active" data-days="30" onclick="loadUsage(30)">30D</button>
+            <button type="button" class="usage-chip" data-days="90" onclick="loadUsage(90)">90D</button>
+          </div>
+        </div>
+        <div id="usage-body" class="usage-note" role="status">Reading this project's Claude Code and Codex session logs.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-skills" role="tabpanel" aria-label="Skills">
+      <div class="metrics-page">
+        <div class="usage-head">
+          <h1 class="page-title">Skills <span class="muted" style="font-weight:400;font-size:var(--fs-small)">local inventory, not a quality ranking</span></h1>
+          <button type="button" class="usage-chip" onclick="loadSkillsInventory()">Reload</button>
+        </div>
+        <p class="usage-note">Project scope includes only the selected project's skill directories. Machine scope shows local host directories and plugin caches, not other projects' statistics.</p>
+        <div class="skills-controls">
+          <label>Search <input id="skills-search" type="search" aria-label="Filter skills" placeholder="Filter skills…" oninput="renderSkillsInventory()"></label>
+          <label>Host location <select id="skills-host" aria-label="Skill host location" onchange="renderSkillsInventory()"><option value="all">All locations</option><option>Claude Code</option><option>Codex</option><option>Shared</option><option>Registry</option></select></label>
+          <label>Scope <select id="skills-scope" aria-label="Skill scope" onchange="renderSkillsInventory()"><option value="all">Machine + selected project</option><option value="project">Selected project only</option><option value="machine">Machine only</option></select></label>
+        </div>
+        <p id="skills-status" class="usage-note" role="status">Reading local skill metadata.</p>
+        <div id="skills-body" aria-busy="false"></div>
+        <p class="usage-note">A file in a host location is not proof that the host enabled or loaded it. Shared and registry locations do not prove compatibility with either host. SHA-256 covers only the document, not its scripts or reference tree. Upstream trust and task quality are not measured. No installation, execution or upstream network checks. Read snapshots are cached for up to 30 seconds.</p>
       </div>
     </div>
 
@@ -3979,11 +4127,16 @@ window.GctoWork.bind({
   project: () => new URLSearchParams(location.search).get('project') || '',
   visible: () => currentTab === 'work' || currentTab === 'history',
   read: url => api(url),
+  publish: async (url, body) => {
+    const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    return response.json();
+  },
   openIssue: (id, decision) => { if (decision) switchTab('decisions'); openSideById(id); },
 });
 let searchQuery = '';
 let allProjects = [];
 let currentProject = '';
+let serverDefaultProject = false;
 let inboxData = null;
 let activeFilters = { agents: new Set(), priorities: new Set(), labels: new Set() };
 // Period selector for dashboard (1/7/30/90/365 days). Persists in localStorage.
@@ -3991,12 +4144,12 @@ let currentPeriod = parseInt(localStorage.getItem('gcto.period') || '30', 10) ||
 
 // Returns ?project=slug query string for all API calls after init() sets currentProject
 function pqs() {
-  return currentProject ? `?project=${encodeURIComponent(currentProject)}` : '';
+  return currentProject && !serverDefaultProject ? `?project=${encodeURIComponent(currentProject)}` : '';
 }
 // Combined query string: ?project=X&days=Y (for metrics/cost APIs)
 function pqsd() {
   const parts = [];
-  if (currentProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
+  if (currentProject && !serverDefaultProject) parts.push(`project=${encodeURIComponent(currentProject)}`);
   parts.push(`days=${currentPeriod}`);
   return '?' + parts.join('&');
 }
@@ -5007,7 +5160,7 @@ async function loadJudgeScores() {
   const el = document.getElementById('judge-scores');
   if (!el) return;
   let d;
-  try { d = await api(`/api/scores${pqs()}&limit=40`); } catch { d = null; }
+  try { d = await api(`/api/scores?limit=40${pqs().replace('?', '&')}`); } catch { d = null; }
 
   // Three states, and the empty one earns a sentence rather than a blank space:
   // "nothing has been verified yet" and "the panel is broken" look identical
@@ -5762,7 +5915,7 @@ function renderTurns(snap) {
   if (snap.state === 'unreadable') return `<div class="aa-empty aa-bad">Turns not measured: ${esc(snap.why || 'git refused')}</div>`;
   const sessions = Array.isArray(snap.sessions) ? snap.sessions : [];
   if (!sessions.length) return `<div class="aa-empty">No turn snapshots yet — they start with the next agent turn.</div>`;
-  const when = (ms) => { try { return ms ? new Date(ms).toLocaleString([], { hour12: false }) : ''; } catch { return ''; } };
+  const when = (ms) => { try { return ms ? new Date(ms).toLocaleString('en-US', { hour12: false }) : ''; } catch { return ''; } };
   return sessions.map((s) => {
     const count = Math.min(Number(s.turns) || 0, 50);
     const first = Math.max(0, (Number(s.newestTurn) || 0) - count + 1);
@@ -5851,7 +6004,7 @@ function renderAgentActivity(snap) {
     root.innerHTML = `<div class="aa-empty">No agent events recorded yet — they start with the next agent run.</div>`;
     return;
   }
-  const time = (ts) => { try { return new Date(ts).toLocaleTimeString([], { hour12: false }); } catch { return ''; } };
+  const time = (ts) => { try { return new Date(ts).toLocaleTimeString('en-US', { hour12: false }); } catch { return ''; } };
   const what = (e) => {
     if (e.kind === 'tool') {
       const p = Array.isArray(e.paths) && e.paths.length ? ` ${esc(e.paths[0])}${e.paths.length > 1 ? ` +${e.paths.length - 1}` : ''}` : '';
@@ -5877,6 +6030,501 @@ function renderAgentActivity(snap) {
 // The Harnesses card. Four states for the second opinion, and the fourth is
 // the reason the card exists: `unavailable` — declared codex, no codex here —
 // must never look like `none` or like a switch someone turned off.
+// Read-only Skills: keep controls mounted so filtering never steals focus.
+let skillsData = null;
+let _skillsRequest = 0;
+async function loadSkillsInventory() {
+  const request = ++_skillsRequest, project = currentProject;
+  const status = document.getElementById('skills-status');
+  const body = document.getElementById('skills-body');
+  skillsData = null; body.innerHTML = ''; body.setAttribute('aria-busy', 'true');
+  status.textContent = 'Reading local skill metadata.';
+  try {
+    const data = await api(`/api/skills${pqs()}`, { signal: AbortSignal.timeout(10000) });
+    if (request !== _skillsRequest || project !== currentProject) return;
+    if (!data || !Array.isArray(data.skills)) throw new Error('Invalid inventory response');
+    skillsData = data; renderSkillsInventory();
+  } catch {
+    if (request !== _skillsRequest || project !== currentProject) return;
+    status.textContent = 'Could not read skill inventory. No counts or provenance were measured.';
+    body.innerHTML = '';
+  } finally {
+    if (request === _skillsRequest && project === currentProject) body.setAttribute('aria-busy', 'false');
+  }
+}
+function renderSkillsInventory() {
+  if (!skillsData) return;
+  const body = document.getElementById('skills-body');
+  const q = document.getElementById('skills-search').value.trim().toLowerCase();
+  const host = document.getElementById('skills-host').value, scope = document.getElementById('skills-scope').value;
+  const d = skillsData;
+  const rows = d.skills.filter(s => (host === 'all' || s.host === host) && (scope === 'all' || s.scope === scope)
+    && [s.name, s.location, s.declared_source].some(v => String(v || '').toLowerCase().includes(q)));
+  document.getElementById('skills-status').textContent = `${d.state === 'partial' ? 'Partial inventory' : 'Observed inventory'} · ${rows.length} shown · ${d.skills.length} documents listed · ${fmtDate(d.observed_at)}${d.truncated ? ' · scan limit reached' : ''}`;
+  const labels = { 'missing-frontmatter': 'Missing frontmatter', 'name-mismatch': 'Name differs from directory',
+    'description-length': 'Description outside lint limits', 'invalid-frontmatter': 'Invalid frontmatter',
+    'ambiguous-yaml': 'Ambiguous YAML', 'over-context-budget': 'Over 20 KB context budget',
+    'too-large': 'Document too large', 'changed-during-read': 'Document changed during read',
+    unreadable: 'Unreadable', missing: 'Missing', 'outside-root': 'Outside allowed root' };
+  const table = rows.length ? `<div class="usage-table-wrap"><table id="skills-table" class="usage-table"><caption class="usage-note">Local document observations</caption><thead><tr><th scope="col">Skill</th><th scope="col">Location</th><th scope="col">Scope</th><th scope="col">Document integrity</th><th scope="col">Structure</th></tr></thead><tbody>${rows.map(s => `<tr>
+    <td>${esc(s.name)}<div class="usage-sub">${esc(s.host)} location</div></td>
+    <td>${esc(s.location)}${s.declared_source ? `<div class="usage-sub">Registry declaration: ${esc(s.declared_source)}</div>` : ''}${s.cache_version ? `<div class="usage-sub">Cache version: ${esc(s.cache_version)}</div>` : ''}</td>
+    <td>${s.scope === 'project' ? 'Selected project' : 'Machine'}</td>
+    <td>${s.document_sha256 ? `<code>${esc(s.document_sha256)}</code><div class="usage-sub">${esc(s.bytes)} bytes · document only</div>` : esc(labels[s.read_state] || 'Not measured')}<div class="usage-sub">Upstream revision: unknown</div></td>
+    <td>${s.read_state !== 'observed' ? 'Not checked' : s.warnings.length ? s.warnings.map(v => esc(labels[v] || v)).join('<br>') : 'No structural warnings'}<div class="usage-sub">Enabled / loaded: unknown</div></td>
+  </tr>`).join('')}</tbody></table></div>` : `<p class="usage-note">${d.skills.length ? 'No skills match these filters.' : d.state === 'partial' ? 'No documents were observed. Some sources could not be read; this is not a complete empty inventory.' : 'No skill documents found in the scanned local locations.'}</p>`;
+  body.innerHTML = table + `<details class="usage-note" style="margin-top:16px"><summary>Source coverage and registry</summary><p>Registry: ${esc(d.registry.state)} · declared at: ${esc(d.registry.declared_at || 'unknown')} · declared plugin version: ${esc(d.registry.plugin_version || 'unknown')}</p>
+    <ul>${d.sources.map(s => `<li>${esc(s.label)} · ${esc(s.scope === 'project' ? 'selected project' : 'machine')} · ${esc(s.state)}${s.warnings.length ? ' · ' + s.warnings.map(esc).join(', ') : ''}</li>`).join('')}</ul></details>`;
+}
+
+// ── Usage (great_cto-egkw) ─────────────────────────────────────────────────
+// Both hosts, side by side, from /api/usage. Three honesty rules carried from
+// the reader: an unpriced model is n/a, never $0; Claude Code's plan use is not
+// written anywhere, so it is not drawn — only the refusals are; and a host with
+// no logs attributed to this project says so instead of showing zeros.
+let usageDays = 30;
+let usageHost = 'claude';
+let usageData = null;
+let _usageTimer = null;
+let _usageRequest = 0;
+function resetProjectUsage() {
+  clearTimeout(_usageTimer); clearTimeout(_outcomesTimer);
+  ++_usageRequest; ++_outcomesRequest;
+  usageData = null;
+  const body = document.getElementById('usage-body');
+  if (body) { body.className = 'usage-note'; body.textContent = 'Reading the selected project’s statistics…'; }
+}
+const USAGE_HOSTS = { claude: 'Claude Code', codex: 'Codex' };
+const USAGE_LOGS = { claude: '~/.claude/projects', codex: '~/.codex/sessions' };
+const USAGE_FN = { chat: 'Conversations', subagent: 'Subagents', automation: 'Automations', headless: 'Headless runs' };
+const USAGE_FN_COLOR = { chat: 'var(--accent)', subagent: 'var(--status-progress)', automation: 'var(--status-gate)', headless: 'var(--text3)' };
+
+function fmtTok(n) {
+  n = Number(n) || 0;
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
+  if (n >= 1e6) return `${(n / 1e6).toFixed(1)}M`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}k`;
+  return String(Math.round(n));
+}
+function fmtUsdEq(n) {
+  if (n == null) return null;
+  return n >= 100 ? `$${Math.round(n).toLocaleString('en-US')}` : `$${n.toFixed(2)}`;
+}
+const fmtPct = (x) => (x == null ? null : `${Math.round(x * 100)}%`);
+
+async function loadUsage(days) {
+  if (!currentProject) return; // init() loads again after resolving the project.
+  if (days) usageDays = days;
+  document.querySelectorAll('.usage-chip[data-days]').forEach((c) => c.classList.toggle('active', Number(c.dataset.days) === usageDays));
+  clearTimeout(_usageTimer);
+  const request = ++_usageRequest, requestedDays = usageDays, requestedProject = currentProject;
+  const loadingBody = document.getElementById('usage-body');
+  if (loadingBody && (!usageData || usageData.window?.days !== requestedDays)) {
+    loadingBody.className = 'usage-note'; loadingBody.textContent = 'Loading session statistics…';
+  }
+  const d = await api(`/api/usage?days=${requestedDays}${pqs().replace('?', '&')}`);
+  if (request !== _usageRequest || requestedDays !== usageDays || requestedProject !== currentProject || currentTab !== 'usage') return;
+  const body = document.getElementById('usage-body');
+  if (!body) return;
+  if (!d || d.error) {
+    body.className = 'usage-note';
+    body.textContent = `Usage could not be read: ${(d && d.error) || 'the board is not reachable — is the server still running?'}`;
+    return;
+  }
+  if (d.state === 'computing') {
+    body.className = 'usage-note';
+    body.textContent = `Counting — ${d.why}`;
+    _usageTimer = setTimeout(() => { if (currentTab === 'usage') loadUsage(); }, 2000);
+    return;
+  }
+  if (d.state !== 'counted' || d.scope?.kind !== 'project') {
+    body.className = 'usage-note';
+    body.textContent = `Usage is not available: ${d.why || (d.scope?.kind !== 'project' ? 'the server did not confirm project-scoped statistics; update the board' : d.state)}`;
+    return;
+  }
+  usageData = d;
+  renderUsage(d);
+  if (d.stale || d.refreshing) {
+    const note = document.createElement('p'); note.className = 'usage-note';
+    note.textContent = d.refreshError || 'Showing the last counted statistics while refreshing in the background.';
+    body.prepend(note);
+  }
+  if (d.refreshing) _usageTimer = setTimeout(() => { if (currentTab === 'usage') loadUsage(); }, 2000);
+  loadOutcomes();
+}
+
+function setUsageHost(host) {
+  usageHost = host;
+  if (usageData) { renderUsage(usageData); loadOutcomes(); }
+}
+
+function usageLimitWindow(minutes) {
+  if (minutes === 10080) return 'Weekly limit';
+  if (minutes === 300) return '5-hour limit';
+  if (minutes === 43200) return 'Monthly limit';
+  return minutes ? `${minutes}-minute limit` : 'Limit';
+}
+
+function usageHostCard(d, host) {
+  const name = USAGE_HOSTS[host];
+  if (!d.seen || !d.seen[host]) {
+    return `<section class="usage-card" data-host="${host}"><h3>${name}</h3><p class="usage-note">No ${name} session logs attributed to this project — nothing to count, which is not the same as nothing used.</p></section>`;
+  }
+  const h = d.hosts[host];
+  const unpricedHere = (d.models || []).filter((m) => m.host === host && m.usd == null).map((m) => m.model);
+  const usd = h.usd == null
+    ? absent('uncomputable', `no price is set for ${unpricedHere.join(', ') || 'these models'} — add one to ~/.great_cto/model-prices.json`)
+    : esc(fmtUsdEq(h.usd)) + (h.unpricedResponses ? ` <span class="usage-tag" title="${esc(`${h.unpricedResponses} responses from unpriced models are not in this figure`)}">partial</span>` : '');
+  const stat = (v, label) => `<div class="usage-stat"><b>${v}</b><span>${label}</span></div>`;
+  let limit;
+  if (host === 'codex') {
+    const L = d.limits && d.limits.codex;
+    const win = (w) => {
+      if (!w) return '';
+      const used = Math.max(0, Math.min(100, Number(w.used) || 0));
+      const cls = used >= 90 ? 'full' : used >= 70 ? 'warn' : '';
+      const resets = w.resets ? fmtDT(new Date(w.resets * 1000).toISOString()) : '—';
+      return `<div class="usage-limit-head"><span>${usageLimitWindow(w.minutes)}</span><b>${used}% used</b></div>
+        <div class="usage-meter ${cls}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${used}" aria-label="${esc(usageLimitWindow(w.minutes))}"><span style="width:${used}%"></span></div>
+        <div class="usage-sub">resets ${esc(resets)}</div>`;
+    };
+    limit = L && (L.primary || L.secondary)
+      ? `<div class="usage-limit">${win(L.primary)}${win(L.secondary)}<div class="usage-sub">plan ${esc(L.plan || '—')} · as Codex last reported it, ${esc(relTime(L.at))} ago</div></div>`
+      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', 'no Codex session has reported its rate-limit window yet')}</div></div>`;
+  } else {
+    const hits = h.limitHits || { plan: 0, server: 0 };
+    const P = d.limits && d.limits.claude && d.limits.claude.plan;
+    const meter = (lane) => {
+      const c = lane && lane.current;
+      if (!c || !c.open) return '';
+      const used = Math.max(0, Math.min(100, Number(c.used) || 0));
+      const cls = used >= 90 ? 'full' : used >= 70 ? 'warn' : '';
+      return `<div class="usage-limit-head"><span>${usageLimitWindow(lane.minutes)}</span><b>${used}% used</b></div>
+        <div class="usage-meter ${cls}" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${used}" aria-label="${esc(usageLimitWindow(lane.minutes))}"><span style="width:${used}%"></span></div>
+        <div class="usage-sub">resets ${esc(fmtWhen(c.resets))}</div>`;
+    };
+    const meters = P ? meter(P.fiveHour) + meter(P.weekly) : '';
+    limit = meters
+      ? `<div class="usage-limit">${meters}<div class="usage-sub">as Claude Code reported it to the status line, ${esc(relTime(new Date(Math.max(...Object.values(P).map((l) => (l.current && l.current.readAt) || 0))).toISOString()))} ago · ${hits.plan} refused at a limit in ${d.window.days} days</div></div>`
+      : `<div class="usage-limit"><div class="usage-limit-head"><span>Plan limit</span>${absent('unloaded', usageRecorderHint(d).short)}</div>
+      <div class="usage-sub">${hits.plan} refused at the plan limit · ${hits.server} server-side throttles (not your limit) in ${d.window.days} days · plan percentage: ${d.limits && d.limits.claude && d.limits.claude.recorder === 'on' ? 'from <code>claude</code> in a terminal' : '<code>great-cto statusline install</code>'}</div></div>`;
+  }
+  if (d.scope?.kind === 'project') {
+    const hits = h.limitHits || { plan: 0, server: 0 };
+    limit = `<div class="usage-sub">In this project: ${hits.plan} plan-limit refusals · ${hits.server} server-side throttles in ${d.window.days} days.</div>`;
+  }
+  return `<section class="usage-card" data-host="${host}">
+    <h3><span>${name}</span><span class="muted">${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>
+    <div class="usage-big" title="${esc(`${(h.tokens || 0).toLocaleString('en-US')} tokens, cache reads included`)}">${fmtTok(h.tokens)} <span class="muted" style="font-size:var(--fs-small)">tokens</span></div>
+    <div class="usage-stats">
+      ${stat(usd, 'at API list price')}
+      ${stat(esc((h.sessions || 0).toLocaleString('en-US')), 'conversations')}
+      ${stat(esc((h.responses || 0).toLocaleString('en-US')), 'model responses')}
+      ${stat(h.hitRate == null ? absent('none', 'no input in this window') : esc(fmtPct(h.hitRate)), 'input from cache')}
+      ${stat(esc(fmtTok(h.output)), 'output tokens')}
+    </div>
+    ${limit}
+  </section>`;
+}
+
+function usageDayChart(d, host) {
+  const name = USAGE_HOSTS[host];
+  const head = `<h3><span>${name} by day</span><span class="muted">tokens</span></h3>`;
+  if (!d.seen || !d.seen[host]) return `<section class="usage-card usage-chart">${head}<p class="usage-note">No logs to draw.</p></section>`;
+  const days = d.daily || [];
+  const max = Math.max(0, ...days.map((x) => x[host].tokens));
+  if (!max) return `<section class="usage-card usage-chart">${head}<p class="usage-note">Nothing in this window.</p></section>`;
+  const fns = Object.keys(USAGE_FN).filter((f) => days.some((x) => x[host].byFn[f]));
+  const W = 10;
+  let bars = '';
+  days.forEach((x, i) => {
+    let y = 100;
+    const parts = fns.map((f) => `${USAGE_FN[f]} ${fmtTok(x[host].byFn[f] || 0)}`).join(' · ');
+    const tip = `${x.date}: ${fmtTok(x[host].tokens)} tokens${x[host].usd ? ` · ${fmtUsdEq(x[host].usd)}` : ''}${parts ? ` (${parts})` : ''}`;
+    bars += `<g><title>${esc(tip)}</title>`;
+    for (const f of fns) {
+      const v = x[host].byFn[f] || 0;
+      if (!v) continue;
+      const hgt = (v / max) * 96;
+      y -= hgt;
+      bars += `<rect x="${i * W + 1}" y="${y.toFixed(2)}" width="${W - 2}" height="${hgt.toFixed(2)}" fill="${USAGE_FN_COLOR[f]}"></rect>`;
+    }
+    bars += `<rect x="${i * W}" y="0" width="${W}" height="100" fill="transparent"></rect></g>`;
+  });
+  const legend = fns.map((f) => `<span><i style="background:${USAGE_FN_COLOR[f]}"></i>${USAGE_FN[f]} ${fmtTok(d.hosts[host].byFn[f] || 0)}</span>`).join('');
+  return `<section class="usage-card usage-chart">${head}
+    <svg viewBox="0 0 ${days.length * W} 100" preserveAspectRatio="none" role="img" aria-label="${esc(`${name} tokens per day, peak ${fmtTok(max)}`)}">${bars}</svg>
+    <div class="usage-axis"><span>${esc(days[0].date)}</span><span>peak ${fmtTok(max)}</span><span>${esc(days[days.length - 1].date)}</span></div>
+    <div class="usage-legend">${legend}</div>
+  </section>`;
+}
+
+function usageTopTable(d, host) {
+  const name = USAGE_HOSTS[host];
+  const rows = (d.top && d.top[host]) || [];
+  const head = `<h3><span>${name}: heaviest conversations</span><span class="muted">share of ${name} tokens</span></h3>`;
+  if (!rows.length) return `<section class="usage-card">${head}<p class="usage-note">${d.seen && d.seen[host] ? 'Nothing in this window.' : 'No logs attributed to this project.'}</p></section>`;
+  const money = host === 'claude';
+  const body = rows.map((r) => {
+    const tag = r.fn && r.fn !== 'chat' ? `<span class="usage-tag">${esc(USAGE_FN[r.fn] || r.fn)}</span>` : '';
+    const sub = r.subagentTokens ? `<div class="usage-sub">${fmtPct(r.subagentTokens / r.tokens)} in subagents</div>` : '';
+    const share = Math.max(1, Math.round(r.share * 100));
+    return `<tr>
+      <td><div class="usage-title" title="${esc(r.title)}">${esc(r.title)}</div>${sub}</td>
+      <td>${esc(r.project || '—')}${tag}</td>
+      <td class="num"><span class="usage-share" aria-hidden="true"><span style="width:${share}%"></span></span>${fmtPct(r.share)}</td>
+      <td class="num">${fmtTok(r.tokens)}</td>
+      ${money ? `<td class="num">${r.usd == null ? absent('uncomputable', 'a model in this conversation has no price') : esc(fmtUsdEq(r.usd))}</td>` : ''}
+    </tr>`;
+  }).join('');
+  return `<section class="usage-card">${head}<div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Conversation</th><th>Project</th><th class="num">Share</th><th class="num">Tokens</th>${money ? '<th class="num">$ list</th>' : ''}</tr></thead>
+    <tbody>${body}</tbody></table></div></section>`;
+}
+
+function usageModels(d) {
+  const rows = d.models || [];
+  if (!rows.length) return '<p class="usage-note">No model responses in this window.</p>';
+  const body = rows.map((m) => {
+    const fast = m.model.endsWith('@fast');
+    const label = fast ? `${m.model.slice(0, -5)} (fast)` : m.model;
+    return `<tr><td>${esc(USAGE_HOSTS[m.host])}</td><td>${esc(label)}</td><td class="num">${m.responses.toLocaleString('en-US')}</td><td class="num">${fmtTok(m.tokens)}</td><td class="num">${fmtTok(m.output)}</td>
+      <td class="num">${m.usd == null ? absent('uncomputable', `no price is set for ${m.model} — add one to ~/.great_cto/model-prices.json`) : esc(fmtUsdEq(m.usd))}</td></tr>`;
+  }).join('');
+  return `<section class="usage-card" style="margin-bottom:20px"><div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Host</th><th>Model</th><th class="num">Responses</th><th class="num">Tokens</th><th class="num">Output</th><th class="num">$ list</th></tr></thead>
+    <tbody>${body}</tbody></table></div></section>`;
+}
+
+function usageList(title, rows, empty) {
+  if (!rows || !rows.length) return `<section class="usage-card"><h3><span>${title}</span></h3><p class="usage-note">${empty}</p></section>`;
+  const max = Math.max(...rows.map((r) => r.n));
+  const items = rows.map((r) => `<li><span class="nm" title="${esc(r.name)}"><span class="t">${esc(r.name)}</span>${r.ours ? '<span class="usage-tag">great_cto</span>' : ''}</span><span class="n">${r.n.toLocaleString('en-US')}</span><span class="bar" aria-hidden="true"><span style="width:${Math.max(2, Math.round((r.n / max) * 100))}%"></span></span></li>`).join('');
+  return `<section class="usage-card"><h3><span>${title}</span></h3><ul class="usage-list">${items}</ul></section>`;
+}
+
+// ── Limits (great_cto-egkw stage 2) ────────────────────────────────────────
+const USAGE_LIMIT_KIND = { session: '5-hour session', weekly: 'weekly', spend: 'monthly spend', model: 'per-model', credits: 'usage credits', other: 'other' };
+const USAGE_LIMIT_COLOR = { session: 'var(--status-blocked)', weekly: 'var(--status-progress)', spend: 'var(--status-gate)', model: 'var(--text2)', credits: 'var(--text2)', other: 'var(--text3)' };
+const fmtWhen = (ms) => (ms ? fmtDT(new Date(ms).toISOString()) : '—');
+function fmtHours(ms) {
+  const h = ms / 3600000;
+  return h >= 48 ? `${Math.round(h / 24)} days` : `${Math.max(1, Math.round(h))} h`;
+}
+
+/** A line over the period: points [ms, value]; marks [{t, color, title}] drawn as ticks. */
+function usageLineSvg({ from, to, points, max, marks = [], ceiling = null, label }) {
+  const W = 1000; const H = 100;
+  const x = (t) => (((t - from) / Math.max(1, to - from)) * W).toFixed(1);
+  const y = (v) => (H - (Math.min(v, max) / max) * (H - 4)).toFixed(1);
+  const path = points.map((p, i) => `${i ? 'L' : 'M'}${x(p[0])},${y(p[1])}`).join('');
+  const ticks = marks.map((m) => `<g><title>${esc(m.title)}</title><line x1="${x(m.t)}" x2="${x(m.t)}" y1="0" y2="${H}" stroke="${m.color}" stroke-width="2" vector-effect="non-scaling-stroke" opacity="0.8"></line></g>`).join('');
+  const ceil = ceiling != null ? `<line class="ceil" x1="0" x2="${W}" y1="${y(ceiling)}" y2="${y(ceiling)}"></line>` : '';
+  return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="${esc(label)}">
+    <line class="grid" x1="0" x2="${W}" y1="${H}" y2="${H}"></line>${ceil}${ticks}<path class="ln" d="${path}"></path></svg>`;
+}
+
+// Plan percentage reaches only a status line Claude Code draws: the terminal
+// `claude` draws one, the desktop app's Code tab does not. So "recorder on, no
+// reading yet" gets its own words — sending the operator to install what they
+// already installed is the hint that misled on the first day.
+function usageRecorderHint(d) {
+  const on = d.limits && d.limits.claude && d.limits.claude.recorder === 'on';
+  return on
+    ? { short: 'recorder on, no reading yet — readings come from claude in a terminal', long: 'The recorder is on and has no reading yet. Claude Code passes its plan percentage only to a status line it draws: the terminal <code>claude</code> does, the desktop app\'s Code tab does not. One terminal session fills this in.' }
+    : { short: 'Claude Code reports plan use only to the status line — turn on the recorder: great-cto statusline install', long: 'Claude Code hands its plan percentage to the status line and to nothing else. <code>great-cto statusline install</code> records it here and keeps your own status line; readings come from <code>claude</code> in a terminal.' };
+}
+
+function usageClaudeLimits(d) {
+  const L0 = d.limits && d.limits.claude;
+  const plan = L0 && L0.plan;
+  const head = `<h3><span>Claude Code limits</span><span class="muted">${plan ? 'as Claude Code reported them to the status line' : L0 && L0.recorder === 'on' ? 'from refusals — plan percentages arrive from claude in a terminal' : 'from refusals — turn on the status line recorder for plan percentages'}</span></h3>`;
+  if (!d.seen || !d.seen.claude) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">No Claude Code logs on this machine.</p></section>`;
+  const L = d.limits && d.limits.claude;
+  if (!L) return `<section class="usage-card" data-limits="claude">${head}<p class="usage-note">Not computed.</p></section>`;
+  const hits = (d.hosts.claude && d.hosts.claude.limitHits) || {};
+  const stat = (v, label) => `<div class="usage-stat"><b>${v}</b><span>${label}</span></div>`;
+  const ceilLine = (c, span) => c
+    ? `Refused at about <b>${esc(fmtUsdEq(c.median))}</b> in ${span} <span class="muted">(median of ${c.n} refused hour${c.n === 1 ? '' : 's'}, ${esc(fmtUsdEq(c.min))}–${esc(fmtUsdEq(c.max))})</span>`
+    : null;
+  const ceilings = [ceilLine(L.ceilings.session, '5 hours'), ceilLine(L.ceilings.weekly, '7 days')].filter(Boolean);
+  const kinds = Object.keys(USAGE_LIMIT_KIND).filter((k) => hits[k]).map((k) => `<span><b>${hits[k]}</b>${USAGE_LIMIT_KIND[k]}</span>`).join('');
+  const s = L.series || { usd5h: [] };
+  const to = s.from + (s.usd5h.length - 1) * s.stepMs;
+  const pts = s.usd5h.map((v, i) => [s.from + i * s.stepMs, v]);
+  const max = Math.max(1, ...s.usd5h, L.ceilings.session ? L.ceilings.session.max : 0);
+  const marks = (L.hits || []).filter((h) => h.kind !== 'server').map((h) => ({ t: h.t, color: USAGE_LIMIT_COLOR[h.kind] || 'var(--text3)', title: `${fmtWhen(h.t)} — refused by the ${USAGE_LIMIT_KIND[h.kind] || h.kind} limit ×${h.n}` }));
+  const chart = pts.length > 1 ? `<div class="usage-line">${usageLineSvg({ from: s.from, to, points: pts, max, marks, ceiling: L.ceilings.session ? L.ceilings.session.median : null, label: 'Claude Code spend in the trailing 5 hours, with refusals marked' })}</div>
+    <div class="usage-axis"><span>${esc(d.window.from)}</span><span>$ in the trailing 5 hours · peak ${esc(fmtUsdEq(max))}</span><span>${esc(d.window.to)}</span></div>` : '';
+  const last = L.lastHit ? `<p class="usage-quote" title="${esc(fmtDate(L.lastHit.at))}">${esc(L.lastHit.text)} <span class="muted">— ${esc(relTime(L.lastHit.at))} ago</span></p>` : '';
+  const CLAUDE_LANE = { fiveHour: '5-hour limit', weekly: 'Weekly limit', seven_day_opus: 'Weekly limit · Opus', seven_day_sonnet: 'Weekly limit · Sonnet', seven_day_oauth_apps: 'Weekly limit · apps' };
+  const lanes = plan
+    ? ['fiveHour', 'weekly', ...Object.keys(plan).filter((k) => k !== 'fiveHour' && k !== 'weekly')].filter((k) => plan[k]).map((k) => usageCodexLane(k, plan[k], d, CLAUDE_LANE[k] || k)).join('')
+    : `<p class="usage-note">${usageRecorderHint(d).long}</p>`;
+  return `<section class="usage-card" data-limits="claude">${head}
+    ${lanes}
+    <div class="usage-stats">${stat(esc(fmtUsdEq(L.fiveHour.usd)), 'last 5 hours, $ list')}${stat(esc(fmtUsdEq(L.sevenDay.usd)), 'last 7 days, $ list')}${stat(esc(String(hits.plan || 0)), `refusals in ${d.window.days} days`)}</div>
+    ${kinds ? `<div class="usage-kinds">${kinds}</div>` : `<p class="usage-note">No request was refused by a limit in this period.</p>`}
+    ${ceilings.length ? `<p class="usage-note">${ceilings.join('<br>')}. <span class="muted">An estimate from what had been spent when Claude Code refused — not a published limit.</span></p>` : ''}
+    ${chart}
+    ${hits.server ? `<p class="usage-sub">${hits.server} server-side throttles (not your limit) are not marked.</p>` : ''}
+    ${last}
+  </section>`;
+}
+
+function usageCodexLane(name, lane, d, label = null) {
+  const title = label || usageLimitWindow(lane.minutes);
+  const P = lane.projection;
+  const lastRead = lane.series.length ? lane.series[lane.series.length - 1][0] : null;
+  let pace = `<p class="usage-pace muted">No open window${lastRead ? ` — the last reading of it is from ${esc(fmtWhen(lastRead))}; the plan may no longer have it` : ''}.</p>`;
+  if (P && P.state === 'full') pace = `<p class="usage-pace bad">Full — resets ${esc(fmtWhen(P.resets))}.</p>`;
+  else if (P && P.state === 'will-fill') pace = `<p class="usage-pace bad">${P.used}% used. At this pace it is full by ${esc(fmtWhen(P.fullBy))} — ${esc(fmtHours(P.resets - P.fullBy))} before the reset.</p>`;
+  else if (P && P.state === 'fits') pace = `<p class="usage-pace">${P.used}% used. At this pace about ${Math.round(P.atReset)}% by the reset, ${esc(fmtWhen(P.resets))}.</p>`;
+  const from = Date.parse(`${d.window.from}T00:00:00`);
+  const to = Date.now();
+  const pts = [];
+  for (const [t, v] of lane.series) { if (pts.length) pts.push([t, pts[pts.length - 1][1]]); pts.push([t, v]); }
+  const marks = lane.windows.filter((w) => w.fullAt && w.fullAt >= from).map((w) => ({ t: w.fullAt, color: 'var(--status-blocked)', title: `filled ${fmtWhen(w.fullAt)}, ${fmtHours(w.resets - w.fullAt)} before its reset` }));
+  const chart = pts.length > 1 ? `<div class="usage-line">${usageLineSvg({ from, to, points: pts, max: 100, marks, label: `Codex ${title} percent used over the period` })}</div>
+    <div class="usage-axis"><span>${esc(d.window.from)}</span><span>% used · red = filled</span><span>${esc(d.window.to)}</span></div>` : '';
+  const touched = lane.windows.filter((w) => w.peak > 0);
+  const early = lane.windows.filter((w) => w.fullAt).map((w) => w.resets - w.fullAt);
+  const summary = touched.length
+    ? `${lane.filled} of ${touched.length} used windows filled${early.length ? `, on median ${esc(fmtHours(early.sort((a, b) => a - b)[Math.floor(early.length / 2)]))} before the reset` : ''}.`
+    : 'No window was used in this period.';
+  return `<div class="usage-limit" data-lane="${esc(name)}"><div class="usage-limit-head"><span>${esc(title)}</span></div>${pace}${chart}<p class="usage-sub">${summary}</p></div>`;
+}
+
+function usageCodexLimits(d) {
+  const head = `<h3><span>Codex limits</span><span class="muted">as Codex reported them</span></h3>`;
+  if (!d.seen || !d.seen.codex) return `<section class="usage-card" data-limits="codex">${head}<p class="usage-note">No Codex logs on this machine.</p></section>`;
+  const D = d.limits && d.limits.codex && d.limits.codex.detail;
+  if (!D) return `<section class="usage-card" data-limits="codex">${head}<p class="usage-note">No Codex session reported its plan window in this period.</p></section>`;
+  const order = ['fiveHour', 'weekly', ...Object.keys(D).filter((k) => k !== 'fiveHour' && k !== 'weekly')];
+  const lanes = order.filter((k) => D[k]).map((k) => usageCodexLane(k, D[k], d)).join('');
+  return `<section class="usage-card" data-limits="codex">${head}${lanes}<p class="usage-sub">A window Codex reset early shows as its own window.</p></section>`;
+}
+
+// ── Agents and reviews (great_cto-egkw stage 3) ────────────────────────────
+// Outcomes come from /api/outcomes (verdicts of the selected project, Beads
+// bugs by priority); hook refusals and failures from /api/usage (Claude Code's
+// own logs). Counts only — no bug title reaches the page.
+let _outcomesTimer = null;
+let _outcomesRequest = 0;
+function fmtSpan(days) {
+  if (days == null) return '—';
+  const h = days * 24;
+  if (h < 1) return `${Math.max(1, Math.round(h * 60))} min`;
+  if (h < 48) return `${Math.round(h)} h`;
+  return `${Math.round(days)} days`;
+}
+
+async function loadOutcomes() {
+  clearTimeout(_outcomesTimer);
+  if (!document.getElementById('usage-outcomes')) return;
+  const request = ++_outcomesRequest;
+  const requestedProject = currentProject, requestedDays = usageDays, requestedHost = usageHost;
+  const d = await api(`/api/outcomes?days=${requestedDays}${pqs().replace('?', '&')}`);
+  if (request !== _outcomesRequest || requestedProject !== currentProject || requestedDays !== usageDays || requestedHost !== usageHost || currentTab !== 'usage') return;
+  // Looked up AFTER the answer: Usage may have re-rendered while it was on the
+  // way, and an answer written into the replaced element is an answer nobody sees.
+  const el = document.getElementById('usage-outcomes');
+  if (!el) return;
+  if (!d || d.error) { el.className = 'usage-note'; el.textContent = `Outcomes could not be read: ${(d && d.error) || 'the board is not reachable'}`; return; }
+  if (d.state === 'computing') {
+    el.className = 'usage-note';
+    el.textContent = `Counting — ${d.why}`;
+    _outcomesTimer = setTimeout(() => { if (currentTab === 'usage') loadOutcomes(); }, 2000);
+    return;
+  }
+  if (d.state !== 'counted' || d.scope?.kind !== 'project') { el.className = 'usage-note'; el.textContent = `Project outcomes are not available: ${d.why || d.state}`; return; }
+  el.className = 'usage-grid';
+  el.innerHTML = usageAgentsCard(d) + usageFindingsCard(d);
+}
+
+function usageAgentsCard(d) {
+  const A = d.agents || { agents: [] };
+  const head = `<h3><span>Agents: what they concluded</span><span class="muted">this project · ${esc(d.window.from)} → ${esc(d.window.to)}</span></h3>`;
+  if (!A.agents.length) return `<section class="usage-card" data-outcomes="agents">${head}<p class="usage-note">No great_cto agent recorded a verdict in this period.</p></section>`;
+  const dispatched = Object.fromEntries(((usageData && usageData.lists && usageData.lists.claude && usageData.lists.claude.agents) || []).map((a) => [a.name, a.n]));
+  const rows = A.agents.map((a) => {
+    const rate = a.stopRate == null ? absent('none', 'no run of this agent reached a conclusion in this period') : `<span class="usage-rate" aria-hidden="true"><span style="width:${Math.round(a.stopRate * 100)}%"></span></span>${Math.round(a.stopRate * 100)}%`;
+    const disp = dispatched[a.agent];
+    const gap = disp != null && disp > a.runs ? ` title="${esc(`dispatched ${disp} times in Claude Code, ${a.runs} verdicts recorded — the rest ran without one`)}"` : '';
+    const nv = a.noVerdictTotal || 0;
+    const why = Object.entries(a.noVerdict || {}).map(([k, n]) => `${n} ${k === 'reported' ? 'finished without recording one' : k === 'cut-off' ? 'cut off mid-run' : 'ended, shape unknown'}`).join(', ');
+    const noVerdict = nv ? `<span title="${esc(why)}">${nv}</span>` : '0';
+    return `<tr><td>${esc(a.agent)}</td><td class="num">${a.runs}</td><td class="num">${a.pass}</td><td class="num">${a.stopped}</td><td class="num">${a.failed}</td><td class="num">${rate}</td><td class="num">${noVerdict}</td><td class="num"${gap}>${disp == null ? '—' : disp}</td></tr>`;
+  }).join('');
+  const notes = [];
+  if (A.agents.some((a) => a.unknown)) notes.push(`${A.agents.reduce((n, a) => n + a.unknown, 0)} verdicts used a word no rule classifies — counted as runs, not as passes.`);
+  if (A.other && A.other.runs) notes.push(`${A.other.runs} verdicts from names outside great_cto's roster (${esc(A.other.names.slice(0, 4).join(', '))}) are not shown.`);
+  if (A.unreadable) notes.push(`${A.unreadable} verdict files could not be read.`);
+  return `<section class="usage-card" data-outcomes="agents">${head}<div class="usage-table-wrap"><table class="usage-table">
+    <thead><tr><th>Agent</th><th class="num">Verdicts</th><th class="num">Pass</th><th class="num">Stopped</th><th class="num">Failed</th><th class="num">Stop rate</th><th class="num" title="Runs the completion check saw end with no verdict — hover a number for how they ended">No verdict</th><th class="num" title="Agent dispatches seen in Claude Code's logs in the same period">Dispatched</th></tr></thead>
+    <tbody>${rows}</tbody></table></div>
+    <p class="usage-sub">Stopped = BLOCKED, REWORK, REJECTED, ESCALATED — the pipeline halted on the agent's word. Stop rate is of the verdicts that concluded. No verdict counts runs that ended without one, as the completion check recorded them (from 3.56).${notes.length ? ` ${notes.join(' ')}` : ''}</p></section>`;
+}
+
+function usageFindingsCard(d) {
+  const F = d.findings;
+  const head = `<h3><span>Findings by priority</span><span class="muted">Beads bugs — reviewers file every P0/P1</span></h3>`;
+  if (!F) return `<section class="usage-card" data-outcomes="findings">${head}<p class="usage-note">Not read.</p></section>`;
+  const tiles = ['P0', 'P1', 'P2', 'P3'].map((p) => {
+    const hot = (p === 'P0' || p === 'P1') && F.openNow[p] > 0;
+    const close = F.daysToClose[p];
+    return `<div class="usage-prio${hot ? ' hot' : ''}"><span class="k">${p} filed</span><b>${F.filed[p]}</b><span class="usage-sub">${F.openNow[p]} open now${close ? ` · closed in ${esc(fmtSpan(close.median))} (median of ${close.n})` : ''}</span></div>`;
+  }).join('');
+  const rows = (F.projects || []).slice(0, 10).map((r) => `<tr><td>${esc(r.project)}</td><td class="num">${r.open.P0 || 0}</td><td class="num">${r.open.P1 || 0}</td><td class="num">${r.open.P2 || 0}</td><td class="num">${(r.filed.P0 || 0) + (r.filed.P1 || 0) + (r.filed.P2 || 0) + (r.filed.P3 || 0)}</td></tr>`).join('');
+  const table = rows ? `<div class="usage-table-wrap"><table class="usage-table"><thead><tr><th>Project</th><th class="num">P0 open</th><th class="num">P1 open</th><th class="num">P2 open</th><th class="num">Filed in period</th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="usage-note">No project has a bug filed or open.</p>';
+  const unread = (F.unread || []).length
+    ? `<p class="usage-sub">Not read, so not counted: ${F.unread.map((u) => `<span title="${esc(u.why)}">${esc(u.project)}</span>`).join(', ')} — hover for the reason.</p>` : '';
+  return `<section class="usage-card" data-outcomes="findings">${head}<div class="usage-prios">${tiles}</div>${table}${unread}</section>`;
+}
+
+function usageHooksCards(d) {
+  const H = d.hooks;
+  if (!d.seen || !d.seen.claude) return '<p class="usage-note">No Claude Code logs attributed to this project — hook outcomes are read from them.</p>';
+  if (!H) return '';
+  const total = (rows) => (rows || []).reduce((n, r) => n + r.n, 0);
+  return `<div class="usage-lists">
+    ${usageList(`Guards refused a call · ${total(H.blocks)}`, H.blocks, 'No guard refused a tool call in this period.')}
+    ${usageList(`Stop hooks sent the turn back · ${total(H.stopBlocks)}`, H.stopBlocks, 'No Stop hook sent a turn back.')}
+    ${usageList(`Hooks that failed · ${total(H.errors)}`, H.errors, 'No hook failed in this period.')}
+    ${usageList(`Hooks that timed out · ${total(H.timeouts)}`, H.timeouts, 'No hook timed out in this period.')}
+  </div>
+  <p class="usage-sub">From Claude Code's logs; Codex does not write hook outcomes. A refusal is counted only where Claude Code marked the result an error — a command that merely prints one is not a refusal.</p>`;
+}
+
+function renderUsage(d) {
+  const body = document.getElementById('usage-body');
+  if (!body) return;
+  body.className = '';
+  const l = (d.lists && d.lists[usageHost]) || {};
+  const hostBtn = (h) => `<button type="button" class="usage-chip${usageHost === h ? ' active' : ''}" aria-pressed="${usageHost === h}" onclick="setUsageHost('${h}')">${USAGE_HOSTS[h]}</button>`;
+  body.innerHTML = `
+    <div class="usage-grid">${usageHostCard(d, 'claude')}${usageHostCard(d, 'codex')}</div>
+    <p class="usage-note">Statistics attributable to <b>${esc(currentProject || 'the current project')}</b> only, including existing linked Git worktrees. Sessions without a recoverable project identity are excluded; missing history is not proof of no activity. Account-wide subscription quotas are not project statistics and are not shown here.</p>
+    <h2 class="mp-section-label">By day, by kind of work</h2>
+    <div class="usage-grid">${usageDayChart(d, 'claude')}${usageDayChart(d, 'codex')}</div>
+    <h2 class="mp-section-label">Heaviest conversations</h2>
+    <div class="usage-grid">${usageTopTable(d, 'claude')}${usageTopTable(d, 'codex')}</div>
+    <h2 class="mp-section-label">Models</h2>
+    ${usageModels(d)}
+    <div class="usage-sec-head"><h2 class="mp-section-label">What was called</h2><div class="usage-chips" role="group" aria-label="Host">${hostBtn('claude')}${hostBtn('codex')}</div></div>
+    <div class="usage-lists">
+      ${usageList('Tools', l.tools, 'No tool calls in this window.')}
+      ${usageList('Skills', l.skills, 'No skills were loaded in this window.')}
+      ${usageList('Agents', l.agents, 'No subagents were dispatched in this window.')}
+      ${usageList('MCP servers', l.mcp, 'No MCP tools were called in this window.')}
+    </div>
+    <h2 class="mp-section-label">Agents and reviews</h2>
+    <div id="usage-outcomes" class="usage-note" role="status">Reading this project's verdicts and Beads.</div>
+    <h2 class="mp-section-label">Guards and hooks</h2>
+    ${usageHooksCards(d)}
+    <p class="usage-note">Read on this machine from ${USAGE_LOGS.claude} and ${USAGE_LOGS.codex}; nothing is sent anywhere. Tokens include cache reads. <b>$ list</b> is the API list-price equivalent from great_cto's price table, not a subscription bill — Claude Code's own estimate can differ for some models. A model without a price shows n/a, never $0.</p>`;
+}
+
 async function renderHarnesses() {
   const body = document.getElementById('harnesses-body');
   const status = document.getElementById('harnesses-status');
@@ -5977,7 +6625,7 @@ async function renderHarnesses() {
 
   body.innerHTML = `
     <div class="mp-card harness-hosts">
-      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="71 agents · commands · skills · hooks">full pipeline</span></div>
+      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="72 agents · commands · skills · hooks">full pipeline</span></div>
       <div><span class="${codexDot}"></span><b>OpenAI Codex</b> <span class="mono cap">${codexState}</span>${cx.version ? `<span class="mono cap muted">${esc(cx.version)}</span>` : ''}${cx.model ? `<span class="mono cap muted" style="margin-left:auto">${esc(cx.model)}</span>` : ''}</div>
     </div>
     <div class="mp-card" style="margin-top:12px">
@@ -6816,7 +7464,7 @@ async function searchTranscripts() {
   const body = document.getElementById('sessions-body');
   if (q.length < 3) { loadSessions(); return; }
   body.innerHTML = '<div class="muted">Searching…</div>';
-  const d = await api(`/api/session-search${pqs()}&q=${encodeURIComponent(q)}`);
+  const d = await api(`/api/session-search?q=${encodeURIComponent(q)}${pqs().replace('?', '&')}`);
   if (!d) { body.innerHTML = '<div class="muted">Search failed.</div>'; return; }
   if (!d.hits?.length) {
     body.innerHTML = `<div class="muted">No match for “${esc(q)}”.${d.note ? ' ' + esc(d.note) : ''}
@@ -6954,8 +7602,28 @@ function toggleProjMenu(e) {
   const isOpen = sw.classList.toggle('open');
   if (isOpen) {
     document.getElementById('proj-search').focus();
-    renderProjMenu('');
+    renderProjMenu();
+    refreshProjMenu();
   }
+}
+let _projMenuRead = 0, _projMenuAbort;
+async function refreshProjMenu() {
+  const request = ++_projMenuRead;
+  _projMenuAbort?.abort();
+  const controller = new AbortController(); _projMenuAbort = controller;
+  const note = document.getElementById('proj-menu-status');
+  if (note) note.textContent = 'Refreshing projects…';
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const projects = await api('/api/projects', { signal: controller.signal });
+    if (request !== _projMenuRead) return;
+    if (!Array.isArray(projects) || projects.some(p => !p || typeof p.slug !== 'string')) throw Error('Invalid project list');
+    allProjects = projects;
+    if (note) note.textContent = '';
+    if (document.getElementById('proj-switch').classList.contains('open')) renderProjMenu();
+  } catch {
+    if (request === _projMenuRead && note) note.textContent = 'Could not refresh projects; showing the last loaded list.';
+  } finally { clearTimeout(timer); }
 }
 function closeProjMenu() {
   document.getElementById('proj-switch')?.classList.remove('open');
@@ -7005,14 +7673,14 @@ function archetypeIcon(arch, size = 14) {
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="${meta.color}" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="${meta.d}"/></svg>`;
 }
 
-function renderProjMenu(filter = '') {
+function renderProjMenu(filter = document.getElementById('proj-search')?.value || '') {
   const list = document.getElementById('proj-menu-list');
   if (!list) return;
   if (!allProjects.length) {
     list.innerHTML = '<div class="proj-menu-empty">No projects registered yet</div>';
     return;
   }
-  const f = filter.toLowerCase();
+  const f = filter.trim().toLowerCase();
   const filtered = allProjects.filter(p =>
     !f || (p.slug || '').toLowerCase().includes(f) ||
     (p.archetype || '').toLowerCase().includes(f) ||
@@ -7045,7 +7713,14 @@ async function switchProject(slug) {
   if (lbl) lbl.textContent = `loading ${slug}…`;
   // Close existing SSE so it doesn't push the wrong project's data
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
+  serverDefaultProject = false;
   currentProject = slug;
+  document.getElementById('project-name').textContent = slug;
+  document.getElementById('crumb-project').textContent = slug;
+  document.title = `${slug} · great_cto`;
+  resetProjectUsage();
+  if (currentTab === 'usage') loadUsage();
+  if (currentTab === 'skills') loadSkillsInventory();
   window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
@@ -7058,12 +7733,10 @@ async function switchProject(slug) {
     api(`/api/share${pqs()}`),
     api(`/api/inbox${pqs()}`),
   ]);
+  if (slug !== currentProject) return;
   allTasks = tasks || [];
   metrics = met || {};
   shareState = share || { enabled: false, url: null };
-  document.getElementById('project-name').textContent = slug;
-  document.getElementById('crumb-project').textContent = slug;
-  document.title = `${slug} · great_cto`;
   const me = (allProjects || []).find(p => p.slug === slug);
   const arch = me?.archetype || 'default';
   const swIcon = document.getElementById('proj-switch-icon');
@@ -7257,7 +7930,11 @@ async function init() {
     || (allProjects[0]?.slug)
     || fromTaskId
     || 'project';
+  serverDefaultProject = !urlProject && !(allProjects || []).some(p => p.slug === proj);
   currentProject = proj;
+  resetProjectUsage();
+  if (currentTab === 'usage') loadUsage();
+  if (currentTab === 'skills') loadSkillsInventory();
   window.GctoWork.reset();
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
@@ -7922,7 +8599,7 @@ function renderShareState(state) {
                  : ago < 1440 ? `${Math.floor(ago/60)}h ago`
                  : `${Math.floor(ago/1440)}d ago`;
     const stale = ago > 60 * 24 ? ' · ⚠ data is stale — click ↻ Republish' : '';
-    metaEl.textContent = `Published ${agoStr} (${dt.toLocaleString()})${stale}`;
+    metaEl.textContent = `Published ${agoStr} (${dt.toLocaleString('en-US')})${stale}`;
   } else if (metaEl) {
     metaEl.textContent = '';
   }
@@ -8340,6 +9017,8 @@ function cmdkActions() {
     { group: 'Go', label: 'Ledger — what it cost, what is running', run: () => switchTab('ledger') },
     { group: 'Go', label: 'Fleet — the agents and what they may do', run: () => switchTab('fleet') },
     { group: 'Go', label: 'Harness — host and second opinion', run: () => switchTab('harness') },
+    { group: 'Go', label: 'Usage — what Claude Code and Codex consumed', run: () => switchTab('usage') },
+    { group: 'Go', label: 'Skills — local inventory and document integrity', run: () => switchTab('skills') },
     { group: 'Go', label: 'Settings', run: () => switchTab('settings') },
     { group: 'Go', label: 'Tasks board (#/kanban, deep link)', run: () => switchTab('kanban') },
     { group: 'Do', label: 'New issue', run: () => openNewIssueModal() },
@@ -8532,7 +9211,7 @@ try {
 // panels, not keys.
 const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', dashboard: 'budgets', share: 'settings', notifications: 'settings' };
 const NAV = { inbox: 'decisions', budgets: 'ledger', agents: 'fleet', dashboard: 'ledger', share: 'settings', notifications: 'settings' };
-const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, settings: 1, kanban: 1 };
+const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, usage: 1, skills: 1, settings: 1, kanban: 1 };
 function switchTab(id, el) {
   const lid = DEST[id] || id;          // the panel's own name
   const navKey = NAV[id] || id;        // the destination to highlight
@@ -8541,7 +9220,7 @@ function switchTab(id, el) {
   currentTab = lid;
   document.getElementById('nav-views-label').hidden = lid !== 'agents';
   document.querySelector('.nav-views').hidden = lid !== 'agents';
-  if (['agents', 'budgets', 'harness'].includes(lid)) document.getElementById('tools-nav').open = true;
+  if (['agents', 'budgets', 'harness', 'usage', 'skills'].includes(lid)) document.getElementById('tools-nav').open = true;
   if (lid === 'work' || lid === 'history') window.GctoWork.refresh();
   if (ROUTES[id]) {
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
@@ -8551,7 +9230,9 @@ function switchTab(id, el) {
   closeMenu(false);   // choosing a destination is the end of using the menu
   // sidebar nav
   document.querySelectorAll('.nav-item[data-tab]').forEach(t => {
-    t.classList.toggle('active', t.dataset.tab === navKey);
+    const selected = t.dataset.tab === navKey;
+    t.classList.toggle('active', selected);
+    t.setAttribute('aria-selected', String(selected));
   });
   // top tabs
   document.querySelectorAll('.tab-btn').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
@@ -8562,7 +9243,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
+  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', usage: 'Usage', skills: 'Skills', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || TAB_LABELS[lid] || 'Board';
   // Budgets render on Metrics, so the heartbeat that feeds them has to be
   // fetched when Metrics opens — not only from the agents drill-in it used to
@@ -8595,6 +9276,8 @@ function switchTab(id, el) {
   if (lid === 'notifications' || lid === 'settings') loadNotifications();
   if (lid === 'settings') loadSettingsPage();
   if (lid === 'harness') renderHarnesses();
+  if (lid === 'usage') loadUsage();
+  if (lid === 'skills') loadSkillsInventory();
 }
 
 // Sidebar tabs: Enter/Space activate, arrows move (WAI-ARIA tablist).
@@ -8861,8 +9544,11 @@ function renderFleetViews() {
     const el = document.getElementById(`nav-view-${key}`);
     if (!el) continue;
     const n = agents.filter((a) => inFleetView(a, key)).length;
-    el.classList.toggle('active', fleetState.view === key);
-    el.innerHTML = `<span>${esc(label)}</span><span class="nav-view-count">${n}</span>`;
+    const selected = fleetState.view === key;
+    el.classList.toggle('active', selected);
+    el.setAttribute('aria-pressed', String(selected));
+    // A filter glyph keeps the same icon/label columns as the destinations.
+    el.innerHTML = `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg><span class="nav-label">${esc(label)}</span><span class="nav-view-count">${n}</span>`;
   }
   const abs = document.getElementById('nav-fleet-abs');
   if (abs) abs.hidden = !agents.some((a) => a.posture?.state === 'unclassified' || a.posture?.state === 'unreadable');
@@ -9400,9 +10086,11 @@ function relTime(iso) {
   if (s < 86400) return `${Math.round(s/3600)}h`;
   return `${Math.round(s/86400)}d`;
 }
-function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
+// Board-owned copy and formatting stay English; task/document content is rendered
+// in its original language. Locale is fixed, but the operator's timezone is not.
+function fmtDate(iso) { return iso ? new Date(iso).toLocaleString('en-US') : '—'; }
 // Short date+time stamp for cards (full timestamp goes in the title attribute).
-function fmtDT(iso) { return iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
+function fmtDT(iso) { return iso ? new Date(iso).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
 // Money formatting — uses non-breaking thin space (U+202F) as thousands separator
 // to avoid the comma-as-decimal confusion ($195,960 reads as "195.96" in EU/RU
 // locales). Matches SI standard. Returns "1 234" not "1,234".
@@ -9564,7 +10252,7 @@ function renderNotifHistoryInline() {
         <span style="font-size:var(--fs-small);color:var(--text3);margin-left:8px">${esc(n.body)}</span>
       </div>
       <span style="font-size:var(--fs-caption);color:var(--text3);font-family:var(--mono);flex-shrink:0">
-        ${new Date(n.ts).toLocaleTimeString()}
+        ${new Date(n.ts).toLocaleTimeString('en-US')}
       </span>
     </div>`).join('');
 }

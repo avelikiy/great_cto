@@ -16,7 +16,7 @@ const { recordView, summarizeViews } = await import('./lib/view-counter.mjs');
 function tmpRoot() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-viewcounter-'));
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 const logPath = (root) => path.join(root, '.great_cto', 'view-counter.log');
 
 test('recordView appends one JSON line to .great_cto/view-counter.log', () => {
@@ -134,4 +134,18 @@ test('summarizeViews reports {state:"unreadable", why} when the file exists but 
     assert.equal(summary.state, 'unreadable');
     assert.ok(typeof summary.why === 'string' && summary.why.length > 0);
   } finally { clean(root); }
+});
+
+// Every destination the page routes to posts its open here (switchTab). A route
+// this list does not know answers 400 into the console on every visit — Work
+// and History did, for as long as they existed.
+test('every routed screen is a view the counter accepts', async () => {
+  const { readFileSync } = await import('node:fs');
+  const { VALID_VIEWS } = await import('./lib/view-counter.mjs');
+  const html = readFileSync(new URL('./public/index.html', import.meta.url), 'utf8');
+  const m = html.match(/const ROUTES = \{([^}]*)\}/);
+  assert.ok(m, 'located ROUTES in index.html');
+  const routes = [...m[1].matchAll(/([a-z]+):\s*1/g)].map((x) => x[1]);
+  assert.ok(routes.length >= 5, `read the routes (got ${routes.join(', ')})`);
+  assert.deepEqual(routes.filter((r) => !VALID_VIEWS.includes(r)), []);
 });

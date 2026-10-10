@@ -177,6 +177,15 @@ Hand-off:
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh oracle-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"Use Chainlink, that's enough"** — single-oracle is single-point-of-failure. Cross-check with Pyth + TWAP fallback minimum.

@@ -28,6 +28,7 @@
  */
 
 import { readFileSync, existsSync, statSync, readdirSync, writeFileSync } from 'node:fs';
+import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
@@ -569,7 +570,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'no-verdict',
       text: `PIPELINE: ${agent} finished but recorded no verdict line in ${VERDICT_DIR}/${agent}.log. ` +
         `Three-state completion requires it (shared/orchestrator.toml [completion]). ` +
-        `Ask the agent (or run yourself): bash scripts/log-verdict.sh ${agent} <VERDICT> auto — then continue the pipeline.`,
+        `Ask the agent (or run yourself): ${logVerdictCommand()} ${agent} <VERDICT> auto — then continue the pipeline.`,
     };
   }
 
@@ -633,7 +634,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   // /api/cost reads it and a stage with no cost reports zero spend.
   const formatNote = verdict.hasCost === false
     ? ` NOTE: this verdict carries no cost — /api/cost will report zero spend for ${agent}.`
-      + ` Record with: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} auto`
+      + ` Record with: ${logVerdictCommand()} ${agent} ${verdict.verdict} auto`
     : '';
 
   const skip = resolveSkip({ rule, transitions, meta: verdict?.meta, activeGates, gateStates });

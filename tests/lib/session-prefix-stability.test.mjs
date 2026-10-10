@@ -54,10 +54,20 @@ test('nothing in the injection is a clock', () => {
   // The shape that breaks a prefix without anyone noticing: a rendered "now".
   // Dates that are CONTENT (a decision was taken on 2026-05-14) are fine and
   // expected — they do not move. A timestamp of this moment is not.
+  //
+  // So a timestamp in the injection is fine exactly when it is in the layer files
+  // the hook reads: it was written there, it does not move. One that is not in
+  // them was rendered by the hook. The earlier check — today's date anywhere and
+  // a clock time anywhere — went red on every day a lesson was written, from a
+  // `date:` line and month-old decision timestamps that never change.
   const text = inject();
-  const now = new Date().toISOString().slice(0, 10);
-  assert.ok(!text.includes(now) || !/\d{2}:\d{2}:\d{2}/.test(text),
-    `the injection contains today's date beside a wall-clock time — that is a rendered "now", ` +
+  const sources = ['preferences.md', 'decisions.md', 'lessons.md']
+    .map((f) => { try { return readFileSync(path.join(GLOBAL, f), 'utf8'); } catch { return ''; } })
+    .join('\n');
+  const stamps = text.match(/\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}(?::\d{2})?/g) || [];
+  const rendered = stamps.filter((t) => !sources.includes(t));
+  assert.deepEqual(rendered, [],
+    `the injection carries a timestamp that is in none of the layer files — a rendered "now", ` +
     `and it changes the system section on every run`);
   assert.doesNotMatch(text, /\b\d+ (?:minutes?|hours?|days?) ago\b/,
     'relative time in the injection re-renders on every session');

@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { verifyKey, status } from '../../scripts/lib/router-key.mjs';
 
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const cwd = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-keyverify-')); TMP.push(d); return d; };
 
 // Assembled rather than written: a literal is indistinguishable from a real key to a scanner.

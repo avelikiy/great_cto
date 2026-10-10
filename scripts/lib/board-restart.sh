@@ -60,9 +60,31 @@ board_cwd() {
   lsof -p "$pid" 2>/dev/null | awk '$4=="cwd"{print $NF; exit}'
 }
 
+# Where a restarted board should run. Its cwd decides the project it opens on,
+# so a project cwd is kept. Anything else is not: on 3.58.1 a board kept the cwd
+# of a release worktree, deleted since, wrote into it and titled itself after it.
+# Then the most recently active registered project that still has
+# .great_cto/PROJECT.md, then $HOME.
+#   $1 the old board's cwd (may be empty or gone)
+board_home_cwd() {
+  local old="$1" reg="${GREAT_CTO_PROJECTS_FILE:-$HOME/.great_cto/projects.json}" pick=""
+  if [ -n "$old" ] && [ -f "$old/.great_cto/PROJECT.md" ]; then printf '%s\n' "$old"; return 0; fi
+  if [ -f "$reg" ] && command -v node >/dev/null 2>&1; then
+    pick="$(node -e '
+      const fs = require("fs"), path = require("path");
+      let list = [];
+      try { const j = JSON.parse(fs.readFileSync(process.argv[1], "utf8")); list = Array.isArray(j) ? j : (j.projects || []); } catch {}
+      const live = list.filter((p) => p && p.path && fs.existsSync(path.join(p.path, ".great_cto", "PROJECT.md")));
+      live.sort((a, b) => String(b.last_activity || "").localeCompare(String(a.last_activity || "")));
+      if (live[0]) process.stdout.write(live[0].path);
+    ' "$reg" 2>/dev/null)"
+  fi
+  if [ -n "$pick" ]; then printf '%s\n' "$pick"; else printf '%s\n' "$HOME"; fi
+}
+
 # Start the board, detached, and wait until it answers.
 #   $1 server.mjs to run (absolute — the NEW install)
-#   $2 cwd to run it in (the OLD board's, so the project does not change)
+#   $2 the OLD board's cwd — kept when it is a project (board_home_cwd)
 # Prints the version it reports, or nothing if it never came up.
 board_start() {
   # `local` is declared ONCE, at the top. Declaring it inside the loop printed
@@ -72,7 +94,7 @@ board_start() {
   # be read by a script.
   local server="$1" cwd="$2" port="${3:-3141}" log="${4:-/tmp/great-cto-board.log}" v=""
   [ -f "$server" ] || return 1
-  [ -d "$cwd" ] || cwd="$(dirname "$server")"
+  cwd="$(board_home_cwd "$cwd")"
   ( cd "$cwd" && nohup node "$server" --port "$port" --no-open >"$log" 2>&1 & ) >/dev/null 2>&1
   for _ in $(seq 1 25); do
     sleep 0.2

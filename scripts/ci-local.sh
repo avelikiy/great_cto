@@ -77,14 +77,15 @@ echo "ci-local: node $(node -v) on $(uname -s)"
 
 # ── The privacy guard is actually in force ──
 #
-# The build comes FIRST, before anything that reads it. scripts/lib/gate-plan.mjs
-# (and through it the board) imports packages/cli/dist/archetypes.js, and the
-# "installs for a stranger" step checks dist is complete — both read a gitignored
-# build artefact. With the build at the end of this file a fresh worktree failed
+# The build comes FIRST, before CLI tests and the "installs for a stranger" step
+# read its gitignored output. The board now ships a dependency-free gate policy,
+# but its parity test still compares that policy with the built CLI. With the
+# build at the end of this file a fresh worktree failed
 # them before it ran, and --quick never built at all. 3.46.2 moved it ahead of the
 # unit tests only; the stranger step sits earlier still and kept failing in a
 # fresh worktree. It takes about a second.
 step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
+step "plugin gate policy in sync" node scripts/build-gate-policy.mjs --check
 
 # First, because it is the check that fails silently. The pre-push hook was
 # installed, executable and current for months while `core.hooksPath` pointed at
@@ -112,6 +113,9 @@ step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # agents-full/ is what the plugin registers (ADR-027); stale output would ship an
 # agent without the shared contracts its source points at.
 step "agent bundle in sync" node scripts/build-agent-bundle.mjs --check
+# The plugin's mod (hooks/hooks.json → modules: the gate pane) checked by the engine
+# that loads it. No claude CLI is a skipped check, not a pass.
+step "mod: validate + plugin test (gate pane)" bash scripts/mods-test.sh
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no
 # logs. So they were configured, correct, and had not executed: six structural

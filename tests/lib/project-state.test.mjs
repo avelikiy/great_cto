@@ -16,7 +16,7 @@ import { contractPath, OVERRIDE_MARK } from '../../scripts/lib/contract-path.mjs
 import { ensureStateGitignore, mergeGitignore, BEGIN, END } from '../../scripts/lib/state-gitignore.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project() {
   const d = realpathSync(mkdtempSync(join(tmpdir(), 'proj-state-')));
   made.push(d);
@@ -33,6 +33,16 @@ test('the root is the nearest directory with .great_cto/PROJECT.md', () => {
   assert.equal(projectRoot(join(d, 'backend', 'src')), d);
   const plain = realpathSync(mkdtempSync(join(tmpdir(), 'no-proj-'))); made.push(plain);
   assert.equal(projectRoot(plain), plain, 'outside a project: where it started, as before');
+});
+
+test('the home directory is never the root, though its .great_cto has a PROJECT.md', () => {
+  const home = realpathSync(mkdtempSync(join(tmpdir(), 'home-'))); made.push(home);
+  mkdirSync(join(home, '.great_cto'), { recursive: true });
+  writeFileSync(join(home, '.great_cto', 'PROJECT.md'), 'slug: global\n');
+  const repo = join(home, 'dev', 'client-repo', 'src'); mkdirSync(repo, { recursive: true });
+  assert.equal(projectRoot(repo, home), repo, 'no project of its own: stay where it started, never $HOME');
+  const r = spawnSync('sh', ['-c', `${ROOT_SNIPPET}pwd`], { cwd: repo, encoding: 'utf8', env: { ...process.env, HOME: home } });
+  assert.equal(realpathSync(r.stdout.trim()), repo, 'the sh walk skips $HOME too');
 });
 
 test('every hook command starts by moving to the project root — in sh, from a subdirectory', () => {

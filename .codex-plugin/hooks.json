@@ -8,7 +8,7 @@
           {
             "type": "command",
             "timeout": 20,
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" shared-tree-guard gate-bypass-guard destructive-guard frozen-gates-guard lesson-tripwire; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" bash-guards; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       },
@@ -18,7 +18,7 @@
           {
             "type": "command",
             "timeout": 20,
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" secret-scan frozen-gates-guard gate-weakening-guard edit-impact lesson-tripwire; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" secret-scan frozen-gates-guard gate-weakening-guard edit-impact lesson-tripwire; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }

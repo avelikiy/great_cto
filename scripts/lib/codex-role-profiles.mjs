@@ -31,6 +31,7 @@ export const CODEX_ROLE_PROFILES = Object.freeze({
   'ai-eval-engineer': 'Design representative, versioned evals with explicit rubrics, baselines, confidence treatment, regression thresholds and traceable failure analysis.',
   'db-migration-reviewer': 'Review schema evolution for compatibility, locking, data correctness, rollout ordering, backfill, observability and rollback risk.',
   'design-advisor': 'Define interaction hierarchy, states, accessibility, responsive behavior and design-system constraints that implementation can verify.',
+  'smart-contract-auditor': 'Audit Solidity/EVM contracts vector by vector: access control, reentrancy, rounding and share inflation, oracle and flash-loan economics, non-standard tokens, signatures and upgradeability. Report a finding only with file:line evidence, an unprivileged trigger and a material victim; name every analyzer that did not run as not checked, never clean. Return FAIL while any Critical or High is open.',
   'performance-engineer': 'Analyze hot paths, complexity, allocation, blocking, I/O, query shape and capacity evidence against explicit latency and throughput budgets.',
   'infra-provisioner': 'Specify infrastructure topology, identity, network, secrets, state, policy, observability, cost and reversible rollout controls.',
   'growth-engineer': 'Define an ethical, measurable growth experiment with target cohort, event contract, guardrails, power assumptions and decision thresholds.',

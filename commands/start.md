@@ -583,7 +583,7 @@ The plugin ships specialist reviewer agents for each archetype. Auto-enable the 
 | `healthcare` | `great_cto-regulated-reviewer` |
 | `regulated` | `great_cto-regulated-reviewer` |
 | `enterprise-saas` | `great_cto-enterprise-saas-reviewer` |
-| `web3` | `great_cto-oracle-reviewer` |
+| `web3` | `great_cto-oracle-reviewer` (before code), `great_cto-smart-contract-auditor` (after the contracts are written) |
 | `iot-embedded` | `great_cto-firmware-reviewer` |
 | `browser-extension` | `great_cto-web-store-reviewer` |
 | `mobile-app` | `great_cto-mobile-store-reviewer` |

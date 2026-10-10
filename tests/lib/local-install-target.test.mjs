@@ -40,11 +40,14 @@ function fixture(t, version) {
     fs.writeFileSync(path.join(bin, command), `#!/bin/sh\nprintf called > '${marker}'\nexit 1\n`, { mode: 0o755 });
   }
   const script = fs.readFileSync(path.join(repo, 'scripts/install-local.sh'), 'utf8')
-    .replace(/^ROOT=.*$/m, `ROOT='${source}'`)
-    .replace(/^CACHE_ROOT=.*$/m, `CACHE_ROOT='${cache}'`)
-    .replace(/^REG=.*$/m, `REG='${registry}'`);
-  const run = (args = ['--no-register']) => spawnSync('bash', ['-c', script, 'install-fixture', ...args], {
-    encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    .replace(/^ROOT=.*$/m, 'ROOT="$GREAT_CTO_FIXTURE_SOURCE"')
+    .replace(/^CACHE_ROOT=.*$/m, 'CACHE_ROOT="$GREAT_CTO_FIXTURE_CACHE"')
+    .replace(/^REG=.*$/m, 'REG="$GREAT_CTO_FIXTURE_REGISTRY"');
+  const installer = path.join(root, 'install-fixture.sh');
+  fs.writeFileSync(installer, script);
+  const run = (args = ['--no-register']) => spawnSync('bash', [installer, ...args], {
+    encoding: 'utf8', env: { ...process.env, PATH: `${bin}:${process.env.PATH}`,
+      GREAT_CTO_FIXTURE_SOURCE: source, GREAT_CTO_FIXTURE_CACHE: cache, GREAT_CTO_FIXTURE_REGISTRY: registry },
   });
   return { root, source, cache, registry, marker, run, git };
 }
@@ -239,13 +242,16 @@ test('strict sync reports partial side effects after a later write fails', (t) =
   const retired = path.join(agents, 'great_cto-retired.md');
   fs.writeFileSync(retired, '# old\n<!-- great_cto-managed -->\n');
   const helper = path.join(repo, 'scripts/lib/sync-managed.mjs');
-  const url = new URL(`file://${helper}`).href;
-  const result = spawnSync(process.execPath, ['--input-type=module', '-e', `
-    import os from 'node:os';import {syncBuiltinESMExports} from 'node:module';
-    os.homedir=()=>${JSON.stringify(home)};syncBuiltinESMExports();
-    process.argv=[process.execPath,${JSON.stringify(helper)},'--plugin-dir',${JSON.stringify(f.source)},'--strict'];
-    await import(${JSON.stringify(url)});
-  `], { encoding: 'utf8', timeout: 5000 });
+  const probe = path.join(f.root, 'sync-probe.mjs');
+  fs.writeFileSync(probe, `
+    import os from 'node:os'; import {syncBuiltinESMExports} from 'node:module';
+    import {pathToFileURL} from 'node:url';
+    const [home, helper, source] = process.argv.slice(2);
+    os.homedir = () => home; syncBuiltinESMExports();
+    process.argv = [process.execPath, helper, '--plugin-dir', source, '--strict'];
+    await import(pathToFileURL(helper).href);
+  `);
+  const result = spawnSync(process.execPath, [probe, home, helper, f.source], { encoding: 'utf8', timeout: 5000 });
   assert.equal(result.status, 1);
   assert.match(result.stdout, /partial copies or retirements may remain/);
   assert.equal(fs.existsSync(retired), false, 'reproduce a retirement before the write error');

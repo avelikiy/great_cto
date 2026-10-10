@@ -198,6 +198,15 @@ must-implement-before-senior-dev:
 gate: gate:tax-filing-signoff
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh tax-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-tax-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## What NOT to flag
 
 - General GL/GAAP/ASC 606 bookkeeping (accounting-reviewer)

@@ -69,7 +69,7 @@ test('an unknown project is announced, and the announcement names who is being s
       'no fallback, nothing to announce');
   } finally {
     await reap(board);
-    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true }); } catch { /* best effort */ } }
+    for (const d of [home, project]) { try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch { /* best effort */ } }
   }
 });
 

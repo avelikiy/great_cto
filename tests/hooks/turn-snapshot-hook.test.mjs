@@ -17,7 +17,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const HOOK = join(ROOT, 'scripts/hooks/turn-snapshot.mjs');
 const SESSION = '0b6f3f1e-6c1e-4d0a-9d6b-2f1f0e9a7c11';
 const TMP_DIRS = [];
-after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function tmp(prefix) { const d = mkdtempSync(join(tmpdir(), prefix)); TMP_DIRS.push(d); return d; }
 function gitProject() {

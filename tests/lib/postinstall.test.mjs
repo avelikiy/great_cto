@@ -12,7 +12,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { cmpVersion, newestPluginVersion, compare, message }
+import { cmpVersion, newestPluginVersion, compare, message, ensureBoard }
   from '../../packages/cli/postinstall.mjs';
 
 const HOOK = path.join(
@@ -77,7 +77,7 @@ test('a missing home, an unreadable cache, and CI all exit 0 and say nothing', (
   // machine, the install must complete.
   const run = (env) => execFileSync(process.execPath, [HOOK], {
     encoding: 'utf8',
-    env: { ...process.env, ...env },
+    env: { ...process.env, ...env, GREAT_CTO_NO_BOARD: '1' },
   });
   assert.equal(run({ HOME: path.join(os.tmpdir(), 'gcto-nonexistent-home') }).trim(), '');
   assert.equal(run({ CI: '1' }).trim(), '');
@@ -97,8 +97,57 @@ test('a stale plugin is actually reported when the hook runs for real', () => {
 
   const out = execFileSync(process.execPath, [HOOK], {
     encoding: 'utf8',
-    env: { ...process.env, HOME: home, CI: '', GREAT_CTO_QUIET_POSTINSTALL: '' },
+    // This is a notice test, not permission to start a detached user board.
+    env: { ...process.env, HOME: home, CI: '', GREAT_CTO_QUIET_POSTINSTALL: '', GREAT_CTO_NO_BOARD: '1' },
   });
   assert.match(out, new RegExp(older.replace(/\./g, '\\.')));
   assert.match(out, /\/plugin update great_cto/);
+  assert.doesNotMatch(out, /starting the board/);
+});
+
+test('board startup cannot escape test, CI, quiet or opt-out contexts', () => {
+  for (const env of [
+    { NODE_TEST_CONTEXT: 'child-v8' },
+    { CI: '1' },
+    { GREAT_CTO_QUIET_POSTINSTALL: '1' },
+    { GREAT_CTO_NO_BOARD: '1' },
+  ]) {
+    const calls = [];
+    const started = ensureBoard({ env,
+      spawnFn: () => { calls.push('spawn'); throw Error('must not spawn'); },
+      write: () => { calls.push('write'); },
+    });
+    assert.equal(started, false);
+    assert.deepEqual(calls, [], JSON.stringify(env));
+  }
+});
+
+test('normal installs still start an unreferenced detached board', () => {
+  const calls = [], output = [];
+  const env = { GREAT_CTO_NO_BOARD: '', NODE_TEST_CONTEXT: '' };
+  const started = ensureBoard({ env,
+    spawnFn: (binary, args, options) => {
+      calls.push({ binary, args, options });
+      return { unref: () => { calls.push('unref'); } };
+    },
+    write: (text) => { output.push(text); },
+  });
+  assert.equal(started, true);
+  assert.equal(calls[0].binary, process.execPath);
+  assert.deepEqual(calls[0].args.slice(1), ['board', 'ensure']);
+  assert.equal(calls[0].options.detached, true);
+  assert.equal(calls[0].options.stdio, 'ignore');
+  assert.equal(calls[0].options.env, env);
+  assert.equal(calls[1], 'unref');
+  assert.match(output.join(''), /starting the board/);
+});
+
+test('failed board startup does not fail installation or claim success', () => {
+  const output = [];
+  assert.equal(ensureBoard({ env: {},
+    spawnFn: () => { throw Error('fixture spawn failure'); },
+    write: (text) => { output.push(text); },
+  }), false);
+  assert.match(output.join(''), /could not start the board/);
+  assert.doesNotMatch(output.join(''), /starting the board/);
 });

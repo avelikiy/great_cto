@@ -82,8 +82,12 @@ test('the guard denies a Bash write to an existing gate and lets a new gate or a
 test('frozen-gates-guard is wired on Bash too, in Claude Code and in the Codex hooks', () => {
   const plugin = JSON.parse(readFileSync(join(REPO, '.claude-plugin', 'plugin.json'), 'utf8'));
   const bash = plugin.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
-  assert.ok(bash.hooks.some((h) => h.command.includes('frozen-gates-guard.mjs')));
+  // Since 3.57 the Bash checks run in one process (scripts/hooks/bash-guards.mjs):
+  // wired = that process is the Bash hook, and frozen-gates is one of its checks.
+  assert.ok(bash.hooks.some((h) => h.command.includes('bash-guards.mjs')));
   const codex = JSON.parse(readFileSync(join(REPO, '.codex-plugin', 'hooks.json'), 'utf8'));
   const cb = codex.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
-  assert.match(cb.hooks[0].command, /frozen-gates-guard/);
+  assert.match(cb.hooks[0].command, /bash-guards/);
+  const src = readFileSync(join(REPO, 'scripts', 'hooks', 'bash-guards.mjs'), 'utf8');
+  assert.match(src, /\['frozen-gates', frozenGates\]/);
 });

@@ -21,7 +21,7 @@ import {
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP_DIRS = [];
-after(() => { for (const d of TMP_DIRS) { try { chmodSync(d, 0o755); } catch {} rmSync(d, { recursive: true, force: true }); } });
+after(() => { for (const d of TMP_DIRS) { try { chmodSync(d, 0o755); } catch {} rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } });
 const stateDir = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-events-')); TMP_DIRS.push(d); return join(d, '.great_cto'); };
 const NOW = Date.parse('2026-09-14T12:00:00Z');
 const lines = (dir) => readFileSync(join(dir, EVENTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l));

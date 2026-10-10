@@ -155,6 +155,15 @@ Beyond the base HANDOFF block, surface for senior-dev:
 - H1 (UX): add `--json`, `--quiet`, `NO_COLOR` support to root command
 - Tab completion: add bash/zsh/fish to `bin/completions/`
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh cli-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Failure modes you reject
 
 - **"shell:true is convenient for piping"** — use stream APIs, never trust the shell

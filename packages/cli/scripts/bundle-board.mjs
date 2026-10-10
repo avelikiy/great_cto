@@ -62,8 +62,13 @@ const boardFiles = [];
 })(boardSrc);
 
 const needed = new Set();
+const neededTop = new Set();
 for (const f of boardFiles) {
-  for (const m of readFileSync(f, "utf8").matchAll(/scripts\/lib\/([\w.-]+\.mjs)/g)) needed.add(m[1]);
+  const text = readFileSync(f, "utf8");
+  for (const m of text.matchAll(/scripts\/lib\/([\w.-]+\.mjs)/g)) needed.add(m[1]);
+  // Some reusable helpers (skill-lint) live directly under scripts/. Derive
+  // actual relative imports too, so repository-only dependencies cannot ship.
+  for (const m of text.matchAll(/(?:from\s+|import\(\s*)['"](?:\.\.\/)+scripts\/([\w.-]+\.mjs)['"]/g)) neededTop.add(m[1]);
 }
 
 // The npm CLI is also a supported entrypoint for the controlled Codex host.
@@ -84,13 +89,13 @@ for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskControl
 // the defect rather than removing it.
 const runtimeFiles = runtimeImportClosure(repoRoot, [codexController, taskController,
   ...boardFiles.filter(file => !skip.test(file)),
+  ...[...neededTop].map(f => join(repoRoot, "scripts", f)),
   ...[...needed].map(f => join(repoRoot, "scripts", "lib", f))]);
 for (const src of runtimeFiles) {
   const dest = join(out, src.slice(repoRoot.length + 1));
   mkdirSync(dirname(dest), { recursive: true });
   copyFileSync(src, dest);
 }
-
 mkdirSync(join(out, "shared"), { recursive: true });
 copyFileSync(join(repoRoot, "shared", "pipeline.toml"), join(out, "shared", "pipeline.toml"));
 console.log(`bundle-board: copied ${runtimeFiles.length} runtime module(s)`);

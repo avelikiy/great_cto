@@ -29,6 +29,8 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { scanMemoryFile } from '../lib/memory-secret-scan.mjs';
 import { screenMemoryText } from '../lib/injection-scan.mjs';
+import { privateTerms, termMatcher } from '../lib/private-terms.mjs';
+import { screenProjectScope } from '../lib/global-layer-scope.mjs';
 
 /** The L4 layers, shared by every project — see data-readers.mjs `scope: 'global'`. */
 const LAYERS = ['preferences.md', 'decisions.md', 'lessons.md'];
@@ -37,6 +39,9 @@ function main() {
   const dir = join(homedir(), '.great_cto');
   const out = [];
   const warnings = [];
+  // What is true of one project lives in that project's .great_cto/. Here it would
+  // reach every other project — see global-layer-scope.mjs.
+  const has = termMatcher(privateTerms().terms);
 
   for (const name of LAYERS) {
     const r = scanMemoryFile(join(dir, name));
@@ -46,7 +51,12 @@ function main() {
       warnings.push(`INJECTION GUARD — ${name}: entry at line ${d.line} dropped (${d.kinds.join(', ')}); `
         + 'it was NOT loaded into this session. Review that entry in the file.');
     }
-    if (content.trim()) out.push(content);
+    const scoped = screenProjectScope(content, { has });
+    for (const d of scoped.dropped) {
+      warnings.push(`PROJECT SCOPE — ${name}: entry at line ${d.line} dropped (${d.why === 'project-scoped' ? 'declares project:' : 'names a private project'}); `
+        + "it was NOT loaded into this session. It belongs in that project's .great_cto/, not the global layer.");
+    }
+    if (scoped.content.trim()) out.push(scoped.content);
   }
 
   // Warnings go to stderr so they reach the operator without becoming part of the

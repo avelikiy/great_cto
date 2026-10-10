@@ -16,7 +16,7 @@ import { join } from 'node:path';
 import { projectPipelineHealth, pipelineMapFor, auditPipelineHealth } from '../../scripts/lib/pipeline-health.mjs';
 
 const sandbox = () => mkdtempSync(join(tmpdir(), 'plh-'));
-const clean = (d) => rmSync(d, { recursive: true, force: true });
+const clean = (d) => rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 const project = (dir) => { mkdirSync(join(dir, '.great_cto'), { recursive: true }); return dir; };
 const withMap = (dir, body = '[transitions.pm]\non = ["DONE"]\nnext = ["senior-dev"]\n') => {
   mkdirSync(join(dir, 'shared'), { recursive: true });

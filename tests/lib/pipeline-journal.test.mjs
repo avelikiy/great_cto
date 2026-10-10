@@ -13,7 +13,7 @@ import { join } from 'node:path';
 import { recordRun, readRuns, OUTCOMES } from '../../scripts/lib/pipeline-journal.mjs';
 
 const sandbox = () => { const d = mkdtempSync(join(tmpdir(), 'pj-')); mkdirSync(join(d, '.great_cto')); return d; };
-const clean = (d) => rmSync(d, { recursive: true, force: true });
+const clean = (d) => rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 
 test('a silent run is recorded with its reason', () => {
   // The most valuable record here, not the least. "Nothing should happen" and

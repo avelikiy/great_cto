@@ -170,6 +170,15 @@ must-implement-before-senior-dev:
 gate: gate:coding-signoff
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh rcm-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-rcm-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## What NOT to flag
 
 - General HIPAA/PHI/clinical-transport (healthcare-reviewer covers HL7/FHIR/EHR/BAA)

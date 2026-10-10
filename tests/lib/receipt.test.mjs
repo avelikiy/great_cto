@@ -24,7 +24,7 @@ function repo() {
   return dir;
 }
 const write = (d, p, s) => { fs.mkdirSync(path.dirname(path.join(d, p)), { recursive: true }); fs.writeFileSync(path.join(d, p), s); };
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 
 test('a receipt of an unchanged tree has no dirty fingerprint', () => {
   const d = repo();

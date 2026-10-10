@@ -172,6 +172,15 @@ For support workflow:
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh enterprise-saas-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"We rely on the ORM to add tenant_id"** — ORMs leak (raw queries, joins, admin scripts); enforce at DB layer via RLS

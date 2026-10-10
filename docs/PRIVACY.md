@@ -251,6 +251,40 @@ name, archetype, description and path. The file stays on your machine. Temp
 directories and agent worktrees are not added; turn it off with
 `GREAT_CTO_NO_AUTO_REGISTER=1`, and remove a project by deleting its entry.
 
+## Local usage index (not telemetry — never sent)
+
+The board's **Usage** screen shows what Claude Code and Codex consumed on this
+machine. It reads the hosts' own session logs — `~/.claude/projects` and
+`~/.codex/sessions` — and keeps per-day totals in `~/.great_cto/session-usage-index.v<N>.json` (N is the index format):
+tokens per model, tool / skill / agent / MCP call counts, conversation titles,
+project folder names, hourly spend, the words of each limit refusal, the plan-window
+readings Codex reported, and counts of hook refusals, failures and timeouts. The same screen
+reads every registered project's verdict logs and runs `bd list` in each project that keeps
+Beads, to count bugs by priority; it keeps counts only — no bug title or description reaches
+the page. The logs are
+only read, never changed. The index stays on your machine, is served by the board
+on its own host only, and is not part of telemetry, even when telemetry is on.
+Delete the file to drop it; the next board open rebuilds it from the logs.
+Source: `scripts/lib/session-usage.mjs`.
+
+## Claude plan use, from the status line (opt-in, never sent)
+
+Claude Code hands its plan use — the 5-hour window, the week, the per-model weeks, each
+with a used percentage and a reset time — to the status line command, and to nothing
+else. `great-cto statusline install` replaces the `statusLine` entry in
+`~/.claude/settings.json` with a small script copied to `~/.great_cto/statusline.mjs`
+(the settings file is backed up first). The script runs the status line you already had
+and prints its output unchanged, and appends one line per *change* of those numbers to
+`~/.great_cto/claude-limits.jsonl`: a timestamp and the windows — no prompt, no path, no
+project. The board's Usage → Limits reads it. `great-cto statusline uninstall` restores
+your previous status line exactly. Nothing is sent anywhere.
+
+Readings arrive only from a status line Claude Code draws: the terminal `claude` draws
+one, the desktop app's Code tab does not. To tell "on, no reading yet" from "never
+installed", the board reads the `statusLine.command` entry of `~/.claude/settings.json`
+and checks whether it points at `~/.great_cto/statusline.mjs` — that one field, nothing
+else from the file, and only on the machine the board runs on.
+
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.

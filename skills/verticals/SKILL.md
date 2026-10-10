@@ -11,7 +11,7 @@ allowed-tools: Read, Glob
 # Verticals — read the one that applies
 
 Each file below is the domain brief for one kind of product. They are references, not
-separate skills: one line in every session's skill list instead of twelve paragraphs, and
+separate skills: one line in every session's skill list instead of sixteen paragraphs, and
 the full text only when a product needs it.
 
 | Product is for… | Read |
@@ -26,6 +26,10 @@ the full text only when a product needs it.
 | HR, recruiting — ATS, onboarding, scheduling, surveys | `hr-recruiting.md` |
 | Contractors, field crews — bids, project logs, subcontractors | `construction.md` |
 | Shipping, warehouse-lite, routes, purchase orders | `logistics.md` |
+| Tour and activity operators, small stays, travel advisors — departures, OTAs, itineraries | `travel.md` |
+| Small nonprofits — donations, donor records, grants, volunteers | `nonprofit.md` |
+| Small farms — field and spray records, livestock, shares and direct sales, lot codes | `agrotech.md` |
+| Marinas, boat charter, vessel upkeep, container tracking for small forwarders | `maritime.md` |
 | An app that holds a balance or moves money on a phone (orthogonal to the rows above) | `fintech-mobile.md` |
 | Public pages that must be found in local or product search | `local-seo.md` |
 

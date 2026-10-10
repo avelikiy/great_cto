@@ -10,7 +10,7 @@ import path from 'node:path';
 import { councilFromProjectMd, runCouncil, estimateUsd, DEFAULT_MAX_USD } from '../../scripts/lib/council.mjs';
 
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const root = () => { const d = mkdtempSync(path.join(tmpdir(), 'gc-council-')); TMP.push(d); return d; };
 
 // What resolveSecondOpinion needs to call each member declared: a Codex that is

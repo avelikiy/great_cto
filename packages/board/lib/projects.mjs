@@ -466,7 +466,8 @@ function resolveProjectInfo(slugOrPath) {
   // choose between candidates.
   const byDerived = reg.projects.filter((p) => {
     if (!p?.path) return false;
-    return path.basename(p.path) === slugOrPath;
+    try { return path.basename(p.path) === slugOrPath || readProjectMd(p.path)?.slug === slugOrPath; }
+    catch { return false; }
   });
   const derived = pickBestBySlug(byDerived);
   if (derived) return { cwd: derived.path, resolved: 'slug' };

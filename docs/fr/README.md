@@ -28,7 +28,7 @@ npx great-cto init
 
 **Votre agent de code livre du code. Ceci le vérifie.**
 
-Décrivez un produit ou une fonctionnalité. **71 agents** aux missions étroites le
+Décrivez un produit ou une fonctionnalité. **72 agents** aux missions étroites le
 mènent du brief à l'architecture, au build, à la revue et à la sécurité ; un second
 modèle d'une autre famille lit le même diff. Trois décisions vous restent — quoi
 construire, comment, et si ça part en production — et au bout il y a un **dépôt qui

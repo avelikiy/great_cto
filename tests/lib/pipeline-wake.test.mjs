@@ -14,7 +14,7 @@ import path from 'node:path';
 import { recordWake, readWake, clearWake, WAKE_TTL_MS } from '../../scripts/lib/pipeline-wake.mjs';
 
 const proj = () => fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-wake-'));
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 
 test('an approval is recorded and reads back as pending', () => {
   const d = proj();

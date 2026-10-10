@@ -91,8 +91,18 @@ test('the Codex hooks file is in the schema Codex accepts, and every guard it na
   // Codex runs a plugin hook only after the user approves it once in its TUI.
   const m = read('.codex-plugin/plugin.json');
   assert.equal(m.hooks, './.codex-plugin/hooks.json');
-  assert.ok(!existsSync(join(REPO, 'hooks', 'hooks.json')),
-    'a root hooks/hooks.json would be loaded by Claude Code as well — every guard twice');
+  // A root hooks/hooks.json is read by Claude Code beside plugin.json's own hooks, so
+  // a command hook there would run every guard twice. Since 2026-10-05 the file exists
+  // for one thing only: the gate pane, a Claude Code mod named under `modules`. It must
+  // never carry `hooks`. Codex reads only the path its manifest declares — checked by
+  // breaking each file in an isolated CODEX_HOME: hooks/hooks.json went unnoticed,
+  // .codex-plugin/hooks.json warned.
+  const root = join(REPO, 'hooks', 'hooks.json');
+  if (existsSync(root)) {
+    const rh = JSON.parse(readFileSync(root, 'utf8'));
+    assert.deepEqual(Object.keys(rh), ['modules'], 'a root hooks/hooks.json holds modules only — a command hook there runs twice');
+    for (const mod of rh.modules) assert.ok(existsSync(join(REPO, 'hooks', mod)), `module ${mod} exists`);
+  }
 
   const h = read('.codex-plugin/hooks.json');
   assert.deepEqual(Object.keys(h).sort(), ['description', 'hooks'], 'top level: description and hooks only');

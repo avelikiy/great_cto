@@ -25,7 +25,7 @@ function project({ tasks = '', verdicts = {}, costHistory = '' } = {}) {
   if (costHistory) fs.writeFileSync(path.join(dir, '.great_cto', 'cost-history.log'), costHistory);
   return dir;
 }
-const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true }); } catch {} };
+const clean = (d) => { try { fs.rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} };
 const iso = (daysAgo) => new Date(Date.now() - daysAgo * 86400000).toISOString().replace(/\.\d+Z$/, 'Z');
 
 // ── the shape callers read ─────────────────────────────────────────────────
