@@ -278,6 +278,19 @@ with the host turn before suite totals; it is INCOMPLETE, not green or red.
 A separate unchanged-source full replay is running. Previous c33 CI is not
 inherited; #167 remains unmerged and absent from installed3.61.0.
 
+That complete735 replay subsequently exited1. Sole failure: doc-links frozen
+orphan count49vs48 for the new independent-review QA report. Libraries:
+3316pass1fail6skip; root1360,eval242,docs76,browser14,CLI369,archetypes34 all
+passed; candidate pipeline36pass0fail9skip. Red log SHA-256:
+2ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f.
+
+Docs-only1babcab207d5106427bce6359dbf5e58d0f996ad integrates main16d QA
+and connects the two QA reports to existing contracts. Orphan baseline48 is
+unchanged; focused doc-links/docs81pass0fail0skip. A Git diff excluding QA paths
+is empty against approved735; application approval is unchanged. Fresh1b Snyk
+SUCCESS and a new full canonical replay pending. No canonical-green inheritance,
+no waiver, no167merge or delivered adaptive feature claimed.
+
 ## Article and delivery boundary
 
 [Article draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md) now

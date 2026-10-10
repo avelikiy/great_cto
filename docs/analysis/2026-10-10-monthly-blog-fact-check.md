@@ -20,6 +20,18 @@ records installation evidence and the remaining candidate gates.
 - Later live board probes timed out at 5s/10s for version and 3s for HTML. Exact-board restart restored initial48.6ms/5ms responses, but the replacement stalled again after about17minutes. A private preload on the second restart identifies inboxElsewhere -> getInbox -> getTasks -> bdList -> spawnSync, one actual call19379.18ms. This proves one blocking request path, not the exclusive cause of previous indefinite stalls; installed source is unchanged. P1 great_cto-932g.7 remains open; no permanent latency fix is claimed.
 - PR #167 is not released. Prior canonical272b6a4a gate exited1; that red evidence is retained. Complete c33ae765 gate exited0 with libraries3300pass0fail6skip, candidate pipeline36pass0fail9skip, root/hooks/board1360pass0skip, eval242/docs76/browser14/CLI369/archetypes34 all passing. Canonical verdict was GREEN WITH15SKIPPED, not full paid-model/production readiness. Actual candidate MCP/SSE,HMAC401/200,11BoardAPIs and isolated realBeads lifecycle ran. Complete log SHA25608b3ccf79113a73206e107485bfab5ae9021b227a31b94b74891688ada8898d7. Existing assertions/deadlines remain, the complete source inventory is retained. Independent c33 review returned REQUEST_CHANGES for one P1 Git helper execution boundary. The exact735554b98021681ce54f38641c0fb5ede5c8cce4 fix passed84focused author tests0fail0skip and an independent read-only delta review APPROVED it after actual ephemeral Git probes. Its fresh full canonical replay is pending; an interrupted prior735 attempt has no verdict. Fresh Snyk on735 is SUCCESS. No inherited canonical approval, adaptive merge or release is claimed.
 
+## Current adaptive follow-up
+
+Adaptive follow-up: complete canonical735 replay exited1 with a single orphan
+document failure, libraries3316pass1fail6skip. Other suites: root1360,
+eval242,docs76,browser14,CLI369,archetypes34,candidate36pass9skip. Red log
+SHA2562ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f
+is retained, not replaced by focused green. The docs-only1babcab2 integrates
+main16d and connects both QA reports to existing contracts; frozen count48
+unchanged. Focused81pass0fail0skip. Application delta excluding QA files is
+zero against independently approved735. New full canonical1b replay is pending;
+fresh Snyk on1b is SUCCESS. No167merge/release claim.
+
 ## Historical delivery snapshot: 3.60.0
 
 - Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
