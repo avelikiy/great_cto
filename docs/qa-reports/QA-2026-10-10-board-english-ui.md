@@ -47,6 +47,16 @@ Public-report changes affect formatting, not costs or accounting.
 
 This is focused board verification, not a claim that every repository release
 gate passed. It does not include an independent reviewer or a live model run.
-No merge, npm release, installed-plugin replacement or local admin restart was
-performed as part of these checks. The branch is stacked on the project-scoped
-Usage changes in PR #173.
+The checks did not merge, release or replace installed plugins. The branch is
+stacked on the project-scoped Usage changes in PR #173.
+
+## Approved local application
+
+After the checks, the user explicitly approved applying this branch locally.
+Only the board server on `localhost:3141` was restarted, from
+`codex/board-english-ui`, retaining the same project working directory and
+registry. The HTTP response is byte-for-byte equal to the verified branch's
+`public/index.html`; it declares English and contains no ambient-locale
+formatting calls. Browser inspection confirms English navigation and the
+selected project's Usage screen. The installed plugins and npm version were
+not changed. The version remains `3.59.1`; this is a local preview, not a release.
