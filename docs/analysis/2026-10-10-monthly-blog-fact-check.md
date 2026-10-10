@@ -5,6 +5,9 @@ Date: 2026-10-10. Scope: 2026-09-10 through 2026-10-10.
 Article: [Russian draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md).
 This file is an editorial fact sheet, not part of the public article and not a task tracker.
 
+[October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
+records installation evidence and the remaining candidate gates.
+
 ## Snapshot
 
 - Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
