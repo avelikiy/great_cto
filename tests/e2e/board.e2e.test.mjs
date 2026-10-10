@@ -84,10 +84,11 @@ function seedHostLogs(fakeHome, projectPath) {
 }
 
 /** Everything the suite needs, or a reason it could not be had. */
-async function boardUnderTest() {
+async function boardUnderTest({ seed = () => {} } = {}) {
   if (!chromium) return { skip: 'playwright is not installed — not checked, not passed' };
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-e2e-'));
   buildFixture(dir);
+  seed(dir);
   // The board resolves its project from the working directory, not from a flag
   // — and its registry from HOME. Both have to point at the fixture, or the
   // suite silently walks whatever project this machine happens to have open,
@@ -146,8 +147,8 @@ async function boardUnderTest() {
 }
 
 /** A page that records every console error and page exception it saw. */
-async function openBoard(env, route = '') {
-  const page = await env.browser.newPage({ viewport: { width: 1440, height: 900 } });
+async function openBoard(env, route = '', pageOptions = {}) {
+  const page = await env.browser.newPage({ viewport: { width: 1440, height: 900 }, ...pageOptions });
   const errors = [];
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
@@ -156,6 +157,56 @@ async function openBoard(env, route = '') {
   await page.waitForTimeout(1200);   // the board paints, then fills from /api/*
   return { page, errors };
 }
+
+test('Russian browser locale keeps UI English and task/document text unchanged', { timeout: 120_000 }, async (t) => {
+  const title = 'Проверить повторную оплату';
+  const description = 'Не списывать деньги дважды. См. docs/decisions/ADR-002-retry.md';
+  const documentTitle = 'Повторная оплата';
+  const documentBody = 'Повторный запрос использует тот же ключ идемпотентности.';
+  const env = await boardUnderTest({ seed(dir) {
+    fs.appendFileSync(path.join(dir, '.great_cto', 'tasks.md'),
+      `\n| id | title | status | owner |\n|----|-------|--------|-------|\n`
+      + `| acme-locale | ${title} [${description}] | blocked | senior-dev |\n`);
+    fs.writeFileSync(path.join(dir, 'docs', 'decisions', 'ADR-002-retry.md'),
+      `# ${documentTitle}\n\n${documentBody}\n`);
+  } });
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const { page, errors } = await openBoard(env, '#/decisions', {
+      locale: 'ru-RU', timezoneId: 'Europe/Vienna',
+    });
+    assert.equal(await page.evaluate(() => navigator.language), 'ru-RU', 'actually exercise a non-English browser');
+    assert.equal(await page.locator('html').getAttribute('lang'), 'en');
+    assert.equal((await page.locator('.nav-item[data-tab="decisions"] .nav-label').innerText()).trim(), 'Decisions');
+    await page.getByRole('button', { name: title, exact: true }).click();
+    await page.waitForSelector('#side-panel.open');
+    assert.equal(await page.locator('#side-body .side-title').innerText(), title);
+    assert.equal(await page.locator('#side-body .side-desc').innerText(), description);
+    assert.deepEqual(await page.locator('#side-body .side-task-actions button').allInnerTexts(), ['Unblock', 'Close']);
+    assert.ok((await page.locator('#side-body .prop-key').allInnerTexts()).includes('Created'));
+
+    const timestamps = await page.evaluate(() => {
+      const iso = '2026-10-09T15:43:47Z';
+      return { actual: fmtDate(iso), short: fmtDT(iso),
+        english: new Date(iso).toLocaleString('en-US'), russian: new Date(iso).toLocaleString('ru-RU'),
+        expectedShort: new Date(iso).toLocaleString('en-US', {
+          day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit',
+        }), offset: new Date(iso).getTimezoneOffset() };
+    });
+    assert.equal(timestamps.actual, timestamps.english);
+    assert.notEqual(timestamps.actual, timestamps.russian);
+    assert.equal(timestamps.short, timestamps.expectedShort);
+    assert.equal(timestamps.offset, -120, 'retain Vienna local time, not forced UTC');
+
+    await page.getByRole('button', { name: 'docs/decisions/ADR-002-retry.md open →' }).click();
+    await page.waitForSelector('#side-body .side-desc h1');
+    assert.equal(await page.locator('#side-body .side-desc h1').innerText(), documentTitle);
+    assert.equal(await page.locator('#side-body .side-desc p').innerText(), documentBody);
+    await page.getByRole('button', { name: '← back to task' }).click();
+    assert.equal(await page.locator('#side-body .side-desc').innerText(), description);
+    assert.deepEqual(errors.filter(e => !/favicon|net::ERR_/.test(e)), []);
+  } finally { await env.close(); }
+});
 
 test('every screen paints its own content, and nothing throws on the way', { timeout: 180_000 }, async (t) => {
   const env = await boardUnderTest();

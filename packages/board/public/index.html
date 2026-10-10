@@ -5885,7 +5885,7 @@ function renderTurns(snap) {
   if (snap.state === 'unreadable') return `<div class="aa-empty aa-bad">Turns not measured: ${esc(snap.why || 'git refused')}</div>`;
   const sessions = Array.isArray(snap.sessions) ? snap.sessions : [];
   if (!sessions.length) return `<div class="aa-empty">No turn snapshots yet — they start with the next agent turn.</div>`;
-  const when = (ms) => { try { return ms ? new Date(ms).toLocaleString([], { hour12: false }) : ''; } catch { return ''; } };
+  const when = (ms) => { try { return ms ? new Date(ms).toLocaleString('en-US', { hour12: false }) : ''; } catch { return ''; } };
   return sessions.map((s) => {
     const count = Math.min(Number(s.turns) || 0, 50);
     const first = Math.max(0, (Number(s.newestTurn) || 0) - count + 1);
@@ -5974,7 +5974,7 @@ function renderAgentActivity(snap) {
     root.innerHTML = `<div class="aa-empty">No agent events recorded yet — they start with the next agent run.</div>`;
     return;
   }
-  const time = (ts) => { try { return new Date(ts).toLocaleTimeString([], { hour12: false }); } catch { return ''; } };
+  const time = (ts) => { try { return new Date(ts).toLocaleTimeString('en-US', { hour12: false }); } catch { return ''; } };
   const what = (e) => {
     if (e.kind === 'tool') {
       const p = Array.isArray(e.paths) && e.paths.length ? ` ${esc(e.paths[0])}${e.paths.length > 1 ? ` +${e.paths.length - 1}` : ''}` : '';
@@ -8518,7 +8518,7 @@ function renderShareState(state) {
                  : ago < 1440 ? `${Math.floor(ago/60)}h ago`
                  : `${Math.floor(ago/1440)}d ago`;
     const stale = ago > 60 * 24 ? ' · ⚠ data is stale — click ↻ Republish' : '';
-    metaEl.textContent = `Published ${agoStr} (${dt.toLocaleString()})${stale}`;
+    metaEl.textContent = `Published ${agoStr} (${dt.toLocaleString('en-US')})${stale}`;
   } else if (metaEl) {
     metaEl.textContent = '';
   }
@@ -10003,9 +10003,11 @@ function relTime(iso) {
   if (s < 86400) return `${Math.round(s/3600)}h`;
   return `${Math.round(s/86400)}d`;
 }
-function fmtDate(iso) { return iso ? new Date(iso).toLocaleString() : '—'; }
+// Board-owned copy and formatting stay English; task/document content is rendered
+// in its original language. Locale is fixed, but the operator's timezone is not.
+function fmtDate(iso) { return iso ? new Date(iso).toLocaleString('en-US') : '—'; }
 // Short date+time stamp for cards (full timestamp goes in the title attribute).
-function fmtDT(iso) { return iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
+function fmtDT(iso) { return iso ? new Date(iso).toLocaleString('en-US', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : ''; }
 // Money formatting — uses non-breaking thin space (U+202F) as thousands separator
 // to avoid the comma-as-decimal confusion ($195,960 reads as "195.96" in EU/RU
 // locales). Matches SI standard. Returns "1 234" not "1,234".
@@ -10167,7 +10169,7 @@ function renderNotifHistoryInline() {
         <span style="font-size:var(--fs-small);color:var(--text3);margin-left:8px">${esc(n.body)}</span>
       </div>
       <span style="font-size:var(--fs-caption);color:var(--text3);font-family:var(--mono);flex-shrink:0">
-        ${new Date(n.ts).toLocaleTimeString()}
+        ${new Date(n.ts).toLocaleTimeString('en-US')}
       </span>
     </div>`).join('');
 }
