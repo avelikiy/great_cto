@@ -17,6 +17,7 @@ records installation evidence and the remaining candidate gates.
 - Both Claude registrations, enabled Codex plugin and user-prefix CLI report 3.61.0. Repeated board readback returned version=installed=3.61.0, stale=no. New sessions/hook trust remain distinct from artifact installation.
 - New launchd helper's first run ended with exit 0, updated marketplace and no errors. Six-hour recurring execution is not yet observed; installer also refreshed Codex, so exclusive version-transition attribution is not established.
 - Migration from an already-loaded legacy job with no plist required exact-label local repair. That edge is a tracked bug, not silently represented as shipped automatic repair.
+- Later live board probes timed out at 5s/10s for version and 3s for HTML. A private native sample shows synchronous subprocess execution without identifying the JS caller. Exact-board restart restored initial 48.6ms/5ms responses; P1 great_cto-932g.7 remains open. The article reports this recovery without claiming a fixed latency regression.
 - PR #167 is not released. The latest unbounded library replay at ac30dc3b recorded 3294 pass, one failure and six skips; bounded canonical scheduling and a private candidate-artifact seam are under fresh full-gate verification at 272b6a4a. No weakened deadlines/assertions and no fresh independent application approval are claimed.
 
 ## Historical delivery snapshot: 3.60.0

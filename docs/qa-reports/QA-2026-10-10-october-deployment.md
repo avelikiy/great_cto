@@ -106,6 +106,12 @@ The loaded legacy-job/missing-plist edge required scoped local repair and is
 tracked separately. [3.61.0 delivery QA](QA-2026-10-10-updater-release.md)
 contains exact source pins, checksums, skips and rollback boundaries.
 
+Subsequent live-board probes timed out (version5s/10s; HTML3s). A private sample
+confirmed synchronous subprocess execution in the main thread; the JS caller
+is not yet identified. Restarting only the inspected owned board from the same
+artifact/cwd restored initial version48.6ms and HTML5ms responses. P1
+great_cto-932g.7 remains open: recovery is not a permanent responsiveness fix.
+
 ## PR #167: full gate failed; do not deploy
 
 Current main was integrated at 699d9b57. Complete local gate exited 1.
