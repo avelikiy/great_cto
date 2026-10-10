@@ -14,7 +14,7 @@ test run or a GitHub approval. A successful reviewer process is not approval.
 
 | Finding | Severity | Disposition |
 | --- | --- | --- |
-| F1: verdict writer uses slug/basename while scoped reader uses raw query name | High, blocking | Reproduced with the actual verdict writer; aliases now come from the registered root and PROJECT.md, not the URL label. Foreign/ambiguous aliases stay excluded. Fresh review still required. |
+| F1: verdict writer uses slug/basename while scoped reader uses raw query name | High, blocking | Reproduced with the actual verdict writer; aliases now come from the registered root and PROJECT.md, not the URL label. Foreign/ambiguous aliases stay excluded. Fresh application review APPROVED at 5db1d3ea. |
 | F2: unregistered server root gets an invented project query | Medium | UI distinguishes server default from explicit URL selection. An explicit unknown selection still fails closed. Added UI and real-browser regressions. |
 | F3: sessions without recoverable identity are excluded | Medium | Project statistics now explicitly disclose attribution exclusions and existing-worktree limits. Coverage counters remain a separate tracked follow-up. |
 | F4/F5: raw HOME roots can select new read models, including Beads reads | Low | Skills, Usage and Outcomes accept registered roots or the server root, not arbitrary HOME directories. Added API regressions. |
@@ -79,11 +79,22 @@ the initial project fetch had filled the UI. The browser helper waited a fixed
 1.2 seconds after an active panel appeared, which is only the shell. It now
 waits up to 15 seconds for project initialization; all original data/action
 assertions remain in place. The combined browser/marketplace/contrast rerun
-passed 18 checks with no failures or skips. A final complete gate is pending.
+passed 18 checks with no failures or skips. The final complete gate at 6afe445b
+then completed with exit 0; actual suite counts and all explicit skips are in
+[release QA](QA-2026-10-10-skills-release.md).
+
+The final test/doc delta was independently APPROVED at 6afe445b (session
+f9ec1d6a-1cb9-4502-8898-d359788639ea). This static review confirms the bounded
+wait does not remove data assertions or hide init exceptions. The readiness
+floor alone is not successful data loading; consumers still assert fixture data
+and collect HTTP/page errors. Remaining timing and contrast-environment
+limitations are tracked in great_cto-f33n.10.
 
 ## Release status
 
-Not yet published by this report. A final complete gate is still required.
+PR #173, #175 and #176 are merged in dependency order. The resulting complete
+tree matches the tested candidate. The final complete local gate passed;
+publication and fresh registry-consumer verification remain separate steps.
 Evidence-ledger implementation,
 unrelated pull requests, live-model benchmarks and full host-compatibility
 claims are outside this release scope. No security exception is being used.

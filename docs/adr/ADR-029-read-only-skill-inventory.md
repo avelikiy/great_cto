@@ -1,7 +1,7 @@
 # ADR-029: Read-only multi-host skill inventory
 
 **Date:** 2026-10-10
-Status: Proposed; implemented in a review branch, not released
+Status: Accepted; merged for release candidate 3.60.0
 Owner: great_cto maintainers
 Tracking: Beads epic great_cto-f33n, implementation great_cto-f33n.1
 
@@ -125,4 +125,6 @@ Later mutating skill management is not included in these read-only phases.
 It requires separately specified full-tree digests, source revision binding,
 license checks, conflict preview, recoverable backup and cross-host locking.
 Merge, release, plugin installation and local board deployment are separate
-actions. This branch does not perform them.
+actions. Delivery evidence is recorded in
+[release QA](../qa-reports/QA-2026-10-10-skills-release.md), not inferred from
+the acceptance of this decision.
