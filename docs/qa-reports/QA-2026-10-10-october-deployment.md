@@ -214,10 +214,48 @@ the original 1s budget; separate tests retain real Node execution.
 
 Focused repair checks: 35 pass, zero fail, two opt-in live skips. Both broker
 resource-transition tests ran real Chromium and passed. This does not replace
-the complete gate. Fresh canonical ci-local --e2e at c33ae765 uses a new private
-git-archived artifact with verified direct CLI closure; it is still running.
-The operator's installed 3.61.0 remains unchanged. Final canonical verdict and
-fresh independent application review remain outstanding.
+the complete gate.
+
+### Complete candidate replay at c33ae765
+
+Canonical ci-local --e2e completed with exit0 at
+c33ae7658cf6d420a3e1b72b846cc56680ec742b. The new private git-archived artifact
+has a verified direct CLI closure; the operator's installed 3.61.0 is unchanged.
+
+| Suite | Pass | Fail | Not executed |
+| --- | ---: | ---: | ---: |
+| Root, hooks and board | 1,360 | 0 | 0 |
+| Libraries | 3,300 | 0 | 6 |
+| Eval | 242 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Browser board scenarios | 14 | 0 | 0 |
+| CLI | 369 | 0 | 0 |
+| Archetype scenarios | 34 | 0 | 0 |
+| Candidate pipeline L1-L5 | 36 | 0 | 9 |
+
+Separate-suite counts overlap, not unique tests. The canonical verdict is
+GREEN WITH 15 SKIPPED / NOT CHECKED, not unconditional full-pipeline readiness.
+The six library skips cover opt-in live Docker, controller repair, build/export,
+cross-host reuse, frozen mixed-host QA/security wave and pre-build quorum.
+The nine pipeline absences cover historical pytest, actual SessionEnd capture,
+merge and paid learner, actual Board capture/notification/cron/operator inventory,
+and actual role/model/deployment/human-approval lifecycle. Fixture stubs are
+explicitly disclosed; operator inventory parity is checked separately in L5.
+
+Executed candidate smoke checks include real owned MCP/SSE listener and seven
+tools, HMAC invalid401/valid200, 11 JSON Board APIs with scoped memory/task math,
+and isolated real Beads phase lifecycle with the gate left open. They are not
+an actual paid-model release or a replacement for operator runtime evidence.
+Pinned HOL finished with score82, zeroCritical and the unchanged reviewed
+baseline35High/9Medium/8Info. Fresh Snyk on the same head is successful.
+Complete log SHA-256:
+08b3ccf79113a73206e107485bfab5ae9021b227a31b94b74891688ada8898d7.
+Tracked source archive SHA-256:
+eed929f97f9fad79cdcd219d8c80d2b3387d618409c55ae0b29ad0d6effaa6fb.
+
+After explicit operator authorization, an independent read-only reviewer was
+started on this exact application pin. No verdict has been received yet;
+no #167 merge, publication or installed-candidate claim is made by this report.
 
 ## Article and delivery boundary
 
