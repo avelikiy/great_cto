@@ -36,6 +36,49 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.62.0 — 2026-10-10
+
+Choose opt-in pipeline depth and share agent budgets across hosts.
+
+### What's new
+
+- Adaptive gate policy uses pinned Git evidence to remove only eligible human
+  pauses. Required product, security, compliance and ship floors remain;
+  unknown evidence fails closed. Existing defaults are unchanged.
+- An operator-owned budget can coordinate Claude Code and controlled Codex
+  workers and independent verifiers on one machine. Wave reservations are
+  all-or-none, fenced and audited; example limits are not product defaults.
+- Opt-in specialist policies support change-driven review plans and phased
+  preparation/delivery quorums. Scoped historical specialist reports require
+  exact dependency evidence and a fresh independent verifier. Core code, QA,
+  security and AI-eval reviews are never replaced by historical results.
+- Trusted local checks are available for explicitly selected trusted projects;
+  Docker remains a separate opt-in isolation backend, not a universal prerequisite.
+- Packaged controller and board runtime imports are checked as a self-contained
+  closure, with isolated private state for package smoke tests.
+
+### Verification and boundaries
+
+PR #167's exact 8542e41e canonical local gate completed with exit0: root/hooks/
+board1360, libraries3320, eval242, docs76, browser14, CLI369, archetypes34 and
+candidate36 passed. Six live library cases and nine candidate checks remained
+NOT CHECKED. The independent reviewer approved source and delivery evidence for
+the limited experimental scope; this is not a fresh paid-model quality benchmark,
+production readiness or proof of full native-host parity.
+
+The browser guardian remains Proposed/unactivated with no OS signal, deletion,
+admission or benchmark authority. Abrupt scorer death is characterized without
+claiming independent teardown. Strict graceful-unwind checks passed; earlier
+canonical failures and their unknown surviving identities remain in the QA report.
+The existing installed-board latency issue is not repaired by this release.
+
+Contracts: ADR-adaptive-runtime-gates, ADR-shared-agent-execution-budget,
+ADR-phased-specialist-workflow, ADR-scoped-review-evidence and
+ADR-trusted-local-checks. See docs/qa-reports/QA-2026-10-10-adaptive-independent-review.md.
+
+---
+
 ## v3.61.0 — 2026-10-10
 
 Keep the Codex plugin current with an optional macOS refresh schedule.
