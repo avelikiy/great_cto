@@ -29,8 +29,13 @@ SHA2562ec7f61b4964832ef031abbc2a13d46942cbd979a1b4738c19ce2520b2a50c0f
 is retained, not replaced by focused green. The docs-only1babcab2 integrates
 main16d and connects both QA reports to existing contracts; frozen count48
 unchanged. Focused81pass0fail0skip. Application delta excluding QA files is
-zero against independently approved735. New full canonical1b replay is pending;
-fresh Snyk on1b is SUCCESS. No167merge/release claim.
+zero against independently approved735. Full canonical1b replay is still running
+but has already failed the actual observer owner-kill closure assertion (case457,
+about9.87s). Six predetermined private diagnostic reproductions, three sequential
+and three concurrent, each passed1/0fail/0skip without changing budgets/assertions;
+they do not replace the canonical red or establish its cause. The same authorized
+independent reviewer is checking the supported lifecycle contract read-only.
+Fresh Snyk on1b is SUCCESS. No167merge/release claim.
 
 ## Historical delivery snapshot: 3.60.0
 

@@ -291,6 +291,18 @@ is empty against approved735; application approval is unchanged. Fresh1b Snyk
 SUCCESS and a new full canonical replay pending. No canonical-green inheritance,
 no waiver, no167merge or delivered adaptive feature claimed.
 
+The exact1b canonical replay subsequently failed case457, actual observer browser
+processes stop after owner-kill: the captured browser tree did not stop before
+test cleanup assistance (about9.87s). The full gate is still running; final suite
+totals and log digest are not yet available. Normal, DOM-refusal and owner-term
+cases passed. Six predetermined private diagnostic repetitions, three sequential
+and three concurrent, each passed1/0fail/0skip. Their bounded surviving-process
+metadata did not fire, so the original remaining process identities and cause
+are unknown. No deadlines/assertions were relaxed and no diagnostic pass replaced
+the canonical failure. The same authorized independent reviewer is assessing
+the observer's actual SIGKILL/cleanup contract without editing source. PR167
+remains unmerged, untagged and unpublished; installed3.61.0 is unchanged.
+
 ## Article and delivery boundary
 
 [Article draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md) now
