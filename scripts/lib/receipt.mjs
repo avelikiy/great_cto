@@ -55,6 +55,10 @@ function git(args, cwd, { maxBuffer = 32 * 1024 * 1024 } = {}) {
   } catch { return null; }
 }
 
+// Shared bounded evidence read for adaptive observers. Unknown is null, never
+// a fabricated empty inventory. Not a general commit/push runner or sandbox.
+export { git as readOnlyGit };
+
 /** A cap, so a receipt for a thousand-file change cannot bloat every verdict line. */
 export const MAX_FILES = 200;
 

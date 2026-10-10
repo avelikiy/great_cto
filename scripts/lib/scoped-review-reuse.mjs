@@ -1,14 +1,18 @@
 /** Controller evidence for scoped review reuse. No gate/dispatch authority. */
 import { lstatSync, realpathSync, openSync, fstatSync, readSync, closeSync, constants } from 'node:fs';
-import { execFileSync } from 'node:child_process';
 import { resolve, relative, join, sep, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
+import { readOnlyGit } from './receipt.mjs';
 
 export const SCOPED_REVIEW_VERSION = 2;
 const sha = value => createHash('sha256').update(value).digest('hex');
 const mandatory = new Set(['code-reviewer', 'qa-engineer', 'security-officer', 'ai-eval-engineer']);
-const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: 5000, maxBuffer: 4 * 1024 * 1024 });
+const git = (root, args) => {
+  const value = readOnlyGit(args, root, { maxBuffer: 4 * 1024 * 1024 });
+  if (value === null) throw Error('bounded read-only Git evidence unavailable');
+  return value;
+};
 
 // Bounded descriptor observation, not an atomic ancestor handle or OS sandbox.
 // Before/after path checks detect observed mutations; same-UID ABA/tampering

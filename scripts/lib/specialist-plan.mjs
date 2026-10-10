@@ -1,9 +1,9 @@
 /** Advisory specialist selection, never gate authority or reusable PASS evidence. */
-import { execFileSync } from 'node:child_process';
 import { readFileSync, lstatSync } from 'node:fs';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { assessChange } from './runtime-gate-policy.mjs';
+import { readOnlyGit } from './receipt.mjs';
 import { requiredReviewers, REVIEWERS_BY_ARCHETYPE, PACK_REVIEWERS, COMPLIANCE_REVIEWERS } from './required-reviewers.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
@@ -12,8 +12,10 @@ const activity = /^(?:\.great_cto\/(?:events(?:\.1)?\.jsonl|stand-downs\.jsonl|c
 
 /** Conservative whole visible-tree dependency scope; bounded and fail closed. */
 function dependencyFingerprint(root, project, exclude) {
-  const names = execFileSync('git', ['ls-files', '--cached', '--others', '--exclude-standard', '-z'],
-    { cwd: root, encoding: 'utf8', timeout: 5000, maxBuffer: 4 * 1024 * 1024 }).split('\0').filter(Boolean);
+  const inventory = readOnlyGit(['ls-files', '--cached', '--others', '--exclude-standard', '-z'], root,
+    { maxBuffer: 4 * 1024 * 1024 });
+  if (inventory === null) throw Error('bounded read-only Git inventory unavailable');
+  const names = inventory.split('\0').filter(Boolean);
   const paths = [...new Set(names)].filter(p => !activity.test(p) && !exclude.includes(p)).sort();
   if (paths.length > 2000) throw Error('dependency scope exceeds 2000 files');
   const digest = createHash('sha256').update(JSON.stringify({ version: 1, project }));
