@@ -73,6 +73,24 @@ Repeated localhost:3141 `/api/version` reads returned
 `version=3.61.0, installed=3.61.0, stale=no`. The board is loopback-only.
 No foreign project metrics or operator screenshots are included in this report.
 
+### Later live-board observation and recovery
+
+The initial successful readbacks were followed by real HTTP timeouts:
+`/api/version` at five and ten seconds; `/` at three seconds. A private macOS
+sample confirms the board's main thread in `SyncProcessRunner`/`uv_run`, but
+does not identify the JavaScript caller. Several owned `bd list` children
+remained beyond five minutes despite the asynchronous refresh's declared 20s
+timeout. Exact cause and regression attribution are not established.
+
+Only the inspected board process was TERM-stopped and restarted detached from
+the same installed 3.61.0 artifact and the same project cwd. No broad process
+kill, downgrade or registry mutation was used. Initial recovery probes returned
+HTTP200: version in 48.6ms and HTML in 5.0ms; version=installed=3.61.0, stale=no.
+The async task-cache warm-up completed in 4380ms. This is recovery, not a fix
+or sustained-responsiveness proof. P1 bug great_cto-932g.7 remains open.
+Private sample SHA-256:
+`fe8870213ccfd0a49520a19c5de90412e7ad33f05122f78b81901f6ab9aa9885`.
+
 The standalone helper was deployed to a stable global configuration location.
 Its SHA-256 matches both reviewed source and installed Codex plugin:
 `3e0ab7ae9f0eef74070a8669587f650a40ed94bf41e66ea27f53c1aae05df0da`.
