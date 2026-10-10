@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 
 const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'usage-api-'));
 const previousHome = process.env.HOME;
@@ -82,5 +83,31 @@ test('unknown selected projects fail closed, never return default/global statist
     assert.equal(r.status, 404);
     assert.equal(r.body.state, 'unavailable');
     assert.equal(r.body.hosts, undefined);
+  }
+});
+
+test('writer tags survive display-name, slug and absolute-path selection without foreign verdicts', async () => {
+  const p = { slug: 'registered-label', path: path.join(fixture, 'checkout-directory') };
+  fs.mkdirSync(path.join(p.path, '.great_cto', 'verdicts'), { recursive: true });
+  fs.writeFileSync(path.join(p.path, '.great_cto', 'PROJECT.md'), 'project: display-label\nname: alternate-label\nslug: receipt-label\n');
+  fs.writeFileSync(process.env.GREAT_CTO_PROJECTS_FILE, JSON.stringify({ projects: [...projects, p] }));
+  execFileSync('bash', [path.resolve('scripts/log-verdict.sh'), 'senior-dev', 'PASS', '0.50'], { cwd: p.path, env: process.env, stdio: 'pipe' });
+  fs.appendFileSync(path.join(p.path, '.great_cto', 'verdicts', 'senior-dev.log'), jsonl([
+    { v: 1, ts, agent: 'senior-dev', verdict: 'PASS', project: 'checkout-directory' },
+    { v: 1, ts, agent: 'senior-dev', verdict: 'FAIL', project: 'beta' },
+  ]));
+  for (const selected of [p.slug, 'display-label', p.path]) {
+    const r = await counted('/api/outcomes', selected);
+    assert.equal(r.status, 200);
+    assert.equal(r.body.agents.agents[0].runs, 2);
+    assert.equal(r.body.agents.agents[0].failed, 0);
+  }
+});
+
+test('unregistered HOME roots cannot trigger scoped statistics reads', async () => {
+  const raw = path.join(fixture, 'unregistered-directory');
+  fs.mkdirSync(raw);
+  for (const endpoint of ['/api/usage', '/api/outcomes']) {
+    assert.equal((await get(endpoint, raw)).status, 404);
   }
 });

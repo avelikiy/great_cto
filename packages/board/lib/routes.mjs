@@ -67,6 +67,7 @@ import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecis
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
+import { getSkillsInventory } from './skills-inventory.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -91,6 +92,7 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
 
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
+  const serverCwd = cwd;
 
   // The selected project, resolved ONCE for every route below.
   //
@@ -116,6 +118,11 @@ async function dispatch(req, res, url, cwd) {
       try { res.setHeader('X-Project-Fallback', String(info.requested || requestedProject)); } catch { /* headers already sent */ }
     }
   }
+
+  // These read models accept registered projects or the server's own root,
+  // never an arbitrary HOME directory supplied as a query parameter.
+  const scopedProject = ['/api/skills', '/api/usage', '/api/outcomes'].includes(pathname)
+    ? scopedReadProject(cwd, serverCwd, requestedProject) : null;
 
   if (pathname === '/api/work/publication') {
     const respond = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
@@ -168,6 +175,30 @@ async function dispatch(req, res, url, cwd) {
       res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ error: 'Publication preview unavailable: require verified delivery, a clean committed feature branch, explicit path scope and canonical GitHub origin. Inspect with the host CLI.' }));
     } finally { publicationPreviewBusy = false; }
+    return true;
+  }
+
+  // Inventory is a read-only local observation. Query parameters cannot choose
+  // filesystem roots, install skills or ask for network/upstream checks.
+  if (pathname === '/api/skills') {
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (req.method !== 'GET') {
+      res.writeHead(405, { ...headers, Allow: 'GET' });
+      res.end(JSON.stringify({ error: 'Skill inventory is read-only' }));
+      return true;
+    }
+    if (!scopedProject) {
+      res.writeHead(404, headers);
+      res.end(JSON.stringify({ error: 'Unknown project; skill inventory was not read' }));
+      return true;
+    }
+    try {
+      const snapshot = await getSkillsInventory(cwd);
+      res.writeHead(200, headers); res.end(JSON.stringify(snapshot));
+    } catch {
+      res.writeHead(503, headers);
+      res.end(JSON.stringify({ error: 'Skill inventory could not be read' }));
+    }
     return true;
   }
 
@@ -1576,7 +1607,7 @@ async function dispatch(req, res, url, cwd) {
   // Filter before aggregation, including linked worktrees. Served on the
   // board's own host only; nothing here is sent anywhere.
   if (pathname === '/api/usage') {
-    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+    if (!scopedProject) {
       res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
     }
@@ -1612,14 +1643,14 @@ async function dispatch(req, res, url, cwd) {
   // priority. Counts only — no bug title leaves the server. Answers at once:
   // `computing` until the first read of this project's Beads lands.
   if (pathname === '/api/outcomes') {
-    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+    if (!scopedProject) {
       res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
     }
     const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
     const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-    res.end(JSON.stringify(boardOutcomes(days, cwd, requestedProject)));
+    res.end(JSON.stringify(boardOutcomes(days, scopedProject)));
     return true;
   }
 
@@ -2312,13 +2343,35 @@ function boardHookNames() {
 
 const _outcomes = new Map();
 const OUTCOMES_TTL = 5 * 60 * 1000;
-function boardOutcomes(days, cwd, slug) {
-  const projectPath = path.resolve(cwd);
-  const key = JSON.stringify([days, projectPath, slug || null]);
+function scopedReadProject(cwd, serverCwd, requested) {
+  const canonical = dir => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+  const projectPath = canonical(cwd);
+  const entries = (readProjectsRegistry().projects || []).filter(p => p?.path);
+  const own = entries.filter(p => canonical(p.path) === projectPath);
+  if (requested && (resolveProjectInfo(requested).resolved === 'fallback'
+    || (!own.length && projectPath !== canonical(serverCwd)))) return null;
+  const labels = p => {
+    const result = [p.slug, p.name, p.path, path.basename(p.path)];
+    let fd;
+    try {
+      fd = fs.openSync(path.join(p.path, '.great_cto', 'PROJECT.md'), 'r');
+      const bytes = Buffer.alloc(65536);
+      const text = bytes.subarray(0, fs.readSync(fd, bytes, 0, bytes.length, 0)).toString('utf8');
+      for (const key of ['slug', 'project', 'name']) result.push(text.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))?.[1]?.trim());
+    } catch { /* aliases absent; canonical path still identifies the root */ }
+    finally { if (fd !== undefined) fs.closeSync(fd); }
+    return result.filter(Boolean);
+  };
+  const foreign = new Set(entries.filter(p => canonical(p.path) !== projectPath).flatMap(labels));
+  const aliases = [...new Set([...own, { path: projectPath }].flatMap(labels))].filter(label => !foreign.has(label)).sort();
+  return { name: own[0]?.slug || own[0]?.name || path.basename(projectPath), path: projectPath, aliases };
+}
+function boardOutcomes(days, project) {
+  const projectPath = project.path;
+  const key = JSON.stringify([days, projectPath, project.aliases]);
   const slot = _outcomes.get(key) || {};
   const fresh = slot.value && Date.now() - slot.at < OUTCOMES_TTL;
   if (!fresh && !slot.running) {
-    const project = { name: slug || path.basename(projectPath), path: projectPath };
     slot.running = computeOutcomes({ days, roster: boardAgentNames(), projects: [project], projectScope: true })
       .then((v) => { slot.value = { ...v, scope: { kind: 'project', path: projectPath } }; }, () => { slot.value = slot.value || { state: 'unavailable', why: 'Outcomes could not be read.' }; })
       .finally(() => { slot.at = Date.now(); slot.running = null; });

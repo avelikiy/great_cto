@@ -28,7 +28,11 @@ export function usageReports({ compute = computeReport, now = Date.now, ttlMs = 
       const key = JSON.stringify([days, projectPath]);
       let slot = slots.get(key);
       if (!slot) {
-        if (slots.size >= limit) slots.delete(slots.keys().next().value);
+        if (slots.size >= limit) {
+          const evict = [...slots.keys()].find(k => k !== runningKey);
+          if (evict === undefined) return { state: 'computing', why: 'Waiting for the active statistics scan; navigation remains available.' };
+          slots.delete(evict);
+        }
         slot = { value: null, at: 0 }; slots.set(key, slot);
       }
       if ((!slot.value || now() - slot.at >= ttlMs) && !running) {
