@@ -111,6 +111,15 @@ confirmed synchronous subprocess execution in the main thread; the JS caller
 is not yet identified. Restarting only the inspected owned board from the same
 artifact/cwd restored initial version48.6ms and HTML5ms responses. P1
 great_cto-932g.7 remains open: recovery is not a permanent responsiveness fix.
+The replacement board became unresponsive again about 17 minutes after restart;
+a fresh version probe timed out at 3s with zero bytes. Owned `bd list` children
+were still present after six minutes despite declared 20s timeouts. A second
+exact-board restart adds a private diagnostic preload that records synchronous
+call stacks without raw argv/cwd/output; installed source is unchanged. This
+is further investigation, not a shipped fix or sustained responsiveness proof.
+The preload now identifies a concrete blocking chain: inboxElsewhere -> getInbox
+-> getTasks -> bdList -> bd spawnSync; one actual call took 19379.18ms. This
+proves one slow cross-project request path, not every earlier indefinite stall.
 
 ## PR #167: full gate failed; do not deploy
 
@@ -172,10 +181,43 @@ At 1db5923d the canonical library gate limits file concurrency to two, retaining
 the complete inventory and original case/IPC/cleanup budgets. An explicit
 absolute candidate-artifact selector refuses incomplete artifacts before probes
 and labels its evidence separately from operator installation. Its nine focused
-regression tests passed with no skips. After merging released main, the fresh
-complete gate at 272b6a4a runs against an archived candidate with built CLI in
-private state, without overwriting the operator's installed 3.61.0. Its final
-verdict and independent application review are still outstanding at this note.
+regression tests passed with no skips. After merging released main, the complete
+gate at 272b6a4a ended with exit 1:
+
+| Suite | Pass | Fail | Not executed |
+| --- | ---: | ---: | ---: |
+| Root, hooks and board | 1,360 | 0 | 0 |
+| Libraries | 3,296 | 3 | 6 |
+| Eval | 242 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Browser board scenarios | 14 | 0 | 0 |
+| CLI | 369 | 0 | 0 |
+| Archetype scenarios | 34 | 0 | 0 |
+| Candidate pipeline L1-L5 | 0 | 1 preflight refusal | Not started |
+
+Pipeline preparation accidentally nested the compiled CLI in `dist/dist`;
+the missing direct main.js triggered preflight refusal. This is a private
+candidate assembly error, not evidence against the installed 3.61.0 package.
+Library failures: changed-resource completion watchdog, nonzero local check
+classification under the fixed 1s budget, and Bash-array regression in ci-local.
+Complete log SHA-256:
+9bb3f35d812fad25b9423ef3728f06083f3634bf82f287f0c1a7a639cb5a7d13.
+
+c33ae765 restores the no-array Bash3.2 contract and quotes CLI/hook paths as
+literal data. A regression executes the actual shell smoke commands against
+a path containing spaces, quotes, semicolons and command substitution; no
+sentinel is created. Broker completion validation uses the real fixed DOM
+refusal probe, not a full 20s multi-viewport benchmark inside a 10s watchdog;
+all unknown-resource, null-admission, preservation and cleanup assertions stay.
+Nonzero classification uses a small actual /usr/bin/false executable under
+the original 1s budget; separate tests retain real Node execution.
+
+Focused repair checks: 35 pass, zero fail, two opt-in live skips. Both broker
+resource-transition tests ran real Chromium and passed. This does not replace
+the complete gate. Fresh canonical ci-local --e2e at c33ae765 uses a new private
+git-archived artifact with verified direct CLI closure; it is still running.
+The operator's installed 3.61.0 remains unchanged. Final canonical verdict and
+fresh independent application review remain outstanding.
 
 ## Article and delivery boundary
 
