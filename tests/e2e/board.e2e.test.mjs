@@ -33,6 +33,7 @@ const SCREENS = [
   ['fleet', 'Fleet'],
   ['harness', 'Harness'],
   ['usage', 'Usage'],
+  ['skills', 'Skills'],
 ];
 
 /**
@@ -153,10 +154,55 @@ async function openBoard(env, route = '', pageOptions = {}) {
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   await page.goto(`${env.url}/${route}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.panel.active, #panel-inbox', { timeout: 15000 });
+  // A later panel (e.g. Skills) follows the hidden Inbox in DOM order. The
+  // comma selector waited on that hidden first match even with a visible active panel.
+  await page.waitForSelector('.panel.active', { timeout: 15000 });
   await page.waitForTimeout(1200);   // the board paints, then fills from /api/*
   return { page, errors };
 }
+
+test('Skills shows safe local observations with filters, failures and no install controls', { timeout: 120_000 }, async t => {
+  const env = await boardUnderTest({ seed(dir) {
+    for (const [base, name] of [['.home/.claude/skills', 'retry'], ['.home/.codex/skills', 'retry'], ['.agents/skills', 'project-only']]) {
+      const root = path.join(dir, base, name); fs.mkdirSync(root, { recursive: true });
+      fs.writeFileSync(path.join(root, 'SKILL.md'), `---\nname: ${name}\ndescription: Test local skill inventory observations without running discovered code.\n---\n`);
+    }
+    fs.mkdirSync(path.join(dir, '.home/.great_cto'), { recursive: true });
+    fs.writeFileSync(path.join(dir, '.home/.great_cto/skills-registry.json'), '{broken');
+  } });
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const { page, errors } = await openBoard(env, '#/skills');
+    await page.waitForSelector('#skills-table tbody tr', { timeout: 10000 });
+    assert.equal(await page.getByRole('tab', { name: 'Skills', exact: true }).getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('#skills-table tbody tr').count(), 3);
+    assert.match(await page.locator('#skills-status').innerText(), /Partial inventory/);
+    assert.match(await page.locator('#skills-body').innerText(), /Upstream revision: unknown/);
+    assert.equal(await page.locator('#panel-skills button').allInnerTexts().then(x => x.join(',')), 'Reload');
+    await page.getByLabel('Skill scope', { exact: true }).selectOption('project');
+    assert.equal(await page.locator('#skills-table tbody tr').count(), 1);
+    assert.match(await page.locator('#skills-table').innerText(), /project-only/);
+    await page.getByLabel('Filter skills', { exact: true }).fill('not-present');
+    assert.match(await page.locator('#skills-body').innerText(), /No skills match/);
+    await page.getByLabel('Filter skills', { exact: true }).fill('');
+    // Render hostile source metadata as text, never markup.
+    await page.evaluate(() => {
+      skillsData.skills[0].name = '<img src=x onerror="window.injected=true">';
+      skillsData.skills[0].location = '<script>window.injected=true</script>';
+      document.getElementById('skills-scope').value = 'all';
+      renderSkillsInventory();
+    });
+    assert.equal(await page.locator('#skills-body img, #skills-body script').count(), 0);
+    assert.equal(await page.evaluate(() => window.injected), undefined);
+    // A failed reload must clear stale counts rather than retaining success.
+    await page.route('**/api/skills**', route => route.abort());
+    await page.getByRole('button', { name: 'Reload', exact: true }).click();
+    await page.waitForFunction(() => document.getElementById('skills-status').textContent.includes('Could not read'));
+    assert.equal(await page.locator('#skills-table').count(), 0);
+    const genuineErrors = errors.filter(e => !/ERR_FAILED/.test(e));
+    assert.deepEqual(genuineErrors, []);
+  } finally { await env.close(); }
+});
 
 test('Russian browser locale keeps UI English and task/document text unchanged', { timeout: 120_000 }, async (t) => {
   const title = 'Проверить повторную оплату';

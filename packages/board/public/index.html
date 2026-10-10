@@ -2426,6 +2426,13 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .usage-table th { text-align: left; font-weight: 500; color: var(--text3); font-size: var(--fs-caption); padding: 4px 6px; border-bottom: 1px solid var(--border); white-space: nowrap; }
 .usage-table td { padding: 6px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: top; }
 .usage-table td.num, .usage-table th.num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.skills-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.skills-controls label { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: var(--fs-small); color: var(--text2); }
+.skills-controls input, .skills-controls select { min-height: 32px; max-width: 100%; padding: 5px 8px; border: 1px solid var(--border); color: var(--text); background: var(--bg-muted); font: inherit; }
+.skills-controls :is(input, select):focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+#skills-table td { max-width: 320px; overflow-wrap: anywhere; }
+#skills-table code { word-break: break-all; font-family: var(--mono); font-size: var(--fs-caption); }
+@media (max-width: 767px) { .skills-controls :is(input, select) { min-height: 44px; } }
 .usage-title { max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .usage-tag { display: inline-block; font-family: var(--mono); font-size: var(--fs-eyebrow); letter-spacing: 0.04em; padding: 1px 5px; margin-left: 6px; border: 1px solid var(--border-strong); color: var(--text2); }
 .usage-share { display: inline-block; width: 48px; height: 6px; background: var(--bg-muted); margin-right: 6px; vertical-align: 1px; }
@@ -3461,6 +3468,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 20V10 M10 20V4 M16 20v-7 M22 20H2"/></svg>
         <span class="nav-label">Usage</span>
       </div>
+      <div class="nav-item" data-tab="skills" role="tab" tabindex="0" aria-label="Skills" title="Skills" onkeydown="navTabKeydown(event, this)" onclick="switchTab('skills', this)">
+        <svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 3h6a2 2 0 0 1 2 2v16a3 3 0 0 0-3-3H4V3zM20 3h-6a2 2 0 0 0-2 2v16a3 3 0 0 1 3-3h5V3z"/></svg>
+        <span class="nav-label">Skills</span>
+      </div>
     </nav>
     </details>
     <div class="nav-divider"></div>
@@ -3719,6 +3730,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           </div>
         </div>
         <div id="usage-body" class="usage-note" role="status">Reading this project's Claude Code and Codex session logs.</div>
+      </div>
+    </div>
+
+    <div class="panel" id="panel-skills" role="tabpanel" aria-label="Skills">
+      <div class="metrics-page">
+        <div class="usage-head">
+          <h1 class="page-title">Skills <span class="muted" style="font-weight:400;font-size:var(--fs-small)">local inventory, not a quality ranking</span></h1>
+          <button type="button" class="usage-chip" onclick="loadSkillsInventory()">Reload</button>
+        </div>
+        <p class="usage-note">Project scope includes only the selected project's skill directories. Machine scope shows local host directories and plugin caches, not other projects' statistics.</p>
+        <div class="skills-controls">
+          <label>Search <input id="skills-search" type="search" aria-label="Filter skills" placeholder="Filter skills…" oninput="renderSkillsInventory()"></label>
+          <label>Host location <select id="skills-host" aria-label="Skill host location" onchange="renderSkillsInventory()"><option value="all">All locations</option><option>Claude Code</option><option>Codex</option><option>Shared</option><option>Registry</option></select></label>
+          <label>Scope <select id="skills-scope" aria-label="Skill scope" onchange="renderSkillsInventory()"><option value="all">Machine + selected project</option><option value="project">Selected project only</option><option value="machine">Machine only</option></select></label>
+        </div>
+        <p id="skills-status" class="usage-note" role="status">Reading local skill metadata.</p>
+        <div id="skills-body" aria-busy="false"></div>
+        <p class="usage-note">A file in a host location is not proof that the host enabled or loaded it. Shared and registry locations do not prove compatibility with either host. SHA-256 covers only the document, not its scripts or reference tree. Upstream trust and task quality are not measured. No installation, execution or upstream network checks. Read snapshots are cached for up to 30 seconds.</p>
       </div>
     </div>
 
@@ -6000,6 +6029,53 @@ function renderAgentActivity(snap) {
 // The Harnesses card. Four states for the second opinion, and the fourth is
 // the reason the card exists: `unavailable` — declared codex, no codex here —
 // must never look like `none` or like a switch someone turned off.
+// Read-only Skills: keep controls mounted so filtering never steals focus.
+let skillsData = null;
+let _skillsRequest = 0;
+async function loadSkillsInventory() {
+  const request = ++_skillsRequest, project = currentProject;
+  const status = document.getElementById('skills-status');
+  const body = document.getElementById('skills-body');
+  skillsData = null; body.innerHTML = ''; body.setAttribute('aria-busy', 'true');
+  status.textContent = 'Reading local skill metadata.';
+  try {
+    const data = await api(`/api/skills${pqs()}`, { signal: AbortSignal.timeout(10000) });
+    if (request !== _skillsRequest || project !== currentProject) return;
+    if (!data || !Array.isArray(data.skills)) throw new Error('Invalid inventory response');
+    skillsData = data; renderSkillsInventory();
+  } catch {
+    if (request !== _skillsRequest || project !== currentProject) return;
+    status.textContent = 'Could not read skill inventory. No counts or provenance were measured.';
+    body.innerHTML = '';
+  } finally {
+    if (request === _skillsRequest && project === currentProject) body.setAttribute('aria-busy', 'false');
+  }
+}
+function renderSkillsInventory() {
+  if (!skillsData) return;
+  const body = document.getElementById('skills-body');
+  const q = document.getElementById('skills-search').value.trim().toLowerCase();
+  const host = document.getElementById('skills-host').value, scope = document.getElementById('skills-scope').value;
+  const d = skillsData;
+  const rows = d.skills.filter(s => (host === 'all' || s.host === host) && (scope === 'all' || s.scope === scope)
+    && [s.name, s.location, s.declared_source].some(v => String(v || '').toLowerCase().includes(q)));
+  document.getElementById('skills-status').textContent = `${d.state === 'partial' ? 'Partial inventory' : 'Observed inventory'} · ${rows.length} shown · ${d.skills.length} documents listed · ${fmtDate(d.observed_at)}${d.truncated ? ' · scan limit reached' : ''}`;
+  const labels = { 'missing-frontmatter': 'Missing frontmatter', 'name-mismatch': 'Name differs from directory',
+    'description-length': 'Description outside lint limits', 'invalid-frontmatter': 'Invalid frontmatter',
+    'ambiguous-yaml': 'Ambiguous YAML', 'over-context-budget': 'Over 20 KB context budget',
+    'too-large': 'Document too large', 'changed-during-read': 'Document changed during read',
+    unreadable: 'Unreadable', missing: 'Missing', 'outside-root': 'Outside allowed root' };
+  const table = rows.length ? `<div class="usage-table-wrap"><table id="skills-table" class="usage-table"><caption class="usage-note">Local document observations</caption><thead><tr><th scope="col">Skill</th><th scope="col">Location</th><th scope="col">Scope</th><th scope="col">Document integrity</th><th scope="col">Structure</th></tr></thead><tbody>${rows.map(s => `<tr>
+    <td>${esc(s.name)}<div class="usage-sub">${esc(s.host)} location</div></td>
+    <td>${esc(s.location)}${s.declared_source ? `<div class="usage-sub">Registry declaration: ${esc(s.declared_source)}</div>` : ''}${s.cache_version ? `<div class="usage-sub">Cache version: ${esc(s.cache_version)}</div>` : ''}</td>
+    <td>${s.scope === 'project' ? 'Selected project' : 'Machine'}</td>
+    <td>${s.document_sha256 ? `<code>${esc(s.document_sha256)}</code><div class="usage-sub">${esc(s.bytes)} bytes · document only</div>` : esc(labels[s.read_state] || 'Not measured')}<div class="usage-sub">Upstream revision: unknown</div></td>
+    <td>${s.read_state !== 'observed' ? 'Not checked' : s.warnings.length ? s.warnings.map(v => esc(labels[v] || v)).join('<br>') : 'No structural warnings'}<div class="usage-sub">Enabled / loaded: unknown</div></td>
+  </tr>`).join('')}</tbody></table></div>` : `<p class="usage-note">${d.skills.length ? 'No skills match these filters.' : d.state === 'partial' ? 'No documents were observed. Some sources could not be read; this is not a complete empty inventory.' : 'No skill documents found in the scanned local locations.'}</p>`;
+  body.innerHTML = table + `<details class="usage-note" style="margin-top:16px"><summary>Source coverage and registry</summary><p>Registry: ${esc(d.registry.state)} · declared at: ${esc(d.registry.declared_at || 'unknown')} · declared plugin version: ${esc(d.registry.plugin_version || 'unknown')}</p>
+    <ul>${d.sources.map(s => `<li>${esc(s.label)} · ${esc(s.scope === 'project' ? 'selected project' : 'machine')} · ${esc(s.state)}${s.warnings.length ? ' · ' + s.warnings.map(esc).join(', ') : ''}</li>`).join('')}</ul></details>`;
+}
+
 // ── Usage (great_cto-egkw) ─────────────────────────────────────────────────
 // Both hosts, side by side, from /api/usage. Three honesty rules carried from
 // the reader: an unpriced model is n/a, never $0; Claude Code's plan use is not
@@ -7642,6 +7718,7 @@ async function switchProject(slug) {
   document.title = `${slug} · great_cto`;
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
+  if (currentTab === 'skills') loadSkillsInventory();
   window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
@@ -7854,6 +7931,7 @@ async function init() {
   currentProject = proj;
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
+  if (currentTab === 'skills') loadSkillsInventory();
   window.GctoWork.reset();
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
@@ -8937,6 +9015,7 @@ function cmdkActions() {
     { group: 'Go', label: 'Fleet — the agents and what they may do', run: () => switchTab('fleet') },
     { group: 'Go', label: 'Harness — host and second opinion', run: () => switchTab('harness') },
     { group: 'Go', label: 'Usage — what Claude Code and Codex consumed', run: () => switchTab('usage') },
+    { group: 'Go', label: 'Skills — local inventory and document integrity', run: () => switchTab('skills') },
     { group: 'Go', label: 'Settings', run: () => switchTab('settings') },
     { group: 'Go', label: 'Tasks board (#/kanban, deep link)', run: () => switchTab('kanban') },
     { group: 'Do', label: 'New issue', run: () => openNewIssueModal() },
@@ -9129,7 +9208,7 @@ try {
 // panels, not keys.
 const DEST = { decisions: 'inbox', ledger: 'budgets', fleet: 'agents', dashboard: 'budgets', share: 'settings', notifications: 'settings' };
 const NAV = { inbox: 'decisions', budgets: 'ledger', agents: 'fleet', dashboard: 'ledger', share: 'settings', notifications: 'settings' };
-const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, usage: 1, settings: 1, kanban: 1 };
+const ROUTES = { work: 1, history: 1, decisions: 1, ledger: 1, fleet: 1, harness: 1, usage: 1, skills: 1, settings: 1, kanban: 1 };
 function switchTab(id, el) {
   const lid = DEST[id] || id;          // the panel's own name
   const navKey = NAV[id] || id;        // the destination to highlight
@@ -9138,7 +9217,7 @@ function switchTab(id, el) {
   currentTab = lid;
   document.getElementById('nav-views-label').hidden = lid !== 'agents';
   document.querySelector('.nav-views').hidden = lid !== 'agents';
-  if (['agents', 'budgets', 'harness', 'usage'].includes(lid)) document.getElementById('tools-nav').open = true;
+  if (['agents', 'budgets', 'harness', 'usage', 'skills'].includes(lid)) document.getElementById('tools-nav').open = true;
   if (lid === 'work' || lid === 'history') window.GctoWork.refresh();
   if (ROUTES[id]) {
     if (location.hash !== `#/${id}`) history.replaceState(null, '', `#/${id}`);
@@ -9161,7 +9240,7 @@ function switchTab(id, el) {
   // crumb — `labels` used to be referenced here but is only ever a function-local in
   // this file, so this threw ReferenceError on every tab switch and skipped the per-tab
   // loaders below (e.g. logs stuck on "Loading…"). Use a local label map.
-  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', usage: 'Usage', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
+  const TAB_LABELS = { work: 'Work', history: 'History', decisions: 'Decisions', ledger: 'Ledger', fleet: 'Fleet', harness: 'Harness', usage: 'Usage', skills: 'Skills', settings: 'Settings', budgets: 'Budgets', docs: 'Docs', dashboard: 'Board', inbox: 'Inbox', tasks: 'Tasks', agents: 'Agents', logs: 'Activity', notifications: 'Notifications', metrics: 'Metrics', share: 'Share' };
   const crumb = document.getElementById('crumb-here'); if (crumb) crumb.textContent = TAB_LABELS[id] || TAB_LABELS[lid] || 'Board';
   // Budgets render on Metrics, so the heartbeat that feeds them has to be
   // fetched when Metrics opens — not only from the agents drill-in it used to
@@ -9195,6 +9274,7 @@ function switchTab(id, el) {
   if (lid === 'settings') loadSettingsPage();
   if (lid === 'harness') renderHarnesses();
   if (lid === 'usage') loadUsage();
+  if (lid === 'skills') loadSkillsInventory();
 }
 
 // Sidebar tabs: Enter/Space activate, arrows move (WAI-ARIA tablist).

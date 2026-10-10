@@ -28,7 +28,7 @@ import path from 'path';
 // it exists to protect. Work and History were routed and missing from this list,
 // so opening either answered 400 into the console; the test now pins the two
 // lists to each other.
-const VALID_VIEWS = ['work', 'history', 'decisions', 'ledger', 'fleet', 'harness', 'usage', 'settings', 'kanban'];
+const VALID_VIEWS = ['work', 'history', 'decisions', 'ledger', 'fleet', 'harness', 'usage', 'skills', 'settings', 'kanban'];
 
 function logFilePath(root) {
   return path.join(root, '.great_cto', 'view-counter.log');

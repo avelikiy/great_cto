@@ -61,8 +61,13 @@ const boardFiles = [];
 })(boardSrc);
 
 const needed = new Set();
+const neededTop = new Set();
 for (const f of boardFiles) {
-  for (const m of readFileSync(f, "utf8").matchAll(/scripts\/lib\/([\w.-]+\.mjs)/g)) needed.add(m[1]);
+  const text = readFileSync(f, "utf8");
+  for (const m of text.matchAll(/scripts\/lib\/([\w.-]+\.mjs)/g)) needed.add(m[1]);
+  // Some reusable helpers (skill-lint) live directly under scripts/. Derive
+  // actual relative imports too, so repository-only dependencies cannot ship.
+  for (const m of text.matchAll(/(?:from\s+|import\(\s*)['"](?:\.\.\/)+scripts\/([\w.-]+\.mjs)['"]/g)) neededTop.add(m[1]);
 }
 
 // The npm CLI is also a supported entrypoint for the controlled Codex host.
@@ -81,6 +86,14 @@ for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskControl
 // the defect rather than removing it.
 for (let grew = true; grew; ) {
   grew = false;
+  for (const f of [...neededTop]) {
+    const src = join(repoRoot, "scripts", f);
+    if (!existsSync(src)) continue;
+    for (const m of readFileSync(src, "utf8").matchAll(/(?:from\s+|import\(\s*)['"]\.\/(lib\/)?([\w.-]+\.mjs)['"]/g)) {
+      const target = m[1] ? needed : neededTop;
+      if (!target.has(m[2])) { target.add(m[2]); grew = true; }
+    }
+  }
   for (const f of [...needed]) {
     const src = join(repoRoot, "scripts", "lib", f);
     if (!existsSync(src)) continue;
@@ -93,6 +106,11 @@ for (let grew = true; grew; ) {
 
 mkdirSync(join(out, "scripts", "lib"), { recursive: true });
 const missing = [];
+for (const f of [...neededTop].sort()) {
+  const src = join(repoRoot, "scripts", f);
+  if (!existsSync(src)) { missing.push(f); continue; }
+  copyFileSync(src, join(out, "scripts", f));
+}
 for (const f of [...needed].sort()) {
   const src = join(repoRoot, "scripts", "lib", f);
   if (!existsSync(src)) { missing.push(f); continue; }
