@@ -42,6 +42,11 @@ render_plist() {
   case "$_bin" in /*) ;; *) echo 'codex executable must have an absolute path' >&2; return 1 ;; esac
   _script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
   _script="$_script_dir/$(basename -- "$0")"
+  # launchd does not inherit the interactive shell's PATH. npm launchers often
+  # use /usr/bin/env node; resolve Node now rather than discovering it on a tick.
+  _node=$(command -v node || true)
+  _launch_path="$(dirname -- "$_bin"):/usr/bin:/bin:/usr/sbin:/sbin"
+  case "$_node" in /*) _launch_path="$(dirname -- "$_node"):$_launch_path" ;; esac
   _log_dir="$HOME/.great_cto"
   cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -52,6 +57,9 @@ render_plist() {
     <string>/bin/sh</string><string>$(escape_xml "$_script")</string>
     <string>refresh</string><string>$(escape_xml "$_bin")</string>
   </array>
+  <key>EnvironmentVariables</key><dict>
+    <key>PATH</key><string>$(escape_xml "$_launch_path")</string>
+  </dict>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>$INTERVAL</integer>
   <key>StandardOutPath</key><string>$(escape_xml "$_log_dir/codex-auto-update.log")</string>
@@ -86,12 +94,17 @@ case "${1:-}" in
     trap 'rm -f "$_temp"' EXIT HUP INT TERM
     render_plist > "$_temp"
     chmod 600 "$_temp"
-    if [ -f "$PLIST" ]; then "$LAUNCHCTL" bootout "$DOMAIN" "$PLIST" >/dev/null 2>&1 || true; fi
+    if [ -f "$PLIST" ]; then
+      if "$LAUNCHCTL" print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
+        echo 'refresh is running; retry enable after it finishes' >&2; exit 1
+      fi
+      "$LAUNCHCTL" bootout "$DOMAIN" "$PLIST" >/dev/null 2>&1 || true
+    fi
     mv -f "$_temp" "$PLIST"
     trap - EXIT HUP INT TERM
     "$LAUNCHCTL" bootstrap "$DOMAIN" "$PLIST"
-    "$LAUNCHCTL" kickstart -k "$DOMAIN/$LABEL"
-    echo "enabled: $PLIST (every 6 hours and at load)"
+    # RunAtLoad starts the first refresh. Do not kill it with kickstart -k.
+    echo "enabled: $PLIST (every 6 hours and at load; inspect refresh logs for results)"
     ;;
   disable)
     if [ -f "$PLIST" ]; then

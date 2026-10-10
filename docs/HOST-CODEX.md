@@ -69,7 +69,10 @@ sh scripts/codex-auto-update.sh disable
 ```
 
 The per-user scheduling agent lives at
-`~/Library/LaunchAgents/com.great-cto.codex-auto-update.plist`. It only runs
+`~/Library/LaunchAgents/com.great-cto.codex-auto-update.plist`. Enable it from a
+stable checkout that will remain on disk: the timer pins that script's path.
+The timer captures the resolved Node directory for npm-installed Codex, rather
+than relying on launchd to inherit your shell's PATH. It only runs
 when the `great-cto` marketplace points to this project's GitHub repository,
 revalidated before every scheduled refresh, not only when enabling the timer;
 it does not edit Codex's cache directly. The updater follows the marketplace's
@@ -77,6 +80,10 @@ configured Git ref (`main` by default), which can move ahead of the npm release.
 Codex must load the refreshed plugin in a new session; new or changed hooks
 still need the host's review. The updater does not auto-approve gates, publish
 artifacts, merge code, deploy a service, or update the npm CLI.
+
+`status` reports scheduling, not a successful refresh. Inspect
+`~/.great_cto/codex-auto-update.log` and `~/.great_cto/codex-auto-update.err.log`
+for the command result. Removing the checkout requires disabling the timer first.
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
 the product decision was already made. Explicit allowed paths apply to all roles
