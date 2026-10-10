@@ -74,8 +74,12 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex never updates the plugin by itself — `great-cto upgrade` does. Details,
-mixed Claude + Codex runs and Codex as the second reviewer:
+Plugin refresh is explicit by default (`great-cto upgrade codex`). On macOS,
+`sh scripts/codex-auto-update.sh enable` opts into a six-hour per-user timer;
+`status` inspects it and `disable` removes it. Each tick validates the Git
+marketplace origin before asking Codex to upgrade. It follows the configured
+Git ref, not npm releases, and changed hooks still need host review in a new
+session. Details, mixed runs and Codex as the second reviewer:
 [Codex host guide](docs/HOST-CODEX.md).
 
 ## When it stops you

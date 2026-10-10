@@ -75,9 +75,8 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex はプラグインを自分では更新しません — `great-cto upgrade` が行います。詳細、
-Claude + Codex の混在実行、第二のレビュアーとしての Codex:
-[Codex ホストガイド](../HOST-CODEX.md)。
+更新は既定では明示的な操作です（`great-cto upgrade codex`）。macOS では `sh scripts/codex-auto-update.sh enable` で任意のユーザータイマーを有効にし、6 時間ごとに更新します。`status` はタイマーを確認し、`disable` は削除します。実行ごとに Git の取得元を検証し、npm リリースではなく設定された Git ref に従います。変更されたフックには新しいセッションでホストの承認が必要です。詳細と混在実行:
+[Codex ホストガイド](../HOST-CODEX.md).
 
 ## 止まるタイミング
 

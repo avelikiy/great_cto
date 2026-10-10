@@ -16,14 +16,14 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.60.0 codex-host doctor
-npx --yes great-cto@3.60.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.60.0 codex-host status <run-uuid>
-npx --yes great-cto@3.60.0 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.60.0 codex-host resume <run-uuid>
-npx --yes great-cto@3.60.0 codex-host recover <run-uuid>
-npx --yes great-cto@3.60.0 codex-host cancel <run-uuid>
-npx --yes great-cto@3.60.0 codex-host list --dir /path/to/project
+npx --yes great-cto@3.61.0 codex-host doctor
+npx --yes great-cto@3.61.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.61.0 codex-host status <run-uuid>
+npx --yes great-cto@3.61.0 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.61.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.61.0 codex-host recover <run-uuid>
+npx --yes great-cto@3.61.0 codex-host cancel <run-uuid>
+npx --yes great-cto@3.61.0 codex-host list --dir /path/to/project
 ```
 
 For a mixed run from a source checkout, assign roles at start. Unlisted roles
@@ -54,6 +54,36 @@ Claude Code and Codex write into one worktree at the same time. Only roles with
 a symmetric `join` and the same downstream edge form a concurrent wave; other
 roles run in dependency order. The run state and `list` projection record each
 role's host and wave status.
+
+## Keeping the installed Codex plugin current
+
+The Codex plugin cache and the npm CLI are separate artifacts. A configured
+Git marketplace can be refreshed manually with
+`codex plugin marketplace upgrade great-cto`. On macOS, the opt-in updater can
+schedule that supported command every six hours and at login:
+
+```sh
+sh scripts/codex-auto-update.sh enable
+sh scripts/codex-auto-update.sh status
+sh scripts/codex-auto-update.sh disable
+```
+
+The per-user scheduling agent lives at
+`~/Library/LaunchAgents/com.great-cto.codex-auto-update.plist`. Enable it from a
+stable checkout that will remain on disk: the timer pins that script's path.
+The timer captures the resolved Node directory for npm-installed Codex, rather
+than relying on launchd to inherit your shell's PATH. It only runs
+when the `great-cto` marketplace points to this project's GitHub repository,
+revalidated before every scheduled refresh, not only when enabling the timer;
+it does not edit Codex's cache directly. The updater follows the marketplace's
+configured Git ref (`main` by default), which can move ahead of the npm release.
+Codex must load the refreshed plugin in a new session; new or changed hooks
+still need the host's review. The updater does not auto-approve gates, publish
+artifacts, merge code, deploy a service, or update the npm CLI.
+
+`status` reports scheduling, not a successful refresh. Inspect
+`~/.great_cto/codex-auto-update.log` and `~/.great_cto/codex-auto-update.err.log`
+for the command result. Removing the checkout requires disabling the timer first.
 
 The entry role defaults to `product-owner`. `--entry architect` can be used when
 the product decision was already made. Explicit allowed paths apply to all roles

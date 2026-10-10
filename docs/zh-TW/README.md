@@ -72,8 +72,8 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Codex 不會自行更新外掛——由 `great-cto upgrade` 完成。詳情、Claude + Codex 混合
-執行以及將 Codex 作為第二審查者：[Codex host 指南](../HOST-CODEX.md)。
+預設需要明確更新（`great-cto upgrade codex`）。在 macOS 上，`sh scripts/codex-auto-update.sh enable` 啟用可選的使用者計時器，每六小時重新整理；`status` 查看計時器，`disable` 將其移除。每次執行前都會驗證 Git 來源。它跟隨設定的 Git ref，而非 npm 發布；變更的掛鉤仍需在新工作階段取得主機核准。詳情與混合執行：
+[Codex host 指南](../HOST-CODEX.md).
 
 ## 何時會停下來
 
