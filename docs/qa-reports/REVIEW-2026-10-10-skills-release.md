@@ -44,8 +44,6 @@ remaining suites. It is not a successful full run.
 The combined focused rerun passed 27 checks without failures or skips. It does
 not replace the mandatory full release gate or a fresh approving review.
 
-## Release status
-
 ## Fresh independent review: APPROVED
 
 Reviewed source: 5db1d3ea2fc0b960f2bbf152c791e11945eac950.
@@ -67,6 +65,23 @@ walker includes Skills with synthetic observed/unreadable rows in both themes,
 without scanning the operator's skill inventory. The four targeted checks pass
 with no failures or skips. These are test-only corrections; application code
 remains byte-identical to the independently reviewed revision.
+
+The test-only delta at 3019fef76607629acee602d9f8fdb0a51250efbf was also
+independently APPROVED (session 287537e8-4256-4be0-8bbb-e6200c278b65). That
+review did not execute tests or certify publication. Its nonblocking fixture
+notes led to production host labels, expanded source-coverage details, a seeded
+skill/hash assertion in the marketplace copy and explicit temporary registry
+and NODE_PATH isolation.
+
+The subsequent full run passed all 2,579 executed library checks with four
+opt-in live checks explicitly skipped, but two browser assertions ran before
+the initial project fetch had filled the UI. The browser helper waited a fixed
+1.2 seconds after an active panel appeared, which is only the shell. It now
+waits up to 15 seconds for project initialization; all original data/action
+assertions remain in place. The combined browser/marketplace/contrast rerun
+passed 18 checks with no failures or skips. A final complete gate is pending.
+
+## Release status
 
 Not yet published by this report. A final complete gate is still required.
 Evidence-ledger implementation,

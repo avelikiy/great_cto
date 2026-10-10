@@ -34,6 +34,9 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
     const project = path.join(home, 'sample-project');
     fs.mkdirSync(path.join(project, '.great_cto'), { recursive: true });
     fs.writeFileSync(path.join(project, '.great_cto/PROJECT.md'), 'project: sample-project\narchetype: fintech\n');
+    fs.mkdirSync(path.join(project, '.codex/skills/demo'), { recursive: true });
+    fs.writeFileSync(path.join(project, '.codex/skills/demo/SKILL.md'),
+      '---\nname: demo\ndescription: A project skill document observed by an isolated marketplace runtime.\n---\n');
     fs.mkdirSync(path.join(home, '.great_cto'), { recursive: true });
     fs.writeFileSync(path.join(home, '.great_cto/projects.json'), JSON.stringify({ projects: [{ slug: 'sample-project', path: project }] }));
     for (const dir of ['packages/board', 'scripts', 'shared', '.claude-plugin']) {
@@ -42,7 +45,9 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
     }
     assert.equal(fs.existsSync(path.join(plugin, 'packages/cli/dist')), false);
     const started = await startServerOnFreePort({ entry: path.join(plugin, 'packages/board/server.mjs'),
-      cwd: project, env: { HOME: home, GREAT_CTO_NO_UPDATE_CHECK: '1', GREAT_CTO_BD_BIN: '/nonexistent/bd' },
+      cwd: project, env: { HOME: home, USERPROFILE: home, NODE_PATH: '',
+        GREAT_CTO_PROJECTS_FILE: path.join(home, '.great_cto/projects.json'),
+        GREAT_CTO_NO_UPDATE_CHECK: '1', GREAT_CTO_BD_BIN: '/nonexistent/bd' },
       portEnv: 'BOARD_PORT', readyPath: '/api/version', timeoutMs: 10000 });
     proc = started.proc;
     const response = await fetch(`http://127.0.0.1:${started.port}/api/harnesses?project=sample-project`);
@@ -53,7 +58,11 @@ test('marketplace board boots without any CLI dist or node_modules', async () =>
     assert.ok(projects.some((p) => p.slug === 'sample-project' && p.path === project));
     const skillsResponse = await fetch(`http://127.0.0.1:${started.port}/api/skills?project=sample-project`);
     assert.equal(skillsResponse.status, 200);
-    assert.ok(Array.isArray((await skillsResponse.json()).skills));
+    const inventory = await skillsResponse.json();
+    assert.equal(inventory.skills.length, 1);
+    assert.equal(inventory.skills[0].name, 'demo');
+    assert.equal(inventory.skills[0].read_state, 'observed');
+    assert.match(inventory.skills[0].document_sha256, /^[0-9a-f]{64}$/);
   } finally {
     if (proc) await reap(proc);
     fs.rmSync(tmp, { recursive: true, force: true });
