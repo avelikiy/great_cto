@@ -314,6 +314,18 @@ Existing closure assertions remain; no runtime repair or full-gate approval is
 claimed. PR167 remains unmerged, untagged and unpublished; installed3.61.0 and
 main are unchanged.
 
+One predetermined post-instrumentation diagnostic inventory at exact 9eed8808:
+tests/lib had 3297 passed, 0 failed, 6 skipped; scripts/lib separately had 20
+passed, 0 failed, 0 skipped. This is not the combined canonical command or a new
+full CI pass. The three target crash cases passed, failure metadata did not fire,
+and the original surviving PID/cause remains Unknown. Application delta excluding
+two lifecycle tests and QA files is zero against independently approved 735.
+No runtime fix, merge or release is inferred. The separate private real-Node/
+synthetic-scratch surviving-child negative kept sampler liveProcesses=1, false
+authority flags and a fixed caller fault/PRESERVED without quiescent. It is not
+Chromium, production automatic refusal, independent cleanup proof or a committed
+regression. Both outcomes remain diagnostic only.
+
 ## Article and delivery boundary
 
 [Article draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md) now

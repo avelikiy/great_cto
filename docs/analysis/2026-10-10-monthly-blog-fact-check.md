@@ -45,6 +45,19 @@ and explicitly asserting no completed result after owner SIGKILL. No runtime
 repair, weakened gate or new full-source approval is claimed. Fresh Snyk on1b
 is SUCCESS. No167merge/release claim.
 
+Post-instrumentation diagnostic tests/lib inventory at 9eed8808 completed with
+3297 passed, 0 failed, 6 skipped; scripts/lib separately passed 20 without failures
+or skips. This is not a new canonical gate. The three target cases passed,
+failure metadata did not fire, and the original surviving process/cause is Unknown.
+Logs SHA2568e38479be9dfa2e7879ada4c54c6b9b4df33b24cf42ecab0c616551ecffc59e4
+and6059346b234066fa624403e9d127d318059aeba10fe567f28844598cf3a6c6bb.
+A private real-Node/synthetic-scratch negative measured one surviving child after
+actual parent SIGKILL, sampler liveProcesses=1, false authority flags and a fixed
+private caller fault/PRESERVED instead of quiescent. This is not Chromium,
+production automatic refusal, cleanup admission or a committed regression;
+it does not clear canonical failures. Log SHA-256:
+0b5894a947708e3969e4fa689781b2921827b8a7d94215e9e9fe63d7acf8487f.
+
 ## Historical delivery snapshot: 3.60.0
 
 - Inspected main: `2f395516faea94d060adda0cd6ebd949bc7b8fcf`.
