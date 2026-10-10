@@ -15,7 +15,7 @@ import { impactFor, formatImpact, resolvesTo } from '../../scripts/hooks/edit-im
 
 const HOOK = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'edit-impact.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function repo() {
   const r = mkdtempSync(join(tmpdir(), 'edit-impact-'));

@@ -7,8 +7,8 @@ import { spawnSync } from 'node:child_process';
 export function codexControllerCandidates(moduleUrl = import.meta.url): string[] {
   const cliRoot = join(dirname(fileURLToPath(moduleUrl)), '..');
   return [
-    join(cliRoot, 'board', 'scripts', 'codex-pipeline.mjs'),
     join(cliRoot, '..', '..', 'scripts', 'codex-pipeline.mjs'),
+    join(cliRoot, 'board', 'scripts', 'codex-pipeline.mjs'),
   ];
 }
 

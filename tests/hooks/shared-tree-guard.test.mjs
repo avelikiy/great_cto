@@ -171,8 +171,10 @@ test('wired: the plugin.json Bash command blocks the REAL PreToolUse input shape
   // is wired end to end with the shape Claude Code actually sends.
   const plugin = JSON.parse(readFileSync(join(REPO, '.claude-plugin', 'plugin.json'), 'utf8'));
   const bash = plugin.hooks.PreToolUse.find((e) => e.matcher === 'Bash');
-  const hook = bash.hooks.find((h) => h.command.includes('shared-tree-guard.mjs'));
-  assert.ok(hook, 'shared-tree-guard.mjs is in the PreToolUse Bash chain');
+  // One process runs every Bash check since 3.57 (scripts/hooks/bash-guards.mjs);
+  // the command below is that hook, run exactly as Claude Code runs it.
+  const hook = bash.hooks.find((h) => h.command.includes('bash-guards.mjs'));
+  assert.ok(hook, 'bash-guards.mjs is the PreToolUse Bash hook');
   const cwd = mkdtempSync(join(tmpdir(), 'stg-'));
   try {
     const run = (command) => spawnSync('sh', ['-c', hook.command], {

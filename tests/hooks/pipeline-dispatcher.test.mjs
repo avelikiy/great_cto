@@ -185,7 +185,7 @@ test('BLOCKED verdict halts the chain', () => {
 test('missing verdict → three-state completion reminder', () => {
   const d = decideNext({ agent: 'pm', transitions: TRANSITIONS, verdict: null });
   assert.equal(d.kind, 'no-verdict');
-  assert.match(d.text, /log-verdict\.sh pm/);
+  assert.match(d.text, /log-verdict\.sh'? pm/);
 });
 
 test('join quorum pending → wait directive naming the partner', () => {

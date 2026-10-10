@@ -61,7 +61,7 @@ test('a bd slower than the OLD cap now succeeds', { timeout: 90_000 }, async (t)
   const home = mkdtempSync(join(tmpdir(), 'gc-bdto-home-'));
   const root = project();
   const bdBin = slowBd(12);
-  t.after(() => { for (const d of [home, root]) try { rmSync(d, { recursive: true, force: true }); } catch {} });
+  t.after(() => { for (const d of [home, root]) try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} });
 
   const { port, proc: board } = await startBoard({
     cliEntry: CLI_ENTRY, project: root, home, env: { GREAT_CTO_BD_BIN: bdBin },
@@ -83,7 +83,7 @@ test('a bd that exceeds the cap is 503, not 500', { timeout: 120_000 }, async (t
   const home = mkdtempSync(join(tmpdir(), 'gc-bdto2-home-'));
   const root = project();
   const bdBin = slowBd(25);
-  t.after(() => { for (const d of [home, root]) try { rmSync(d, { recursive: true, force: true }); } catch {} });
+  t.after(() => { for (const d of [home, root]) try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} });
 
   const { port, proc: board } = await startBoard({
     cliEntry: CLI_ENTRY, project: root, home, env: { GREAT_CTO_BD_BIN: bdBin },

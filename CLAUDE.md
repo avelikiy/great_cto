@@ -36,6 +36,18 @@ Use `~/.great_cto/` notation or environment variable references.
 
 ---
 
+## Privacy — the global memory layer
+
+`~/.great_cto/{preferences,decisions,lessons}.md` is injected into every session of
+every project. Nothing about one project goes there — what is true of a project lives in
+its own `.great_cto/`. `read-global-memory.mjs` enforces it at the read door: an entry
+that names a private project (the same terms `pre-push.sh` derives) or declares
+`project: <name>` is dropped and the operator is warned. Anything that writes to the
+global layer — learner, `/crystallize`, a gate approval — writes cross-project
+patterns only, with the project name replaced by `<private-project>`.
+
+---
+
 ## Privacy — telemetry
 
 `great_cto` ships an **opt-in** telemetry pipeline (`packages/cli/src/telemetry.ts`) that is
@@ -50,6 +62,26 @@ Rules for agents:
   updates `docs/PRIVACY.md` in the same change.
 - Do not add tracking, install pings, or analytics calls outside the existing telemetry module
   and its documented, opt-in fields.
+
+---
+
+## Authorship — everything is made as avelikiy
+
+Every change to great_cto — commits, pushes, tags, releases, PRs, issues and
+comments — is made as **avelikiy**:
+
+- Git author and committer: `avelikiy <avelikiy@users.noreply.github.com>`, the
+  repository's own git config. Never pass `-c user.name=…` / `-c user.email=…`,
+  never `--author`, never commit with another address.
+- GitHub actions (`gh pr`, `gh issue`, `gh release`, comments): switch to the
+  `avelikiy` account first — `gh auth switch -u avelikiy`.
+
+Rationale: GitHub attributes a commit by its email. A commit with the owner's
+name and a different address is attributed to whatever account that address
+belongs to, and that account appears in the public contributors list for good.
+
+The pre-push hook (`scripts/hooks/pre-push.sh`, check 1c) refuses a commit whose
+author or committer is avelikiy with any other address.
 
 ---
 

@@ -16,7 +16,7 @@ import { appendEvent } from '../../scripts/lib/agent-events.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP_DIRS = [];
-after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function project() {
   const d = mkdtempSync(join(tmpdir(), 'gcto-evhooks-'));

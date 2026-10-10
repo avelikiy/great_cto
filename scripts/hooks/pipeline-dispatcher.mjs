@@ -28,6 +28,7 @@
  */
 
 import { readFileSync, existsSync, statSync, readdirSync, writeFileSync } from 'node:fs';
+import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
@@ -36,6 +37,8 @@ import { parseVerdictLine as parseVerdictRecord, needOf } from '../lib/verdict-r
 import { parseAgentBudgets, judgeAgentBudget, budgetAllowsDispatch } from '../lib/agent-budget.mjs';
 import { findAgentTranscript, transcriptStartedAt } from '../lib/agent-transcript.mjs';
 import { stopShape } from '../lib/stop-shape.mjs';
+import { observeNativePipeline } from '../lib/work-tasks.mjs';
+import { createHash } from 'node:crypto';
 import { recordRun } from '../lib/pipeline-journal.mjs';
 import { checkArtifacts, explainArtifacts } from '../lib/artifact-claims.mjs';
 import { latestScore as _latestScore, readScores as _readScores } from '../lib/scores.mjs';
@@ -565,7 +568,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'no-verdict',
       text: `PIPELINE: ${agent} finished but recorded no verdict line in ${VERDICT_DIR}/${agent}.log. ` +
         `Three-state completion requires it (shared/orchestrator.toml [completion]). ` +
-        `Ask the agent (or run yourself): bash scripts/log-verdict.sh ${agent} <VERDICT> auto — then continue the pipeline.`,
+        `Ask the agent (or run yourself): ${logVerdictCommand()} ${agent} <VERDICT> auto — then continue the pipeline.`,
     };
   }
 
@@ -629,7 +632,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   // /api/cost reads it and a stage with no cost reports zero spend.
   const formatNote = verdict.hasCost === false
     ? ` NOTE: this verdict carries no cost — /api/cost will report zero spend for ${agent}.`
-      + ` Record with: bash scripts/log-verdict.sh ${agent} ${verdict.verdict} auto`
+      + ` Record with: ${logVerdictCommand()} ${agent} ${verdict.verdict} auto`
     : '';
 
   const skip = resolveSkip({ rule, transitions, meta: verdict?.meta, activeGates, gateStates });
@@ -802,7 +805,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     const active = unapproved;
     const list = active.join(' + ');
     return {
-      kind: 'gate',
+      kind: 'gate', gates: active,
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${list} (human approval). ` +
         `Ensure the ${list} Beads task${active.length > 1 ? 's exist' : ' exists'} (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
         `${active.length > 1 ? 'EVERY one of them must be approved before proceeding. ' : ''}` +
@@ -995,7 +998,9 @@ async function main() {
   // runStartedAt, for the same reason — `journal()` closes over it and runs on
   // paths that execute before the effects block.
   let runProgressed = null;
+  let runSession = null;
   const journal = (entry) => {
+    try { if (entry.decisionKind) observeNativePipeline({ root: PROJECT_ROOT, sessionId: runSession, ...entry }); } catch { /* shared projection cannot change host authority */ }
     try { recordRun(PROJECT_ROOT, { startedAt: runStartedAt, progressed: runProgressed, ...entry, mapSource: MAP_SOURCE }); } catch { /* the run still happened */ }
     // ADR-021: the outcome is an agent event as well, so a stage that did not
     // chain (no-rule, no-verdict, verify-wait) shows on the board when it happens
@@ -1018,6 +1023,7 @@ async function main() {
 
   let payload = {};
   try { payload = JSON.parse(readFileSync(0, 'utf8')); } catch { return process.exit(0); }
+  runSession = payload.session_id || null;
   const toolInput = payload.tool_input || {};
   const agent = normalizeAgent(toolInput.subagent_type);
   if (!agent || agent === 'general-purpose' || agent === 'Explore' || agent === 'Plan') return process.exit(0);
@@ -1167,7 +1173,8 @@ async function main() {
   // happen" and "nothing could happen" produce identical output, and only a
   // reason written at the moment separates them afterwards.
   journal({
-    agent, verdict: verdictToken(verdict),
+    agent, verdict: verdictToken(verdict), decisionKind: decision?.kind || null, gates: decision?.gates || [],
+    receipt: verdict?.receipt || null, recordDigest: verdict ? createHash('sha256').update(JSON.stringify(verdict)).digest('hex') : null,
     outcome: journalOutcome({ decision, verdict, rule }),
     next: decision?.nexts ?? [],
     why: decision ? decision.text.slice(0, 240) : journalSilentWhy({ verdict, rule, agent }),

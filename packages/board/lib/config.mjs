@@ -4,7 +4,16 @@ import { fileURLToPath } from 'url';
 import os from 'os';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const PORT = parseInt(process.env.BOARD_PORT || process.env.PORT || '3141', 10);
+// `--port N` (or `--port=N`) first — server.mjs's usage line documents it, and
+// ignoring it put a test board started with `--port 3177` onto :3141 (3.58.1).
+// Then BOARD_PORT, PORT, and 3141. A value that is not a port is skipped.
+export function portFrom(argv = process.argv, env = process.env) {
+  const ok = (v) => { const n = Number(v); return Number.isInteger(n) && n > 0 && n < 65536 ? n : null; };
+  const i = argv.indexOf('--port');
+  const eq = argv.find((a) => typeof a === 'string' && a.startsWith('--port='));
+  return ok(i > -1 ? argv[i + 1] : eq ? eq.slice(7) : null) ?? ok(env.BOARD_PORT) ?? ok(env.PORT) ?? 3141;
+}
+const PORT = portFrom();
 const PUBLIC = path.join(__dirname, '..', 'public');
 // Build version — read the plugin manifest this board ships inside (packages/board → ../../.claude-plugin).
 const BUILD_VERSION = (() => {

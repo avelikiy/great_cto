@@ -14,7 +14,7 @@ import { requiredReviewers, reviewerStatus, REVIEWERS_BY_ARCHETYPE, PACK_REVIEWE
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const names = (r) => r.map((x) => x.agent).sort();
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = () => { const d = mkdtempSync(join(tmpdir(), 'req-rev-')); made.push(d); return d; };
 
 test('the archetype brings its reviewers; QA and security are not repeated here', () => {

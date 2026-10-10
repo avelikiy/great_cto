@@ -18,6 +18,7 @@
  *   GREAT_CTO_DISABLE_FROZEN_GATES=1
  */
 
+import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { simpleCommands, base } from '../lib/shell-commands.mjs';
@@ -86,10 +87,10 @@ export function isFrozenGateEdit(filePath, exists) {
   return underGates && exists; // editing an EXISTING gate; creating a new one is fine
 }
 
-function main() {
-  if (process.env.GREAT_CTO_DISABLE_FROZEN_GATES === '1') return process.exit(0);
-  const raw = readStdin();
-  if (!raw) return process.exit(0);
+/** The decision for one tool-call payload, as a value (scripts/lib/guard-result.mjs). */
+export function run(raw, env = process.env) {
+  if (env.GREAT_CTO_DISABLE_FROZEN_GATES === '1') return PASS;
+  if (!raw) return PASS;
   let d = {};
   try { d = JSON.parse(raw); } catch { /* not a tool call */ }
   const cwd = d.cwd || process.cwd();
@@ -99,22 +100,14 @@ function main() {
     ? shellWriteTargets(d.tool_input?.command)
     : [filePathFrom(raw)].filter(Boolean);
   const filePath = candidates.find((p) => isFrozenGateEdit(p, onDisk(p)));
-  if (!filePath) return process.exit(0);
+  if (!filePath) return PASS;
 
   const reason =
     `${filePath} is a FROZEN acceptance gate (docs/gates/). Gates are read-only once ` +
     `committed — a builder edit to a gate is an automatic slice FAIL. If the gate is ` +
     `genuinely wrong, raise it in Phase 0 for the architect to re-issue; do not move the ` +
     `goalposts. (Override only for deliberate re-planning: GREAT_CTO_DISABLE_FROZEN_GATES=1.)`;
-  process.stdout.write(JSON.stringify({
-    hookSpecificOutput: {
-      hookEventName: 'PreToolUse',
-      permissionDecision: 'deny',
-      permissionDecisionReason: `great_cto frozen-gates guard blocked the edit — ${reason}`,
-    },
-  }) + '\n');
-  process.stderr.write(`[great_cto:frozen-gates] BLOCKED — ${reason}\n`);
-  return process.exit(2);
+  return deny({ guard: 'frozen-gates', tag: 'frozen-gates', reason, what: 'edit' });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdin()));

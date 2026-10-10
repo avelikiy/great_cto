@@ -7,6 +7,36 @@ import { join, resolve } from 'node:path';
 
 const script = resolve('scripts/codex-auto-update.sh');
 
+function recordUpgrades({ dir, codex, marketplace }) {
+  writeFileSync(codex, `#!/bin/sh\nif [ "$*" = 'plugin marketplace list' ]; then\n  printf '%s\\n' 'great-cto  ${marketplace}'\nelse\n  printf '%s\\n' "$*" >> '${dir}/upgrade.calls'\nfi\n`);
+}
+
+test('refresh validates origin and delegates the upgrade to Codex', (t) => {
+  const f = fixture(t);
+  recordUpgrades(f);
+  execFileSync('sh', [script, 'refresh', f.codex], { env: f.env });
+  assert.equal(readFileSync(join(f.dir, 'upgrade.calls'), 'utf8'), 'plugin marketplace upgrade great-cto --json\n');
+});
+
+test('refresh refuses a changed marketplace origin before any upgrade', (t) => {
+  const f = fixture(t);
+  recordUpgrades(f);
+  execFileSync('git', ['-C', f.marketplace, 'remote', 'set-url', 'origin', 'https://example.com/untrusted.git']);
+  const r = spawnSync('sh', [script, 'refresh', f.codex], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /does not point to the expected GitHub repository/);
+  assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
+});
+
+test('refresh refuses a missing marketplace before any upgrade', (t) => {
+  const f = fixture(t);
+  writeFileSync(f.codex, `#!/bin/sh\nif [ "$*" = 'plugin marketplace list' ]; then exit 0; fi\nprintf '%s\\n' "$*" >> '${f.dir}/upgrade.calls'\n`);
+  const r = spawnSync('sh', [script, 'refresh', f.codex], { env: f.env, encoding: 'utf8' });
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /not configured/);
+  assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
+});
+
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'great-cto-auto-update-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
@@ -17,14 +47,15 @@ function fixture(t) {
   const codex = join(dir, 'codex & test');
   writeFileSync(codex, `#!/bin/sh\nprintf 'great-cto  ${marketplace}\\n'\n`);
   chmodSync(codex, 0o755);
-  return { dir, codex, env: { ...process.env, HOME: dir, GREAT_CTO_CODEX_BIN: codex } };
+  return { dir, codex, marketplace, env: { ...process.env, HOME: dir, GREAT_CTO_CODEX_BIN: codex } };
 }
 
 test('render uses the real Codex executable, XML-escapes it and schedules a six-hour host-managed refresh', (t) => {
   const { codex, env } = fixture(t);
   const xml = execFileSync('sh', [script, 'render'], { env, encoding: 'utf8' });
-  assert.match(xml, /<string>plugin<\/string><string>marketplace<\/string><string>upgrade<\/string>/);
-  assert.match(xml, /<string>great-cto<\/string><string>--json<\/string>/);
+  assert.match(xml, /<string>\/bin\/sh<\/string>/);
+  assert.ok(xml.includes(script));
+  assert.match(xml, /<string>refresh<\/string>/);
   assert.match(xml, /<key>StartInterval<\/key><integer>21600<\/integer>/);
   assert.ok(xml.includes(codex.replace('&', '&amp;')));
   assert.ok(!xml.includes('<string>' + codex + '</string>'));

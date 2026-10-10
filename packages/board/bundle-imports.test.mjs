@@ -14,9 +14,11 @@
 // `judge-model.mjs`, and the board names neither.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readdirSync, readFileSync, existsSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync, mkdtempSync, rmSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import os from 'node:os';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const BOARD = join(REPO, 'packages', 'board');
@@ -90,8 +92,21 @@ test('the npm bundle seeds the controlled Codex host and its dependency closure'
   const direct = [...controller.matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)].map(match => match[1]);
   assert.ok(direct.length > 0, 'the controller must have runtime dependencies for this test to protect');
   assert.match(bundler, /const codexController =/);
+  assert.match(bundler, /readFileSync\(taskController/);
+  assert.match(bundler, /copyFileSync\(taskController/);
   assert.match(bundler, /copyFileSync\(codexController/);
   assert.match(bundler, /shared["'], ["']pipeline\.toml/);
   assert.match(bundler, /readFileSync\(codexController/,
     'controller imports must seed the same transitive dependency fixpoint as board imports');
+});
+
+test('the generated npm bundle imports Skills without repository-only lint dependencies', t => {
+  const home = mkdtempSync(join(os.tmpdir(), 'gc-skill-bundle-'));
+  t.after(() => rmSync(home, { recursive: true, force: true }));
+  execFileSync(process.execPath, [join(REPO, 'packages/cli/scripts/bundle-board.mjs')], { timeout: 20000 });
+  const moduleUrl = pathToFileURL(join(REPO, 'packages/cli/board/packages/board/lib/skills-inventory.mjs')).href;
+  const out = execFileSync(process.execPath, ['--input-type=module', '-e',
+    `import { skillInventory } from ${JSON.stringify(moduleUrl)}; const s = await skillInventory({ home: process.cwd(), cwd: process.cwd() }); console.log(JSON.stringify({ state: s.state, skills: s.skills.length }));`],
+    { cwd: home, env: { ...process.env, HOME: home, USERPROFILE: home }, timeout: 20000, encoding: 'utf8' });
+  assert.deepEqual(JSON.parse(out), { state: 'observed', skills: 0 });
 });

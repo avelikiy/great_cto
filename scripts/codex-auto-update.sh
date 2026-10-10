@@ -24,10 +24,24 @@ codex_bin() {
   fi
 }
 
+trusted_marketplace() {
+  _market_root=$("$_bin" plugin marketplace list | sed -n 's/^great-cto[[:space:]][[:space:]]*//p' | head -n 1)
+  [ -n "$_market_root" ] || {
+    echo 'great-cto Git marketplace is not configured in Codex' >&2; return 1;
+  }
+  _remote=$(git -C "$_market_root" remote get-url origin 2>/dev/null || true)
+  case "$_remote" in
+    https://github.com/avelikiy/great_cto.git|git@github.com:avelikiy/great_cto.git) ;;
+    *) echo 'great-cto marketplace does not point to the expected GitHub repository' >&2; return 1 ;;
+  esac
+}
+
 render_plist() {
   _bin=$(codex_bin)
   [ -n "$_bin" ] && [ -x "$_bin" ] || { echo 'codex executable not found' >&2; return 1; }
   case "$_bin" in /*) ;; *) echo 'codex executable must have an absolute path' >&2; return 1 ;; esac
+  _script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+  _script="$_script_dir/$(basename -- "$0")"
   _log_dir="$HOME/.great_cto"
   cat <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -35,9 +49,8 @@ render_plist() {
 <plist version="1.0"><dict>
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key><array>
-    <string>$(escape_xml "$_bin")</string>
-    <string>plugin</string><string>marketplace</string><string>upgrade</string>
-    <string>great-cto</string><string>--json</string>
+    <string>/bin/sh</string><string>$(escape_xml "$_script")</string>
+    <string>refresh</string><string>$(escape_xml "$_bin")</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>StartInterval</key><integer>$INTERVAL</integer>
@@ -48,6 +61,15 @@ EOF
 }
 
 case "${1:-}" in
+  refresh)
+    _bin=${2:-$(codex_bin)}
+    [ -n "$_bin" ] && [ -x "$_bin" ] || { echo 'codex executable not found' >&2; exit 1; }
+    case "$_bin" in /*) ;; *) echo 'codex executable must have an absolute path' >&2; exit 1 ;; esac
+    # A marketplace can be reconfigured after enable. Revalidate on EVERY tick,
+    # before asking the host to download or replace any installed artifact.
+    trusted_marketplace
+    exec "$_bin" plugin marketplace upgrade great-cto --json
+    ;;
   render)
     render_plist
     ;;
@@ -55,16 +77,7 @@ case "${1:-}" in
     [ "$(uname -s)" = Darwin ] || { echo 'automatic refresh requires macOS' >&2; exit 1; }
     _bin=$(codex_bin)
     [ -n "$_bin" ] && [ -x "$_bin" ] || { echo 'codex executable not found' >&2; exit 1; }
-    _market_root=$("$_bin" plugin marketplace list | sed -n 's/^great-cto[[:space:]][[:space:]]*//p' | head -n 1)
-    [ -n "$_market_root" ] || {
-      echo 'great-cto Git marketplace is not configured in Codex' >&2; exit 1;
-    }
-    _remote=$(git -C "$_market_root" remote get-url origin 2>/dev/null || true)
-    case "$_remote" in
-      https://github.com/avelikiy/great_cto.git|git@github.com:avelikiy/great_cto.git)
-        ;;
-      *) echo "great-cto marketplace does not point to the expected GitHub repository" >&2; exit 1 ;;
-    esac
+    trusted_marketplace
     if [ -f "$PLIST" ] && ! grep -q "<string>$LABEL</string>" "$PLIST"; then
       echo "refusing to replace an unexpected launch agent: $PLIST" >&2; exit 1
     fi
@@ -100,7 +113,7 @@ case "${1:-}" in
     fi
     ;;
   *)
-    echo 'usage: codex-auto-update.sh enable|disable|status|render' >&2
+    echo 'usage: codex-auto-update.sh enable|disable|status|render|refresh' >&2
     exit 2
     ;;
 esac

@@ -201,6 +201,15 @@ When source is OLTP DB → Debezium / Maxwell → Kafka:
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh streaming-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"At-least-once is fine, the consumer is idempotent"** — assume it isn't until you see the dedup table; the bug is always in the next sink

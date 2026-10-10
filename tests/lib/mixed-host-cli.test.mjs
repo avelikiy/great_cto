@@ -1,0 +1,109 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { newRun } from '../../scripts/lib/codex-pipeline.mjs';
+
+const REPO = resolve(import.meta.dirname, '../..');
+const CONTROLLER = join(REPO, 'scripts', 'codex-pipeline.mjs');
+const hostSource = role => `#!/usr/bin/env node
+const fs = require('node:fs');
+const path = require('node:path');
+const role = ${JSON.stringify(role)};
+const args = process.argv.slice(2);
+if (args[0] === '--version') { console.log('fixture-1'); process.exit(0); }
+if (args[0] === 'auth') { console.log(JSON.stringify({ loggedIn: true, authMethod: 'fixture' })); process.exit(0); }
+let prompt = '';
+process.stdin.setEncoding('utf8');
+process.stdin.on('data', chunk => { prompt += chunk; });
+process.stdin.on('end', async () => {
+  const codex = role === 'security-officer';
+  if (codex && prompt.includes('independent verifier')) {
+    const text = JSON.stringify({ state: 'verified', findings: [], checks: ['fixture inspected actual report'] });
+    console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } }));
+    process.exit(0);
+  }
+  if (codex && prompt.includes('You are the code-reviewer specialist')) {
+    const text = JSON.stringify({ verdict: 'APPROVED', summary: 'fixture code review', meta: {},
+      files: [{ path: 'docs/code-review.md', before: null, content: 'fixture code review evidence\\n' }] });
+    console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text } }));
+    process.exit(0);
+  }
+  const markers = process.env.MIXED_HOST_MARKERS;
+  fs.writeFileSync(path.join(markers, role + '.started'), '1');
+  const partner = path.join(markers, (codex ? 'qa-engineer' : 'security-officer') + '.started');
+  const deadline = Date.now() + 6000;
+  while (!fs.existsSync(partner) && Date.now() < deadline) await new Promise(done => setTimeout(done, 20));
+  if (!fs.existsSync(partner)) { console.error('partner never started'); process.exit(3); }
+  const report = 'docs/' + role + '.md';
+  const proposal = JSON.stringify({ verdict: codex ? 'APPROVED' : 'PASS', summary: role + ' inspected',
+    meta: { report }, files: [{ path: report, before: null, content: role + ' evidence\\n' }] });
+  if (codex) console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: proposal } }));
+  else console.log(JSON.stringify({ type: 'result', is_error: false, result: proposal, usage: { input_tokens: 1 } }));
+});
+`;
+
+test('CLI executes both host subprocesses concurrently and clears their gates', t => {
+  const base = mkdtempSync(join(tmpdir(), 'mixed-cli-'));
+  t.after(() => rmSync(base, { recursive: true, force: true }));
+  const root = join(base, 'project'), store = join(base, 'store'), markers = join(base, 'markers');
+  mkdirSync(root); mkdirSync(store, { mode: 0o700 }); mkdirSync(markers);
+  writeFileSync(join(root, 'README.md'), 'fixture\n');
+  execFileSync('git', ['init', '-q', root]);
+  execFileSync('git', ['-C', root, 'add', '.']);
+  execFileSync('git', ['-C', root, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+    'commit', '-qm', 'fixture']);
+  const claude = join(base, 'claude-fixture'), codex = join(base, 'codex-fixture');
+  writeFileSync(claude, hostSource('qa-engineer')); writeFileSync(codex, hostSource('security-officer'));
+  chmodSync(claude, 0o755); chmodSync(codex, 0o755);
+  const state = newRun({ root, pluginRoot: REPO, prompt: 'Review this fixture', allowed: ['docs'],
+    entry: 'code-reviewer', hostRoutes: { 'qa-engineer': 'claude-code', 'security-officer': 'codex' } });
+  const file = join(store, `${state.id}.json`);
+  writeFileSync(file, JSON.stringify(state), { mode: 0o600 });
+  const env = { ...process.env, GREAT_CTO_CODEX_RUNS_DIR: store, GREAT_CTO_TASKS_DIR: join(store, 'tasks'), GREAT_CTO_CODEX_BIN: codex,
+    GREAT_CTO_CLAUDE_BIN: claude, MIXED_HOST_MARKERS: markers, GREAT_CTO_DISABLE_EVENTS: '1' };
+  const invoke = (expectedCode, command, ...rest) => {
+    const result = spawnSync(process.execPath, [CONTROLLER, command, state.id, ...rest],
+      { cwd: REPO, env, encoding: 'utf8', timeout: 30000 });
+    assert.equal(result.status, expectedCode,
+      `controller ${command} failed: ${result.error?.message || result.stderr || result.stdout}`);
+    return JSON.parse(result.stdout);
+  };
+  const call = (command, ...rest) => invoke(0, command, ...rest);
+
+  // Complete the third join prerequisite before dispatching the QA/security pair.
+  assert.equal(invoke(2, 'resume').status, 'join-wait');
+  const reviewed = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(reviewed.results['code-reviewer'].verification.state, 'verified');
+  assert.equal(reviewed.pending, null);
+  reviewed.queue.push('qa-engineer', 'security-officer');
+  reviewed.status = 'ready';
+  writeFileSync(file, JSON.stringify(reviewed), { mode: 0o600 });
+
+  const first = call('resume');
+  assert.equal(first.status, 'awaiting-gate');
+  assert.ok(existsSync(join(markers, 'qa-engineer.started')));
+  assert.ok(existsSync(join(markers, 'security-officer.started')));
+  let saved = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(saved.waveHistory[0].status, 'verified');
+  assert.deepEqual([saved.results['qa-engineer'].host, saved.results['security-officer'].host], ['claude-code', 'codex']);
+  assert.ok(saved.results['qa-engineer'].verification.state === 'verified');
+  assert.ok(saved.results['security-officer'].verification.state === 'verified');
+  assert.ok(existsSync(join(root, 'docs', 'qa-engineer.md')));
+  assert.ok(existsSync(join(root, 'docs', 'security-officer.md')));
+  const tokens = new Set();
+  while (saved.pending) {
+    assert.ok(!tokens.has(saved.pending.token), 'each role requires its own gate token');
+    tokens.add(saved.pending.token);
+    call('approve', '--token', saved.pending.token);
+    saved = JSON.parse(readFileSync(file, 'utf8'));
+  }
+  saved = JSON.parse(readFileSync(file, 'utf8'));
+  assert.equal(saved.status, 'ready');
+  assert.equal(tokens.size, 3);
+  assert.equal(saved.approvals.length, 6); // Code review ship, QA+ship, security+compliance+ship.
+  assert.deepEqual(saved.attempts.map(a => a.host), ['codex', 'claude-code', 'codex']);
+  assert.deepEqual(saved.queue, ['devops']); // The shared graph continues into release; this fixture stops before it.
+});

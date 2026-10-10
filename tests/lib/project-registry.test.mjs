@@ -10,7 +10,7 @@ import { join } from 'node:path';
 import { registerProject } from '../../scripts/lib/project-registry.mjs';
 
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function tmp(prefix) { const d = realpathSync(mkdtempSync(join(tmpdir(), prefix))); TMP.push(d); return d; }
 
 function project(md = '# PROJECT.md\narchetype: healthcare\n') {

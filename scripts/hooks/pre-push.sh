@@ -312,6 +312,28 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     fi
   done < <(git rev-list "$range" 2>/dev/null || true)
 
+  # 1c. Authorship. Every change to great_cto is made as avelikiy, with
+  # avelikiy's GitHub address. On 2026-10-02 one merge commit carried the owner's
+  # name with a work address that GitHub links to a second account, and that
+  # account appeared in the public contributors list — permanently, short of a
+  # history rewrite. Commits by other people under their own names are not this
+  # check's business; the owner's name with any other address is refused.
+  while IFS='|' read -r c an ae cn ce; do
+    [[ -z "$c" ]] && continue
+    for pair in "author|$an|$ae" "committer|$cn|$ce"; do
+      IFS='|' read -r role nm em <<< "$pair"
+      if [[ "$(printf '%s' "$nm" | tr '[:upper:]' '[:lower:]')" == "avelikiy" ]]; then
+        case "$em" in
+          avelikiy@users.noreply.github.com|13051342+avelikiy@users.noreply.github.com) ;;
+          *)
+            echo -e "\n${RED}[pre-push] BLOCKED — commit ${c:0:8} has ${role} avelikiy <${em}>.${NC}" >&2
+            echo -e "${YELLOW}Changes to great_cto are made as avelikiy <avelikiy@users.noreply.github.com> (the repo's git config). Recommit without -c user.email / user.name overrides.${NC}" >&2
+            exit 1 ;;
+        esac
+      fi
+    done
+  done < <(git log "$range" --format='%H|%an|%ae|%cn|%ce' 2>/dev/null || true)
+
   # 2. Scan diff content (added lines only — lines starting with +)
   diff_output=$(git diff "$range" -- 2>/dev/null || true)
   if [[ -n "$diff_output" ]]; then

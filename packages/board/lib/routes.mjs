@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
-import { execFileSync } from 'child_process';
+import { execFileSync, execFile } from 'child_process';
+import { fileURLToPath } from 'node:url';
 import os from 'os';
 import {
   getVapidKeys,
@@ -13,6 +14,9 @@ import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
 import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs';
+import { isProjectState } from '../../../scripts/lib/great-cto-scope.mjs';
+import { usageReports } from './usage-report.mjs';
+import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
@@ -40,6 +44,20 @@ import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
+import { getWork } from './work.mjs';
+let publicationPreviewBusy = false;
+let publicationWriteBusy = false;
+import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
+const publicationTicketStore = publicationTickets();
+
+function publicationWorker(args, cwd, timeout = 20000) {
+  const controller = fileURLToPath(new URL('../../../scripts/work-task.mjs', import.meta.url));
+  return new Promise((resolve, reject) => execFile(process.execPath, [controller, ...args, '--dir', cwd],
+    { timeout, maxBuffer: 4 * 1024 * 1024, encoding: 'utf8' }, (error, stdout) => {
+      if (error) { reject(Error('publication worker failed; inspect host state before retry')); return; }
+      try { resolve(JSON.parse(stdout)); } catch { reject(Error('publication response is unreadable')); }
+    }));
+}
 import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
@@ -49,6 +67,7 @@ import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecis
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
+import { getSkillsInventory } from './skills-inventory.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -73,6 +92,7 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
 
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
+  const serverCwd = cwd;
 
   // The selected project, resolved ONCE for every route below.
   //
@@ -97,6 +117,107 @@ async function dispatch(req, res, url, cwd) {
     if (info.resolved === 'fallback' && typeof res.setHeader === 'function') {
       try { res.setHeader('X-Project-Fallback', String(info.requested || requestedProject)); } catch { /* headers already sent */ }
     }
+  }
+
+  // These read models accept registered projects or the server's own root,
+  // never an arbitrary HOME directory supplied as a query parameter.
+  const scopedProject = ['/api/skills', '/api/usage', '/api/outcomes'].includes(pathname)
+    ? scopedReadProject(cwd, serverCwd, requestedProject) : null;
+
+  if (pathname === '/api/work/publication') {
+    const respond = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') { respond(404, { error: 'Unknown project' }); return true; }
+    if (req.method !== 'POST') { respond(405, { error: 'Use explicit POST confirmation' }); return true; }
+    const origin = localPublicationOrigin(req);
+    // A missing Origin is acceptable for preview, never for an external write.
+    if (!origin || req.headers.origin !== origin || !originAllowed(req)) { respond(403, { error: 'Publication is available only from the local same-origin board' }); return true; }
+    if (publicationWriteBusy) { respond(429, { error: 'Another publication is running; inspect its outcome before retry' }); return true; }
+    publicationWriteBusy = true;
+    try {
+      let bytes = 0, body = '';
+      req.setTimeout(10000, () => req.destroy());
+      for await (const chunk of req) { bytes += chunk.length; if (bytes > 2048) throw Error('confirmation body too large'); body += chunk; }
+      req.setTimeout(0);
+      const parsed = JSON.parse(body);
+      if (parsed.confirm !== 'publish-draft-pr') throw Error('explicit draft PR confirmation required');
+      const ticket = publicationTicketStore.consume(parsed.ticket, { root: fs.realpathSync(cwd), origin, branch: parsed.branch });
+      const result = await publicationWorker(['publish', '--task', ticket.taskId, '--revision', String(ticket.expectedRevision),
+        '--approval', ticket.approval, '--base', ticket.base, '--allow', ticket.allow.join(','), '--confirm', 'publish-draft-pr'], cwd, 120000);
+      respond(200, { publication: result.task.publication });
+    } catch { respond(409, { error: 'Publication was not confirmed. Refresh task state and reconcile the original operation; no automatic retry was sent.' }); }
+    finally { publicationWriteBusy = false; }
+    return true;
+  }
+
+  // Preview never pushes. Local UI receives a short-lived confirmation ticket.
+  if (pathname === '/api/work/publication-preview') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'GET' }); res.end(JSON.stringify({ error: 'Publication requires explicit host CLI confirmation' })); return true;
+    }
+    if (publicationPreviewBusy) {
+      res.writeHead(429, { 'Content-Type': 'application/json', 'Retry-After': '2' });
+      res.end(JSON.stringify({ error: 'Another publication preview is being read; retry shortly' })); return true;
+    }
+    publicationPreviewBusy = true;
+    try {
+      const taskId = url.searchParams.get('task'), base = url.searchParams.get('base') || 'main', allow = url.searchParams.get('allow');
+      if (!/^[0-9a-f-]{36}$/.test(taskId || '') || !/^[A-Za-z0-9][A-Za-z0-9/_-]{0,120}$/.test(base)) throw Error('invalid preview options');
+      // Git/receipt reads run off the board event loop, with one bounded worker.
+      const preview = await publicationWorker(['preview', '--task', taskId, '--base', base, ...(allow ? ['--allow', allow] : [])], cwd);
+      const origin = localPublicationOrigin(req);
+      if (origin) preview.ticket = publicationTicketStore.issue({ root: fs.realpathSync(cwd), origin, taskId,
+        branch: preview.branch, base: preview.base, allow: preview.allow, ...preview.confirmation });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(preview));
+    } catch {
+      res.writeHead(409, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Publication preview unavailable: require verified delivery, a clean committed feature branch, explicit path scope and canonical GitHub origin. Inspect with the host CLI.' }));
+    } finally { publicationPreviewBusy = false; }
+    return true;
+  }
+
+  // Inventory is a read-only local observation. Query parameters cannot choose
+  // filesystem roots, install skills or ask for network/upstream checks.
+  if (pathname === '/api/skills') {
+    const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
+    if (req.method !== 'GET') {
+      res.writeHead(405, { ...headers, Allow: 'GET' });
+      res.end(JSON.stringify({ error: 'Skill inventory is read-only' }));
+      return true;
+    }
+    if (!scopedProject) {
+      res.writeHead(404, headers);
+      res.end(JSON.stringify({ error: 'Unknown project; skill inventory was not read' }));
+      return true;
+    }
+    try {
+      const snapshot = await getSkillsInventory(cwd);
+      res.writeHead(200, headers); res.end(JSON.stringify(snapshot));
+    } catch {
+      res.writeHead(503, headers);
+      res.end(JSON.stringify({ error: 'Skill inventory could not be read' }));
+    }
+    return true;
+  }
+
+  // New read model refuses project fallback rather than relabeling another project.
+  if (pathname === '/api/work') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project; work projection was not read' }));
+      return true;
+    }
+    if (req.method !== 'GET') {
+      res.writeHead(405, { 'Content-Type': 'application/json', Allow: 'GET' });
+      res.end(JSON.stringify({ error: 'Work execution is not connected; use the host CLI' }));
+      return true;
+    }
+    const snapshot = getWork(cwd);
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(snapshot));
+    return true;
   }
 
   // SSE
@@ -255,6 +376,13 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       const view = String(parsed.view || '');
+      // Only into a project. The board's cwd can be a directory that is not one —
+      // a release worktree, deleted since — and mkdir here recreated it (3.58.1).
+      if (!isProjectState(path.join(c, '.great_cto'))) {
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true, view, recorded: false, why: 'not a project' }));
+        return;
+      }
       try {
         recordView({ root: c, view });
       } catch (e) {
@@ -263,7 +391,7 @@ async function dispatch(req, res, url, cwd) {
         return;
       }
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ ok: true, view }));
+      res.end(JSON.stringify({ ok: true, view, recorded: true }));
     });
     return true;
   }
@@ -625,7 +753,11 @@ async function dispatch(req, res, url, cwd) {
         // The title is a NICETY — `id` was already its documented fallback. The
         // line is the record. So the lookup gets its own try and cannot take the
         // record down with it, and the caller is told which of the two happened.
-        const projectSlug = parsed.project || path.basename(gateCwd);
+        // A project given by PATH (the gate pane names its project by the session
+        // root, which resolves for any project under HOME) is logged by its
+        // directory's name: the path is the operator's own, and decisions.md may be
+        // committed.
+        const projectSlug = parsed.project && !/^[\/~]/.test(parsed.project) ? parsed.project : path.basename(gateCwd);
         let title = id;
         try {
           const gateTask = getTasks(gateCwd).find((t) => t.id === id);
@@ -1469,6 +1601,59 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  // What Claude Code and Codex consumed in the selected project — tokens, models, the
+  // heaviest conversations, tools, skills, agents, cache, Codex's plan window —
+  // read from the hosts' own session logs (scripts/lib/session-usage.mjs).
+  // Filter before aggregation, including linked worktrees. Served on the
+  // board's own host only; nothing here is sent anywhere.
+  if (pathname === '/api/usage') {
+    if (!scopedProject) {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
+    }
+    const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
+    const snap = boardSessionUsage().get(days, cwd);
+    let body;
+    if (snap.state !== 'counted') {
+      body = { state: snap.state, why: snap.why };
+    } else {
+      const sum = snap;
+      const ours = new Set(boardAgentNames());
+      for (const host of Object.keys(sum.lists)) {
+        sum.lists[host].agents = sum.lists[host].agents.map((a) => ({ ...a, ours: ours.has(a.name) }));
+      }
+      // Which hooks are great_cto's: a guard that names itself, a status message
+      // from our plugin.json, or a script in our scripts/hooks.
+      const mine = boardHookNames();
+      const tag = (rows, kind) => rows.map((r) => ({
+        ...r,
+        ours: kind === 'blocks' ? !r.name.startsWith('other: ') : mine.has(r.name.replace(/^[A-Za-z]+:\s*/, '')),
+      }));
+      for (const k of ['blocks', 'stopBlocks', 'errors', 'timeouts']) sum.hooks[k] = tag(sum.hooks[k], k);
+      body = { ...sum, seen: snap.seen, files: snap.files };
+    }
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(body));
+    return true;
+  }
+
+  // What the agents concluded and what reviews found in this project
+  // (scripts/lib/outcomes.mjs): verdicts per agent, Beads bugs by
+  // priority. Counts only — no bug title leaves the server. Answers at once:
+  // `computing` until the first read of this project's Beads lands.
+  if (pathname === '/api/outcomes') {
+    if (!scopedProject) {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
+    }
+    const rawDays = parseInt(url.searchParams.get('days') || '30', 10);
+    const days = Number.isFinite(rawDays) && rawDays > 0 ? Math.min(rawDays, 365) : 30;
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(boardOutcomes(days, scopedProject)));
+    return true;
+  }
+
   // Domain reviewers this project's PROJECT.md requires (archetype, packs,
   // compliance), each with whether a verdict exists — the list gate:ship refuses on.
   // Sessions in this project that wait for a person — written by the
@@ -2118,14 +2303,91 @@ async function dispatch(req, res, url, cwd) {
 
 
 let _usageSnap = null;
+function boardAgentNames() {
+  const agentsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'agents');
+  try { return fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)); } catch { return []; }
+}
+
 function boardUsage() {
   if (!_usageSnap) {
-    const agentsDir = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..', 'agents');
-    let agents = [];
-    try { agents = fs.readdirSync(agentsDir).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3)); } catch { /* none: every count is unavailable-by-omission */ }
+    // No agents dir: every count is unavailable-by-omission.
+    const agents = boardAgentNames();
     _usageSnap = usageSnapshot({ compute: () => agentUsage({ agents }) });
   }
   return _usageSnap;
+}
+
+let _hookNames = null;
+function boardHookNames() {
+  if (_hookNames) return _hookNames;
+  const root = path.join(path.dirname(new URL(import.meta.url).pathname), '..', '..', '..');
+  const names = new Set();
+  try {
+    const text = fs.readFileSync(path.join(root, '.claude-plugin', 'plugin.json'), 'utf8');
+    for (const m of text.matchAll(/"statusMessage"\s*:\s*"([^"]+)"/g)) names.add(m[1]);
+  } catch { /* no manifest: only scripts count */ }
+  try {
+    for (const f of fs.readdirSync(path.join(root, 'scripts', 'hooks'))) {
+      names.add(f.replace(/\.(mjs|js|py|sh)$/, ''));
+      // A Stop hook that sends the turn back opens its message with a label —
+      // "PIPELINE-NEXT: senior-dev succeeded …"; the labels our hooks write are ours.
+      try {
+        const src = fs.readFileSync(path.join(root, 'scripts', 'hooks', f), 'utf8');
+        for (const m of src.matchAll(/['"`]([A-Z][A-Z0-9_-]{2,40}):\s/g)) names.add(m[1]);
+      } catch { /* a directory or unreadable: its name is enough */ }
+    }
+  } catch { /* none */ }
+  _hookNames = names;
+  return names;
+}
+
+const _outcomes = new Map();
+const OUTCOMES_TTL = 5 * 60 * 1000;
+function scopedReadProject(cwd, serverCwd, requested) {
+  const canonical = dir => { try { return fs.realpathSync(dir); } catch { return path.resolve(dir); } };
+  const projectPath = canonical(cwd);
+  const entries = (readProjectsRegistry().projects || []).filter(p => p?.path);
+  const own = entries.filter(p => canonical(p.path) === projectPath);
+  if (requested && (resolveProjectInfo(requested).resolved === 'fallback'
+    || (!own.length && projectPath !== canonical(serverCwd)))) return null;
+  const labels = p => {
+    const result = [p.slug, p.name, p.path, path.basename(p.path)];
+    let fd;
+    try {
+      fd = fs.openSync(path.join(p.path, '.great_cto', 'PROJECT.md'), 'r');
+      const bytes = Buffer.alloc(65536);
+      const text = bytes.subarray(0, fs.readSync(fd, bytes, 0, bytes.length, 0)).toString('utf8');
+      for (const key of ['slug', 'project', 'name']) result.push(text.match(new RegExp(`^${key}:\\s*(.+)$`, 'm'))?.[1]?.trim());
+    } catch { /* aliases absent; canonical path still identifies the root */ }
+    finally { if (fd !== undefined) fs.closeSync(fd); }
+    return result.filter(Boolean);
+  };
+  const foreign = new Set(entries.filter(p => canonical(p.path) !== projectPath).flatMap(labels));
+  const aliases = [...new Set([...own, { path: projectPath }].flatMap(labels))].filter(label => !foreign.has(label)).sort();
+  return { name: own[0]?.slug || own[0]?.name || path.basename(projectPath), path: projectPath, aliases };
+}
+function boardOutcomes(days, project) {
+  const projectPath = project.path;
+  const key = JSON.stringify([days, projectPath, project.aliases]);
+  const slot = _outcomes.get(key) || {};
+  const fresh = slot.value && Date.now() - slot.at < OUTCOMES_TTL;
+  if (!fresh && !slot.running) {
+    slot.running = computeOutcomes({ days, roster: boardAgentNames(), projects: [project], projectScope: true })
+      .then((v) => { slot.value = { ...v, scope: { kind: 'project', path: projectPath } }; }, () => { slot.value = slot.value || { state: 'unavailable', why: 'Outcomes could not be read.' }; })
+      .finally(() => { slot.at = Date.now(); slot.running = null; });
+    if (_outcomes.size >= 32 && !_outcomes.has(key)) {
+      const evict = [..._outcomes].find(([, s]) => !s.running);
+      if (evict) _outcomes.delete(evict[0]);
+    }
+    _outcomes.set(key, slot);
+  }
+  return slot.value || { state: 'computing', why: 'reading this project\'s verdicts and Beads' };
+}
+
+let _sessionUsageSnap = null;
+function boardSessionUsage() {
+  if (!_sessionUsageSnap) _sessionUsageSnap = usageReports();
+  return _sessionUsageSnap;
 }
 
 export { dispatch, secondOpinionForTree };

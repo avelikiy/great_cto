@@ -35,6 +35,7 @@
  * Opt out: GREAT_CTO_DISABLE_STALL_GUARD=1
  */
 
+import { isGlobalLayer, isOurAgent } from '../lib/great-cto-scope.mjs';
 import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import {
@@ -134,6 +135,9 @@ function gateStatesFor(rule, verdict) {
 function main() {
   let payload = {};
   try { payload = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { /* Stop may send nothing */ }
+  // ~/.great_cto is the global layer: a session with no project of its own
+  // walked up to it and was told to resume another project's agent (07.10).
+  if (isGlobalLayer(PROJ_DIR)) return 0;
   // ADR-021: the turn stopping is an agent event, recorded before this guard's own
   // switch and before it returns early for a project with no pipeline.
   appendEvent(PROJ_DIR, { kind: 'stop', session: payload.session_id });
@@ -155,7 +159,7 @@ function main() {
   // When SubagentStop reports a fresh cut-off and that agent has no verdict of
   // its own, THAT is where the pipeline actually is.
   const lastStop = readLastStop(PROJ_DIR);
-  const cutOffAgent = lastStop?.shape === 'cut-off' && lastStop.agent
+  const cutOffAgent = lastStop?.shape === 'cut-off' && lastStop.agent && isOurAgent(lastStop.agent)
     && !latestVerdict(VERDICT_DIR, normalizeAgent(lastStop.agent), FRESH_MS, Date.now())
     ? normalizeAgent(lastStop.agent) : null;
 

@@ -18,7 +18,7 @@ import { create, write } from '../../scripts/lib/exceptions.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HOOK = join(ROOT, 'scripts', 'hooks', 'gate-weakening-guard.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 test('a skip added to a test file is found, in the usual runners', () => {
   for (const [file, before, after] of [

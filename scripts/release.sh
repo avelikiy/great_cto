@@ -195,6 +195,25 @@ awk -v ver="v$NEW" '
 # what the release ENABLES, not what it repaired. This will not rephrase a defect
 # list into a feature list, and should not — that is where honest release notes
 # turn into marketing.
+# The title of the version commit and the GitHub Release: the first sentence of
+# the entry's lead paragraph (what the release lets you do), cut at a word within
+# 72 characters. It used to be the first `###` heading, which titled 3.46.2 and
+# 3.47.0 "Fixed" and "Added". An entry with no lead paragraph still falls back to
+# its first heading.
+entry_title() {
+  local lead
+  lead=$(awk '/^### /{exit} NF{print}' "$1" | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //')
+  if [ -n "$lead" ]; then
+    lead=$(printf '%s' "$lead" | sed -E 's/([.!?])( |$).*/\1/; s/[.!?]$//')
+    if [ "${#lead}" -gt 72 ]; then
+      lead=$(printf '%s' "$lead" | cut -c1-73 | sed -E 's/ [^ ]*$//')
+    fi
+    printf '%s\n' "$lead"; return
+  fi
+  lead=$(grep -m1 -E '^### ' "$1" | sed 's/^### //' | cut -c1-80)
+  printf '%s\n' "${lead:-release}"
+}
+
 SUMMARY_FILE=$(mktemp)
 trap "rm -f $NOTES_FILE $SUMMARY_FILE" EXIT
 
@@ -245,9 +264,7 @@ step "3. Commit"
 if [ -z "$(git status --porcelain)" ]; then
   warn "no changes to commit — tag will point at current HEAD ($(git rev-parse --short HEAD))"
 else
-  # Use the first non-empty line of the CHANGELOG section as the commit subject
-  SUBJECT_LINE=$(grep -m1 -E '^### ' "$NOTES_FILE" | sed 's/^### //' | head -c 80 || echo "")
-  [ -z "$SUBJECT_LINE" ] && SUBJECT_LINE="release"
+  SUBJECT_LINE=$(entry_title "$NOTES_FILE")
   COMMIT_MSG="feat(v$NEW): $SUBJECT_LINE"
 
   # EXPLICIT paths, never `git add -A`. On 2026-09-06 the sweep put unrelated
@@ -316,8 +333,7 @@ if [ "$SKIP_RELEASE" = "1" ] || [ "$SKIP_PUSH" = "1" ]; then
 else
   step "6. Create GitHub Release"
 
-  TITLE_LINE=$(grep -m1 -E '^### ' "$NOTES_FILE" | sed 's/^### //' | head -c 80 || echo "")
-  [ -z "$TITLE_LINE" ] && TITLE_LINE="release"
+  TITLE_LINE=$(entry_title "$NOTES_FILE")
   RELEASE_TITLE="v$NEW — $TITLE_LINE"
 
   # Determine if this should be marked --latest

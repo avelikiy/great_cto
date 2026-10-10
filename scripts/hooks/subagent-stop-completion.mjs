@@ -23,6 +23,7 @@
  *           2 = block stop (only when GREAT_CTO_ENFORCE_COMPLETION=block AND incomplete)
  */
 
+import { isGlobalLayer, isProjectState, isOurAgent } from '../lib/great-cto-scope.mjs';
 import { readFileSync, readdirSync, statSync, existsSync, appendFileSync, mkdirSync, writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { parseVerdictLine } from './pipeline-dispatcher.mjs';
@@ -34,6 +35,8 @@ import { stopTranscript, stopAgent, requestedModel, modelCheck, costLine } from 
 import { fileURLToPath } from 'node:url';
 import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
+import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
+import { readdirSync as _readdir, unlinkSync } from 'node:fs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const ORCH_PATH = contractPath('orchestrator.toml');
@@ -104,7 +107,7 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
       ok: false,
       reason: remedy
         ? remedy.text
-        : 'subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: scripts/log-verdict.sh <agent> <verdict> <cost|auto> [meta...]',
+        : `subagent stopped without recording a verdict — three-state completion requires acceptance evidence. Record it: ${logVerdictCommand()} <agent> <verdict> <cost|auto> [meta...]`,
     };
   }
   // An earlier version of this check FAILED completion for a versioned-JSON
@@ -139,7 +142,7 @@ export function completionDecision({ threeState, recentVerdictExists, canonical 
     return {
       ok: false,
       reason: 'verdict has no cost=$<usd> tag — /api/cost reports zero for this stage. '
-        + 'Re-record with: bash scripts/log-verdict.sh <agent> <verdict> auto [meta...]',
+        + `Re-record with: ${logVerdictCommand()} <agent> <verdict> auto [meta...]`,
     };
   }
   return { ok: true, reason: 'verdict recorded' };
@@ -154,10 +157,13 @@ function safeRead(p) {
  * The freshest verdict line, parsed — so the check can look at its FORMAT and
  * not only at whether a file was touched.
  */
-export function freshestVerdictLine(dir, withinMs, now) {
+export function freshestVerdictLine(dir, withinMs, now, agent = null) {
   let best = null, bestMt = 0;
   let files;
   try { files = readdirSync(dir).filter((f) => f.endsWith('.log')); } catch { return null; }
+  // The stopping agent's own log, when the host named the agent: a parallel
+  // agent's verdict says nothing about this one.
+  if (agent) files = files.filter((f) => f === `${agent}.log`);
   for (const f of files) {
     let mt;
     try { mt = statSync(join(dir, f)).mtimeMs; } catch { continue; }
@@ -170,6 +176,57 @@ export function freshestVerdictLine(dir, withinMs, now) {
     bestMt = mt; best = parsed;
   }
   return best;
+}
+
+/**
+ * Did THIS agent record a verdict during THIS run?
+ *
+ * The old question was "was any verdict log touched in the last five minutes",
+ * and with agents running in parallel the answer was usually yes — another
+ * agent's. Its own log, written at or after the run began (a second of slack
+ * for the clock), is the evidence.
+ */
+export function agentVerdictSince(dir, agent, sinceMs) {
+  if (!agent || !/^[A-Za-z0-9_-]+$/.test(agent)) return false;
+  try {
+    const st = statSync(join(dir, `${agent}.log`));
+    return st.size > 0 && st.mtimeMs >= sinceMs - 1000;
+  } catch { return false; }
+}
+
+/** When a run began: the first timestamp in its own transcript; null when unknown. */
+export function runStartMs(transcriptPath) {
+  let text;
+  try { text = readFileSync(transcriptPath, 'utf8'); } catch { return null; }
+  for (const line of text.split('\n').slice(0, 200)) {
+    const m = line.match(/"timestamp"\s*:\s*"([^"]+)"/);
+    if (m) { const t = Date.parse(m[1]); if (Number.isFinite(t)) return t; }
+  }
+  return null;
+}
+
+/**
+ * "Asked once" is per RUN. It was per agent name and never expired: code-reviewer
+ * was asked on 15.09 and never again, and 43 of its next 46 runs ended with no
+ * verdict and no question. The run is named by its own transcript file.
+ */
+export function askedMarker(projDir, agent, runId) {
+  const clean = (x) => String(x || '').replace(/[^\w-]/g, '');
+  return join(projDir, `.completion-asked-${clean(agent || 'unknown')}${runId ? `-${clean(runId)}` : ''}`);
+}
+
+/** Markers of runs older than `maxAgeMs` are noise in the project's state dir. */
+export function pruneAskedMarkers(projDir, maxAgeMs = 7 * 86400000, now = Date.now()) {
+  let names = [];
+  try { names = _readdir(projDir).filter((n) => n.startsWith('.completion-asked-')); } catch { return 0; }
+  let n = 0;
+  for (const name of names) {
+    try {
+      const f = join(projDir, name);
+      if (now - statSync(f).mtimeMs > maxAgeMs) { unlinkSync(f); n++; }
+    } catch { /* gone or locked: next stop tries again */ }
+  }
+  return n;
 }
 
 /** True if any verdict log was modified within `withinMs` of `now`. */
@@ -345,29 +402,54 @@ async function recordMeasuredCost(stdin) {
 async function main() {
   let stdin = '';
   try { stdin = readFileSync(0, 'utf8'); } catch { /* no stdin */ }
-  // ADR-021: the stop is an agent event whatever the completion check decides, so
-  // it is recorded before that check's off switch.
+  // ADR-021: the stop is an agent event whatever the completion check decides —
+  // one per stop, written on every way out, carrying how the run ENDED:
+  //   verdict · verdict-incomplete · asked (sent back for its verdict) ·
+  //   no-verdict-reported (finished, did not record) · no-verdict-cut-off ·
+  //   no-verdict-unknown. A run with no verdict was invisible before; the board
+  //   counts these per agent.
+  let stopEvent = null;
   try {
     const stopped = JSON.parse(stdin || '{}');
-    appendEvent(PROJ_DIR, { kind: 'agent-stop', agent: stopped.agent_type || stopAgent(stopped), session: stopped.session_id });
+    stopEvent = { kind: 'agent-stop', agent: stopped.agent_type || stopAgent(stopped), session: stopped.session_id };
   } catch { /* no payload — nothing to name */ }
-  if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return process.exit(0);
+  let emitted = false;
+  const emit = (outcome) => {
+    if (emitted || !stopEvent) return;
+    emitted = true;
+    appendEvent(PROJ_DIR, outcome ? { ...stopEvent, outcome } : stopEvent);
+  };
+  const leave = (code, outcome) => { emit(outcome); return process.exit(code); };
+  // Not a project, or not our agent: nothing to record, nothing to ask.
+  if (isGlobalLayer(PROJ_DIR)) return process.exit(0);
+  if (process.env.GREAT_CTO_DISABLE_COMPLETION_CHECK === '1') return leave(0);
   await recordMeasuredCost(stdin);
 
+  if (!isProjectState(PROJ_DIR)) return leave(0);
   let flags = { threeState: false, acceptanceRequired: false };
-  try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return process.exit(0); }
+  try { flags = readCompletionFlags(readFileSync(ORCH_PATH, 'utf8')); } catch { return leave(0); }
 
-  const fresh = freshestVerdictLine(VERDICT_DIR, RECENT_MS, Date.now());
+  // Which agent stopped, and which run: the host says both. The agent used to be
+  // read from the freshest verdict on disk — any agent's — so a parallel agent's
+  // name could stand in for the one that stopped.
+  let payload = {};
+  try { payload = JSON.parse(stdin || '{}'); } catch { /* no payload */ }
+  const stoppedAgent = stopAgent(payload);
+  if (payload.agent_type && !isOurAgent(payload.agent_type)) return leave(0);
+  const tr = stopTranscript(payload);
+  const runId = tr.source === 'agent' && tr.path ? tr.path.split('/').pop().replace(/\.jsonl$/, '') : null;
+  const startedAt = tr.source === 'agent' && tr.path ? runStartMs(tr.path) : null;
+  const since = startedAt ?? Date.now() - RECENT_MS;
+  const fresh = freshestVerdictLine(VERDICT_DIR, Date.now() - since + 1000, Date.now(), stoppedAgent);
   // How the subagent stopped — read from the transcript the hook is already given.
   let stop = null;
   try {
-    const payload = JSON.parse(stdin || '{}');
     // The subagent's own transcript. `transcript_path` is the session's, and a
     // cut-off read from the whole session describes no agent in particular.
-    const tp = stopTranscript(payload).path;
+    const tp = tr.path;
     if (tp) {
       const sh = stopShape(tp);
-      stop = { shape: sh.shape, turns: sh.turns, agent: fresh?.agent || stopAgent(payload) };
+      stop = { shape: sh.shape, turns: sh.turns, agent: stoppedAgent || fresh?.agent };
       // Handed to the dispatcher, which runs in the ORCHESTRATOR's context and
       // is the only thing here that can resume anything. A hook cannot call
       // SendMessage; the orchestrator can, and it does not know how the subagent
@@ -380,7 +462,9 @@ async function main() {
   } catch { /* no transcript — the generic message still applies */ }
   const decision = completionDecision({
     threeState: flags.threeState,
-    recentVerdictExists: recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
+    recentVerdictExists: stoppedAgent
+      ? agentVerdictSince(VERDICT_DIR, stoppedAgent, since)
+      : recentVerdict(VERDICT_DIR, RECENT_MS, Date.now()),
     canonical: fresh ? fresh.canonical !== false : true,
     hasCost: fresh ? fresh.hasCost !== false : true,
     stop,
@@ -407,7 +491,9 @@ async function main() {
     if (note) process.stderr.write(`[great_cto:worktree] ${note}\n`);
   } catch { /* never break a subagent stop over a report */ }
 
-  if (decision.ok) return process.exit(0);
+  const hadVerdict = stoppedAgent ? agentVerdictSince(VERDICT_DIR, stoppedAgent, since) : !!fresh;
+  const ending = hadVerdict ? "verdict-incomplete" : `no-verdict-${stop?.shape || "unknown"}`;
+  if (decision.ok) return leave(0, flags.threeState ? 'verdict' : undefined);
 
   process.stderr.write(`[great_cto:completion] ${decision.reason}\n`);
 
@@ -416,23 +502,24 @@ async function main() {
   // without a verdict and a human wrote each one by hand. GREAT_CTO_ENFORCE_
   // COMPLETION=block still forces it for the rest; =off disables it entirely.
   const forced = process.env.GREAT_CTO_ENFORCE_COMPLETION === 'block';
-  if (process.env.GREAT_CTO_ENFORCE_COMPLETION === 'off') return process.exit(0);
+  if (process.env.GREAT_CTO_ENFORCE_COMPLETION === 'off') return leave(0, ending);
 
-  const marker = join(PROJ_DIR, `.completion-asked-${(stop?.agent || 'unknown').replace(/[^\w-]/g, '')}`);
+  pruneAskedMarkers(PROJ_DIR);
+  const marker = askedMarker(PROJ_DIR, stop?.agent || stoppedAgent, runId);
   let blockedBefore = false;
   try { blockedBefore = existsSync(marker); } catch { /* unreadable — may ask twice */ }
 
   const b = shouldBlockStop({ decision, stop, blockedBefore, forced });
   if (!b.block) {
     process.stderr.write(`[great_cto:completion] not blocking — ${b.why}\n`);
-    return process.exit(0);
+    return leave(0, ending);
   }
 
   try { mkdirSync(PROJ_DIR, { recursive: true }); writeFileSync(marker, `${new Date().toISOString()}\n`); }
   catch { /* a marker we cannot write means we may ask twice; not a hang */ }
 
   process.stderr.write('[great_cto:completion] BLOCKED stop — record the verdict, then finish. Asked once; this will not repeat.\n');
-  return process.exit(2);
+  return leave(2, 'asked');
 }
 
 const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];

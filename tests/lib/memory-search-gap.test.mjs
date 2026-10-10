@@ -16,7 +16,7 @@ import { missingTerms, searchMemory, gatherCorpus } from '../../scripts/lib/memo
 const ROOT = path.resolve(import.meta.dirname, '../..');
 const CLI = path.join(ROOT, 'scripts/lib/memory-search.mjs');
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 function tree() {
   const dir = mkdtempSync(path.join(tmpdir(), 'gc-gap-'));

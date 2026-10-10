@@ -62,15 +62,16 @@ fi
 ## Step 4 — Start board in background
 
 ```bash
-# Find the great-cto binary — prefer locally-installed plugin version,
-# fall back to PATH.
+# Find the great-cto binary — prefer the plugin's own CLI when it is BUILT,
+# fall back to PATH. A marketplace install is a git clone without the build
+# (dist/ is gitignored), so index.mjs being there proves nothing.
 PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}
-if [ -f "$PLUGIN_DIR/packages/cli/index.mjs" ]; then
+if [ -f "$PLUGIN_DIR/packages/cli/dist/main.js" ]; then
   CLI="node $PLUGIN_DIR/packages/cli/index.mjs"
 elif command -v great-cto >/dev/null 2>&1; then
   CLI="great-cto"
 else
-  echo "ERROR: great-cto not found in PATH or plugin cache."
+  echo "ERROR: the plugin copy has no built CLI and great-cto is not in PATH."
   echo "Install: npm install -g great-cto"
   exit 1
 fi

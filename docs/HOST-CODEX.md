@@ -1,9 +1,14 @@
-# Controlled Codex host (experimental)
+# Controlled Codex and Claude Code hosts (experimental)
 
 The plugin provides an explicit controller in `scripts/codex-pipeline.mjs`.
 Each worker receives a controller-owned, side-effect-free Codex role profile and runs through Codex CLI
 in read-only mode. The controller validates and writes its JSON file proposals,
 then routes the next role using the installed `shared/pipeline.toml`.
+
+The same controller can route selected roles to Claude Code. The role profile,
+proposal validation, verifier, run cursor and gate policy stay controller-owned.
+Claude Code runs with safe mode, restricted mode and only Read/Glob/Grep tools;
+it cannot use project hooks or its normal write-capable agent prompt in this mode.
 
 ## Usage
 
@@ -11,15 +16,44 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.46.1 codex-host doctor
-npx --yes great-cto@3.46.1 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.46.1 codex-host status <run-uuid>
-npx --yes great-cto@3.46.1 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.46.1 codex-host resume <run-uuid>
-npx --yes great-cto@3.46.1 codex-host recover <run-uuid>
-npx --yes great-cto@3.46.1 codex-host cancel <run-uuid>
-npx --yes great-cto@3.46.1 codex-host list --dir /path/to/project
+npx --yes great-cto@3.60.0 codex-host doctor
+npx --yes great-cto@3.60.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.60.0 codex-host status <run-uuid>
+npx --yes great-cto@3.60.0 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.60.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.60.0 codex-host recover <run-uuid>
+npx --yes great-cto@3.60.0 codex-host cancel <run-uuid>
+npx --yes great-cto@3.60.0 codex-host list --dir /path/to/project
 ```
+
+For a mixed run from a source checkout, assign roles at start. Unlisted roles
+use Codex. The version-pinned npm entrypoint gains this option in the next
+package release:
+
+```sh
+node scripts/codex-pipeline.mjs start \
+  --dir /path/to/project --allow src,docs \
+  --prompt 'Implement and review the specified feature' \
+  --routes qa-engineer=claude-code,security-officer=codex
+```
+
+Both CLIs must be installed and authenticated. `claude auth status --json` must
+report `loggedIn: true`; the controller refuses a mixed start otherwise. The
+two symmetric join roles above inspect the same frozen tree concurrently. The
+controller checks both proposals and rejects overlapping paths before writing
+either one. It then applies each proposal in graph order, verifies the actual
+files, and raises the declared human gates. A failed host, a changed input tree
+or an overlapping proposal blocks the wave. A persisted fetched wave can resume
+without invoking either model again. A crash while workers are still running is
+held for operator inspection; it cannot silently dispatch them twice.
+Concurrent roles may create new `docs/` evidence files only. Implementation
+changes stay sequential so both reviewers always assess the same code tree.
+
+`--routes` selects an execution host per role. It is not an instruction to let
+Claude Code and Codex write into one worktree at the same time. Only roles with
+a symmetric `join` and the same downstream edge form a concurrent wave; other
+roles run in dependency order. The run state and `list` projection record each
+role's host and wave status.
 
 ## Keeping the installed Codex plugin current
 
@@ -36,7 +70,8 @@ sh scripts/codex-auto-update.sh disable
 
 The per-user scheduling agent lives at
 `~/Library/LaunchAgents/com.great-cto.codex-auto-update.plist`. It only runs
-when the `great-cto` marketplace points to this project's GitHub repository;
+when the `great-cto` marketplace points to this project's GitHub repository,
+revalidated before every scheduled refresh, not only when enabling the timer;
 it does not edit Codex's cache directly. The updater follows the marketplace's
 configured Git ref (`main` by default), which can move ahead of the npm release.
 Codex must load the refreshed plugin in a new session; new or changed hooks
@@ -47,6 +82,29 @@ The entry role defaults to `product-owner`. `--entry architect` can be used when
 the product decision was already made. Explicit allowed paths apply to all roles
 in this run. Review them before starting. Approve only after inspecting the
 stage's artifacts. Approving does not itself execute the next stage.
+
+For an opt-in live source-checkout smoke on a disposable Git fixture, run
+`GREAT_CTO_LIVE_MIXED=1 node --test tests/lib/mixed-host-live.test.mjs` after
+authenticating both CLIs. It routes QA to Claude Code and security to Codex,
+first obtains real code-reviewer evidence required by the three-reviewer join,
+retains the project and run store under a printed private durable path, checks both
+independent verifier results and report hashes, and stops at the first human
+gate. The test never approves a gate. A verified smoke is evidence for this
+source checkout only; it is not evidence that the feature has shipped in npm
+or in an installed plugin.
+
+To check an extracted npm package or installed plugin instead, set
+`GREAT_CTO_LIVE_PLUGIN_ROOT` to its plugin root (the `package/board` directory
+for an npm tarball). Both the controller and graph are loaded from that root:
+
+```sh
+GREAT_CTO_LIVE_MIXED=1 GREAT_CTO_LIVE_PLUGIN_ROOT=/absolute/extracted/package/board \
+  node --test tests/lib/mixed-host-live.test.mjs
+```
+
+An unreleased tarball is package-candidate evidence, not a published-version
+claim. The smoke keeps the normal three-attempt rework limit and never approves
+the resulting human gates.
 
 Run state lives in `~/.great_cto/codex-runs/<uuid>.json`, outside the worker's
 workspace. An exclusive lock prevents concurrent resume or approval. An in-flight
@@ -263,6 +321,24 @@ Only gates of that disposable project are auto-approved. It retains `run.json`
 and `acceptance.json` outside the worker project for inspection. A blocked or
 unverifiable run is not a successful end-to-end acceptance.
 
+For a mixed-host full-graph source acceptance that does **not** auto-approve
+any gate, run:
+
+```sh
+GREAT_CTO_LIVE_DOCKER_IMAGE=node@sha256:<local-digest> node tests/eval/mixed-host-release-live.mjs
+```
+
+It creates a disposable Git project, isolated run store, local release root
+and operator-owned policies under the private, persistent macOS directory
+`/Users/Shared/great-cto-acceptance-<uid>/` (or an absolute, private
+`GREAT_CTO_LIVE_BASE_DIR`; required on non-macOS hosts). The base must have no
+ancestor `.codex/config.toml`. This avoids losing a human-gated run to OS temp
+cleanup or inheriting a project Codex config. It routes QA to Claude Code and
+security to Codex, then stops at `gate:product`. The printed paths and run ID
+are retained for separate operator approval and resume. The local release
+adapter still needs its own later release approval; this driver does not
+publish or activate an artifact by itself.
+
 ## Related
 
 - [ADR-021: controlled shell inside the offline check container](adr/ADR-021-controlled-shell-inside-offline-check-container.md) —
@@ -271,6 +347,8 @@ unverifiable run is not a successful end-to-end acceptance.
   draft, byte verification and rollback semantics for the external adapter.
 - [Codex support contract](CODEX-SUPPORT-CONTRACT.md) — acceptance criteria and
   explicit remaining lifecycle boundaries; not a claim of complete support.
+- [Mixed-host release readiness](analysis/2026-10-01-mixed-host-release-readiness.md) —
+  the source and packaged-candidate evidence behind `--routes` in 3.47.0.
 
 - [2026-09-05-codex-phase0-findings](analysis/2026-09-05-codex-phase0-findings.md) —
   what Codex does and does not carry as a plugin, measured against codex-cli

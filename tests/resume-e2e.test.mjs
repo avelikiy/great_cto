@@ -114,7 +114,7 @@ async function killBoardTree(board) {
 }
 
 function cleanup(...dirs) {
-  for (const d of dirs) try { rmSync(d, { recursive: true, force: true }); } catch {}
+  for (const d of dirs) try { rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
 }
 
 // ── tests ──────────────────────────────────────────────────────────────────

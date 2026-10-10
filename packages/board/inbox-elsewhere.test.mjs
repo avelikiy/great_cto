@@ -31,7 +31,7 @@ test('counts P0s and gates in every project but this one', () => {
     assert.equal(out.gates, 1);
     assert.deepEqual(out.projects.map((p) => p.slug).sort(), ['a', 'b']);
     assert.deepEqual(out.unreadable, []);
-  } finally { for (const d of [cur, a, b]) rmSync(d, { recursive: true, force: true }); }
+  } finally { for (const d of [cur, a, b]) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });
 
 test('a project whose inbox cannot be read is named, not counted as zero', () => {
@@ -45,7 +45,7 @@ test('a project whose inbox cannot be read is named, not counted as zero', () =>
     assert.equal(out.p0, 1, 'the readable project still counts');
     assert.deepEqual(out.unreadable, ['broken'], 'the unreadable one is listed by name');
     assert.equal(out.projects.length, 1);
-  } finally { for (const d of [cur, a, broken]) rmSync(d, { recursive: true, force: true }); }
+  } finally { for (const d of [cur, a, broken]) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });
 
 test('nothing elsewhere is an honest zero, and a quiet project is not listed', () => {
@@ -54,7 +54,7 @@ test('nothing elsewhere is an honest zero, and a quiet project is not listed', (
     const out = inboxElsewhere([{ slug: 'cur', path: cur }, { slug: 'a', path: a }], cur,
       { readInbox: () => ({ summary: { p0: 0, gates: 0 } }) });
     assert.deepEqual(out, { p0: 0, gates: 0, projects: [], unreadable: [] });
-  } finally { for (const d of [cur, a]) rmSync(d, { recursive: true, force: true }); }
+  } finally { for (const d of [cur, a]) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });
 
 test('the current project is matched by resolved path, not by string', () => {
@@ -65,5 +65,5 @@ test('the current project is matched by resolved path, not by string', () => {
       { readInbox: (p) => ({ summary: { p0: 5, gates: 0 } }) });
     assert.equal(out.p0, 5, 'only the other project was counted');
     assert.deepEqual(out.projects.map((p) => p.slug), ['a']);
-  } finally { for (const d of [cur, a]) rmSync(d, { recursive: true, force: true }); }
+  } finally { for (const d of [cur, a]) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); }
 });

@@ -1,0 +1,11 @@
+# The HOL AI Plugin Scanner the gate runs — the build the awesome-codex-plugins
+# catalogue judges submissions with: its validate-contribution.yml and
+# sweep-open-prs.yml pin hashgraph-online/ai-plugin-scanner-action@55616c96
+# (v1.2.515), whose scanner-version.txt / scanner-sha256.txt are below. That
+# action installs the wheel's dependencies unpinned; the Cisco skill scanner
+# arrives as one of them and is what found 35 high on 2026-10-01 while a scan
+# without it said 0. constraints.txt freezes the versions it resolved that day
+# (python3.12, as the action sets up), so a gate run is reproducible.
+# Bump from the catalogue's workflow, never by hand.
+version=2.0.1116
+sha256=40d40308484e49b438c6ef47a7794ab6aac617914447174f80fe4578911cdcb3

@@ -79,3 +79,20 @@ factual claims).
   - a recorded lesson is shown when a call touches what it names (its evidence files,
     paths, flags, identifiers), with keys most lessons share dropped —
     `scripts/hooks/lesson-tripwire.mjs`.
+
+## smart-contract-auditor (pashov/skills, kadenzipfel/smart-contract-vulnerabilities)
+
+- Upstream: https://github.com/pashov/skills (`solidity-auditor/SKILL.md`,
+  `solidity-auditor/references/judging.md`, `references/hacking-agents/`)
+- Upstream license: MIT (Copyright (c) pashov)
+- Adapted into `agents/smart-contract-auditor.md`: the scope rule (exclude dependencies,
+  build output and tests; keep deploy scripts; `find -type f`), the attack vectors
+  reviewed one at a time, and the four-gate finding validation (execution, reachability,
+  trigger, impact) with the admin-action rule, the confidence deductions, the 75
+  threshold and the safe-pattern list — reworded, not copied verbatim.
+- Referenced, not copied: https://github.com/kadenzipfel/smart-contract-vulnerabilities
+  (MIT) for vulnerability classes; https://github.com/SunWeb3Sec/DeFiHackLabs
+  (Apache-2.0) for reproduced exploits. The analyzers the agent runs (Slither, Echidna,
+  Medusa, Halmos, crytic/properties — AGPL-3.0; Aderyn — GPL-3.0; Mythril, Solhint —
+  MIT; Foundry — Apache-2.0) are invoked as external programs; none of their code is
+  included here.

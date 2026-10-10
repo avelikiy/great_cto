@@ -12,7 +12,7 @@ import { join } from 'node:path';
 import { learnerArgs, redact, digestTranscript, runLearner, learnerPrompt } from '../../scripts/lib/run-learner.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); made.push(d); return d; };
 
 // A stand-in that behaves like the real CLI where it matters: without -p and a
@@ -51,6 +51,7 @@ function transcript() {
     { type: 'assistant', message: { content: [{ type: 'tool_use', name: 'Agent', input: { subagent_type: 'devops', description: 'deploy preview' } }] } },
     { type: 'user', message: { content: [{ type: 'tool_result', is_error: true, content: 'Error: wrangler: functions/ not deployed\nstack…' }] } },
     { type: 'user', message: { content: [{ type: 'tool_result', content: 'ok output that is not an operator message' }] } },
+    { type: 'assistant', message: { content: [{ type: 'text', text: 'Root cause: the gate test inherited commit.gpgsign and ssh-keygen hung.' }] } },
   ];
   writeFileSync(f, lines.map((l) => JSON.stringify(l)).join('\n'));
   return f;
@@ -70,9 +71,9 @@ test('secrets are redacted by kind, never kept', () => {
   assert.match(out, /\[REDACTED GitHub PAT/);
 });
 
-test('the digest keeps what the operator said, what was dispatched and what failed — and nothing else', () => {
+test('the digest keeps what the operator said, what was dispatched, what failed and what was concluded — and nothing else', () => {
   const { text, counts } = digestTranscript(readFileSync(transcript(), 'utf8'));
-  assert.deepEqual(counts, { operator: 2, dispatches: 1, failures: 1 });
+  assert.deepEqual(counts, { operator: 2, dispatches: 1, failures: 1, conclusions: 1 });
   assert.match(text, /проверь на проде/);
   assert.match(text, /devops: deploy preview/);
   assert.match(text, /functions\/ not deployed/);
@@ -133,4 +134,90 @@ test('no transcript, or a session the operator barely spoke in, is skipped — t
   writeFileSync(one, JSON.stringify({ type: 'user', message: { content: 'ok' } }));
   assert.equal(runLearner({ cwd, transcript: one, claude: fake.bin }).state, 'skipped');
   assert.match(readFileSync(join(cwd, '.great_cto', '.last-auto-learn'), 'utf8'), /skipped: 1 operator message/);
+});
+
+// 2026-10-01: a 270 MB session ended with "lessons+0". The digest held 19
+// operator messages (1.4k chars); the lessons of that day — a hung signing agent,
+// a plugin install with no build — were found in the assistant's own conclusions,
+// which the digest dropped. They are kept now, newest first within a budget.
+test('the assistant\'s conclusions reach the learner, newest kept when they overflow', () => {
+  const lines = [];
+  for (let i = 0; i < 400; i++) lines.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `conclusion ${i} ${'x'.repeat(300)}` }] } }));
+  const { text, counts } = digestTranscript(lines.join('\n'));
+  assert.equal(counts.conclusions, 400);
+  assert.match(text, /## What the assistant concluded/);
+  assert.match(text, /conclusion 399 /, 'the newest conclusion is kept');
+  assert.doesNotMatch(text, /conclusion 0 /, 'the oldest goes first when the budget is spent');
+  assert.ok(text.length <= 62_000, `digest ${text.length} chars`);
+});
+
+test('a conclusion carrying a secret is redacted like everything else', () => {
+  const l = JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `use sk-or-v1-${'b'.repeat(40)} for the router` }] } });
+  assert.doesNotMatch(digestTranscript(l).text, /sk-or-v1-b/);
+});
+
+test('a window run reads the transcript from its offset, not the whole tail', async () => {
+  const { readWindow } = await import('../../scripts/lib/run-learner.mjs');
+  const f = join(tmp('learn-win-'), 't.jsonl');
+  const early = JSON.stringify({ type: 'user', message: { content: 'early message' } });
+  const late = JSON.stringify({ type: 'user', message: { content: 'late message' } });
+  writeFileSync(f, `${early}\n`);
+  const offset = Buffer.byteLength(`${early}\n`);
+  writeFileSync(f, `${early}\n${late}\n`);
+  const w = readWindow(f, offset, 8 * 1024 * 1024);
+  assert.match(w, /late message/);
+  assert.doesNotMatch(w, /early message/);
+  assert.match(readWindow(f, 0, 8 * 1024 * 1024), /early message/);
+});
+
+test('a window of mostly autonomous work is learned from when it has conclusions', () => {
+  const cwd = project();
+  const fake = fakeClaude({ addLesson: true });
+  const f = join(tmp('learn-auto-'), 't.jsonl');
+  const lines = [JSON.stringify({ type: 'user', message: { content: 'делай' } })];
+  for (let i = 0; i < 6; i++) lines.push(JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text: `finding ${i}: the gate inherited commit signing` }] } }));
+  writeFileSync(f, lines.join('\n'));
+  const r = runLearner({ cwd, transcript: f, reason: 'window', claude: fake.bin });
+  assert.equal(r.state, 'done', 'one operator message and six conclusions is something to learn from');
+});
+
+test('a window with neither operator messages nor conclusions is still skipped', () => {
+  const cwd = project();
+  const f = join(tmp('learn-empty-'), 't.jsonl');
+  writeFileSync(f, JSON.stringify({ type: 'user', message: { content: [{ type: 'tool_result', content: 'ok' }] } }));
+  assert.equal(runLearner({ cwd, transcript: f, reason: 'window', claude: '/nonexistent' }).state, 'skipped');
+});
+
+// Card numbers: since 3.48 the digest carries the assistant's conclusions, so a
+// card number that appeared in a session could reach the learner and its lessons.
+// Gated on the Luhn checksum (autoharness #180): a long id, a millisecond
+// timestamp or a primary key that fails the checksum stays as evidence.
+test('a card number is redacted from the digest; a long id that is not one is kept', () => {
+  const line = (text) => JSON.stringify({ type: 'assistant', message: { content: [{ type: 'text', text }] } });
+  const out = digestTranscript([
+    line('paid with 4242 4242 4242 4242 in the test'),
+    line('fallback card 4111-1111-1111-1111 also failed'),
+    line('order id 1234567890123456 and snowflake 1790939104017'),
+  ].join('\n')).text;
+  assert.doesNotMatch(out, /4242 4242 4242 4242|4111-1111-1111-1111/);
+  assert.match(out, /\[REDACTED card number\]/);
+  assert.match(out, /1234567890123456/, 'a 16-digit id that fails Luhn is not a card');
+  assert.match(out, /1790939104017/, 'a timestamp that fails Luhn is not a card');
+});
+
+test('a session that ends in the home directory teaches nothing — its .great_cto is the global layer', () => {
+  // On 2026-10-05 a session ended in ~, the learner took ~ for a project and wrote
+  // a lesson naming two private projects into ~/.great_cto/lessons.md — the file
+  // read-global-memory injects into every session of every project. It also pushed
+  // that injection past its byte ceiling. Home is never a project here.
+  const home = project();
+  const fake = fakeClaude({ addLesson: true });
+  const r = runLearner({ cwd: home, home, transcript: transcript(), claude: fake.bin });
+  assert.equal(r.state, 'skipped');
+  assert.match(r.detail, /home directory/);
+  assert.equal(existsSync(join(home, '.great_cto', 'lessons.md')), false, 'no lesson written into the global layer');
+  assert.throws(() => fake.argv(), 'the learner was not started at all');
+  // A project below home is still a project.
+  const below = join(home, 'proj'); mkdirSync(join(below, '.great_cto'), { recursive: true });
+  assert.equal(runLearner({ cwd: below, home, transcript: transcript(), claude: fake.bin }).state, 'done');
 });

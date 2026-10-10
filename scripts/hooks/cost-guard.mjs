@@ -29,6 +29,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { spendWindows } from '../lib/cost-history.mjs';
 
 // ─── Cost estimates per operation ──────────────────────────────────────────
 const ROUGH_COST_USD = {
@@ -121,27 +122,12 @@ function detectAgent(prompt) {
   return null;
 }
 
-// Parse cost-history.log entries. Returns { spentToday, spentMonth, spentAll }.
-// Each line: "<iso-ts> agent=X feature=Y cost_usd=N ..."
+// Measured spend from cost-history.log. Until 2026-10-01 this matched `cost_usd=N`,
+// which no writer emits — every cap compared against $0 and could never fire.
+// The row rules live in ../lib/cost-history.mjs, shared with every other reader.
 function readCostHistory() {
   try {
-    const txt = readFileSync('.great_cto/cost-history.log', 'utf8');
-    const today = new Date().toISOString().slice(0, 10);          // YYYY-MM-DD
-    const month = today.slice(0, 7);                              // YYYY-MM
-    let spentToday = 0, spentMonth = 0, spentAll = 0;
-    for (const line of txt.split('\n')) {
-      if (!line.trim()) continue;
-      const tsMatch = line.match(/^(\d{4}-\d{2}-\d{2})/);
-      const costMatch = line.match(/cost[-_]?usd[=:]\s*(\d+(?:\.\d+)?)/i);
-      if (!costMatch) continue;
-      const cost = parseFloat(costMatch[1]);
-      spentAll += cost;
-      if (!tsMatch) continue;
-      const date = tsMatch[1];
-      if (date === today) spentToday += cost;
-      if (date.startsWith(month)) spentMonth += cost;
-    }
-    return { spentToday, spentMonth, spentAll };
+    return spendWindows(readFileSync('.great_cto/cost-history.log', 'utf8'));
   } catch {
     return { spentToday: 0, spentMonth: 0, spentAll: 0 };
   }

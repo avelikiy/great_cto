@@ -118,6 +118,15 @@ must-implement-before-senior-dev:
 gate: gate:gdpr-dpia   # only when dpia: required
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh gdpr-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Privacy: describe the value, never reproduce it
 
 You read raw material — transcripts, logs, configs — and your report is durable.

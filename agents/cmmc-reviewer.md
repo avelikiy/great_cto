@@ -110,6 +110,15 @@ Block the gate unless ALL hold:
 - SSP reflects the actual implementation; POA&M covers every unmet 800-171 control.
 - Export-control access-by-citizenship enforced; no Section 889 covered vendors present.
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh cmmc-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-cmmc-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Anti-patterns you refuse
 
 - Choosing a CMMC level before determining whether the system touches CUI vs only FCI.

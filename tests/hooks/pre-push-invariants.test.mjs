@@ -15,7 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 const HOOK_SRC = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'pre-push.sh');
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const git = (cwd, args, env = {}) => spawnSync('git', args, { cwd, encoding: 'utf8', env: { ...process.env, ...env } });
 

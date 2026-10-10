@@ -7,7 +7,7 @@ import { join, dirname } from 'node:path';
 import { affectedTests } from '../../scripts/lib/affected-tests.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function repo(files) {
   const d = mkdtempSync(join(tmpdir(), 'aff-')); made.push(d);
   for (const [f, c] of Object.entries(files)) { mkdirSync(dirname(join(d, f)), { recursive: true }); writeFileSync(join(d, f), c); }

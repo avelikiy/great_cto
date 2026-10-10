@@ -13,7 +13,9 @@ import { startServerOnFreePort } from '../../tests/helpers/board-start.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, 'server.mjs');
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+// maxRetries: the board's bd is still flushing .beads/eventsData into the temp
+// home when the suite ends; a plain rmdir then fails ENOTEMPTY (3.58.0 publish).
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); TMP.push(d); return d; };
 const KEY = ['sk', 'or', 'v1', 'abcdefghijklmnopqrstuvwxyz01'].join('-');
 

@@ -1388,7 +1388,10 @@ async function main() {
     }
     console.log(`[dry-run] Results would be written to: ${resultsPath}`);
     console.log('[dry-run] No API calls made. Exiting 0.');
-    process.exit(0);
+    // Return, not process.exit(0): on macOS a pipe is written asynchronously, and
+    // exit drops whatever ~15 KB of file list is still queued. Under a loaded gate
+    // the test saw status 0 and the EVAL lines, but not this last line.
+    return;
   }
 
   const runId = new Date().toISOString();

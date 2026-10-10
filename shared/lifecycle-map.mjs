@@ -88,6 +88,7 @@ export const AGENT_ROLE = {
   'ai-eval-engineer': 'builder',
   // Sweeper  (code-reviewer is a QUALITY reviewer, not a compliance one)
   'code-reviewer': 'sweeper',
+  'smart-contract-auditor': 'reviewers',
   'qa-engineer': 'sweeper',
   'e2e-test-engineer': 'sweeper',
   // Grower

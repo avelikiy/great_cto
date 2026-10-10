@@ -14,7 +14,7 @@ import { expectedKeys, trustedKeys, hookTrustStatus, formatStatus } from '../../
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HOOKS = JSON.parse(readFileSync(join(REPO, '.codex-plugin', 'hooks.json'), 'utf8'));
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 /** A CODEX_HOME with great_cto <version> installed; withHooks=false is what 3.37.0 looked like. */
 function home(version, { withHooks = true } = {}) {

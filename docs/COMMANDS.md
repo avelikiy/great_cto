@@ -1,22 +1,22 @@
 # Commands
 
-great_cto has 21 slash commands. Five of them carry a normal day; the rest wait until
-you need them. Type them in Claude Code. On Codex there are no slash commands — the
-skills, the MCP server and the guards carry over; the role pipeline runs through
-`npx great-cto codex-host` ([Codex host guide](HOST-CODEX.md)).
+great_cto has 21 slash commands, and a normal day needs three of them. Type them in
+Claude Code, or use the same three from the terminal — on Claude Code or Codex. On
+Codex there are no slash commands; the pipeline runs through the CLI
+([Codex host guide](HOST-CODEX.md)).
 
 Every command has a one-screen card: `/help`. Old names from before 3.40 still map:
 `/help renamed`, or [the table below](#renamed-in-340).
 
 ## Every day
 
-| Command | When | What you get |
+| Command | In the terminal | What you get |
 |---|---|---|
-| [`/start "…"`](#start) | You have an idea, or a codebase great_cto has not seen | A brief, a plan and working code. Three decisions stay yours: what to build, how, and whether it ships |
-| [`/save`](#save) | You are done for now | A session note: what was done, how each "done" was verified, where the work stands, the next step |
-| [`/resume`](#resume) | You come back | Where you left off — and a warning if the code moved since the note |
-| [`/inbox`](#inbox) | Something may be waiting on you | Only the decisions that need you: open gates, blockers, P0s |
-| [`/digest`](#digest) | Friday, or before a review | What shipped, what broke, what it cost — per feature |
+| [`/start "…"`](#start) | `great-cto run "…"` | A new product or a task in an existing project, taken through the pipeline. Three decisions stay yours: what to build, how, and whether it ships |
+| [`/inbox`](#inbox) | `great-cto status` | Only the decisions that need you: open gates, blockers, P0s |
+| [`/resume`](#resume) | `great-cto resume` | Where you left off, continued — only what you already approved; a pending decision still waits |
+
+Add `--host codex` to the terminal commands to run them on Codex.
 
 ### /start
 
@@ -30,12 +30,6 @@ Describe the product; the pipeline does the rest and stops three times for you:
 | `/start` in a repo with code but no great_cto config | Takes the audit path first: detected stack, gaps with `file:line` evidence, a task per gap, `PROJECT.md` — then offers to start on your description |
 | `/start audit [focus]` · `/audit` | The audit path on its own, any time (`/audit` is the same command) |
 
-### /save
-
-Writes `.great_cto/logs/session-<date>-<slug>.md`: what was done, a `Verify:` command for
-each done item, decisions, what is pending, and the run state (branch@sha, dirty files,
-servers still listening). `/save commit` also commits and pushes the note.
-
 ### /resume
 
 Reads the latest notes, open tasks, decisions and git state, and tells you where you
@@ -47,21 +41,12 @@ re-runs only cheap read-only proofs before acting.
 Open gates, blocked tasks, P0s and pending approvals from the last 24 hours
 (`/inbox 72` for three days) — the list of things that need a human, nothing else.
 
-### /digest
-
-| Use | Does |
-|---|---|
-| `/digest` · `/digest 30` | Weekly engineering digest: velocity, incidents, tech debt, decisions, open gates, one recommendation |
-| `/digest board` | The same as a board report |
-| `/digest cost [7 \| feature <slug> \| agent <name>]` | LLM spend: run-rate, cost per deploy and per shipped feature, router savings |
-| `/digest sessions [30]` | How your own sessions spend: long sessions, cache rebuilds, which habits cost most |
-| `/digest slo [service]` | SLO burn rate, multi-window — budget exhaustion before it happens |
-| `/digest gov [--since 30d]` | Whether the gates work: block rate, overrides, time in gate |
-
 ## When you need it
 
 | Command | What you get |
 |---|---|
+| [`/save`](#save) | A session note: what was done, how each "done" was verified, where the work stands, the next step |
+| [`/digest`](#digest) | What shipped, what broke, what it cost — weekly, per feature |
 | [`/review`](#review) | A code review of a branch with evidence for every finding — or a domain compliance review |
 | [`/spec`](#spec) | Discovery → PRD → build spec, before any code |
 | [`/poc`](#poc) | A timeboxed yes/no on a risky idea; `promote` takes a winner through the audits it skipped |
@@ -77,6 +62,23 @@ Open gates, blocked tasks, P0s and pending approvals from the last 24 hours
 | [`/board`](#board) | The local board at `localhost:3141`: decisions, ledger, fleet, harness |
 | [`/agent`](#agent) | An agent managed like an employee: review, evals, prompt evolution, retirement |
 | [`/help`](#help) | The command card |
+
+### /save
+
+Writes `.great_cto/logs/session-<date>-<slug>.md`: what was done, a `Verify:` command for
+each done item, decisions, what is pending, and the run state (branch@sha, dirty files,
+servers still listening). `/save commit` also commits and pushes the note.
+
+### /digest
+
+| Use | Does |
+|---|---|
+| `/digest` · `/digest 30` | Weekly engineering digest: velocity, incidents, tech debt, decisions, open gates, one recommendation |
+| `/digest board` | The same as a board report |
+| `/digest cost [7 \| feature <slug> \| agent <name>]` | LLM spend: run-rate, cost per deploy and per shipped feature, router savings |
+| `/digest sessions [30]` | How your own sessions spend: long sessions, cache rebuilds, which habits cost most |
+| `/digest slo [service]` | SLO burn rate, multi-window — budget exhaustion before it happens |
+| `/digest gov [--since 30d]` | Whether the gates work: block rate, overrides, time in gate |
 
 ### /review
 

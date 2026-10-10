@@ -139,12 +139,13 @@ QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/.*\[//
 
 case "$ARCHETYPE" in
   web3)
-    # Slither audit report or active CI step is mandatory
-    if ! ls docs/security/slither-*.md docs/qa-reports/slither-*.md 2>/dev/null | head -1 > /dev/null; then
-      if ! grep -rq "slither" .github/workflows/ 2>/dev/null; then
-        echo "BLOCKED: web3 archetype requires Slither static analysis (docs/security/slither-*.md OR CI step)" >&2
-        exit 1
-      fi
+    # A smart-contract audit (smart-contract-auditor), a Slither report, or an active
+    # CI step is mandatory. `if ! ls … | head -1` tested head's exit code, which is
+    # always 0, so until 2026-10-05 this never blocked anything.
+    SC_EVIDENCE=$(ls docs/security/AUDIT-*.md docs/security/slither-*.md docs/qa-reports/slither-*.md 2>/dev/null | head -1)
+    if [ -z "$SC_EVIDENCE" ] && ! grep -rq "slither" .github/workflows/ 2>/dev/null; then
+      echo "BLOCKED: web3 archetype requires a contract audit — run /review --contracts (docs/security/AUDIT-*.md), a Slither report, or a CI step" >&2
+      exit 1
     fi
     # Foundry fuzz with ≥ 10k runs in CI
     if [ -d ".github/workflows" ] && ! grep -rqE "fuzz-runs[[:space:]]+10000|fuzz-runs[[:space:]]+[2-9][0-9]{4,}" .github/workflows/ 2>/dev/null; then

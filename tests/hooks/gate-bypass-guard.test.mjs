@@ -14,7 +14,7 @@ import { create, write } from '../../scripts/lib/exceptions.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const HOOK = join(ROOT, 'scripts', 'hooks', 'gate-bypass-guard.mjs');
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 test('skipping the git hooks is refused, however it is spelled', () => {
   for (const c of [

@@ -15,7 +15,7 @@ import { join } from "node:path";
 import { findCodexBinary, codexHasGreatCtoMarketplace, installedCodexVersion, upgradeCodexPlugin } from "../dist/codex.js";
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 const tmp = (p) => { const d = mkdtempSync(join(tmpdir(), p)); made.push(d); return d; };
 
 function codexHome({ marketplace = true, versions = ["3.37.0"] } = {}) {

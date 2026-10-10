@@ -43,8 +43,8 @@ const THEMES = ['dark', 'light'];
 // Since the redesign (great_cto-ki1x.16): Metrics is gone (its live pieces sit
 // in Ledger = budgets); Harness and Settings are panels of their own; share and
 // notifications survive as id'd blocks inside Settings, so they stay listed.
-const PANELS = ['inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
-  'memory', 'notifications', 'sessions', 'share', 'harness', 'settings'];
+const PANELS = ['work', 'history', 'inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
+  'memory', 'notifications', 'sessions', 'share', 'harness', 'usage', 'skills', 'settings'];
 
 /**
  * Runs in the page. For every element that owns visible text, report its
@@ -256,8 +256,21 @@ test('every panel, both themes: text can be read against what is behind it', { t
       return t.skip(`no usable browser: ${String(e.message).split('\n')[0]} — not checked, not passed`);
     }
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+    // Deterministic populated Skills rows, not a scan of the operator's skills.
+    // Filesystem/API behavior is checked separately by isolated browser fixtures.
+    await page.route('**/api/skills*', route => route.fulfill({ json: {
+      state: 'partial', observed_at: '2026-10-10T00:00:00Z', registry: { state: 'unreadable' },
+      sources: [{ label: 'Project fixture', scope: 'project', state: 'partial', warnings: ['source-limit'] }],
+      skills: [
+        { name: 'observed-fixture', host: 'Codex', location: 'project/.codex/skills/observed-fixture/SKILL.md', scope: 'project', read_state: 'observed', document_sha256: 'a'.repeat(64), bytes: 120, warnings: [] },
+        { name: 'unreadable-fixture', host: 'Claude Code', location: '~/.claude/skills/unreadable-fixture/SKILL.md', scope: 'machine', read_state: 'unreadable', warnings: ['invalid-frontmatter'] },
+      ],
+    } }));
     await page.goto(`http://127.0.0.1:${PORT}`, { waitUntil: 'domcontentloaded', timeout: 15000 });
     await page.waitForTimeout(2500);
+    await page.evaluate(async () => { await loadSkillsInventory(); });
+    assert.equal(await page.locator('#skills-table tbody tr').count(), 2);
+    await page.evaluate(() => { document.querySelector('#skills-body details').open = true; });
 
     // The page's own panel list must be the one this file walks.
     const shipped = await page.evaluate(() => [...document.querySelectorAll('[id^="panel-"]')].map((e) => e.id.slice(6)).sort());

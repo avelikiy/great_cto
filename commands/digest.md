@@ -216,10 +216,21 @@ if [ "$MODE" = "feature" ]; then
   fi
 
   # Filter cost-history.log entries tagged with this feature slug
-  # Format: <timestamp> agent=<name> feature=<slug> cost_usd=<n> [other tags]
+  # Rows tagged `feature=<slug>` (no writer emits them yet — see the message below)
   ENTRIES=$(grep -E "feature=$SLUG\b" "$COST_LOG" 2>/dev/null)
 
   if [ -z "$ENTRIES" ]; then
+    # Say "not measured", never "$0": the measured rows are `<ts> <agent> <usd>`
+    # and carry no feature, so a feature's LLM cost cannot be read from them.
+    if ! grep -q "feature=" "$COST_LOG" 2>/dev/null; then
+      echo "_Not measured: \`.great_cto/cost-history.log\` records LLM spend per agent run, not per feature,"
+      echo "so the cost of \`$SLUG\` cannot be separated from the rest. This is not \$0._"
+      echo ""
+      CH="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/cost-history.mjs"
+      [ -f "$CH" ] || CH="$(pwd)/scripts/lib/cost-history.mjs"
+      echo "Project LLM spend this month: \$$(node "$CH" month "$COST_LOG" 2>/dev/null || echo '?') — per agent: \`/digest cost agent <name>\`."
+      exit 0
+    fi
     echo "_No cost entries tagged with feature=$SLUG. Either:_"
     echo "1. Feature not yet implemented (run \`/start \"feature description\"\`)"
     echo "2. Feature uses different slug — check \`docs/architecture/ARCH-*.md\` filenames"
@@ -402,24 +413,12 @@ if [ -n "$DAILY_CAP" ] || [ -n "$MONTHLY_BUDGET" ]; then
   echo "## Bill-shock protection"
   echo ""
 
-  TODAY=$(date -u +%Y-%m-%d)
-  MONTH=$(date -u +%Y-%m)
-
-  # Today's spend
-  TODAY_SPENT=$(awk -v d="$TODAY" '
-    $0 ~ "^" d {
-      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
-    }
-    END { printf "%.2f", s+0 }
-  ' "$COST_LOG" 2>/dev/null)
-
-  # Month's spend
-  MONTH_SPENT=$(awk -v m="$MONTH" '
-    $0 ~ "^" m {
-      for (i=1; i<=NF; i++) if ($i ~ /^cost_usd=/) { split($i,a,"="); s+=a[2] }
-    }
-    END { printf "%.2f", s+0 }
-  ' "$COST_LOG" 2>/dev/null)
+  # Measured spend — one reader for every row kind (scripts/lib/cost-history.mjs).
+  # Until 2026-10-01 this looked for `cost_usd=`, which no writer emits: always $0.00.
+  CH="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/cost-history.mjs"
+  [ -f "$CH" ] || CH="$(pwd)/scripts/lib/cost-history.mjs"
+  TODAY_SPENT=$(node "$CH" today "$COST_LOG" 2>/dev/null || echo "0.00")
+  MONTH_SPENT=$(node "$CH" month "$COST_LOG" 2>/dev/null || echo "0.00")
 
   if [ -n "$DAILY_CAP" ]; then
     REMAIN_DAY=$(awk "BEGIN{printf \"%.2f\", $DAILY_CAP - $TODAY_SPENT}")

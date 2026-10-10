@@ -234,6 +234,15 @@ P2B Regulation (2020):
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh marketplace-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"We'll add KYC after first 100 sellers, lighter onboarding now"** — first OFAC hit after the fact = felony exposure for officers

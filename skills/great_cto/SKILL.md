@@ -57,6 +57,7 @@ pipeline gets bypassed.
 | Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
 | CI red / build failing / pipeline broken / checks failing — name each red check's cause, minimal fix, never skip | `ci-resolver` |
+| Audit Solidity / EVM smart contracts that exist — analyzers, vector-by-vector review, four-gate proof, Foundry PoC | `smart-contract-auditor` |
 | Third-party API integration: OAuth flows, webhook signatures, idempotency, retries, sandbox→prod | `integrations-engineer` |
 | Read-side data connectors: cursors, dedup, backfill, freshness SLA (dashboards) | `connector-builder` |
 | Route optimization: VRP, geocoding, distance matrix, re-optimization | `geo-routing-engineer` |
@@ -205,7 +206,7 @@ the orchestrator needs to choose one.
 
 ## Approval Level
 
-Single control for pipeline depth. Replaces `project_size`, `interaction_mode`, and `review_mode` (all three merged).
+Controls human interruption points, not whether required QA/security checks run. Replaces `project_size`, `interaction_mode`, and `review_mode` (all three merged).
 
 ```bash
 APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
@@ -321,10 +322,11 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "status" / "what's happening" | git log + bd stats + artifacts |
 | "what needs me" / "inbox" | Gates + blocked + PRs |
 | "audit" / "review codebase" / "scan repo" | `/audit` command |
-| "approve" / "looks good" / "yes" | Close gate:arch |
+| "approve" / "looks good" / "yes" | Resolve the pending decision in this run; apply the existing approval protocol only when its identity and scope are unambiguous. Never assume gate:arch. |
 | "ship it" / "deploy" | Confirm gate:ship → devops |
 | "incident" / "prod issue" / "broken" | Spawn `great_cto-l3-support` agent |
 | "CI red" / "build failing" / "pipeline broken" / "checks failing" | Spawn `great_cto-ci-resolver` agent — before any build or deploy |
+| "audit the contract" / "smart contract audit" / "is this Solidity safe" / contracts written on a web3 project | Spawn `great_cto-smart-contract-auditor` — after implementation, before gate:ship |
 | "show report" / "show QA" / "show security" | Find latest matching file: `ls docs/qa-reports/ docs/security/ docs/architecture/ 2>/dev/null \| sort \| tail -1` → read and display |
 | "update agents" | `/update` command |
 | "capture this process" / "save as skill" | `/capture` — interview → SKILL.md |
@@ -334,9 +336,10 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "review code" / "code review" / "check the PR" | `/review` — 3-angle code review (perf / security / readability) |
 | "log decision" / "we decided X" / "decision:" | Append entry to `docs/decisions/DECISION-LOG.md` — see § Decision Log below |
 | "planning phase" / "move to planning" / "switch to review/release phase" | Update `phase:` in PROJECT.md — see § Phases below |
-| "status" / "pipeline status" / "where are we" | `/status` — pipeline dashboard: stage, verdicts, gates |
+| "pipeline status" / "where are we" | `/inbox` — task progress, evidence and pending decisions |
 | "strict mode" / "I want to review code" / "add code review gate" | Set `approval-level: strict` in PROJECT.md → gate:code added after senior-dev |
-| "auto mode" / "remove code gate" / "full auto" | Set `approval-level: gates-only` in PROJECT.md → gate:code removed |
+| "remove code gate" | Set `approval-level: gates-only` in PROJECT.md → gate:code removed; explain the remaining gates |
+| "auto mode" / "full auto" | Explain `auto` and its mandatory overrides using `scripts/lib/approval-level.mjs`; change to `auto` only if the user requested that policy. This is not blanket authorization for external actions. |
 | "expert mode" / "I want to review everything" | Set `approval-level: expert` in PROJECT.md → 2 checkpoints per agent |
 
 ## Pipeline Rule Enforcement (Archetype-Based)

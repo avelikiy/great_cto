@@ -217,6 +217,15 @@ Use the checklist from `templates/ARCH-browser-extension.md` § "Web Store pre-f
 -->
 ```
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh web-store-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"We need `<all_urls>` because the extension scrapes any page"** — push back: use `activeTab` + `optional_host_permissions` with runtime prompt. If genuinely impossible, document why and accept the deep tier + extended review.

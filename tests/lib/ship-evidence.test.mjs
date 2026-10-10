@@ -15,7 +15,7 @@ import { evaluateShipEvidence } from '../../scripts/lib/gate-check.mjs';
 import { create } from '../../scripts/lib/exceptions.mjs';
 
 const made = [];
-after(() => { for (const d of made) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of made) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function project(logs = {}) {
   const d = mkdtempSync(join(tmpdir(), 'ship-ev-'));
   made.push(d);

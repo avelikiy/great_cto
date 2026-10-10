@@ -175,6 +175,15 @@ The base defines the `<!-- HANDOFF -->` block format. Fill it with these AI-spec
 - **EVAL files required** (delegate to ai-eval-engineer): `EVAL-prompt-injection.md`, `EVAL-cross-user-isolation.md`, `EVAL-budget-overrun.md`
 - **Mitigations marked accepted-residual** (need CTO countersign): {none / list}
 
+**Verdict line — the last thing you do.** Vocabulary, `need` and meta:
+`agents/_shared/reviewer-verdict.md`.
+
+```bash
+bash scripts/log-verdict.sh ai-security-reviewer <APPROVED|BLOCKED> auto \
+  feature=<slug> tm=docs/sec-threats/TM-<slug>.md criticals=<N> highs=<M> \
+  need=<implementer|decision> finding=<id>   # need/finding on BLOCKED only
+```
+
 ## Specific failure modes you reject
 
 - **"Mitigated by good prompt"** — prompts are user-controllable surface, not a security boundary. If your only mitigation is "the system prompt forbids it", that's `accepted-residual` not `mitigated`.

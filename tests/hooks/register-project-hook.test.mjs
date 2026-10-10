@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const HOOK = join(ROOT, 'scripts/hooks/register-project.mjs');
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 function tmp(prefix) { const d = realpathSync(mkdtempSync(join(tmpdir(), prefix))); TMP.push(d); return d; }
 
 function runHook(cwd, input, file) {

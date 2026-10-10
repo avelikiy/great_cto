@@ -1,0 +1,103 @@
+# Independent review: stacked board release
+
+Scope: PR #173 (project Usage), #175 (English UI), #176 (read-only Skills).
+Tracking: great_cto-f33n.6 and great_cto-f33n.6.1.
+Implementation evidence: [Skills verification](QA-2026-10-10-skills-inventory.md).
+
+## Initial independent verdict: BLOCKED
+
+Reviewed source: e4c89469d51478c5aac4a15a939db0d7d19b6607.
+Reviewer: a fresh, bounded Claude Code process, read-only Read/Glob/Grep tools,
+safe mode, no Bash, no writing, no hooks or delegated agents. The selected
+default model was claude-fable-5-1. This was static review, not an executed
+test run or a GitHub approval. A successful reviewer process is not approval.
+
+| Finding | Severity | Disposition |
+| --- | --- | --- |
+| F1: verdict writer uses slug/basename while scoped reader uses raw query name | High, blocking | Reproduced with the actual verdict writer; aliases now come from the registered root and PROJECT.md, not the URL label. Foreign/ambiguous aliases stay excluded. Fresh application review APPROVED at 5db1d3ea. |
+| F2: unregistered server root gets an invented project query | Medium | UI distinguishes server default from explicit URL selection. An explicit unknown selection still fails closed. Added UI and real-browser regressions. |
+| F3: sessions without recoverable identity are excluded | Medium | Project statistics now explicitly disclose attribution exclusions and existing-worktree limits. Coverage counters remain a separate tracked follow-up. |
+| F4/F5: raw HOME roots can select new read models, including Beads reads | Low | Skills, Usage and Outcomes accept registered roots or the server root, not arbitrary HOME directories. Added API regressions. |
+| F6: cache pressure evicts an active worker result | Low | Active cache entry is pinned; a bounded cache with no available eviction slot returns computing. Added a pressure regression. |
+| F7: bundle-import check assumes a build exists | Low, conditional | The mandatory local gate builds first. Fresh TypeScript build and isolated bundle check remain required. No claim of remote CI execution; relevant GitHub workflows are disabled. |
+| F8: missing selected root prevents partial host inventory | Low | Explicit unavailable response, not a fabricated empty inventory. Partial-source recovery is a separate tracked follow-up. |
+| F9: older statistics routes do not restrict HTTP methods | Informational | Existing read-only behavior; no mutation was found. |
+| F10: escaping and English locale scope | Informational | No demonstrated XSS or translation regression; browser validation remains required. |
+
+Four regression checks failed before their corresponding fixes: missing local
+verdicts, unregistered roots in Skills and statistics, and eviction of an active
+usage scan. The pre-fix focused run had 10 passes, 4 failures, no skips.
+
+## Additional gate failures retained
+
+The first full gate found a stale generated architecture map and an installed
+3.59.1 CLI cache without dist/main.js. The map was regenerated. Dependencies
+and TypeScript output were prepared in that same installed version; its version
+and plugin manifests were not changed.
+
+The next gate passed 1,331 root/hooks/board checks, then found an ADR fixture
+under the decision-log directory and two unlinked dependency QA reports. The
+fixture now uses docs/adr, and the reports are linked from Skills verification.
+That known-failing gate was deliberately interrupted before completing the
+remaining suites. It is not a successful full run.
+
+The combined focused rerun passed 27 checks without failures or skips. It does
+not replace the mandatory full release gate or a fresh approving review.
+
+## Fresh independent review: APPROVED
+
+Reviewed source: 5db1d3ea2fc0b960f2bbf152c791e11945eac950.
+Fresh read-only Claude Code session: adbe5060-af1a-4792-9e89-3a042c2ae169.
+The reviewer verified the scoped-identity, default-root, cache and bundle fixes
+and returned APPROVED with no blocking finding. There were no tool permission
+denials or delegated agents. Approval remains static and scope-limited.
+
+Two Low findings are tracked in great_cto-f33n.8: Outcomes may exceed its cache
+bound when every slot computes; same-basename registered roots conservatively
+exclude ambiguous tagged verdicts without an exclusion counter. No cross-project
+leakage was found, and neither finding was classified as blocking by the reviewer.
+
+The subsequent full gate reached completion but failed two library checks:
+the marketplace fixture copied only scripts/lib rather than the full shipped
+scripts tree, and the rendered-contrast walker omitted the Skills panel. The
+fixture now copies the full tree and exercises the Skills API. The contrast
+walker includes Skills with synthetic observed/unreadable rows in both themes,
+without scanning the operator's skill inventory. The four targeted checks pass
+with no failures or skips. These are test-only corrections; application code
+remains byte-identical to the independently reviewed revision.
+
+The test-only delta at 3019fef76607629acee602d9f8fdb0a51250efbf was also
+independently APPROVED (session 287537e8-4256-4be0-8bbb-e6200c278b65). That
+review did not execute tests or certify publication. Its nonblocking fixture
+notes led to production host labels, expanded source-coverage details, a seeded
+skill/hash assertion in the marketplace copy and explicit temporary registry
+and NODE_PATH isolation.
+
+The subsequent full run passed all 2,579 executed library checks with four
+opt-in live checks explicitly skipped, but two browser assertions ran before
+the initial project fetch had filled the UI. The browser helper waited a fixed
+1.2 seconds after an active panel appeared, which is only the shell. It now
+waits up to 15 seconds for project initialization; all original data/action
+assertions remain in place. The combined browser/marketplace/contrast rerun
+passed 18 checks with no failures or skips. The final complete gate at 6afe445b
+then completed with exit 0; actual suite counts and all explicit skips are in
+[release QA](QA-2026-10-10-skills-release.md).
+
+The final test/doc delta was independently APPROVED at 6afe445b (session
+f9ec1d6a-1cb9-4502-8898-d359788639ea). This static review confirms the bounded
+wait does not remove data assertions or hide init exceptions. The readiness
+floor alone is not successful data loading; consumers still assert fixture data
+and collect HTTP/page errors. Remaining timing and contrast-environment
+limitations are tracked in great_cto-f33n.10.
+
+## Release status
+
+PR #173, #175 and #176 are merged in dependency order. The resulting complete
+tree matches the tested candidate. The final complete local gate passed.
+Version 3.60.0 is published on npm and GitHub; latest propagation, archive
+integrity and fresh registry-consumer runtime checks are recorded in
+[release QA](QA-2026-10-10-skills-release.md). Operator installation remains
+unchanged; it is not inferred from publication.
+Evidence-ledger implementation,
+unrelated pull requests, live-model benchmarks and full host-compatibility
+claims are outside this release scope. No security exception is being used.

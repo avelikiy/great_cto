@@ -14,6 +14,673 @@ All notable changes to great_cto are documented here.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## v3.60.0 — 2026-10-10
+
+Inspect local skills and compare host usage within one selected project.
+
+### What's new
+
+- A read-only Skills screen lists local Claude Code, Codex and project skill
+  documents, observed metadata, document hashes and declared provenance.
+  Search and host/source filters do not install, enable or execute skills.
+- Usage aggregates Claude Code and Codex sessions only after project
+  attribution, including existing linked Git worktrees and monorepo scopes.
+  Switching projects invalidates stale UI replies and separates cached reports.
+- Board-owned date, time and number formatting is pinned to English. Task
+  descriptions and document content retain their original language and timezone.
+
+### Fixed
+
+- Scoped outcomes recognize registered and PROJECT.md identities used by the
+  actual verdict writer. Copied foreign tags and ambiguous aliases do not count.
+- Skills and statistics refuse arbitrary HOME directories as project selectors.
+  An unregistered server root works without invented query identifiers; explicit
+  unknown selections fail closed instead of displaying another project's data.
+- In-flight Usage results survive bounded-cache pressure. Background scans keep
+  navigation responsive and surface unavailable/stale states explicitly.
+- The npm board bundler includes top-level script dependencies used by Skills,
+  keeping the generated board usable outside the source checkout.
+- ADR browser fixtures use the architecture-decision directory; dependency QA
+  reports are connected and the generated architecture map is current. Browser
+  startup waits for bounded project initialization, retaining all data assertions.
+
+### Verification and boundaries
+
+The complete local gate passed on 6afe445b; the merged tree was identical.
+Main suites: 1,336 root/hooks/board, 2,579 library, 238 eval, 76 documentation,
+14 browser, 55 pipeline, 362 CLI and 34 archetype checks passed. Four opt-in
+live library tests and one absent legacy pytest suite remain NOT CHECKED;
+this is not a no-skip global run. Independent application and test-delta
+reviews returned APPROVED. No security-gate exception is used.
+
+Inventory presence is not activation, trust, upstream verification or evidence
+that a skill improves task quality. Project usage excludes sessions whose
+identity cannot be recovered; missing history is not proof of no activity.
+Evidence ledger and live-model quality comparisons are not in this release.
+Read [ADR-029](docs/adr/ADR-029-read-only-skill-inventory.md),
+[independent review](docs/qa-reports/REVIEW-2026-10-10-skills-release.md) and
+[release QA](docs/qa-reports/QA-2026-10-10-skills-release.md) for source pins,
+retained failures, scanner policy, package checks and delivery status.
+
+---
+
+## v3.59.1 — 2026-10-09
+
+Run the board directly from a Git-installed plugin, with the same gate policy as the CLI.
+
+### What's new
+
+- **Self-contained plugin runtime.** The board no longer imports the gitignored CLI
+  build to calculate gates. A dependency-free policy module is generated from the
+  authoritative TypeScript policy and checked for drift in local and CLI CI.
+- **Isolated installer checks.** Postinstall does not launch a detached board under
+  Node's test runner, CI or explicit opt-out environments. Normal installs retain
+  automatic board startup; `GREAT_CTO_NO_BOARD=1` disables it.
+- **Accurate local-CI coverage.** The skip counter recognizes modern Node TAP
+  `# skipped N` summaries as well as the older spelling, so opt-in live checks
+  are reported as not checked instead of disappearing from the gate verdict.
+
+### Verification
+
+- Regression coverage boots a clean plugin fixture without CLI `dist` or
+  `node_modules`, resolves a registered project without falling back, and compares
+  the generated policy with the CLI across archetypes, sizes and risk tiers.
+- Gate requirements and approval authority are unchanged. This patch does not
+  claim a product-quality uplift or a new live dual-host benchmark result.
+
+---
+
+## v3.59.0 — 2026-10-09
+
+Inspect tasks and publish verified work as a draft PR from the board.
+
+### What's new
+
+- **Task cockpit.** Read the current stage, recorded evidence, blockers and bounded activity
+  from the existing task/controller stores. The inspector is read-only: it does not inject
+  terminal input or start another controller.
+- **Explicit draft-PR publication.** A managed, verified delivery task on a clean, committed
+  feature branch can preview publication, then confirm it from the CLI or a same-origin
+  loopback browser. An explicit path scope, current verification receipt, exact Git inputs,
+  historical patch scan, project lease and create-only remote ref protect the operation.
+  Creating a PR does not approve its merge or release. Live GitHub acceptance for this new
+  publication path remains unverified; automated tests use local Git remotes and mocked GitHub.
+- **Consistent navigation.** Work, History, Tools and view filters share row sizing, icons,
+  hover/focus and selected states. Tools sits with the other navigation, not at the bottom.
+- **Responsive statistics and project discovery.** Usage scans run in a bounded background
+  worker with a stale-while-refresh cache. The project switcher refreshes its inventory and
+  filters it as you type.
+
+### Safety and implementation
+
+- [ADR-028](docs/adr/ADR-028-task-cockpit.md) defines the publication checkpoints and authority
+  limits. Outgoing commit history is scanned, not just the final diff. Existing remote branch
+  content is never overwritten; uncertain PR creation is reconciled rather than blindly retried.
+- Browser publication tickets are single-use, expire after 120 seconds and are bound to the
+  project, origin, branch and approved inputs. Remote/tunneled browser writes are refused.
+  Workers and request bodies have explicit deadlines and size limits.
+- The sidebar has browser regression coverage for desktop, icon rail and mobile layouts,
+  theme tokens and keyboard navigation. The release gate is `bash scripts/ci-local.sh --e2e`;
+  opt-in live Docker/model tests are reported as skipped when not enabled, not as verified.
+
+### Known limits
+
+- Dirty-tree autocommit, changed-operation cancellation/reapproval and live GitHub publication
+  acceptance are not part of this slice. The local browser boundary is not account authentication.
+- The admin audit still has open follow-ups for selected-project drawer scoping, rapid project
+  switch races, intermittent server stalls and legacy projection/capability reporting. Moving
+  usage scans off the HTTP thread does not establish that all latency sources are fixed.
+
+---
+
+## v3.58.2 — 2026-10-07
+
+The board stays in a project: `--port` is honored, and restarts no longer carry it into a stray directory.
+
+### Fixed
+
+- **`server.mjs --port N` works**, as its usage line always said. Only `BOARD_PORT`/`PORT` counted, so
+  a test board started with `--port 3177` took :3141 instead.
+- **A restart keeps the board's directory only when it is a project.** `install-local` restarts the
+  board in the old board's cwd so it opens on the same project; it kept any cwd, and after a release
+  run from a scratch worktree the board lived in that worktree — deleted since — and titled itself
+  after it. Now: the old cwd if it holds `.great_cto/PROJECT.md`, else the most recently active
+  registered project, else `$HOME`.
+- **The view log is written only into a project.** `POST /api/view` created `.great_cto/` in whatever
+  directory the board ran in, which recreated the deleted worktree; it now answers `recorded: false`
+  outside a project.
+
+---
+
+## v3.58.1 — 2026-10-07
+
+The board says where Claude's plan readings come from once the recorder is on.
+
+### Fixed
+
+- **Usage → Limits no longer asks you to install what you installed.** Claude Code passes its plan
+  percentage only to a status line it draws: the terminal `claude` draws one, the desktop app's
+  Code tab does not. With the recorder on and no reading yet, the board kept saying "turn on the
+  recorder". It now reads one field — `statusLine.command` in `~/.claude/settings.json` — to tell
+  "on, no reading yet" from "never installed", and says that readings come from `claude` in a
+  terminal. `great-cto statusline install` and `status` say the same (`docs/PRIVACY.md`).
+- **Temp-dir teardowns retry.** The 3.58.0 publish gate went red on a test whose cleanup ran while
+  the board's bd was still writing into the temp home (`ENOTEMPTY`); a rerun passed 1278/1278. Every
+  `rmSync(d, { recursive: true, force: true })` teardown across 85 suites now retries
+  (`maxRetries: 5`), as `pipeline-contracts` already did.
+
+---
+
+## v3.58.0 — 2026-10-07
+
+The board shows Claude's exact plan use, recorded from the status line.
+
+### Added
+
+- **`great-cto statusline install`** (opt-in). Claude Code hands its plan use — the 5-hour window,
+  the week, the per-model weeks, each with a used percentage and a reset time — to the status line
+  command and to nothing else. This installs a small zero-dependency script as your status line:
+  it prints the status line you already had, unchanged (or a short one: model · folder · 5h % · 7d %),
+  and appends one line per change of the plan numbers to `~/.great_cto/claude-limits.jsonl`.
+  `settings.json` is backed up first; `great-cto statusline uninstall` puts your previous status
+  line back exactly. Nothing is sent anywhere (`docs/PRIVACY.md`).
+- **Usage → Limits for Claude** now draws real windows — percent used, reset time, when a window
+  filled, where the open one is heading at the current pace — and the host card shows the 5-hour
+  and weekly meters. Without the recorder it says how to turn it on instead of showing n/a. Plan
+  history starts when the recorder is installed: Claude Code kept none before.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.57.0 — 2026-10-07
+
+Hooks no longer treat the home directory as a project, and every check of a Bash call runs in one process.
+
+### Fixed
+
+- **The global layer was taken for a project.** Hooks find the project by walking up to the first
+  `.great_cto/PROJECT.md`, and `~/.great_cto` — the global layer every session reads — has one. A
+  session in a repository without its own PROJECT.md walked up to `$HOME`: the completion check
+  wrote one project's cut-off agent there, and the stall guard told another project's session to
+  resume it; agents were handed the global PROJECT.md as their project's. The walk in every hook
+  wrapper and in `projectRoot()` now skips `$HOME`, the event log refuses the global layer, and the
+  completion check and stall guard act only in a project's own `.great_cto`.
+- **Agents that are not great_cto's were asked for verdicts** — `general-purpose`, `Explore`, another
+  plugin's `code-reviewer`. Only great_cto's roster is asked now.
+- **The inline-subagent rule never fired.** It read the command from a field Claude Code does not
+  send. It now reads `tool_input.command` and judges each simple command by its program, so a
+  `.claude` path next to a `-p` flag is not mistaken for `claude -p`. ⚠️ The plugin's contract sets
+  `inline_subagents_allowed = false`, so an agent running `claude -p` from Bash is now refused in
+  Claude Code; a project that needs it sets `inline_subagents_allowed = true` in its own
+  `orchestrator.toml`. Codex never had the rule and still does not.
+- **Every Bash call inside a subagent was logged as an agent start** (one project: 1109 starts against
+  140 stops). A start is logged only at SubagentStart, and a Bash call no longer prints the contract.
+
+### Changed
+
+- **One process for the PreToolUse checks of a Bash call.** Six hooks started six Node processes per
+  call, each with a five-second limit; on loaded days Claude Code cancelled the late ones, and a
+  cancelled guard does not block. `scripts/hooks/bash-guards.mjs` runs them back to back — the first
+  refusal decides — with a 15-second limit. On `ls -la`, 30 calls: p95 47 → 33 ms idle, 103 → 71 ms
+  under CPU load. The Codex adapter runs the same file once instead of five checks.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.56.0 — 2026-10-07
+
+An agent that ends without a verdict is asked for it on every run, and told where log-verdict is.
+
+### Fixed
+
+- **The completion check asked each agent once, ever.** "Asked before" was keyed by the agent's
+  name and never expired: on one project code-reviewer was asked on 15.09 and never again, and
+  43 of its next 46 runs ended with no verdict and no question. It is now keyed by the run, and
+  markers older than a week are removed.
+- **Another agent's verdict counted for this one.** "A verdict exists" meant any verdict log
+  touched in the last five minutes; with agents in parallel that was usually someone else's. It is
+  now the stopping agent's own log, written at or after its run began.
+- **The remedy pointed at a file that is not there.** Every hint said `bash scripts/log-verdict.sh`,
+  which exists only in the great_cto repository; in a project, calls died with "No such file". The
+  completion check, the pipeline dispatcher and the stop-shape remedy now give the plugin's script
+  by absolute path, and every agent is told at start that `scripts/log-verdict.sh` means that file.
+
+### Added
+
+- Each agent stop records how the run ended — verdict, asked, finished without one, cut off — and
+  **Usage → Agents** shows a **No verdict** column with the reasons on hover.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.55.0 — 2026-10-07
+
+The board shows what each agent concluded, what reviews found, and which guards and hooks fired.
+
+### Added
+
+- **Usage → Agents and reviews**, across every registered project:
+  - per great_cto agent: verdicts in the period — pass, stopped (BLOCKED, REWORK, REJECTED,
+    ESCALATED), failed — its stop rate, and how many times it was dispatched in Claude Code
+    against the verdicts it left. A verdict word no rule classifies is a run, not a pass.
+  - bugs by priority from each project's Beads: P0–P3 filed, open now, median time to close,
+    per project. A project whose Beads cannot be read is listed with bd's reason, never as zero.
+    Counts only — no bug title reaches the page.
+- **Usage → Guards and hooks**, from Claude Code's logs: which guard refused a call, which Stop
+  hook sent the turn back, which hooks failed and which timed out. A refusal is counted only where
+  Claude Code marked the result an error — output that merely quotes one is not a refusal.
+
+### Changed
+
+- The usage index is format v3 (`~/.great_cto/session-usage-index.v3.json`); older-format index
+  files next to it are removed by the collector.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.54.0 — 2026-10-07
+
+The board shows how close Claude Code and Codex are to their plan limits, and when they hit them.
+
+### Added
+
+- **Usage → Limits.** For Codex, from its own readings: every 5-hour and weekly window in the
+  period, how full it got, when it filled and how long before the reset, a line of percent used,
+  and for the open window where the current pace ends — "full by Thu 14:00, 2 days before the
+  reset" or "about 58% by the reset".
+- For Claude Code, which records no plan percentage (so none is drawn): spend in the last
+  5 hours and 7 days at API list price; every refusal filed under the limit that refused it —
+  5-hour session, weekly, monthly spend, per-model, usage credits — with server throttles apart;
+  the spend in the window at each refused hour as an observed ceiling with its count; and the
+  latest refusal in Claude Code's own words, which carry the reset time.
+
+### Fixed
+
+- Codex windows are known by their length: the week moved from `secondary` to `primary`
+  between plans, and a reset that drifts by seconds is one window, not forty.
+- The open Codex window is the one the latest reading belongs to — Codex has reset a week
+  early, and an older window could still look open on paper.
+- The judge key's "retry" link on Harness rendered in the browser's default blue when the live
+  check got no answer; it now uses the design system's colours.
+- The `serve enforces HMAC` gate checks take a free port instead of 3144/3145, where a board
+  already listening answered in place of the server under test.
+
+### Changed
+
+- The usage index is format v2 (hourly buckets, limit kinds, Codex readings) and is named by its
+  version, `~/.great_cto/session-usage-index.v2.json`, so a board still on 3.53.0 does not rebuild
+  the same file in turn. The 3.53.0 file can be deleted.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.53.0 — 2026-10-06
+
+The board shows what Claude Code and Codex actually consumed, side by side.
+
+### Added
+
+- **Usage screen (Tools → Usage)**, read from the hosts' own session logs on this machine
+  (`~/.claude/projects`, `~/.codex/sessions`), for 7 / 30 / 90 days:
+  - tokens per day by kind of work — conversations, subagents, automations, headless runs;
+  - the heaviest conversations with their share, project and subagent part;
+  - models, tools, skills, agents (great_cto's marked), MCP servers, cache share;
+  - Codex's plan window as Codex reports it: percent used, reset time, plan.
+- Claude Code does not record how much of a plan is used, so that figure is **not drawn**;
+  its refusals at the plan limit are, counted apart from server-side throttles.
+- Dollars are the API list-price equivalent from great_cto's price table, priced when read;
+  a model without a price shows n/a, never $0. Not a subscription bill.
+- `node scripts/lib/session-usage.mjs` prints the same summary in a terminal.
+
+### Fixed
+
+- **A response is counted once.** Claude Code writes one response as several lines that
+  repeat its usage; the reader takes it once per message id. Checked against Claude Code's
+  own cost record: equal to the cent on standard sessions. Codex's input is split into fresh
+  and cached, and a forked thread's inherited total is no longer read as usage.
+- Opening Work or History answered 400 into the console: the view counter did not know them.
+- The board E2E sidebar test clicked a tool hidden in the collapsed Tools group and failed on
+  main — unseen while a missing browser made the suite skip.
+
+### Privacy
+
+- The usage index lives in `~/.great_cto/session-usage-index.json`, is served by the board on
+  its own host only, and is not telemetry (`docs/PRIVACY.md`).
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.52.1 — 2026-10-06
+
+The new industry briefs are checked against shipped products, and say what is not.
+
+### Fixed
+
+- **Three of the four 3.52.0 briefs are now compared with a mature product's own data model**,
+  read from its repository, and corrected where they fell short:
+  - *nonprofit* vs CiviCRM — added tribute as a typed soft credit, peer-to-peer pages,
+    reminders per pledge installment, currency and a credit note on refunds, receipt vs
+    thank-you dates, fund → accounting code, the date grant money arrived.
+  - *agrotech* vs farmOS — one claim was wrong: farm platforms do **not** compute
+    pre-harvest, re-entry or withdrawal dates; that rule is now worded as the gap a product
+    fills. Added lot and source on inputs and seed, input stock as adjustments, dated
+    movements, observations and lab tests, plans.
+  - *travel* (small stays) vs QloApps — added ARI, min/max stay by date range, booking
+    window, extras, child ages, tourism-tax collection type.
+- **Each brief ends with a "Checked against" section.** It names the product compared with and
+  what is still unverified: tours, activities and advisors in *travel*, and all of *maritime*,
+  rest on domain knowledge until a live project tests them.
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.52.0 — 2026-10-05
+
+Four more industries a product can be specced for without guessing.
+
+### Added
+
+- **Industry briefs for travel, nonprofits, small farms and maritime** — four new files of
+  the `verticals` skill, in the same shape as the existing twelve: the vocabulary, the rules
+  incumbents get right, what a naive build gets wrong, the entities to model, per-product
+  notes and light compliance. The architect and the project manager read the one that applies
+  before writing the spec.
+  - *Travel:* capacity lives on each departure and its resources, with a hold during checkout;
+    times are local to the place; a marketplace booking is not a payment received.
+  - *Nonprofit:* a gift is not an order — the household gives, a pledge is not a payment,
+    restricted money stays on its fund, the receipt is a tax document.
+  - *Farms:* records are made offline; history per field per season is never overwritten;
+    intervals after a spray or a treatment block harvest and sale; the lot code joins field
+    and customer.
+  - *Maritime:* a boat must fit the slip; charters sell in week blocks; maintenance is due by
+    hours or date; a container's free days before port charges are the point of tracking it.
+- Airline ticketing and navigation / safety-of-life features are named in the briefs as out of
+  scope. The briefs were written from domain knowledge and are not yet validated on a live
+  project in each industry.
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.51.0 — 2026-10-05
+
+The smart-contract auditor prepares code for an external audit.
+
+### Added
+
+- **`/review --contracts --package`** — prepare mode for code headed to an audit firm.
+  Beside its own findings, `smart-contract-auditor` writes a threat model (actors, assets,
+  each privileged role's worst case, trust boundaries, assumptions), an invariant
+  specification (`INV-xx` with statement, expression, kind, the functions that touch it and
+  the test that checks it — with a checklist for staking pools, liquid staking and
+  oracle-driven rates), and a handler-based Foundry invariant suite that it runs. A handler
+  whose calls mostly revert is reported as "not exercised", a fuzzer's result as "no
+  counterexample in N runs × depth D" — never "proven" — and a counterexample goes through
+  the same four gates as any finding.
+- **The auditors' package** — `docs/security/audit-package-<slug>/`: scope and how to run,
+  architecture, threat model, invariants with results, known issues (open findings included,
+  with status), tool triage, testing, where to look first. Every file opens with "Prepared
+  for audit — not audited · commit <sha>".
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.50.0 — 2026-10-05
+
+The gates waiting on you, in the session you are working in.
+
+### Added
+
+- **Gate pane** — a Claude Code mod that ships inside the plugin (Claude Code 2.1.287+).
+  `/gates` opens a pane of the pending gates of the session's project; the status line counts
+  them, and a new gate raises a toast. A cheap gate is decided with **Approve / Reject** (`1` /
+  `2`); a gate expensive to undo keeps the board's ritual — type its name (`gate:ship`) and
+  press Enter. Every decision goes through the board's own route with the token it issued
+  (ADR-024), so the binding to the tree and the decision log stay in one place; the pane writes
+  nothing itself. A board that is not running, or a project it does not know, is said as such,
+  never as "no gates". See `docs/GATE-PANE.md`.
+  Older Claude Code skips the module and keeps every other hook; Codex reads only
+  `.codex-plugin/hooks.json` — both checked on the real engines.
+
+### Fixed
+
+- **The decision log no longer records a path for a project given by path.** A gate decided for
+  a project named by its absolute path logged `/Users/<name>/…` into `.great_cto/decisions.md`;
+  it now logs the directory's name.
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.49.2 — 2026-10-05
+
+What is true of one project stays in that project.
+
+### Fixed
+
+- **The global memory layer no longer carries one project into every other.**
+  `~/.great_cto/{preferences,decisions,lessons}.md` is read into every session of every
+  project. An entry there that names a private project, or declares `project: <name>`, is
+  now dropped at the read door and the operator is warned — without the name. Private names
+  are derived the way `pre-push` derives them (your `~/.great_cto/private-terms` plus your
+  workspace directory names, minus `public-terms` and common words), and a test keeps the
+  two lists equal. 3.49.1 stopped one writer (a learner run in the home directory); this
+  holds whoever writes the file.
+- **If you see `PROJECT SCOPE — <file>: entry at line N dropped`** at session start, move
+  that entry into the `.great_cto/` of the project it is about.
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.49.1 — 2026-10-05
+
+Every domain reviewer now says the same two words, and says who has to act.
+
+### Changed
+
+- **The 38 pre-implementation domain reviewers record `APPROVED` or `BLOCKED`, nothing
+  else.** None of them named a verdict line before, so each made one up — and the pipeline
+  dispatcher has rules only for `APPROVED` (advance to senior-dev) and `BLOCKED` (halt). A
+  `PASS` or `CONDITIONAL` stalled the pipeline in silence. Each reviewer's sign-off step now
+  ends with its own `scripts/log-verdict.sh` line carrying `feature=`, the `tm=` path it
+  actually writes, `criticals=`/`highs=`, and on `BLOCKED` `need=decision|implementer` plus
+  `finding=`. The rules live in `agents/_shared/reviewer-verdict.md`, inlined into the bundle.
+  **How far this is verified:** statically — a test checks all 38 lines (word, meta keys,
+  TM path), mutation-checked. No LLM eval has run for these agents yet, so no real reviewer
+  run has been observed writing the new line.
+
+### Fixed
+
+- **A session that ends in your home directory no longer writes lessons into the global
+  layer.** The learner takes its working directory for the project, so a session ending in
+  `~` wrote into `~/.great_cto/lessons.md` — the file injected into every session of every
+  project. Lessons about one project reached all of them, and the injection outgrew its
+  ceiling. The learner now skips the home directory and says why in `.last-auto-learn`. If
+  you have a `~/.great_cto/lessons.md` you did not write, it came from this; its entries
+  belong in the project they name.
+- **The HOL plugin scan reads what a user installs**, not the operator's checkout: a
+  snapshot of `git ls-files`. In a worktree that held `.claude/settings.local.json` it failed
+  on secrets in a file the plugin never ships.
+- **`tests/eval/runner.mjs --dry-run` no longer drops its last line** under a loaded machine:
+  it returns instead of calling `process.exit(0)` while stdout is still draining.
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.49.0 — 2026-10-05
+
+Smart contracts get an auditor that works from the code, not the design.
+
+### Added
+
+- **`smart-contract-auditor`** — the 72nd agent. `oracle-reviewer` threat-models a web3
+  design before code exists; nothing audited the contracts once they were written. The
+  auditor runs the analyzers it finds (Slither, Aderyn, Solhint, Foundry; Echidna, Medusa,
+  Halmos, Mythril on demand), reviews twelve vectors, and keeps a finding only when it passes
+  four gates — executed, reachable, triggered by an unprivileged caller, materially harmful —
+  with file:line and a Foundry PoC for Critical/High. Any analyzer that did not run is listed as
+  "not checked", never as "clean". Writes `docs/security/AUDIT-{slug}.md`; FAIL while a
+  Critical/High is open, BLOCKED when nothing compiles or no analyzer ran. On the web3
+  archetype it is a required reviewer, so `gate:ship` waits for its verdict; elsewhere run it
+  with `/review --contracts`. Methodology adapted from pashov/skills (MIT), credited in
+  NOTICE.md.
+
+### Fixed
+
+- **qa-engineer's web3 Slither check never fired** — it tested `ls … | head -1`, whose exit
+  status is `head`'s. It now checks for the evidence file and accepts the auditor's report.
+- **Card numbers are redacted from the session learner's digest** — 13–19 digit runs that pass
+  the Luhn checksum become `[REDACTED card number]`; ids and timestamps that fail it stay.
+- **pre-push refuses commits made as avelikiy under any other address**, so a work address
+  linked to a second GitHub account cannot reach the public contributors list again.
+- **Board:** the project-not-found banner's title now meets WCAG AA contrast in the light theme
+  (5.45:1, was 4.08:1).
+- _Mention test counts and opt-out flags._
+
+---
+
+## v3.48.0 — 2026-10-02
+
+Three commands carry the day, from Claude Code or the terminal, on either host.
+
+### Added
+
+- **`great-cto run "…"`, `great-cto status`, `great-cto resume`** — the three daily entry
+  points from the terminal: they open Claude Code on `/start`, `/inbox`, `/resume`, or with
+  `--host codex` drive the controlled Codex runtime (`--dir`, `--dry-run`). Resume never
+  grants an approval, widens write scope or recovers a failed stage on its own.
+- **The board opens on Work** — your tasks, the decisions waiting on you, and History of
+  what shipped; Ledger, Fleet, Harness and Settings move under **Tools**. Approval and
+  resume are prepared as revision-bound commands you run; the browser executes nothing.
+- **Shared tasks across Claude Code and Codex** — one durable task identity, goal and
+  acceptance criteria per task, explicit run/session links, project leases against
+  concurrent launches, and operator-attested outcomes (docs/WORK-TASK-CONTRACT.md).
+- **Session learner, in windows** (opt-in) — with `learn_every_n` in
+  `~/.great_cto/config.json`, every N tool calls the learner reads the part of the session
+  written since the last window, so a long session is read whole instead of its last 8 MB.
+  Each window is a learner run capped at $0.5. A line at session start says what the
+  learner did last time.
+- **HOL plugin scanner in the local gate** — the exact build the awesome-codex-plugins
+  catalogue judges with (Cisco skill scanner included), with a reviewed false-positive
+  baseline; a new finding fails the gate.
+- A released-host quality benchmark (tests/eval) comparing Codex-only, Claude-only and
+  mixed runs. First result: no difference on two simple tasks — too simple to tell.
+
+### Changed
+
+- **README cut to its first screen** (394 → 120 lines) in all ten languages: what it does,
+  install, the three daily commands, the board, Codex, when it stops you, numbers. The rest
+  moved to docs/DETAILS.md. docs/COMMANDS.md lists three daily commands; `/save` and
+  `/digest` move to When you need it.
+- The session learner now reads what the assistant concluded, not only what the operator
+  typed — the lessons of a long working session were in its conclusions.
+
+### Fixed
+
+- `/inbox` LLM-budget alert read JSON the cost log never held and never fired; it reads the
+  measured spend now (and prints `85%`, not `850f`). Infrastructure-estimate rows are no
+  longer counted as LLM spend.
+- `l3-support` read its Grafana key in a shape scanners flag as a hardcoded secret.
+- The release title is the entry's lead sentence, not its first heading.
+- An empty-state hint on the board rendered at 10.83px, off the type scale.
+
+---
+
+## v3.47.0 — 2026-10-01
+
+One pipeline run can now use Claude Code and Codex side by side.
+
+### Added
+
+- **Mixed-host routing.** `npx great-cto codex-host start … --routes
+  qa-engineer=claude-code,security-officer=codex` assigns independent graph roles to
+  both installed CLIs. The two join roles read one snapshot at the same time; the
+  controller checks their proposals for overlap, applies them one after another, and
+  keeps the existing verifier and human gates. The route map is fixed for the run, both
+  role contracts are preflighted before any write, and an interrupted wave must be
+  inspected rather than restarted. Claude Code must be authenticated. Contract:
+  [docs/HOST-CODEX.md](docs/HOST-CODEX.md).
+
+### Fixed
+
+- Codex read-only stages can no longer write through a hidden shell command, and review
+  feedback survives a rework round with the controller's evidence visible.
+- The local gate builds the CLI as its first step and does not sign the commits its own
+  tests make, so it passes in a fresh worktree and with any signing setup.
+
+### Removed
+
+- The HOL catalogue scanner workflow. It qualified the plugin for a third-party
+  catalogue we decided not to join (74/100, 14 high findings on 2026-09-07, three of
+  them the word "eval"), and GitHub Actions has not run it since June. Removed by
+  decision rather than muted; the remaining findings are tracked for triage on their
+  own merits.
+
+---
+
+## v3.46.2 — 2026-10-01
+
+Spending caps now see what was actually spent, and `/board` starts on a marketplace install.
+
+### Fixed
+
+- **Cost caps compared against $0.** `cost-guard` looked for `cost_usd=N` in
+  `.great_cto/cost-history.log`, a format no writer emits, so `daily_max_usd` and
+  `monthly_max_usd` could never fire. `/start` and `/digest` printed today's and this
+  month's spend with the same pattern and always showed $0.00. One reader,
+  `scripts/lib/cost-history.mjs`, now holds the row rules for all six places that read
+  the log. **If you set `"enforce": "block"`, caps now really block**; the default
+  (`warn`) is unchanged.
+- **Repeat runs of one agent were under-counted** in the run budget, the bench report and
+  handoff packages: every `turns=` row was treated as a session running total, but since
+  2026-09-11 those rows are one agent run each. Legacy running-total rows still count by
+  their increment.
+- **`/board` failed on marketplace installs.** A marketplace install is a git clone
+  without the CLI build, and every auto-update re-clones it; `/board` ran the plugin copy
+  because `index.mjs` existed and died on "dist/main.js not found" before falling back to
+  a global `great-cto`. It now checks for the build.
+- The local gate builds the CLI before the tests that import it, so a fresh worktree (and
+  `--quick`) no longer fails on `ERR_MODULE_NOT_FOUND`.
+
+---
+
 ## v3.46.1 — 2026-09-30
 
 ### Fixed

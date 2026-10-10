@@ -19,7 +19,7 @@ import { fileInClaim } from '../../scripts/lib/check-lane-overlap.mjs';
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const CLI = join(ROOT, 'scripts/lib/lane-diff.mjs');
 const TMP = [];
-after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 const WPL = `
 | # | Name | Class | Owned files | Depends on | Agent | Acceptance criterion |

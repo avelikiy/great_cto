@@ -78,7 +78,7 @@ Optional — Grafana-native tools are used when available; file/Docker/journalct
 # Detect Grafana integration from PROJECT.md
 GRAFANA_URL=$(grep "grafana-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 GRAFANA_API_KEY_ENV=$(grep "grafana-api-key-env:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); GRAFANA_API_KEY_ENV=${GRAFANA_API_KEY_ENV:-GRAFANA_API_KEY}
-GRAFANA_API_KEY="${!GRAFANA_API_KEY_ENV:-}"
+GRAFANA_API_KEY=$(printenv "$GRAFANA_API_KEY_ENV" 2>/dev/null)   # read by name from the environment; never a literal
 LOKI_DS=$(grep "loki-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); LOKI_DS=${LOKI_DS:-Loki}
 TEMPO_DS=$(grep "tempo-datasource:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); TEMPO_DS=${TEMPO_DS:-Tempo}
 GRAFANA_OK=false

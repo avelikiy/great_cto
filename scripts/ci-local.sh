@@ -11,12 +11,21 @@
 # Usage:
 #   bash scripts/ci-local.sh            # full gate
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
-#   bash scripts/ci-local.sh --quick    # skip cli build/pack (fast inner-loop)
+#   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
 # Exit 0 = all gates green. Non-zero = first failing gate (fail-fast).
 
 set -uo pipefail
 cd "$(dirname "$0")/.."   # repo root
+
+# Tests build throwaway repositories and commit into them. Those commits inherit
+# the operator's global `commit.gpgsign` / `tag.gpgSign`, so one unreachable
+# signing agent hung `ssh-keygen` for 16 minutes and failed a release gate on
+# code that had passed twice (2026-10-01). Sixteen test files commit; this turns
+# signing off for every git the gate starts, without touching anyone's config.
+export GIT_CONFIG_COUNT=2
+export GIT_CONFIG_KEY_0=commit.gpgsign GIT_CONFIG_VALUE_0=false
+export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
 
 E2E=0; QUICK=0
 for a in "$@"; do
@@ -64,6 +73,16 @@ echo "ci-local: node $(node -v) on $(uname -s)"
 
 # ── The privacy guard is actually in force ──
 #
+# The build comes FIRST, before CLI tests and the "installs for a stranger" step
+# read its gitignored output. The board now ships a dependency-free gate policy,
+# but its parity test still compares that policy with the built CLI. With the
+# build at the end of this file a fresh worktree failed
+# them before it ran, and --quick never built at all. 3.46.2 moved it ahead of the
+# unit tests only; the stranger step sits earlier still and kept failing in a
+# fresh worktree. It takes about a second.
+step "cli build (tests import it)" bash -c 'cd packages/cli && npm run build'
+step "plugin gate policy in sync" node scripts/build-gate-policy.mjs --check
+
 # First, because it is the check that fails silently. The pre-push hook was
 # installed, executable and current for months while `core.hooksPath` pointed at
 # a directory this repository had moved out of — so git ran no hooks at all, and
@@ -78,11 +97,21 @@ step "structural validation" python3 tests/structural/validate.py
 # files are excluded — they carry the hunted shapes as fixtures.
 step "lesson rules (incident-bought)" node scripts/lib/lesson-rules.mjs --sweep --strict
 step "agent-shield (config as attack surface)" node scripts/agent-shield-check.mjs
+
+# The plugin read the way a stranger installing it would — manifest, permissions,
+# MCP commands, secrets — by the same pinned HOL scanner the removed GitHub
+# workflow ran (Actions is billing-locked, so that workflow never did). Score
+# >= 80 and no critical/high finding; no python3.12 or no network on the first
+# install reports "not measured" as a skipped check, never as a pass.
+step "HOL plugin scanner (a stranger's read of the plugin)" bash scripts/hol-scan.sh
 step "skill-lint (every SKILL.md: frontmatter, size, dead references)" node scripts/skill-lint.mjs
 step "docs-reference in sync" node scripts/gen-docs-reference.mjs --check
 # agents-full/ is what the plugin registers (ADR-027); stale output would ship an
 # agent without the shared contracts its source points at.
 step "agent bundle in sync" node scripts/build-agent-bundle.mjs --check
+# The plugin's mod (hooks/hooks.json → modules: the gate pane) checked by the engine
+# that loads it. No claude CLI is a skipped check, not a pass.
+step "mod: validate + plugin test (gate pane)" bash scripts/mods-test.sh
 # Both of these were wired ONLY to .github/workflows/runtime-ci.yml, and GitHub
 # Actions has been billing-locked for weeks — every run fails in seconds with no
 # logs. So they were configured, correct, and had not executed: six structural
@@ -429,9 +458,8 @@ else
   step "pipeline suite L1-L5" run_bounded 900 bash scripts/test-pipeline.sh
 fi
 
-# ── CLI build + tests + pack (cli-ci + release) ──
+# ── CLI tests + pack (cli-ci + release); the build ran before the unit tests ──
 if [ "$QUICK" -eq 0 ]; then
-  step "cli build" bash -c 'cd packages/cli && npm run build'
   step "cli unit tests" bash -c 'cd packages/cli && node --test tests/*.test.mjs'
   step "cli pack (release readiness)" bash -c 'cd packages/cli && npm pack >/dev/null'
 fi
