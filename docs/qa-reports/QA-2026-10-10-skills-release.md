@@ -69,12 +69,27 @@ gate's counts.
 
 ## Package and delivery
 
-The source gate passed before the version-only bump. Release preparation must
-repeat manifest/pin checks, the four package-file checks, TypeScript build,
-archive generation and an isolated consumer probe on the actual 3.60.0 archive.
-That probe must import the bundled Skills module outside the source checkout,
-check its seeded document hash, boot the bundled board, verify both hosts'
-project-isolated token counts and verdict aliases, and reject unknown projects.
+The source gate passed before the version-only bump. After synchronization to
+3.60.0, TypeScript build and structural validation passed again. The combined
+documentation, Codex manifest/pin and document-link checks passed 90 tests;
+the package-file checks passed four. Neither focused run failed or skipped.
+
+The actual prepublication archive contains 160 files, 749,457 compressed bytes
+and 2,383,254 unpacked bytes. Archive SHA-256:
+286634994fb1b379ad439e318d191701a54c76a9cd58cfa3c88ef0b2d2477fbe.
+Archive integrity:
+sha512-NPFqz2jdCH8OF8blq7Tlx8Sb6ndKbqjOHIWRafYYTiEhSUn6iKNAWJ7DHXQCxAAIVf7VSN3LYttvVakeme3J0w==.
+
+An isolated consumer probe on that archive passed: CLI version 3.60.0,
+standalone bundled Skills import, seeded document hash match, bundled board
+version 3.60.0, Skills API, two-project statistics isolation for both hosts,
+owned-versus-foreign verdict alias isolation and 404 for unknown selections.
+Its temporary HOME, registry, project data and board port were independent of
+the operator installation. No skill instructions were executed.
+
+The first metadata wrapper could not parse lifecycle output preceding npm's
+JSON; npm pack itself succeeded. The parser was corrected, the archive was
+regenerated and the actual artifact verified. No production source changed.
 
 Registry publication, dist-tag propagation and a fresh registry download are
 not yet certified by this revision of the report. Operator localhost:3141 and
