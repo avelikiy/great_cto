@@ -38,6 +38,8 @@ test('real controlled host closure includes cross-directory specialist rules', (
   assert.ok(files.includes(join(root, 'scripts/lib/specialist-plan.mjs')));
   const board = runtimeImportClosure(root, [join(root, 'packages/board/server.mjs')]);
   assert.ok(board.includes(join(root, 'scripts/lib/pipeline-toml.mjs')));
+  assert.ok(board.includes(join(root, 'packages/board/lib/bd-read-worker.mjs')),
+    'the independent read worker must be shipped by static runtime closure');
   assert.ok(!board.includes(join(root, 'scripts/hooks/pipeline-dispatcher.mjs')),
     'portfolio parser must not pull in the entire native hook');
 });
