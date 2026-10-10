@@ -292,3 +292,8 @@ killed. Installed-board latency P1 remains open; no permanent repair or sustaine
 health is claimed. Private delivery evidence is retained under
 /Users/Shared/great-cto-release-3.62.0.PXDEH5. The updated article remains PR177
 draft; no external blog publication or fresh model-quality benchmark.
+
+Later bounded installed-board probes recovered without another restart:
+versionHTTP200 in1.231ms andHTMLHTTP200 in3.342ms. Early5s timeouts remain
+recorded. Current response recovery is not sustained health, an exclusive
+startup-cause diagnosis or a repair for the previously recurrent Beads P1.
