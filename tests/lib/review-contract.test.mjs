@@ -52,6 +52,7 @@ test('malformed finding paths, locations, severities and missing evidence are re
     { file: 'a\nb' }, { line: 0 }, { line: 1.5 }, { severity: 'P9' }, { issue: ' ' }]) {
     assert.equal(normalizeReviewResult({ ...base, findings: [{ ...good, ...change }] }).verdict, null);
   }
+  assert.equal(normalizeReviewResult({ ...base, findings: new Array(1) }).verdict, null);
 });
 
 test('legacy verdict must be exact, unique, and consistent with findings', () => {
@@ -64,4 +65,11 @@ test('legacy verdict must be exact, unique, and consistent with findings', () =>
   assert.equal(parseLegacyReview('a:1 | P0 | bad\nVERDICT: PASS').verdict, 'BLOCK');
   assert.equal(parseLegacyReview('VERDICT: PASS').verdict, 'PASS');
   assert.equal(parseLegacyReview('looks good').verdict, null);
+});
+
+test('malformed verdict and finding attempts cannot disappear beside a valid PASS', () => {
+  for (const malformed of ['VERDICT : BLOCK', 'VERDICT\t: BLOCK', '- VERDICT: BLOCK',
+    'a:x | CRITICAL | fatal', 'a | CRITICAL | fatal', 'a:x | P0 | fatal']) {
+    assert.equal(parseLegacyReview(`${malformed}\nVERDICT: PASS`).verdict, null, malformed);
+  }
 });

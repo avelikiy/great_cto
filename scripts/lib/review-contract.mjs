@@ -28,7 +28,7 @@ export function normalizeReviewResult(options = {}) {
   if (!digest(inputDigest) || !digest(expectedInputDigest) || inputDigest !== expectedInputDigest) return unknown('input-mismatch');
   if (state !== 'ok') return unknown('adapter-unavailable');
   if (!['PASS', 'BLOCK'].includes(verdict) || !Array.isArray(findings) || findings.length > 200) return unknown('invalid-result');
-  const valid = findings.every(f => f && typeof f === 'object'
+  const valid = Array.from(findings).every(f => f && typeof f === 'object'
     && typeof f.file === 'string' && f.file.length > 0 && f.file.length <= 1024
     && !/^[\\/]|^[A-Za-z]:|[\\\x00-\x1f]/.test(f.file)
     && f.file.split('/').every(part => part && part !== '.' && part !== '..')
@@ -50,10 +50,10 @@ export function parseLegacyReview(text) {
   for (const raw of text.split('\n')) {
     const line = raw.trim(), v = line.match(/^VERDICT:\s*(BLOCK|PASS)$/i);
     if (v) { verdicts.push(v[1].toUpperCase()); continue; }
-    if (/^VERDICT:/i.test(line)) { malformed = true; continue; }
+    if (/\bVERDICT\b/i.test(line)) { malformed = true; continue; }
     const m = line.match(/^(.+?):(\d+)\s*\|\s*(P[012])\s*\|\s*(.+)$/i);
     if (m) findings.push({ file: m[1].trim(), line: Number(m[2]), severity: m[3].toUpperCase(), issue: m[4].trim() });
-    else if (/\|\s*P\d/i.test(line) || /^.+?:\d+\s*\|/.test(line)) malformed = true;
+    else if (/\|\s*P\d/i.test(line) || /^.+?:[^|]*\|/.test(line) || /\|[^|]*\|/.test(line)) malformed = true;
   }
   // No verdict may conservatively block a concrete P0, never pass.
   const verdict = malformed || verdicts.length > 1 ? null

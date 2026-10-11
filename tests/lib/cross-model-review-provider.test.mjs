@@ -167,6 +167,9 @@ test('CLI cannot approve an over-limit specification', () => {
 
 test('CLI fails closed on conflicting verdicts and blocks a P0 even with PASS', () => {
   for (const [answer, exit] of [[['VERDICT: BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['VERDICT : BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['VERDICT\t: BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['x.js:x | CRITICAL | Data loss', 'VERDICT: PASS'], EXIT.SKIPPED],
     [['x.js:1 | P0 | Data loss', 'VERDICT: PASS'], EXIT.BLOCK]]) {
     const dir = project('capabilities:\n  second_opinion: codex\n');
     const r = run(dir, [], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, answer) });

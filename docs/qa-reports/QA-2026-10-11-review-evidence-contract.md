@@ -3,7 +3,7 @@
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.1; [architecture decision](../adr/ADR-030-review-evidence-and-recovery.md)
 Base: released main bfeafd0226795ae420559a98d19c88bfcbc947af
-Status: candidate canonical gate green, with 15 checks NOT CHECKED; installed artifact smoke failed
+Status: independent review requested changes; parser repaired; fresh canonical gate pending
 
 ## Implemented behavior
 
@@ -90,3 +90,19 @@ review parity, task evidence UI, lease fencing, crash recovery, update rollback
 and quality uplift are outside this first slice. No independent reviewer has
 approved it. No merge, npm/GitHub release, installed-plugin replacement or
 localhost:3141 restart was performed.
+
+## Independent review and corrective candidate
+
+The authorized read-only reviewer examined PR181 at `6073d39c` and returned
+REQUEST_CHANGES. A P1 finding showed `VERDICT : BLOCK` or a tab before the colon
+being discarded beside a valid PASS. A malformed location plus named severity
+was also discarded. A non-blocking observation showed sparse finding arrays
+being accepted by JavaScript `every`.
+
+New pure regressions failed before repair (5 passed, 2 failed). The parser now
+rejects malformed verdict/finding attempts instead of dropping them, and the
+normalizer materializes array slots before validation. The CLI fixture covers
+space/tab verdict conflicts and the malformed finding too. The updated focused
+suite passes 45 tests with no failures/skips. Earlier canonical results above
+apply only to the earlier frozen source, not this correction. A new complete
+candidate gate and independent re-review are required.
