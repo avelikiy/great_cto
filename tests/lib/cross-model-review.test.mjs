@@ -16,6 +16,7 @@ test('buildReviewPrompt: red-team system, file:line format, no-style instruction
   assert.match(system, /correctness/i);
   assert.match(system, /file:line/i);
   assert.match(system, /do NOT report style/i);
+  assert.match(system, /Do not assume your model family differs/);
   assert.match(user, /SPEC/);
   assert.match(user, /DIFF/);
 });
