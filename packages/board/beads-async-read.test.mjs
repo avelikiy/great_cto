@@ -124,6 +124,28 @@ for (const mode of ['hang', 'leader-exit']) test(`actual owner SIGKILL closes ${
     for (const pid of [leader, descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
   }
 });
+for (const mode of ['closed-success', 'closed-fail']) test(`completed ${mode} read terminates closed-pipe descendants`, async t => {
+  const f = await setup(t, mode);
+  const sentinel = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const dead = pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } };
+  let descendant, worker;
+  try {
+    const read = f.getTasksAsync(f.cwd);
+    const completed = mode === 'closed-fail' ? assert.rejects(read, /exited 1/) : read;
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')));
+    descendant = Number(fs.readFileSync(path.join(f.root, 'project.descendant'), 'utf8'));
+    worker = Number(fs.readFileSync(path.join(f.root, 'project.worker'), 'utf8'));
+    const result = await completed;
+    if (mode === 'closed-success') assert.equal(result[0].id, 'FIXTURE-1');
+    else assert.equal(bdCache.has(f.cwd), false);
+    await waitFor(() => dead(descendant) && dead(worker));
+    assert.equal(dead(sentinel.pid), false, 'unrelated process must survive');
+  } finally {
+    // Captured test-owned PIDs only; the assertion above is not cleanup.
+    for (const pid of [descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+    const exited = once(sentinel, 'exit');sentinel.kill('SIGKILL');await exited;
+  }
+});
 test('queued read expires within the original budget without spawning a fifth group', { timeout: 30000 }, async t => {
   const f = await setup(t, 'hang');
   const dirs = Array.from({ length: 5 }, (_, i) => path.join(f.root, `queued${i}`));

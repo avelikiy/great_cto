@@ -350,7 +350,7 @@ function startRefresh(cwd, remainingMs) {
   const generation = invalidationGeneration.get(cwd) || 0;
   lastBdRunAt.set(cwd, startedAt);
   let out = '', outBytes = 0;
-  let child, deadline, killDeadline, finished = false;
+  let child, deadline, killDeadline, finished = false, workerResult;
   const grouped = process.platform !== 'win32';
   function signalOwned(signal) {
     if (!child?.pid) return;
@@ -383,6 +383,9 @@ function startRefresh(cwd, remainingMs) {
     // to KILL for this newly owned process group; Node's TERM-only timeout did
     // not release the slot when a child ignored it or inherited pipes stayed open.
     child = spawnBdRead(BD_BIN, { cwd, env: bdEnv(), detached: grouped, readDeadlineMs: Math.ceil(remainingMs) + 250 });
+    child.on('message', message => {
+      if (message?.type === 'bd-read-result' && Number.isInteger(message.code)) workerResult = message.code;
+    });
     deadline = setTimeout(() => stop('bd read timed out'), remainingMs);
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (d) => {
@@ -400,6 +403,10 @@ function startRefresh(cwd, remainingMs) {
     child.on('close', (code) => {
       if (finished) return;
       if (killDeadline) { signalOwned('SIGKILL'); finish({ ok: false }); return; }
+      // The worker reports its leader result, then terminates its entire
+      // owned group, including itself. A bare signal without that result
+      // remains a failed read, never a fabricated successful empty list.
+      code = workerResult ?? code;
       lastBdRunAt.set(cwd, Date.now());
       if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); finish({ ok: false }); return; }
       try {

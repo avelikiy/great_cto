@@ -25,20 +25,27 @@ if (process.argv[1] === entry) {
   // Independent upper bound even if the parent's event loop is stalled.
   const budget = Number(process.argv[3]);
   if (!Number.isFinite(budget) || budget < 1 || budget > 20250) process.exit(2);
-  const deadline = setTimeout(killOwnedGroup, budget);
+  setTimeout(killOwnedGroup, budget);
+  function complete(code) {
+    // A successful leader can leave descendants with closed/ignored pipes.
+    // Flush the result over IPC before killing the whole owned group. Keep
+    // the independent deadline alive until cleanup, even if IPC stalls.
+    if (!process.connected) return killOwnedGroup();
+    try { process.send({ type: 'bd-read-result', code }, () => killOwnedGroup()); }
+    catch { killOwnedGroup(); }
+  }
   try {
     child = spawn(process.argv[2], ['list', '--json', '--all', '--include-gates'], {
       stdio: ['ignore', 'pipe', 'pipe']
     });
     child.stdout.pipe(process.stdout, { end: false });
     child.stderr.pipe(process.stderr, { end: false });
-    child.on('error', () => { clearTimeout(deadline); process.exit(1); });
+    child.on('error', () => complete(1));
     child.on('close', code => {
       // No background descendants are part of a completed read contract.
       // Wait for inherited pipes too: exiting on leader 'exit' would remove
       // the IPC watchdog while a descendant was still holding those pipes.
-      clearTimeout(deadline);
-      process.exit(Number.isInteger(code) ? code : 1);
+      complete(Number.isInteger(code) ? code : 1);
     });
-  } catch { clearTimeout(deadline); process.exit(1); }
+  } catch { complete(1); }
 }

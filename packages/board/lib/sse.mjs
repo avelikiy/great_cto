@@ -13,6 +13,7 @@ async function broadcastTasks(cwd, { fresh = false, projections = false } = {}) 
   // A completed write invalidates its cache. Reading it synchronously here
   // froze every HTTP client even though the write response was already sent.
   // With no subscriber there is no projection to refresh at all.
+  for (const res of sseClients) if (res.destroyed || res.writableEnded) sseClients.delete(res);
   const clients = [...sseClients].filter(res => res._gctoCwd === cwd);
   if (!clients.length) return { ok: true, subscribers: 0 };
   let msg, result;
@@ -38,7 +39,7 @@ async function broadcastTasks(cwd, { fresh = false, projections = false } = {}) 
   }
   for (const res of clients) {
     // A client may have disconnected or changed project while the read ran.
-    if (sseClients.has(res) && res._gctoCwd === cwd) {
+    if (sseClients.has(res) && res._gctoCwd === cwd && !res.destroyed && !res.writableEnded) {
       try { res.write(msg); } catch { sseClients.delete(res); }
     }
   }
