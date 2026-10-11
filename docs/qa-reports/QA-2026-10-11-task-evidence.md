@@ -69,6 +69,12 @@ host execution, external polling or installed-runtime mutation was introduced.
   (threshold 80) and eight documentation checks passed. These separate rechecks
   are not another full run. Hover diagnosis and fresh canonical publication
   gate remain tracked as Beads great_cto-k10g.
+- The unchanged sidebar scenario then passed in isolation (1/1), and a fresh
+  unchanged full browser rerun passed 16/16 without skips. Root cause is still
+  unknown. Independent diagnosis confirmed that stable colour alone does not
+  prove the requested hover precondition; the next regression must observe
+  attachment, hover, hit target and responsive ancestor motion. This is not
+  proof of a production UI defect or another canonical GREEN result.
 
 Test fixtures cover explicit links, foreign-session exclusion, bounded
 projection, non-boolean verifier claims, release-without-runtime, escaping,
