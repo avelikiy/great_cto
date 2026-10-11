@@ -3,7 +3,7 @@
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.1; [architecture decision](../adr/ADR-030-review-evidence-and-recovery.md)
 Base: released main bfeafd0226795ae420559a98d19c88bfcbc947af
-Status: corrected contract approved at 6c47243d; nonblocking diagnostic repair awaiting final verification
+Status: independent source review approved; test stages passed; final scanner recheck pending
 
 ## Implemented behavior
 
@@ -110,7 +110,7 @@ The combined contract/UI candidate `67d0e338` subsequently passed the full
 canonical gate with exit 0: root/hooks/board 1409 passed; libraries 3337 passed
 and 6 NOT CHECKED; evals 242; docs 76; browser 16; CLI 369; archetypes 34;
 pipeline 36 passed and 9 NOT CHECKED. The explicit candidate artifact was used.
-Log: `/tmp/great-cto-task-evidence-ci-final-20261011.log`. This certifies the
+Log: `/tmp/great-cto-review-ui-full-20261011.log`. This certifies the
 combined tree containing parent `6c47243d`, not a separate full run of that
 parent or the installed plugins.
 
@@ -121,4 +121,16 @@ It found a nonblocking P2: a valid finding mentioning `verdict` in the path or
 issue lost its diagnostic data. A new regression reproduced this (6 passed,
 1 failed), then matching a complete finding before malformed verdict attempts
 repaired it. P0 still overrides PASS; malformed finding validation remains
-unchanged. Final corrected source verification and narrow re-review follow.
+unchanged. The narrow independent re-review approved `a173ecb6`, confirmed
+closure of P2 and passed 31 tests plus six counterexamples. Our expanded
+focused suite passed 41 tests with no failures/skips.
+
+The complete corrected combined run at `02242bf6` exited 1 solely because HOL
+mistook the QA log filename for a provider secret. Its matching substring was
+the long filename segment beginning with the last two letters of task. This
+was a log path, not a credential. All executed test stages passed with the
+same counts as the preceding combined run; 15 remain NOT CHECKED. The log
+was copied to `/tmp/great-cto-review-ui-recheck-20261011.log` and this report's
+reference renamed. No scanner rule, baseline or exception was changed. The
+scanner and documentation checks must be rerun on the documentation-only
+repair; this failed full run is not relabelled as GREEN.
