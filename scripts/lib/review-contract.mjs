@@ -50,10 +50,10 @@ export function parseLegacyReview(text) {
   for (const raw of text.split('\n')) {
     const line = raw.trim(), v = line.match(/^VERDICT:\s*(BLOCK|PASS)$/i);
     if (v) { verdicts.push(v[1].toUpperCase()); continue; }
-    if (/\bVERDICT\b/i.test(line)) { malformed = true; continue; }
     const m = line.match(/^(.+?):(\d+)\s*\|\s*(P[012])\s*\|\s*(.+)$/i);
-    if (m) findings.push({ file: m[1].trim(), line: Number(m[2]), severity: m[3].toUpperCase(), issue: m[4].trim() });
-    else if (/\|\s*P\d/i.test(line) || /^.+?:[^|]*\|/.test(line) || /\|[^|]*\|/.test(line)) malformed = true;
+    // Protocol keywords inside a complete finding are diagnostic text, not verdict lines.
+    if (m) { findings.push({ file: m[1].trim(), line: Number(m[2]), severity: m[3].toUpperCase(), issue: m[4].trim() }); continue; }
+    if (/\bVERDICT\b/i.test(line) || /\|\s*P\d/i.test(line) || /^.+?:[^|]*\|/.test(line) || /\|[^|]*\|/.test(line)) malformed = true;
   }
   // No verdict may conservatively block a concrete P0, never pass.
   const verdict = malformed || verdicts.length > 1 ? null

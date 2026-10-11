@@ -3,7 +3,7 @@
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.1; [architecture decision](../adr/ADR-030-review-evidence-and-recovery.md)
 Base: released main bfeafd0226795ae420559a98d19c88bfcbc947af
-Status: independent review requested changes; parser repaired; fresh canonical gate pending
+Status: corrected contract approved at 6c47243d; nonblocking diagnostic repair awaiting final verification
 
 ## Implemented behavior
 
@@ -87,8 +87,7 @@ candidate full gate). A separate L2-L5 diagnostic run passed 29 checks with
 
 Native Claude subprocess integration, structured model output, live two-host
 review parity, task evidence UI, lease fencing, crash recovery, update rollback
-and quality uplift are outside this first slice. No independent reviewer has
-approved it. No merge, npm/GitHub release, installed-plugin replacement or
+and quality uplift are outside this first slice. No merge, npm/GitHub release, installed-plugin replacement or
 localhost:3141 restart was performed.
 
 ## Independent review and corrective candidate
@@ -106,3 +105,20 @@ space/tab verdict conflicts and the malformed finding too. The updated focused
 suite passes 45 tests with no failures/skips. Earlier canonical results above
 apply only to the earlier frozen source, not this correction. A new complete
 candidate gate and independent re-review are required.
+
+The combined contract/UI candidate `67d0e338` subsequently passed the full
+canonical gate with exit 0: root/hooks/board 1409 passed; libraries 3337 passed
+and 6 NOT CHECKED; evals 242; docs 76; browser 16; CLI 369; archetypes 34;
+pipeline 36 passed and 9 NOT CHECKED. The explicit candidate artifact was used.
+Log: `/tmp/great-cto-task-evidence-ci-final-20261011.log`. This certifies the
+combined tree containing parent `6c47243d`, not a separate full run of that
+parent or the installed plugins.
+
+Independent read-only re-review approved parent `6c47243d` and UI `67d0e338`,
+confirmed closure of the P1 and sparse-array issue, and independently passed
+38 focused tests and one keyboard browser scenario, with no failures/skips.
+It found a nonblocking P2: a valid finding mentioning `verdict` in the path or
+issue lost its diagnostic data. A new regression reproduced this (6 passed,
+1 failed), then matching a complete finding before malformed verdict attempts
+repaired it. P0 still overrides PASS; malformed finding validation remains
+unchanged. Final corrected source verification and narrow re-review follow.

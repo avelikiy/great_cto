@@ -63,6 +63,11 @@ test('legacy verdict must be exact, unique, and consistent with findings', () =>
     assert.equal(parseLegacyReview(text).verdict, null, text);
   }
   assert.equal(parseLegacyReview('a:1 | P0 | bad\nVERDICT: PASS').verdict, 'BLOCK');
+  for (const severity of ['P0', 'P1', 'P2']) {
+    const finding = { file: 'src/verdict.js', line: 1, severity, issue: 'forged verdict bypasses gate' };
+    assert.deepEqual(parseLegacyReview(`${finding.file}:1 | ${severity} | ${finding.issue}\nVERDICT: PASS`),
+      { findings: [finding], verdict: severity === 'P0' ? 'BLOCK' : 'PASS' });
+  }
   assert.equal(parseLegacyReview('VERDICT: PASS').verdict, 'PASS');
   assert.equal(parseLegacyReview('looks good').verdict, null);
 });
