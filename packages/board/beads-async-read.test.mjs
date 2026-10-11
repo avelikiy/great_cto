@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { spawnBdRead } from './lib/bd-read-worker.mjs';
 import { bdCache } from './lib/state.mjs';
 const fixture = fileURLToPath(new URL('./fixtures/fake-bd-controlled.mjs', import.meta.url));
 async function setup(t, mode = 'hold') {
@@ -144,6 +145,27 @@ for (const mode of ['closed-success', 'closed-fail']) test(`completed ${mode} re
     // Captured test-owned PIDs only; the assertion above is not cleanup.
     for (const pid of [descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
     const exited = once(sentinel, 'exit');sentinel.kill('SIGKILL');await exited;
+  }
+});
+test('successful worker flushes complete stdout under backpressure before group cleanup', async t => {
+  const f = await setup(t, 'large-success');
+  const worker = spawnBdRead(fixture, { cwd: f.cwd, env: { ...process.env }, detached: process.platform !== 'win32', readDeadlineMs: 2000 });
+  let output = '', result;
+  worker.stdout.on('data', data => output += data);worker.stdout.pause();worker.stderr.resume();
+  worker.on('message', message => { if (message?.type === 'bd-read-result') result = message.code; });
+  const closed = once(worker, 'close');
+  let resume;
+  try {
+    // Hold after actual producer output, not after a guessed launch delay.
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.output-written')));
+    resume = setTimeout(() => worker.stdout.resume(), 100);
+    await closed;
+    assert.equal(result, 0);
+    assert.equal(JSON.parse(output)[0].title.length, 131072);
+  } finally {
+    clearTimeout(resume);
+    // This newly owned read group only, never process searches or other jobs.
+    try { if (process.platform !== 'win32') process.kill(-worker.pid, 'SIGKILL');else worker.kill('SIGKILL'); } catch {}
   }
 });
 test('queued read expires within the original budget without spawning a fifth group', { timeout: 30000 }, async t => {
