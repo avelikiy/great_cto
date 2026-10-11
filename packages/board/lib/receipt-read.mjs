@@ -4,8 +4,18 @@ import { receiptReadEntry } from './receipt-read-worker.mjs';
 const pending = new Map();
 const MAX_ACTIVE = 2, MAX_BYTES = 16 * 1024 * 1024;
 export function readBindingReceipt(cwd, { timeoutMs = 20000 } = {}) {
+  return readEvidence(cwd, 'binding', timeoutMs);
+}
+export function readApprovalReceipt(cwd, { timeoutMs = 20000 } = {}) {
+  return readEvidence(cwd, 'approval', timeoutMs);
+}
+export function readSecondOpinion(cwd, { timeoutMs = 20000 } = {}) {
+  return readEvidence(cwd, 'second-opinion', timeoutMs);
+}
+function readEvidence(cwd, mode, timeoutMs) {
   cwd = path.resolve(cwd);
-  if (pending.has(cwd)) return pending.get(cwd);
+  const key = JSON.stringify([cwd, mode]);
+  if (pending.has(key)) return pending.get(key);
   if (pending.size >= MAX_ACTIVE) return Promise.reject(Error('Receipt reader busy; retry'));
   if (!Number.isFinite(timeoutMs) || timeoutMs < 1 || timeoutMs > 20000) return Promise.reject(Error('Invalid receipt deadline'));
   const operation = new Promise((resolve, reject) => {
@@ -24,7 +34,7 @@ export function readBindingReceipt(cwd, { timeoutMs = 20000 } = {}) {
       }, 250);
     };
     try {
-      child = spawnBdRead(process.execPath, { cwd, detached: grouped, commandArgs: [receiptReadEntry], readDeadlineMs: timeoutMs + 250 });
+      child = spawnBdRead(process.execPath, { cwd, detached: grouped, commandArgs: [receiptReadEntry, mode], readDeadlineMs: timeoutMs + 250 });
       deadline = setTimeout(() => stop('Receipt read timed out'), timeoutMs);
       child.on('message', m => { if (m?.type === 'bd-read-result' && Number.isInteger(m.code)) resultCode = m.code; });
       child.stdout.setEncoding('utf8');
@@ -41,13 +51,20 @@ export function readBindingReceipt(cwd, { timeoutMs = 20000 } = {}) {
         if ((resultCode ?? code) !== 0) { finish(Error('Receipt worker failed')); return; }
         try {
           const value = JSON.parse(out);
-          if (!value || !Object.hasOwn(value, 'receipt') || (value.receipt !== null && (!value.receipt.head || !value.receipt.files))) throw Error();
-          finish(null, value.receipt);
+          if (!value || !Object.hasOwn(value, 'receipt')) throw Error();
+          const evidence = value.receipt;
+          if (mode === 'binding') {
+            if (evidence !== null && (!evidence?.head || !evidence.files)) throw Error();
+          } else {
+            const states = mode === 'approval' ? ['no-receipt', 'unreadable', 'differs', 'extended', 'matches'] : ['not-run', 'unmeasured', 'unreadable', 'ok'];
+            if (!states.includes(evidence?.state)) throw Error();
+          }
+          finish(null, evidence);
         } catch { finish(Error('Receipt worker returned invalid evidence')); }
       });
     } catch { finish(Error('Receipt worker unavailable')); }
   });
-  pending.set(cwd, operation);
-  operation.then(() => pending.delete(cwd), () => pending.delete(cwd));
+  pending.set(key, operation);
+  operation.then(() => pending.delete(key), () => pending.delete(key));
   return operation;
 }

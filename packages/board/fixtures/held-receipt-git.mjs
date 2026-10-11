@@ -12,7 +12,8 @@ const run = () => {
   if (result.stderr) process.stderr.write(result.stderr);
   process.exit(result.status ?? 1);
 };
-if (args.includes('hash-object') || args.includes('--show-object-format')) {
+if (args.includes('hash-object') || args.includes('--show-object-format') ||
+    (args.includes('rev-parse') && args.includes('HEAD') && fs.existsSync(path.join(root, 'hold-head')))) {
   fs.appendFileSync(path.join(root, 'git-held'), `${process.pid}\n`);
   const timer = setInterval(() => {
     if (fs.existsSync(path.join(root, 'git-release'))) { clearInterval(timer); run(); }

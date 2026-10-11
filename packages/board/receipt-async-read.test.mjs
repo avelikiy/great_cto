@@ -7,9 +7,10 @@ import net from 'node:net';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
-import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { treeReceipt, compareReceipts } from '../../scripts/lib/receipt.mjs';
+import { secondOpinionForTree } from '../../scripts/lib/second-opinion-for-tree.mjs';
 import { issueTokensAsync, readTokens } from './lib/gate-tokens.mjs';
-import { readBindingReceipt } from './lib/receipt-read.mjs';
+import { readBindingReceipt, readApprovalReceipt, readSecondOpinion } from './lib/receipt-read.mjs';
 const realGit = execFileSync('/usr/bin/which', ['git'], { encoding: 'utf8' }).trim();
 const server = process.env.TEST_BOARD_SERVER || fileURLToPath(new URL('./server.mjs', import.meta.url));
 async function waitFor(fn) {
@@ -44,6 +45,18 @@ test('concurrent receipt reads coalesce without a persisted stale receipt cache'
   const before = await first;
   fs.writeFileSync(path.join(root, 'binary.dat'), 'changed again');
   assert.notEqual((await readBindingReceipt(root)).dirty, before.dirty);
+});
+test('approval and second-opinion workers preserve projection semantics and fresh drift', async t => {
+  const root = repository(t), receipt = treeReceipt(root);
+  const dir = path.join(root, '.great_cto', 'verdicts'); fs.mkdirSync(dir, { recursive: true });
+  const approval = { verdict: 'APPROVED', agent: 'code-reviewer', ts: '2026-01-01T00:00:00Z', receipt };
+  fs.writeFileSync(path.join(dir, 'code-reviewer.log'), JSON.stringify(approval) + '\n');
+  const expected = () => ({ ...compareReceipts(receipt, treeReceipt(root, { base: receipt.base }), { cwd: root }), agent: approval.agent, ts: approval.ts });
+  assert.deepEqual(await readApprovalReceipt(root), expected());
+  assert.deepEqual(await readSecondOpinion(root), secondOpinionForTree(root));
+  fs.writeFileSync(path.join(root, 'tracked.txt'), 'new drift\n');
+  assert.deepEqual(await readApprovalReceipt(root), expected());
+  assert.equal((await readApprovalReceipt(root)).state, 'differs');
 });
 test('failed receipt computation issues no tokens and does not overwrite a store', async t => {
   const root = repository(t);
@@ -85,11 +98,15 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
     fs.rmSync(control, { recursive: true, force: true });
   }
 });
-test('held approval receipt leaves cheap HTTP answering and preserves binding', { timeout: 15000 }, async t => {
+for (const endpoint of ['inbox', 'receipt', 'inbox-head']) test(`held ${endpoint} receipt leaves cheap HTTP answering and preserves evidence`, { timeout: 15000 }, async t => {
   const cwd = repository(t), root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-http-'));
   const state = path.join(root, 'state'), bin = path.join(root, 'bin');
   fs.mkdirSync(state); fs.mkdirSync(bin); fs.mkdirSync(path.join(cwd, '.great_cto')); fs.mkdirSync(path.join(cwd, '.beads'));
   fs.writeFileSync(path.join(cwd, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
+  if (endpoint === 'receipt') {
+    fs.mkdirSync(path.join(cwd, '.great_cto', 'verdicts'));
+    fs.writeFileSync(path.join(cwd, '.great_cto', 'verdicts', 'code-reviewer.log'), JSON.stringify({ verdict: 'APPROVED', agent: 'code-reviewer', ts: '2026-01-01T00:00:00Z', receipt: treeReceipt(cwd) }) + '\n');
+  }
   fs.writeFileSync(path.join(state, 'projects.json'), JSON.stringify({ projects: [{ slug: 'fixture', path: cwd }] }));
   fs.symlinkSync(fileURLToPath(new URL('./fixtures/held-receipt-git.mjs', import.meta.url)), path.join(bin, 'git'));
   const socket = net.createServer(); socket.listen(0, '127.0.0.1'); await once(socket, 'listening');
@@ -104,7 +121,9 @@ test('held approval receipt leaves cheap HTTP answering and preserves binding', 
   child.stdout.on('data', d => output += d); child.stderr.on('data', d => output += d);
   try {
     await waitFor(() => /task cache warmed/.test(output));
-    pending = fetch(`http://127.0.0.1:${port}/api/inbox?project=fixture`, { signal: AbortSignal.timeout(10000) });
+    if (endpoint === 'inbox-head') fs.writeFileSync(path.join(root, 'hold-head'), 'ready');
+    const route = endpoint === 'inbox-head' ? 'inbox' : endpoint;
+    pending = fetch(`http://127.0.0.1:${port}/api/${route}?project=fixture`, { signal: AbortSignal.timeout(10000) });
     await waitFor(() => fs.existsSync(path.join(root, 'git-held')));
     for (const route of ['/api/version', '/']) {
       const response = await fetch(`http://127.0.0.1:${port}${route}`, { signal: AbortSignal.timeout(1500) });
@@ -112,9 +131,15 @@ test('held approval receipt leaves cheap HTTP answering and preserves binding', 
     }
     fs.writeFileSync(path.join(root, 'git-release'), 'ready');
     const response = await pending, inbox = await response.json();
-    assert.equal(response.status, 200); assert.equal(inbox.approval_tokens.state, 'ok');
-    assert.ok(inbox.pending_gates[0].token);
-    const store = readTokens(cwd); assert.ok(store.tokens['FIXTURE-GATE'].receipt.head);
+    assert.equal(response.status, 200);
+    if (endpoint !== 'receipt') {
+      assert.equal(inbox.approval_tokens.state, 'ok');
+      assert.ok(inbox.pending_gates[0].token);
+      const store = readTokens(cwd); assert.ok(store.tokens['FIXTURE-GATE'].receipt.head);
+    } else {
+      assert.equal(inbox.agent, 'code-reviewer');
+      assert.equal(inbox.state, 'extended');
+    }
   } finally {
     fs.writeFileSync(path.join(root, 'git-release'), 'ready');
     if (pending) await pending.catch(() => {});
