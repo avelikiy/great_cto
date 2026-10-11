@@ -27,7 +27,7 @@ import { getCostHistory, getInbox } from './data-readers.mjs';
 // reporting "live · synced just now". `sweep: true` must NEVER be added to
 // an interactive read's opts: an ordinary request is someone waiting on
 // THIS project's answer, and the fill path answers `[]` instead.
-import { getTasks, SWEEP_MAX_AGE_MS } from './beads.mjs';
+import { getTasks, getTasksAsync, getReadDegradation, SWEEP_MAX_AGE_MS } from './beads.mjs';
 const SWEEP = { maxAgeMs: SWEEP_MAX_AGE_MS, sweep: true };
 import { readVerdicts } from './verdicts.mjs';
 import { isFailure } from './fleet.mjs';
@@ -303,11 +303,16 @@ function startAlertCron() {
   }, FIVE_MIN);
 
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
-  setInterval(() => {
+  setInterval(async () => {
     try {
       const projects = listProjects();
       for (const proj of projects) {
-        const m = getMetrics(proj.path);
+        let tasks;
+        try {
+          tasks = await getTasksAsync(proj.path);
+          if (getReadDegradation(proj.path)) continue;
+        } catch { continue; } // Unknown spend must not be treated as zero.
+        const m = getMetrics(proj.path, 30, { tasks });
         const meta = readProjectMd(proj.path) || {};
         const budget = parseFloat(meta['monthly-budget']?.replace?.(/[$\s]/g, '') || '0');
         if (!budget) continue;
@@ -356,7 +361,12 @@ function startAlertCron() {
       // next project reads alerts-fired.json. Prevents the race condition where
       // all N projects read an empty map simultaneously and all fire.
       for (const proj of projects) {
-        const m = getMetrics(proj.path);
+        let tasks;
+        try {
+          tasks = await getTasksAsync(proj.path);
+          if (getReadDegradation(proj.path)) continue;
+        } catch { continue; } // Unknown is not a zero-activity weekly report.
+        const m = getMetrics(proj.path, 30, { tasks });
         const dedupeKey = `digest.weekly:${proj.slug}:${isoWeek}`;
         const weeklyPayload = {
           title: `${proj.slug} weekly — ${m.tasks?.done || 0} shipped, $${(m.cost?.llm_usd || 0).toFixed(2)} spent`,
@@ -395,18 +405,22 @@ function startAlertCron() {
       const projects = listProjects();
       for (const proj of projects) {
         const dedupeKey = `digest.daily:${proj.slug}:${isoDay}`;
+        let tasks;
+        try {
+          tasks = await getTasksAsync(proj.path);
+          if (getReadDegradation(proj.path)) continue;
+        } catch { continue; } // Do not send or record a fabricated quiet day.
         // Pull last 2 days so "yesterday" is always in the window
-        const cost = getCostHistory(proj.path, 2);
+        const cost = getCostHistory(proj.path, 2, { tasks });
         const yBucket = (cost.series || []).find(s => s.date === yesterday);
         const ySpend = yBucket ? yBucket.llm : 0;
         // Feature breakdown for yesterday
         const topFeatures = (cost.by_feature || []).slice(0, 3);
         // Inbox for blocked + gates
-        const inbox = (() => { try { return getInbox(proj.path); } catch { return {}; } })();
+        const inbox = getInbox(proj.path, { tasks });
         const blocked = inbox.summary?.blocked ?? 0;
         const gates = inbox.summary?.gates ?? 0;
         // Tasks closed yesterday
-        const tasks = (() => { try { return getTasks(proj.path, SWEEP); } catch { return []; } })();
         const doneYesterday = tasks.filter(t => {
           if (!t.closed_at) return false;
           return t.closed_at.slice(0, 10) === yesterday;

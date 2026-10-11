@@ -3,7 +3,7 @@ import path from 'path';
 import { GREAT_CTO_DIR, PUBLIC, SHARE_ENDPOINT } from './config.mjs';
 import { readProjectMd } from './projects.mjs';
 import { getMetrics } from './metrics.mjs';
-import { getTasks } from './beads.mjs';
+import { getTasks, getTasksAsync, getReadDegradation } from './beads.mjs';
 import { readVerdicts } from './verdicts.mjs';
 import { readDecisionsLog } from './fleet.mjs';
 
@@ -87,8 +87,10 @@ async function toggleShare(enable, cwd = process.cwd(), force = false) {
     // Generate and publish
     // Share report is a marketing artifact — show LIFETIME numbers, not a
     // rolling window. 365 days × 100 = effectively-lifetime cap for any project.
-    const html = generateShareHTML(getTasks(cwd), getMetrics(cwd, 36500), cwd);
     try {
+      const tasks = await getTasksAsync(cwd);
+      if (getReadDegradation(cwd)) return { error: 'Task snapshot is unavailable; report not published' };
+      const html = generateShareHTML(tasks, getMetrics(cwd, 36500, { tasks }), cwd);
       const result = await publishReport(html);
       const newState = { enabled: true, url: result.url, hash: result.hash, published_at: new Date().toISOString() };
       saveShareState(newState, cwd);

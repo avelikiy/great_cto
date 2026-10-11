@@ -127,13 +127,23 @@ async function dispatch(req, res, url, cwd) {
   // Existing synchronous projections may consume a completed snapshot, but
   // HTTP cold reads must await async I/O instead of freezing unrelated clients.
   const taskRead = ['/api/work', '/api/sse', '/api/tasks', '/api/metrics',
-    '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share'].includes(pathname)
+    '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share', '/api/cost', '/api/resume'].includes(pathname)
     || /^\/api\/tasks\/[^/]+\/history$/.test(pathname);
   const unknownWork = pathname === '/api/work' && requestedProject
     && resolveProjectInfo(requestedProject).resolved === 'fallback';
+  let sseClosed = false;
+  if (pathname === '/api/sse') {
+    // Install lifecycle ownership before the cold snapshot await. Request
+    // 'close' also occurs for normally completed GET bodies; response close
+    // is the actual stream lifetime signal.
+    res.once('close', () => { sseClosed = true; sseClients.delete(res); });
+  }
+  const closedSse = () => pathname === '/api/sse'
+    && (sseClosed || req.aborted || res.destroyed || res.writableEnded);
   if (req.method === 'GET' && taskRead && !unknownWork) {
     try { await getTasksAsync(cwd); }
     catch {
+      if (closedSse()) return true;
       res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({ error: 'Task snapshot is unavailable; retry', state: 'unreadable' }));
       return true;
@@ -238,6 +248,7 @@ async function dispatch(req, res, url, cwd) {
 
   // SSE
   if (pathname === '/api/sse') {
+    if (closedSse()) return true;
     res.writeHead(200, {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
@@ -245,7 +256,11 @@ async function dispatch(req, res, url, cwd) {
     });
     res._gctoCwd = cwd;  // remember which project this client wants
     sseClients.add(res);
-    res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`);
+    if (getReadDegradation(cwd)) {
+      res.write(`event: task-read-state\ndata: ${JSON.stringify({ ok: false, state: 'unreadable' })}\n\n`);
+    } else {
+      res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(cwd))}\n\n`);
+    }
     // ADR-021: the agent activity strip starts from a snapshot, then follows pushes.
     // Phase 2: a client that hands back the cursor of the last frame it saw — the
     // Last-Event-ID header, or ?since= from a page that had to recreate its
@@ -259,7 +274,6 @@ async function dispatch(req, res, url, cwd) {
     }
     res._gctoAgentCursor = a.cursor;
     res.write(`${a.cursor ? `id: ${a.cursor}\n` : ''}event: agent\ndata: ${JSON.stringify(a)}\n\n`);
-    req.on('close', () => sseClients.delete(res));
     return true;
   }
 
@@ -734,7 +748,7 @@ async function dispatch(req, res, url, cwd) {
       // Without this, concurrent approve+reject on the same gate produced
       // TWO appendDecisionLog entries (one wrong) — log says approved AND
       // rejected. bdWriteSerialised guarantees one-at-a-time semantics.
-      const result = await bdWriteSerialised(() => {
+      const result = await bdWriteSerialised(async () => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         let via = 'beads';
         // Try beads first (unless there's no store at all); on any bd failure
@@ -777,7 +791,7 @@ async function dispatch(req, res, url, cwd) {
         const projectSlug = parsed.project && !/^[\/~]/.test(parsed.project) ? parsed.project : path.basename(gateCwd);
         let title = id;
         try {
-          const gateTask = getTasks(gateCwd).find((t) => t.id === id);
+          const gateTask = (await getTasksAsync(gateCwd)).find((t) => t.id === id);
           if (gateTask?.title) title = gateTask.title;
         } catch { /* the id is a documented fallback; the record still gets written */ }
         gateTitle = title;

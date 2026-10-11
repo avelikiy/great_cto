@@ -166,6 +166,49 @@ async function openBoard(env, route = '', pageOptions = {}) {
   return { page, errors };
 }
 
+test('unavailable SSE snapshot preserves tasks and shows an English banner until recovery', { timeout: 120_000 }, async t => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const page = await env.browser.newPage();
+    await page.addInitScript(() => {
+      const NativeEventSource = window.EventSource;
+      window.EventSource = class extends NativeEventSource {
+        constructor(...args) {
+          super(...args); window.__testTaskStream = this;
+          this.addEventListener('tasks', () => { window.__testTaskInitialFrame = true; });
+        }
+      };
+    });
+    await page.goto(env.url, { waitUntil: 'domcontentloaded' });
+    await page.waitForFunction(() => window.__testTaskStream?.readyState === EventSource.OPEN
+      && window.__testTaskInitialFrame && allTasks.length > 0);
+    const before = await page.evaluate(() => allTasks.map(t => t.id));
+    const claims = await page.evaluate(() => {
+      renderInbox({ summary: { gates: 0, blocked: 0, p0: 0, stale: 0, needs_you: 0 },
+        pending_gates: [], p0_open: [], blocked: [], stale_in_progress: [] });
+      const card = document.getElementById('inbox-allclear');
+      const before = card.style.display;
+      window.__testTaskStream.dispatchEvent(new MessageEvent('task-read-state', {
+        data: JSON.stringify({ ok: false, state: 'unreadable' }),
+      }));
+      return { before, after: card.style.display };
+    });
+    assert.equal(claims.before, '', 'healthy zero-attention card was actually painted');
+    assert.equal(claims.after, 'none', 'failure removes the previously painted healthy claim');
+    assert.match(await page.locator('#degraded-read').innerText(), /Project data could not be refreshed/);
+    assert.deepEqual(await page.evaluate(() => allTasks.map(t => t.id)), before);
+    assert.equal(await page.evaluate(() => anyDegraded()), true);
+    assert.equal(await page.locator('#live-label').innerText(), 'connected · task data unavailable');
+    await page.evaluate(() => window.__testTaskStream.dispatchEvent(new MessageEvent('tasks', {
+      data: JSON.stringify(allTasks),
+    })));
+    assert.equal(await page.locator('#degraded-read').count(), 0);
+    assert.equal(await page.evaluate(() => degradedFor('/api/tasks')), null);
+    assert.equal(await page.locator('#live-label').innerText(), 'live · synced just now');
+  } finally { await env.close(); }
+});
+
 test('Skills shows safe local observations with filters, failures and no install controls', { timeout: 120_000 }, async t => {
   const env = await boardUnderTest({ seed(dir) {
     for (const [base, name] of [['.home/.claude/skills', 'retry'], ['.home/.codex/skills', 'retry'], ['.agents/skills', 'project-only']]) {

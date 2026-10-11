@@ -150,7 +150,7 @@ test('the record does not ride on the title lookup', () => {
   assert.ok(i > 0, 'the approve handler still builds the decision line here');
   const block = src.slice(i, i + 1600);
 
-  const lookup = block.indexOf('getTasks(gateCwd)');
+  const lookup = block.indexOf('await getTasksAsync(gateCwd)');
   const write = block.indexOf('appendDecisionLog(');
   assert.ok(lookup > 0 && write > lookup, 'the title lookup precedes the write');
 

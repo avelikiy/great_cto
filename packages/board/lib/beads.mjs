@@ -40,13 +40,11 @@ import { spawnBdRead } from './bd-read-worker.mjs';
 const BD_CACHE_TTL_MS = Number(process.env.GREAT_CTO_BD_CACHE_TTL_MS || 300000);
 
 /**
- * When a cwd was last told "your cache entry is wrong" — by an invalidate or
- * a stale-mark, whichever most recently ran. A background fetch that STARTED
- * before this timestamp answers a question nobody is asking anymore: see
- * `bdRefreshAsync`, which compares its own start time against this map before
- * committing its result, so a slow fetch racing a write always loses to it.
+ * Per-project invalidation generation. A background fetch may publish only
+ * when its generation is still current. Wall-clock timestamps cannot order
+ * an invalidate followed by a read within the same millisecond.
  */
-const lastInvalidatedAt = new Map();
+const invalidationGeneration = new Map();
 
 /**
  * Drop a directory's entry so the next read is guaranteed fresh.
@@ -57,7 +55,7 @@ const lastInvalidatedAt = new Map();
  */
 function bdCacheInvalidate(cwd) {
   clearSelfTouch(cwd);
-  lastInvalidatedAt.set(cwd, Date.now());
+  invalidationGeneration.set(cwd, (invalidationGeneration.get(cwd) || 0) + 1);
   bdCache.delete(cwd);
 }
 
@@ -74,7 +72,7 @@ function bdCacheInvalidate(cwd) {
  */
 function bdCacheStale(cwd) {
   clearSelfTouch(cwd);
-  lastInvalidatedAt.set(cwd, Date.now());
+  invalidationGeneration.set(cwd, (invalidationGeneration.get(cwd) || 0) + 1);
   const cached = bdCache.get(cwd);
   if (cached) bdCache.set(cwd, { ...cached, ts: 0 });
 }
@@ -349,9 +347,10 @@ function bdRefreshAsync(cwd, onDone = null) {
 
 function startRefresh(cwd, remainingMs) {
   const startedAt = Date.now();
+  const generation = invalidationGeneration.get(cwd) || 0;
   lastBdRunAt.set(cwd, startedAt);
   let out = '', outBytes = 0;
-  let child, deadline, killDeadline, finished = false;
+  let child, deadline, killDeadline, finished = false, workerResult;
   const grouped = process.platform !== 'win32';
   function signalOwned(signal) {
     if (!child?.pid) return;
@@ -384,6 +383,9 @@ function startRefresh(cwd, remainingMs) {
     // to KILL for this newly owned process group; Node's TERM-only timeout did
     // not release the slot when a child ignored it or inherited pipes stayed open.
     child = spawnBdRead(BD_BIN, { cwd, env: bdEnv(), detached: grouped, readDeadlineMs: Math.ceil(remainingMs) + 250 });
+    child.on('message', message => {
+      if (message?.type === 'bd-read-result' && Number.isInteger(message.code)) workerResult = message.code;
+    });
     deadline = setTimeout(() => stop('bd read timed out'), remainingMs);
     child.stdout?.setEncoding('utf8');
     child.stdout?.on('data', (d) => {
@@ -401,6 +403,10 @@ function startRefresh(cwd, remainingMs) {
     child.on('close', (code) => {
       if (finished) return;
       if (killDeadline) { signalOwned('SIGKILL'); finish({ ok: false }); return; }
+      // The worker reports its leader result, then terminates its entire
+      // owned group, including itself. A bare signal without that result
+      // remains a failed read, never a fabricated successful empty list.
+      code = workerResult ?? code;
       lastBdRunAt.set(cwd, Date.now());
       if (code !== 0) { bdFailures.set(cwd, `bd exited ${code}`); finish({ ok: false }); return; }
       try {
@@ -421,7 +427,7 @@ function startRefresh(cwd, remainingMs) {
         // `tests/pipeline-e2e.test.mjs`'s gate-approval assertions flake once
         // this function started running from a COLD cache (the boot warm-up)
         // instead of only ever refreshing an already-populated one.
-        const supersededByInvalidation = (lastInvalidatedAt.get(cwd) || 0) >= startedAt;
+        const supersededByInvalidation = (invalidationGeneration.get(cwd) || 0) !== generation;
         const supersededByFresherEntry = (bdCache.get(cwd)?.ts || 0) >= startedAt;
         if (supersededByInvalidation || supersededByFresherEntry) {
           finish({ ok: true, count: parsed.length, discarded: true });

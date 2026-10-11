@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { spawnBdRead } from './lib/bd-read-worker.mjs';
 import { bdCache } from './lib/state.mjs';
 const fixture = fileURLToPath(new URL('./fixtures/fake-bd-controlled.mjs', import.meta.url));
 async function setup(t, mode = 'hold') {
@@ -48,6 +49,23 @@ test('a cold read invalidated while in flight refuses rather than returning fals
   fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
   await refused;
   assert.equal(bdCache.has(f.cwd), false);
+});
+test('an invalidation before a read in the same millisecond does not discard the fresh result', async t => {
+  const f = await setup(t);
+  const realNow = Date.now;
+  Date.now = () => 2000000000000;
+  let pending;
+  try {
+    f.bdCacheInvalidate(f.cwd);
+    pending = f.getTasksAsync(f.cwd);
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.started')));
+    fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
+    assert.equal((await pending)[0].id, 'FIXTURE-1');
+  } finally {
+    fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
+    if (pending) await pending.catch(() => {});
+    Date.now = realNow;
+  }
 });
 test('read deadline escalates to KILL for owned TERM-resistant group', { timeout: 30000 }, async t => {
   const f = await setup(t, 'hang');
@@ -105,6 +123,49 @@ for (const mode of ['hang', 'leader-exit']) test(`actual owner SIGKILL closes ${
     // Fixed captured fixture PIDs only; cleanup is not the preceding assertion.
     try { owner.kill('SIGKILL'); } catch {}
     for (const pid of [leader, descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+  }
+});
+for (const mode of ['closed-success', 'closed-fail']) test(`completed ${mode} read terminates closed-pipe descendants`, async t => {
+  const f = await setup(t, mode);
+  const sentinel = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
+  const dead = pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } };
+  let descendant, worker;
+  try {
+    const read = f.getTasksAsync(f.cwd);
+    const completed = mode === 'closed-fail' ? assert.rejects(read, /exited 1/) : read;
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')));
+    descendant = Number(fs.readFileSync(path.join(f.root, 'project.descendant'), 'utf8'));
+    worker = Number(fs.readFileSync(path.join(f.root, 'project.worker'), 'utf8'));
+    const result = await completed;
+    if (mode === 'closed-success') assert.equal(result[0].id, 'FIXTURE-1');
+    else assert.equal(bdCache.has(f.cwd), false);
+    await waitFor(() => dead(descendant) && dead(worker));
+    assert.equal(dead(sentinel.pid), false, 'unrelated process must survive');
+  } finally {
+    // Captured test-owned PIDs only; the assertion above is not cleanup.
+    for (const pid of [descendant, worker]) if (pid && !dead(pid)) { try { process.kill(pid, 'SIGKILL'); } catch {} }
+    const exited = once(sentinel, 'exit');sentinel.kill('SIGKILL');await exited;
+  }
+});
+test('successful worker flushes complete stdout under backpressure before group cleanup', async t => {
+  const f = await setup(t, 'large-success');
+  const worker = spawnBdRead(fixture, { cwd: f.cwd, env: { ...process.env }, detached: process.platform !== 'win32', readDeadlineMs: 2000 });
+  let output = '', result;
+  worker.stdout.on('data', data => output += data);worker.stdout.pause();worker.stderr.resume();
+  worker.on('message', message => { if (message?.type === 'bd-read-result') result = message.code; });
+  const closed = once(worker, 'close');
+  let resume;
+  try {
+    // Hold after actual producer output, not after a guessed launch delay.
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.output-written')));
+    resume = setTimeout(() => worker.stdout.resume(), 100);
+    await closed;
+    assert.equal(result, 0);
+    assert.equal(JSON.parse(output)[0].title.length, 131072);
+  } finally {
+    clearTimeout(resume);
+    // This newly owned read group only, never process searches or other jobs.
+    try { if (process.platform !== 'win32') process.kill(-worker.pid, 'SIGKILL');else worker.kill('SIGKILL'); } catch {}
   }
 });
 test('queued read expires within the original budget without spawning a fifth group', { timeout: 30000 }, async t => {

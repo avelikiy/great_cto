@@ -23,6 +23,19 @@ if (process.argv.includes('--descendant')) {
       setInterval(() => { if (fs.existsSync(marker('descendant'))) process.exit(0); }, 25);
     }
     setInterval(() => {}, 1000);
+  } else if (process.env.FAKE_BD_CONTROL_MODE === 'large-success') {
+    process.stdout.write(JSON.stringify([{ id: 'FIXTURE-1', title: 'x'.repeat(131072), status: 'open', priority: 0 }]), () => {
+      fs.writeFileSync(marker('output-written'), 'ready');process.exit(0);
+    });
+  } else if (['closed-success', 'closed-fail'].includes(process.env.FAKE_BD_CONTROL_MODE)) {
+    const descendant = spawn(process.execPath, [new URL(import.meta.url).pathname, '--descendant'], { stdio: 'ignore' });
+    descendant.unref();
+    const ready = setInterval(() => {
+      if (!fs.existsSync(marker('descendant'))) return;
+      clearInterval(ready);
+      process.stdout.write(JSON.stringify([{ id: 'FIXTURE-1', title: 'Fixture task', status: 'open', priority: 0 }]),
+        () => process.exit(process.env.FAKE_BD_CONTROL_MODE === 'closed-fail' ? 1 : 0));
+    }, 25);
   } else if (process.env.FAKE_BD_CONTROL_MODE === 'oversize') {
     process.stdout.write(Buffer.alloc(16 * 1024 * 1024 + 1, 120));
     setInterval(() => {}, 1000);

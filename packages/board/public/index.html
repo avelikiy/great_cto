@@ -1768,8 +1768,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pl-gate.active .pl-msg, .pl-gate.active .pl-meta { opacity: 1; color: var(--text); }
 .pl-gate .gate-badge {
   margin-left: auto;
-  background: var(--status-blocked); color: var(--on-solid);
-  font-size: var(--fs-eyebrow); font-weight: 700;
+  background: var(--status-blocked); color: var(--on-status);
+  font-size: var(--fs-eyebrow); font-weight: 500;
   min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -8117,6 +8117,12 @@ function connectSSE() {
   };
   es.addEventListener('tasks', e => {
     const newTasks = JSON.parse(e.data);
+    delete BOARD_DEGRADED['/api/tasks'];
+    renderDegradedBanner('degraded-read', null, '');
+    if (es.readyState === EventSource.OPEN) {
+      document.getElementById('live-dot').className = 'live-dot pulse';
+      document.getElementById('live-label').textContent = 'live · synced just now';
+    }
     // A transient bd failure (dolt lock, timeout) can produce an empty
     // snapshot indistinguishable from "no tasks" (great_cto-e2ew). Don't
     // blindly wipe a populated board — refetch once via the regular API
@@ -8129,6 +8135,20 @@ function connectSSE() {
       return;
     }
     applyTasksSnapshot(newTasks);
+  });
+  es.addEventListener('task-read-state', e => {
+    try {
+      const state = JSON.parse(e.data);
+      if (state.state !== 'unreadable') return;
+      BOARD_DEGRADED['/api/tasks'] = 'Task snapshot is unavailable. Showing the last loaded tasks.';
+      document.getElementById('live-dot').className = 'live-dot error';
+      document.getElementById('live-label').textContent = 'connected · task data unavailable';
+      // Re-evaluate existing healthy claims as well as adding the banner.
+      // A previously painted "All clear" must not survive a failed refresh.
+      if (window.__inboxData) renderInbox(window.__inboxData);
+      renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
+        'Project data could not be refreshed. Counts may be out of date.');
+    } catch { /* Malformed transport data must not erase the last snapshot. */ }
   });
   es.addEventListener('pipeline', e => {
     try {
@@ -8165,8 +8185,10 @@ function connectSSE() {
   });
   es.onopen = () => {
     const d = document.getElementById('live-dot');
-    d.className = 'live-dot pulse';
-    document.getElementById('live-label').textContent = 'live · synced just now';
+    const unreadable = degradedFor('/api/tasks');
+    d.className = unreadable ? 'live-dot error' : 'live-dot pulse';
+    document.getElementById('live-label').textContent = unreadable
+      ? 'connected · task data unavailable' : 'live · synced just now';
   };
   es.onerror = () => {
     document.getElementById('live-dot').className = 'live-dot error';

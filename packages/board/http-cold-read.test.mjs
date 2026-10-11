@@ -36,7 +36,7 @@ test('cold task HTTP read waits for real data while version and HTML still answe
     stdio: ['ignore', 'pipe', 'pipe']
   });
   let output = '';child.stdout.on('data', d => output += d);child.stderr.on('data', d => output += d);
-  let pending;
+  let pending, costPending;
   try {
     await waitFor(() => /task cache warmed/.test(output));
     let settled = false;
@@ -45,6 +45,9 @@ test('cold task HTTP read waits for real data while version and HTML still answe
     // Observe the actual read subprocess before asking unrelated HTTP endpoints.
     await waitFor(() => fs.existsSync(path.join(root, 'other.started')));
     assert.equal(settled, false);
+    let costSettled = false;
+    costPending = fetch(`http://127.0.0.1:${port}/api/cost?project=other`, { signal: AbortSignal.timeout(10000) })
+      .then(async r => ({ status: r.status, cost: await r.json() })).finally(() => { costSettled = true; });
     const inboxResponse = await fetch(`http://127.0.0.1:${port}/api/inbox`, { signal: AbortSignal.timeout(1500) });
     assert.equal(inboxResponse.status, 200);
     const inbox = await inboxResponse.json();
@@ -56,16 +59,19 @@ test('cold task HTTP read waits for real data while version and HTML still answe
       await res.text();
     }
     assert.equal(fs.existsSync(path.join(root, 'other.release')), false);
+    assert.equal(costSettled, false, 'cost projection must await the cold snapshot, not claim zero');
     fs.writeFileSync(path.join(root, 'other.release'), 'release');
     const result = await pending;
     assert.equal(result.status, 200);
     assert.equal(result.tasks[0].id, 'FIXTURE-1');
+    assert.equal((await costPending).status, 200);
   } catch (error) {
     console.error(output);
     throw error;
   } finally {
     fs.writeFileSync(path.join(root, 'other.release'), 'release');
     if (pending) await pending.catch(() => {});
+    if (costPending) await costPending.catch(() => {});
     if (child.exitCode === null && child.signalCode === null) {
       const exited = once(child, 'exit');child.kill('SIGTERM');
       const kill = setTimeout(() => child.kill('SIGKILL'), 1000);await exited;clearTimeout(kill);

@@ -26,13 +26,16 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { loadBrowser } from '../../scripts/lib/layout-snapshot.mjs';
 import { parseColor, composite, ratio, AA_TEXT, AA_LARGE } from '../../scripts/lib/contrast.mjs';
 import { startServerOnFreePort } from '../helpers/board-start.mjs';
 import { createContrastLifetime } from '../helpers/contrast-lifetime.mjs';
+import { buildFixture } from '../../scripts/lib/screenshot-fixture.mjs';
 
 // The port comes from the kernel, not from the pid. `3239 + (pid % 40)` gave
 // forty possible values, so a second run on the same machine could take the
@@ -245,8 +248,17 @@ test('every panel, both themes: text can be read against what is behind it', { t
   if (!chromium) return t.skip('playwright not installed — not checked, not passed');
 
   let started;
+  const fixture = mkdtempSync(path.join(os.tmpdir(), 'gcto-contrast-project-'));
+  buildFixture(fixture);
+  const state = path.join(fixture, '.test-state');
+  mkdirSync(state);
+  const registry = path.join(state, 'projects.json');
+  writeFileSync(registry, JSON.stringify({ projects: [{ name: 'Contrast fixture', path: fixture }] }));
+  t.after(async () => { await lifetime.stop(); rmSync(fixture, { recursive: true, force: true }); });
   try {
-    started = await startServerOnFreePort({ entry: 'packages/board/server.mjs' });
+    started = await startServerOnFreePort({ entry: path.resolve('packages/board/server.mjs'), cwd: fixture,
+      env: { GREAT_CTO_HOME: state, GREAT_CTO_PROJECTS_FILE: registry,
+        GREAT_CTO_DISCOVERY_ROOT: fixture, GREAT_CTO_NO_UPDATE_CHECK: '1' } });
   } catch (e) {
     // Still a skip — but the reason travels with it, so a port collision no
     // longer reads the same as a server that crashed on boot.
@@ -257,11 +269,14 @@ test('every panel, both themes: text can be read against what is behind it', { t
   let browser;
   try {
     try {
-      const browserServer=await chromium.launchServer({ channel: 'chrome', headless: true, timeout:10000 });
+      // Use Playwright's paired browser, like the interaction E2E suite. The
+      // independently updated system Chrome is covered by the native abort
+      // test; it must not define the reproducibility of this pixel audit.
+      const browserServer=await chromium.launchServer({ headless: true, timeout:10000 });
       await lifetime.ownBrowser(browserServer);
       browser=await chromium.connect(browserServer.wsEndpoint(),{timeout:10000});
     } catch (e) {
-      if(String(e.message).includes("Executable doesn't exist"))return t.skip('Chrome unavailable — NOT CHECKED');
+      if(String(e.message).includes("Executable doesn't exist"))return t.skip('Playwright Chromium unavailable — NOT CHECKED');
       throw Error('contrast browser launch/connect failed');
     }
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
@@ -280,6 +295,11 @@ test('every panel, both themes: text can be read against what is behind it', { t
     await page.evaluate(async () => { await loadSkillsInventory(); });
     assert.equal(await page.locator('#skills-table tbody tr').count(), 2);
     await page.evaluate(() => { document.querySelector('#skills-body details').open = true; });
+    // A seeded pending gate must be present BEFORE either theme is measured.
+    // Otherwise slow init moves its badge into only the second theme and the
+    // audit can miss white text on the dark theme's bright red status fill.
+    await page.waitForFunction(() => document.querySelector('#pipeline-track .gate-badge')?.textContent === '1',
+      null, { timeout: 15000 });
 
     // The page's own panel list must be the one this file walks.
     const shipped = await page.evaluate(() => [...document.querySelectorAll('[id^="panel-"]')].map((e) => e.id.slice(6)).sort());
