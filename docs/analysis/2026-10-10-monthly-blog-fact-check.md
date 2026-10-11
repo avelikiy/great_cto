@@ -8,7 +8,18 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Current delivery snapshot: 3.62.0
+## Current delivery snapshot: 3.62.1, October 11 addendum
+
+- PR #178 and #179 merged through normal gates and independent exact-head review. Release commit `d8cc2f95ba1d2f209a0d8956acaf030872be32ce`; [GitHub release](https://github.com/avelikiy/great_cto/releases/tag/v3.62.1) published 2026-10-11T10:57:47Z.
+- npm registry archive matches the tested archive: SHA256 `7b6f394d81f323dd0500bf4ff7d067d3a752d665f229a198dd112e90b8a292d6`. Both host plugin inventories and local CLI independently report 3.62.1. Existing host sessions require restart; installation is not hot-loading proof.
+- Canonical reviewed candidate passed with 15 NOTCHECKED. Packaged worker/SSE checks passed 15 cases and isolated cold HTTP passed one case. These do not establish sustained operator runtime health.
+- Actual operator sustained probe failed on its first sample: Inbox timed out at 3 seconds, then version timed out at 3 seconds. The owned board was stopped. No successful 20-minute run is claimed.
+- Exact installed receipt reproduction completed 571 synchronous Git calls in 20 seconds without finishing. An isolated optimized receipt took 655 ms on the same tree. This is a diagnosis and focused measurement, not a published latency guarantee or a quality benchmark.
+- [PR #180](https://github.com/avelikiy/great_cto/pull/180) is a separate unreleased candidate. Its source verification, review and rollout must not inherit #178/#179 approval.
+- Release announcement workflow could not start because GitHub reported an account billing lock. npm/GitHub distribution succeeded; automatic announcement did not.
+- Details: [October 11 release and runtime QA](../qa-reports/QA-2026-10-11-board-release.md).
+
+## Historical delivery snapshot: 3.62.0
 
 - PR #167 merged at ddb55ae3f1f7ff3bb6708e4f2eccf50f231f4018; its tree is identical to reviewed head351cab93. Release commit08a95f4b2e79f690d145730f9a38dfba08920975 changes synchronized versions, release notes and five synthetic screenshots, not application runtime.
 - GitHub Release v3.62.0 published2026-10-10T18:14:40Z. Normal main/tag pushes completed with privacy and existing security checks; no new public-term exception or baseline entry.

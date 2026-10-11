@@ -4,6 +4,11 @@ Date: 2026-10-10. Tracking: great_cto-932g.
 Scope: PR #173, #175, #176, #163, #167 and the monthly article.
 This is a delivery follow-up, not a new mixed-host quality benchmark.
 
+October 11 update: [3.62.1 release and runtime QA](QA-2026-10-11-board-release.md)
+supersedes the installed-version snapshot below. Distribution and installation
+are verified, but the sustained operator-board probe failed. PR #180 is an
+unreleased receipt-reader fix, not part of the delivered 3.62.1 artifact.
+
 ## Released and installed
 
 PR #173, #175 and #176 are merged and published in 3.60.0. Fresh npm metadata
