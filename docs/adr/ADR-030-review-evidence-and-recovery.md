@@ -15,8 +15,8 @@ integration points. This branch starts from released main bfeafd02; it does not
 assume a separate canonical ledger is shipped merely because a Beads issue was
 closed in another workstream.
 
-Research inspiration: Databasus at
-9ee25ed8f47b1b537468417e1bb52ed2d76218a0, especially its review runner,
+Research inspiration: [Databasus review runner](https://github.com/databasus/databasus/blob/9ee25ed8f47b1b537468417e1bb52ed2d76218a0/.agent-hooks/review_gate.py)
+at 9ee25ed8f47b1b537468417e1bb52ed2d76218a0, especially its review runner,
 verification run ownership, recovery checks and temporary-file updater.
 No upstream code, prompts, assets or hooks are copied or installed.
 
