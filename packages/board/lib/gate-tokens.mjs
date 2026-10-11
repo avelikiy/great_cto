@@ -41,21 +41,22 @@ const storePath = (cwd) => path.join(cwd, '.great_cto', TOKENS_FILE);
 // board's decision lifecycle; this is not a distributed multi-board lock.
 const decisions = new Map();
 function decisionState(cwd) {
-  const key = path.resolve(cwd);
+  let key;
+  try { key = fs.realpathSync(cwd); } catch { return null; }
   if (!decisions.has(key)) decisions.set(key, { generation: randomUUID(), active: false });
   return decisions.get(key);
 }
 export function approvalSnapshot(cwd) {
   const state = decisionState(cwd);
-  return { generation: state.generation, active: state.active };
+  return state ? { generation: state.generation, active: state.active } : { generation: null, active: true };
 }
 function snapshotFresh(cwd, snapshot) {
   const state = decisionState(cwd);
-  return snapshot && !snapshot.active && !state.active && snapshot.generation === state.generation;
+  return state && snapshot && !snapshot.active && !state.active && snapshot.generation === state.generation;
 }
 export function beginGateDecision(cwd) {
   const state = decisionState(cwd);
-  if (state.active) return null;
+  if (!state || state.active) return null;
   state.active = true; state.generation = randomUUID();
   let ended = false;
   return () => { if (!ended) { ended = true; state.active = false; state.generation = randomUUID(); } };
@@ -190,7 +191,9 @@ export function checkBinding(cwd, entry) {
 
 /** Single use: drop the gate's token once it has been decided. */
 export function consumeToken(cwd, id) {
-  decisionState(cwd).generation = randomUUID();
+  const state = decisionState(cwd);
+  if (!state) return;
+  state.generation = randomUUID();
   const store = readTokens(cwd);
   if (store.state !== 'ok' || !(id in store.tokens)) return;
   const next = { ...store.tokens };

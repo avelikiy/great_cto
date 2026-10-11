@@ -93,6 +93,32 @@ test('snapshot preceding second-opinion await refuses issuance after decision li
   assert.equal(readTokens(root).state, 'none');
   assert.equal((await issueTokensAsync(root, [{ id: 'gate-A' }])).state, 'ok');
 });
+test('physical project aliases share decision fence and invalidate stale issuance', async t => {
+  const root = repository(t), aliasRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-alias-'));
+  t.after(() => fs.rmSync(aliasRoot, { recursive: true, force: true }));
+  const alias = path.join(aliasRoot, 'project'); fs.symlinkSync(root, alias, 'dir');
+  await issueTokensAsync(root, [{ id: 'gate-A' }]);
+  const snapshot = approvalSnapshot(root), end = beginGateDecision(alias);
+  assert.ok(end); assert.equal(beginGateDecision(root), null);
+  consumeToken(alias, 'gate-A'); end();
+  const result = await issueTokensAsync(root, [{ id: 'gate-A' }, { id: 'gate-B' }], { snapshot });
+  assert.equal(result.state, 'unreadable'); assert.deepEqual(result.tokens, {});
+  assert.equal(readTokens(root).tokens['gate-A'], undefined);
+});
+test('distinct Git worktrees do not share their decision fence', t => {
+  const root = repository(t), worktreeRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-worktree-'));
+  t.after(() => fs.rmSync(worktreeRoot, { recursive: true, force: true }));
+  const checkout = path.join(worktreeRoot, 'checkout');
+  execFileSync(realGit, ['worktree', 'add', '--detach', '-q', checkout, 'HEAD'], { cwd: root });
+  const first = beginGateDecision(root), second = beginGateDecision(checkout);
+  assert.ok(first); assert.ok(second); first(); second();
+});
+test('unresolvable project identity cannot acquire a fence or issue tokens', async t => {
+  const root = repository(t), missing = path.join(root, 'missing');
+  assert.equal(beginGateDecision(missing), null);
+  assert.equal((await issueTokensAsync(missing, [{ id: 'gate-A' }])).state, 'unreadable');
+  assert.equal(readTokens(root).state, 'none');
+});
 test('native receipt hashing streams multi-chunk binary content with Git-equivalent hashes', t => {
   const root = repository(t);
   fs.writeFileSync(path.join(root, 'binary.dat'), Buffer.alloc(256 * 1024 + 17, 0xff));
