@@ -15,7 +15,7 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 763 files in 9 groups.
+Derived from what imports what, across 764 files in 9 groups.
 
 ```mermaid
 flowchart TD
@@ -25,7 +25,7 @@ flowchart TD
   skills["Skills<br/><small>161 files</small>"]
   hooks["Hooks<br/><small>42 files</small>"]
   libs["Libraries<br/><small>227 files</small>"]
-  board["Board<br/><small>104 files</small>"]
+  board["Board<br/><small>105 files</small>"]
   cli["CLI<br/><small>40 files</small>"]
   evals["Evals<br/><small>93 files</small>"]
   hooks -->|75| libs
@@ -43,7 +43,7 @@ flowchart TD
 | `skills` | 161 | knowledge agents load on demand |
 | `hooks` | 42 | what fires on session, tool and stop events |
 | `libs` | 227 | the logic hooks and commands share |
-| `board` | 104 | the admin view, zero runtime dependencies |
+| `board` | 105 | the admin view, zero runtime dependencies |
 | `cli` | 40 | the published npm package |
 | `evals` | 93 | what each agent is measured against |
 
