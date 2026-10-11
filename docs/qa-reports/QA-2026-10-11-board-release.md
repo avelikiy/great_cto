@@ -3,6 +3,11 @@
 Date: 2026-10-11. Tracking: great_cto-932g.7, great_cto-932g.7.5 and great_cto-932g.9.
 This report separates source verification, distribution, installation and actual runtime health.
 
+Historical 3.62.1 evidence below is retained. The follow-up [3.62.2 receipt
+release report](QA-2026-10-11-board-receipt-release.md) supersedes its source,
+distribution and installation status, and records a separate successful
+20-minute installed runtime check. The earlier failure remains historical evidence.
+
 ## Approved and shipped source
 
 PR #178 merged as `72133dfb26b046925ab0915a25da71fac5685bd3`; PR #179 as

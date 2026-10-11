@@ -8,7 +8,16 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Current delivery snapshot: 3.62.1, October 11 addendum
+## Current delivery snapshot: 3.62.2, October 11 addendum
+
+- PR #180 merged normally as `abd3e35559be56395e2b5e76ac8f60b1e3495388`, tree identical to independently reviewed `16bc030c`. Release metadata commit `bfeafd0226795ae420559a98d19c88bfcbc947af`; [GitHub release](https://github.com/avelikiy/great_cto/releases/tag/v3.62.2) published 2026-10-11T12:06:01Z.
+- Canonical gate passed with 15 NOT CHECKED; independent re-review passed nine targeted checks, all three P2 findings mitigated, Snyk SUCCESS. Counts and evidence are in [receipt release QA](../qa-reports/QA-2026-10-11-board-receipt-release.md).
+- npm registry archive matches tested bytes: SHA256 `54628706f267b100e8ee774b20295314a42e5b764c3237a232525d0b9cd447b2`, 184 files. Fresh registry consumer passed four actual HTTP, 15 worker/SSE and one cold HTTP check, without failures or skips.
+- Native plugin inventories and local CLI report 3.62.2. The board runs from the active installed marketplace artifact on loopback, running=installed and stale=no. Sustained verification completed PASS: 1200 seconds, 25 samples, 125 concurrent-sample requests, no restarts/timeouts/degraded task responses; lighter endpoint maximum 1057 ms, Tasks maximum 428 ms. A separate receipt read returned HTTP 200 in 1478 ms. This is one-instance local health, not universal compatibility or model quality.
+- Selected-project Usage and Harness were checked in the browser. Missing attributable Codex history is not proof of no Codex activity, and host detection is not proof of a cross-model review.
+- Release announcement run [38137991843](https://github.com/avelikiy/great_cto/actions/runs/38137991843) could not start because of the GitHub billing lock. Public article publication remains separate.
+
+## Historical delivery snapshot: 3.62.1
 
 - PR #178 and #179 merged through normal gates and independent exact-head review. Release commit `d8cc2f95ba1d2f209a0d8956acaf030872be32ce`; [GitHub release](https://github.com/avelikiy/great_cto/releases/tag/v3.62.1) published 2026-10-11T10:57:47Z.
 - npm registry archive matches the tested archive: SHA256 `7b6f394d81f323dd0500bf4ff7d067d3a752d665f229a198dd112e90b8a292d6`. Both host plugin inventories and local CLI independently report 3.62.1. Existing host sessions require restart; installation is not hot-loading proof.
