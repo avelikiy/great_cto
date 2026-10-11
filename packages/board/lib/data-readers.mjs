@@ -3,7 +3,7 @@ import fs from 'fs';
 import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { readFileSafe } from './util.mjs';
-import { getTasks } from './beads.mjs';
+import { getTasks, getTasksAsync, getTasksCached } from './beads.mjs';
 import { readVerdicts, readSecStats } from './verdicts.mjs';
 import { datePlans } from './plan-date.mjs';
 
@@ -401,8 +401,7 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
 }
 
 // ── Inbox: what needs the user's decision right now ──────────────────────────
-function getInbox(cwd = process.cwd()) {
-  const tasks = getTasks(cwd);
+function getInbox(cwd = process.cwd(), { tasks = getTasks(cwd) } = {}) {
   // Use raw_status here: mapStatus() rewrites status to 'gate' for any task with the
   // 'gate' label, regardless of bd-native state. Filtering on the mapped value would
   // leave closed/blocked gates in the inbox forever.
@@ -502,7 +501,7 @@ function getInbox(cwd = process.cwd()) {
  * `readInbox` is injectable so the walk can be tested with stub projects
  * without a beads store behind each one.
  */
-function inboxElsewhere(projects, currentPath, { readInbox = getInbox } = {}) {
+function inboxElsewhere(projects, currentPath, { readInbox = getInboxCached } = {}) {
   const same = (a, b) => {
     if (!a || !b) return false;
     try { return fs.realpathSync(a) === fs.realpathSync(b); } catch { return path.resolve(a) === path.resolve(b); }
@@ -521,4 +520,6 @@ function inboxElsewhere(projects, currentPath, { readInbox = getInbox } = {}) {
   return out;
 }
 
-export { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere };
+async function getInboxAsync(cwd) { return getInbox(cwd, { tasks: await getTasksAsync(cwd) }); }
+function getInboxCached(cwd) { return getInbox(cwd, { tasks: getTasksCached(cwd) }); }
+export { getMemory, getPipeline, getCostHistory, getInbox, getInboxAsync, getInboxCached, inboxElsewhere };

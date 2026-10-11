@@ -37,17 +37,27 @@ export async function runBoardSmoke({ serverPath, agentsDir }) {
       import {EventEmitter} from 'node:events';import {syncBuiltinESMExports} from 'node:module';
       import {readFileSync,writeFileSync} from 'node:fs';import {basename} from 'node:path';
       const record=${JSON.stringify(records)}, tasks=${JSON.stringify(tasks)};
+      const readWorker=${JSON.stringify(join(dirname(server), 'lib', 'bd-read-worker.mjs'))};
       const note=(kind,value)=>{const r=JSON.parse(readFileSync(record,'utf8'));r[kind].push(value);writeFileSync(record,JSON.stringify(r));};
       os.homedir=()=>${JSON.stringify(home)};
       const isBd=(cmd,args)=>basename(cmd)==='bd' && args[0]==='list';
       cp.spawnSync=(cmd,args)=>{note('sync',{bd:isBd(cmd,args),git:basename(cmd)==='git'});return isBd(cmd,args)?{status:0,stdout:JSON.stringify(tasks),stderr:''}:{status:1,stdout:'',stderr:''};};
-      cp.spawn=(cmd,args)=>{
-        const bd=isBd(cmd,args);note('async',{bd,command:basename(cmd)});if(!bd) throw Error('unexpected child refused');
+      const read=()=>{
         const c=new EventEmitter();c.stdout=new EventEmitter();c.stderr=new EventEmitter();
+        c.stdout.setEncoding=()=>c.stdout;c.stdout.destroy=()=>{};c.stderr.resume=()=>c.stderr;c.stderr.destroy=()=>{};
         queueMicrotask(()=>{c.stdout.emit('data',JSON.stringify(tasks));c.emit('close',0);});return c;
       };
+      cp.spawn=(cmd,args)=>{
+        const bd=isBd(cmd,args);note('async',{bd,command:basename(cmd)});if(!bd) throw Error('unexpected child refused');
+        return read();
+      };
+      cp.fork=(cmd,args)=>{
+        const bd=cmd===readWorker && Array.isArray(args) && args.length===2 && basename(args[0])==='bd'
+          && Number(args[1])>=1 && Number(args[1])<=20250;
+        note('async',{bd,command:basename(cmd)});if(!bd) throw Error('unexpected child refused');return read();
+      };
       const refuse=()=>{note('network',true);throw Error('outgoing fixture network refused');};
-      cp.exec=cp.execFile=cp.execSync=cp.execFileSync=cp.fork=(cmd)=>{note('async',{bd:false,git:basename(cmd)==='git',command:basename(cmd)});throw Error('fixture command not executed');};
+      cp.exec=cp.execFile=cp.execSync=cp.execFileSync=(cmd)=>{note('async',{bd:false,git:basename(cmd)==='git',command:basename(cmd)});throw Error('fixture command not executed');};
       globalThis.fetch=async()=>refuse();http.request=http.get=https.request=https.get=refuse;
       syncBuiltinESMExports();
     `;

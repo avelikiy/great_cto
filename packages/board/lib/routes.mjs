@@ -27,9 +27,9 @@ import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as ver
 let routerKeyCheck = null;
 import { broadcastTasks } from './sse.mjs';
 import { saveNotifHistory } from './notifications.mjs';
-import { getMemory, getPipeline, getCostHistory, getInbox, inboxElsewhere } from './data-readers.mjs';
+import { getMemory, getPipeline, getCostHistory, getInbox, getInboxAsync, inboxElsewhere } from './data-readers.mjs';
 import { log } from './log.mjs';
-import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
+import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, getTasksAsync, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
 import { issueTokens, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
@@ -123,6 +123,22 @@ async function dispatch(req, res, url, cwd) {
   // never an arbitrary HOME directory supplied as a query parameter.
   const scopedProject = ['/api/skills', '/api/usage', '/api/outcomes'].includes(pathname)
     ? scopedReadProject(cwd, serverCwd, requestedProject) : null;
+
+  // Existing synchronous projections may consume a completed snapshot, but
+  // HTTP cold reads must await async I/O instead of freezing unrelated clients.
+  const taskRead = ['/api/work', '/api/sse', '/api/tasks', '/api/metrics',
+    '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share'].includes(pathname)
+    || /^\/api\/tasks\/[^/]+\/history$/.test(pathname);
+  const unknownWork = pathname === '/api/work' && requestedProject
+    && resolveProjectInfo(requestedProject).resolved === 'fallback';
+  if (req.method === 'GET' && taskRead && !unknownWork) {
+    try { await getTasksAsync(cwd); }
+    catch {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Task snapshot is unavailable; retry', state: 'unreadable' }));
+      return true;
+    }
+  }
 
   if (pathname === '/api/work/publication') {
     const respond = (status, body) => { res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
@@ -847,7 +863,13 @@ async function dispatch(req, res, url, cwd) {
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
-    const inbox = getInbox(cwd);
+    let inbox;
+    try { inbox = await getInboxAsync(cwd); }
+    catch {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Task snapshot is unavailable; retry', state: 'unreadable' }));
+      return true;
+    }
     // BRD-R3: the Decisions row shows both reviewers. The second opinion is a
     // fact about the TREE, not about a gate — every pending gate on this tree
     // shares it — so it is resolved once: the newest cross-review line whose
@@ -861,7 +883,7 @@ async function dispatch(req, res, url, cwd) {
     // If the registry itself cannot be walked, say so — `unreadable` is not
     // `{p0: 0}`, and the page must not print "nothing elsewhere" from it.
     let elsewhere;
-    try { elsewhere = inboxElsewhere(listProjects(), cwd, { readInbox: getInbox }); }
+    try { elsewhere = inboxElsewhere(listProjects(), cwd); }
     catch (e) { elsewhere = { state: 'unreadable', why: String(e?.message || e) }; }
     // ADR-024 §1: each pending gate carries the token an approval must present,
     // bound to the project as it is now. The typed name stored with it is the one
