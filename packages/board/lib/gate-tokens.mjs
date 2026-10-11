@@ -19,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { treeReceipt, receiptHash, compareReceipts } from '../../../scripts/lib/receipt.mjs';
+import { readBindingReceipt } from './receipt-read.mjs';
 
 export const TOKENS_FILE = 'gate-tokens.json';
 export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -77,7 +78,7 @@ export function bindingReceipt(cwd) {
  * @param {{id:string, gate?:string, guarded?:boolean}[]} gates
  * @returns {{state:'ok'|'unreadable', tokens:Record<string,string>, why?:string}}
  */
-export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } = {}) {
+export function issueTokens(cwd, gates, { now = Date.now(), env = process.env, readReceipt = bindingReceipt } = {}) {
   const store = readTokens(cwd);
   if (store.state === 'unreadable') return { state: 'unreadable', tokens: {}, why: store.why };
   const ttl = tokenTtlMs(env);
@@ -90,7 +91,7 @@ export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } 
     else toMint.push(g);
   }
   if (toMint.length) {
-    const receipt = bindingReceipt(cwd);
+    const receipt = readReceipt(cwd);
     const hash = receiptHash(receipt);
     for (const g of toMint) {
       next[g.id] = {
@@ -102,6 +103,22 @@ export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } 
   const changed = toMint.length || Object.keys(store.tokens).some((id) => !pending.has(id));
   if (changed) writeTokens(cwd, next);
   return { state: 'ok', tokens: Object.fromEntries(Object.entries(next).map(([id, e]) => [id, e.token])) };
+}
+
+export async function issueTokensAsync(cwd, gates, { env = process.env, readReceipt = readBindingReceipt } = {}) {
+  const store = readTokens(cwd), now = Date.now(), ttl = tokenTtlMs(env);
+  if (store.state === 'unreadable') return { state: 'unreadable', tokens: {}, why: store.why };
+  const needsReceipt = (gates || []).some(g => g?.id &&
+    (!store.tokens[g.id] || typeof store.tokens[g.id].token !== 'string' || !Number.isFinite(store.tokens[g.id].firstSeenAt) || now - store.tokens[g.id].firstSeenAt > ttl));
+  try {
+    const receipt = needsReceipt ? await readReceipt(cwd) : undefined;
+    // Reread the store after await: another consumer may already have minted
+    // these tokens, or corruption may have appeared. Never replace that state.
+    return issueTokens(cwd, gates, { now: Date.now(), env, readReceipt: () => {
+      if (!needsReceipt) throw Error('Receipt no longer available');
+      return receipt;
+    } });
+  } catch { return { state: 'unreadable', tokens: {}, why: 'Approval receipt is unavailable; retry' }; }
 }
 
 /**

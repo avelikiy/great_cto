@@ -32,7 +32,7 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, getTasksAsync, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
-import { issueTokens, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
+import { issueTokensAsync, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
 import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
@@ -903,7 +903,7 @@ async function dispatch(req, res, url, cwd) {
     // bound to the project as it is now. The typed name stored with it is the one
     // the page asks for; a store that cannot be read issues nothing and says so.
     const gates = inbox.pending_gates || [];
-    const issued = issueTokens(cwd, gates.map((g) => ({
+    const issued = await issueTokensAsync(cwd, gates.map((g) => ({
       id: g.id,
       gate: g.reversibility?.gate ? `gate:${g.reversibility.gate}` : g.id,
       guarded: ['expensive', 'unclassified'].includes(g.reversibility?.state),

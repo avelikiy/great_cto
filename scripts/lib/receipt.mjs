@@ -88,9 +88,20 @@ const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [] } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
+  // Off-loop board readers avoid one process per untracked file. Preserve Git's
+  // blob format (including SHA-256 repositories) and --no-filters semantics.
+  const algorithm = hashFilesInProcess ? git(['rev-parse', '--show-object-format'], cwd)?.trim() : null;
+  if (hashFilesInProcess && !['sha1', 'sha256'].includes(algorithm)) return null;
+  const digest = p => {
+    if (!hashFilesInProcess) return fileDigest(cwd, p);
+    try {
+      const bytes = readFileSync(join(cwd, p));
+      return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+    } catch { return null; }
+  };
 
   // Directories a caller does not want in this receipt, ON TOP OF the activity logs.
   // ADR-024: a gate token binds to the project outside .great_cto/, because an
@@ -121,7 +132,9 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   if (diff === null || untrackedOutput === null) return null;
   const untracked = untrackedOutput
     .split('\n').map((s) => s.trim()).filter(Boolean);
-  const untrackedDigest = untracked.map((p) => `${p}:${fileDigest(cwd, p) ?? '?'}`).join('\n');
+  const untrackedDigests = untracked.map(p => [p, digest(p)]);
+  if (hashFilesInProcess && untrackedDigests.some(([, value]) => !value)) return null;
+  const untrackedDigest = untrackedDigests.map(([p, value]) => `${p}:${value ?? '?'}`).join('\n');
   const dirty = (diff.trim() || untrackedDigest) ? sha(`${diff}\n--untracked--\n${untrackedDigest}`) : null;
 
   // Which files the change touches. `--diff-filter=d` drops deletions: a file
@@ -170,7 +183,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   let truncated = false;
   for (const p of names) {
     if (Object.keys(files).length >= maxFiles) { truncated = true; break; }
-    const blob = fileDigest(cwd, p);
+    const blob = digest(p);
     if (!blob) return null;
     files[p] = blob;
   }
