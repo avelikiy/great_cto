@@ -53,7 +53,7 @@ export function parseLegacyReview(text) {
     if (/^VERDICT:/i.test(line)) { malformed = true; continue; }
     const m = line.match(/^(.+?):(\d+)\s*\|\s*(P[012])\s*\|\s*(.+)$/i);
     if (m) findings.push({ file: m[1].trim(), line: Number(m[2]), severity: m[3].toUpperCase(), issue: m[4].trim() });
-    else if (/\|\s*P\d/i.test(line)) malformed = true;
+    else if (/\|\s*P\d/i.test(line) || /^.+?:\d+\s*\|/.test(line)) malformed = true;
   }
   // No verdict may conservatively block a concrete P0, never pass.
   const verdict = malformed || verdicts.length > 1 ? null

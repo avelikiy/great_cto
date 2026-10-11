@@ -57,7 +57,8 @@ test('malformed finding paths, locations, severities and missing evidence are re
 test('legacy verdict must be exact, unique, and consistent with findings', () => {
   for (const text of ['VERDICT: PASSING', 'VERDICT: PASS because fine',
     'VERDICT: BLOCK\nVERDICT: PASS', 'VERDICT: PASS\nVERDICT: PASS',
-    'a:0 | P1 | bad\nVERDICT: PASS', 'a:1 | P9 | bad\nVERDICT: PASS']) {
+    'a:0 | P1 | bad\nVERDICT: PASS', 'a:1 | P9 | bad\nVERDICT: PASS',
+    'a:1 | CRITICAL | bad\nVERDICT: PASS']) {
     assert.equal(parseLegacyReview(text).verdict, null, text);
   }
   assert.equal(parseLegacyReview('a:1 | P0 | bad\nVERDICT: PASS').verdict, 'BLOCK');
