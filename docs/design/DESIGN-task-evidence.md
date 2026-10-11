@@ -1,3 +1,8 @@
+---
+date: 2026-10-11
+status: draft
+---
+
 # Task evidence panel
 
 Date: 2026-10-11
@@ -33,6 +38,10 @@ joined by title or role; that requires a future explicit task-bound receipt.
 The general role-verdict list is not a substitute for that receipt.
 
 ## Design system and accessibility
+
+DESIGN_VARIANCE: 2/10 - Reuse existing Work cards and native disclosure instead of introducing a new visual pattern.
+MOTION_INTENSITY: 1/10 - Add no animation; disclosure uses native behavior and existing focus treatment.
+VISUAL_DENSITY: 5/10 - Five short evidence categories remain collapsed by default, with details on demand.
 
 The panel uses the existing card and native `details`/`summary` pattern rather
 than a new modal or drawer framework. Its identity is

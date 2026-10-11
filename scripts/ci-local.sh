@@ -372,7 +372,10 @@ step "docs screen classifies more than it shrugs at" bash -c '
 '
 
 # ── Unit tests: root + hooks + lib + eval + board (runtime-ci/evals/plugin) ──
-step "root + hooks + board tests" node --test tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
+# Board fixtures have real child-start and IPC deadlines. Unbounded file
+# scheduling can expire a receipt before its held Git fixture reaches the
+# handshake. Bound scheduling, not those deadlines, and retain every suite.
+step "root + hooks + board tests" node --test --test-concurrency=2 tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 # Each library file can launch Git, browsers and signal-handling fixtures.
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;

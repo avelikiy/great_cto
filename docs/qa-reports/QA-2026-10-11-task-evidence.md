@@ -42,6 +42,13 @@ host execution, external polling or installed-runtime mutation was introduced.
   will verify the combined contract/UI tree, not claim a standalone canonical
   rerun of the corrected parent branch. Both cancellations exited 143 and
   are not approval evidence.
+- The full combined-tree run at `87f2dad3` exited 1: one root fixture handshake
+  failure and one missing DESIGN-dials declaration. Other executed stages
+  passed, including all 16 browser scenarios. Corrections bound only root
+  file scheduling to concurrency 2, keeping the complete inventory and every
+  original assertion/deadline, and declare the three design dials with reasons.
+  A regression asserts the root command keeps all four test globs. A fresh
+  frozen-source full gate is still required; the failed run is not approval.
 
 Test fixtures cover explicit links, foreign-session exclusion, bounded
 projection, non-boolean verifier claims, release-without-runtime, escaping,
