@@ -195,11 +195,13 @@ test('unavailable SSE snapshot preserves tasks and shows an English banner until
     assert.match(await page.locator('#degraded-read').innerText(), /Project data could not be refreshed/);
     assert.deepEqual(await page.evaluate(() => allTasks.map(t => t.id)), before);
     assert.equal(await page.evaluate(() => anyDegraded()), true);
+    assert.equal(await page.locator('#live-label').innerText(), 'connected · task data unavailable');
     await page.evaluate(() => window.__testTaskStream.dispatchEvent(new MessageEvent('tasks', {
       data: JSON.stringify(allTasks),
     })));
     assert.equal(await page.locator('#degraded-read').count(), 0);
     assert.equal(await page.evaluate(() => degradedFor('/api/tasks')), null);
+    assert.equal(await page.locator('#live-label').innerText(), 'live · synced just now');
   } finally { await env.close(); }
 });
 
