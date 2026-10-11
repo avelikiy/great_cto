@@ -3,8 +3,8 @@ import path from 'path';
 import { GREAT_CTO_DIR } from './config.mjs';
 import { sseClients } from './state.mjs';
 import { listProjects } from './projects.mjs';
-import { bdCacheStale, getTasks, isSelfInflictedTouch } from './beads.mjs';
-import { getPipeline, getInbox } from './data-readers.mjs';
+import { bdCacheStale, isSelfInflictedTouch } from './beads.mjs';
+import { broadcastTasks } from './sse.mjs';
 import { agentActivitySince, activityStamp } from './agent-activity.mjs';
 
 // ── File watcher ───────────────────────────────────────────────────────────────
@@ -51,17 +51,9 @@ function watchBeads() {
     if (isSelfInflictedTouch(dir)) return;
     // Stale, not deleted. A change we NOTICED must not make the next reader pay
     // for it — they asked for something else. The broadcast below still reads
-    // fresh, because a stale entry refreshes on read.
+    // fresh, because it explicitly awaits the shared asynchronous refresh.
     bdCacheStale(dir);
-    for (const res of sseClients) {
-      if (res._gctoCwd === dir) {
-        try {
-          res.write(`event: tasks\ndata: ${JSON.stringify(getTasks(dir))}\n\n`);
-          res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
-          res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
-        } catch {}
-      }
-    }
+    void broadcastTasks(dir, { fresh: true, projections: true });
   };
 
   // Debounce per-dir: dolt writes can fire 3-5 events in <50ms during a single
@@ -130,12 +122,9 @@ function watchVerdicts() {
     if (pushTimer) clearTimeout(pushTimer);
     // debounce: collapse a burst of writes (multiple agents finishing within ~150ms)
     pushTimer = setTimeout(() => {
-      for (const res of sseClients) {
-        const dir = res._gctoCwd || process.cwd();
-        try {
-          res.write(`event: pipeline\ndata: ${JSON.stringify(getPipeline(dir))}\n\n`);
-          res.write(`event: inbox\ndata: ${JSON.stringify(getInbox(dir))}\n\n`);
-        } catch { sseClients.delete(res); }
+      const dirs = new Set([...sseClients].map(res => res._gctoCwd || process.cwd()));
+      for (const dir of dirs) {
+        void broadcastTasks(dir, { projections: true });
       }
     }, 150);
   };

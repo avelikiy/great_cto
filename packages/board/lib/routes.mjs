@@ -127,7 +127,7 @@ async function dispatch(req, res, url, cwd) {
   // Existing synchronous projections may consume a completed snapshot, but
   // HTTP cold reads must await async I/O instead of freezing unrelated clients.
   const taskRead = ['/api/work', '/api/sse', '/api/tasks', '/api/metrics',
-    '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share'].includes(pathname)
+    '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share', '/api/cost', '/api/resume'].includes(pathname)
     || /^\/api\/tasks\/[^/]+\/history$/.test(pathname);
   const unknownWork = pathname === '/api/work' && requestedProject
     && resolveProjectInfo(requestedProject).resolved === 'fallback';
@@ -734,7 +734,7 @@ async function dispatch(req, res, url, cwd) {
       // Without this, concurrent approve+reject on the same gate produced
       // TWO appendDecisionLog entries (one wrong) — log says approved AND
       // rejected. bdWriteSerialised guarantees one-at-a-time semantics.
-      const result = await bdWriteSerialised(() => {
+      const result = await bdWriteSerialised(async () => {
         const status = action === 'approve' ? 'closed' : 'blocked';
         let via = 'beads';
         // Try beads first (unless there's no store at all); on any bd failure
@@ -777,7 +777,7 @@ async function dispatch(req, res, url, cwd) {
         const projectSlug = parsed.project && !/^[\/~]/.test(parsed.project) ? parsed.project : path.basename(gateCwd);
         let title = id;
         try {
-          const gateTask = getTasks(gateCwd).find((t) => t.id === id);
+          const gateTask = (await getTasksAsync(gateCwd)).find((t) => t.id === id);
           if (gateTask?.title) title = gateTask.title;
         } catch { /* the id is a documented fallback; the record still gets written */ }
         gateTitle = title;

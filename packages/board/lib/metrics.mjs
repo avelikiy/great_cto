@@ -43,11 +43,10 @@ function acceptanceMetrics(verdicts = [], windowCostUsd = null) {
 }
 
 // ── Metrics ────────────────────────────────────────────────────────────────────
-function getMetrics(cwd = process.cwd(), days = 30) {
+function getMetrics(cwd = process.cwd(), days = 30, { tasks = getTasks(cwd) } = {}) {
   // `days` controls the window for cost/agents_cost and for "shipped in window".
   // Tasks shipped within the window are returned in `tasks.done_in_window`.
   // Full lifetime `tasks.done` is still returned for backwards compatibility.
-  const tasks = getTasks(cwd);
   // BH-28: resolved gates (approve→closed, reject→blocked) get mapped to
   // status='done' by mapStatus(). Those are governance decisions, not shipped
   // features — counting them inflates velocity / tasks-shipped on the report.

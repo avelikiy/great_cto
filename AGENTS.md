@@ -1,5 +1,18 @@
 # Agent Instructions
 
+## Work Continuity
+
+When no additional clarification is needed, keep working within the agreed
+scope until all requested tasks are implemented and verified. A progress update
+or a successful intermediate test is not a reason to stop. Resolve failures,
+run the required gates, and report completion only with evidence.
+
+If continuing requires a missing decision, new authority, or an external change
+that cannot be made safely within scope, report the exact blocker and ask only
+the necessary question. Persistence does not authorize bypassing gates,
+independent review, or separate merge, release, deployment and installation
+approvals. Never describe blocked or unverified work as complete.
+
 This project uses **bd** (beads) for issue tracking. Run `bd onboard` to get started.
 
 ## Quick Reference

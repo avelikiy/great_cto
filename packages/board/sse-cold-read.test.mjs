@@ -80,3 +80,50 @@ test('disconnected or project-switched subscribers do not receive an in-flight s
   }
   assert.deepEqual(frames, []);
 });
+
+test('external change awaits a fresh snapshot and derives all projections from it', async t => {
+  const f = await setup(t);
+  const frames = [];
+  f.sseClients.add({ _gctoCwd: f.cwd, write: msg => frames.push(msg) });
+  const { bdCache } = await import(new URL('./state.mjs', pathToFileURL(entry)).href);
+  bdCache.set(f.cwd, { ts: 0, data: [{ id: 'STALE-1', status: 'open', title: 'Old' }] });
+  const pending = f.broadcastTasks(f.cwd, { fresh: true, projections: true });
+  try {
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.started')));
+    assert.deepEqual(frames, [], 'stale tasks must not be published as refreshed');
+  } finally {
+    fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
+    await pending;
+  }
+  assert.equal(frames.length, 1);
+  assert.match(frames[0], /FIXTURE-1/);
+  assert.match(frames[0], /event: pipeline\n/);
+  assert.match(frames[0], /event: inbox\n/);
+  assert.doesNotMatch(frames[0], /STALE-1/);
+  assert.equal(fs.readFileSync(path.join(f.root, 'project.started'), 'utf8').trim().split('\n').length, 1);
+});
+
+test('failed refresh retains last-good tasks without publishing false pipeline or inbox', async t => {
+  const f = await setup(t, 'fail');
+  const frames = [];
+  f.sseClients.add({ _gctoCwd: f.cwd, write: msg => frames.push(msg) });
+  const { bdCache } = await import(new URL('./state.mjs', pathToFileURL(entry)).href);
+  bdCache.set(f.cwd, { ts: 0, data: [{ id: 'LAST-GOOD', status: 'open' }] });
+  assert.deepEqual(await f.broadcastTasks(f.cwd, { fresh: true, projections: true }), { ok: false, state: 'unreadable' });
+  assert.match(frames[0], /event: task-read-state\n/);
+  assert.doesNotMatch(frames[0], /event: (tasks|pipeline|inbox)\n/);
+  assert.equal(bdCache.get(f.cwd).data[0].id, 'LAST-GOOD');
+});
+
+test('fresh projections still support tasks.md-only projects without a Beads store', async t => {
+  const f = await setup(t, 'fail');
+  fs.rmSync(path.join(f.cwd, '.beads'), { recursive: true });
+  fs.mkdirSync(path.join(f.cwd, '.great_cto'));
+  fs.writeFileSync(path.join(f.cwd, '.great_cto', 'tasks.md'), '- [ ] MD-1: Supported task\n');
+  const frames = [];
+  f.sseClients.add({ _gctoCwd: f.cwd, write: msg => frames.push(msg) });
+  assert.deepEqual(await f.broadcastTasks(f.cwd, { fresh: true, projections: true }), { ok: true });
+  assert.match(frames[0], /Supported task/);
+  assert.match(frames[0], /event: pipeline\n/);
+  assert.doesNotMatch(frames[0], /task-read-state/);
+});

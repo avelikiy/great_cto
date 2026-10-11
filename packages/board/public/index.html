@@ -1769,7 +1769,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pl-gate .gate-badge {
   margin-left: auto;
   background: var(--status-blocked); color: var(--on-solid);
-  font-size: var(--fs-eyebrow); font-weight: 700;
+  font-size: var(--fs-eyebrow); font-weight: 500;
   min-width: 16px; height: 16px; padding: 0 4px;
   border-radius: 0;
   display: inline-flex; align-items: center; justify-content: center;
@@ -8117,6 +8117,8 @@ function connectSSE() {
   };
   es.addEventListener('tasks', e => {
     const newTasks = JSON.parse(e.data);
+    delete BOARD_DEGRADED['/api/tasks'];
+    renderDegradedBanner('degraded-read', null, '');
     // A transient bd failure (dolt lock, timeout) can produce an empty
     // snapshot indistinguishable from "no tasks" (great_cto-e2ew). Don't
     // blindly wipe a populated board — refetch once via the regular API
@@ -8129,6 +8131,15 @@ function connectSSE() {
       return;
     }
     applyTasksSnapshot(newTasks);
+  });
+  es.addEventListener('task-read-state', e => {
+    try {
+      const state = JSON.parse(e.data);
+      if (state.state !== 'unreadable') return;
+      BOARD_DEGRADED['/api/tasks'] = 'Task snapshot is unavailable. Showing the last loaded tasks.';
+      renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
+        'Project data could not be refreshed. Counts may be out of date.');
+    } catch { /* Malformed transport data must not erase the last snapshot. */ }
   });
   es.addEventListener('pipeline', e => {
     try {

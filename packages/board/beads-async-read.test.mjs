@@ -49,6 +49,23 @@ test('a cold read invalidated while in flight refuses rather than returning fals
   await refused;
   assert.equal(bdCache.has(f.cwd), false);
 });
+test('an invalidation before a read in the same millisecond does not discard the fresh result', async t => {
+  const f = await setup(t);
+  const realNow = Date.now;
+  Date.now = () => 2000000000000;
+  let pending;
+  try {
+    f.bdCacheInvalidate(f.cwd);
+    pending = f.getTasksAsync(f.cwd);
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.started')));
+    fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
+    assert.equal((await pending)[0].id, 'FIXTURE-1');
+  } finally {
+    fs.writeFileSync(path.join(f.root, 'project.release'), 'release');
+    if (pending) await pending.catch(() => {});
+    Date.now = realNow;
+  }
+});
 test('read deadline escalates to KILL for owned TERM-resistant group', { timeout: 30000 }, async t => {
   const f = await setup(t, 'hang');
   const refused = assert.rejects(f.getTasksAsync(f.cwd), /timed out/);

@@ -73,7 +73,7 @@ function getMemory(cwd = process.cwd()) {
 }
 
 // ── Pipeline state ────────────────────────────────────────────────────────────
-function getPipeline(cwd = process.cwd()) {
+function getPipeline(cwd = process.cwd(), { tasks = getTasks(cwd) } = {}) {
   const stages = ['product-owner', 'architect', 'pm', 'senior-dev', 'reviewers', 'qa-engineer', 'security-officer', 'devops', 'l3-support'];
   const verdicts = readVerdicts(cwd);
   const now = Date.now();
@@ -87,7 +87,6 @@ function getPipeline(cwd = process.cwd()) {
   }
 
   // Tasks in_progress give us "active" agents
-  const tasks = getTasks(cwd);
   const activeAgents = new Set(
     tasks.filter(t => t.status === 'in_progress').map(t => (t.agent || '').toLowerCase()).filter(Boolean)
   );
@@ -179,7 +178,7 @@ function getPipeline(cwd = process.cwd()) {
 }
 
 // ── Cost history (daily LLM burn) ────────────────────────────────────────────
-function getCostHistory(cwd = process.cwd(), days = 30) {
+function getCostHistory(cwd = process.cwd(), days = 30, { tasks: suppliedTasks } = {}) {
   // Build a map<dateISO, { llm, human, plans, verdictCost }>.
   // Inclusive window: `days=30` means [today-30 ... today] = 31 buckets.
   // Previous behaviour (days buckets only) created a one-day gap on the
@@ -315,7 +314,7 @@ function getCostHistory(cwd = process.cwd(), days = 30) {
   const LLM_RATE_PER_HR   = parseFloat(process.env.GREATCTO_LLM_RATE_PER_HR || '0.30');
   const DEFAULT_TASK_MIN  = 30;
   try {
-    const tasks = getTasks(cwd);
+    const tasks = suppliedTasks ?? getTasks(cwd);
     for (const t of tasks) {
       if (!t.closed_at) continue;
       if (!t.agent) continue;

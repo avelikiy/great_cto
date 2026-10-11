@@ -13,21 +13,22 @@ export function createContrastLifetime(signal,{cleanupMs=3000}={}){
   // may postpone stopping the separately owned board.
   let stopped;
   try{stopped=Promise.resolve(record.stop());}catch(error){stopped=Promise.reject(error);}
-  await bounded(Promise.all([stopped,exit]),cleanupMs);
+  try { await bounded(Promise.all([stopped,exit]),cleanupMs); }
+  catch (error) { throw new Error(`${error.message} (${record.kind}, pid=${child.pid}, exit=${child.exitCode}, signal=${child.signalCode})`, { cause: error }); }
  })();
  const stop=async()=>{stopping=true;await Promise.all([...owned.values()].map(stopOne));};
  const onAbort=()=>{void stop().catch(()=>{});};
  signal.addEventListener('abort',onAbort,{once:true});
- const own=async(handle,child,stopOwned)=>{
+ const own=async(handle,child,stopOwned,kind)=>{
   if(!child||typeof child.once!=='function'||typeof child.kill!=='function'||!Number.isInteger(child.pid)||child.pid<1)throw Error('invalid creator-held child');
   if(owned.has(handle))throw Error('duplicate contrast resource');
-  const record={child,stop:stopOwned};owned.set(handle,record);
+  const record={child,stop:stopOwned,kind};owned.set(handle,record);
   if(stopping||signal.aborted){await stopOne(record);throw aborted();}
   return handle;
  };
  return Object.freeze({
-  ownBoard:child=>own(child,child,()=>{if(child.exitCode===null&&child.signalCode===null&&!child.kill('SIGKILL'))throw Error('contrast board stop refused');}),
-  ownBrowser:server=>own(server,server.process(),()=>server.kill()),
+  ownBoard:child=>own(child,child,()=>{if(child.exitCode===null&&child.signalCode===null&&!child.kill('SIGKILL'))throw Error('contrast board stop refused');},'board'),
+  ownBrowser:server=>own(server,server.process(),()=>server.kill(),'browser'),
   async run(action){
    if(stopping||signal.aborted)throw aborted();let rejectAbort;
    const listener=()=>rejectAbort(aborted());
