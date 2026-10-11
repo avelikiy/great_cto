@@ -4,7 +4,7 @@ Date: 2026-10-11
 Scope: Beads great_cto-qnq6.2
 Base: review-contract PR181 at 6073d39c
 Design: [task evidence panel](../design/DESIGN-task-evidence.md)
-Status: focused and browser checks passed; board rerun pending
+Status: focused, board and browser checks passed; canonical rerun pending
 
 ## Implemented
 
@@ -26,12 +26,15 @@ host execution, external polling or installed-runtime mutation was introduced.
   the bundler fixture required `dist/archetypes.js`, which was not built yet
   in this new worktree. These failures are not treated as success.
 - CLI dependencies and TypeScript build subsequently passed. The complete
-  board suite is rerunning with concurrency 2, without concurrent browser
-  fixtures. This is a diagnostic scheduling change, not the canonical gate
+  board suite passed 544 tests with concurrency 2, zero failures/skips and no
+  concurrent browser fixtures. This is a diagnostic scheduling change, not the canonical gate
   configuration and not a relaxed assertion or timeout.
 - Doc-links tests: 5 passed, 0 failed, 0 skipped. Runtime module syntax,
   generated reference synchronization and `git diff --check` passed.
-- Canonical repository-wide gate for this UI tree: not run yet. The parent
+- The first canonical run was cancelled during the scanner after the push's
+  advisory artifact lint identified five required DESIGN sections missing.
+  Cancellation is not PASS. The missing sections were added without changing
+  lint policy; a fresh frozen-source canonical run is required. The parent
   contract's canonical result does not certify these later UI changes.
 
 Test fixtures cover explicit links, foreign-session exclusion, bounded

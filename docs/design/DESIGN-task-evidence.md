@@ -32,7 +32,7 @@ role names do not create links. Review receipts from the separate CLI are not
 joined by title or role; that requires a future explicit task-bound receipt.
 The general role-verdict list is not a substitute for that receipt.
 
-## Design and accessibility
+## Design system
 
 The panel uses the existing card and native `details`/`summary` pattern rather
 than a new modal or drawer framework. Its identity is
@@ -50,3 +50,32 @@ the same entry. Project resets discard the previous snapshot.
 Legacy snapshots without `evidenceSections` still render the existing cockpit.
 The board's execution/publication capabilities are unchanged. Unknown sections
 are useful information, not disabled controls and not an empty success state.
+
+## Component inventory
+
+One native disclosure inside each existing Work card, one summary, one
+description paragraph and one definition list with five sections. Existing
+activity inspector, technical details and publication controls remain separate.
+No modal, new navigation destination, tooltip or notification is added.
+
+## Responsive behavior
+
+The component inherits the Work card width and existing mobile padding. Details
+wrap with `overflow-wrap: anywhere`; there are no fixed-width tables. It must
+remain readable on mobile and in both existing themes without horizontal scroll.
+
+## Numeric contract
+
+Counts describe records in the bounded read window, not a quality score or test
+pass count. Zero verifier-success reports is a count of explicit boolean claims,
+not proof that no check ran. Unknown data never becomes zero. There is no new
+monetary, tabular numeric or percentage output in this component.
+
+## Destructive actions and cost of recovery
+
+The component has no destructive action, confirmation token, execution command
+or write request. Opening or closing it only changes local disclosure state.
+On refresh its existing entry identity retains open state; switching projects
+discards the old projection. Rendering failure cannot authorize publication or
+change the host run. Reverting this additive UI field leaves legacy snapshots
+renderable without changing stored task data.
