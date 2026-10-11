@@ -2,9 +2,9 @@
 
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.2
-Base: corrected review-contract PR181 at 6c47243d
+Base: review-contract PR181, executable correction approved at a173ecb6
 Design: [task evidence panel](../design/DESIGN-task-evidence.md)
-Status: focused, board and browser checks passed; canonical rerun pending
+Status: independent source review approved; latest full gate RED; scanner repair verified
 
 ## Implemented
 
@@ -49,6 +49,26 @@ host execution, external polling or installed-runtime mutation was introduced.
   original assertion/deadline, and declare the three design dials with reasons.
   A regression asserts the root command keeps all four test globs. A fresh
   frozen-source full gate is still required; the failed run is not approval.
+- The next frozen combined run at `67d0e338` exited 0: root/hooks/board 1409
+  passed; libraries 3337 passed and 6 NOT CHECKED; evals 242; docs 76; browser
+  16; CLI 369; archetypes 34; pipeline 36 passed and 9 NOT CHECKED. The full
+  log is `/tmp/great-cto-review-ui-full-20261011.log`. This is explicit
+  candidate-artifact proof, not installed-plugin or live-model evidence.
+- Independent read-only review approved UI/CI `67d0e338` relative to parent
+  `6c47243d`, with 38 focused tests and one browser scenario, no failures/skips.
+  A nonblocking diagnostic issue in the parent was subsequently repaired and
+  independently approved at `a173ecb6` (31 tests and six counterexamples).
+- The full corrected combined run at `02242bf6` exited 1 at HOL and browser:
+  the parent QA log filename matched a provider-secret pattern. The sidebar
+  hover test also failed (15 browser passes, 1 failure), comparing final RGB
+  with transparent. Other test stages passed with the counts above, but the
+  complete run is RED, not GREEN.
+  Log: `/tmp/great-cto-review-ui-recheck-20261011.log`. Only the documentation
+  reference was renamed after diagnosis, with no scanner exception/policy
+  change and no executable-code change. The fresh scanner passed at score 82
+  (threshold 80) and eight documentation checks passed. These separate rechecks
+  are not another full run. Hover diagnosis and fresh canonical publication
+  gate remain tracked as Beads great_cto-k10g.
 
 Test fixtures cover explicit links, foreign-session exclusion, bounded
 projection, non-boolean verifier claims, release-without-runtime, escaping,
@@ -57,7 +77,7 @@ scenario observes no write requests when opening/closing the panel.
 
 ## Remaining boundaries
 
-No independent review, merge, npm/GitHub release, installed-plugin update or
+No merge, npm/GitHub release, installed-plugin update or
 localhost:3141 restart. No native-model quality benchmark or full host parity
 claim. Connecting actual task-bound review receipts, PR/CI results and runtime
 probes is separate from rendering the available observations.
