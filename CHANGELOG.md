@@ -37,6 +37,30 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.62.1 — 2026-10-11
+
+The board can keep answering while task snapshots are being read. Cold reads share bounded asynchronous work, and unavailable data remains explicitly unavailable instead of looking like an empty backlog or a recovered connection.
+
+### What's new
+
+- Cold task-backed HTTP routes and cross-project Inbox no longer perform blocking list reads in the request path.
+- Background watchers publish Tasks, Pipeline and Inbox from one coherent snapshot. Failed reads retain the last visible tasks and retract previously painted All clear claims.
+- Daily and weekly digests, cost thresholds and share publication avoid fabricated zero-activity reports when a task store cannot be read.
+- SSE reconnects preserve unreadable state until a successful snapshot. Clients disconnected during cold reads are not registered after they leave.
+- Task reads use at most four active lanes, a total queue/read budget, a stdout size limit and creator-owned process cleanup. Closed-pipe descendants are terminated as well as descendants holding inherited pipes.
+- A successful worker result is sent only after stdout and stderr have drained, preserving complete snapshots under backpressure before process-group cleanup.
+- The gate badge uses a supported font weight and theme-appropriate text contrast.
+- Agent instructions require continued scoped work through implementation and verification while preserving independent review and rollout authority.
+
+### Verification and limits
+
+PRs #178 and #179 were reviewed together on `48c4f88e`. The complete canonical gate passed: 1385 root/hooks/board, 3321 library, 242 eval, 76 docs, 15 browser, 369 CLI and 34 archetype checks; pipeline L1-L5 passed 36 checks. Suites overlap and must not be summed as unique tests. Fifteen checks remain NOT CHECKED: six optional library live checks and nine pipeline external-action checks. Independent re-review confirmed closure of three P2 findings and independently passed seven targeted checks without skips. A private npm consumer passed six worker lifetime/backpressure, two SSE bootstrap and one cold HTTP check. Earlier failed gates and regression baselines remain retained evidence.
+
+These changes isolate read paths, not synchronous Beads write execution. POSIX process-group cleanup is not universal sandbox containment; Windows direct-child handling is not descendant attestation. Fixture gates do not establish paid model execution, notification delivery, production deployment or universal host compatibility. Published source and installed runtime require separate verification.
+
+---
+
 ## v3.62.0 — 2026-10-10
 
 Choose opt-in pipeline depth and share agent budgets across hosts.
