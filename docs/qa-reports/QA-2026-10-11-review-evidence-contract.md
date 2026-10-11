@@ -138,3 +138,11 @@ fresh scanner passed at score 82 (threshold 80), and eight documentation
 checks passed after the documentation-only repair. No executable code changed
 in this repair. The hover diagnosis and fresh canonical publication gate are
 tracked as Beads great_cto-k10g; this failed full run is not relabelled GREEN.
+
+The unchanged sidebar scenario passed in isolation (1/1), then the unchanged
+full browser suite passed 16/16 with no skips. Independent read-only diagnosis
+did not establish root cause. A pure counterexample shows that the helper's
+stable value does not certify element attachment or the requested hover state.
+The next regression must observe attachment, hover, hit target and ancestor
+geometry/animations without weakening the shared-colour equality assertion.
+These diagnostic reruns do not replace a fresh canonical publication gate.
