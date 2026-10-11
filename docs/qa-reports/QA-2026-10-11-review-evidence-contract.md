@@ -3,7 +3,7 @@
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.1; [architecture decision](../adr/ADR-030-review-evidence-and-recovery.md)
 Base: released main bfeafd0226795ae420559a98d19c88bfcbc947af
-Status: focused checks passed; canonical rerun pending
+Status: candidate canonical gate green, with 15 checks NOT CHECKED; installed artifact smoke failed
 
 ## Implemented behavior
 
@@ -54,7 +54,34 @@ libraries 3333 passed, 1 doc-link failure and 6 skipped; evals 242 passed;
 docs 76 passed; browser 14 passed and 1 hover failure; CLI 369 passed;
 archetypes 34 passed. These are diagnostic counts, not the repaired candidate's
 approval. No assertion, limit or gate was removed. Focused remediation checks
-above passed. A fresh full rerun is still required.
+above passed.
+
+The second frozen-source run at `720c9908015f9c912e9013e4b2606ceb9a4bbdf7`
+passed all source unit/browser stages but exited 1: the default pipeline suite
+selected the operator's installed Claude plugin 3.62.2, whose CLI is missing
+`dist/main.js`. Fifteen smoke checks failed. Both host cache directories have
+a partial compiled CLI. This is tracked separately as Beads great_cto-6j5j;
+neither installation was modified.
+
+A third complete run on the same source used the supported explicit artifact
+seam, not an operator reinstall:
+
+```sh
+GREAT_CTO_TEST_PLUGIN_DIR=/Users/avelikiy/.codex/worktrees/review-evidence-contract/great_cto bash scripts/ci-local.sh --e2e
+```
+
+It exited 0: root/hooks/board 1404 passed; libraries 3336 passed and 6 NOT
+CHECKED; evals 242 passed; docs 76 passed; browser 15 passed; CLI 369 passed;
+archetypes 34 passed; pipeline L1-L5 36 passed and 9 NOT CHECKED. No executed
+check failed. These are candidate-source/artifact results, not proof that the
+installed plugins are healthy, an npm tarball was verified, native models
+executed successfully, or the release is ready. The 15 omitted checks remain
+explicitly NOT CHECKED.
+
+Logs: `/tmp/great-cto-review-contract-ci-rerun-20261011.log` (installed-artifact
+failure) and `/tmp/great-cto-review-contract-ci-candidate-20261011.log` (explicit
+candidate full gate). A separate L2-L5 diagnostic run passed 29 checks with
+9 NOT CHECKED and deliberately omitted L1; it is not the canonical gate.
 
 ## Not established
 
