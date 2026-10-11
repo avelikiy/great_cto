@@ -97,3 +97,45 @@ test('shared tasks use explicit links, goal and host capabilities instead of dup
   task.operations = [{ state: 'running' }];
   assert.equal(project([run()], [], { tasks: [task] }).entries[0].capabilities[0].enabled, false);
 });
+
+test('evidence separates linked activity, verifier reports, publication and absent review/runtime', () => {
+  const task = { taskId: randomUUID(), host: 'codex', goal: 'Same title', acceptance: [], phase: 'verified',
+    revision: 1, links: { runs: [id], issues: [], sessions: [] }, operations: [], metrics: {},
+    evidence: [{ role: 'code-reviewer', verdict: 'PASS', verified: true, secret: 'HIDDEN' }],
+    publication: { state: 'pr-linked', head: 'a'.repeat(40) } };
+  const activity = { state: 'recorded', gap: true, events: [
+    { session: id, kind: 'agent-stop', ok: true, host: 'codex' },
+    { session: 'foreign', kind: 'tool', agent: 'FOREIGN' },
+  ] };
+  const entry = project([run({ release: { status: 'done', verifiedAt: '2026-10-11T10:00:00Z' } })], [], { tasks: [task], activity }).entries[0];
+  const sections = Object.fromEntries(entry.evidenceSections.map(s => [s.id, s]));
+  assert.equal(sections.execution.state, 'recorded');
+  assert.match(sections.execution.detail, /1 linked.*incomplete/);
+  assert.equal(sections.checks.state, 'recorded');
+  assert.match(sections.checks.detail, /1 verifier-success reports.*bindings are not available/);
+  assert.equal(sections.review.state, 'unknown');
+  assert.equal(sections.publication.state, 'recorded');
+  assert.match(sections.publication.detail, /does not establish merge/);
+  assert.equal(sections.runtime.state, 'unknown');
+  assert.doesNotMatch(JSON.stringify(entry), /HIDDEN|FOREIGN/);
+});
+
+test('completed roles and a same-title foreign session never become successful checks', () => {
+  const entry = project([run({ rolesCompleted: ['qa-engineer'], status: 'done' })], [], {
+    activity: { state: 'recorded', events: [{ session: 'foreign', kind: 'agent-stop', ok: true, agent: 'qa-engineer' }] },
+  }).entries[0];
+  assert.equal(entry.evidenceSections.length, 5);
+  assert.equal(entry.evidenceSections.every(s => s.state === 'unknown'), true);
+  assert.equal(entry.evidenceSections.find(s => s.id === 'checks').detail.includes('do not establish verification'), true);
+});
+
+test('task verdict projection is bounded and rejects truthy non-boolean verification claims', () => {
+  const task = { taskId: randomUUID(), host: 'claude-code', goal: 'Task', acceptance: [], phase: 'waiting',
+    revision: 1, links: { runs: [], issues: [], sessions: [] }, operations: [], metrics: {},
+    evidence: Array.from({ length: 201 }, () => ({ role: 'qa-engineer', verdict: 'PASS', verified: 'true' })) };
+  const entry = project([], [], { tasks: [task] }).entries[0];
+  assert.equal(entry.evidence.length, 200);
+  assert.equal(entry.evidence[0].verifierReported, null);
+  assert.match(entry.evidenceSections.find(s => s.id === 'checks').detail, /bounded view: 200 role verdict records; 0 verifier-success reports/);
+  assert.equal(entry.evidenceSections.find(s => s.id === 'review').state, 'unknown');
+});

@@ -36,6 +36,29 @@ const SCREENS = [
   ['skills', 'Skills'],
 ];
 
+test('Work evidence opens with keyboard and keeps unlinked checks and runtime Unknown', { timeout: 120_000 }, async t => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const { page, errors } = await openBoard(env, '#/work');
+    const writes = [];
+    page.on('request', request => { if (!['GET', 'HEAD'].includes(request.method())) writes.push(request.method()); });
+    const detail = page.locator('#work-list [data-work-detail="evidence"]').first();
+    await detail.waitFor({ state: 'attached', timeout: 15000 });
+    await detail.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await detail.evaluate(el => el.open), true);
+    assert.equal(await detail.locator('dt').count(), 5);
+    assert.match(await detail.innerText(), /Review · Unknown/);
+    assert.match(await detail.innerText(), /Runtime · Unknown/);
+    assert.match(await detail.innerText(), /Unknown means evidence is unavailable/);
+    await page.keyboard.press('Enter');
+    assert.equal(await detail.evaluate(el => el.open), false);
+    assert.deepEqual(writes, []);
+    assert.deepEqual(errors, []);
+  } finally { await env.close(); }
+});
+
 /**
  * Session logs of both hosts, written into the fixture HOME the way the hosts
  * write them — Usage is then read by the real server path, not a stub. One

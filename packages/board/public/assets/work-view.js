@@ -28,6 +28,7 @@
           + action + (e.command ? `<pre>${esc(e.command)}</pre>` : '')
           + (!cap && e.capabilities[0]?.reason ? `<p>${esc(e.capabilities[0].reason)}</p>` : '')
           + renderInspector(e.inspector)
+          + renderEvidence(e.evidenceSections)
           + (e.publicationPreview ? `<label>Publication paths (comma-separated) <input data-publication-allow="${esc(e.key)}" value="${esc(e.publicationAllow || '')}" placeholder="src,tests"></label><button type="button" class="gate-btn" data-work-key="${esc(e.key)}" data-work-action="preview_publication">Preview draft PR publication</button><div data-publication-preview="${esc(e.key)}"></div>` : '')
           + (e.publication ? `<p>PR publication: ${esc(e.publication.state)} · ${esc(e.publication.head || '')}</p>`
             + (typeof e.publication.url === 'string' && /^https:\/\/github\.com\/[A-Za-z0-9_-]+\/[A-Za-z0-9_.-]+\/pull\/[1-9][0-9]*$/.test(e.publication.url) ? `<a href="${esc(e.publication.url)}" target="_blank" rel="noopener noreferrer">Open draft PR result</a>` : '')
@@ -55,6 +56,12 @@
         + (e.verdict ? ` · verdict: ${esc(e.verdict)}` : '')
         + (e.durationMs !== null ? ` · ${esc(e.durationMs)} ms` : '') + '</li>').join('') + '</ol>' : '')
       + '</details>';
+  }
+  function renderEvidence(sections) {
+    if (!Array.isArray(sections)) return '';
+    return '<details data-work-detail="evidence"><summary>Task evidence · read-only</summary>'
+      + '<p>Recorded means an observation exists, not that the current code passed a gate. Unknown means evidence is unavailable, not zero or success.</p>'
+      + '<dl>' + sections.map(s => `<dt>${esc(s.label)} · ${s.state === 'recorded' ? 'Recorded' : 'Unknown'}</dt><dd>${esc(s.detail)}</dd>`).join('') + '</dl></details>';
   }
   function publicationCommand(preview) {
     const confirmation = preview.confirmation || { expectedRevision: preview.revision, approval: preview.approval };

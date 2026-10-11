@@ -16,6 +16,30 @@ const date = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : 
 const RUN_PHASE = { ready: 'accepted', 'awaiting-gate': 'needs_decision',
   'awaiting-release': 'needs_decision', blocked: 'blocked', 'manual-action': 'blocked' };
 
+/** Recorded observations are not current-tree verification or gate authority. */
+function evidenceSections(entry) {
+  const events = entry.inspector?.state === 'recorded' ? entry.inspector.events.length : 0;
+  const verdicts = entry.evidence.filter(e => e.kind === 'verdict');
+  const reported = verdicts.filter(e => e.verifierReported === true).length;
+  const publication = entry.publication;
+  const published = ['prepared', 'pushed', 'pr-linked'].includes(publication?.state);
+  return [
+    { id: 'execution', label: 'Execution', state: events ? 'recorded' : 'unknown',
+      detail: events ? `${events} linked activity events in the bounded window. Liveness and task acceptance are not established.${entry.inspector.partial ? ' The activity window is incomplete.' : ''}`
+        : entry.inspector?.reason || 'No explicitly linked execution events are available.' },
+    { id: 'checks', label: 'Checks', state: verdicts.length ? 'recorded' : 'unknown',
+      detail: verdicts.length ? `In this bounded view: ${verdicts.length} role verdict records; ${reported} verifier-success reports. Test counts and current input bindings are not available in this projection.`
+        : 'No task-linked check records are available. Completed roles do not establish verification.' },
+    { id: 'review', label: 'Review', state: 'unknown',
+      detail: 'No task-bound review input digest and reviewer provenance are available. Role verdicts alone do not establish independent review.' },
+    { id: 'publication', label: 'Publication', state: published ? 'recorded' : 'unknown',
+      detail: published ? `Publication state: ${publication.state}${/^[0-9a-f]{40}(?:[0-9a-f]{24})?$/.test(publication.head || '') ? `; recorded head: ${publication.head}` : ''}. This does not establish merge, release or deployment.`
+        : 'No task-linked publication record is available.' },
+    { id: 'runtime', label: 'Runtime', state: 'unknown',
+      detail: 'No task-linked runtime probe is available. Release records and successful process exits do not establish deployment health.' },
+  ];
+}
+
 export function projectWork({ projectId, issues = [], codex = { state: 'absent', runs: [] },
   tasks = [], sessions = [], sources = [], activity = { state: 'none', events: [] }, observedAt = new Date().toISOString() }) {
   const entries = [];
@@ -78,7 +102,8 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       host: t.host, phase: t.phase, nativeState: run?.nativeState || t.phase,
       terminal: ['cancelled', 'completed'].includes(t.phase), updatedAt: t.updatedAt, outcome: t.outcome?.state === 'completed' ? `${t.intent || 'delivery'} outcome explicitly completed` : null, reason: t.reason,
       intent: t.intent || 'delivery', stage: t.stage || null, taskOutcome: t.outcome || null,
-      decisions: decisionCapabilities(t).map(d => ({ ...d, id: d.decisionId, label: d.label || 'Host decision' })), evidence: (t.evidence || []).map(e => ({ kind: 'verdict', label: `${e.role}: ${e.verdict || 'not recorded'}` })),
+      decisions: decisionCapabilities(t).map(d => ({ ...d, id: d.decisionId, label: d.label || 'Host decision' })), evidence: (t.evidence || []).slice(0, 200).filter(e => e && text(e.role)).map(e => ({ kind: 'verdict',
+        label: `${e.role.slice(0, 80)}: ${text(e.verdict)?.slice(0, 80) || 'not recorded'}`, verifierReported: typeof e.verified === 'boolean' ? e.verified : null })),
       release: run?.release || null, revision: t.revision, metrics: t.metrics,
       inspector: taskInspector([...t.links.runs, ...t.links.sessions], activity),
       publication: t.publication || null,
@@ -90,6 +115,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       command: approveCommand || (enabled ? `great-cto resume --task ${t.taskId} --host ${t.host} --revision ${t.revision}` : null),
     });
   }
+  for (const entry of entries) entry.evidenceSections = evidenceSections(entry);
   entries.sort((a, b) => (a.terminal - b.terminal) || (b.decisions.length - a.decisions.length)
     || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0) || a.key.localeCompare(b.key));
   const health = sources.some(s => ['degraded', 'unavailable'].includes(s.health)) ? 'degraded' : 'current';
