@@ -44,7 +44,8 @@ function project(withMd) {
 }
 function fakeCodex(dir, lines) {
   const bin = path.join(dir, 'codex');
-  const body = lines.map((t) => `echo '${JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: t } })}'`).join('\n');
+  const quote = value => "'" + value.replace(/'/g, "'\\''") + "'";
+  const body = lines.map((t) => `printf '%s\\n' ${quote(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: t } }))}`).join('\n');
   writeFileSync(bin, `#!/bin/sh\ncat >/dev/null\n${body}\necho '{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":1}}'\n`);
   chmodSync(bin, 0o755);
   return bin;
