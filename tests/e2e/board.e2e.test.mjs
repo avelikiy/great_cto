@@ -174,11 +174,15 @@ test('unavailable SSE snapshot preserves tasks and shows an English banner until
     await page.addInitScript(() => {
       const NativeEventSource = window.EventSource;
       window.EventSource = class extends NativeEventSource {
-        constructor(...args) { super(...args); window.__testTaskStream = this; }
+        constructor(...args) {
+          super(...args); window.__testTaskStream = this;
+          this.addEventListener('tasks', () => { window.__testTaskInitialFrame = true; });
+        }
       };
     });
     await page.goto(env.url, { waitUntil: 'domcontentloaded' });
-    await page.waitForFunction(() => window.__testTaskStream && allTasks.length > 0);
+    await page.waitForFunction(() => window.__testTaskStream?.readyState === EventSource.OPEN
+      && window.__testTaskInitialFrame && allTasks.length > 0);
     const before = await page.evaluate(() => allTasks.map(t => t.id));
     const claims = await page.evaluate(() => {
       renderInbox({ summary: { gates: 0, blocked: 0, p0: 0, stale: 0, needs_you: 0 },

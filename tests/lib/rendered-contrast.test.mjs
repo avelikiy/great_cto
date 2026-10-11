@@ -295,6 +295,11 @@ test('every panel, both themes: text can be read against what is behind it', { t
     await page.evaluate(async () => { await loadSkillsInventory(); });
     assert.equal(await page.locator('#skills-table tbody tr').count(), 2);
     await page.evaluate(() => { document.querySelector('#skills-body details').open = true; });
+    // A seeded pending gate must be present BEFORE either theme is measured.
+    // Otherwise slow init moves its badge into only the second theme and the
+    // audit can miss white text on the dark theme's bright red status fill.
+    await page.waitForFunction(() => document.querySelector('#pipeline-track .gate-badge')?.textContent === '1',
+      null, { timeout: 15000 });
 
     // The page's own panel list must be the one this file walks.
     const shipped = await page.evaluate(() => [...document.querySelectorAll('[id^="panel-"]')].map((e) => e.id.slice(6)).sort());
