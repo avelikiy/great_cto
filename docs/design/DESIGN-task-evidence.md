@@ -32,7 +32,7 @@ role names do not create links. Review receipts from the separate CLI are not
 joined by title or role; that requires a future explicit task-bound receipt.
 The general role-verdict list is not a substitute for that receipt.
 
-## Design system
+## Design system and accessibility
 
 The panel uses the existing card and native `details`/`summary` pattern rather
 than a new modal or drawer framework. Its identity is
