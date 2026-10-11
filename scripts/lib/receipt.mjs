@@ -98,8 +98,22 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   const digest = p => {
     if (!hashFilesInProcess) return fileDigest(cwd, p);
     try {
-      const bytes = readFileSync(join(cwd, p));
-      return createHash(algorithm).update(`blob ${bytes.length}\0`).update(bytes).digest('hex');
+      const fd = fsModule.openSync(join(cwd, p), 'r');
+      try {
+        const before = fsModule.fstatSync(fd, { bigint: true });
+        if (!before.isFile()) return null;
+        const hash = createHash(algorithm).update(`blob ${before.size}\0`);
+        const chunk = Buffer.allocUnsafe(64 * 1024);
+        let remaining = before.size;
+        while (remaining > 0n) {
+          const count = fsModule.readSync(fd, chunk, 0, Number(remaining > BigInt(chunk.length) ? BigInt(chunk.length) : remaining), null);
+          if (!count) return null;
+          hash.update(chunk.subarray(0, count)); remaining -= BigInt(count);
+        }
+        const after = fsModule.fstatSync(fd, { bigint: true });
+        if (after.size !== before.size || after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) return null;
+        return hash.digest('hex');
+      } finally { fsModule.closeSync(fd); }
     } catch { return null; }
   };
 

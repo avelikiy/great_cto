@@ -16,8 +16,10 @@ if (process.argv.includes('--descendant')) {
   fs.writeFileSync(marker('worker'), String(process.ppid));
   if (process.env.FAKE_BD_CONTROL_MODE === 'fail') {
     process.exit(1);
-  } else if (process.env.FAKE_BD_CONTROL_MODE === 'gate-receipt') {
-    process.stdout.write(JSON.stringify([{ id: 'FIXTURE-GATE', title: 'gate:ship', labels: ['gate'], status: 'open', priority: 0 }]), () => process.exit(0));
+  } else if (['gate-receipt', 'gate-receipt-race'].includes(process.env.FAKE_BD_CONTROL_MODE)) {
+    const tasks = [{ id: 'FIXTURE-GATE', title: 'gate:ship', labels: ['gate'], status: 'open', priority: 0 }];
+    if (process.env.FAKE_BD_CONTROL_MODE === 'gate-receipt-race') tasks.push({ id: 'NEW-GATE', title: 'gate:plan', labels: ['gate'], status: 'open', priority: 0 });
+    process.stdout.write(JSON.stringify(tasks), () => process.exit(0));
   } else if (['hang', 'leader-exit'].includes(process.env.FAKE_BD_CONTROL_MODE)) {
     process.on('SIGTERM', () => {});
     spawn(process.execPath, [new URL(import.meta.url).pathname, '--descendant'], { stdio: 'inherit' });

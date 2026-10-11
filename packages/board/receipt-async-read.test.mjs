@@ -7,9 +7,10 @@ import net from 'node:net';
 import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
+import { syncBuiltinESMExports } from 'node:module';
 import { treeReceipt, compareReceipts } from '../../scripts/lib/receipt.mjs';
 import { secondOpinionForTree } from '../../scripts/lib/second-opinion-for-tree.mjs';
-import { issueTokensAsync, readTokens } from './lib/gate-tokens.mjs';
+import { issueTokensAsync, readTokens, consumeToken, checkToken, approvalSnapshot, beginGateDecision } from './lib/gate-tokens.mjs';
 import { readBindingReceipt, readApprovalReceipt, readSecondOpinion } from './lib/receipt-read.mjs';
 const realGit = execFileSync('/usr/bin/which', ['git'], { encoding: 'utf8' }).trim();
 const server = process.env.TEST_BOARD_SERVER || fileURLToPath(new URL('./server.mjs', import.meta.url));
@@ -69,6 +70,55 @@ test('concurrent token consumers retain the token minted during an awaited recei
   const results = await Promise.all([issueTokensAsync(root, gates), issueTokensAsync(root, gates)]);
   assert.equal(results[0].state, 'ok'); assert.equal(results[0].tokens['gate-fixture'], results[1].tokens['gate-fixture']);
 });
+test('decision during awaited receipt cannot resurrect a consumed gate token', async t => {
+  const root = repository(t), gates = [{ id: 'gate-A' }, { id: 'gate-B' }];
+  const first = await issueTokensAsync(root, gates.slice(0, 1));
+  let release;
+  const pending = issueTokensAsync(root, gates, { readReceipt: () => new Promise(r => { release = r; }) });
+  consumeToken(root, 'gate-A'); release(treeReceipt(root));
+  const result = await pending;
+  assert.equal(result.state, 'unreadable'); assert.deepEqual(result.tokens, {});
+  assert.equal(checkToken(root, 'gate-A', first.tokens['gate-A']).ok, false);
+  assert.equal(readTokens(root).tokens['gate-A'], undefined);
+  assert.equal(readTokens(root).tokens['gate-B'], undefined);
+});
+test('snapshot preceding second-opinion await refuses issuance after decision lifecycle', async t => {
+  const root = repository(t), snapshot = approvalSnapshot(root);
+  const end = beginGateDecision(root);
+  assert.ok(end); assert.equal(beginGateDecision(root), null);
+  assert.equal((await issueTokensAsync(root, [{ id: 'gate-A' }])).state, 'unreadable');
+  end(); end();
+  const result = await issueTokensAsync(root, [{ id: 'gate-A' }], { snapshot });
+  assert.equal(result.state, 'unreadable'); assert.deepEqual(result.tokens, {});
+  assert.equal(readTokens(root).state, 'none');
+  assert.equal((await issueTokensAsync(root, [{ id: 'gate-A' }])).state, 'ok');
+});
+test('native receipt hashing streams multi-chunk binary content with Git-equivalent hashes', t => {
+  const root = repository(t);
+  fs.writeFileSync(path.join(root, 'binary.dat'), Buffer.alloc(256 * 1024 + 17, 0xff));
+  const original = fs.readSync; let calls = 0;
+  fs.readSync = (...args) => { calls++; assert.ok(args[1].length <= 64 * 1024); return original(...args); };
+  syncBuiltinESMExports();
+  let optimized;
+  try { optimized = treeReceipt(root, { hashFilesInProcess: true }); }
+  finally { fs.readSync = original; syncBuiltinESMExports(); }
+  assert.ok(calls > 4, 'large binary must require bounded incremental reads');
+  assert.ok(optimized?.files['binary.dat']);
+  assert.deepEqual(optimized, treeReceipt(root));
+});
+test('native hashing refuses content changed during an incremental read', t => {
+  const root = repository(t), binary = path.join(root, 'binary.dat');
+  fs.writeFileSync(binary, Buffer.alloc(256 * 1024 + 17, 0xff));
+  const original = fs.readSync; let changed = false;
+  fs.readSync = (...args) => {
+    const count = original(...args);
+    if (!changed && fs.fstatSync(args[0]).size > 256 * 1024) { changed = true; fs.appendFileSync(binary, 'drift'); }
+    return count;
+  };
+  syncBuiltinESMExports();
+  try { assert.equal(treeReceipt(root, { hashFilesInProcess: true }), null); assert.equal(changed, true); }
+  finally { fs.readSync = original; syncBuiltinESMExports(); }
+});
 test('an unreadable real repository receipt cannot mint an unbound token', async t => {
   const root = repository(t);
   fs.writeFileSync(path.join(root, '.git', 'HEAD'), 'ref: refs/heads/missing\n');
@@ -98,11 +148,12 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
     fs.rmSync(control, { recursive: true, force: true });
   }
 });
-for (const endpoint of ['inbox', 'receipt', 'inbox-head']) test(`held ${endpoint} receipt leaves cheap HTTP answering and preserves evidence`, { timeout: 15000 }, async t => {
+for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`held ${endpoint} receipt leaves cheap HTTP answering and preserves evidence`, { timeout: 15000 }, async t => {
   const cwd = repository(t), root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-http-'));
   const state = path.join(root, 'state'), bin = path.join(root, 'bin');
   fs.mkdirSync(state); fs.mkdirSync(bin); fs.mkdirSync(path.join(cwd, '.great_cto')); fs.mkdirSync(path.join(cwd, '.beads'));
   fs.writeFileSync(path.join(cwd, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
+  const initial = endpoint === 'inbox-race' ? await issueTokensAsync(cwd, [{ id: 'FIXTURE-GATE' }]) : null;
   if (endpoint === 'receipt') {
     fs.mkdirSync(path.join(cwd, '.great_cto', 'verdicts'));
     fs.writeFileSync(path.join(cwd, '.great_cto', 'verdicts', 'code-reviewer.log'), JSON.stringify({ verdict: 'APPROVED', agent: 'code-reviewer', ts: '2026-01-01T00:00:00Z', receipt: treeReceipt(cwd) }) + '\n');
@@ -115,24 +166,36 @@ for (const endpoint of ['inbox', 'receipt', 'inbox-head']) test(`held ${endpoint
     cwd, detached: true, stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env,
       PATH: bin + path.delimiter + process.env.PATH, GREAT_CTO_HOME: state, GREAT_CTO_DISCOVERY_ROOT: root,
       GREAT_CTO_NO_UPDATE_CHECK: '1', GREAT_CTO_BD_BIN: fileURLToPath(new URL('./fixtures/fake-bd-controlled.mjs', import.meta.url)),
-      FAKE_BD_CONTROL_ROOT: root, FAKE_BD_CONTROL_MODE: 'gate-receipt', GCTO_RECEIPT_CONTROL_ROOT: root, GCTO_RECEIPT_REAL_GIT: realGit }
+      FAKE_BD_CONTROL_ROOT: root, FAKE_BD_CONTROL_MODE: endpoint === 'inbox-race' ? 'gate-receipt-race' : 'gate-receipt', GCTO_RECEIPT_CONTROL_ROOT: root, GCTO_RECEIPT_REAL_GIT: realGit }
   });
   let output = '', pending;
   child.stdout.on('data', d => output += d); child.stderr.on('data', d => output += d);
   try {
     await waitFor(() => /task cache warmed/.test(output));
     if (endpoint === 'inbox-head') fs.writeFileSync(path.join(root, 'hold-head'), 'ready');
-    const route = endpoint === 'inbox-head' ? 'inbox' : endpoint;
+    const route = endpoint.startsWith('inbox') ? 'inbox' : endpoint;
     pending = fetch(`http://127.0.0.1:${port}/api/${route}?project=fixture`, { signal: AbortSignal.timeout(10000) });
     await waitFor(() => fs.existsSync(path.join(root, 'git-held')));
     for (const route of ['/api/version', '/']) {
       const response = await fetch(`http://127.0.0.1:${port}${route}`, { signal: AbortSignal.timeout(1500) });
       assert.equal(response.status, 200); await response.text();
     }
+    if (endpoint === 'inbox-race') {
+      const decision = await fetch(`http://127.0.0.1:${port}/api/gates/FIXTURE-GATE`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', Origin: `http://127.0.0.1:${port}` },
+        body: JSON.stringify({ project: 'fixture', action: 'reject', token: initial.tokens['FIXTURE-GATE'] }), signal: AbortSignal.timeout(3000),
+      });
+      assert.equal(decision.status, 200); assert.equal((await decision.json()).ok, true);
+    }
     fs.writeFileSync(path.join(root, 'git-release'), 'ready');
     const response = await pending, inbox = await response.json();
     assert.equal(response.status, 200);
-    if (endpoint !== 'receipt') {
+    if (endpoint === 'inbox-race') {
+      assert.equal(inbox.approval_tokens.state, 'unreadable');
+      assert.ok(inbox.pending_gates.every(g => g.token === null));
+      assert.equal(readTokens(cwd).tokens['FIXTURE-GATE'], undefined);
+      assert.equal(readTokens(cwd).tokens['NEW-GATE'], undefined);
+    } else if (endpoint !== 'receipt') {
       assert.equal(inbox.approval_tokens.state, 'ok');
       assert.ok(inbox.pending_gates[0].token);
       const store = readTokens(cwd); assert.ok(store.tokens['FIXTURE-GATE'].receipt.head);

@@ -32,7 +32,7 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, getTasksAsync, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
-import { issueTokensAsync, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
+import { issueTokensAsync, checkToken, checkBinding, consumeToken, approvalSnapshot, beginGateDecision } from './gate-tokens.mjs';
 import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
@@ -744,6 +744,12 @@ async function dispatch(req, res, url, cwd) {
       // Named outside the serialised block so the wake below can say WHICH gate a
       // human approved; the lookup itself belongs inside the lock.
       let gateTitle = id;
+      const endDecision = beginGateDecision(gateCwd);
+      if (!endDecision) {
+        refuse({ status: 409, outcome: 'refused-busy', why: 'A gate decision is in progress for this project; retry' });
+        return;
+      }
+      try {
 
       // BH-16 fix: serialise gate writes through bd-write queue.
       // Without this, concurrent approve+reject on the same gate produced
@@ -872,12 +878,14 @@ async function dispatch(req, res, url, cwd) {
             .catch(e => log.warn(`report: republish after gate failed: ${e.message}`));
         }
       }
+      } finally { endDecision(); }
     });
     return true;
   }
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
+    const snapshot = approvalSnapshot(cwd);
     let inbox;
     try { inbox = await getInboxAsync(cwd); }
     catch {
@@ -910,7 +918,7 @@ async function dispatch(req, res, url, cwd) {
       id: g.id,
       gate: g.reversibility?.gate ? `gate:${g.reversibility.gate}` : g.id,
       guarded: ['expensive', 'unclassified'].includes(g.reversibility?.state),
-    })));
+    })), { snapshot });
     const pending_gates = gates.map((g) => ({ ...g, token: issued.tokens[g.id] || null }));
     const approval_tokens = { state: issued.state, ...(issued.why ? { why: issued.why } : {}) };
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
