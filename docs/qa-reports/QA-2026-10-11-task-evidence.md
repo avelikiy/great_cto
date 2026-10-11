@@ -2,7 +2,7 @@
 
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.2
-Base: review-contract PR181 at 6073d39c
+Base: corrected review-contract PR181 at 6c47243d
 Design: [task evidence panel](../design/DESIGN-task-evidence.md)
 Status: focused, board and browser checks passed; canonical rerun pending
 
@@ -36,6 +36,12 @@ host execution, external polling or installed-runtime mutation was introduced.
   Cancellation is not PASS. The missing sections were added without changing
   lint policy; a fresh frozen-source canonical run is required. The parent
   contract's canonical result does not certify these later UI changes.
+- A subsequent run was cancelled when independent review found a P1 parser
+  defect in the parent. The branch was rebased onto the corrected parent
+  `6c47243d`, whose expanded focused suite passes 45 tests. A new full gate
+  will verify the combined contract/UI tree, not claim a standalone canonical
+  rerun of the corrected parent branch. Both cancellations exited 143 and
+  are not approval evidence.
 
 Test fixtures cover explicit links, foreign-session exclusion, bounded
 projection, non-boolean verifier claims, release-without-runtime, escaping,
