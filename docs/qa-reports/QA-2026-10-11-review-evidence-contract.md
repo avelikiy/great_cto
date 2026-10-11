@@ -3,7 +3,7 @@
 Date: 2026-10-11
 Scope: Beads great_cto-qnq6.1; [architecture decision](../adr/ADR-030-review-evidence-and-recovery.md)
 Base: released main bfeafd0226795ae420559a98d19c88bfcbc947af
-Status: independent source review approved; test stages passed; final scanner recheck pending
+Status: independent source review approved; latest full gate RED; scanner repair verified
 
 ## Implemented behavior
 
@@ -125,12 +125,16 @@ unchanged. The narrow independent re-review approved `a173ecb6`, confirmed
 closure of P2 and passed 31 tests plus six counterexamples. Our expanded
 focused suite passed 41 tests with no failures/skips.
 
-The complete corrected combined run at `02242bf6` exited 1 solely because HOL
+The complete corrected combined run at `02242bf6` exited 1. HOL
 mistook the QA log filename for a provider secret. Its matching substring was
 the long filename segment beginning with the last two letters of task. This
-was a log path, not a credential. All executed test stages passed with the
-same counts as the preceding combined run; 15 remain NOT CHECKED. The log
+was a log path, not a credential. The browser suite also failed one sidebar
+hover comparison (15 passed, 1 failed): final RGB was compared against a
+transparent expected value. Other executed test stages passed with the
+preceding counts; 15 remain NOT CHECKED. The log
 was copied to `/tmp/great-cto-review-ui-recheck-20261011.log` and this report's
 reference renamed. No scanner rule, baseline or exception was changed. The
-scanner and documentation checks must be rerun on the documentation-only
-repair; this failed full run is not relabelled as GREEN.
+fresh scanner passed at score 82 (threshold 80), and eight documentation
+checks passed after the documentation-only repair. No executable code changed
+in this repair. The hover diagnosis and fresh canonical publication gate are
+tracked as Beads great_cto-k10g; this failed full run is not relabelled GREEN.
