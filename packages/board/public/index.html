@@ -8137,6 +8137,9 @@ function connectSSE() {
       const state = JSON.parse(e.data);
       if (state.state !== 'unreadable') return;
       BOARD_DEGRADED['/api/tasks'] = 'Task snapshot is unavailable. Showing the last loaded tasks.';
+      // Re-evaluate existing healthy claims as well as adding the banner.
+      // A previously painted "All clear" must not survive a failed refresh.
+      if (window.__inboxData) renderInbox(window.__inboxData);
       renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
         'Project data could not be refreshed. Counts may be out of date.');
     } catch { /* Malformed transport data must not erase the last snapshot. */ }

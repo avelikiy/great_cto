@@ -180,9 +180,18 @@ test('unavailable SSE snapshot preserves tasks and shows an English banner until
     await page.goto(env.url, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.__testTaskStream && allTasks.length > 0);
     const before = await page.evaluate(() => allTasks.map(t => t.id));
-    await page.evaluate(() => window.__testTaskStream.dispatchEvent(new MessageEvent('task-read-state', {
-      data: JSON.stringify({ ok: false, state: 'unreadable' }),
-    })));
+    const claims = await page.evaluate(() => {
+      renderInbox({ summary: { gates: 0, blocked: 0, p0: 0, stale: 0, needs_you: 0 },
+        pending_gates: [], p0_open: [], blocked: [], stale_in_progress: [] });
+      const card = document.getElementById('inbox-allclear');
+      const before = card.style.display;
+      window.__testTaskStream.dispatchEvent(new MessageEvent('task-read-state', {
+        data: JSON.stringify({ ok: false, state: 'unreadable' }),
+      }));
+      return { before, after: card.style.display };
+    });
+    assert.equal(claims.before, '', 'healthy zero-attention card was actually painted');
+    assert.equal(claims.after, 'none', 'failure removes the previously painted healthy claim');
     assert.match(await page.locator('#degraded-read').innerText(), /Project data could not be refreshed/);
     assert.deepEqual(await page.evaluate(() => allTasks.map(t => t.id)), before);
     assert.equal(await page.evaluate(() => anyDegraded()), true);
