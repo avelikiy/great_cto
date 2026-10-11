@@ -47,3 +47,8 @@ test('unexpected model process is intercepted and fails the fixture', { timeout:
   const serverPath = admittedFixture(t, "import{spawn}from'node:child_process';spawn('claude',['-p','fixture must not execute']);");
   await assert.rejects(runBoardSmoke({ serverPath, agentsDir }), /unexpected child refused/);
 });
+
+test('unexpected fork is refused, not admitted by the read-worker fixture adapter', { timeout: 20000 }, async t => {
+  const serverPath = admittedFixture(t, "import{fork}from'node:child_process';fork('claude',['bd','20250']);");
+  await assert.rejects(runBoardSmoke({ serverPath, agentsDir }), /unexpected child refused/);
+});
