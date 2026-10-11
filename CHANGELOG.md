@@ -38,6 +38,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.62.2 — 2026-10-11
+
+The board can keep answering while approval evidence is calculated. Receipt reads run in bounded background workers, and stale requests cannot reissue a consumed approval token.
+
+### What's new
+
+- Inbox binding, approval receipts and second-opinion projections use supervised asynchronous readers instead of blocking the HTTP event loop with Git commands.
+- Dirty-file evidence uses bounded streaming Git blob hashes, without starting a Git process for each untracked file or buffering entire files in memory. Changed or unreadable files fail closed.
+- A physical-project decision fence rejects overlapping approval decisions and stale token issuance, including requests through symlink aliases. Distinct Git worktrees remain separate projects.
+- Receipt reads have two active lanes, a 20-second deadline, a 16 MiB output limit and creator-owned process cleanup. No persistent evidence cache is introduced.
+
+### Verification and limits
+
+PR #180 was independently reviewed on `16bc030c`: nine targeted checks passed without skips and three P2 findings were mitigated. The complete canonical gate passed: 1404 root/hooks/board, 3324 library, 242 eval, 76 docs, 15 browser, 369 CLI and 34 archetype checks. Fifteen checks remain NOT CHECKED: six optional library live checks and nine external pipeline checks. Suites overlap and must not be summed as unique tests. A private npm consumer passed four actual HTTP scenarios, including stalled Git reads and concurrent approval/token issuance.
+
+This release addresses read-path responsiveness and single-board-process approval coordination, not distributed locking across multiple board instances. Synchronous write paths, paid-model quality and production delivery require separate verification. Installed runtime health is checked separately from source and package tests.
+
+---
+
 ## v3.62.1 — 2026-10-11
 
 The board can keep answering while task snapshots are being read. Cold reads share bounded asynchronous work, and unavailable data remains explicitly unavailable instead of looking like an empty backlog or a recovered connection.
