@@ -406,10 +406,7 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
       if (width === 375) await page.keyboard.press('Escape');
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    const settledStyle = async (locator, property) => locator.evaluate(async (el, property) => {
-      await Promise.all(el.getAnimations().map(a => a.finished.catch(() => {})));
-      return getComputedStyle(el)[property];
-    }, property);
+    const { settledStyle } = await import('../helpers/settled-style.mjs');
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
       const work = page.locator('.nav-item[data-tab="work"]'), view = page.locator('#nav-view-all');
