@@ -52,3 +52,13 @@ test('unexpected fork is refused, not admitted by the read-worker fixture adapte
   const serverPath = admittedFixture(t, "import{fork}from'node:child_process';fork('claude',['bd','20250']);");
   await assert.rejects(runBoardSmoke({ serverPath, agentsDir }), /unexpected child refused/);
 });
+
+for (const mode of ['second-opinion', 'arbitrary-command']) test(`evidence adapter refuses a substituted worker for ${mode}`, { timeout: 20000 }, async t => {
+  const serverPath = admittedFixture(t, `import{fork}from'node:child_process';import{fileURLToPath}from'node:url';fork(fileURLToPath(new URL('./lib/bd-read-worker.mjs',import.meta.url)),[process.execPath,'20250',JSON.stringify(['/untrusted/receipt-read-worker.mjs',${JSON.stringify(mode)}])]);`);
+  await assert.rejects(runBoardSmoke({ serverPath, agentsDir }), /unexpected child refused/);
+});
+
+test('evidence adapter refuses an unknown operation on its exact trusted worker', { timeout: 20000 }, async t => {
+  const serverPath = admittedFixture(t, "import{fork}from'node:child_process';import{fileURLToPath}from'node:url';fork(fileURLToPath(new URL('./lib/bd-read-worker.mjs',import.meta.url)),[process.execPath,'20250',JSON.stringify([fileURLToPath(new URL('./lib/receipt-read-worker.mjs',import.meta.url)),'arbitrary-command'])]);");
+  await assert.rejects(runBoardSmoke({ serverPath, agentsDir }), /unexpected child refused/);
+});

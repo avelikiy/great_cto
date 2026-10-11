@@ -19,6 +19,7 @@ import fs from 'fs';
 import path from 'path';
 import { randomUUID } from 'crypto';
 import { treeReceipt, receiptHash, compareReceipts } from '../../../scripts/lib/receipt.mjs';
+import { readBindingReceipt } from './receipt-read.mjs';
 
 export const TOKENS_FILE = 'gate-tokens.json';
 export const DEFAULT_TTL_MS = 24 * 60 * 60 * 1000;
@@ -36,6 +37,30 @@ export function tokenTtlMs(env = process.env) {
 }
 
 const storePath = (cwd) => path.join(cwd, '.great_cto', TOKENS_FILE);
+// One board owns its HTTP listener. Fence awaited projections against that
+// board's decision lifecycle; this is not a distributed multi-board lock.
+const decisions = new Map();
+function decisionState(cwd) {
+  let key;
+  try { key = fs.realpathSync(cwd); } catch { return null; }
+  if (!decisions.has(key)) decisions.set(key, { generation: randomUUID(), active: false });
+  return decisions.get(key);
+}
+export function approvalSnapshot(cwd) {
+  const state = decisionState(cwd);
+  return state ? { generation: state.generation, active: state.active } : { generation: null, active: true };
+}
+function snapshotFresh(cwd, snapshot) {
+  const state = decisionState(cwd);
+  return state && snapshot && !snapshot.active && !state.active && snapshot.generation === state.generation;
+}
+export function beginGateDecision(cwd) {
+  const state = decisionState(cwd);
+  if (!state || state.active) return null;
+  state.active = true; state.generation = randomUUID();
+  let ended = false;
+  return () => { if (!ended) { ended = true; state.active = false; state.generation = randomUUID(); } };
+}
 
 /** @returns {{state:'none'|'ok'|'unreadable', tokens:object, why?:string}} */
 export function readTokens(cwd) {
@@ -77,7 +102,7 @@ export function bindingReceipt(cwd) {
  * @param {{id:string, gate?:string, guarded?:boolean}[]} gates
  * @returns {{state:'ok'|'unreadable', tokens:Record<string,string>, why?:string}}
  */
-export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } = {}) {
+export function issueTokens(cwd, gates, { now = Date.now(), env = process.env, readReceipt = bindingReceipt } = {}) {
   const store = readTokens(cwd);
   if (store.state === 'unreadable') return { state: 'unreadable', tokens: {}, why: store.why };
   const ttl = tokenTtlMs(env);
@@ -90,7 +115,7 @@ export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } 
     else toMint.push(g);
   }
   if (toMint.length) {
-    const receipt = bindingReceipt(cwd);
+    const receipt = readReceipt(cwd);
     const hash = receiptHash(receipt);
     for (const g of toMint) {
       next[g.id] = {
@@ -102,6 +127,29 @@ export function issueTokens(cwd, gates, { now = Date.now(), env = process.env } 
   const changed = toMint.length || Object.keys(store.tokens).some((id) => !pending.has(id));
   if (changed) writeTokens(cwd, next);
   return { state: 'ok', tokens: Object.fromEntries(Object.entries(next).map(([id, e]) => [id, e.token])) };
+}
+
+export async function issueTokensAsync(cwd, gates, { env = process.env, readReceipt = readBindingReceipt, snapshot = approvalSnapshot(cwd) } = {}) {
+  const stale = () => ({ state: 'unreadable', tokens: {}, why: 'Gate decisions changed during this snapshot; reload the inbox' });
+  if (!snapshotFresh(cwd, snapshot)) return stale();
+  const store = readTokens(cwd), now = Date.now(), ttl = tokenTtlMs(env);
+  if (store.state === 'unreadable') return { state: 'unreadable', tokens: {}, why: store.why };
+  const needsReceipt = (gates || []).some(g => g?.id &&
+    (!store.tokens[g.id] || typeof store.tokens[g.id].token !== 'string' || !Number.isFinite(store.tokens[g.id].firstSeenAt) || now - store.tokens[g.id].firstSeenAt > ttl));
+  try {
+    const receipt = needsReceipt ? await readReceipt(cwd) : undefined;
+    if (!snapshotFresh(cwd, snapshot)) return stale();
+    const current = readTokens(cwd);
+    // Also refuse disappearance/replacement of an existing token by another
+    // store writer. Concurrent mint-only consumers remain safe to coalesce.
+    if (Object.entries(store.tokens).some(([id, entry]) => current.tokens[id]?.token !== entry?.token)) return stale();
+    // Reread the store after await: another consumer may already have minted
+    // these tokens, or corruption may have appeared. Never replace that state.
+    return issueTokens(cwd, gates, { now: Date.now(), env, readReceipt: () => {
+      if (!needsReceipt) throw Error('Receipt no longer available');
+      return receipt;
+    } });
+  } catch { return { state: 'unreadable', tokens: {}, why: 'Approval receipt is unavailable; retry' }; }
 }
 
 /**
@@ -143,6 +191,9 @@ export function checkBinding(cwd, entry) {
 
 /** Single use: drop the gate's token once it has been decided. */
 export function consumeToken(cwd, id) {
+  const state = decisionState(cwd);
+  if (!state) return;
+  state.generation = randomUUID();
   const store = readTokens(cwd);
   if (store.state !== 'ok' || !(id in store.tokens)) return;
   const next = { ...store.tokens };

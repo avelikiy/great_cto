@@ -32,7 +32,7 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, getTasksAsync, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
-import { issueTokens, checkToken, checkBinding, consumeToken } from './gate-tokens.mjs';
+import { issueTokensAsync, checkToken, checkBinding, consumeToken, approvalSnapshot, beginGateDecision } from './gate-tokens.mjs';
 import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
@@ -63,6 +63,7 @@ import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/li
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
 // without importing a server. Re-exported here: this module's callers are unchanged.
 import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
+import { readApprovalReceipt, readSecondOpinion } from './receipt-read.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -743,6 +744,12 @@ async function dispatch(req, res, url, cwd) {
       // Named outside the serialised block so the wake below can say WHICH gate a
       // human approved; the lookup itself belongs inside the lock.
       let gateTitle = id;
+      const endDecision = beginGateDecision(gateCwd);
+      if (!endDecision) {
+        refuse({ status: 409, outcome: 'refused-busy', why: 'A gate decision is in progress for this project; retry' });
+        return;
+      }
+      try {
 
       // BH-16 fix: serialise gate writes through bd-write queue.
       // Without this, concurrent approve+reject on the same gate produced
@@ -871,12 +878,14 @@ async function dispatch(req, res, url, cwd) {
             .catch(e => log.warn(`report: republish after gate failed: ${e.message}`));
         }
       }
+      } finally { endDecision(); }
     });
     return true;
   }
 
   // Inbox — what needs your attention right now
   if (pathname === '/api/inbox') {
+    const snapshot = approvalSnapshot(cwd);
     let inbox;
     try { inbox = await getInboxAsync(cwd); }
     catch {
@@ -891,7 +900,9 @@ async function dispatch(req, res, url, cwd) {
     // verdict: `not-run` (capability none / undeclared / unavailable),
     // `unmeasured` (declared, no line for this sha), `unreadable` (only
     // pre-join-key lines exist), `ok` (a paired verdict).
-    const second_opinion = secondOpinionForTree(cwd);
+    let second_opinion;
+    try { second_opinion = await readSecondOpinion(cwd); }
+    catch { second_opinion = { state: 'unreadable', why: 'Second opinion evidence is unavailable; retry', verdict: null }; }
     // What is waiting on the person in their OTHER projects. The headline and
     // the badge are about the person, and the person is not scoped to `cwd`.
     // If the registry itself cannot be walked, say so — `unreadable` is not
@@ -903,11 +914,11 @@ async function dispatch(req, res, url, cwd) {
     // bound to the project as it is now. The typed name stored with it is the one
     // the page asks for; a store that cannot be read issues nothing and says so.
     const gates = inbox.pending_gates || [];
-    const issued = issueTokens(cwd, gates.map((g) => ({
+    const issued = await issueTokensAsync(cwd, gates.map((g) => ({
       id: g.id,
       gate: g.reversibility?.gate ? `gate:${g.reversibility.gate}` : g.id,
       guarded: ['expensive', 'unclassified'].includes(g.reversibility?.state),
-    })));
+    })), { snapshot });
     const pending_gates = gates.map((g) => ({ ...g, token: issued.tokens[g.id] || null }));
     const approval_tokens = { state: issued.state, ...(issued.why ? { why: issued.why } : {}) };
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
@@ -926,15 +937,7 @@ async function dispatch(req, res, url, cwd) {
     const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
     let out;
     try {
-      const { latestApproval, treeReceipt, compareReceipts, mergeBase } = await import('../../../scripts/lib/receipt.mjs');
-      const approval = latestApproval(c);
-      if (!approval?.receipt) {
-        out = { state: 'no-receipt', why: 'no approving verdict carries a receipt yet', agent: approval?.agent || null, ts: approval?.ts || null };
-      } else {
-        const current = treeReceipt(c, { base: approval.receipt.base || mergeBase(c) });
-        const cmp = compareReceipts(approval.receipt, current, { cwd: c });
-        out = { ...cmp, agent: approval.agent, ts: approval.ts };
-      }
+      out = await readApprovalReceipt(c);
     } catch (e) {
       // Never "matches" on an error. Not knowing whether the approval still
       // holds is its own state, and calling it a match would put the strongest

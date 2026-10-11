@@ -88,9 +88,34 @@ const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [] } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
+  // Off-loop board readers avoid one process per untracked file. Preserve Git's
+  // blob format (including SHA-256 repositories) and --no-filters semantics.
+  const algorithm = hashFilesInProcess ? git(['rev-parse', '--show-object-format'], cwd)?.trim() : null;
+  if (hashFilesInProcess && !['sha1', 'sha256'].includes(algorithm)) return null;
+  const digest = p => {
+    if (!hashFilesInProcess) return fileDigest(cwd, p);
+    try {
+      const fd = fsModule.openSync(join(cwd, p), 'r');
+      try {
+        const before = fsModule.fstatSync(fd, { bigint: true });
+        if (!before.isFile()) return null;
+        const hash = createHash(algorithm).update(`blob ${before.size}\0`);
+        const chunk = Buffer.allocUnsafe(64 * 1024);
+        let remaining = before.size;
+        while (remaining > 0n) {
+          const count = fsModule.readSync(fd, chunk, 0, Number(remaining > BigInt(chunk.length) ? BigInt(chunk.length) : remaining), null);
+          if (!count) return null;
+          hash.update(chunk.subarray(0, count)); remaining -= BigInt(count);
+        }
+        const after = fsModule.fstatSync(fd, { bigint: true });
+        if (after.size !== before.size || after.mtimeNs !== before.mtimeNs || after.ctimeNs !== before.ctimeNs) return null;
+        return hash.digest('hex');
+      } finally { fsModule.closeSync(fd); }
+    } catch { return null; }
+  };
 
   // Directories a caller does not want in this receipt, ON TOP OF the activity logs.
   // ADR-024: a gate token binds to the project outside .great_cto/, because an
@@ -121,7 +146,9 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   if (diff === null || untrackedOutput === null) return null;
   const untracked = untrackedOutput
     .split('\n').map((s) => s.trim()).filter(Boolean);
-  const untrackedDigest = untracked.map((p) => `${p}:${fileDigest(cwd, p) ?? '?'}`).join('\n');
+  const untrackedDigests = untracked.map(p => [p, digest(p)]);
+  if (hashFilesInProcess && untrackedDigests.some(([, value]) => !value)) return null;
+  const untrackedDigest = untrackedDigests.map(([p, value]) => `${p}:${value ?? '?'}`).join('\n');
   const dirty = (diff.trim() || untrackedDigest) ? sha(`${diff}\n--untracked--\n${untrackedDigest}`) : null;
 
   // Which files the change touches. `--diff-filter=d` drops deletions: a file
@@ -170,7 +197,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   let truncated = false;
   for (const p of names) {
     if (Object.keys(files).length >= maxFiles) { truncated = true; break; }
-    const blob = fileDigest(cwd, p);
+    const blob = digest(p);
     if (!blob) return null;
     files[p] = blob;
   }

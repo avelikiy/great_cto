@@ -3,8 +3,10 @@
 import { fork, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 const entry = fileURLToPath(import.meta.url);
-export function spawnBdRead(binary, { readDeadlineMs = 20250, ...options }) {
-  return fork(entry, [binary, String(readDeadlineMs)], { ...options, silent: true });
+export function spawnBdRead(binary, { readDeadlineMs = 20250, commandArgs, ...options }) {
+  const args = [binary, String(readDeadlineMs)];
+  if (commandArgs !== undefined) args.push(JSON.stringify(commandArgs));
+  return fork(entry, args, { ...options, silent: true });
 }
 if (process.argv[1] === entry) {
   const grouped = process.platform !== 'win32';
@@ -48,7 +50,11 @@ if (process.argv[1] === entry) {
     catch { killOwnedGroup(); }
   }
   try {
-    child = spawn(process.argv[2], ['list', '--json', '--all', '--include-gates'], {
+    const args = process.argv[4] === undefined
+      ? ['list', '--json', '--all', '--include-gates'] : JSON.parse(process.argv[4]);
+    if (!Array.isArray(args) || args.length > 8 || args.some(arg => typeof arg !== 'string' || arg.includes('\0'))
+        || JSON.stringify(args).length > 4096) throw Error('Invalid read command arguments');
+    child = spawn(process.argv[2], args, {
       stdio: ['ignore', 'pipe', 'pipe']
     });
     child.stdout.pipe(process.stdout, { end: false });

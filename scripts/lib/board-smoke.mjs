@@ -38,14 +38,15 @@ export async function runBoardSmoke({ serverPath, agentsDir }) {
       import {readFileSync,writeFileSync} from 'node:fs';import {basename} from 'node:path';
       const record=${JSON.stringify(records)}, tasks=${JSON.stringify(tasks)};
       const readWorker=${JSON.stringify(join(dirname(server), 'lib', 'bd-read-worker.mjs'))};
+      const receiptWorker=${JSON.stringify(join(dirname(server), 'lib', 'receipt-read-worker.mjs'))};
       const note=(kind,value)=>{const r=JSON.parse(readFileSync(record,'utf8'));r[kind].push(value);writeFileSync(record,JSON.stringify(r));};
       os.homedir=()=>${JSON.stringify(home)};
       const isBd=(cmd,args)=>basename(cmd)==='bd' && args[0]==='list';
       cp.spawnSync=(cmd,args)=>{note('sync',{bd:isBd(cmd,args),git:basename(cmd)==='git'});return isBd(cmd,args)?{status:0,stdout:JSON.stringify(tasks),stderr:''}:{status:1,stdout:'',stderr:''};};
-      const read=()=>{
+      const read=(value=tasks)=>{
         const c=new EventEmitter();c.stdout=new EventEmitter();c.stderr=new EventEmitter();
         c.stdout.setEncoding=()=>c.stdout;c.stdout.destroy=()=>{};c.stderr.resume=()=>c.stderr;c.stderr.destroy=()=>{};
-        queueMicrotask(()=>{c.stdout.emit('data',JSON.stringify(tasks));c.emit('close',0);});return c;
+        queueMicrotask(()=>{c.stdout.emit('data',JSON.stringify(value));c.emit('close',0);});return c;
       };
       cp.spawn=(cmd,args)=>{
         const bd=isBd(cmd,args);note('async',{bd,command:basename(cmd)});if(!bd) throw Error('unexpected child refused');
@@ -54,7 +55,17 @@ export async function runBoardSmoke({ serverPath, agentsDir }) {
       cp.fork=(cmd,args)=>{
         const bd=cmd===readWorker && Array.isArray(args) && args.length===2 && basename(args[0])==='bd'
           && Number(args[1])>=1 && Number(args[1])<=20250;
-        note('async',{bd,command:basename(cmd)});if(!bd) throw Error('unexpected child refused');return read();
+        let operation=null;
+        if(cmd===readWorker && Array.isArray(args) && args.length===3 && args[0]===process.execPath
+          && Number(args[1])>=1 && Number(args[1])<=20250 && typeof args[2]==='string' && args[2].length<=4096){
+          try{const argv=JSON.parse(args[2]);
+            if(Array.isArray(argv)&&argv.length===2&&argv[0]===receiptWorker&&['binding','approval','second-opinion'].includes(argv[1]))operation=argv[1];
+          }catch{}
+        }
+        const evidence=operation!==null;
+        note('async',{bd,evidence,command:basename(cmd)});if(!bd&&!evidence) throw Error('unexpected child refused');
+        if(bd)return read();
+        return read({receipt:operation==='binding'?null:operation==='approval'?{state:'no-receipt'}:{state:'not-run',verdict:null,why:'synthetic non-Git fixture'}});
       };
       const refuse=()=>{note('network',true);throw Error('outgoing fixture network refused');};
       cp.exec=cp.execFile=cp.execSync=cp.execFileSync=(cmd)=>{note('async',{bd:false,git:basename(cmd)==='git',command:basename(cmd)});throw Error('fixture command not executed');};
@@ -123,7 +134,7 @@ export async function runBoardSmoke({ serverPath, agentsDir }) {
     assert.ok(cost.llm_usd > 0, 'cost ratio cannot vacuously pass');
     assert.ok(cost.human_usd / cost.llm_usd >= 470 && cost.human_usd / cost.llm_usd <= 530);
     const calls = JSON.parse(readFileSync(records, 'utf8'));
-    assert.ok(calls.async.every(c => c.bd || c.git), `unexpected subprocess attempt: ${JSON.stringify(calls.async)}`);
+    assert.ok(calls.async.every(c => c.bd || c.git || c.evidence), `unexpected subprocess attempt: ${JSON.stringify(calls.async)}`);
     assert.ok(calls.sync.every(c => c.bd || c.git), 'unexpected sync subprocess attempt');
     assert.deepEqual(calls.network, [], 'unexpected outbound network attempt');
     assert.equal(readFileSync(join(state, 'notifications.json'), 'utf8'), '{"enabled":false}\n');
