@@ -7,6 +7,9 @@ Tracking: Beads epic great_cto-qnq6
 
 ## Context
 
+This extends the [task cockpit](ADR-028-task-cockpit.md) and
+[stage context packet](ADR-026-stage-context-packet.md) decisions.
+
 Claude Code and Codex must produce comparable evidence without treating a
 provider response, passing tests, review approval, publication and deployed
 runtime as the same state. Existing cross-review logs, projectWork/taskInspector
