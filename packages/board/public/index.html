@@ -4226,8 +4226,12 @@ function reviewerCells(t) {
   if (!so || so.state === 'not-run') codex = `<span class="abs" title="${esc(so?.why || 'second opinion not run')}">— Codex</span>`;
   else if (so.state === 'unmeasured') codex = `<span class="abs" title="${esc(so.why)}">· Codex</span>`;
   else if (so.state === 'unreadable') codex = `<span class="abs" title="${esc(so.why)}">! Codex</span>`;
-  else if (so.verdict === 'BLOCK') codex = `<span title="Codex BLOCK on ${esc((so.sha || '').slice(0, 8))} — ${esc(String(so.p0 ?? '?'))}×P0"><span class="dot bad"></span> Codex ✗</span>`;
-  else codex = `<span title="Codex ${esc(so.verdict || 'PASS')} on ${esc((so.sha || '').slice(0, 8))}"><span class="dot ok"></span> Codex ✓</span>`;
+  else if (so.state === 'unreviewable') codex = `<span class="abs" title="${esc(so.why)}">! Codex</span>`;
+  else if (so.state === 'ok' && so.verdict === 'BLOCK') codex = `<span title="Codex BLOCK on ${esc((so.sha || '').slice(0, 8))} — ${esc(String(so.p0 ?? '?'))}×P0"><span class="dot bad"></span> Codex ✗</span>`;
+  // A tick only for a review that passed — never as the fallback for a state
+  // this renderer does not know (an `unreviewable` diff once fell through to ✓).
+  else if (so.state === 'ok' && so.verdict === 'PASS') codex = `<span title="Codex PASS on ${esc((so.sha || '').slice(0, 8))}"><span class="dot ok"></span> Codex ✓</span>`;
+  else codex = `<span class="abs" title="${esc(so.why || `second opinion: ${so.state || 'unknown'}, verdict ${so.verdict ?? 'none'}`)}">? Codex</span>`;
   return `<span class="gate-review">${claude}${codex}</span>`;
 }
 function gateChip(t) {

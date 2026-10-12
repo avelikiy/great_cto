@@ -107,6 +107,19 @@ export function decideCrossReviewGate({ enabled, stopHookActive, blockedBefore, 
     return { block: false, kind: 'reviewed', why: `the second opinion passed this diff (${String(opinion.sha || '').slice(0, 8)})` };
   }
 
+  if (st === 'unreviewable') {
+    if (opinion?.error_kind === 'empty-diff') {
+      return { block: false, kind: 'empty', why: 'the diff was empty — nothing to review' };
+    }
+    return {
+      block: true, kind: 'unreviewable',
+      why: 'the second opinion refused this diff for its size',
+      reason: `The second opinion did not read this diff (${String(opinion.sha || '').slice(0, 8)}): ${opinion.why || 'it is over the review size limit'}. `
+        + `Running the review again refuses the same input. Split the change into parts it can read, or review it another way, `
+        + `and say so in your answer — an unread diff is not a pass.`,
+    };
+  }
+
   if (st === 'unreadable') {
     return {
       block: true, kind: 'unreadable',

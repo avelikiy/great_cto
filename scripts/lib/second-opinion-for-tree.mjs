@@ -12,6 +12,8 @@
 //   not-run    — no second opinion is declared (including a deliberate `none`)
 //   unmeasured — declared, but nothing has reviewed THIS tree
 //   unreadable — lines exist and none can be paired (they predate the join key)
+//   unreviewable — the review refused this tree's input (empty, or over its size
+//                  limit) — no reviewer read it, and re-running will not change that
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -48,6 +50,15 @@ export function secondOpinionForTree(c) {
   const noVerdict = rows.filter((r) => joins(r) && r.state === 'unreadable');
   if (noVerdict.length) {
     const r = noVerdict[noVerdict.length - 1];
+    // A refusal before any reviewer was asked (ADR-030: no review of a truncated
+    // prefix) is not an answer. Saying "answered without a verdict" sent the
+    // agent to re-run a review that refuses the same input every time.
+    if (r.error_kind === 'input-too-large' || r.error_kind === 'empty-diff') {
+      return { ...base, state: 'unreviewable', error_kind: r.error_kind, sha: r.sha, ts: r.ts ?? null,
+        why: r.error_kind === 'empty-diff'
+          ? 'the diff was empty — there was nothing to review'
+          : `the diff is too large for ${tool} to review whole (over 24 000 characters of diff or 4 000 of spec) — no reviewer read it` };
+    }
     return { ...base, state: 'unreadable', sha: r.sha, ts: r.ts ?? null,
       why: `${tool} answered for this tree and the answer carries no verdict — it is not a pass` };
   }
