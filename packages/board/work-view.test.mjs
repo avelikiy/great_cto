@@ -67,6 +67,23 @@ test('publication command explicitly confirms only draft PR and quotes literal s
   assert.throws(() => view.publicationCommand({ taskId, revision: 3, approval: 'a'.repeat(64), allow: ['a,b'] }), /Invalid/);
 });
 
+test('evidence uses native details, English unknown labels and escapes untrusted content', () => {
+  const html = view.render({ observedAt: 'now', health: 'current', sources: [], sessions: [], entries: [{
+    key: 'issue:x', kind: 'issue', terminal: false, title: 'Задача пользователя', nativeState: 'closed',
+    capabilities: [], acceptance: [], evidence: [], decisions: [],
+    evidenceSections: [
+      { id: 'runtime', label: 'Runtime', state: 'success', detail: '<script>bad()</script>' },
+      { id: 'checks', label: 'Checks', state: 'recorded', detail: 'Current input binding unavailable.' },
+    ],
+  }] });
+  assert.match(html, /<details data-work-detail="evidence"><summary>Task evidence · read-only/);
+  assert.match(html, /Runtime · Unknown/);
+  assert.match(html, /Checks · Recorded/);
+  assert.match(html, /Задача пользователя/);
+  assert.doesNotMatch(html, /<script>|data-work-action=".*evidence/);
+  assert.match(html, /&lt;script&gt;/);
+});
+
 test('browser publication requires exact branch and sends only one scoped confirmation', async () => {
   const nodes = new Map(), handlers = new Map();
   const node = id => { if (!nodes.has(id)) nodes.set(id, { textContent: '', innerHTML: '', addEventListener(kind, fn) { handlers.set(`${id}:${kind}`, fn); } }); return nodes.get(id); };
