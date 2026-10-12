@@ -39,6 +39,21 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.62.3 — 2026-10-12
+
+The locally installed plugin ships its compiled CLI again, so `great-cto` starts from the installed plugin.
+
+### Fixed
+
+- **`install-local` copies `packages/cli/dist/`.** Since the tracked-only snapshot of 04.10 the installer copied
+  only files Git tracks; the compiled CLI is ignored by Git, so it never reached the installed plugin and
+  `great-cto` stopped with "dist/main.js not found" — every pipeline-suite check that runs the installed
+  CLI failed. The build output is now the one declared exception: copied when the plugin ships a CLI,
+  refused when missing or older than `packages/cli/src`. Other ignored files, secrets included, still stay out.
+
+---
+
 ## v3.62.2 — 2026-10-11
 
 The board can keep answering while approval evidence is calculated. Receipt reads run in bounded background workers, and stale requests cannot reissue a consumed approval token.
