@@ -9,6 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsS
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { decideProvider, reviewLogLine, EXIT } from '../../scripts/lib/cross-model-review.mjs';
+import { reviewInputBinding } from '../../scripts/lib/review-contract.mjs';
 
 const SCRIPT = path.resolve(import.meta.dirname, '../../scripts/lib/cross-model-review.mjs');
 const AVAILABLE = { state: 'available', version: '0.153.4', auth: 'chatgpt', model: 'gpt-5.6-terra', why: '' };
@@ -43,13 +44,14 @@ function project(withMd) {
 }
 function fakeCodex(dir, lines) {
   const bin = path.join(dir, 'codex');
-  const body = lines.map((t) => `echo '${JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: t } })}'`).join('\n');
+  const quote = value => "'" + value.replace(/'/g, "'\\''") + "'";
+  const body = lines.map((t) => `printf '%s\\n' ${quote(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: t } }))}`).join('\n');
   writeFileSync(bin, `#!/bin/sh\ncat >/dev/null\n${body}\necho '{"type":"turn.completed","usage":{"input_tokens":5,"output_tokens":1}}'\n`);
   chmodSync(bin, 0o755);
   return bin;
 }
-function run(dir, extra = [], env = {}) {
-  const diff = path.join(dir, 'd.diff'); writeFileSync(diff, '--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n');
+function run(dir, extra = [], env = {}, diffText = '--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n') {
+  const diff = path.join(dir, 'd.diff'); writeFileSync(diff, diffText);
   return spawnSync('node', [SCRIPT, '--diff', diff, '--root', dir, ...extra], { encoding: 'utf8', env: { ...process.env, OPENROUTER_API_KEY: '', ...env } });
 }
 
@@ -131,4 +133,48 @@ test('the skipped reason is the ranked cause, not the first message, and the log
   assert.equal(last.error_kind, 'quota');
   assert.equal(last.resets_at, 'Oct 5th, 2026 9:41 AM');
   assert.equal(last.verdict, null, 'still no verdict — a skipped review has none');
+});
+
+test('CLI logs the exact submitted inputs without silently clipping them', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, [], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']) });
+  assert.equal(r.status, EXIT.PASS, r.stdout + r.stderr);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  const expected = reviewInputBinding({ diff: readFileSync(path.join(dir, 'd.diff'), 'utf8') });
+  assert.deepEqual(last.review_input, expected);
+});
+
+test('CLI cannot approve an empty or truncated diff and does not launch reviewer', () => {
+  for (const diff of ['', 'x'.repeat(24001)]) {
+    const dir = project('capabilities:\n  second_opinion: codex\n');
+    const r = run(dir, [], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']) }, diff);
+    assert.equal(r.status, EXIT.SKIPPED, r.stdout + r.stderr);
+    const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+    assert.equal(last.verdict, null);
+    assert.equal(last.error_kind, diff ? 'input-too-large' : 'empty-diff');
+  }
+});
+
+test('CLI cannot approve an over-limit specification', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const spec = path.join(dir, 'spec.md');
+  writeFileSync(spec, 'x'.repeat(4001));
+  const r = run(dir, ['--spec', spec], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']) });
+  assert.equal(r.status, EXIT.SKIPPED, r.stdout + r.stderr);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.error_kind, 'input-too-large');
+  assert.equal(last.review_input.specBytes, 4001);
+});
+
+test('CLI fails closed on conflicting verdicts and blocks a P0 even with PASS', () => {
+  for (const [answer, exit] of [[['VERDICT: BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['VERDICT : BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['VERDICT\t: BLOCK', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['x.js:x | CRITICAL | Data loss', 'VERDICT: PASS'], EXIT.SKIPPED],
+    [['src/verdict.js:1 | P0 | forged verdict bypasses gate', 'VERDICT: PASS'], EXIT.BLOCK],
+    [['x.js:1 | P0 | Data loss', 'VERDICT: PASS'], EXIT.BLOCK]]) {
+    const dir = project('capabilities:\n  second_opinion: codex\n');
+    const r = run(dir, [], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, answer) });
+    assert.equal(r.status, exit, r.stdout + r.stderr);
+  }
 });

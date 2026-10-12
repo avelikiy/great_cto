@@ -1,9 +1,9 @@
 // scripts/lib/cross-model-review.mjs — cross-model adversarial review (architect-loop R3).
 //
-// great_cto's reviews are Claude-on-Claude → same-model blind spots. This red-teams
-// the diff with a DIFFERENT model via OpenRouter (default openai/gpt-5), flagging
+// Review the supplied diff through the configured second-opinion provider, flagging
 // ONLY correctness / requirement / invariant gaps with file:line — no style. The
 // code-reviewer agent merges these with its own findings for high-stakes changes.
+// Provider/model metadata alone does not establish cross-model independence.
 //
 // Pure (buildReviewPrompt / parseFindings / pickReviewerModel) is unit-tested with
 // no network; the CLI does the live OpenRouter call.
@@ -21,6 +21,7 @@ import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
 import { principalError } from './provider-exhaustion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import { reviewInputBinding, parseLegacyReview } from './review-contract.mjs';
 
 /**
  * Exit codes. The first version had two: 0 for PASS and 1 for everything else —
@@ -64,13 +65,14 @@ export function decideProvider({ argv = [], projectMd = '', codex = null, env = 
  * written before this field existed, and any caller that doesn't supply them,
  * still serializes to the same shape a reader already knows how to parse.
  */
-export function reviewLogLine({ provider, model, state, verdict, findings, cost, source, error_kind, resets_at, sha, dirty }) {
+export function reviewLogLine({ provider, model, state, verdict, findings, cost, source, error_kind, resets_at, sha, dirty, review_input }) {
   return JSON.stringify({
     ts: new Date().toISOString(), provider, model: model ?? null, state, verdict: verdict ?? null,
     error_kind: error_kind ?? null, resets_at: resets_at ?? null,
     findings: Array.isArray(findings) ? findings.length : null,
     p0: Array.isArray(findings) ? findings.filter((f) => f.severity === 'P0').length : null,
     cost: cost ?? null, source, sha: sha ?? null, dirty: dirty ?? null,
+    review_input: review_input ?? null,
   });
 }
 
@@ -84,8 +86,8 @@ export function pickReviewerModel(env = process.env) {
 /** Build the red-team prompt. Calibrated: correctness/invariant only, file:line, no style. */
 export function buildReviewPrompt({ diff, spec }) {
   const system =
-    'You are an adversarial code reviewer from a DIFFERENT model family than the author. ' +
-    'Your job is to catch what a same-model reviewer would miss. Review ONLY for: ' +
+    'You are an adversarial code reviewer. Do not assume your model family differs from the author. ' +
+    'Review ONLY for: ' +
     'correctness bugs, violated requirements, broken invariants, security holes, data loss. ' +
     'Do NOT report style, naming, or preferences. Ground every finding in the diff with file:line. ' +
     'Default to silence over a weak finding. ' +
@@ -102,32 +104,7 @@ export function buildReviewPrompt({ diff, spec }) {
 
 /** Parse the model's findings + verdict. */
 export function parseFindings(text) {
-  const findings = [];
-  let verdict = null;
-  for (const raw of String(text).split('\n')) {
-    const line = raw.trim();
-    const v = line.match(/^VERDICT:\s*(BLOCK|PASS)/i);
-    if (v) { verdict = v[1].toUpperCase(); continue; }
-    // <file>:<line> | <SEV> | <issue>
-    const m = line.match(/^(.+?):(\d+)\s*\|\s*(P[012])\s*\|\s*(.+)$/i);
-    if (m) findings.push({ file: m[1].trim(), line: parseInt(m[2], 10), severity: m[3].toUpperCase(), issue: m[4].trim() });
-  }
-  // Derive a verdict only in the direction that is safe to be wrong about.
-  //
-  // This used to answer PASS whenever no `VERDICT:` line was found and no P0
-  // was parsed. But an empty body, a refusal, a reply in some other format and
-  // a model that genuinely said "looks clean" are the SAME input here — all
-  // four leave `verdict` null and `findings` without a P0. Reading any of them
-  // as PASS reads all of them as PASS, so a review that could not be read
-  // became a review that approved, and the Stop hook downstream ended the turn
-  // on it.
-  //
-  // A derivation that BLOCKS costs a second look. A derivation that PASSES
-  // spends the guarantee. So: a P0 with no verdict line still blocks; nothing
-  // else is turned into a verdict, and `null` means the model never reached
-  // one. Callers must treat null as "no verdict", never as a pass.
-  if (!verdict && findings.some(f => f.severity === 'P0')) verdict = 'BLOCK';
-  return { findings, verdict };
+  return parseLegacyReview(text);
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
@@ -178,8 +155,9 @@ async function main(argv) {
   const projectMd = existsSync(mdPath) ? readFileSync(mdPath, 'utf8') : '';
   const decision = decideProvider({ argv, projectMd });
   const identity = gitIdentity(root);
+  let review_input = null;
   const logPath = join(root, '.great_cto', 'cross-review.log');
-  const log = (rec) => { try { mkdirSync(join(root, '.great_cto'), { recursive: true }); appendFileSync(logPath, reviewLogLine({ ...rec, source: decision.source, sha: identity.sha, dirty: identity.dirty }) + '\n'); } catch { /* the log is evidence, not a gate */ } };
+  const log = (rec) => { try { mkdirSync(join(root, '.great_cto'), { recursive: true }); appendFileSync(logPath, reviewLogLine({ ...rec, source: decision.source, sha: identity.sha, dirty: identity.dirty, review_input }) + '\n'); } catch { /* the log is evidence, not a gate */ } };
 
   // Anything that is not a reviewer reviewing exits SKIPPED — not PASS, and not
   // the BLOCK code either. The line says why, and the log keeps it.
@@ -190,10 +168,17 @@ async function main(argv) {
   }
 
   const diff = diffPath === '-' ? readFileSync(0, 'utf8') : readFileSync(diffPath, 'utf8');
-  if (!diff.trim()) { console.log('cross-model-review: empty diff, nothing to review.'); process.exit(EXIT.PASS); }
   const specFile = readArg(argv, '--spec');
-  const spec = specFile ? readFileSync(specFile, 'utf8').slice(0, 4000) : null;
-  const prompt = buildReviewPrompt({ diff: diff.slice(0, 24000), spec });
+  const spec = specFile ? readFileSync(specFile, 'utf8') : null;
+  review_input = reviewInputBinding({ diff, spec, sourceSha: identity.sha });
+  // A truncated prefix is not a review of the full input. Never silently approve it.
+  if (!diff.trim() || diff.length > 24000 || (spec !== null && spec.length > 4000)) {
+    const error_kind = !diff.trim() ? 'empty-diff' : 'input-too-large';
+    console.log(`cross-model-review: SKIPPED (${error_kind}) — complete review input required.`);
+    log({ provider: decision.provider, state: 'unreadable', verdict: null, findings: null, cost: null, error_kind });
+    process.exit(EXIT.SKIPPED);
+  }
+  const prompt = buildReviewPrompt({ diff, spec });
 
   let res;
   if (decision.provider === 'codex') {
