@@ -55,7 +55,11 @@ bash scripts/install-local.sh --prune        # also prune validated unused versi
 
 The source must be a Git checkout root with a commit. Only tracked regular files
 are copied, with local state, credentials, environment secrets and dependencies
-excluded. Files are checked in a staging directory and renamed into an unused
+excluded. The one exception is the compiled CLI, `packages/cli/dist/` — ignored by
+Git, required for the installed `great-cto` to start: it is copied when the plugin
+tracks `packages/cli/index.mjs`, and the install is refused when it is missing or
+older than `packages/cli/src` (run `npm run build` in `packages/cli`). Files are
+checked in a staging directory and renamed into an unused
 version directory. A content inventory and source commit are retained in
 `.great-cto-local-install.json`; this is build identity, not security approval.
 An identical re-run leaves files unchanged. Different bytes under the same

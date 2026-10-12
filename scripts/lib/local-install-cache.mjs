@@ -13,6 +13,13 @@ const REQUIRED = ['.claude-plugin/plugin.json', 'skills/great_cto/ARCHETYPES.md'
   'skills/great_cto/SKILL.md', 'agents/architect.md',
   'scripts/hooks/auto-attach-reviewers.mjs', 'commands/start.md'];
 const hash = (bytes) => createHash('sha256').update(bytes).digest('hex');
+// The one build output a plugin ships besides tracked files: the CLI is compiled
+// TypeScript, ignored by Git, and a tracked-only snapshot left it out — the
+// installed CLI could not start (great_cto-6j5j). Declared here, by path, so
+// nothing else ignored (secrets, caches) can ride along.
+const CLI_ENTRY = 'packages/cli/index.mjs';
+const CLI_SRC = 'packages/cli/src/';
+const CLI_DIST = 'packages/cli/dist';
 
 export function isInstallFile(name) {
   const parts = name.split('/');
@@ -31,6 +38,33 @@ function sourceFile(source, name) {
   const stat = fs.lstatSync(file);
   if (!stat.isFile()) throw new Error(`source is not a regular file: ${name}`);
   return { bytes: fs.readFileSync(file), mode: stat.mode & 0o777 };
+}
+
+/** Regular files under the CLI build output, newer than every tracked CLI source. */
+function cliBuild(source, tracked) {
+  if (!tracked.includes(CLI_ENTRY)) return [];
+  const dist = join(source, CLI_DIST);
+  if (!fs.existsSync(join(dist, 'main.js'))) {
+    throw new Error(`the CLI is not built (${CLI_DIST}/main.js missing): run \`npm run build\` in packages/cli first`);
+  }
+  const out = [];
+  (function visit(dir) {
+    for (const name of fs.readdirSync(dir).sort()) {
+      const file = join(dir, name);
+      const rel = relative(source, file).split(sep).join('/');
+      const stat = fs.lstatSync(file);
+      if (stat.isSymbolicLink()) throw new Error(`source symlink refused: ${rel}`);
+      if (stat.isDirectory()) visit(file);
+      else if (stat.isFile()) { if (isInstallFile(rel)) out.push(rel); }
+      else throw new Error(`source is not a regular file: ${rel}`);
+    }
+  })(dist);
+  const newestSrc = Math.max(0, ...tracked.filter(n => n.startsWith(CLI_SRC)).map(n => fs.statSync(join(source, n)).mtimeMs));
+  const oldestBuild = Math.min(...out.map(n => fs.statSync(join(source, n)).mtimeMs));
+  if (newestSrc > oldestBuild) {
+    throw new Error(`the CLI build is older than packages/cli/src: run \`npm run build\` in packages/cli first`);
+  }
+  return out;
 }
 
 function inventory(root) {
@@ -61,9 +95,11 @@ export function installLocalCache({ source, cacheRoot }) {
   const commit = git('rev-parse', 'HEAD').trim();
   const names = git('ls-files', '-z', '--cached').split('\0').filter(Boolean);
   if (new Set(names).size !== names.length) throw new Error('duplicate/unmerged tracked paths');
-  const files = names.filter(isInstallFile).sort();
-  for (const name of REQUIRED) if (!files.includes(name)) throw new Error(`required tracked file missing: ${name}`);
-  // Read before cache mutations; ignored/untracked local secrets are not copied.
+  const tracked = names.filter(isInstallFile);
+  for (const name of REQUIRED) if (!tracked.includes(name)) throw new Error(`required tracked file missing: ${name}`);
+  const files = [...new Set([...tracked, ...cliBuild(source, tracked)])].sort();
+  // Read before cache mutations; ignored/untracked files are not copied — the
+  // declared CLI build output is the only exception (cliBuild).
   const snapshot = files.map(name => ({ name, ...sourceFile(source, name) }));
   const entries = snapshot.map(f => ({ path: f.name, sha256: hash(f.bytes), mode: f.mode }))
     .sort((a, b) => a.path.localeCompare(b.path));
