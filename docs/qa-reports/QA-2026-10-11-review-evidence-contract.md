@@ -67,7 +67,7 @@ A third complete run on the same source used the supported explicit artifact
 seam, not an operator reinstall:
 
 ```sh
-GREAT_CTO_TEST_PLUGIN_DIR=/Users/avelikiy/.codex/worktrees/review-evidence-contract/great_cto bash scripts/ci-local.sh --e2e
+GREAT_CTO_TEST_PLUGIN_DIR=<review-worktree> bash scripts/ci-local.sh --e2e
 ```
 
 It exited 0: root/hooks/board 1404 passed; libraries 3336 passed and 6 NOT

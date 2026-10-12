@@ -183,7 +183,7 @@ does not prove why the original unexpected writer invocation timed out.
 
 The stock installed-plugin L1-L5 suite retained 33 grouped passes, three failures
 and nine skips in 72 seconds. Its selected artifact is
-`/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`. Webhook invalid/valid
+`~/.claude/plugins/cache/local/great_cto/3.48.0`. Webhook invalid/valid
 signature and board namespace tests refused before operator mutation or server
 launch because this installed artifact lacks isolated namespace support. These
 failures remain failures; the candidate checks below do not replace them.
@@ -712,7 +712,7 @@ The operator approved installation into the shared Playwright cache. Executed
 the repository's Playwright 1.60.0 CLI `install chromium`, exit 0. It installed
 Chrome for Testing 148.0.7778.96 / Chromium revision 1223, the corresponding
 headless shell and Playwright FFmpeg 1011. The expected executable now exists
-under `/Users/avelikiy/Library/Caches/ms-playwright/chromium-1223`.
+under `~/Library/Caches/ms-playwright/chromium-1223`.
 No dependency version, executable substitution, timeout or skip policy changed.
 The installed plugin, workflows, release and gate approvals remain unchanged.
 

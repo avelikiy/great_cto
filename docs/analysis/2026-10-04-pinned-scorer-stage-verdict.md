@@ -108,7 +108,7 @@ unobserved native browser resources are not claimed to be absent. Task:
 `great_cto-p4o9.5.9.11`. The test's finally awaits browser.close before stopping
 its board; owned-resource lifetime/abort handling needs a bounded redesign.
 
-L1-L5 selected `/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`.
+L1-L5 selected `~/.claude/plugins/cache/local/great_cto/3.48.0`.
 Two webhook HMAC cases and the board case refused missing isolated namespace
 support before config mutation/server launch. The phase-task fixture passed
 its five actual Beads checks while retaining an open synthetic gate; role/model
@@ -310,7 +310,7 @@ No merge, defaults, security exception or human approval was changed.
 ## Private installed-candidate namespace verification
 
 Task `great_cto-p4o9.5.9.15`, verified from source `bb6b47c5`. Selected active
-Claude cache remains `/Users/avelikiy/.claude/plugins/cache/local/great_cto/3.48.0`.
+Claude cache remains `~/.claude/plugins/cache/local/great_cto/3.48.0`.
 Its webhook config, events and DLQ paths use homedir directly; board state does
 not honor GREAT_CTO_HOME and discovery lacks GREAT_CTO_DISCOVERY_ROOT support.
 Source and the current packed candidate contain those namespace changes.
@@ -984,7 +984,7 @@ manually changed to blocked or advanced past checks.
 
 Operator readiness preflight prevents launching the developer/check stage:
 Docker version returns EOF in both desktop-linux and default contexts.
-The desktop endpoint is unix:///Users/avelikiy/.docker/run/docker.sock;
+The desktop endpoint is unix://~/.docker/run/docker.sock;
 default /var/run/docker.sock is a symlink to that same endpoint. Socket exists
 and com.docker.backend processes exist. Read-only Unix-socket requests to
 /_ping and /version returned HTTP 200 with empty bodies, not the expected
@@ -1057,7 +1057,7 @@ is a dangling symlink to its CLI; selected /opt/homebrew/bin/docker resolves to
 Homebrew docker 29.7.2. Attempting the previously supported Desktop start command
 returned unknown flag --timeout, not a successful start. Both existing contexts
 still point to the missing socket. Spotlight found only
-`/Users/avelikiy/Library/Application Support/com.docker.install/in_progress/Docker.app`.
+`~/Library/Application Support/com.docker.install/in_progress/Docker.app`.
 No Docker-specific installer/backend process was observed; these checks do not
 establish why the app disappeared or whether installation will complete.
 
