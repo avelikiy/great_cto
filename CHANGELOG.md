@@ -41,6 +41,28 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.1 — 2026-10-13
+
+A subagent's completion is judged by its own verdict record, not by whichever record of its role was written last.
+
+### Fixed
+
+- **Completion evidence is validated, not just found.** The SubagentStop check counted a verdict log as evidence
+  when the file had been touched recently. It now needs a parsed record with a known verdict, this agent's role,
+  and a record time inside the run — touching an old log no longer makes it fresh, and another role's or a
+  malformed record never counts.
+- **Same-role runs no longer borrow each other's verdict.** When the host supplies `session_id` and `agent_id`,
+  each invocation gets a stable identity (SHA-256 of the pair). SubagentStart prints it as required verdict
+  metadata, SubagentStop looks for that invocation's record in an interleaved log, and the Codex pipeline carries
+  it on every agent-start/stop event, worker call and result. Without host identifiers the check stays on
+  role and time and says that concurrent same-role isolation is unverified.
+- **The inline-subagent guard reads the shell the way the shell does.** `claude -p` detection uses the shared
+  command parser — quoting, substitutions, `sh -c`, `env`, and `npx`/`xargs` options — instead of splitting on
+  punctuation.
+
+---
+
 ## v3.63.0 — 2026-10-12
 
 Reviews are bound to the exact input they read, and each task on the board shows its evidence without claiming an approval it does not have.
