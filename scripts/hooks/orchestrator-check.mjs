@@ -18,6 +18,7 @@ import { cwd } from 'node:process';
 import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
 import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
+import { invocationIdentity } from '../lib/invocation-identity.mjs';
 
 import { findToml, parseToml, run as inlineSubagentCheck } from '../lib/inline-subagent.mjs';
 
@@ -71,6 +72,10 @@ console.log('=== ORCHESTRATOR CONTRACT (shared/orchestrator.toml) ===');
 // great_cto repository, not in the project this agent works in. Runs that could
 // not find it died with "No such file", or recorded nothing. Say where it is.
 console.log(`Record your verdict with      : ${logVerdictCommand()} <agent> <VERDICT> auto [meta...]`);
+let identity = null;
+try { identity = invocationIdentity(JSON.parse(STDIN || '{}')); } catch { /* legacy payload */ }
+if (identity) console.log(`Required verdict metadata     : invocation_id=${identity} (this invocation only)`);
+else console.log('Invocation identity           : unavailable; same-role concurrent completion is unverified');
 console.log('  → `scripts/log-verdict.sh` in your instructions means exactly this file.');
 console.log(`Decomposition matrix required : ${p.decomposition_matrix_required ?? '—'}`);
 console.log(`Inline subagents allowed      : ${p.inline_subagents_allowed ?? '—'}`);

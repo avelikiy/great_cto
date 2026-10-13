@@ -29,6 +29,20 @@ test('the command is read where Claude Code puts it', () => {
   assert.equal(commandOf('claude -p raw'), 'claude -p raw');
 });
 
+test('wrapper flags cannot hide an inline invocation', () => {
+  for (const c of ['env -i claude -p hi', 'npx --yes claude -p hi', 'command -- claude -p hi',
+    "bash -c 'claude -p hi'", 'echo "$(claude -p hi)"']) {
+    assert.equal(isInlineSubagent(c), true, c);
+  }
+});
+
+test('quoted separators and comments are data, not commands', () => {
+  for (const c of ['printf "%s\\n" "hello; claude -p does-not-run"',
+    "echo 'x && claude -p hi'", 'echo hi # claude -p hi', 'claude -- "literal -p"']) {
+    assert.equal(isInlineSubagent(c), false, c);
+  }
+});
+
 test('blocked only when the contract forbids it', () => {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'inl-'));
   const no = path.join(d, 'no.toml'); fs.writeFileSync(no, '[parallelism]\ninline_subagents_allowed = false\n');

@@ -18,6 +18,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { logVerdictCommand } from '../../scripts/lib/log-verdict-path.mjs';
 import { stopRemedy } from '../../scripts/lib/stop-shape.mjs';
+import { invocationIdentity } from '../../scripts/lib/invocation-identity.mjs';
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HOOK = path.resolve(HERE, '../../scripts/hooks/subagent-stop-completion.mjs');
@@ -33,7 +34,7 @@ function project() {
   return { root, gc };
 }
 
-function run(p, { id = 'agent-a1', agent = 'great-cto:senior-dev', startedAgoMs = 60_000 } = {}) {
+function run(p, { id = 'agent-a1', agent = 'great-cto:senior-dev', startedAgoMs = 60_000, hostId } = {}) {
   const tp = path.join(p.root, `${id}.jsonl`);
   const started = new Date(Date.now() - startedAgoMs).toISOString();
   fs.writeFileSync(tp, [
@@ -42,7 +43,7 @@ function run(p, { id = 'agent-a1', agent = 'great-cto:senior-dev', startedAgoMs 
   ].map((r) => JSON.stringify(r)).join('\n') + '\n');
   return spawnSync(process.execPath, [HOOK], {
     cwd: p.root,
-    input: JSON.stringify({ agent_type: agent, agent_transcript_path: tp, session_id: 's1', hook_event_name: 'SubagentStop' }),
+    input: JSON.stringify({ agent_type: agent, agent_id: hostId, agent_transcript_path: tp, session_id: 's1', hook_event_name: 'SubagentStop' }),
     env: { ...process.env, GREAT_CTO_DIR: p.gc, GREAT_CTO_NO_MEASURED_COST: '1', GREAT_CTO_ENFORCE_COMPLETION: '' },
     encoding: 'utf8',
   });
@@ -67,6 +68,82 @@ test('its own verdict, written during the run, completes it', () => {
   verdict(p, 'senior-dev', 10_000);
   const r = run(p, { startedAgoMs: 60_000 });
   assert.equal(r.status, 0, r.stderr);
+});
+
+test('a fresh malformed log cannot stand in for a verdict', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), 'NOT A VERDICT\n');
+  assert.equal(run(p).status, 2);
+});
+
+test('a valid record for another role in this role log cannot complete it', () => {
+  const p = project();
+  verdict(p, 'code-reviewer', 10_000);
+  fs.copyFileSync(path.join(p.gc, 'verdicts', 'code-reviewer.log'), path.join(p.gc, 'verdicts', 'senior-dev.log'));
+  assert.equal(run(p).status, 2);
+});
+
+test('touching a stale record does not make it evidence for this run', () => {
+  const p = project();
+  verdict(p, 'senior-dev', 120_000);
+  const f = path.join(p.gc, 'verdicts', 'senior-dev.log');
+  fs.utimesSync(f, new Date(), new Date());
+  assert.equal(run(p, { startedAgoMs: 60_000 }).status, 2);
+});
+
+test('unknown verdict words do not satisfy completion', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} senior-dev NONSENSE cost=$0.1\n`);
+  assert.equal(run(p).status, 2);
+});
+
+test('same-role invocations cannot borrow each others verdict', () => {
+  const p = project();
+  const record = (hostId) => ({ v: 1, ts: new Date().toISOString(), agent: 'senior-dev', verdict: 'APPROVED', cost_usd: 0.1,
+    meta: { invocation_id: invocationIdentity({ session_id: 's1', agent_id: hostId }) } });
+  const log = path.join(p.gc, 'verdicts', 'senior-dev.log');
+  fs.writeFileSync(log, JSON.stringify(record('first')) + '\n');
+  assert.equal(run(p, { id: 'run-second', hostId: 'second' }).status, 2);
+  fs.appendFileSync(log, JSON.stringify(record('second')) + '\n');
+  assert.equal(run(p, { id: 'run-first', hostId: 'first' }).status, 0, 'find first invocation before latest role record');
+  assert.equal(run(p, { id: 'run-second', hostId: 'second' }).status, 0);
+});
+
+test('identified invocation cannot use an unbound legacy verdict', () => {
+  const p = project();
+  verdict(p, 'senior-dev', 10_000);
+  const result = run(p, { hostId: 'known-id' });
+  assert.equal(result.status, 2);
+  assert.match(result.stderr, /invocation_id=/);
+});
+
+test('start context, canonical writer and stop hook share the invocation identity', () => {
+  const p = project();
+  const env = { ...process.env, GREAT_CTO_DIR: p.gc };
+  const identity = invocationIdentity({ session_id: 's1', agent_id: 'writer-run' });
+  const start = spawnSync(process.execPath, [path.resolve(HERE, '../../scripts/hooks/orchestrator-check.mjs')], {
+    cwd: p.root, env, encoding: 'utf8',
+    input: JSON.stringify({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'writer-run', agent_type: 'great-cto:senior-dev' }),
+  });
+  assert.equal(start.status, 0, start.stderr);
+  assert.ok(start.stdout.includes(`invocation_id=${identity}`));
+  const writer = spawnSync('bash', [path.resolve(HERE, '../../scripts/log-verdict.sh'),
+    'senior-dev', 'APPROVED', '0.1', `invocation_id=${identity}`], { cwd: p.root, env, encoding: 'utf8' });
+  assert.equal(writer.status, 0, writer.stderr);
+  assert.equal(run(p, { hostId: 'writer-run' }).status, 0);
+});
+
+test('identity is session-scoped, bounded and rejects missing or unsafe IDs', () => {
+  assert.notEqual(invocationIdentity({ session_id: 'a:b', agent_id: 'c' }), invocationIdentity({ session_id: 'a', agent_id: 'b:c' }));
+  assert.equal(invocationIdentity({ session_id: 's'.repeat(160), agent_id: 'a'.repeat(160) }).length, 64);
+  assert.equal(invocationIdentity({ session_id: 's' }), null);
+  assert.equal(invocationIdentity({ session_id: 's', agent_id: '../x' }), null);
+});
+
+test('legacy records without an embedded role retain filename attribution', () => {
+  const p = project();
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} APPROVED cost=$0.1\n`);
+  assert.equal(run(p).status, 0);
 });
 
 test('a verdict from before this run started is the previous run\'s, not this one\'s', () => {

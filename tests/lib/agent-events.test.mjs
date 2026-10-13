@@ -48,6 +48,13 @@ test('an unknown kind is not an event', () => {
   assert.ok(EVENT_KINDS.includes('pipeline') && EVENT_KINDS.includes('agent-stop'));
 });
 
+test('invocation identity carries only a bounded digest, never arbitrary content', () => {
+  assert.equal(makeEvent({ kind: 'agent-start', invocation_id: 'a'.repeat(64) }).invocation_id, 'a'.repeat(64));
+  for (const value of ['secret content', 'a'.repeat(65), 42, null]) {
+    assert.equal(makeEvent({ kind: 'agent-start', invocation_id: value }).invocation_id, undefined);
+  }
+});
+
 test('paths are bounded, and values are typed rather than trusted', () => {
   const e = makeEvent({
     kind: 'tool', tool: 'Edit', ok: 'yes', duration_ms: -5,

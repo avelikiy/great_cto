@@ -18,6 +18,7 @@ import { readExecutionBudget, withAgentBudget, requireAgents, releaseAgent, budg
 import { validateSpecialistPolicy, assertSpecialistEpoch, schedulePreparation, scheduleSpecialists, specialistRole, validateReviewFiles, recordReviewFiles } from './controlled-specialists.mjs';
 import { scopedReviewInput, scopedReviewCandidate, attestScopedReview, completeScopeAttestation } from './scoped-review-reuse.mjs';
 import { observeControllerCall } from './controller-dispatch-evidence.mjs';
+import { invocationIdentity } from './invocation-identity.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -70,9 +71,9 @@ function cleanResponse(response) {
 function emit(state, event) {
   return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id });
 }
-const toolListener = (state, agent) => (ev) => {
+const toolListener = (state, agent, invocationId = null) => (ev) => {
   const e = codexToolEvent(ev);
-  if (e) emit(state, { ...e, agent });
+  if (e) emit(state, { ...e, agent, invocation_id: invocationId });
 };
 
 /**
@@ -171,16 +172,18 @@ function releaseSummary(state) {
 
 export async function verifyStage(state, role, proposal, execute) {
   const agent = 'codex-verifier';
+  const invocationId = invocationIdentity({ session_id: state.id,
+    agent_id: `${state.attempts?.findLast(a => a.role === role)?.id || randomUUID()}:verifier` });
   const t0 = Date.now();
   let ok = false;
-  emit(state, { kind: 'agent-start', agent });
+  emit(state, { kind: 'agent-start', agent, invocation_id: invocationId });
   const wave = waveEvidence(state);
   const attestWorkflow = wave?.roles.includes(role);
   try {
     const result = cleanResponse(await execute({
       cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
-      onEvent: toolListener(state, agent),
+      invocationId, onEvent: toolListener(state, agent, invocationId),
       prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
         frozenPolicyContext(state) +
         (state.specialistStages?.[role] ? `Controlled phase: ${state.specialistStages[role].phase}, before implementation. Verify an implementable contract/threat model and its evidence; do not require nonexistent implementation or treat design sign-off as code approval. Capability: ${codexRoleProfile(specialistRole(state, role))}\n` : '') +
@@ -224,7 +227,7 @@ export async function verifyStage(state, role, proposal, execute) {
     ok = true;
     return result;
   } finally {
-    emit(state, { kind: 'agent-stop', agent, ok, duration_ms: Date.now() - t0 });
+    emit(state, { kind: 'agent-stop', agent, invocation_id: invocationId, ok, duration_ms: Date.now() - t0 });
   }
 }
 
@@ -629,11 +632,12 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
   const head = workerHead(state, role);
   // Additive v1 fields: old runs retain their original single-attempt policy.
   state.attempts ??= [];
-  const attempt = { id: randomUUID(), role, number: state.attempts.filter(a => a.role === role).length + 1,
+  const attempt = { id: prepared?.attemptId || randomUUID(), role, number: state.attempts.filter(a => a.role === role).length + 1,
     host: roleHost(state, role), status: 'running', phase: 'worker', startedAt: new Date().toISOString(),
     inputReceipt: stageReceipt(state, prepared ? prepared.receipt : treeReceipt(state.root), 'stage input') };
   if (prepared?.callId) attempt.workerCallId = prepared.callId;
   if (attempt.number > (state.maxAttempts ?? 1)) throw Error('stage attempt limit reached');
+  attempt.invocationId = invocationIdentity({ session_id: state.id, agent_id: attempt.id });
   state.attempts.push(attempt);
   state.active = role; state.steps++; save(state);
   // Recorded only once the stage is really dispatched: a run awaiting a gate, or
@@ -692,10 +696,10 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     }
     if (!prepared && typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
     const response = prepared ? prepared.response : reused || await withAgentBudget(state, { callId: `${attempt.id}:worker`, host: roleHost(state, role), role }, async () => {
-      stageStarted = true; emit(state, { kind: 'agent-start', agent });
+      stageStarted = true; emit(state, { kind: 'agent-start', agent, invocation_id: attempt.invocationId });
       return observeControllerCall(state, { id: `${attempt.id}:worker`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-      timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) }), save);
+      invocationId: attempt.invocationId, timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, attempt.invocationId) }), save);
     });
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
@@ -806,7 +810,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // re-reviews the candidate. Human gates and repair limits remain unchanged.
     if (state.rework?.role === role) state.rework = null;
     state.results[role] = { verdict: proposal.verdict, summary: proposal.summary, meta: proposal.meta || {},
-      attemptId: attempt.id, host: roleHost(state, role), checks: attempt.checks ?? null, receipt,
+      attemptId: attempt.id, invocationId: attempt.invocationId, host: roleHost(state, role), checks: attempt.checks ?? null, receipt,
       receiptEvidence: receipt ? 'git-tree' : 'report-artifacts-only', verification,
       digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null,
       diagnostics: response.errors || [], at: new Date().toISOString() };
@@ -825,7 +829,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // Keep active set: a partial write or interrupted process must not be replayed.
     save(state);
   } finally {
-    if (stageStarted) emit(state, { kind: 'agent-stop', agent, ok: stageOk, duration_ms: Date.now() - t0 });
+    if (stageStarted) emit(state, { kind: 'agent-stop', agent, invocation_id: attempt.invocationId, ok: stageOk, duration_ms: Date.now() - t0 });
     // ADR-023: a Codex stage is a turn. Recorded after every tree check above, and it
     // writes only git objects and a ref, never a working file. Never throws.
     if (snapshotTurn(state.root, { session: state.id }).state === 'recorded') pruneTurns(state.root, { session: state.id, keep: 50 });
@@ -893,13 +897,15 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     const waveId = randomUUID();
     const leases = requireAgents(state.executionBudget, roles.map(role => ({ callId: `${waveId}:${role}`, host: roleHost(state, role), role, depth: 1 })));
     state.wave = { id: waveId, roles, status: 'running', receipt,
+      attemptIds: Object.fromEntries(roles.map(role => [role, randomUUID()])),
       hosts: Object.fromEntries(roles.map(role => [role, roleHost(state, role)])), startedAt: new Date().toISOString() };
     const context = inlineContext(state);
     state.wave.context = context;
     try { save(state); } catch (error) { for (const lease of leases) releaseAgent(state.executionBudget, lease); throw error; }
     const calls = roles.map(async (role, index) => {
       const agent = hostAgent(state, role), started = Date.now();
-      emit(state, { kind: 'agent-start', agent });
+      const invocationId = invocationIdentity({ session_id: state.id, agent_id: state.wave.attemptIds[role] });
+      emit(state, { kind: 'agent-start', agent, invocation_id: invocationId });
       let ok = false;
       try {
         const runner = hostRunner(state, role, runners);
@@ -907,12 +913,12 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
         const result = await observeControllerCall(state, { id: `${waveId}:${role}`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: workerHead(state, role) + context.text, cwd: state.root,
           sandbox: 'read-only', ephemeral: true, timeoutMs: 300000,
           bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-          extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent) }), save);
+          invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, invocationId) }), save);
         ok = true;
         return result;
       } finally {
         releaseAgent(state.executionBudget, leases[index]);
-        emit(state, { kind: 'agent-stop', agent, ok, duration_ms: Date.now() - started });
+        emit(state, { kind: 'agent-stop', agent, invocation_id: invocationId, ok, duration_ms: Date.now() - started });
       }
     });
     const settled = await Promise.allSettled(calls);
@@ -956,6 +962,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
       save(state); return state;
     }
     await runStage(state, { prepared: { response: state.wave.responses[role], receipt: state.wave.receipt,
+      attemptId: state.wave.attemptIds?.[role],
       context: state.wave.context, callId: `${state.wave.id}:${role}` }, runners, verify, checks, save, contextStore });
     if (!state.results[role]) { state.wave.status = 'discarded'; break; } // Other snapshot is invalid.
   }
