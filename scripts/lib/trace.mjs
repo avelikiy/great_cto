@@ -169,7 +169,7 @@ function bdJson(args) {
   try {
     // Bounded for the same reason as every other bd call here: unbounded means
     // a stale .beads/.lock hangs the caller with no signal at all.
-    const out = execFileSync('bd', [...args, '--json'], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execFileSync('bd', [...args, '--json'], { encoding: 'utf8', timeout: 20000, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'ignore'] });
     return JSON.parse(out);
   } catch {
     return null;

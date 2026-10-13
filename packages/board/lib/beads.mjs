@@ -108,7 +108,10 @@ function bd(args, opts = {}) {
   // — so the default cap sat BELOW the known worst case, and every call site that
   // did not name its own timeout inherited a cap the machine could exceed while
   // working correctly. What came back was indistinguishable from beads failing.
-  return spawnSync(BD_BIN, args, { encoding: 'utf8', timeout: 20000, ...opts, env: { ...bdEnv(), ...(opts.env || {}) } });
+  // SIGKILL: a synchronous timeout sends its signal and then waits for the child
+  // to exit. bd holding a dolt lock ignored SIGTERM and held the board's whole
+  // event loop — four minutes without even /api/heartbeat. SIGKILL cannot wait.
+  return spawnSync(BD_BIN, args, { encoding: 'utf8', timeout: 20000, killSignal: 'SIGKILL', ...opts, env: { ...bdEnv(), ...(opts.env || {}) } });
 }
 // Turn a failed bd result into an actionable message (the bare "bd update failed" hid ENOENT).
 function bdErr(r, what) {

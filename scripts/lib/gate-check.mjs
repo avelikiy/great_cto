@@ -109,7 +109,7 @@ function loadTasks() {
     // parallelism, and an unbounded call can wait forever on a stale
     // .beads/.lock. The catch below already returns null for "bd unavailable",
     // which is the right three-state answer — it just never got to run.
-    const out = execFileSync('bd', ['list', '--json'], { encoding: 'utf8', timeout: 20000, stdio: ['ignore', 'pipe', 'ignore'] });
+    const out = execFileSync('bd', ['list', '--json'], { encoding: 'utf8', timeout: 20000, killSignal: 'SIGKILL', stdio: ['ignore', 'pipe', 'ignore'] });
     const data = JSON.parse(out);
     const arr = Array.isArray(data) ? data : (data.issues || data.tasks || []);
     return arr.map(normalizeTask);

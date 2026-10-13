@@ -188,7 +188,7 @@ export function gateState(gate, beads, { verdictTs = null, now = Date.now() } = 
 export function readGateBeads({ timeoutMs = 20000, cwd = process.cwd() } = {}) {
   try {
     const out = execFileSync('bd', ['list', '--label', 'gate', '--json', '--status', 'all'],
-      { cwd, timeout: timeoutMs, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+      { cwd, timeout: timeoutMs, killSignal: 'SIGKILL', encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
     const parsed = JSON.parse(out || '[]');
     return Array.isArray(parsed) ? parsed : [];
   } catch (e) {
