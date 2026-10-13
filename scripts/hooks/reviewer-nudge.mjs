@@ -22,6 +22,7 @@ import { join, relative, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import { RULES, shouldExclude } from "./auto-attach-reviewers.mjs";
 import { adaptiveSpecialistPlan, planNotice } from '../lib/specialist-plan.mjs';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || ".great_cto";
 const STATE_PATH = join(PROJ_DIR, "cache", "reviewer-nudge.json");
@@ -62,7 +63,7 @@ function main() {
     // A notification cache is NOT review evidence. Never suppress unknown risk.
     if (plan.fingerprint && previous?.fingerprint === plan.fingerprint) return process.exit(0);
     try {
-      mkdirSync(join(PROJ_DIR, 'cache'), { recursive: true });
+      if (!ensureStateDir(join(PROJ_DIR, 'cache'))) throw new Error('not a great_cto project');
       writeFileSync(noticePath, JSON.stringify({ fingerprint: plan.fingerprint }), { mode: 0o600 });
     } catch { /* emit even when cache persistence fails */ }
     process.stdout.write(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: planNotice(plan) } }) + '\n');
@@ -85,7 +86,7 @@ function main() {
 
   for (const r of due) state[r] = now;
   try {
-    mkdirSync(join(PROJ_DIR, "cache"), { recursive: true });
+    if (!ensureStateDir(join(PROJ_DIR, "cache"))) throw new Error('not a great_cto project');
     writeFileSync(STATE_PATH, JSON.stringify(state));
   } catch { /* nudge still worth emitting */ }
 

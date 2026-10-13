@@ -50,6 +50,7 @@ function project(lessons = LESSONS) {
   made.push(dir, home);
   mkdirSync(join(dir, '.great_cto'), { recursive: true });
   writeFileSync(join(dir, '.great_cto', 'lessons.md'), lessons);
+  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // a project
   return { dir, home };
 }
 const hook = ({ dir, home }, payload, env = {}) => spawnSync(process.execPath, [HOOK], {

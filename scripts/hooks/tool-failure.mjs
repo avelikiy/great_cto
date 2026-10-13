@@ -17,6 +17,7 @@
 
 import { readFileSync, appendFileSync, mkdirSync } from 'node:fs';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const LOG = '.great_cto/tool-failures.log';
 
@@ -86,7 +87,7 @@ function main() {
   });
 
   try {
-    mkdirSync('.great_cto', { recursive: true });
+    if (!ensureStateDir('.great_cto')) throw new Error('not a great_cto project');
     appendFileSync(LOG, entry + '\n');
   } catch { /* never block */ }
 }

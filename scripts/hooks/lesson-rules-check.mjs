@@ -29,6 +29,7 @@
 import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { relative } from 'node:path';
 import { runRules, brief } from '../lib/lesson-rules.mjs';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 function main() {
   if (process.env.GREAT_CTO_DISABLE_LESSON_RULES === '1') return;
@@ -50,7 +51,7 @@ function main() {
 
   // The count is the point of the log: one line per firing, greppable.
   try {
-    mkdirSync('.great_cto', { recursive: true });
+    if (!ensureStateDir('.great_cto')) throw new Error('not a great_cto project');
     for (const f of findings) {
       appendFileSync('.great_cto/lesson-rules.log',
         `${new Date().toISOString()} ${rel}:${f.line} ${f.rule}\n`);

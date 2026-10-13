@@ -23,6 +23,7 @@ import { readFileSync, existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const LOG_PATH = '.great_cto/summary.log';
 const SCRIPT = join(dirname(fileURLToPath(import.meta.url)), '..', 'generate-summary.mjs');
@@ -40,7 +41,7 @@ const ARTIFACT_PREFIXES = /^(?:ARCH|PLAN|PHASE|ADR|QA|SEC|TM|RELEASE|PERF)-/;
 
 function log(line) {
   try {
-    mkdirSync('.great_cto', { recursive: true });
+    if (!ensureStateDir('.great_cto')) throw new Error('not a great_cto project');
     appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`);
   } catch { /* swallow */ }
 }

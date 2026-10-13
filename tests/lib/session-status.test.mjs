@@ -13,6 +13,7 @@ function project() {
   const d = mkdtempSync(join(tmpdir(), 'sess-status-'));
   made.push(d);
   mkdirSync(join(d, '.great_cto'), { recursive: true });
+  writeFileSync(join(d, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // a project, not a bare directory
   const tx = join(d, 't.jsonl');
   writeFileSync(tx, '{}\n');
   return { d, tx };

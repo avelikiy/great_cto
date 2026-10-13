@@ -21,6 +21,7 @@
  * moved on and is reported as working. A `working` with a silent transcript for
  * five minutes is `unknown`, not working (agtx uses the same bound).
  */
+import { isProjectState } from './great-cto-scope.mjs';
 import { mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { observeWorkSession } from './work-tasks.mjs';
@@ -47,7 +48,9 @@ export function recordHookEvent(payload, { now = Date.now() } = {}) {
   if (event === 'SessionEnd') { rmSync(file, { force: true }); return { removed: true }; }
   const state = EVENT_STATE[event];
   if (!state) return null;
-  try { statSync(join(cwd, '.great_cto')); } catch { return null; } // not a great_cto project
+  // A project, not merely a `.great_cto/` directory: an older SessionStart made
+  // one in any repository it ran in, and status then landed in someone else's tree.
+  if (!isProjectState(join(cwd, '.great_cto'))) return null;
   const rec = {
     session: id,
     state,

@@ -27,6 +27,8 @@ function tempArtifactDir() {
   for (const sub of ['docs/architecture', 'docs/plans', 'docs/qa', 'docs/security']) {
     spawnSync('mkdir', ['-p', join(root, sub)]);
   }
+  spawnSync('mkdir', ['-p', join(root, '.great_cto')]);
+  writeFileSync(join(root, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // the hook logs only in a project
   return root;
 }
 

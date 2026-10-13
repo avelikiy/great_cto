@@ -19,6 +19,7 @@ function run(payload = {}, { env = {}, config = null, dirty = false } = {}) {
   const projectDir = mkdtempSync(join(tmpdir(), 'session-end-learn-'));
   // Pre-create .great_cto so the hook can write into it
   mkdirSync(join(projectDir, '.great_cto'), { recursive: true });
+  writeFileSync(join(projectDir, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // state is kept only in a project
 
   // HOME is the fixture's too: auto-learn can now be switched on in
   // ~/.great_cto/config.json, and the real one on this machine must not decide

@@ -33,6 +33,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { contractPath } from '../lib/contract-path.mjs';
+import { isProjectState } from '../lib/great-cto-scope.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.pipeline-tick');
@@ -52,6 +53,7 @@ const TRACE = join(PROJ_DIR, '.session-resume');
  */
 function trace(state, why) {
   try {
+    if (!isProjectState(PROJ_DIR)) return; // not a project: write nothing into it
     mkdirSync(PROJ_DIR, { recursive: true });
     writeFileSync(TRACE, `${new Date().toISOString()} ${state} ${why}\n`);
   } catch { /* a trace we cannot write must not stop the hook */ }
@@ -284,8 +286,10 @@ async function main() {
   }
 
   try {
-    mkdirSync(PROJ_DIR, { recursive: true });
-    writeFileSync(MARKER, `${decision.marker}\n${Date.now()}\n`);
+    if (isProjectState(PROJ_DIR)) { // not a project: write nothing into it
+      mkdirSync(PROJ_DIR, { recursive: true });
+      writeFileSync(MARKER, `${decision.marker}\n${Date.now()}\n`);
+    }
   } catch { /* an unwritable marker means it may offer twice; not fatal */ }
 
   trace('offered', `${decision.agents.join(' + ')} — ${decision.why}${wokenBy}`);

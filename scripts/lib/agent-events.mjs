@@ -24,7 +24,7 @@
 // CLI (for hooks written in shell):
 //   node scripts/lib/agent-events.mjs --emit <kind> [--tool <name>] [--agent <name>]
 
-import { isGlobalLayer } from './great-cto-scope.mjs';
+import { isGlobalLayer, isProjectState } from './great-cto-scope.mjs';
 import { appendFileSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -71,11 +71,16 @@ export function makeEvent(input, { now = Date.now() } = {}) {
  * @param {string} dir  the project's .great_cto directory
  * @returns {{ok:true} | {ok:false, why:string}}
  */
-export function appendEvent(dir, input, { now = Date.now(), env = process.env, maxBytes = MAX_BYTES } = {}) {
+export function appendEvent(dir, input, { now = Date.now(), env = process.env, maxBytes = MAX_BYTES, explicit = false } = {}) {
   try {
     if (env.GREAT_CTO_DISABLE_EVENTS === '1') return { ok: false, why: 'disabled by GREAT_CTO_DISABLE_EVENTS=1' };
     // ~/.great_cto is every project's global layer, never one project's log.
     if (isGlobalLayer(dir)) return { ok: false, why: 'the global layer is not a project' };
+    // Hooks fire in every repository a session opens, great_cto project or not;
+    // creating .great_cto there wrote into someone else's tree (great_cto-tng1).
+    // So a hook's event needs a project (.great_cto/PROJECT.md or verdicts/).
+    // `explicit` is a command the user ran in this repository (great-cto run).
+    if (!explicit && !isProjectState(dir)) return { ok: false, why: 'not a great_cto project' };
     const e = makeEvent(input, { now });
     if (!e) return { ok: false, why: `not an event kind: ${JSON.stringify(input?.kind)}` };
     const line = JSON.stringify(e) + '\n';

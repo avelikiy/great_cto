@@ -93,9 +93,10 @@ test('formatImpact says when nothing tests the file, instead of telling the mode
   assert.equal(formatImpact('a.ts', { importers: [], tests: [], coEdited: [] }), '');
 });
 
-test('a hint is recorded as a fact in the project events log when the project has .great_cto', () => {
+test('a hint is recorded as a fact in the project events log when the repository is a project', () => {
   const r = repo();
   mkdirSync(join(r, '.great_cto'), { recursive: true });
+  writeFileSync(join(r, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
   const out = hook({ tool_name: 'Edit', session_id: `ev${Date.now()}`, cwd: r, tool_input: { file_path: join(r, 'src/lib/runner.ts') } }, { GREAT_CTO_HOST: 'codex' });
   assert.ok(out.stdout);
   const e = JSON.parse(readFileSync(join(r, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').at(-1));

@@ -30,6 +30,7 @@ import { readFileSync, appendFileSync, mkdirSync, existsSync, realpathSync } fro
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -63,7 +64,7 @@ const LOG_PATH = '.great_cto/docs-sync.log';
 
 function log(line) {
   try {
-    mkdirSync('.great_cto', { recursive: true });
+    if (!ensureStateDir('.great_cto')) throw new Error('not a great_cto project');
     appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`);
   } catch { /* the log is a convenience; losing it must not fail the hook */ }
 }

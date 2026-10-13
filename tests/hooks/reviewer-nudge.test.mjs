@@ -5,7 +5,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -71,6 +71,7 @@ test('classifyGates honors custom expiry hours', () => {
 test('e2e nudge: emits additionalContext once, silent on repeat (debounce)', () => {
   const dir = mkdtempSync(join(tmpdir(), 'gcto-nudge-'));
   mkdirSync(join(dir, '.great_cto'), { recursive: true });
+  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // state is kept only in a project
   const run = () => spawnSync('node', [NUDGE], {
     input: JSON.stringify({ tool_input: { file_path: 'terraform/main.tf' } }),
     encoding: 'utf8', cwd: dir,

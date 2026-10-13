@@ -50,6 +50,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { secondOpinionForTree } from '../lib/second-opinion-for-tree.mjs';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.cross-review-gate');
@@ -165,7 +166,7 @@ export function main() {
   if (!d.block) return 0;
 
   try {
-    mkdirSync(PROJ_DIR, { recursive: true });
+    if (!ensureStateDir(PROJ_DIR)) throw new Error('not a great_cto project');
     writeFileSync(MARKER, `${markerId}\n`);
   } catch { /* a marker we cannot write means we may block twice; not fatal */ }
 

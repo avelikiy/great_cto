@@ -7,7 +7,7 @@
 // before any early return a hook takes, and without changing what the hook did.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
@@ -22,6 +22,8 @@ function project() {
   const d = mkdtempSync(join(tmpdir(), 'gcto-evhooks-'));
   TMP_DIRS.push(d);
   mkdirSync(join(d, '.great_cto'), { recursive: true });
+  // A project: events are only kept where .great_cto/PROJECT.md says so.
+  writeFileSync(join(d, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
   return d;
 }
 function runHook(d, script, payload, env = {}) {

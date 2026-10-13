@@ -14,9 +14,9 @@
  * other plugins' agents (`feature-dev:code-reviewer`) record no verdict and
  * were being asked for one.
  */
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, mkdirSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export function globalLayerDir(home = homedir()) {
@@ -36,6 +36,24 @@ export function isGlobalLayer(dir, home = homedir()) {
 export function isProjectState(dir, home = homedir()) {
   const d = String(dir || '.great_cto');
   return !isGlobalLayer(d, home) && (existsSync(join(d, 'PROJECT.md')) || existsSync(join(d, 'verdicts')));
+}
+
+/**
+ * Create a directory under a project's `.great_cto/`, and only there. Returns
+ * false — creating nothing — when the `.great_cto` it lives in is not a project
+ * (no PROJECT.md, no verdicts/), or is the global layer. Hooks fire in every
+ * repository a session opens; a plain mkdir wrote great_cto state into
+ * repositories that were not great_cto projects (great_cto-tng1).
+ */
+export function ensureStateDir(dir, home = homedir()) {
+  const abs = resolve(String(dir || ''));
+  const parts = abs.split(sep);
+  const i = parts.lastIndexOf('.great_cto');
+  if (i < 0) return false;
+  const gc = parts.slice(0, i + 1).join(sep) || sep;
+  if (!isProjectState(gc, home)) return false;
+  mkdirSync(abs, { recursive: true });
+  return true;
 }
 
 /** great_cto's agents, by name: the plugin's own agents/ directory (or GREAT_CTO_AGENTS_DIR). */

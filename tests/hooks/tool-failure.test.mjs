@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve, join } from 'node:path';
-import { mkdtempSync, mkdirSync, existsSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -16,6 +16,7 @@ const HOOK = resolve(__dirname, '../../scripts/hooks/tool-failure.mjs');
 function run(payload) {
   const projectDir = mkdtempSync(join(tmpdir(), 'toolfail-'));
   mkdirSync(join(projectDir, '.great_cto'), { recursive: true });
+  writeFileSync(join(projectDir, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); // state is kept only in a project
   const r = spawnSync('node', [HOOK], {
     input: typeof payload === 'string' ? payload : JSON.stringify(payload),
     encoding: 'utf8',

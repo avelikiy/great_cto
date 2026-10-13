@@ -31,6 +31,7 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
 import { isAbsolute, resolve, join } from 'node:path';
 import { parseBrief, checkScope, toRepoRelative } from '../lib/impl-brief.mjs';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 function readStdin() {
   try { return readFileSync(0, 'utf8'); } catch { return ''; }
@@ -130,7 +131,7 @@ function writeSliceState(cwd, state) {
   // Best-effort: a guard that cannot persist its count must not block the write
   // it was only counting.
   try {
-    mkdirSync(join(cwd, '.great_cto'), { recursive: true });
+    if (!ensureStateDir(join(cwd, '.great_cto'))) throw new Error('not a great_cto project');
     writeFileSync(sliceStatePath(cwd), JSON.stringify(state));
   } catch { /* counting is advisory; failing to count is not a reason to fail the edit */ }
 }

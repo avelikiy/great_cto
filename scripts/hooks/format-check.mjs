@@ -18,6 +18,7 @@
 import { readFileSync, existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { extname } from 'node:path';
+import { ensureStateDir } from '../lib/great-cto-scope.mjs';
 
 const LOG_PATH = '.great_cto/format.log';
 
@@ -73,7 +74,7 @@ function pickFormatter(file) {
 
 function log(line) {
   try {
-    mkdirSync('.great_cto', { recursive: true });
+    if (!ensureStateDir('.great_cto')) throw new Error('not a great_cto project');
     appendFileSync(LOG_PATH, `${new Date().toISOString()} ${line}\n`);
   } catch { /* never crash */ }
 }

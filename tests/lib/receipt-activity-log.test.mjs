@@ -27,8 +27,10 @@ function repo(t) {
   const git = (...a) => execFileSync('git', a, { cwd: root, stdio: ['ignore', 'pipe', 'ignore'] });
   git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
   writeFileSync(join(root, 'app.js'), 'export const x = 1;\n');
-  git('add', '.'); git('commit', '-q', '-m', 'init');
+  // A project, as in real use: PROJECT.md is committed; events are only kept in one.
   mkdirSync(join(root, '.great_cto'));
+  writeFileSync(join(root, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n');
+  git('add', '.'); git('commit', '-q', '-m', 'init');
   return { root, git, events: join(root, '.great_cto') };
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);

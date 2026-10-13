@@ -30,6 +30,7 @@ import { homedir } from 'node:os';
 import { join, resolve, basename, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkCrystallizeHint } from '../crystallize-hint.mjs';
+import { isProjectState } from '../lib/great-cto-scope.mjs';
 
 export { checkCrystallizeHint };
 
@@ -106,6 +107,8 @@ function countSessionLogs() {
  */
 function spawnLearner(git, payload = {}) {
   if (!autoLearnEnabled()) return;
+  // Not a project: no paid learner run, and nothing written into the repository.
+  if (!isProjectState('.great_cto')) return;
 
   // A paid agent run needs something to learn from. Spawning at EVERY session
   // end includes the thirty-second one that answered a question — and /save

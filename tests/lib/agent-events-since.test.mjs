@@ -12,14 +12,15 @@
 // read from the wrong place in the wrong file.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, statSync, truncateSync, rmSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, statSync, truncateSync, rmSync, chmodSync, mkdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { EVENTS_FILE, appendEvent, readEventsSince } from '../../scripts/lib/agent-events.mjs';
 
 const TMP_DIRS = [];
 after(() => { for (const d of TMP_DIRS) { try { chmodSync(d, 0o755); } catch {} rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } });
-const stateDir = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-since-')); TMP_DIRS.push(d); return join(d, '.great_cto'); };
+// A project: events are only kept where .great_cto/PROJECT.md says so.
+const stateDir = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-since-')); TMP_DIRS.push(d); mkdirSync(join(d, '.great_cto'), { recursive: true }); writeFileSync(join(d, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); return join(d, '.great_cto'); };
 const NOW = Date.parse('2026-09-14T12:00:00Z');
 const add = (dir, e, i = 0, opts = {}) => appendEvent(dir, e, { now: NOW + i, env: {}, ...opts });
 

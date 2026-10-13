@@ -22,7 +22,8 @@ import {
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const TMP_DIRS = [];
 after(() => { for (const d of TMP_DIRS) { try { chmodSync(d, 0o755); } catch {} rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } });
-const stateDir = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-events-')); TMP_DIRS.push(d); return join(d, '.great_cto'); };
+// A project: events are only kept where .great_cto/PROJECT.md says so.
+const stateDir = () => { const d = mkdtempSync(join(tmpdir(), 'gcto-events-')); TMP_DIRS.push(d); mkdirSync(join(d, '.great_cto'), { recursive: true }); writeFileSync(join(d, '.great_cto', 'PROJECT.md'), 'archetype: devtools\n'); return join(d, '.great_cto'); };
 const NOW = Date.parse('2026-09-14T12:00:00Z');
 const lines = (dir) => readFileSync(join(dir, EVENTS_FILE), 'utf8').trim().split('\n').map((l) => JSON.parse(l));
 
@@ -117,6 +118,7 @@ test('a directory that cannot be written returns a reason instead of throwing', 
   assert.doesNotThrow(() => { r = appendEvent(dir, { kind: 'stop' }, { now: NOW, env: {} }); });
   assert.equal(r.ok, false);
   assert.ok(r.why);
+  chmodSync(dir, 0o755); // it now holds PROJECT.md; cleanup must be able to remove it
 });
 
 // ── reading: three states ──────────────────────────────────────────────────

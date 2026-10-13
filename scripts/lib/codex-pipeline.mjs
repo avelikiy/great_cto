@@ -69,7 +69,8 @@ function cleanResponse(response) {
  * is excluded from receipts, so these writes cannot trip the tree checks below.
  */
 function emit(state, event) {
-  return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id });
+  // The user ran this pipeline here, so it keeps its log here even before /start.
+  return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id }, { explicit: true });
 }
 const toolListener = (state, agent, invocationId = null) => (ev) => {
   const e = codexToolEvent(ev);
