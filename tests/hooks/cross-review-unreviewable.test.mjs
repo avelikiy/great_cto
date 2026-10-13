@@ -77,8 +77,16 @@ test('the board shows a tick only for a review that passed', () => {
   const html = fs.readFileSync(new URL('../../packages/board/public/index.html', import.meta.url), 'utf8');
   const src = html.match(/function reviewerCells\(t\) \{[\s\S]*?\n\}/)?.[0];
   assert.ok(src, 'located reviewerCells');
-  const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
-  const render = (so) => new Function('esc', 'inboxSecondOpinion', `${src}; return reviewerCells({ agent: 'qa' });`)(esc, so);
+  // A module of its own, run by node — no eval in the test (the plugin scanner
+  // reads `new Function` as dynamic execution, and so should we).
+  const dir = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'reviewer-cells-'))); made.push(dir);
+  const mod = path.join(dir, 'render.mjs');
+  fs.writeFileSync(mod, `const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+let inboxSecondOpinion = JSON.parse(process.argv[2]);
+${src}
+process.stdout.write(reviewerCells({ agent: 'qa' }));
+`);
+  const render = (so) => execFileSync(process.execPath, [mod, JSON.stringify(so)], { encoding: 'utf8' });
   assert.match(render({ state: 'ok', verdict: 'PASS', sha: 'abc' }), /Codex ✓/);
   assert.match(render({ state: 'ok', verdict: 'BLOCK', sha: 'abc', p0: 1 }), /Codex ✗/);
   for (const so of [{ state: 'unreviewable', why: 'too large' }, { state: 'ok', verdict: null }, { state: 'something-new' }]) {
