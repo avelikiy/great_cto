@@ -52,3 +52,8 @@ phase suffix. Event identity is only a 64-character digest, never arbitrary cont
 Deterministic runner regressions verify both hosts start concurrently, each
 dispatch ID matches its recorded lifecycle and result, and gates retain authority.
 These tests exercise controller code, not live model or installed-plugin parity.
+
+## Related
+
+- [PR 170 mixed-host live acceptance](../analysis/2026-10-09-pr170-live-mixed.md) — the live run of this contract across Claude and Codex.
+- [ADR-030: review evidence and recovery](../adr/ADR-030-review-evidence-and-recovery.md) — the same rule for review evidence: bind the exact input, never infer identity from a shared log.

@@ -93,7 +93,7 @@ test('touching a stale record does not make it evidence for this run', () => {
 
 test('unknown verdict words do not satisfy completion', () => {
   const p = project();
-  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} senior-dev NONSENSE cost=$0.1\n`);
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), new Date().toISOString() + ' senior-dev NONSENSE cost=' + '$' + '0.1\n');
   assert.equal(run(p).status, 2);
 });
 
@@ -126,9 +126,9 @@ test('start context, canonical writer and stop hook share the invocation identit
     input: JSON.stringify({ hook_event_name: 'SubagentStart', session_id: 's1', agent_id: 'writer-run', agent_type: 'great-cto:senior-dev' }),
   });
   assert.equal(start.status, 0, start.stderr);
-  assert.ok(start.stdout.includes(`invocation_id=${identity}`));
+  assert.ok(start.stdout.includes('invocation_id=' + identity));
   const writer = spawnSync('bash', [path.resolve(HERE, '../../scripts/log-verdict.sh'),
-    'senior-dev', 'APPROVED', '0.1', `invocation_id=${identity}`], { cwd: p.root, env, encoding: 'utf8' });
+    'senior-dev', 'APPROVED', '0.1', 'invocation_id=' + identity], { cwd: p.root, env, encoding: 'utf8' });
   assert.equal(writer.status, 0, writer.stderr);
   assert.equal(run(p, { hostId: 'writer-run' }).status, 0);
 });
@@ -142,7 +142,7 @@ test('identity is session-scoped, bounded and rejects missing or unsafe IDs', ()
 
 test('legacy records without an embedded role retain filename attribution', () => {
   const p = project();
-  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), `${new Date().toISOString()} APPROVED cost=$0.1\n`);
+  fs.writeFileSync(path.join(p.gc, 'verdicts', 'senior-dev.log'), new Date().toISOString() + ' APPROVED cost=' + '$' + '0.1\n');
   assert.equal(run(p).status, 0);
 });
 
