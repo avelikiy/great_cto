@@ -40,6 +40,33 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.0 — 2026-10-12
+
+Reviews are bound to the exact input they read, and each task on the board shows its evidence without claiming an approval it does not have.
+
+### What's new
+
+- **Review evidence contract (ADR-030).** `cross-model-review` records a SHA-256 binding of the exact diff and spec it
+  sent (`review_input`), never reviews a truncated prefix (a diff over 24 000 characters or a spec over 4 000 is
+  refused, not clipped), and normalizes the reviewer's answer: a malformed reply, two verdicts or a sparse finding
+  list are "no verdict", never a pass; a P0 finding overrides a PASS.
+- **Task evidence on the Work page.** Each task shows five read-only sections — execution, checks, review,
+  publication, runtime — as *Recorded* or *Unknown*. Recorded means an observation exists, not that the current
+  code passed a gate; nothing here grants approval.
+
+### Fixed
+
+- **The inbox no longer ticks a review that did not pass.** "Codex ✓" was the fallback for any state the renderer
+  did not name — including a review line with no verdict. It now needs state `ok` and verdict `PASS`.
+- **A diff refused for size is named as such.** The Stop gate (opt-in) told the agent to re-run a review that refuses
+  the same input every time; it now asks to split the change or review it another way. An empty diff no longer
+  holds the turn.
+- Root and board test files run with bounded concurrency (2) so fixture deadlines hold under load.
+- Home-directory paths removed from three QA and analysis reports.
+
+---
+
 ## v3.62.3 — 2026-10-12
 
 The locally installed plugin ships its compiled CLI again, so `great-cto` starts from the installed plugin.
