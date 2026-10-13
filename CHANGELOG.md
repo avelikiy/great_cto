@@ -42,6 +42,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.2 — 2026-10-13
+
+great_cto writes its state only into great_cto projects, never into another repository a session happens to open.
+
+### Fixed
+
+- **No `.great_cto/` in repositories that are not projects.** Hooks fire in every repository a Claude Code session
+  opens. With no `.great_cto/PROJECT.md` up the tree, they ran in the session's directory and created `.great_cto`
+  there — `SKILL.md`, `ARCHETYPES.md`, `env.sh`, the events log, session status, the resume trace — which another
+  tool then showed as the agent's own changes. Hooks now write only where `.great_cto/PROJECT.md` (or `verdicts/`)
+  exists; the session-end learner, a paid run, does not start outside a project. Commands you run yourself
+  (`great-cto run`, `/digest`, …) still keep their state in the repository you ran them in.
+- A test fails any hook that creates `.great_cto` with a plain `mkdir`.
+
+---
+
 ## v3.63.1 — 2026-10-13
 
 A subagent's completion is judged by its own verdict record, not by whichever record of its role was written last.
