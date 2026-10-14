@@ -52,6 +52,15 @@ Benchmark summaries distinguish raw acceptance from measured-cap-qualified
 acceptance; incomplete budget metrics remain unknown. Reject inconsistent known
 context/total token metrics. Supplied measurements remain unattested data.
 
+## Consequences
+
+Admission is opt-in and fails closed on changed source pins, expired review or
+workspace binding mismatch. Operators must maintain a separate provenance root
+and reassess changed evidence; normal worker edits cannot silently repin it.
+Each invocation incurs fresh source observation and consumes the shared context
+byte allowance. Provenance receipts describe delivery, not model adherence or
+measured quality. Existing permissions and human gates remain authoritative.
+
 ## Remaining live experiment boundary
 
 Prepare independent executable holdouts and pinned scorer, freeze models and
