@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, symlinkSync, linkSync, rmSync, realpathSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, symlinkSync, linkSync, rmSync, realpathSync, existsSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
@@ -68,11 +68,21 @@ for (const change of [o => { o.permissions = ['Bash']; }, o => { o.classificatio
     assert.throws(() => validateOverlay(overlay, { projectId: 'project-a', now }));
   });
 }
-for (const path of ['../workflow.ts', '/tmp/source', '.env', 'patients/records.json', '.git/config', 'data/source', 'a\\b', 'source\0.ts',
-  '.ssh/id_ed25519', 'private.pem', 'credentials.json', 'customers.csv']) {
+for (const path of ['../workflow.ts', '/tmp/source', '.env', 'patients/records.json', '.git/config', 'data/source', 'a\\b', 'source\0.ts']) {
   test(`source path refusal: ${JSON.stringify(path)}`, t => {
     const { root, overlay } = fixture(t); overlay.sources[0].path = path;
     assert.throws(() => auditOverlay(root, overlay, { projectId: 'project-a', now }));
+  });
+}
+for (const path of ['.ssh/id_ed25519', 'private.pem', 'credentials.json', 'customers.csv']) {
+  test(`even tracked ${path} is ineligible for engineering context`, t => {
+    const { root, overlay, git } = fixture(t);
+    mkdirSync(join(root, path, '..'), { recursive: true });
+    writeFileSync(join(root, path), 'synthetic fixture only\n');
+    git(['add', '--', path]);
+    overlay.sources[0].path = path; overlay.sources[0].lines = [1, 1];
+    overlay.sources[0].sha256 = bytesDigest('synthetic fixture only\n');
+    assert.throws(() => auditOverlay(root, overlay, { projectId: 'project-a', now }), /allowlisted|eligible engineering/);
   });
 }
 test('symlink, hard link and excessive artifact size rejected', t => {
