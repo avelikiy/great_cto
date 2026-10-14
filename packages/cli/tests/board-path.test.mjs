@@ -216,3 +216,79 @@ test("prefers the newer version across both directory names", () => {
     rmSync(base, { recursive: true, force: true });
   }
 });
+
+// Marketplace names must never rank ahead of the version. All fixtures are
+// isolated: neither the operator's cache nor the running admin is changed.
+function withCacheFixture(run) {
+  const home = makeTmp();
+  const root = makeTmp();
+  const base = join(root, "dist");
+  mkdirSync(base, { recursive: true });
+  const server = (marketplace, name, version, complete = true) => {
+    const dir = join(home, ".claude/plugins/cache", marketplace, name, version, "packages/board");
+    mkdirSync(dir, { recursive: true });
+    const path = join(dir, "server.mjs");
+    if (complete) writeFileSync(path, "// fixture\n");
+    return path;
+  };
+  const bundle = join(root, "board/packages/board/server.mjs");
+  mkdirSync(dirname(bundle), { recursive: true });
+  writeFileSync(bundle, "// bundle\n");
+  try { run({ home, base, server, bundle }); }
+  finally {
+    rmSync(home, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test("newer local cache wins over an earlier marketplace with an older board", () => {
+  withCacheFixture(({ home, base, server }) => {
+    server("great-cto", "great_cto", "3.62.2");
+    const newest = server("local", "great_cto", "3.63.4");
+    assert.equal(findBoardServerPath(base, home, "3.63.4"), newest);
+    assert.equal(findBoardServerPath(base, home), newest);
+  });
+});
+
+test("newest board wins across aliases within the same marketplace", () => {
+  withCacheFixture(({ home, base, server }) => {
+    server("local", "great_cto", "3.62.2");
+    const newest = server("local", "great-cto", "3.63.4");
+    assert.equal(findBoardServerPath(base, home, "3.63.4"), newest);
+  });
+});
+
+test("global cache version order is numeric, not marketplace or lexical order", () => {
+  withCacheFixture(({ home, base, server }) => {
+    server("aaa", "great_cto", "3.99.0");
+    const newest = server("zzz", "great-cto", "3.100.0");
+    assert.equal(findBoardServerPath(base, home, "3.100.0"), newest);
+  });
+});
+
+test("incomplete newest cache cannot make an older board beat the CLI bundle", () => {
+  withCacheFixture(({ home, base, server, bundle }) => {
+    const older = server("aaa", "great_cto", "3.62.2");
+    server("zzz", "great-cto", "3.64.0", false);
+    assert.equal(findBoardServerPath(base, home, "3.63.4"), bundle);
+    assert.equal(findBoardServerPath(base, home), older);
+  });
+});
+
+test("incomplete newest cache falls back to the next complete eligible plugin", () => {
+  withCacheFixture(({ home, base, server }) => {
+    server("aaa", "great_cto", "3.65.0", false);
+    const usable = server("zzz", "great-cto", "3.64.0");
+    assert.equal(findBoardServerPath(base, home, "3.63.4"), usable);
+  });
+});
+
+test("a malformed marketplace entry does not hide a later valid cache", () => {
+  withCacheFixture(({ home, base, server }) => {
+    const newest = server("zzz", "great_cto", "3.63.4");
+    const bad = join(home, ".claude/plugins/cache/aaa/great_cto");
+    mkdirSync(dirname(bad), { recursive: true });
+    writeFileSync(bad, "not a directory\n");
+    assert.equal(findBoardServerPath(base, home, "3.63.4"), newest);
+  });
+});

@@ -429,14 +429,25 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
       if (width === 375) await page.keyboard.press('Escape');
     }
     await page.setViewportSize({ width: 1440, height: 1000 });
-    const { settledStyle } = await import('../helpers/settled-style.mjs');
+    const { settledStyle, settledHoverStyle } = await import('../helpers/settled-style.mjs');
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
       const work = page.locator('.nav-item[data-tab="work"]'), view = page.locator('#nav-view-all');
-      await work.hover();
-      const hover = await settledStyle(work, 'backgroundColor');
-      await view.hover();
-      assert.equal(await settledStyle(view, 'backgroundColor'), hover, `shared hover colour in ${theme}`);
+      const hoverSnapshot = locator => locator.evaluate(el => {
+        const rect = el.getBoundingClientRect(), style = getComputedStyle(el);
+        return { hovered: el.matches(':hover'), rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
+          background: style.backgroundColor, token: style.getPropertyValue('--bg-muted').trim(),
+          animations: el.getAnimations().map(a => ({ state: a.playState, pending: a.pending })),
+          hoverChain: [...document.querySelectorAll(':hover')].slice(-8).map(node => ({ tag: node.tagName, id: node.id })) };
+      });
+      const hover = await settledHoverStyle(work, 'backgroundColor');
+      assert.notEqual(hover, 'rgba(0, 0, 0, 0)', 'hover has an actual surface colour');
+      const workSnapshot = await hoverSnapshot(work);
+      const viewHover = await settledHoverStyle(view, 'backgroundColor');
+      const viewSnapshot = await hoverSnapshot(view);
+      const diagnostic = JSON.stringify({ theme, work: workSnapshot, view: viewSnapshot });
+      if (process.env.GREAT_CTO_SIDEBAR_DIAGNOSTICS) console.log('sidebar-hover ' + diagnostic);
+      assert.equal(viewHover, hover, `shared hover colour in ${theme}; ${diagnostic}`);
       await page.keyboard.press('Tab'); // keyboard modality makes :focus-visible explicit
       await work.focus();
       const focus = await settledStyle(work, 'outlineColor');
