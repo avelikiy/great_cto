@@ -43,6 +43,38 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.3 — 2026-10-14
+
+Prepare version-pinned engineering domain context without changing agent authority.
+
+### What's new
+
+- Five explicit-only candidate packs, version 0.1.0: money, crypto execution,
+  telemedicine workflows, venture evidence and mental wellbeing safety. Each has
+  three engineering invariants and negative scenario descriptions, not executed
+  product tests or professional certification.
+- Private project overlays bind exact source bytes, commit, pack digest and
+  expiry. Data-only host packets preserve provenance without raw source or paths.
+- A preregistered descriptive benchmark contract retains both hosts, core and
+  core-plus-pack arms, failed/missing trials and costs of rejected attempts.
+  Developer commands live in the GitHub source tree, not the npm CLI interface.
+
+### Verification and boundaries
+
+- PR #184 received independent read-only APPROVE for the opt-in foundation.
+  Canonical executed checks passed: 5607; failures: 0; NOT CHECKED: 15. Separate
+  reviewer domain contract tests passed 57/57 with no skips. See ADR-032 and the
+  2026-10-14 domain evidence QA report for source pins and earlier failed runs.
+- Lifecycle fixture corrections retain production deadlines and strict failure
+  cases. Domain packs remain candidates: no default activation, reviewer routing,
+  native dispatch, permission expansion or automatic learning changed.
+- Native experiments, independently attested scorer admission and quality uplift
+  remain unverified. Clinical efficacy, legal certification and investment
+  performance are explicitly excluded. Private overlays are not published.
+
+---
+
 ## v3.63.2 — 2026-10-13
 
 great_cto writes its state only into great_cto projects, never into another repository a session happens to open.
