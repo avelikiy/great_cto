@@ -149,19 +149,24 @@ for (const mode of ['closed-success', 'closed-fail']) test(`completed ${mode} re
 });
 test('successful worker flushes complete stdout under backpressure before group cleanup', async t => {
   const f = await setup(t, 'large-success');
-  const worker = spawnBdRead(fixture, { cwd: f.cwd, env: { ...process.env }, detached: process.platform !== 'win32', readDeadlineMs: 2000 });
+  // Success/flush probe, not the deadline test above. Allow bounded startup
+  // and 2 MiB transport under contention without changing production limits.
+  const worker = spawnBdRead(fixture, { cwd: f.cwd, env: { ...process.env }, detached: process.platform !== 'win32', readDeadlineMs: 10000 });
   let output = '', result;
   worker.stdout.on('data', data => output += data);worker.stdout.pause();worker.stderr.resume();
   worker.on('message', message => { if (message?.type === 'bd-read-result') result = message.code; });
   const closed = once(worker, 'close');
   let resume;
   try {
-    // Hold after actual producer output, not after a guessed launch delay.
-    await waitFor(() => fs.existsSync(path.join(f.root, 'project.output-written')));
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.output-queued')));
+    const queued = JSON.parse(fs.readFileSync(path.join(f.root, 'project.output-queued'), 'utf8'));
+    assert.equal(queued.needsDrain, true, 'actual producer encountered stream backpressure');
+    assert.ok(queued.bytes > 2 * 1024 * 1024);
+    assert.equal(result, undefined, 'paused consumer has not received a completed result');
     resume = setTimeout(() => worker.stdout.resume(), 100);
     await closed;
     assert.equal(result, 0);
-    assert.equal(JSON.parse(output)[0].title.length, 131072);
+    assert.equal(JSON.parse(output)[0].title.length, 2 * 1024 * 1024);
   } finally {
     clearTimeout(resume);
     // This newly owned read group only, never process searches or other jobs.

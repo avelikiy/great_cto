@@ -57,8 +57,11 @@ function fixture(t) {
 test('actual pinned timeout retains opt-in stage, never private stderr or cleanup proof',t=>{
  const f=fixture(t);
  f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
- assert.throws(()=>f.score({timeoutMs:250,stageDiagnostics:true}),error=>{
+ // This case proves stage retention after launch, not minimum-deadline startup.
+ // The separate timeout-cause case below still exercises the 250 ms floor.
+ assert.throws(()=>f.score({timeoutMs:1000,stageDiagnostics:true}),error=>{
   assert.equal(error.processDiagnostic.outcome,'timeout');assert.deepEqual(error.stageTimings,[{stage:'launch',elapsedMs:1}]);
+  assert.equal(error.processDiagnostic.timeoutMs,1000);
   assert.equal(error.processDiagnostic.descendantQuiescenceVerified,false);assert.doesNotMatch(error.message,/PRIVATE_PAYLOAD/);return true;
  });
  assert.throws(()=>f.score({stageDiagnostics:'true'}),/invalid pinned scorer/);
