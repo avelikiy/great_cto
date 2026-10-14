@@ -41,7 +41,7 @@ test('explicit candidate mode is labelled separately and never registers with ho
 
 test('canonical library gate bounds scheduling without excluding test inventory', () => {
   const ci = readFileSync(new URL('../../scripts/ci-local.sh', import.meta.url), 'utf8');
-  assert.match(ci, /step "lib tests" node --test --test-concurrency=2 tests\/lib\/\*\.test\.mjs scripts\/lib\/\*\.test\.mjs/);
+  assert.match(ci, /step "lib tests" node --test --test-concurrency="\$GATE_TEST_CONCURRENCY" tests\/lib\/\*\.test\.mjs scripts\/lib\/\*\.test\.mjs/);
   assert.match(ci, /GREAT_CTO_TEST_PLUGIN_DIR/);
   assert.doesNotMatch(ci, /--test-name-pattern|--test-skip-pattern/);
 });

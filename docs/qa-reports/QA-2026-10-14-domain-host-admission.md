@@ -1,7 +1,7 @@
 # QA: explicit private domain host admission
 
 **Date:** 2026-10-14
-**Status:** Executed canonical checks GREEN at a1b363b6; 15 NOT CHECKED; independent review APPROVE there; follow-up test tightening under verification.
+**Status:** Historical GREEN/APPROVE at a1b363b6; current follow-up candidate under verification, not approved for release yet.
 **Source candidate:** a1b363b692584ba5c25e85c9491727ef2956b1fb
 **Base:** c2b399633aa25bcf1632ff649640186208833d80
 **Tracking:** great_cto-0b3o.6, great_cto-lwz2, great_cto-kxgv
@@ -93,6 +93,36 @@ approval tokens. The migration test adds only the four criterion state values
 when repair fails, not oracle rows. The scorer's 1200 ms lock-response bound,
 SQL deadlines and acceptance assertions are unchanged. ADR now records the
 required consequences. No product performance threshold was relaxed.
+
+## Later verification attempts and runner contention
+
+After tightening the race-reason assertion, attempt 4 at 248664a4 exited 1:
+root 1432 passed; libraries 3413 passed, three failed, six skipped. Failures:
+guardian tainted-continue registration process inventory exceeded its 1000 ms
+cap (1292 ms), the hostile-SIGTERM scorer did not publish ready after another
+1000 ms process-probe timeout, and the packaged controller matrix exceeded
+30 s while progress was still at synthetic Git initialization. No process
+quiescence or readiness was inferred. Tracking: great_cto-f33n.10,
+great_cto-d273 and great_cto-c83c. All other canonical stages passed; the same
+15 checks remained NOT CHECKED. Receipt: great-cto-domain-admission-full-gate-r4.log.
+
+All three failed probes then passed sequentially in isolation, 3/3, without
+changing their deadlines. Receipt: great-cto-domain-gate4-failures-isolated.log.
+The packaged matrix took 24.7 s with its 30 s cap. This does not convert the
+failed full attempt into success.
+
+Attempt 5 on unchanged 248664a4 also exited 1: libraries 3415 passed, one failed,
+six skipped. The hostile-SIGTERM test exceeded its outer launcher watchdog;
+ready was not observed. Root 1432, eval 242, docs 76, browser 16, CLI 369 and
+archetype 34 passed; pipeline had 36 passes and nine NOT CHECKED. Receipt:
+great-cto-domain-admission-full-gate-r5.log. High host load was observed, not a
+waiver of the result or proof of the complete failure mechanism.
+
+The next candidate adds explicit `ci-local.sh --serial`: root/lib file workers
+decrease from two to one. Default remains two. Test selection, per-test internal
+concurrency, deadlines, assertions, failure aggregation and skip reporting remain
+unchanged; this is not quick mode. Parser and step-selection contracts cover the
+option. Full serial gate and updated independent review are pending.
 
 ## Runtime and experiment boundaries
 

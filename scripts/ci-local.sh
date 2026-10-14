@@ -11,6 +11,7 @@
 # Usage:
 #   bash scripts/ci-local.sh            # full gate
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
+#   bash scripts/ci-local.sh --e2e --serial # same gates, one root/lib test file worker
 #   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
 # Exit 0 = no executed gate failed. All gates run; skipped checks are reported.
@@ -31,11 +32,12 @@ export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
 # A subsequent security scan must inspect shipped source, not local caches.
 export PYTHONDONTWRITEBYTECODE=1
 
-E2E=0; QUICK=0
+E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2
 for a in "$@"; do
   case "$a" in
     --e2e) E2E=1 ;;
     --quick) QUICK=1 ;;
+    --serial) GATE_TEST_CONCURRENCY=1 ;;
     *) echo "unknown flag: $a"; exit 2 ;;
   esac
 done
@@ -73,6 +75,7 @@ step() {
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "ci-local: node $(node -v) on $(uname -s)"
+echo "   root/lib test worker concurrency: $GATE_TEST_CONCURRENCY (deadlines and assertions unchanged)"
 [ "$NODE_MAJOR" -lt 22 ] && echo "   ⚠ project targets Node 22 (.nvmrc); you are on $(node -v)"
 
 # ── The privacy guard is actually in force ──
@@ -375,12 +378,12 @@ step "docs screen classifies more than it shrugs at" bash -c '
 # Board fixtures have real child-start and IPC deadlines. Unbounded file
 # scheduling can expire a receipt before its held Git fixture reaches the
 # handshake. Bound scheduling, not those deadlines, and retain every suite.
-step "root + hooks + board tests" node --test --test-concurrency=2 tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
+step "root + hooks + board tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 # Each library file can launch Git, browsers and signal-handling fixtures.
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
 # retain the full inventory and every original assertion.
-step "lib tests" node --test --test-concurrency=2 tests/lib/*.test.mjs scripts/lib/*.test.mjs
+step "lib tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1
