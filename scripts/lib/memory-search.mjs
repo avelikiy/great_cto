@@ -45,12 +45,12 @@ const STOP = new Set(('a an and are as at be but by for if in into is it no not 
 const K1 = 1.5;
 const B = 0.75;
 
-/** Lowercase, split on non-[a-z0-9_], drop stopwords + 1-char tokens. */
+/** NFC Unicode words and code identifiers; preserve the existing English stopword policy. */
 export function tokenize(text) {
   const out = [];
-  for (const m of String(text).toLowerCase().matchAll(/[a-z0-9_]{2,}/g)) {
+  for (const m of String(text).normalize('NFC').toLowerCase().matchAll(/[\p{L}\p{N}_][\p{L}\p{N}\p{M}_]*/gu)) {
     const t = m[0];
-    if (!STOP.has(t)) out.push(t);
+    if ([...t].length >= 2 && !STOP.has(t)) out.push(t);
   }
   return out;
 }
@@ -80,7 +80,7 @@ function snippet(text, qterms, width = 220) {
   const lower = text.toLowerCase();
   let best = 0, bestHits = -1;
   for (let i = 0; i < lower.length; i += 40) {
-    const win = lower.slice(i, i + width);
+    const win = lower.slice(i, i + width).normalize('NFC');
     let hits = 0;
     for (const q of qterms) if (win.includes(q)) hits++;
     if (hits > bestHits) { bestHits = hits; best = i; }

@@ -8,6 +8,19 @@ test('tokenize: lowercases, splits, drops stopwords + 1-char', () => {
   assert.deepEqual(t, ['auth', 'cache', 'gate']); // "the/is/a" dropped, "x" too short
 });
 
+test('Unicode tokens preserve Cyrillic, mixed identifiers and authored negations', () => {
+  assert.deepEqual(tokenize('Восстановление после сбоя'), ['восстановление', 'после', 'сбоя']);
+  assert.deepEqual(tokenize('не отправлять API_ключ в Cloud'), ['не', 'отправлять', 'api_ключ', 'cloud']);
+  assert.deepEqual(tokenize('café cafe\u0301'), ['café', 'café']);
+  assert.deepEqual(tokenize('А x 😀'), []);
+});
+
+test('Unicode query finds the matching Russian source instead of an empty result', () => {
+  const index = buildIndex([{ id: 'restore', text: 'восстановление после сбоя из контрольной точки' },
+    { id: 'backup', text: 'резервное копирование базы данных' }]);
+  assert.equal(search(index, 'восстановление после сбоя')[0]?.id, 'restore');
+});
+
 test('search: ranks the doc that actually contains the query terms first', () => {
   const docs = [
     { id: 'a', text: 'connection pool exhaustion under burst load, postgres timeout' },
