@@ -234,6 +234,7 @@ for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`h
     assert.equal(response.status, 200);
     if (endpoint === 'inbox-race') {
       assert.equal(inbox.approval_tokens.state, 'unreadable');
+      assert.equal(inbox.approval_tokens.why, 'Gate decisions changed during this snapshot; reload the inbox');
       assert.ok(inbox.pending_gates.every(g => g.token === null));
       assert.equal(readTokens(cwd).tokens['FIXTURE-GATE'], undefined);
       assert.equal(readTokens(cwd).tokens['NEW-GATE'], undefined);
