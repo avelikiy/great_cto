@@ -1,7 +1,7 @@
 /** Opt-in knowledge candidates, not regulatory routing or an authority grant. */
 import { createHash } from 'node:crypto';
 import { constants, lstatSync, realpathSync, openSync, fstatSync, readSync, closeSync } from 'node:fs';
-import { resolve, join, isAbsolute } from 'node:path';
+import { resolve, join, isAbsolute, extname, basename } from 'node:path';
 import { readOnlyGit } from './receipt.mjs';
 
 export function canonical(value) {
@@ -87,7 +87,12 @@ export function boundedFile(path, limit = 1024 * 1024) {
 function sourcePath(root, path) {
   if (typeof path !== 'string' || isAbsolute(path) || path.includes('\\') || path.includes('\0')
     || path.split('/').some(part => !part || part === '.' || part === '..'
-      || /^(?:\.git|\.env.*|secrets?|credentials?|keys?|data|logs?|exports?|patients?|clients?|transcripts?|node_modules)$/i.test(part))) throw Error('source outside allowlisted engineering paths');
+      || /^(?:\.git|\.ssh|\.aws|\.kube|\.gnupg|\.env.*|secrets?|credentials?|keys?|data|logs?|exports?|patients?|clients?|transcripts?|node_modules)$/i.test(part))) throw Error('source outside allowlisted engineering paths');
+  const extension = extname(path).toLowerCase(), name = basename(path);
+  const engineering = new Set(['.md', '.txt', '.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs', '.py', '.rs', '.go', '.sol',
+    '.java', '.kt', '.swift', '.c', '.cpp', '.h', '.hpp', '.sql', '.graphql', '.proto', '.json', '.toml', '.yaml', '.yml']);
+  if ((!engineering.has(extension) && !/^(README|LICENSE|NOTICE|Dockerfile|Makefile)$/i.test(name))
+    || /^(?:secrets?|credentials?|passwords?)(?:[.-]|$)/i.test(name)) throw Error('source is not an eligible engineering artifact');
   const full = join(root, path);
   if (realpathSync(full) !== full) throw Error('symlink source unsupported');
   return full;

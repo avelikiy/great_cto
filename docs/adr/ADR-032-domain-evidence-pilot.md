@@ -38,7 +38,9 @@ default activation or specialist prompts. The existing regulatory routing must
 continue protecting configured projects throughout that experiment.
 
 The developer command [domain-pilot](../../scripts/domain-pilot.mjs) audits only
-explicitly listed, tracked engineering files. It does not crawl repositories,
+explicitly listed, tracked files of eligible engineering types, not credential
+files, data exports or binary archives. This filename/type policy is not a
+content classifier or publication permission. It does not crawl repositories,
 follow symlinks, read secret/data directories, write state or call a model.
 Reads are size-bounded and descriptor-checked. This is cooperative-controller
 protection, not a same-UID OS sandbox or atomic snapshot of an entire repository.
@@ -132,3 +134,5 @@ Benchmark tests cover unmatched pins, duplicate/shared workspaces, protocol
 mutation, missing metrics, lineage grouping, budget and safety refusals, failed
 arms and total spend across rejected tasks. Synthetic fixture checks prove the
 contract only. Full repository gate and independent review precede release.
+Current limits and failed attempts are recorded in the
+[domain pilot QA report](../qa-reports/QA-2026-10-14-domain-evidence-pilot.md).

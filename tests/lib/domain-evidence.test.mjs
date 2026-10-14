@@ -68,7 +68,8 @@ for (const change of [o => { o.permissions = ['Bash']; }, o => { o.classificatio
     assert.throws(() => validateOverlay(overlay, { projectId: 'project-a', now }));
   });
 }
-for (const path of ['../workflow.ts', '/tmp/source', '.env', 'patients/records.json', '.git/config', 'data/source', 'a\\b', 'source\0.ts']) {
+for (const path of ['../workflow.ts', '/tmp/source', '.env', 'patients/records.json', '.git/config', 'data/source', 'a\\b', 'source\0.ts',
+  '.ssh/id_ed25519', 'private.pem', 'credentials.json', 'customers.csv']) {
   test(`source path refusal: ${JSON.stringify(path)}`, t => {
     const { root, overlay } = fixture(t); overlay.sources[0].path = path;
     assert.throws(() => auditOverlay(root, overlay, { projectId: 'project-a', now }));
