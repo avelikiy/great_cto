@@ -9,7 +9,8 @@ import { fileURLToPath } from "node:url";
  * Locate the board server.mjs. Order:
  *   1. dev layouts (running from a repo checkout)
  *   2. installed plugin cache — ANY marketplace under ~/.claude/plugins/cache,
- *      newest 5 versions each (not just the "local" marketplace)
+ *      newest 5 versions each, globally ordered by version across marketplaces
+ *      and both plugin directory names (not just the "local" marketplace)
  *   3. the copy bundled into the npm package by scripts/bundle-board.mjs —
  *      guaranteed fallback so a fresh `npm i -g great-cto` can run the board
  *      without the plugin installed
@@ -47,8 +48,7 @@ export function findBoardServerPath(baseDir?: string, home?: string, cliVersion?
     return (pb[0]! - pa[0]!) || (pb[1]! - pa[1]!) || (pb[2]! - pa[2]!) || 0;
   };
 
-  const pluginCandidates: string[] = [];
-  let newestPlugin: string | null = null;
+  const plugins: { version: string; path: string }[] = [];
   const cacheRoot = join(home ?? homedir(), ".claude", "plugins", "cache");
   if (fsExistsSync(cacheRoot)) {
     try {
@@ -60,15 +60,22 @@ export function findBoardServerPath(baseDir?: string, home?: string, cliVersion?
         for (const dirName of ["great_cto", "great-cto"]) {
           const pluginBase = join(cacheRoot, marketplace, dirName);
           if (!fsExistsSync(pluginBase)) continue;
-          const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
-          for (const v of versions.slice(0, 5)) {
-            pluginCandidates.push(join(pluginBase, v, "packages", "board", "server.mjs"));
-          }
-          if (versions[0] && (!newestPlugin || byVer(versions[0], newestPlugin) < 0)) newestPlugin = versions[0];
+          try {
+            const versions = readdirSync(pluginBase).filter(v => /^\d/.test(v)).sort(byVer);
+            for (const version of versions.slice(0, 5)) {
+              const path = join(pluginBase, version, "packages", "board", "server.mjs");
+              // A partial installation must not advertise freshness on behalf
+              // of an older board that would actually be selected.
+              if (fsExistsSync(path)) plugins.push({ version, path });
+            }
+          } catch { /* one unreadable cache must not hide other installations */ }
         }
       }
     } catch { /* ignore */ }
   }
+  plugins.sort((a, b) => byVer(a.version, b.version) || a.path.localeCompare(b.path));
+  const pluginCandidates = plugins.map(plugin => plugin.path);
+  const newestPlugin = plugins[0]?.version;
 
   // bundled copy (dist → ../board/packages/board/server.mjs)
   const bundled = join(here, "..", "board", "packages", "board", "server.mjs");
