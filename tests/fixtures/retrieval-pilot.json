@@ -1,0 +1,32 @@
+{
+  "version": 1,
+  "annotation": "Engineering-authored synthetic pilot, frozen before any model outcomes. All document pairs explicitly graded; not independent human ground truth, not a representative product benchmark.",
+  "corpus": [
+    {"id":"resume","text":"# Возобновление\nПовторный запуск обработки.\n## После сбоя\nвосстановление обработки после сбоя использует контрольную точку и проверку владельца операции."},
+    {"id":"backup","text":"# Резервная копия\nрезервное копирование базы хранит снимок данных. восстановление базы из резервной копии не возобновляет очередь."},
+    {"id":"gate","text":"# Approval\napproval grants explicit authority for an irreversible action. Human approval is different from review."},
+    {"id":"review","text":"# Review\nreview checks a proposed change for defects; review does not grant authority to merge or deploy."},
+    {"id":"privacy","text":"# Локальная обработка\nлокальная обработка изображений не отправляет данные в облако. Текст остается на устройстве."},
+    {"id":"cloud","text":"# Облачная обработка\nобработка изображений отправляет данные в облако после явного разрешения. Цена вызова измеряется отдельно."},
+    {"id":"shell","text":"# Command execution\nshell injection is avoided by a fixed executable with an argument array. User values must not enter a command string."},
+    {"id":"hooks","text":"# Hook scheduling\nbackground hooks do not block the current turn; blocking hooks return their decision before continuation."},
+    {"id":"epoch","text":"# Владение\nlease epoch меняется при передаче владения. Старая попытка не может записать результат новой попытки."},
+    {"id":"late","text":"# Async output\nlate response from an old query must not replace a newer project search; compare input digest before admission."},
+    {"id":"upgrade","text":"# Update\ninstalled version and running version are separate observations. A restart is not evidence of a successful runtime probe."},
+    {"id":"long","text":"# Long context\n## Search examples\npassage checkpoint passage checkpoint passage checkpoint passage checkpoint\n## Operational rule\nThe owner must validate an epoch before admitting a result. ANSWER_ANCHOR"}
+  ],
+  "cases": [
+    {"id":"ru-resume","group":"recovery","query":"восстановление обработки после сбоя контрольная точка","grades":[3,1,0,0,0,0,0,0,0,0,0,0],"markers":{"resume":["проверку владельца"]}},
+    {"id":"ru-backup","group":"similar-operations","query":"восстановление базы из резервной копии","grades":[1,3,0,0,0,0,0,0,0,0,0,0],"markers":{"backup":["не возобновляет очередь"]}},
+    {"id":"en-approval","group":"authority","query":"approval explicit authority irreversible action","grades":[0,0,3,1,0,0,0,0,0,0,0,0],"markers":{"gate":["irreversible action"]}},
+    {"id":"en-review","group":"authority","query":"review defects does not grant authority merge deploy","grades":[0,0,1,3,0,0,0,0,0,0,0,0],"markers":{"review":["does not grant authority"]}},
+    {"id":"ru-private","group":"negation","query":"локальная обработка не отправляет данные в облако","grades":[0,0,0,0,3,1,0,0,0,0,0,0],"markers":{"privacy":["не отправляет"]}},
+    {"id":"en-shell","group":"execution","query":"shell injection argument array fixed executable","grades":[0,0,0,0,0,0,3,0,0,0,0,0],"markers":{"shell":["argument array"]}},
+    {"id":"en-hooks","group":"scheduling","query":"background hooks block current turn","grades":[0,0,0,0,0,0,0,3,0,0,0,0],"markers":{"hooks":["do not block"]}},
+    {"id":"ru-epoch","group":"mixed-identifiers","query":"lease epoch передаче владения старая попытка","grades":[1,0,0,0,0,0,0,0,3,1,0,0],"markers":{"epoch":["не может записать"]}},
+    {"id":"en-update","group":"version-boundaries","query":"installed version running version runtime probe","grades":[0,0,0,0,0,0,0,0,0,0,3,0],"markers":{"upgrade":["not evidence"]}},
+    {"id":"en-passage","group":"long-document","query":"passage checkpoint","grades":[0,0,0,0,0,0,0,0,0,0,0,3],"markers":{"long":["ANSWER_ANCHOR"]}},
+    {"id":"ru-no-answer","group":"no-answer","query":"дозировка инсулина","grades":[0,0,0,0,0,0,0,0,0,0,0,0],"markers":{}},
+    {"id":"en-nearby-no-answer","group":"no-answer","query":"shell formal proof of kernel isolation","grades":[0,0,0,0,0,0,0,0,0,0,0,0],"markers":{}}
+  ]
+}
