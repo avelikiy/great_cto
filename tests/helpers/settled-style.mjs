@@ -27,7 +27,9 @@ export function settledStyle(locator, property) {
 
 /** A responsive reflow can move the row after Playwright establishes hover.
  * Re-establish the real pointer target, never synthesize a class or style.
- * One absolute 5s window and at most three attempts; the E2E case cap is unchanged.
+ * One absolute 5s action/result-admission window and at most three attempts.
+ * It refuses late success but does not cancel in-flight browser evaluation;
+ * the unchanged outer E2E case timeout remains the hard wall-time boundary.
  * Unsettled styles and hover/action errors still fail, rather than being retried.
  */
 export async function settledHoverStyle(locator, property) {

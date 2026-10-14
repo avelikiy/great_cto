@@ -1,7 +1,7 @@
 # Board cache selection and actual-hover verification
 
 Date: 2026-10-14.
-Status: author verification complete; independent review pending.
+Status: author verification complete; independent APPROVE at `fe6fa381`.
 PR: [186](https://github.com/avelikiy/great_cto/pull/186).
 Base: published `454c62106c1b373d1a5a2bf9c7b34bdc76f633c5` (3.63.4).
 Frozen executable/test candidate: `c8ac3db187ba1a2dab4928ab1cf121cf1d073dc6`.
@@ -60,11 +60,14 @@ layout movement event was not instrumented.
 
 The [test helper](../../tests/helpers/settled-style.mjs) now requires actual
 `:hover` while observing stable style frames. It re-establishes the native
-pointer at most three times in one absolute5-second window, never synthesizes
+pointer at most three times in one absolute5-second action/result-admission window, never synthesizes
 CSS/classes, and fails on persistent pointer loss. Pointer-action refusals and
 unsettled styles are not retried or converted into success. The E2E case remains
 120 seconds; colour equality, geometry, icons and keyboard/focus assertions remain.
 A new nontransparent assertion prevents two unhovered rows from passing together.
+The5-second window checks new pointer actions and result acceptance; it does not
+cancel an in-flight browser evaluation or pending animation promise. The outer
+120-second case timeout is the hard wall-time boundary. Late success is refused.
 
 Helper tests passed8/8, covering stable non-hover refusal, responsive target loss,
 bounded retries, shared deadline, unstable style and refused pointer action.
@@ -106,6 +109,20 @@ model/runtime scenarios. This is not full host parity or a quality benchmark.
 | Complete browser after helper fix | `db09fb25c68ba8f584ce8833e2b8419ba1a3443b39a75cf506ed6ced457ed923` |
 | R3 complete canonical | `6fcdc4b7e5898838034de9ff5052fe77309b7f12e1d222c30727ba274de66fb8` |
 
+## Independent review
+
+Read-only reviewer APPROVE at `fe6fa381c843d0f6250a89b3a92219e06f38152e` against
+the base above, with no Critical/High/Medium findings. Independently executed
+resolver12/12, helper8/8 and actual Chromium sidebar1/1 passed without skips;
+three additional owned fixtures covered dev precedence, fallback without bundle
+and the newest-five alias bound. Retained canonical/history hashes matched.
+The complete canonical gate was inspected, not independently repeated.
+
+One nonblocking Low precision note: a deliberately stalled browser evaluation
+remained pending at5202ms, then correctly rejected an expired result when released.
+The5-second window is not browser-task cancellation; the source comment and this
+report now say so. No executable behavior changed for that clarification.
+
 ## Delivery boundary
 
 At this validation snapshot no PR186 merge, release or candidate installation has
@@ -114,4 +131,4 @@ then merge/npm/GitHub release/both local plugins/admin only after APPROVE.
 Old installed versions must remain recoverable. Native paid benchmark and domain
 default activation are not authorized by that release approval.
 
-VERDICT: DONE — Author gate GREEN with15 NOT CHECKED; independent review and delivery remain separate.
+VERDICT: DONE — Author gate GREEN with15 NOT CHECKED; independent APPROVE; release and installation remain separate.
