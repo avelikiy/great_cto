@@ -14,8 +14,8 @@ import { issueTokensAsync, readTokens, consumeToken, checkToken, approvalSnapsho
 import { readBindingReceipt, readApprovalReceipt, readSecondOpinion } from './lib/receipt-read.mjs';
 const realGit = execFileSync('/usr/bin/which', ['git'], { encoding: 'utf8' }).trim();
 const server = process.env.TEST_BOARD_SERVER || fileURLToPath(new URL('./server.mjs', import.meta.url));
-async function waitFor(fn) {
-  const end = performance.now() + 5000;
+async function waitFor(fn, timeoutMs = 5000) {
+  const end = performance.now() + timeoutMs;
   while (!fn() && performance.now() < end) await new Promise(r => setTimeout(r, 25));
   assert.ok(fn(), 'fixture handshake did not arrive');
 }
@@ -174,7 +174,12 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
     fs.rmSync(control, { recursive: true, force: true });
   }
 });
-for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`held ${endpoint} receipt leaves cheap HTTP answering and preserves evidence`, { timeout: 15000 }, async t => {
+// This is a held-read/nonblocking-HTTP probe, not a process startup SLO. Give
+// startup 15s, and let the client outlast the unchanged 20s receipt deadline.
+// The old 10s client cap also included held-handshake (5s), cheap HTTP (2x1.5s)
+// and gate decision (3s): valid bounded steps could exhaust it before release.
+// Dedicated receipt-deadline tests and cheap HTTP caps remain unchanged.
+for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`held ${endpoint} receipt leaves cheap HTTP answering and preserves evidence`, { timeout: 65000 }, async t => {
   const cwd = repository(t), root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-http-'));
   const state = path.join(root, 'state'), bin = path.join(root, 'bin');
   fs.mkdirSync(state); fs.mkdirSync(bin); fs.mkdirSync(path.join(cwd, '.great_cto')); fs.mkdirSync(path.join(cwd, '.beads'));
@@ -195,13 +200,24 @@ for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`h
       FAKE_BD_CONTROL_ROOT: root, FAKE_BD_CONTROL_MODE: endpoint === 'inbox-race' ? 'gate-receipt-race' : 'gate-receipt', GCTO_RECEIPT_CONTROL_ROOT: root, GCTO_RECEIPT_REAL_GIT: realGit }
   });
   let output = '', pending;
+  const observation = { request: 'not-started', approvalState: null, approvalWhy: null };
   child.stdout.on('data', d => output += d); child.stderr.on('data', d => output += d);
   try {
-    await waitFor(() => /task cache warmed/.test(output));
+    await waitFor(() => /task cache warmed/.test(output), 15000);
     if (endpoint === 'inbox-head') fs.writeFileSync(path.join(root, 'hold-head'), 'ready');
     const route = endpoint.startsWith('inbox') ? 'inbox' : endpoint;
-    pending = fetch(`http://127.0.0.1:${port}/api/${route}?project=fixture`, { signal: AbortSignal.timeout(10000) });
-    await waitFor(() => fs.existsSync(path.join(root, 'git-held')));
+    pending = fetch(`http://127.0.0.1:${port}/api/${route}?project=fixture`, { signal: AbortSignal.timeout(25000) });
+    observation.request = 'pending';
+    // Diagnostics only: never expose approval tokens or alter the probe deadlines.
+    pending.then(async response => {
+      observation.request = `http-${response.status}`;
+      try {
+        const body = await response.clone().json();
+        observation.approvalState = body.approval_tokens?.state ?? null;
+        observation.approvalWhy = body.approval_tokens?.why ?? null;
+      } catch { observation.approvalState = 'unreadable-response'; }
+    }).catch(error => { observation.request = error.name; });
+    await waitFor(() => fs.existsSync(path.join(root, 'git-held')), 12000);
     for (const route of ['/api/version', '/']) {
       const response = await fetch(`http://127.0.0.1:${port}${route}`, { signal: AbortSignal.timeout(1500) });
       assert.equal(response.status, 200); await response.text();
@@ -229,6 +245,11 @@ for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`h
       assert.equal(inbox.agent, 'code-reviewer');
       assert.equal(inbox.state, 'extended');
     }
+  } catch (error) {
+    t.diagnostic(JSON.stringify({ ...observation, requestedPort: port,
+      observedPort: output.match(/http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/)?.[1] ?? null,
+      warmed: /task cache warmed/.test(output), gitHeld: fs.existsSync(path.join(root, 'git-held')) }));
+    throw error;
   } finally {
     fs.writeFileSync(path.join(root, 'git-release'), 'ready');
     if (pending) await pending.catch(() => {});
