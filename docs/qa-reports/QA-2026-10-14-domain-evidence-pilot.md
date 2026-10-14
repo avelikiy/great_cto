@@ -1,16 +1,43 @@
 # QA: domain evidence pilot foundation
 
 **Date:** 2026-10-14
-**Status:** PARTIAL; canonical gate not green, independent review pending.
-**Source candidate:** 8932ecd36192f0291318cedbc4fc9f4bf777c734
+**Status:** Executed canonical checks GREEN; 15 NOT CHECKED; independent review running.
+**Source candidate:** 7d44246eda500d9c37d09597fbd57ac7ceed4317
 **Tracking:** great_cto-0b3o
 **Scope:** [ADR-032](../adr/ADR-032-domain-evidence-pilot.md), opt-in developer
 contracts. No installed-plugin, native-host outcome or production evidence.
 
 ## Current evidence
 
+Canonical attempt 3 ran `bash scripts/ci-local.sh --e2e` on the clean source
+candidate above and exited 0. Local receipt: great-cto-domain-full-gate-r3.log.
+No test deadlines, assertions, scanner thresholds or baselines changed for this
+run. The earlier failures below remain historical evidence, not this run's result.
+
+| Stage | Passed | Failed | Not checked |
+| --- | ---: | ---: | ---: |
+| Root/hooks/board | 1432 | 0 | 0 |
+| Libraries | 3402 | 0 | 6 |
+| Eval | 242 | 0 | 0 |
+| Documentation | 76 | 0 | 0 |
+| Board browser scenarios | 16 | 0 | 0 |
+| Pipeline suite L1-L5 | 36 | 0 | 9 |
+| CLI | 369 | 0 | 0 |
+| Archetype E2E | 34 | 0 | 0 |
+
+The gate explicitly reports `GREEN, 15 TEST(S) SKIPPED — NOT CHECKED`.
+Pipeline suite uses the operator-installed plugin, not a newly installed
+candidate. Its skips include native role/model execution, delivery, release
+discovery, paid learner and real capture paths. Fixture success is not full live
+pipeline readiness. Sidebar hover passed in this run; the earlier intermittent
+failure's root cause remains Unknown.
+
+After exit 0, the operator-authorized separate read-only reviewer started on
+the frozen source candidate. No verdict has been received yet.
+
 57 domain contract tests passed, zero failures/skips, on the working bytes
-committed as the source candidate above. They cover pack pins, private project/
+committed as 8932ecd36192f0291318cedbc4fc9f4bf777c734, before two comment/prose
+wording changes in the current source candidate. They cover pack pins, private project/
 root binding, expiry, source kinds and dirty bytes, complete envelope byte caps,
 Git filter refusal, assume-unchanged, link escapes, no authority fields,
 matched experiment bindings, failed arms, unknown costs and lineage grouping.
@@ -79,7 +106,7 @@ Packets retain source type, dirty provenance and expiry, with their digest insid
 the byte cap. Audit uses Git plumbing without clean/process filters; repository
 status flags cannot hide changed bytes. No regulatory routing or authority changed.
 
-## Environment and limits
+## Earlier environment observations and current limits
 
 Read-only host diagnostics found 10 logical CPUs, 24 GiB physical memory and
 load averages reaching 590, subsequently 357 and 231, with substantial compression/
@@ -91,8 +118,10 @@ Later load briefly declined to 34 and rose again to 94. Three no-op Node startup
 probes measured 169/93/71 ms; they are not a full readiness proof. The environment
 remains unstable for deadline-sensitive verification; no blanket timeout changes.
 
-Independent read-only review is authorized only after a green full gate. It has
-not started. A canonical successful run on this exact candidate is still required.
+The operator subsequently requested continuation. Attempt 3 began at load 37
+with 21 GiB free disk and completed successfully; load later declined to 16.
+The full run's executed checks passed, with the explicit limitations above.
+Independent read-only review has now started; its verdict remains pending.
 Three private overlays and six host packets are outside the public repository;
 source observation is explicitly NOT project runtime verification. Human wellbeing
 candidate guidance is not clinical efficacy or diagnosis evidence.
