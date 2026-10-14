@@ -73,6 +73,7 @@ export function describeDomainPilot(protocol, observations) {
     if (!['completed', 'failed', 'blocked', 'unassessed'].includes(row.status)
       || (row.status === 'completed' ? typeof row.accepted !== 'boolean' : row.accepted !== null)) throw Error('unknown acceptance must be null');
     for (const key of metrics) if (row[key] !== null) number(row[key], key !== 'costUsd');
+    if (row.contextTokens !== null && row.totalTokens !== null && row.contextTokens > row.totalTokens) throw Error('context tokens exceed total measured tokens');
     if (row.accepted === true && row.seriousRegressions !== 0) throw Error('accepted task requires measured zero serious regressions');
     if (['activeMs', 'costUsd', 'totalTokens', 'contextTokens'].some(k => row[k] !== null && row[k] > protocol.budget[k])) {
       if (row.accepted === true) throw Error('over-budget task cannot be accepted');
@@ -88,8 +89,16 @@ export function describeDomainPilot(protocol, observations) {
     const perArm = Object.fromEntries(arms.map(arm => {
       const rows = observations.filter(r => r.host === host && r.arm === arm);
       const accepted = rows.filter(r => r.accepted === true).length;
+      const budgetKeys = ['activeMs', 'costUsd', 'totalTokens', 'contextTokens'];
+      const compliance = r => budgetKeys.some(k => r[k] !== null && r[k] > protocol.budget[k]) ? 'exceeded'
+        : budgetKeys.every(k => r[k] !== null) ? 'within-measured-caps' : 'unknown';
+      const budgetMeasured = rows.length === planned.length && rows.every(r => compliance(r) !== 'unknown');
       const allMeasuredCost = rows.length === planned.length && rows.every(r => r.costUsd !== null);
       return [arm, { planned: planned.length, observed: rows.length, accepted,
+        acceptanceSemantics: 'raw supplied outcome; not independently attested or automatically budget-qualified',
+        budgetCompliance: Object.fromEntries(['within-measured-caps', 'exceeded', 'unknown'].map(s => [s, rows.filter(r => compliance(r) === s).length])),
+        budgetQualifiedAcceptanceSuccess: budgetMeasured && rows.every(r => r.accepted !== null)
+          ? rows.filter(r => r.accepted === true && compliance(r) === 'within-measured-caps').length / planned.length : null,
         acceptanceSuccess: rows.length === planned.length && rows.every(r => r.accepted !== null) ? accepted / planned.length : null,
         knownAcceptedFractionOfPlanned: accepted / planned.length,
         statusCounts: Object.fromEntries(['completed', 'failed', 'blocked', 'unassessed'].map(s => [s, rows.filter(r => r.status === s).length])),

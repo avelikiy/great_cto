@@ -38,6 +38,7 @@ const pg={skip:available?false:'PostgreSQL16 tools unavailable; runtime NOT CHEC
 test('real PostgreSQL baseline fails4 contracts; repair passes pinned scorer',pg,t=>{
  const f=fixture(t);assert.deepEqual(f.score().criteria.map(c=>c.state),['failed','failed','failed','failed']);
  f.put('migrations/plan.json',JSON.stringify(repaired));const before=treeReceipt(f.root),result=f.score();
+ if(!result.accepted)t.diagnostic('repaired migration criterion states: '+JSON.stringify(result.criteria.map(c=>c.state)));
  assert.equal(result.accepted,true);assert.equal(result.benchmarkEligible,false);assert.notEqual(result.process.pid,process.pid);assert.deepEqual(treeReceipt(f.root),before);
  assert.ok(!JSON.stringify(result).includes(JSON.stringify(f.recipe.oracle.rows)));
  const plan=specialistPlan({root:f.root,base:f.base,rules:RULES});assert.equal(plan.state,'planned');assert.equal(plan.assessment.tier,'T2');

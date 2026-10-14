@@ -27,7 +27,7 @@ const CLI_ENTRY = join(REPO_ROOT, 'packages', 'cli', 'index.mjs');
 
 test('canonical root fixture scheduling is bounded without dropping test inventories', () => {
   const script = readFileSync(join(REPO_ROOT, 'scripts/ci-local.sh'), 'utf8');
-  assert.match(script, /step "root \+ hooks \+ board tests" node --test --test-concurrency=2 tests\/\*\.test\.mjs tests\/hooks\/\*\.test\.mjs tests\/helpers\/\*\.test\.mjs packages\/board\/\*\.test\.mjs/);
+  assert.match(script, /step "root \+ hooks \+ board tests" node --test --test-concurrency="\$GATE_TEST_CONCURRENCY" tests\/\*\.test\.mjs tests\/hooks\/\*\.test\.mjs tests\/helpers\/\*\.test\.mjs packages\/board\/\*\.test\.mjs/);
 });
 
 // ── G5: typed-map gate-count integrity ─────────────────────────────────────

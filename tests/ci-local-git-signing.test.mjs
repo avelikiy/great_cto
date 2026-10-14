@@ -8,6 +8,23 @@ import { execFileSync } from 'node:child_process';
 
 const SRC = readFileSync(new URL('../scripts/ci-local.sh', import.meta.url), 'utf8');
 
+// Exercise the real argument parser without starting the expensive gate.
+const parser = SRC.slice(SRC.indexOf('E2E=0; QUICK=0;'), SRC.indexOf('\nFAIL=0'));
+const parse = (...args) => execFileSync('/bin/bash', ['-c',
+  parser + '\nprintf "%s %s %s" "$E2E" "$QUICK" "$GATE_TEST_CONCURRENCY"', 'fixture', ...args], { encoding: 'utf8' });
+test('gate defaults keep two root/lib test workers and every gate', () => {
+  assert.equal(parse(), '0 0 2');
+});
+test('serial gate only changes test worker count, not full E2E selection', () => {
+  assert.equal(parse('--e2e', '--serial'), '1 0 1');
+  assert.equal(parse('--serial', '--e2e'), '1 0 1');
+});
+test('serial mode refuses ambiguous or arbitrary concurrency values', () => {
+  for (const flag of ['--serial=0', '--serial=4', '--test-concurrency=0']) {
+    assert.throws(() => parse(flag), error => error.status === 2);
+  }
+});
+
 test('ci-local turns commit and tag signing off for every git it starts', () => {
   assert.match(SRC, /export GIT_CONFIG_KEY_\d=commit\.gpgsign\s+GIT_CONFIG_VALUE_\d=false/);
   assert.match(SRC, /export GIT_CONFIG_KEY_\d=tag\.gpgSign\s+GIT_CONFIG_VALUE_\d=false/);
