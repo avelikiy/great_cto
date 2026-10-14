@@ -1,6 +1,6 @@
 # Monthly blog draft: editorial evidence
 
-Date: 2026-10-10. Scope: 2026-09-10 through 2026-10-10.
+Date: 2026-10-10. Updated: 2026-10-14. Scope: 2026-09-10 through 2026-10-10, with dated delivery addenda through 3.63.4.
 
 Article: [Russian draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md).
 This file is an editorial fact sheet, not part of the public article and not a task tracker.
@@ -8,7 +8,17 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Current delivery snapshot: 3.62.2, October 11 addendum
+## Current delivery snapshot: 3.63.4, October 14 addendum
+
+- Published main/tag source `454c62106c1b373d1a5a2bf9c7b34bdc76f633c5`; PR185 merged as `5cbb86e1b1319ec810e2c61f8899b154fbeb56f1`. Fresh GitHub API read confirms v3.63.4 is a published, non-draft, non-prerelease release at 2026-10-14T17:45:40Z. PR184 and PR185 are MERGED. PR181 is MERGED; PR182 is CLOSED without a merge commit, so do not attribute delivery to a PR182 merge.
+- Published changelog pins review evidence/task panel to3.63.0, invocation completion to3.63.1, non-project hook state refusal to3.63.2, candidate domain packs to3.63.3 and explicit shared-controller admission to3.63.4. Sources are tagged ADR030, ADR032, ADR033 and the tagged domain QA history. Packs0.1.0 are candidates, not executed product tests or certification; no private overlay content is published.
+- Reviewed executable candidate4c8c0ef5 passed canonical --e2e --serial: root1435, libraries3416, eval242, docs76, browser16, CLI369, archetypes34; fifteen NOT CHECKED remain. Repeat independent approval ran64 focused checks with no skips. Earlier default-mode failures are retained, not retrospectively classified as green or fully explained by load.
+- Downloaded npm3.63.4 tarball SHA256 `8e76779bdc2ba0bb28105286ca696e61a248c97e5a217c86fac1ebbd2acdc1fd`;188 entries; extracted registry smoke12 construction cases and8 refusals. Manual npm publication, no OIDC provenance claim. Native provider calls were not part of this smoke.
+- Actual Codex installed/enabled inventory and both local/active Claude registrations reported3.63.4. Board HTTP version=installed=3.63.4, stale=no. Browser Harness and project-only Usage render successfully. This is a fresh scoped runtime check, not a new20-minute sustained probe, zero historical hook failures, hot-loading into existing sessions or quality uplift.
+- After release, mixed-marketplace lookup could choose an old board despite a newer installed cache. Both local aliases are now updated; actual board is3.63.4. Underlying fix is separate draftPR186, not shipped3.63.4. Its current candidate checks must not be substituted for release QA; neither article nor blog publication is approved by release authority.
+- No native paired domain benchmark was launched. Both baseline and pack arms still require executable frozen holdouts, independent scorer, verified isolation, explicit launch and measured shared-budget compliance. Doctor availability is not trial evidence. Missing cost/time/token values remain unknown.
+
+## Historical delivery snapshot: 3.62.2, October 11 addendum
 
 - PR #180 merged normally as `abd3e35559be56395e2b5e76ac8f60b1e3495388`, tree identical to independently reviewed `16bc030c`. Release metadata commit `bfeafd0226795ae420559a98d19c88bfcbc947af`; [GitHub release](https://github.com/avelikiy/great_cto/releases/tag/v3.62.2) published 2026-10-11T12:06:01Z.
 - Canonical gate passed with 15 NOT CHECKED; independent re-review passed nine targeted checks, all three P2 findings mitigated, Snyk SUCCESS. Counts and evidence are in [receipt release QA](../qa-reports/QA-2026-10-11-board-receipt-release.md).
@@ -134,8 +144,12 @@ it does not clear canonical failures. Log SHA-256:
 | #176 Skills inventory | Merged / shipped 3.60.0 | Released read-only inventory; no enabled/loaded/upstream/quality inference |
 | #167 adaptive pipeline | Merged / shipped3.62.0 GitHub and npm; installed locally | Experimental opt-in; preserved mandatory floors and shared local budgets; 15not checked; no production guardian/cleanup guarantee |
 | #163 automatic Codex plugin refresh | Merged / shipped 3.61.0 | Released opt-in macOS schedule, independent of npm CLI; first refresh checked, recurring six-hour tick not yet observed |
-| #143–148 canonical evidence ledger chain | Open stacked PRs | Not described as shipped architecture; existing task/run stores remain authoritative |
-| #170 completion invocation evidence | Open draft / main | Do not imply all verdicts already have verified immutable invocation identity |
+| #143–148 canonical evidence ledger chain | State not refreshed in this addendum | Not described as shipped canonical ledger; read-only task evidence does not replace task/run stores |
+| #170 completion invocation evidence | Fresh GitHub API: MERGED; shipped3.63.1 | Host IDs bind concurrent same-role invocation; missing IDs retain explicitly unverified isolation |
+| #181 review evidence/task panel | Fresh GitHub API: MERGED; shipped3.63.0 | Exact input binding, normalized verdict and read-only recorded/unknown task evidence, not new approvals |
+| #184 domain pack foundation | Fresh GitHub API: MERGED; shipped3.63.3 | Five explicit-only0.1.0 candidate packs; no native model quality result |
+| #185 shared domain admission | Fresh GitHub API: MERGED; shipped3.63.4 | Explicit policy, fresh drift/expiry checks and data-only packets; permissions and gates unchanged |
+| #186 board cache selection | Draft candidate; not shipped3.63.4 | Keep separate from release/runtime verification and require its own gate and review |
 
 Some source reports retain historical pre-merge text. PR #166 is currently merged despite the report's original draft-status footer. The article uses the numerical results, not that stale footer. HOST-CODEX.md retains an older sentence about routes arriving in a subsequent package; CHANGELOG 3.47.0 establishes shipment. The article therefore avoids copying that sentence or prescribing a version-specific route command from it.
 
@@ -158,7 +172,7 @@ Use a synthetic public demo project, not an operator's real workspace:
 2. Harness: a mixed-host review wave and the resulting verifier/gate state.
 3. Usage: two host panels, clearly marked sample data and price semantics.
 
-Capture released3.62.0 behavior using synthetic fixtures. Label adaptive behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+Capture released3.63.4 behavior using synthetic fixtures. Label adaptive/domain behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
 
 ## Validation scope
 
@@ -170,4 +184,15 @@ Documentation-only change. Completed editorial checks:
 - Article contains no private project identifiers, personal workspace paths or attached operator screenshots; normal pre-push privacy scanning also remains enabled.
 - `git diff --cached --check` passed.
 
-The original editorial checks above are historical. Follow-ups verify published3.60/3.61metadata and3.62GitHub/npm metadata, downloaded archive identity, fresh isolated consumer and scoped installation. Operator-board sustained UI responsiveness remains unproven. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
+The original editorial checks above are historical. Follow-ups verify published3.60/3.61metadata and3.62GitHub/npm metadata, downloaded archive identity, fresh isolated consumer and scoped installation. The dated3.62.2 snapshot includes its20-minute sustained probe; that is not a sustained measurement of3.63.4. October14 adds exact release/tag sources, downloaded registry identity, installed plugin inventories and scoped browser/runtime readback. These checks do not replace release QA or add a live model benchmark. Publication on the blog remains a separately authorized action.
+
+October14 editorial validation: docs suite76/76 passed without failures or skips;
+artifact-lint --enforce found no structural errors (one preexisting undated brief
+warning). Five unique v3.63.4 article source paths exist in that exact tag.
+Frontmatter version/date, code fence balance, NOT CHECKED and no-domain-benchmark
+wording were checked. Fresh GitHub API reads verified release metadata and
+PR170/181/184/185 MERGED; PR182 CLOSED without merge. No operator screenshots or
+private overlay content were added. This is documentation validation, not a
+new full runtime gate or blog publication.
+
+VERDICT: DONE — Draft facts refreshed through published 3.63.4; publication and candidate PR186 remain separate.
