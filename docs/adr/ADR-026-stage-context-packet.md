@@ -9,6 +9,9 @@
 [ADR-023 — per-turn diffs](ADR-023-per-turn-diffs.md) (what a stage changed; this is what it was told) ·
 [The borrowed-patterns plan](../plans/PLAN-2026-09-15-borrowed-patterns.md) (item 4)
 
+Related follow-up: [ADR-032: private domain-evidence candidates](ADR-032-domain-evidence-pilot.md)
+adds opt-in data preparation without changing this stage-context admission path.
+
 ## Context
 
 `runStage` in `scripts/lib/codex-pipeline.mjs` builds each Codex worker's prompt
