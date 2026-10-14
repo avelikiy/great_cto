@@ -12,6 +12,6 @@ export function domainPilot(args) {
   return command === 'audit' ? auditOverlay(root, overlay, { projectId }) : prepareDomainContext(root, overlay, { projectId, host });
 }
 if (process.argv[1]?.endsWith('/domain-pilot.mjs')) {
-  try { process.stdout.write(`${JSON.stringify(domainPilot(process.argv.slice(2)), null, 2)}\n`); }
+  try { process.stdout.write(`${JSON.stringify(domainPilot(process.argv.slice(2)))}\n`); }
   catch (error) { process.stderr.write(`${error.message}\n`); process.exitCode = 1; }
 }

@@ -28,9 +28,11 @@ if (process.argv.includes('--descendant')) {
     }
     setInterval(() => {}, 1000);
   } else if (process.env.FAKE_BD_CONTROL_MODE === 'large-success') {
-    process.stdout.write(JSON.stringify([{ id: 'FIXTURE-1', title: 'x'.repeat(131072), status: 'open', priority: 0 }]), () => {
-      fs.writeFileSync(marker('output-written'), 'ready');process.exit(0);
-    });
+    const payload = JSON.stringify([{ id: 'FIXTURE-1', title: 'x'.repeat(2 * 1024 * 1024), status: 'open', priority: 0 }]);
+    const accepted = process.stdout.write(payload, () => process.exit(0));
+    // Signal queued output, not drain: drain can require the paused consumer
+    // to resume. A completion-callback marker creates a circular wait.
+    fs.writeFileSync(marker('output-queued'), JSON.stringify({ needsDrain: !accepted, bytes: Buffer.byteLength(payload) }));
   } else if (['closed-success', 'closed-fail'].includes(process.env.FAKE_BD_CONTROL_MODE)) {
     const descendant = spawn(process.execPath, [new URL(import.meta.url).pathname, '--descendant'], { stdio: 'ignore' });
     descendant.unref();

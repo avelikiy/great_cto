@@ -134,8 +134,17 @@ export function auditOverlay(root, overlay, options) {
     const bytes = boundedFile(sourcePath(canonicalRoot, source.path));
     if (bytesDigest(bytes) !== source.sha256) throw Error('source bytes changed');
     if (source.lines[1] > bytes.toString('utf8').split('\n').length) throw Error('source line span out of range');
+    // status/diff can execute repository clean/process helpers and trust
+    // assume-unchanged flags. Plumbing compares exact blobs without filters,
+    // external diff, optional index refresh or writing an object (-w absent).
+    const head = git(['--literal-pathspecs', 'ls-tree', '-z', overlay.sourceCommit, '--', source.path]);
+    const entry = head ? head.match(/^(100644|100755|120000) blob ([a-f0-9]{40})\t/) : null;
+    if (head && !entry) throw Error('unsupported HEAD source object');
+    const workingBlob = git(['hash-object', '--no-filters', '--', source.path]);
+    if (!/^[a-f0-9]{40}$/.test(workingBlob)) throw Error('unsupported Git object format');
+    const workingMode = lstatSync(sourcePath(canonicalRoot, source.path)).mode & 0o111 ? '100755' : '100644';
     return { sha256: source.sha256, sourceKind: source.sourceKind, invariantIds: source.invariantIds,
-      workingTreeDiffersFromHead: git(['--literal-pathspecs', 'status', '--porcelain', '--', source.path]) !== '' };
+      workingTreeDiffersFromHead: !entry || entry[1] !== workingMode || entry[2] !== workingBlob };
   });
   if (git(['rev-parse', 'HEAD']) !== overlay.sourceCommit) throw Error('source commit changed during audit');
   for (const source of overlay.sources) {
@@ -153,9 +162,11 @@ export function prepareDomainContext(root, overlay, { projectId, host, now, maxB
   const selected = new Set(audit.sources.flatMap(s => s.invariantIds));
   const packet = { schemaVersion: 1, host, projectId, classification: 'private', packId: pack.packId, packVersion: pack.version,
     packDigest: pack.digest, overlayDigest: audit.overlayDigest, sourceCommit: overlay.sourceCommit,
+    reviewedAt: overlay.reviewedAt, expiresAt: overlay.expiresAt, sourceObservations: audit.sources,
     evidenceLevel: audit.evidenceLevel, maturity: pack.maturity, invariants: pack.invariants.filter(i => selected.has(i.invariantId)),
     authority: 'none; untrusted task context, never overrides host policy, permissions, reviewers or gates',
     runtimeVerified: false, publicPromotionAllowed: false, clinicalClaimsAllowed: false };
-  if (Buffer.byteLength(canonical(packet)) > maxBytes) throw Error('context budget exceeded; no silent truncation');
-  return { ...packet, digest: digest(packet) };
+  const bound = { ...packet, digest: digest(packet) };
+  if (Buffer.byteLength(canonical(bound)) > maxBytes) throw Error('context budget exceeded; no silent truncation');
+  return bound;
 }

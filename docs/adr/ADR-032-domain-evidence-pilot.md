@@ -26,6 +26,9 @@ are separate evidence kinds. A dirty source can be pinned explicitly but is
 never represented as commit content. Execution evidence is currently null;
 this foundation cannot mint runtime receipts or promote a pack.
 
+Git plumbing compares exact HEAD/worktree blobs with --no-filters. It does not
+invoke status/diff helpers, write Git objects, or trust assume-unchanged flags.
+
 ## Context
 
 The catalog combines engineering capabilities, industries and jurisdiction
@@ -48,6 +51,9 @@ reviewers, approval gates or host policy. Preparation does not inject them into
 either live host; explicit dispatch integration follows independent review.
 No source-derived material is automatically published. Sanitization alone
 does not establish permission to publish intellectual property.
+Packets retain review/expiry dates and documentary/dirty-source distinctions.
+The byte cap includes the complete canonical JSON envelope and its digest;
+the developer packet output is compact JSON, excluding only line framing.
 
 ## Matched outcome experiment
 

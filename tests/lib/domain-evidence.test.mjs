@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, symlinkSync, linkSync, rmSync, realpathSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, symlinkSync, linkSync, rmSync, realpathSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { listDomainPacks, domainPack, digest, bytesDigest, boundedFile, validateOverlay, auditOverlay, prepareDomainContext } from '../../scripts/lib/domain-evidence.mjs';
+import { canonical } from '../../scripts/lib/domain-evidence.mjs';
 import { domainPilot } from '../../scripts/domain-pilot.mjs';
 
 const now = '2026-10-14T12:00:00.000Z';
@@ -85,9 +86,42 @@ test('data packets differ by host but carry no raw source, paths or authority', 
   const claude = prepareDomainContext(root, overlay, { projectId: 'project-a', host: 'claude-code', now });
   assert.notEqual(codex.digest, claude.digest); assert.equal(codex.invariants.length, 2);
   assert.match(codex.authority, /untrusted/); assert.equal(codex.clinicalClaimsAllowed, false);
+  assert.equal(codex.expiresAt, overlay.expiresAt); assert.equal(codex.reviewedAt, overlay.reviewedAt);
+  assert.equal(codex.sourceObservations[0].sourceKind, 'implementation');
   assert.ok(!JSON.stringify(codex).includes(root)); assert.ok(!JSON.stringify(codex).includes('workflow.ts'));
   assert.throws(() => prepareDomainContext(root, overlay, { projectId: 'project-a', host: 'codex', now, maxBytes: 10 }), /budget/);
   assert.throws(() => prepareDomainContext(root, overlay, { projectId: 'project-a', host: 'unknown', now }));
+});
+test('complete packet envelope counts against byte cap, including digest and evidence metadata', t => {
+  const { root, overlay } = fixture(t), options = { projectId: 'project-a', host: 'codex', now };
+  const packet = prepareDomainContext(root, overlay, options), size = Buffer.byteLength(canonical(packet));
+  assert.deepEqual(prepareDomainContext(root, overlay, { ...options, maxBytes: size }), packet);
+  assert.throws(() => prepareDomainContext(root, overlay, { ...options, maxBytes: size - 1 }), /budget/);
+});
+test('host packet preserves dirty-source distinction, not just checkout commit', t => {
+  const { root, overlay } = fixture(t);
+  writeFileSync(join(root, 'workflow.ts'), 'changed\n');
+  overlay.sources[0].sha256 = bytesDigest('changed\n'); overlay.sources[0].lines = [1, 1];
+  const packet = prepareDomainContext(root, overlay, { projectId: 'project-a', host: 'codex', now });
+  assert.equal(packet.sourceObservations[0].workingTreeDiffersFromHead, true);
+});
+test('assume-unchanged cannot hide changed working bytes from source provenance', t => {
+  const { root, overlay, git } = fixture(t);
+  git(['update-index', '--assume-unchanged', 'workflow.ts']);
+  writeFileSync(join(root, 'workflow.ts'), 'hidden modification\n');
+  overlay.sources[0].sha256 = bytesDigest('hidden modification\n'); overlay.sources[0].lines = [1, 1];
+  assert.equal(auditOverlay(root, overlay, { projectId: 'project-a', now }).sources[0].workingTreeDiffersFromHead, true);
+});
+test('source audit never executes repository clean/process filters', t => {
+  const { root, overlay, git } = fixture(t);
+  const marker = join(root, 'filter-executed'), helper = join(root, 'filter.mjs');
+  writeFileSync(helper, `import fs from 'node:fs';fs.writeFileSync(${JSON.stringify(marker)},'unsafe');process.stdin.pipe(process.stdout);`);
+  git(['config', 'filter.untrusted.clean', `${JSON.stringify(process.execPath)} ${JSON.stringify(helper)}`]);
+  writeFileSync(join(root, '.gitattributes'), '*.ts filter=untrusted\n');
+  writeFileSync(join(root, 'workflow.ts'), 'atomic send\nreconcile unknown\n');
+  const result = auditOverlay(root, overlay, { projectId: 'project-a', now });
+  assert.equal(result.sources[0].workingTreeDiffersFromHead, false);
+  assert.equal(existsSync(marker), false);
 });
 test('developer CLI catalog is local and invalid invocations do not dispatch', () => {
   assert.equal(domainPilot(['catalog']).length, 5);
