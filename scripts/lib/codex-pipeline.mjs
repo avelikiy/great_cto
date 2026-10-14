@@ -19,6 +19,7 @@ import { validateSpecialistPolicy, assertSpecialistEpoch, schedulePreparation, s
 import { scopedReviewInput, scopedReviewCandidate, attestScopedReview, completeScopeAttestation } from './scoped-review-reuse.mjs';
 import { observeControllerCall } from './controller-dispatch-evidence.mjs';
 import { invocationIdentity } from './invocation-identity.mjs';
+import { bindDomainPolicy, domainInvocation } from './domain-admission.mjs';
 
 export const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const hash = text => createHash('sha256').update(text).digest('hex');
@@ -181,7 +182,13 @@ export async function verifyStage(state, role, proposal, execute) {
   const wave = waveEvidence(state);
   const attestWorkflow = wave?.roles.includes(role);
   try {
-    const result = cleanResponse(await execute({
+    const invoke = options => {
+      const admitted = domainInvocation(state, 'codex', options);
+      const attempt = state.attempts?.findLast(a => a.role === role);
+      if (attempt && admitted.evidence) attempt.domainVerifierContext = admitted.evidence;
+      return execute(admitted.options);
+    };
+    const result = cleanResponse(await invoke({
       cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
       invocationId, onEvent: toolListener(state, agent, invocationId),
@@ -249,7 +256,7 @@ export function safePath(root, name, allowed) {
   return target;
 }
 
-export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null, specialistPolicy = null }) {
+export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null, specialistPolicy = null, domainPolicy = null }) {
   root = realpathSync(root);
   pluginRoot = realpathSync(pluginRoot);
   if (root === pluginRoot) throw Error('run from a target project, not the controller installation');
@@ -271,6 +278,7 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
     executionBudget: readExecutionBudget(root) };
   if (specialistPolicy) { state.specialistGraph = structuredClone(graph); validateSpecialistPolicy(state, specialistPolicy); }
   state.hostRoutes = validateRoutes(hostRoutes, state.graph);
+  if (domainPolicy) state.domainAdmission = bindDomainPolicy(root, domainPolicy);
   return state;
 }
 
@@ -637,6 +645,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     host: roleHost(state, role), status: 'running', phase: 'worker', startedAt: new Date().toISOString(),
     inputReceipt: stageReceipt(state, prepared ? prepared.receipt : treeReceipt(state.root), 'stage input') };
   if (prepared?.callId) attempt.workerCallId = prepared.callId;
+  if (prepared?.domainContext) attempt.domainContext = structuredClone(prepared.domainContext);
   if (attempt.number > (state.maxAttempts ?? 1)) throw Error('stage attempt limit reached');
   attempt.invocationId = invocationIdentity({ session_id: state.id, agent_id: attempt.id });
   state.attempts.push(attempt);
@@ -697,8 +706,10 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     }
     if (!prepared && typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
     const response = prepared ? prepared.response : reused || await withAgentBudget(state, { callId: `${attempt.id}:worker`, host: roleHost(state, role), role }, async () => {
+      const admitted = domainInvocation(state, roleHost(state, role), { prompt }, { contextBytes: attempt.context.bytes });
+      if (admitted.evidence) { attempt.domainContext = admitted.evidence; save(state); }
       stageStarted = true; emit(state, { kind: 'agent-start', agent, invocation_id: attempt.invocationId });
-      return observeControllerCall(state, { id: `${attempt.id}:worker`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
+      return observeControllerCall(state, { id: `${attempt.id}:worker`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: admitted.options.prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
       invocationId: attempt.invocationId, timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, attempt.invocationId) }), save);
     });
@@ -896,6 +907,8 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     const receipt = treeReceipt(state.root);
     if (!completeReceipt(receipt)) throw Error('parallel wave requires a readable complete Git receipt');
     const waveId = randomUUID();
+    // Refuse an invalid source for the whole wave before reserving/launching workers.
+    for (const role of roles) domainInvocation(state, roleHost(state, role), { prompt: '' });
     const leases = requireAgents(state.executionBudget, roles.map(role => ({ callId: `${waveId}:${role}`, host: roleHost(state, role), role, depth: 1 })));
     state.wave = { id: waveId, roles, status: 'running', receipt,
       attemptIds: Object.fromEntries(roles.map(role => [role, randomUUID()])),
@@ -906,12 +919,15 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     const calls = roles.map(async (role, index) => {
       const agent = hostAgent(state, role), started = Date.now();
       const invocationId = invocationIdentity({ session_id: state.id, agent_id: state.wave.attemptIds[role] });
-      emit(state, { kind: 'agent-start', agent, invocation_id: invocationId });
       let ok = false;
+      let startedHost = false;
       try {
         const runner = hostRunner(state, role, runners);
         if (typeof runner !== 'function') throw Error(`no runner for ${roleHost(state, role)}`);
-        const result = await observeControllerCall(state, { id: `${waveId}:${role}`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: workerHead(state, role) + context.text, cwd: state.root,
+        const admitted = domainInvocation(state, roleHost(state, role), { prompt: workerHead(state, role) + context.text }, { contextBytes: context.record.bytes });
+        if (admitted.evidence) { state.wave.domainContexts ??= {}; state.wave.domainContexts[role] = admitted.evidence; save(state); }
+        emit(state, { kind: 'agent-start', agent, invocation_id: invocationId }); startedHost = true;
+        const result = await observeControllerCall(state, { id: `${waveId}:${role}`, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: admitted.options.prompt, cwd: state.root,
           sandbox: 'read-only', ephemeral: true, timeoutMs: 300000,
           bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
           invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, invocationId) }), save);
@@ -919,7 +935,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
         return result;
       } finally {
         releaseAgent(state.executionBudget, leases[index]);
-        emit(state, { kind: 'agent-stop', agent, invocation_id: invocationId, ok, duration_ms: Date.now() - started });
+        if (startedHost) emit(state, { kind: 'agent-stop', agent, invocation_id: invocationId, ok, duration_ms: Date.now() - started });
       }
     });
     const settled = await Promise.allSettled(calls);
@@ -964,6 +980,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     }
     await runStage(state, { prepared: { response: state.wave.responses[role], receipt: state.wave.receipt,
       attemptId: state.wave.attemptIds?.[role],
+      domainContext: state.wave.domainContexts?.[role],
       context: state.wave.context, callId: `${state.wave.id}:${role}` }, runners, verify, checks, save, contextStore });
     if (!state.results[role]) { state.wave.status = 'discarded'; break; } // Other snapshot is invalid.
   }
@@ -971,6 +988,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
   if (completed || state.wave.status === 'discarded' || state.status !== 'ready' || !state.wave.roles.includes(state.queue[0])) {
     state.waveHistory ??= [];
     state.waveHistory.push({ id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts,
+      ...(state.wave.domainContexts ? { domainContexts: state.wave.domainContexts } : {}),
       status: completed ? 'verified' : 'discarded', at: new Date().toISOString() });
     state.wave = null; save(state);
   }

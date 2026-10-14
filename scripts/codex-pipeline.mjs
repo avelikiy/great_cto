@@ -9,10 +9,17 @@ import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, obs
 import { detectClaude } from './lib/claude-exec.mjs';
 import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs';
 import { readBenchmarkRegistration, bindBenchmarkTrial } from './lib/adaptive-benchmark-collector.mjs';
+import { readDomainPolicy } from './lib/domain-admission.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
 const command = args.shift();
+if (args.some(arg => arg.startsWith('--domain-policy='))) {
+  console.error('--domain-policy requires a separate private file argument'); process.exit(2);
+}
+if (command !== 'start' && args.includes('--domain-policy')) {
+  console.error('domain policy is frozen at start; do not override it'); process.exit(2);
+}
 const value = name => { const i = args.indexOf(name); return i < 0 ? null : args[i + 1]; };
 const routes = raw => {
   if (raw == null) return {};
@@ -99,7 +106,12 @@ try {
       if (rel === '' || (rel !== '..' && !rel.startsWith(`..${sep}`))) throw Error('specialist policy must be operator-owned outside the target workspace');
       specialistPolicy = JSON.parse(readFileSync(policyPath, 'utf8'));
     }
-    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy,
+    let domainPolicy = null;
+    if (args.includes('--domain-policy')) {
+      if (args.filter(a => a === '--domain-policy').length !== 1 || !value('--domain-policy') || value('--domain-policy').startsWith('--')) throw Error('--domain-policy requires one private operator-owned file');
+      domainPolicy = readDomainPolicy(root, value('--domain-policy'));
+    }
+    state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy, domainPolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
       maxAttempts, hostRoutes, gatePolicy });
     state.taskId = taskId || work.task.taskId;
@@ -111,6 +123,7 @@ try {
     linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
     save(state);
   } else {
+    if (args.includes('--domain-policy')) throw Error('domain policy is frozen at start; do not override during resume');
     const id = args[0];
     if (!/^[0-9a-f-]{36}$/.test(id || '')) throw Error('a run UUID is required');
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));

@@ -8,6 +8,20 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
 const h = 'a'.repeat(64);
+test('inconsistent known context and total tokens are refused', () => {
+  const p = preregisterDomainPilot(input());
+  assert.throws(() => describeDomainPilot(p, [row(p, 'core', 0, { contextTokens: 1500, totalTokens: 1000 })]), /context tokens exceed/);
+  assert.doesNotThrow(() => describeDomainPilot(p, [row(p, 'core', 0, { contextTokens: null, totalTokens: 1000 })]));
+});
+test('raw acceptance with missing metrics is never budget-qualified', () => {
+  const p = preregisterDomainPilot(input());
+  const rows = [0, 1, 2].map(i => row(p, 'core', i, { totalTokens: null }));
+  const result = describeDomainPilot(p, rows).byHost.codex.perArm.core;
+  assert.equal(result.acceptanceSuccess, 1);
+  assert.equal(result.budgetQualifiedAcceptanceSuccess, null);
+  assert.equal(result.budgetCompliance.unknown, 3);
+  assert.equal(describeDomainPilot(p, [0, 1, 2].map(i => row(p, 'core', i))).byHost.codex.perArm.core.budgetQualifiedAcceptanceSuccess, 1);
+});
 function input() {
   return { coreDigest: h, scorerDigest: h, repetitions: 3, budget: { totalTokens: 10000, contextTokens: 2000, activeMs: 60000, costUsd: 5 },
     hostPolicies: { codex: { model: 'fixed-codex', policyDigest: h }, 'claude-code': { model: 'fixed-claude', policyDigest: h } },
