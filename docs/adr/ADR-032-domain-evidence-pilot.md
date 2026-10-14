@@ -37,7 +37,7 @@ quality. We need small project-bound observations before changing positioning,
 default activation or specialist prompts. The existing regulatory routing must
 continue protecting configured projects throughout that experiment.
 
-The developer command [domain-pilot](../../scripts/domain-pilot.mjs) audits only
+The developer command [domain-pilot](../../scripts/domain-pilot.mjs) inspects only
 explicitly listed, tracked files of eligible engineering types, not credential
 files, data exports or binary archives. This filename/type policy is not a
 content classifier or publication permission. It does not crawl repositories,

@@ -122,7 +122,7 @@ export function validateOverlay(overlay, { projectId, now = new Date().toISOStri
   return structuredClone(overlay);
 }
 
-/** Audits only operator-listed files; outputs hashes, never source content. */
+/** Inspects only operator-listed files; outputs hashes, never source content. */
 export function auditOverlay(root, overlay, options) {
   validateOverlay(overlay, options);
   const canonicalRoot = resolve(root);
