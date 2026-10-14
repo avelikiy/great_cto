@@ -44,6 +44,41 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.4 — 2026-10-14
+
+Give controlled host workers explicit, bounded private domain context.
+
+### What's new
+
+- Opt-in `--domain-policy` binds a separate provenance root and frozen workspace
+  policy. Commit, source bytes and review window are observed again before host
+  calls; drift or expiry refuses invocation instead of silently repinning.
+- The shared controller delivers data-only packets to routed Codex and Claude
+  Code workers, mixed waves and the independent Codex verifier. Provenance records
+  digests and context bytes, not raw source or private paths. Existing permissions,
+  specialist routing and human gates remain unchanged. No policy means no activation.
+- Benchmark summaries separate raw supplied acceptance from measured-budget-qualified
+  acceptance. Missing metrics stay unknown; inconsistent known token counts are rejected.
+- Explicit local `--serial` runs the same full root/lib test selection with one
+  file worker. Default remains two; deadlines, assertions and internal race tests
+  are unchanged. The inbox race probe now requires its exact snapshot-change reason.
+- This release provides controlled admission, not native trial results, verified
+  model adherence, measured quality uplift, full host parity or automatic promotion.
+
+### Verification and boundaries
+
+Full `ci-local.sh --e2e --serial` passed at the frozen executable candidate:
+root 1435, libraries 3416, eval 242, docs 76, browser 16, CLI 369 and archetype
+34 checks. Fifteen checks remain NOT CHECKED: six library and nine pipeline
+checks. Independent repeat read-only review approved the source with 64 focused
+passes and no skips. Earlier default-mode failures remain real failed attempts;
+serial success does not establish their full root cause or default-mode stability.
+See [ADR-033](docs/adr/ADR-033-explicit-domain-host-admission.md) and the
+[QA history](docs/qa-reports/QA-2026-10-14-domain-host-admission.md).
+
+---
+
 ## v3.63.3 — 2026-10-14
 
 Prepare version-pinned engineering domain context without changing agent authority.
