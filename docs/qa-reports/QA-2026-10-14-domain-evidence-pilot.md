@@ -1,7 +1,7 @@
 # QA: domain evidence pilot foundation
 
 **Date:** 2026-10-14
-**Status:** Executed canonical checks GREEN; 15 NOT CHECKED; independent review running.
+**Status:** Executed canonical checks GREEN; 15 NOT CHECKED; independent review APPROVE for opt-in foundation.
 **Source candidate:** 7d44246eda500d9c37d09597fbd57ac7ceed4317
 **Tracking:** great_cto-0b3o
 **Scope:** [ADR-032](../adr/ADR-032-domain-evidence-pilot.md), opt-in developer
@@ -33,7 +33,16 @@ pipeline readiness. Sidebar hover passed in this run; the earlier intermittent
 failure's root cause remains Unknown.
 
 After exit 0, the operator-authorized separate read-only reviewer started on
-the frozen source candidate. No verdict has been received yet.
+the frozen source candidate and returned APPROVE for the opt-in developer
+foundation, with no blocking findings. The reviewer independently ran the two
+domain test files: 57 passed, zero failures/skips, in 13.7 s. Approval excludes
+runtime dispatch, quality claims, merge, release and installation.
+
+Before live benchmark admission, follow-up work must distinguish raw outcome
+acceptance from measured budget compliance and reject inconsistent supplied
+context/total token measurements. Operator-supplied receipt hashes, source
+lineages and workspace IDs are declarations, not signed execution attestations.
+The documented same-UID/ABA snapshot limitation also remains.
 
 57 domain contract tests passed, zero failures/skips, on the working bytes
 committed as 8932ecd36192f0291318cedbc4fc9f4bf777c734, before two comment/prose
@@ -121,7 +130,7 @@ remains unstable for deadline-sensitive verification; no blanket timeout changes
 The operator subsequently requested continuation. Attempt 3 began at load 37
 with 21 GiB free disk and completed successfully; load later declined to 16.
 The full run's executed checks passed, with the explicit limitations above.
-Independent read-only review has now started; its verdict remains pending.
+Independent read-only review completed with the limited APPROVE verdict above.
 Three private overlays and six host packets are outside the public repository;
 source observation is explicitly NOT project runtime verification. Human wellbeing
 candidate guidance is not clinical efficacy or diagnosis evidence.
