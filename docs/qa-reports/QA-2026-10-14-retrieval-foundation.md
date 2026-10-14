@@ -4,7 +4,7 @@ Date: 2026-10-14
 Scope: Beads great_cto-uwnt, first local foundation
 Design: [ADR-031](../adr/ADR-031-measured-retrieval-refinement.md)
 Base: ce55775912b2dcf8c667290fe3e030f1edf08764, CLI 3.63.2 source
-Status: focused checks passed; full canonical verification pending
+Status: full frozen candidate gate passed; independent review pending
 
 ## Implemented and measured
 
@@ -34,7 +34,35 @@ The long-document counterexample has document nDCG 1 but answer-bearing count
 The JSON runner emits corpus/query/qrels/input hashes and local latency, not
 source paths or bodies. Output: `/tmp/great-cto-retrieval-pilot-20261014.json`.
 
-## Boundaries
+## Full canonical candidate verification
+
+`GREAT_CTO_TEST_PLUGIN_DIR` explicitly selected this worktree as the artifact.
+Complete `bash scripts/ci-local.sh --e2e` exited 0 at frozen executable candidate
+`676e5b83e42e740ce5bd94f470e8b081eb66c71f`:
+
+| Stage | Passed | Failed | NOT CHECKED |
+| --- | ---: | ---: | ---: |
+| Root/hooks/board | 1432 | 0 | 0 |
+| Libraries | 3356 | 0 | 6 |
+| Evals | 242 | 0 | 0 |
+| Documentation tests | 76 | 0 | 0 |
+| Browser scenarios | 16 | 0 | 0 |
+| CLI unit tests | 369 | 0 | 0 |
+| Archetype e2e | 34 | 0 | 0 |
+| Pipeline L1–L5 | 36 | 0 | 9 |
+
+Scanner passed at score 82 (threshold 80), no new baseline/exception; structural,
+generated-reference, artifact-lint, import closure and TypeScript build passed.
+Fifteen skipped checks remain NOT CHECKED, including native role/model execution,
+external notification/deployment and actual operator inventory observations.
+Log: `/tmp/great-cto-retrieval-canonical-20261014.log`.
+
+This is candidate-source/artifact evidence, not installed plugin, live-model
+comparison, independent review, npm publication or deployment evidence. After
+the frozen run, only this QA report changed; documentation/scanner rechecks
+are separate and do not imply a second full canonical run at the report commit.
+
+## Remaining boundaries
 
 The corpus is caller-selected and hashes do not authorize disclosure or prove
 authorship. Authored sensitive content is not automatically scrubbed.
