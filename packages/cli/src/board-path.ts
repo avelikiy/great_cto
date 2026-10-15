@@ -27,8 +27,8 @@ import { fileURLToPath } from "node:url";
  * beats the bundle. When the newest installed plugin is OLDER than the running
  * CLI, the bundled board — which ships inside that CLI and is therefore exactly
  * as new as it is — wins. An equal or newer plugin still wins, because a plugin
- * install is the richer one: it carries agents, skills and commands the npm
- * package does not.
+ * install is the richer one: it carries skills and commands in addition to the
+ * public role data now included in the npm board runtime.
  *
  * @param cliVersion the running CLI's version. Omitted → previous behaviour, so
  *   a caller that cannot determine it never gets a silently different answer.

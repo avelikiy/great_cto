@@ -4,7 +4,7 @@ Date: 2026-10-15.
 PR: [191](https://github.com/avelikiy/great_cto/pull/191).
 Base: `7f9febd8cebdd693e6e66b045f0de9c4a68ab653`.
 Executable/test candidate: `04a798b0972291c647d708da227c46dc9a22142d`.
-Status: focused archive verification passed; canonical R1 failed; R2 pending.
+Status: focused archive verification and canonical R2 passed; independent review pending.
 
 ## Reproduction and scope
 
@@ -88,6 +88,22 @@ failure, retroactively clear R1, or justify a timeout increase. The next full
 gate retains the same executable/test bytes; only this connected QA report
 is added.
 
+R2 at `3efec20dcb5c7e1527df27fa951c6ec60929c323` completed exit 0 with the same
+`--e2e --serial` command: root 1,435; libraries 3,422 passed and 6 not checked;
+eval 242; documentation 76; browser 16; CLI 375; archetypes 34; pipeline 36 passed
+and 9 not checked. All executed suites had zero failures. The one-second hung-tsc
+budget and its process-group assertions were unchanged and passed in this run.
+The original missing-PID failure remains unexplained and separately tracked.
+R2 log SHA256: `a161395029e9457c52e6c0bc7ce580fcf2055671be1078c0929dab375ba28811`.
+Unchanged full lifecycle replay log SHA256:
+`a1f1bee1519899a67c5eadea3b2981f167bf73632b3457a78700bbf8d7b32107`.
+
+The final post-R2 delta updates only this evidence report and the resolver's
+introductory comment: the npm board now carries public role data, while the full
+plugin remains richer in skills/commands. No resolver function body changes.
+This final delta is included in the exact-head independent review; it is not
+represented as a new canonical execution of that later commit.
+
 ## Runtime and release boundary
 
 During validation the existing operator board listener disappeared again. Its
@@ -100,4 +116,4 @@ Independent review, release and installation have not occurred for this candidat
 No paid/native benchmark was launched. Domain packs remain opt-in. Published and
 installed versions must be read again at actual release time.
 
-VERDICT: BLOCKED reason="canonical gate R1 has failures; independent review and delivery are not yet verified"
+VERDICT: BLOCKED reason="canonical R2 and autonomous archive checks passed; independent review and delivery are not yet verified"
