@@ -45,6 +45,27 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.63.5 — 2026-10-15
+
+Run the newest local board with its public role roster. Autonomous npm installations now carry the same public role data used by Usage ownership and dispatch/outcome aggregation; plugin installations select the newest available complete board cache.
+
+### What's new
+
+- Board discovery compares available numeric versions across local plugin caches and retains a complete fallback when another cache entry is partial. [PR #186](https://github.com/avelikiy/great_cto/pull/186).
+- The npm board includes 72 public top-level role Markdown files. Nested directories, private overlays and sidecars are excluded; invalid, empty or non-regular Markdown rosters fail packaging. [PR #191](https://github.com/avelikiy/great_cto/pull/191).
+- Usage browser coverage checks both a known built-in role and an unknown plugin-prefixed role. File presence does not attest host loading, invocation or agent quality.
+
+### Verification and boundaries
+
+The canonical serial gate passed at `3efec20d`: root/hooks/board 1,435; libraries 3,422; eval 242; documentation 76; browser 16; CLI 375; archetypes 34; pipeline 36. Six library and nine pipeline opt-in/native checks remain not checked. Counts are per suite, not unique tests. The final documentation/comment-only delta received independent read-only APPROVE at `88ff4bcca00d93bb6dd837b8e4ef0dc39a1be473`.
+
+The fixed unpublished archive passed all 16 browser cases and isolated CLI/controller construction checks. Its package metadata was still 3.63.4; release-version bytes require their own packaging and consumer checks before npm publication. The prior failing archive and unexplained lifecycle fixture failure are retained in the [QA history](docs/qa-reports/QA-2026-10-15-board-roster-package.md), not erased by the successful rerun.
+
+The hover change in #186 affects test precondition/action-result admission only, not in-flight cancellation or production CSS. Domain packs remain opt-in. No paid/native benchmark, quality uplift or full host parity is claimed. The historical operator-listener disappearance remains a separate investigation.
+
+---
+
 ## v3.63.4 — 2026-10-14
 
 Give controlled host workers explicit, bounded private domain context.
