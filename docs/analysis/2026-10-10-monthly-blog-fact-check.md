@@ -1,6 +1,6 @@
 # Monthly blog draft: editorial evidence
 
-Date: 2026-10-10. Updated: 2026-10-14. Scope: 2026-09-10 through 2026-10-10, with dated delivery addenda through 3.63.4.
+Date: 2026-10-10. Updated: 2026-10-15. Scope: 2026-09-10 through 2026-10-10, with dated delivery addenda through 3.63.5.
 
 Article: [Russian draft](../blog/DRAFT-2026-10-10-monthly-product-update-ru.md).
 This file is an editorial fact sheet, not part of the public article and not a task tracker.
@@ -8,7 +8,18 @@ This file is an editorial fact sheet, not part of the public article and not a t
 [October deployment follow-up](../qa-reports/QA-2026-10-10-october-deployment.md)
 records installation evidence and the remaining candidate gates.
 
-## Current delivery snapshot: 3.63.4, October 14 addendum
+## Current delivery snapshot: 3.63.5, October 15 addendum
+
+- PR191 merged normally as `c28b24f65e433b321a0db23af1d9ba9e8fad30f7`; merge tree matches independently approved `88ff4bcca00d93bb6dd837b8e4ef0dc39a1be473`. Critical/High/Medium findings: none. Public role names and bytes, exclusion/refusal fixtures and actual archive Usage ownership were independently checked. PR186 cache selection and its test-only hover admission change are included.
+- Release commit/tag target `26504e20c8d38309632ddabf460393415c833b36`; annotated tag object `511351499a3d605e857cf64f8be4d1bd934d1118`. Commit/tag author and authenticated GitHub release author are avelikiy; GitHub Release is non-draft/non-prerelease, published `2026-10-15T19:16:26Z`. Automatic pre-tag identity refusal is not implemented by this release.
+- Canonical serial R2 at `3efec20d`: root1435, libraries3422, eval242, docs76, browser16, CLI375, archetypes34, pipeline36 passed;6library+9pipeline checks NOT CHECKED. Final QA/resolver-comment delta changed no executable body and was included in independent approval. Counts overlap across suites. R1 fixture missing-PID cause remains Unknown; no deadline or orphan cap was weakened.
+- Exact3.63.5 package checks: TypeScript/CLI375 passed,0skip; release/documentation checks104 passed,1explicit live-Docker skip. The first archive-browser harness invocation selected the wrong nested server path and skipped all16cases; that diagnostic was rejected. Corrected harness ran all16against extracted archive server,16passed,0skip. No server rebuild occurred during that run.
+- Registry archive downloaded from npm with a cache-busting query after initial canonical-URL404responses; bytes equal tested tarball. SHA256 `e6762d9b807666b856575b8769832d0a4bb657adda809c6defa0b3647d0f91ec`,260files including72public roles. Fresh registry consumer/controller smoke passed12construction cases and8refusals. No OIDC attestation, native provider execution or benchmark eligibility is claimed.
+- Active Claude marketplace registration, disabled local Claude alias and installed/enabled Codex plugin report3.63.5; enabled flags preserved. Codex Git clone timed out twice at30seconds. Successful native marketplace refresh used command-scoped Git URL rewriting to the clean, exact release checkout as local transport, not a persistent source change. Configured marketplace source remains GitHub main. No claim that existing host sessions hot-loaded the update.
+- Operator board restarted from published3.63.5 CLI, selecting installed marketplace3.63.5 server. HTTP readback running=installed=3.63.5, stale=no. Read-only browser Harness and Usage succeeded; rendered project cells matched each selected project, no fallback banner or console errors. After all full gates completed, sustained probe passed900072ms:16samples,48HTTPrequests across version/projects/tasks, same PID, no timeout/non200/degraded Tasks; maximum observed endpoint response15ms. This is one installed local instance, not cause analysis of earlier disappearances, which remain Unknown. Ordinary `npm exec --ignore-scripts --package=great-cto@3.63.5 -- great-cto --version` also returned3.63.5.
+- Announce Release run38792543151 failed before execution: GitHub annotation states the account is locked due to billing. Do not describe this announcement or disabled npm/JSR workflows as successful; npm publication was manual. No paid/native paired benchmark or default domain activation occurred.
+
+## Historical delivery snapshot: 3.63.4, October 14 addendum
 
 - Published main/tag source `454c62106c1b373d1a5a2bf9c7b34bdc76f633c5`; PR185 merged as `5cbb86e1b1319ec810e2c61f8899b154fbeb56f1`. Fresh GitHub API read confirms v3.63.4 is a published, non-draft, non-prerelease release at 2026-10-14T17:45:40Z. PR184 and PR185 are MERGED. PR181 is MERGED; PR182 is CLOSED without a merge commit, so do not attribute delivery to a PR182 merge.
 - Published changelog pins review evidence/task panel to3.63.0, invocation completion to3.63.1, non-project hook state refusal to3.63.2, candidate domain packs to3.63.3 and explicit shared-controller admission to3.63.4. Sources are tagged ADR030, ADR032, ADR033 and the tagged domain QA history. Packs0.1.0 are candidates, not executed product tests or certification; no private overlay content is published.
@@ -150,7 +161,8 @@ it does not clear canonical failures. Log SHA-256:
 | #181 review evidence/task panel | Fresh GitHub API: MERGED; shipped3.63.0 | Exact input binding, normalized verdict and read-only recorded/unknown task evidence, not new approvals |
 | #184 domain pack foundation | Fresh GitHub API: MERGED; shipped3.63.3 | Five explicit-only0.1.0 candidate packs; no native model quality result |
 | #185 shared domain admission | Fresh GitHub API: MERGED; shipped3.63.4 | Explicit policy, fresh drift/expiry checks and data-only packets; permissions and gates unchanged |
-| #186 board cache selection | MERGED after gate and independent APPROVE; not shipped3.63.4 | Subsequent autonomous archive browser validation blocks the release on missing roster data; do not label source green as delivered-package green |
+| #186 board cache selection | MERGED after gate and independent APPROVE; shipped3.63.5 | Available complete-cache selection; initial failed npm candidate retained as history |
+| #191 autonomous board role data | MERGED after canonical R2 and independent APPROVE; shipped3.63.5 | Exact public role file closure and unknown-prefix refusal; archive browser16/16, no host-loading claim |
 
 Some source reports retain historical pre-merge text. PR #166 is currently merged despite the report's original draft-status footer. The article uses the numerical results, not that stale footer. HOST-CODEX.md retains an older sentence about routes arriving in a subsequent package; CHANGELOG 3.47.0 establishes shipment. The article therefore avoids copying that sentence or prescribing a version-specific route command from it.
 
@@ -173,7 +185,7 @@ Use a synthetic public demo project, not an operator's real workspace:
 2. Harness: a mixed-host review wave and the resulting verifier/gate state.
 3. Usage: two host panels, clearly marked sample data and price semantics.
 
-Capture released3.63.4 behavior using synthetic fixtures. Label adaptive/domain behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
+Capture released3.63.5 behavior using synthetic fixtures. Label adaptive/domain behavior experimental opt-in and do not imply paid-model execution or production cleanup guarantees. Remove private goals, paths, repository names, account details and transcripts before publication. There are no attached images in this draft.
 
 ## Validation scope
 
@@ -196,4 +208,12 @@ PR170/181/184/185 MERGED; PR182 CLOSED without merge. No operator screenshots or
 private overlay content were added. This is documentation validation, not a
 new full runtime gate or blog publication.
 
-VERDICT: DONE — Draft facts retain published3.63.4 and distinguish merged PR186 from the blocked, unpublished3.63.5 package candidate; blog publication remains separate.
+October15 delivery addendum separates published3.63.5 from the earlier failed
+candidate, retains exact package/source hashes and explicitly excludes native
+benchmark/quality claims. Editorial checks:76documentation tests passed,0skips;
+artifact lint has0structural errors and1preexisting freshness warning.
+Frontmatter/version/date, balanced fences, absence of personal workspace paths,
+NOT CHECKED/no-native-benchmark wording and the new tagged QA source were verified.
+No operator screenshot, private overlay or raw local statistics were added.
+
+VERDICT: DONE — Draft refreshed through published and locally verified3.63.5; historical failed candidates and Unknown boundaries retained. Blog publication remains separate.
