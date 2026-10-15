@@ -74,6 +74,7 @@ function seedHostLogs(fakeHome, projectPath) {
   fs.writeFileSync(path.join(cdir, 'e2e-session.jsonl'), [
     { type: 'custom-title', customTitle: 'Checkout redesign' },
     line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:senior-dev' } }),
+    line({ type: 'tool_use', name: 'Agent', input: { subagent_type: 'great-cto:not-a-built-in-role' } }),
     line({ type: 'tool_use', name: 'Skill', input: { skill: 'superpowers:brainstorming' } }),
     { type: 'assistant', timestamp: now, isApiErrorMessage: true, error: 'rate_limit', message: { id: 'refused', model: '<synthetic>', content: [{ type: 'text', text: "You've hit your session limit · resets 3pm (Europe/Vienna)" }] } },
     { type: 'user', timestamp: now, message: { content: [{ type: 'tool_result', tool_use_id: 't1', is_error: true, content: 'PreToolUse:Bash hook error: great_cto shared-tree guard blocked the command — `git stash`' }] } },
@@ -756,6 +757,11 @@ test('Usage shows Claude Code and Codex side by side, from their own logs', { ti
     assert.match(text, /Checkout redesign/, 'the Claude Code conversation by its title');
     assert.match(text, /Invoice export/, 'the Codex thread by its name');
     assert.match(text, /senior-dev\s*great_cto/, 'a great_cto agent dispatched under the plugin prefix is ours');
+    const usage = await page.evaluate(() => usageData);
+    assert.equal(usage.state, 'counted');
+    assert.equal(usage.lists.claude.agents.find(a => a.name === 'senior-dev')?.ours, true);
+    assert.equal(usage.lists.claude.agents.find(a => a.name === 'not-a-built-in-role')?.ours, false,
+      'a plugin-like prefix does not make an unknown role a catalogued great_cto agent');
 
     await page.waitForSelector('[data-outcomes="agents"]', { timeout: 20000 });
     const agents = await page.locator('[data-outcomes="agents"]').innerText();
