@@ -4,7 +4,7 @@
 //  - the bundle produced by scripts/bundle-board.mjs is complete and loadable
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync, readdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -83,6 +83,15 @@ test("returns undefined when nothing exists anywhere", () => {
 test("bundle-board.mjs produces a complete, syntax-valid bundle", () => {
   execFileSync(process.execPath, [join(cliRoot, "scripts", "bundle-board.mjs")], { cwd: cliRoot });
   const out = join(cliRoot, "board");
+  // Usage reads role names from data files, not module imports. A bootable
+  // import closure without this roster silently loses ownership and outcomes.
+  const sourceAgents = join(cliRoot, "..", "..", "agents");
+  const roles = readdirSync(sourceAgents).filter(name => name.endsWith('.md')).sort();
+  assert.ok(roles.includes('senior-dev.md'));
+  assert.deepEqual(readdirSync(join(out, 'agents')).sort(), roles,
+    'ship exactly the public role files, not private overlays or retired markers');
+  for (const role of roles) assert.deepEqual(readFileSync(join(out, 'agents', role)),
+    readFileSync(join(sourceAgents, role)), `role bytes differ: ${role}`);
   for (const rel of [
     "packages/board/server.mjs",
     "packages/board/push-adapter.mjs",

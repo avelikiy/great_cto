@@ -100,6 +100,21 @@ mkdirSync(join(out, "shared"), { recursive: true });
 copyFileSync(join(repoRoot, "shared", "pipeline.toml"), join(out, "shared", "pipeline.toml"));
 console.log(`bundle-board: copied ${runtimeFiles.length} runtime module(s)`);
 
+// routes.mjs reads this data directory for Usage ownership, dispatches and
+// outcomes. Import closure cannot discover fs-based dependencies. Copy only
+// public top-level role Markdown; never recurse into overlays or sidecars.
+const agentsSrc = join(repoRoot, "agents");
+const agentFiles = readdirSync(agentsSrc, { withFileTypes: true })
+  .filter(entry => entry.name.endsWith('.md'));
+if (!agentFiles.length) throw new Error('board bundle requires the public agent roster');
+mkdirSync(join(out, "agents"), { recursive: true });
+for (const entry of agentFiles) {
+  if (!entry.isFile() || !/^[a-z0-9]+(?:-[a-z0-9]+)*\.md$/.test(entry.name))
+    throw new Error('unsupported public agent roster entry');
+  copyFileSync(join(agentsSrc, entry.name), join(out, "agents", entry.name));
+}
+console.log(`bundle-board: copied ${agentFiles.length} public agent role(s)`);
+
 // gate-plan.mjs → ../../packages/cli/dist/archetypes.js
 mkdirSync(join(out, "packages", "cli", "dist"), { recursive: true });
 copyFileSync(
