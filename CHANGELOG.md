@@ -46,6 +46,43 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.64.0 — 2026-10-16
+
+Focus Fleet on your project's roles without losing the full catalog.
+Keep mandatory reviewers visible. Prepare an explicit domain-pilot design without
+mistaking a proposed experiment for evidence of better outcomes.
+
+### What's new
+
+- Fleet opens in **Project focus**: eight existing core role names plus the
+  project's required reviewers. **All agents** restores the catalog; **Needs
+  attention** remains catalog-wide. This is a display filter, not fewer model
+  calls or a change to routing, permissions or gates.
+- Required retired reviewers remain visible; missing installed reviewers are
+  named. Unknown requirements restore catalog visibility. Stale project and
+  request-generation replies cannot overwrite the selected project's state.
+- Developer command `node scripts/domain-benchmark.mjs plan` prints 36 anonymous,
+  unexecuted trial slots. Models, budgets and source/scorer pins remain unset;
+  no hosts launch, no quality uplift is claimed, and packs remain opt-in.
+
+### Verification and boundaries
+
+- [ADR-034](docs/adr/ADR-034-focused-domain-experience.md) defines the reversible
+  presentation and experiment boundaries. The [QA report](docs/qa-reports/QA-2026-10-16-focused-domain-experience.md)
+  retains failed attempts, corrected fixtures and independent review.
+- Full serial gate passed: root/hooks/board 1444, libraries 3426, eval 242,
+  documentation 76, browser 16, CLI 375 and archetype scenarios 34. Counts
+  overlap. Fifteen opt-in/external checks remain explicitly NOT_CHECKED.
+- Timeout tests retain real deadlines and separately prove cleanup after live
+  child admission. CLI/checker-only-kill negative controls fail before cleanup;
+  production timeout runners are unchanged. Independent review approved the
+  final candidate and repeated 44 focused checks plus both negative controls.
+- No role deletion, automatic domain activation, native benchmark results,
+  clinical efficacy or measured quality improvement is included in this release.
+
+---
+
 ## v3.63.5 — 2026-10-15
 
 Run the newest local board with its public role roster. Autonomous npm installations now carry the same public role data used by Usage ownership and dispatch/outcome aggregation; plugin installations select the newest available complete board cache.
