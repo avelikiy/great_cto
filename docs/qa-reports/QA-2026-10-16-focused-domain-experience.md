@@ -1,7 +1,7 @@
 # QA: focused domain experience
 
 Date: 2026-10-16.
-Status: scoped verification passed; canonical R1 failed; corrected lifecycle fixture awaits canonical R2 and independent review.
+Status: scoped verification passed; canonical R1 and R2 failed; independent review remains gated.
 Base: `26504e20c8d38309632ddabf460393415c833b36`.
 Decision: [ADR-034](../adr/ADR-034-focused-domain-experience.md).
 Tracking: great_cto-e76b, great_cto-v53m, great_cto-e76b.1.
@@ -87,7 +87,28 @@ This is not a claim that the second case measures real 800ms scheduling.
 Corrected file replay: 16 passed, zero failed/skipped. A disposable negative
 control replacing both process-group kills with CLI-only kills failed at
 `child held stdout open after timeout`, as required. Production runner bytes
-were not changed. Canonical R2 and independent review remain pending.
+were not changed. Both corrected cases also passed inside canonical R2.
+
+### Canonical R2 crossed host sleep cycles
+
+Full serial R2 at `19e46520` exited 1. Root/hooks/board: 1443 passed;
+libraries: 3423 passed, three failed, six skipped; eval: 242 passed;
+docs: 76 passed; Chromium: 16 passed; CLI: 375 passed; archetypes: 34 passed.
+Pipeline executed checks passed with nine NOT_CHECKED; six opt-in library
+checks were skipped. No native readiness is implied. Raw log SHA256:
+`ba70851e03b3f13cfc6afe4d1e8bd24b7ad90f9fdb45f69c5de8f90cd818098a`.
+
+Failures: adaptive benchmark collector fixture expected done but was blocked;
+adaptive Git executable-boundary fixture hit Git ETIMEDOUT; API compatibility
+hidden scorer rejected a changed candidate receipt before scoring. These files
+and their production paths are unchanged from the base. macOS power logs show
+repeated sleep/darkwake intervals during this run, ending at 17:23 local time;
+individual test durations reached tens of minutes. Sleep overlap is observed,
+not proof of each failure cause. Exact-file replay while awake is required,
+followed by a new full gate. No assertion, deadline or skip policy was relaxed.
+The unchanged three-file awake replay passed 60/60, zero failures/skips in
+193727ms. A command-scoped idle-sleep assertion was active. This is a successful
+replay, not proof of each earlier failure cause or a substitute for full R3.
 
 No role deletion, dispatch reduction, permission change, default domain activation,
 merge, release or operator installation. The installed operator board separately
@@ -101,4 +122,4 @@ pinned models/policies, verified workspace/receipt isolation, measured per-trial
 and aggregate spend caps, and explicit launch authority. Independent review and
 green canonical full gate remain required before a merge/release decision.
 
-VERDICT: BLOCKED reason="canonical R1 failed; corrected fixture awaits full R2 and independent review; native pilot remains separate"
+VERDICT: BLOCKED reason="canonical R1 and R2 failed; awake replay and full gate required before independent review; native pilot remains separate"
