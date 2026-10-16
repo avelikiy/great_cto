@@ -1,7 +1,7 @@
 # QA: focused domain experience
 
 Date: 2026-10-16.
-Status: scoped verification passed; canonical R1 and R2 failed; independent review remains gated.
+Status: scoped verification passed; canonical R1 through R3 failed; independent review remains gated.
 Base: `26504e20c8d38309632ddabf460393415c833b36`.
 Decision: [ADR-034](../adr/ADR-034-focused-domain-experience.md).
 Tracking: great_cto-e76b, great_cto-v53m, great_cto-e76b.1.
@@ -110,6 +110,27 @@ The unchanged three-file awake replay passed 60/60, zero failures/skips in
 193727ms. A command-scoped idle-sleep assertion was active. This is a successful
 replay, not proof of each earlier failure cause or a substitute for full R3.
 
+### Canonical R3 and Stop-hook fixture admission
+
+R3 at `94dbb930` exited 1 with a command-scoped idle-sleep assertion active.
+Root/hooks/board: 1442 passed, one failed, zero skipped. Libraries: 3426 passed,
+zero failed, six skipped. Eval 242, docs 76, Chromium 16, CLI 375 and archetypes
+34 passed. Pipeline executed checks passed with nine NOT_CHECKED. The three
+R2 failures passed unchanged in this full run. Raw log SHA256:
+`64ab5e251ff9d8e0c6714878fbdb65336e3614bb6b6cb59ee91463131296c6c4`.
+
+The sole R3 failure was the unchanged Stop-typecheck deadline fixture: missing
+PID file after 1073ms. Its unchanged isolated replay passed 16/16. Missing
+admission evidence cannot prove cleanup, regardless of this replay result.
+Test-only correction retains the actual one-second hook deadline and original
+five-second return bound, notice and nonblocking assertions. A separate real
+checker/child group is verified alive before advancing only setTimeout to 999
+then 1000 virtual ms. Real liveness is checked before cleanup, bounded to one
+second, as in the original case. Production hook bytes remain unchanged.
+Corrected file: 17 passed, zero failures/skips. A disposable checker-only-kill
+mutation failed at `checker group survived the deadline`, before cleanup,
+as required. Full R4 remains required.
+
 No role deletion, dispatch reduction, permission change, default domain activation,
 merge, release or operator installation. The installed operator board separately
 responded running=installed=3.63.5, stale=no; that does not install this candidate.
@@ -122,4 +143,4 @@ pinned models/policies, verified workspace/receipt isolation, measured per-trial
 and aggregate spend caps, and explicit launch authority. Independent review and
 green canonical full gate remain required before a merge/release decision.
 
-VERDICT: BLOCKED reason="canonical R1 and R2 failed; awake replay and full gate required before independent review; native pilot remains separate"
+VERDICT: BLOCKED reason="canonical R1 through R3 failed; corrected Stop fixture awaits full R4 before independent review; native pilot remains separate"
