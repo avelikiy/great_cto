@@ -76,7 +76,7 @@ test('an empty stream is empty, not an answer', () => {
   assert.equal(parseCodexStream('garbage').state, 'unreadable');
 });
 
-test('a timed-out run leaves no process behind, and is not an answer', async (t) => {
+test('the real 800ms deadline is bounded and a timeout is not an answer', async (t) => {
   // A fake `codex` that starts a child and waits on it — the shape of a CLI whose
   // tool or MCP server is still running when the review runs out of time. Killing
   // only the CLI left that child alive: the same orphan that wedged a release gate.
@@ -102,14 +102,71 @@ test('a timed-out run leaves no process behind, and is not an answer', async (t)
   assert.equal(r.timedOut, true);
   assert.notEqual(r.state, 'ok', 'a truncated answer read as an answer');
   assert.ok(r.errors.some((e) => /timed out after 800ms/.test(e)), JSON.stringify(r.errors));
-  const fs = await import('node:fs');
-  const pid = Number(fs.readFileSync(pidFile, 'utf8').trim());
-  let alive = true;
-  for (let i = 0; i < 20 && alive; i += 1) {
-    try { process.kill(pid, 0); await new Promise((res) => setTimeout(res, 50)); } catch { alive = false; }
+  // Startup can itself exceed the deadline: absent PID evidence cannot prove
+  // descendant cleanup. The separate admitted-child case below proves that.
+});
+
+// setInterval and Date stay real while only setTimeout is controlled below.
+async function realWatchdog(promise, ms, why) {
+  const started = Date.now();
+  let timer;
+  const watchdog = new Promise((_, reject) => {
+    timer = setInterval(() => { if (Date.now() - started >= ms) reject(Error(why)); }, 20);
+  });
+  try { return await Promise.race([promise, watchdog]); }
+  finally { clearInterval(timer); }
+}
+
+test('an admitted live child is reaped at 800 virtual ms, never treated as an answer', { timeout: 20000 }, async (t) => {
+  if (process.platform === 'win32') return t.skip('process groups are POSIX');
+  const dir = tmp('gc-codex-admitted-child-');
+  const bin = path.join(dir, 'codex'), pidFile = path.join(dir, 'child.pid');
+  writeFileSync(bin, [
+    '#!/bin/sh',
+    'cat > /dev/null',
+    `sleep 30 & child=$!; printf '%s' "$child" > "${pidFile}"`,
+    'echo \'{"type":"item.completed","item":{"type":"agent_message","text":"VERDICT: PASS"}}\'',
+    'printf \'{"type":"fixture.ready","pid":%s}\\n\' "$child"',
+    'wait',
+  ].join('\n'));
+  chmodSync(bin, 0o755);
+  let ready, pid = null, settled = false, pending;
+  const admission = new Promise(resolve => { ready = resolve; });
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    pending = runCodexExec({prompt:'x',cwd:dir,bin,timeoutMs:800,onEvent(event) {
+      if (event.type === 'fixture.ready' && Number.isSafeInteger(event.pid) && event.pid > 0) ready(event.pid);
+    }}).then(result => { settled = true; return result; });
+    pid = await realWatchdog(admission,10000,'fixture never admitted a live child');
+    const fs = await import('node:fs');
+    assert.equal(Number(fs.readFileSync(pidFile,'utf8').trim()),pid);
+    process.kill(pid,0); // No liveness assertion is inferred from a missing PID.
+    t.mock.timers.tick(799);
+    await new Promise(resolve => { const timer = setInterval(() => { clearInterval(timer); resolve(); },50); });
+    assert.equal(settled,false,'the deadline fired before 800ms');
+    process.kill(pid,0);
+    const killedAt = Date.now();
+    t.mock.timers.tick(1);
+    const result = await realWatchdog(pending,5000,'child held stdout open after timeout');
+    assert.ok(Date.now()-killedAt < 5000,'the child exited naturally instead of being reaped');
+    assert.equal(result.timedOut,true);
+    assert.notEqual(result.state,'ok');
+    assert.match(result.text,/VERDICT: PASS/,'the fixture actually emitted its truncated answer');
+    assert.ok(result.errors.some(e => /timed out after 800ms/.test(e)));
+    let alive = true;
+    for (let i = 0; i < 20 && alive; i += 1) {
+      try {
+        process.kill(pid,0);
+        await new Promise(resolve => { const timer = setInterval(() => { clearInterval(timer); resolve(); },50); });
+      } catch { alive = false; }
+    }
+    assert.equal(alive,false,`child ${pid} of the timed-out codex is still running`);
+  } finally {
+    t.mock.timers.tick(800);
+    if (pid) { try { process.kill(pid,'SIGKILL'); } catch { /* already gone */ } }
+    if (pending) await realWatchdog(pending,5000,'fixture cleanup did not close').catch(() => {});
+    t.mock.timers.reset();
   }
-  if (alive) { try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ } }
-  assert.equal(alive, false, `child ${pid} of the timed-out codex is still running`);
 });
 
 test('a run that finishes in time says it did not time out', async () => {

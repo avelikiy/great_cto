@@ -16,6 +16,7 @@ import {
 import { join, resolve, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+import { runBounded } from '../../scripts/hooks/stop-typecheck.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const ACCUM = join(ROOT, 'scripts', 'hooks', 'typecheck-accumulate.mjs');
@@ -228,7 +229,7 @@ test('no tsc in the project: silent, and nothing is downloaded', () => {
   } finally { sb.cleanup(); }
 });
 
-test('deadline: a hung tsc is killed with its whole process group and the stop is not blocked', () => {
+test('deadline: a real one-second checker timeout returns promptly and never blocks Stop', () => {
   const sb = sandbox();
   try {
     // The fake forks a grandchild — a plain child.kill() would orphan it, which
@@ -243,15 +244,59 @@ test('deadline: a hung tsc is killed with its whole process group and the stop i
     const out = JSON.parse(r.stdout);
     assert.equal(out.decision, undefined, 'a timeout is not a compile error — never block on it');
     assert.match(out.systemMessage, /typecheck timed out — not verified/);
-    // Killed processes are reaped by init after the hook exits; allow a moment
-    // for that, far short of the 30s a surviving `sleep` would live.
-    const isAlive = (pid) => { try { process.kill(pid, 0); return true; } catch { return false; } };
-    for (const pid of readFileSync(pids, 'utf8').trim().split(/\s+/).map(Number)) {
-      const until = Date.now() + 1000;
-      while (isAlive(pid) && Date.now() < until) spawnSync('sleep', ['0.05']);
-      assert.equal(isAlive(pid), false, `pid ${pid} survived the deadline`);
-    }
+    // A deadline can expire before the fake checker writes its PID witness.
+    // The admitted-process case below proves cleanup without assuming startup.
   } finally { sb.cleanup(); }
+});
+
+async function pollReal(predicate, ms, reason) {
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    const timer = setInterval(() => {
+      try {
+        const value = predicate();
+        if (value) { clearInterval(timer); resolve(value); }
+        else if (Date.now() - started >= ms) { clearInterval(timer); reject(Error(reason)); }
+      } catch (error) { clearInterval(timer); reject(error); }
+    }, 20);
+  });
+}
+
+test('deadline: an admitted checker group is reaped at 1000 virtual ms', { timeout: 20000 }, async t => {
+  if (process.platform === 'win32') return t.skip('process groups are POSIX');
+  const sb = sandbox(), pidFile = join(sb.base, 'pids');
+  const alive = pid => { try { process.kill(pid, 0); return true; } catch { return false; } };
+  let pids = [], pending, result, settled = false;
+  tsProject(sb, `sleep 30 &\nprintf '%s %s' "$$" "$!" > "${pidFile}"\nwait`);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  try {
+    pending = runBounded(join(sb.proj, 'node_modules', '.bin', 'tsc'), [], sb.proj, 1000)
+      .then(value => { result = value; settled = true; return value; });
+    pids = await pollReal(() => {
+      if (!existsSync(pidFile)) return false;
+      const values = readFileSync(pidFile, 'utf8').trim().split(/\s+/).map(Number);
+      return values.length === 2 && values.every(pid => Number.isSafeInteger(pid) && pid > 0) ? values : false;
+    }, 10000, 'checker never admitted its group');
+    assert.ok(pids.every(alive), 'both checker and child must be alive before the deadline');
+    t.mock.timers.tick(999);
+    await pollReal(() => true, 1000, 'real event loop did not advance');
+    assert.equal(settled, false, 'deadline fired early');
+    assert.ok(pids.every(alive));
+    t.mock.timers.tick(1);
+    await pollReal(() => settled, 5000, 'deadline did not resolve');
+    assert.equal(result.timedOut, true);
+    assert.equal(result.failed, false);
+    assert.equal(result.code, null);
+    // This assertion precedes cleanup. Killing only the checker must fail it.
+    await pollReal(() => pids.every(pid => !alive(pid)), 1000, 'checker group survived the deadline');
+    await pending;
+  } finally {
+    t.mock.timers.tick(1000);
+    for (const pid of pids) { try { process.kill(pid, 'SIGKILL'); } catch { /* already gone */ } }
+    if (pending) await pollReal(() => settled, 5000, 'fixture cleanup did not resolve').catch(() => {});
+    t.mock.timers.reset();
+    sb.cleanup();
+  }
 });
 
 test('the same error set is blocked once, then only noticed', () => {

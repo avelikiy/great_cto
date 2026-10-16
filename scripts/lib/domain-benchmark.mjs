@@ -7,6 +7,35 @@ const arms = ['core', 'core-plus-pack'];
 const hosts = ['codex', 'claude-code'];
 const counts = ['seriousRegressions', 'reworkRounds', 'humanCorrections'];
 const metrics = [...counts, 'costUsd', 'activeMs', 'totalTokens', 'contextTokens'];
+/** Anonymous design only: no frozen inputs, preregistration, dispatch or scores. */
+export function planDomainPilot() {
+  const tasks = [
+    { projectId: 'project-a', taskId: 'money-send-reconcile', packId: 'money' },
+    { projectId: 'project-b', taskId: 'workflow-exact-export', packId: 'telemedicine-workflow' },
+    { projectId: 'project-c', taskId: 'venture-source-admission', packId: 'venture-evidence' },
+  ];
+  return {
+    schemaVersion: 1, state: 'design-not-preregistered', evidenceLevel: 'not-executed',
+    authority: 'no model launch, default activation, merge, release or installation',
+    tasks: tasks.map(task => ({ ...task, packDigest: domainPack(task.packId).digest,
+      sourceDigest: null, taskDigest: null, acceptanceDigest: null, overlayDigest: null })),
+    hostPolicies: Object.fromEntries(hosts.map(host => [host, { model: null, policyDigest: null }])),
+    budget: { totalTokens: null, contextTokens: null, activeMs: null, costUsd: null },
+    coreDigest: null, scorerDigest: null,
+    repetitions: 3,
+    trials: tasks.flatMap((task, index) => hosts.flatMap(host => Array.from({ length: 3 }, (_, repetition) =>
+      ((index + repetition) % 2 ? [...arms].reverse() : [...arms]).map((arm, order) => ({
+        taskId: task.taskId, projectId: task.projectId, host, repetition, arm, order,
+        status: 'not-executed',
+      }))).flat())),
+    observations: [],
+    requiredBeforeLaunch: ['representative executable hidden holdouts', 'independent frozen scorer',
+      'reviewed private source and overlay pins', 'pinned models and policy',
+      'measured per-trial and aggregate spend limits', 'verified isolated workspaces and receipts',
+      'explicit native-host launch approval'],
+    qualityUplift: null,
+  };
+}
 function pin(value) { if (typeof value !== 'string' || !hash.test(value)) throw Error('exact digest required'); }
 function identifier(value) { if (typeof value !== 'string' || !id.test(value)) throw Error('bounded identifier required'); }
 function number(value, integer = false) {
