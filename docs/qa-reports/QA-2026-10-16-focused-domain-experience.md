@@ -1,7 +1,7 @@
 # QA: focused domain experience
 
 Date: 2026-10-16.
-Status: scoped verification passed; canonical R1 through R3 failed; independent review remains gated.
+Status: canonical R4 passed with 15 NOT_CHECKED; independent review pending.
 Base: `26504e20c8d38309632ddabf460393415c833b36`.
 Decision: [ADR-034](../adr/ADR-034-focused-domain-experience.md).
 Tracking: great_cto-e76b, great_cto-v53m, great_cto-e76b.1.
@@ -129,7 +129,19 @@ then 1000 virtual ms. Real liveness is checked before cleanup, bounded to one
 second, as in the original case. Production hook bytes remain unchanged.
 Corrected file: 17 passed, zero failures/skips. A disposable checker-only-kill
 mutation failed at `checker group survived the deadline`, before cleanup,
-as required. Full R4 remains required.
+as required. Both pairs then passed inside full R4 below.
+
+### Canonical R4
+
+`caffeinate -i bash scripts/ci-local.sh --e2e --serial` at `c267c288`
+completed with exit 0. The temporary assertion prevents idle sleep only; it
+does not alter test deadlines or production behavior. Root/hooks/board: 1444
+passed, zero failures/skips. Libraries: 3426 passed, zero failures, six skipped.
+Eval 242, docs 76, Chromium 16, CLI 375 and archetypes 34 passed. Pipeline
+executed checks passed with nine NOT_CHECKED. Total 15 NOT_CHECKED is not proof
+of native model execution, delivery or full operator readiness. Raw log SHA256:
+`c0fcfad44e539c0dd560b9e5a0b27eecdd1258851c59e49dc0e8f226ce4bd8ca`.
+Earlier failed attempts remain recorded above. Independent review is next.
 
 No role deletion, dispatch reduction, permission change, default domain activation,
 merge, release or operator installation. The installed operator board separately
@@ -140,7 +152,8 @@ not broad industry certification or clinical efficacy.
 
 Native pilot still needs executable hidden holdouts, independent scorer freeze,
 pinned models/policies, verified workspace/receipt isolation, measured per-trial
-and aggregate spend caps, and explicit launch authority. Independent review and
-green canonical full gate remain required before a merge/release decision.
+and aggregate spend caps, and explicit launch authority. Independent review
+remains required before a merge/release decision; green canonical verification
+does not authorize either operation.
 
-VERDICT: BLOCKED reason="canonical R1 through R3 failed; corrected Stop fixture awaits full R4 before independent review; native pilot remains separate"
+VERDICT: BLOCKED reason="canonical R4 passed with 15 NOT_CHECKED; independent review and separate merge/release authority pending; native pilot remains separate"
