@@ -1,7 +1,7 @@
 # QA: focused domain experience
 
 Date: 2026-10-16.
-Status: canonical R4 passed with 15 NOT_CHECKED; independent review pending.
+Status: canonical R4 passed with 15 NOT_CHECKED; independent code review APPROVE.
 Base: `26504e20c8d38309632ddabf460393415c833b36`.
 Decision: [ADR-034](../adr/ADR-034-focused-domain-experience.md).
 Tracking: great_cto-e76b, great_cto-v53m, great_cto-e76b.1.
@@ -143,6 +143,23 @@ of native model execution, delivery or full operator readiness. Raw log SHA256:
 `c0fcfad44e539c0dd560b9e5a0b27eecdd1258851c59e49dc0e8f226ce4bd8ca`.
 Earlier failed attempts remain recorded above. Independent review is next.
 
+### Independent read-only review
+
+Separate reviewer APPROVE at `6f6777c9112ef4ce143e23205c8e62d5c9b567dc`
+against base `26504e20c8d38309632ddabf460393415c833b36`; no actionable
+blockers in the entire 12-file diff. Only this QA report changed after the
+canonical gate commit. Reviewer independently ran Fleet, pilot plan and both
+timeout suites: 44 passed, zero failures/skips. Both disposable CLI/checker-only
+kill mutation controls produced their expected failures before cleanup; raw R4
+SHA256 matched. Review checkout remained unchanged.
+
+Review covered required/retired/missing reviewer visibility, unknown-policy
+fallback, stale project/request responses, catalog-wide attention access,
+anonymous unexecuted matrix and both admitted-child lifecycle tests. Production
+dispatch, permissions and reviewer enforcement remain unchanged. Private
+overlays/holdout proposals were outside this review and were not inspected.
+This approves the code candidate only, not experiment outcomes or distribution.
+
 No role deletion, dispatch reduction, permission change, default domain activation,
 merge, release or operator installation. The installed operator board separately
 responded running=installed=3.63.5, stale=no; that does not install this candidate.
@@ -152,8 +169,8 @@ not broad industry certification or clinical efficacy.
 
 Native pilot still needs executable hidden holdouts, independent scorer freeze,
 pinned models/policies, verified workspace/receipt isolation, measured per-trial
-and aggregate spend caps, and explicit launch authority. Independent review
-remains required before a merge/release decision; green canonical verification
-does not authorize either operation.
+and aggregate spend caps, and explicit launch authority. Independent code review
+is complete; green canonical verification and review do not authorize merge,
+release or installation.
 
-VERDICT: BLOCKED reason="canonical R4 passed with 15 NOT_CHECKED; independent review and separate merge/release authority pending; native pilot remains separate"
+VERDICT: BLOCKED reason="code candidate verified and independently approved; separate merge/release authority pending; native pilot remains separate"
