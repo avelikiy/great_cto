@@ -88,5 +88,10 @@ after restoring the browser dependency. Skipped checks remain not checked.
 
 This is implementation/self-verification, not independent approval. Merge,
 release, plugin installation and operator-board restart are not performed by
-this candidate. The existing operator board remained on released 3.64.0. No
-paid/native benchmark or default domain-pack activation was performed.
+this candidate. An early read-only operator check returned released 3.64.0 with
+`stale: no`. At 17:50:54 UTC a fresh check refused connection: no listener on
+3141 and the prior PID was absent. The existing incident great_cto-gep6 remains
+open; the retained startup log does not establish an exit cause. This task did
+not install the candidate or stop/restart the operator board. Restoration from
+the released artifact was requested separately. No paid/native benchmark or
+default domain-pack activation was performed.
