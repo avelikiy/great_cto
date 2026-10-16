@@ -1,7 +1,7 @@
 # QA: focused domain experience
 
 Date: 2026-10-16.
-Status: scoped local verification passed; canonical full gate and independent review not run.
+Status: scoped verification passed; canonical R1 failed; corrected lifecycle fixture awaits canonical R2 and independent review.
 Base: `26504e20c8d38309632ddabf460393415c833b36`.
 Decision: [ADR-034](../adr/ADR-034-focused-domain-experience.md).
 Tracking: great_cto-e76b, great_cto-v53m, great_cto-e76b.1.
@@ -19,7 +19,9 @@ The benchmark plan command emits an anonymous design, not preregistration,
 receipts or observations. Thirty-six slots cover three task proposals, two
 hosts, two arms and three repetitions. Models, budgets and source/scorer/holdout
 pins are null. Existing preregistration validation refuses this design.
-No native host invocation, private project read or paid benchmark occurred.
+No native host invocation or paid benchmark occurred. Separate private source
+inspection and synthetic holdout proposals are not benchmark observations and
+are not included in this public candidate.
 
 ## Executed verification
 
@@ -57,6 +59,36 @@ relabeled green; this feature does not claim to fix that test isolation.
 
 ## Delivery and experiment boundaries
 
+### Canonical R1 and lifecycle fixture correction
+
+`bash scripts/ci-local.sh --e2e --serial` at `b8bbc82e` exited 1.
+Root/hooks/board: 1443 passed; libraries: 3424 passed, one failed, six skipped;
+eval: 242 passed; docs: 76 passed; Chromium: 16 passed; pipeline: 36 passed,
+nine NOT_CHECKED; CLI: 375 passed; archetypes: 34 passed. These overlapping
+suite counts are not a unique-test total. Fifteen opt-in/native checks remain
+NOT_CHECKED. Raw log SHA256:
+`c2cab319ddf39d29630f0082182fe248757fc5d438ab786a3480019725c5cdcf`.
+
+The sole failure was the unchanged Codex timeout fixture: `child.pid` did not
+exist after the real 800ms deadline. The unchanged file replay reproduced it
+(14 passed, one failed, zero skipped). Instrumented launches with both external
+stdin draining and shell-built-in draining sometimes missed even their first
+instruction before 800ms. This does not establish an OS startup cause or prove
+descendant cleanup; the external-drain-only hypothesis was rejected.
+
+The corrected test separates two obligations without changing production code:
+the real 800ms watchdog remains bounded by the original 5000ms return assertion;
+a separate actual OS child is admitted and verified alive before advancing only
+the mocked setTimeout clock to 799 then 800ms. Date, setInterval and OS processes
+remain real. Actual close is bounded to 5000ms, and child absence is asserted
+before fixture cleanup. The emitted partial PASS must never become an answer.
+This is not a claim that the second case measures real 800ms scheduling.
+
+Corrected file replay: 16 passed, zero failed/skipped. A disposable negative
+control replacing both process-group kills with CLI-only kills failed at
+`child held stdout open after timeout`, as required. Production runner bytes
+were not changed. Canonical R2 and independent review remain pending.
+
 No role deletion, dispatch reduction, permission change, default domain activation,
 merge, release or operator installation. The installed operator board separately
 responded running=installed=3.63.5, stale=no; that does not install this candidate.
@@ -67,6 +99,6 @@ not broad industry certification or clinical efficacy.
 Native pilot still needs executable hidden holdouts, independent scorer freeze,
 pinned models/policies, verified workspace/receipt isolation, measured per-trial
 and aggregate spend caps, and explicit launch authority. Independent review and
-canonical full gate remain required before a merge/release decision.
+green canonical full gate remain required before a merge/release decision.
 
-VERDICT: BLOCKED reason="scoped local checks passed; canonical full gate, independent review and native pilot remain separate"
+VERDICT: BLOCKED reason="canonical R1 failed; corrected fixture awaits full R2 and independent review; native pilot remains separate"

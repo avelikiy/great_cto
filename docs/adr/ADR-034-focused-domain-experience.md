@@ -70,5 +70,9 @@ policy and stale responses. Chromium exercises focus, keyboard navigation,
 catalog restoration and unknown-policy fallback. Existing domain protocol tests
 must remain green. Plan checks cover all 36 unique slots, counterbalanced order,
 null metrics/pins and refusal to preregister an unfrozen design.
+Lifecycle checks separately retain the real 800ms timeout and verify cleanup of
+an admitted actual child with a controlled deadline clock and real close/liveness
+witnesses. A CLI-only-kill negative control must fail; fixture cleanup cannot
+serve as evidence that the production runner reaped its child.
 See the [local verification report](../qa-reports/QA-2026-10-16-focused-domain-experience.md)
 for executed checks and remaining review/experiment boundaries.
