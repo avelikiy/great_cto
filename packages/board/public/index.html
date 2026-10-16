@@ -3480,6 +3480,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     <div class="nav-views-label" id="nav-views-label" hidden>Views</div>
     <!-- Fleet filters share the row pattern, but stay buttons, not destinations. -->
     <div class="nav-views" hidden>
+      <div class="nav-view-item" id="nav-view-project" role="button" tabindex="0" onclick="setFleetView('project')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('project')}">Project focus</div>
       <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
       <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
       <div class="nav-view-item" id="nav-view-never" role="button" tabindex="0" onclick="setFleetView('never')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('never')}">Never observed</div>
@@ -3795,6 +3796,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <section aria-label="Fleet summary" class="fleet-title-row">
           <h1 class="page-title" id="fleet-view-title" style="margin:0">Fleet</h1>
         </section>
+        <p id="fleet-focus-note" class="muted" role="status"></p>
 
         <!-- §3.1 Fleet controls -->
         <section aria-label="Fleet controls" class="fleet-controls-row">
@@ -9463,13 +9465,10 @@ const fleetState = {
   agents: [],
   summary: null,
   legacy_count: 0,
-  // Default: hide never-run / retired agents. 35 installed → ~10 actually
-  // doing work on most projects; showing all 35 by default is noise.
-  // User flips activity to `all` to see the full installation.
+  // View membership is distinct from optional activity filters.
   filters: { domain: 'all', activity: 'all', health: 'all' },
-  // Five saved views, and only five (DESIGN §5): the default is the subset
-  // nobody has judged yet, not the roster.
-  view: 'needs',
+  // Presentation only: dispatch and required-reviewer policy are unchanged.
+  view: 'project',
   search: '',
   sort: 'runs_30d',
   drawerSlug: null,
@@ -9479,15 +9478,32 @@ const fleetState = {
   // Reviewers this project requires (/api/required-reviewers) — gate:ship refuses
   // while one has no verdict.
   required: null,
+  requiredScope: null,
+  requiredRequest: 0,
+  rosterRequest: 0,
+  rosterScope: null,
 };
+const FLEET_CORE_ROLES = new Set([
+  'product-owner', 'architect', 'pm', 'senior-dev', 'code-reviewer',
+  'qa-engineer', 'security-officer', 'devops',
+]);
+function fleetRequirementsKnown() {
+  return fleetState.requiredScope === pqs() && fleetState.required?.state === 'read'
+    && Array.isArray(fleetState.required.reviewers);
+}
 function requiredOf(slug) {
   const r = fleetState.required;
-  return r && r.state === 'read' ? (r.reviewers || []).find((x) => x.agent === slug) || null : null;
+  return fleetRequirementsKnown() ? r.reviewers.find((x) => x.agent === slug) || null : null;
 }
 async function refreshRequiredReviewers() {
-  const r = await api(`/api/required-reviewers${pqs()}`);
-  if (!r) return;
+  const scope = pqs(), request = ++fleetState.requiredRequest;
+  fleetState.required = null;
+  fleetState.requiredScope = null;
+  renderFleetList();
+  const r = await api(`/api/required-reviewers${scope}`);
+  if (request !== fleetState.requiredRequest || scope !== pqs()) return;
   fleetState.required = r;
+  fleetState.requiredScope = scope;
   renderFleetList();
 }
 
@@ -9507,10 +9523,16 @@ async function refreshAgentUsage() {
 }
 
 async function refreshAgentsInstalled() {
+  const scope = pqs(), request = ++fleetState.rosterRequest;
+  if (fleetState.rosterScope !== scope) {
+    fleetState.agents = [];
+    fleetState.summary = null;
+    fleetState.rosterScope = scope;
+  }
   refreshAgentUsage();
   refreshRequiredReviewers();
-  const data = await api(`/api/agents-installed${pqs()}`);
-  if (!data) return;
+  const data = await api(`/api/agents-installed${scope}`);
+  if (!data || request !== fleetState.rosterRequest || scope !== pqs()) return;
   fleetState.agents = data.agents || [];
   fleetState.summary = data.summary || null;
   // If this project has no verdicts at all, show all agents (not just 'used').
@@ -9534,6 +9556,7 @@ async function refreshAgentsInstalled() {
 
 
 const FLEET_VIEWS = [
+  ['project', 'Project focus'],
   ['needs', 'Needs attention'], ['expensive', 'Expensive grants'], ['never', 'Never observed'], ['all', 'All agents'], ['retired', 'Retired'],
 ];
 // What "needs attention" means, in one place: failing, an unjudged posture, a
@@ -9548,6 +9571,11 @@ function agentNeedsAttention(a) {
     || String(a.budget?.state || '').startsWith('over');
 }
 function inFleetView(a, view) {
+  if (view === 'project') {
+    // An unavailable policy is not evidence that a specialist is unnecessary.
+    if (!fleetRequirementsKnown()) return !a.retired;
+    return !!requiredOf(a.slug) || (!a.retired && FLEET_CORE_ROLES.has(a.slug));
+  }
   if (view === 'retired') return !!a.retired;
   if (a.retired) return false;
   if (view === 'needs') return agentNeedsAttention(a);
@@ -9568,6 +9596,16 @@ function setFleetView(view) {
 // a count, because "2" would read as two new items.
 function renderFleetViews() {
   const agents = fleetState.agents || [];
+  const note = document.getElementById('fleet-focus-note');
+  if (note) {
+    note.hidden = fleetState.view !== 'project';
+    const attention = agents.filter(a => inFleetView(a, 'needs')).length;
+    const missing = fleetRequirementsKnown()
+      ? fleetState.required.reviewers.filter(r => !agents.some(a => a.slug === r.agent)).map(r => r.agent) : [];
+    note.textContent = fleetRequirementsKnown()
+      ? `Core roles and this project's required reviewers. ${missing.length} required reviewer(s) missing from the installed catalog${missing.length ? ': ' + missing.join(', ') : ''}. ${attention} installed agent(s) need attention across the full catalog; open Needs attention. Display only, not an execution plan or proof of expertise.`
+      : 'Project reviewer requirements are unknown; showing the installed catalog rather than hiding specialists. Display only; execution policy is unchanged.';
+  }
   for (const [key, label] of FLEET_VIEWS) {
     const el = document.getElementById(`nav-view-${key}`);
     if (!el) continue;
@@ -9601,7 +9639,7 @@ function applyFleetFilters(agents) {
     if (activity === 'idle'    && (a.runs_30d > 0 || a.runs_total === 0)) return false;
     if (activity === 'never'   && a.runs_total > 0) return false;
     if (activity === 'retired' && !a.retired) return false;
-    if (activity !== 'retired' && a.retired) return false;
+    if (activity !== 'retired' && a.retired && !(fleetState.view === 'project' && requiredOf(a.slug))) return false;
     if (health === 'ok'        && a.health === 'failing') return false;
     if (health === 'failing'   && a.health !== 'failing') return false;
     return true;

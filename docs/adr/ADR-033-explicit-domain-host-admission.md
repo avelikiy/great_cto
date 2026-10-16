@@ -3,7 +3,8 @@
 **Status:** Proposed; local candidate, not installed or released.
 **Date:** 2026-10-14
 Tracking: great_cto-0b3o.6
-Related: [Domain foundation](ADR-032-domain-evidence-pilot.md).
+Related: [Domain foundation](ADR-032-domain-evidence-pilot.md),
+[focused presentation and experiment design](ADR-034-focused-domain-experience.md).
 
 ## Context
 

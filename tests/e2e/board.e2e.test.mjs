@@ -422,7 +422,8 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
         assert.equal(row.labelVisible, width !== 1000, `${row.name} rail label visibility`);
       }
       assert.equal(await page.locator('.nav-item[aria-selected="true"]').count(), 1);
-      assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'true');
+      assert.equal(await page.locator('#nav-view-project').getAttribute('aria-pressed'), 'true');
+      assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'false');
       if (process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS) {
         fs.mkdirSync(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, { recursive: true });
         await page.locator('#sidebar').screenshot({ path: path.join(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, `sidebar-${width}.png`) });
@@ -662,7 +663,7 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
     const agent = (slug) => ({ slug, health: 'unknown', runs_total: 0, runs_30d: 0, last_run: null,
       success_rate: null, model_state: 'undeclared', retired: false });
     await page.route('**/api/agents-installed*', json({
-      agents: [agent('pci-reviewer'), agent('legal-reviewer')], summary: { active_30d: 0 },
+      agents: [agent('pci-reviewer'), agent('legal-reviewer'), agent('senior-dev')], summary: { active_30d: 0 },
     }));
     await page.route('**/api/required-reviewers*', json({
       state: 'read',
@@ -674,7 +675,10 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
 
     const row = (slug) => page.locator(`.agent-row[data-slug="${slug}"]`);
     assert.equal(await row('pci-reviewer').count(), 1,
-      'the required reviewer with no verdict is in the default view, Needs attention');
+      'the required reviewer with no verdict is in the default Project focus view');
+    assert.equal(await row('senior-dev').count(), 1, 'core role remains in Project focus');
+    assert.equal(await row('legal-reviewer').count(), 0, 'unrelated specialist stays in the full catalog');
+    assert.match(await page.locator('#fleet-focus-note').innerText(), /Display only, not an execution plan/);
     assert.match(await row('pci-reviewer').innerText(), /required · not run/,
       'and its row says it is required and has not run');
 
@@ -684,6 +688,14 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
     assert.match(legal, /dispatched 4× · no verdict/,
       'an agent the logs dispatched but no verdict names reads as dispatched, not as never observed');
     assert.doesNotMatch(legal, /never observed/);
+
+    await page.locator('#nav-view-project').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await row('legal-reviewer').count(), 0, 'keyboard returns to Project focus');
+    await page.route('**/api/required-reviewers*', json({state:'unreadable'}));
+    await page.evaluate(() => refreshRequiredReviewers());
+    assert.equal(await row('legal-reviewer').count(), 1, 'unknown policy shows full installed catalog');
+    assert.match(await page.locator('#fleet-focus-note').innerText(), /requirements are unknown/);
 
     await page.evaluate(() => setFleetView('never'));
     await page.waitForTimeout(600);
