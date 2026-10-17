@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { startBoard } from './helpers/board-start.mjs';
@@ -857,7 +857,28 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   // port nor the collision.
   const { freePort } = await import('./helpers/free-port.mjs');
   const wantPort = await freePort();
-  const proc = spawn('node', [cli, 'board', `--port=${wantPort}`, '--no-open'], {
+  // The real CLI replaces the board recorded in os.homedir(). Never let a
+  // parsing fixture inherit the operator's PID file, registry or discovery root.
+  const fixtureRoot = mkdtempSync(join(tmpdir(), 'board-port-form-'));
+  const privateHome = join(fixtureRoot, 'home');
+  const state = join(privateHome, '.great_cto');
+  const project = join(privateHome, 'project');
+  const preload = join(fixtureRoot, 'private-home.mjs');
+  mkdirSync(state, { recursive: true });
+  mkdirSync(join(project, '.great_cto'), { recursive: true });
+  writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'project: port-form-fixture\nprimary: web-service\n');
+  writeFileSync(join(state, 'projects.json'), JSON.stringify({ projects: [] }));
+  writeFileSync(preload, `import os from 'node:os';import{syncBuiltinESMExports}from'node:module';os.homedir=()=>${JSON.stringify(privateHome)};syncBuiltinESMExports();`);
+  const proc = spawn(process.execPath, [cli, 'board', `--port=${wantPort}`, '--no-open'], {
+    cwd: project,
+    env: {
+      PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC',
+      NODE_OPTIONS: `--import=${pathToFileURL(preload).href}`,
+      GREAT_CTO_HOME: state,
+      GREAT_CTO_PROJECTS_FILE: join(state, 'projects.json'),
+      GREAT_CTO_DISCOVERY_ROOT: project,
+      GREAT_CTO_HOST: '127.0.0.1', GREAT_CTO_NO_UPDATE_CHECK: '1',
+    },
     stdio: ['ignore', 'pipe', 'pipe'], detached: true,
   });
   let stdout = '';
@@ -886,13 +907,9 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
     }
     assert.match(stdout, new RegExp(`:${wantPort}`), `--port=${wantPort} should bind to ${wantPort}, got: ${stdout.slice(0, 200)}`);
   } finally {
-    // Group-kill reaps the spawned server (grandchild) so no fds linger past
-    // the suite.
-    // reap-exempt: this test removes no directory of its own, so there is
-    // nothing for the dying group to race — waiting would cost the suite time
-    // for a guarantee it does not need.
-    try { process.kill(-proc.pid, 'SIGKILL'); } catch {}
-    try { proc.kill('SIGKILL'); } catch {}
+    const stopped = await reap(proc);
+    assert.equal(stopped, 'reaped', 'fixture process group must exit before removing its state');
+    rmSync(fixtureRoot, { recursive: true, force: true });
   }
 });
 

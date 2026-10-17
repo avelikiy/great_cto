@@ -131,7 +131,29 @@ another PID that was also absent. This establishes a lifecycle-state change,
 not the actor or exit cause. great_cto-gep6 remains open. No candidate
 installation or automatic operator restart was performed by the probe.
 
-Subsequent frozen-run results and the current review status are recorded in
+### Operator-state isolation regression
+
+During R3 a read-only PID-file observer captured a replacement server with a
+live ancestry through the canonical root test runner. BH-C4 launched the real
+CLI without isolating its home or manager state. The CLI can replace the board
+recorded there, after which fixture teardown terminates the replacement server.
+A safe regression reproduced this against an owned synthetic ambient process:
+before the fix it failed because that process received SIGTERM. No operator
+process was used as the regression target.
+
+BH-C4 now uses a private home preload, registry, discovery root and working
+directory, and waits for its owned process group to exit before removing state.
+The actual compiled CLI, `--port=N` assertion and 20-second deadline are retained.
+The new regression plus the complete pipeline-contract suite passed 21 tests,
+with no failures or skips. The ambient process and exact PID-file bytes survived.
+Related pipeline, resume and cost suites do not import or call this fixture;
+their complete execution remains part of the canonical gate. No production
+process-management code or gate policy was changed. This identifies a concrete
+test-induced outage path, not every possible historical lifecycle failure.
+
+R3 is diagnostic, not final-source approval: this isolation repair was made
+after the run started. A fresh frozen-tree gate is required for the repaired
+candidate. Subsequent frozen-run results and the current review status are recorded in
 [PR #193](https://github.com/avelikiy/great_cto/pull/193), separately from these
 historical snapshots. A later successful run does not erase the failures
 above or certify unexecuted live integrations.
