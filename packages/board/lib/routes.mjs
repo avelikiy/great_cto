@@ -69,6 +69,7 @@ import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
 import { getSkillsInventory } from './skills-inventory.mjs';
+import { installedBoardVersion } from './installed-version.mjs';
 
 // ── HTTP router ────────────────────────────────────────────────────────────────
 // dispatch(req, res, url, cwd, projInfo) handles every /api/* route plus /api/sse.
@@ -1780,17 +1781,9 @@ async function dispatch(req, res, url, cwd) {
     // now, but a board started any other way still needs to be able to say that
     // it is behind — an install the operator cannot see is not an install.
     //
-    // Three states, not two. `unknown` when the cache cannot be read: a version
-    // we failed to look up must not render as agreement.
-    let installed = null;
-    try {
-      const root = path.join(os.homedir(), '.claude', 'plugins', 'cache', 'local', 'great_cto');
-      const versions = fs.readdirSync(root).filter((d) => /^\d+\.\d+\.\d+$/.test(d));
-      installed = versions.sort((a, b) => {
-        const x = a.split('.').map(Number), y = b.split('.').map(Number);
-        return (x[0] - y[0]) || (x[1] - y[1]) || (x[2] - y[2]);
-      }).pop() || null;
-    } catch { installed = null; }
+    // Cache directories are not registrations. In particular a disabled local
+    // snapshot must not hide the marketplace installation the user selected.
+    const { installed, installedSource, installedReason } = installedBoardVersion();
     // Direction, not inequality. `installed !== BUILD_VERSION` is true in both
     // directions, and the banner it fed said "restart to pick up the new
     // version" either way — so a board running 3.2.0 against an installed 3.1.0
@@ -1811,7 +1804,7 @@ async function dispatch(req, res, url, cwd) {
     }
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
     res.end(JSON.stringify({
-      version: BUILD_VERSION, installed, stale,
+      version: BUILD_VERSION, installed, stale, installedSource, installedReason,
       surface: 'builder', node: process.version.replace(/^v/, ''),
     }));
     return true;
