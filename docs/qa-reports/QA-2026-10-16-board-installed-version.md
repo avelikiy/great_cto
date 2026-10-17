@@ -5,6 +5,10 @@ Scope: great_cto-sla6; screenshot follow-up great_cto-j3ds
 Branch: codex/board-registered-version
 Implementation: 6a42ed2f; screenshot capture: c67e43a7
 
+Lifecycle context: [ADR-007: always-on board and idempotent board ensure](../adr/ADR-007-board-always-on.md).
+Installation comparison is not supervisor activation or proof of always-on
+availability; runtime observations below remain a separate evidence layer.
+
 ## Contract
 
 The version endpoint no longer treats the highest local cache directory as an
@@ -95,3 +99,39 @@ open; the retained startup log does not establish an exit cause. This task did
 not install the candidate or stop/restart the operator board. Restoration from
 the released artifact was requested separately. No paid/native benchmark or
 default domain-pack activation was performed.
+
+## Follow-up verification on 2026-10-17
+
+The required Chromium 148.0.7778.96 headless revision 1223 was installed with
+the unchanged Playwright installer (`chromium --only-shell`). An actual launch
+confirmed that version. The focused lifecycle, guardian, accessibility,
+rendered-contrast and screenshot suite then passed 69 tests with no skips.
+No browser pin, assertion, deadline or gate was changed.
+
+Canonical R2 started on c03fd53d with an explicit candidate artifact, not the
+operator installation. Root/hooks/board passed 1450 tests; libraries passed
+3425, failed 1 and skipped 6; eval passed 242; docs passed 76; browser E2E
+passed 16 without skips; CLI passed 375; archetype E2E passed 34. Pipeline
+passed 36 with 9 checks explicitly not checked. Build, pack and the HOL scan
+passed. The external companion-upgrade fixture also emitted a missing-upstream-
+tag warning; it is retained in the raw log, not represented as delivery proof.
+
+R2 **failed** its documentation graph ratchet: this QA report had no connection
+to another document, increasing the orphan count from 48 to 49. The lifecycle
+context link above corrects that defect. Focused doc-link tests passed 5/5 after
+the correction; the frozen count remains 48. R2 is not relabeled green, and
+its later stages saw this documentation correction. A complete fresh run on
+the corrected frozen tree is required. Production code is unchanged from
+c03fd53d; only this report was edited.
+
+The concurrent read-only operator probe also observed a separate failure:
+released 3.64.0 answered through 07:07:40 UTC and refused connection by
+07:08:40 UTC. Its process was absent, and the shared PID file had changed to
+another PID that was also absent. This establishes a lifecycle-state change,
+not the actor or exit cause. great_cto-gep6 remains open. No candidate
+installation or automatic operator restart was performed by the probe.
+
+Subsequent frozen-run results and the current review status are recorded in
+[PR #193](https://github.com/avelikiy/great_cto/pull/193), separately from these
+historical snapshots. A later successful run does not erase the failures
+above or certify unexecuted live integrations.
