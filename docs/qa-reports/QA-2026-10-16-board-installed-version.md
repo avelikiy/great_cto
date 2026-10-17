@@ -144,8 +144,14 @@ process was used as the regression target.
 BH-C4 now uses a private home preload, registry, discovery root and working
 directory, and waits for its owned process group to exit before removing state.
 The actual compiled CLI, `--port=N` assertion and 20-second deadline are retained.
-The new regression plus the complete pipeline-contract suite passed 21 tests,
-with no failures or skips. The ambient process and exact PID-file bytes survived.
+The first new regression plus the complete pipeline-contract suite passed 21
+tests. Follow-up discipline checks found two textual compatibility failures:
+the direct-spawn scanner did not recognize the changed Node spelling, and the
+temp-cleanup scanner did not recognize the cleanup helper. Retaining the original
+spawn spelling and using explicit owned-root removal corrected both without
+enlarging exceptions. The final focused regression, pipeline contracts, spawn
+discipline, temp hygiene and doc-link run passed 33 tests, with no failures or
+skips. The ambient process and exact PID-file bytes survived.
 Related pipeline, resume and cost suites do not import or call this fixture;
 their complete execution remains part of the canonical gate. No production
 process-management code or gate policy was changed. This identifies a concrete

@@ -869,7 +869,7 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'project: port-form-fixture\nprimary: web-service\n');
   writeFileSync(join(state, 'projects.json'), JSON.stringify({ projects: [] }));
   writeFileSync(preload, `import os from 'node:os';import{syncBuiltinESMExports}from'node:module';os.homedir=()=>${JSON.stringify(privateHome)};syncBuiltinESMExports();`);
-  const proc = spawn(process.execPath, [cli, 'board', `--port=${wantPort}`, '--no-open'], {
+  const proc = spawn('node', [cli, 'board', `--port=${wantPort}`, '--no-open'], {
     cwd: project,
     env: {
       PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC',

@@ -1,12 +1,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn, execFile } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
-import { reap, rmTemp } from './reap.mjs';
+import { reap } from './reap.mjs';
 
 const run = promisify(execFile);
 const contracts = fileURLToPath(new URL('../pipeline-contracts.test.mjs', import.meta.url));
@@ -40,6 +40,6 @@ test('port-form CLI fixture preserves an ambient live process and its PID bytes'
   } finally {
     const stopped = await reap(canary);
     assert.equal(stopped, 'reaped', 'own canary must be gone before fixture cleanup');
-    rmTemp(root);
+    rmSync(root, { recursive: true, force: true });
   }
 });
