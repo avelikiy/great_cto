@@ -3,6 +3,8 @@
   "private": true,
   "description": "Repo-root manifest for dev tooling (Playwright demo recording, etc). The shipped CLI lives in packages/cli/.",
   "scripts": {
+    "verify:feedback": "node scripts/verify.mjs --mode feedback",
+    "verify:final": "node scripts/verify.mjs --mode final",
     "demo:seed": "node scripts/seed-demo.mjs",
     "demo:record": "node scripts/record-demo.mjs",
     "demo:rebuild": "node scripts/seed-demo.mjs && node scripts/record-demo.mjs"
