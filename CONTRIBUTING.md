@@ -12,17 +12,54 @@ We accept PRs of every size — from a typo fix to a full new domain reviewer. B
 ```bash
 git clone https://github.com/avelikiy/great_cto.git
 cd great_cto
-npm install
-npm test                       # ~30s
-npm run build                  # produces dist/ for the CLI
+npm ci
+npm --prefix packages/cli ci
+npm --prefix packages/cli run build
 node packages/board/server.mjs --no-open    # board on :3141 — used in PRs that touch the dashboard
 ```
 
 Local install pointing at this checkout:
 ```bash
-npm link
+npm --prefix packages/cli link
 great-cto --version            # confirms your local build is on PATH
 ```
+
+---
+
+## Verification while developing
+
+Use an explicit base that includes the whole change, not merely dirty files:
+
+```bash
+npm run verify:feedback -- --base origin/main --plan
+npm run verify:feedback -- --base origin/main
+```
+
+Feedback selects mapped checks, rebuilds CLI output, and reports uncovered paths
+or a required full gate. It is never merge or release evidence. Unknown files
+do not become silently covered. Docs, board UI, runtime and security/policy
+changes have conservative routes. No model/provider is launched.
+
+Commit the candidate before the final run:
+
+```bash
+npm run verify:final -- --base origin/main
+# Optional deterministic scheduling: add --workers 1 or --workers 2.
+node scripts/verify.mjs --check-receipt /absolute/path/to/receipt.json
+```
+
+Final mode launches a real browser in preflight, then runs the full unchanged
+canonical gate with `--e2e`. Install the lockfile-matched Playwright runtime
+separately if preflight reports it unavailable (`npx playwright install chromium
+--only-shell`). Verification never installs dependencies automatically. Keep
+the runtime stable until postflight; disappearing shared caches are not passes.
+
+The JSON result names private evidence/log files, step timings, source identity,
+worker policy and not-checked counts. Source edits during the final run invalidate
+it. A receipt check confirms current source identity only, not authenticity or
+approval; separate review and merge/release authorization remain required.
+See [the verification ADR](docs/adr/ADR-035-verification-feedback-and-frozen-final.md)
+for scope, watcher limitations and excluded environment-attestation claims.
 
 ---
 

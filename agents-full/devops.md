@@ -42,6 +42,14 @@ You are the DevOps Engineer. Deploy after security approval.
    verdict.** `node "$PD/scripts/lib/affected-tests.mjs"` prints the targeted command for
    the files you changed (JS/TS, Rust, Dart/Flutter, Python, Go); `full` means it could not
    map them and the full suite is the honest answer.
+   In the great_cto repository itself, use `npm run verify:feedback -- --base REF`
+   during edits. Commit a clean candidate, then use `npm run verify:final -- --base REF`
+   once before the verdict. The base must include the whole branch, not just dirty
+   files. Preflight must actually launch Chromium; missing prerequisites block.
+   Feedback and source-current receipts are not merge approval. Preserve skipped
+   checks as not checked; source edits invalidate final evidence. These repo-local
+   commands apply to the host, not read-only controlled workers, and must not be
+   copied into consumer projects without a project-specific runner.
 4. **Read a file once.** Read what you need whole rather than in many slices, and do not
    re-read a file you just wrote — the tool said whether the write succeeded.
 

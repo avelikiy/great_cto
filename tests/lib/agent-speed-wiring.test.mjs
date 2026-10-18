@@ -15,6 +15,7 @@ test('every working agent carries work-fast, inlined in the bundle the plugin re
   }
   const f = readFileSync(resolve('agents/_shared/work-fast.md'), 'utf8');
   for (const rule of [/one message/, /Never poll/, /affected-tests\.mjs/, /Read a file once/]) assert.match(f, rule);
+  for (const rule of [/verify:feedback/, /verify:final/, /clean candidate/, /not merge approval/, /not read-only controlled workers/]) assert.match(f, rule);
 });
 
 test('the review stage fans out: code-reviewer, QA and security start together and wait for each other', () => {
