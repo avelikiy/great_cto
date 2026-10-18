@@ -9016,9 +9016,9 @@ async function checkBoardFreshness() {
   el.setAttribute('role', 'status');
   el.innerHTML = v.stale === 'behind'
     ? `<span>This board is running <code>v${esc(v.version)}</code> — `
-      + `<code>v${esc(v.installed)}</code> is installed. Restart it to pick up the new version.</span>`
+      + `user-installed plugin <code>v${esc(v.installed)}</code> is newer. Restart from that installation to use it.</span>`
     : `<span>This board is running <code>v${esc(v.version)}</code>, which is newer than the `
-      + `installed <code>v${esc(v.installed)}</code>. Restarting would go back to the older build — `
+      + `user-installed plugin <code>v${esc(v.installed)}</code>. Restarting from that installation would use the older build — `
       + `install this version first.</span>`;
   host.insertBefore(el, host.firstChild);
 }
