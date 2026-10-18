@@ -15,7 +15,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, appendFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
 import { startBoard } from './helpers/board-start.mjs';
@@ -863,17 +863,16 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   const privateHome = join(fixtureRoot, 'home');
   const state = join(privateHome, '.great_cto');
   const project = join(privateHome, 'project');
-  const preload = join(fixtureRoot, 'private-home.mjs');
+  const preload = new URL('./helpers/private-board-home.mjs', import.meta.url).href;
   mkdirSync(state, { recursive: true });
   mkdirSync(join(project, '.great_cto'), { recursive: true });
   writeFileSync(join(project, '.great_cto', 'PROJECT.md'), 'project: port-form-fixture\nprimary: web-service\n');
   writeFileSync(join(state, 'projects.json'), JSON.stringify({ projects: [] }));
-  writeFileSync(preload, `import os from 'node:os';import{syncBuiltinESMExports}from'node:module';os.homedir=()=>${JSON.stringify(privateHome)};syncBuiltinESMExports();`);
   const proc = spawn('node', [cli, 'board', `--port=${wantPort}`, '--no-open'], {
     cwd: project,
     env: {
-      PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC',
-      NODE_OPTIONS: `--import=${pathToFileURL(preload).href}`,
+      PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC', TMPDIR: tmpdir(),
+      NODE_OPTIONS: '--import=' + preload, GREAT_CTO_FIXTURE_HOME: privateHome,
       GREAT_CTO_HOME: state,
       GREAT_CTO_PROJECTS_FILE: join(state, 'projects.json'),
       GREAT_CTO_DISCOVERY_ROOT: project,
