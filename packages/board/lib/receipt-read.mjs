@@ -12,6 +12,9 @@ export function readApprovalReceipt(cwd, { timeoutMs = 20000 } = {}) {
 export function readSecondOpinion(cwd, { timeoutMs = 20000 } = {}) {
   return readEvidence(cwd, 'second-opinion', timeoutMs);
 }
+export function readTouches(cwd, { timeoutMs = 20000 } = {}) {
+  return readEvidence(cwd, 'touches', timeoutMs);
+}
 function readEvidence(cwd, mode, timeoutMs) {
   cwd = path.resolve(cwd);
   const key = JSON.stringify([cwd, mode]);
@@ -53,7 +56,9 @@ function readEvidence(cwd, mode, timeoutMs) {
           const value = JSON.parse(out);
           if (!value || !Object.hasOwn(value, 'receipt')) throw Error();
           const evidence = value.receipt;
-          if (mode === 'binding') {
+          if (mode === 'touches') {
+            if (!evidence || !Object.hasOwn(evidence, 'binding') || typeof evidence.tests?.ok !== 'boolean') throw Error();
+          } else if (mode === 'binding') {
             if (evidence !== null && (!evidence?.head || !evidence.files)) throw Error();
           } else {
             const states = mode === 'approval' ? ['no-receipt', 'unreadable', 'differs', 'extended', 'matches'] : ['not-run', 'unmeasured', 'unreadable', 'ok'];

@@ -32,7 +32,8 @@ import { log } from './log.mjs';
 import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, getTasks, getTasksAsync, setTaskStatusInTasksMd, getReadDegradation } from './beads.mjs';
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
-import { issueTokensAsync, checkToken, checkBinding, consumeToken, approvalSnapshot, beginGateDecision } from './gate-tokens.mjs';
+import { issueTokensAsync, checkToken, checkBinding, consumeToken, approvalSnapshot, beginGateDecision, readTokens } from './gate-tokens.mjs';
+import { gateBrief, settle, readVerdictLogs } from '../../../scripts/lib/gate-brief.mjs';
 import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
@@ -63,7 +64,7 @@ import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/li
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
 // without importing a server. Re-exported here: this module's callers are unchanged.
 import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
-import { readApprovalReceipt, readSecondOpinion } from './receipt-read.mjs';
+import { readApprovalReceipt, readSecondOpinion, readTouches } from './receipt-read.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
@@ -923,6 +924,47 @@ async function dispatch(req, res, url, cwd) {
     const approval_tokens = { state: issued.state, ...(issued.why ? { why: issued.why } : {}) };
     res.writeHead(200, verdictHeaders(cwd, { 'Content-Type': 'application/json' }));
     res.end(JSON.stringify({ ...inbox, pending_gates, approval_tokens, elsewhere, second_opinion }));
+    return true;
+  }
+
+  // Gate brief (ADR-036) — one page of what this gate approves.
+  //
+  // A projection over evidence already recorded: the tree the token was issued
+  // for, the change and its tier, reversibility, verdicts, the second model and
+  // what the diff touches. It never approves and never writes. Each source is
+  // read on its own; one that fails makes its section `unknown`, not empty.
+  const briefPath = req.method === 'GET' && pathname.match(/^\/api\/gates\/([^/]+)\/brief$/);
+  if (briefPath) {
+    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const id = decodeURIComponent(briefPath[1]);
+    let inbox;
+    try { inbox = await getInboxAsync(c); }
+    catch {
+      res.writeHead(503, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Task snapshot is unavailable; retry', state: 'unreadable' }));
+      return true;
+    }
+    const gate = (inbox.pending_gates || []).find((g) => g.id === id);
+    if (!gate) {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'not a pending gate', id }));
+      return true;
+    }
+    // Sequential: the evidence reader runs at most two workers at once, and the
+    // inbox poll may hold one.
+    const touches = await settle(readTouches(c));
+    const secondOpinion = await settle(readSecondOpinion(c));
+    const brief = gateBrief({
+      gate,
+      token: readTokens(c).tokens[id] || null,
+      binding: touches.ok ? { ok: true, value: touches.value.binding } : touches,
+      tests: touches.ok ? touches.value.tests : touches,
+      verdictLogs: await settle(() => readVerdictLogs(c)),
+      secondOpinion,
+      tier: await settle(() => getChangeTier(c)),
+    });
+    res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify(brief));
     return true;
   }
 

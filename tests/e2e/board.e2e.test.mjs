@@ -589,6 +589,35 @@ test('a gate is approved through its ritual, and a wrong name approves nothing',
   } finally { await env.close(); }
 });
 
+test('a gate opens its brief, keeps it across a refresh, and the brief writes nothing', { timeout: 120_000 }, async (t) => {
+  const env = await boardUnderTest();
+  if (env.skip) return t.skip(env.skip);
+  try {
+    const { page, errors } = await openBoard(env, '#/decisions');
+    const gate = page.locator('.inbox-row[data-gate-id]').first();
+    await gate.waitFor({ state: 'attached', timeout: 15000 }).catch(() => {});
+    if (await gate.count() === 0) return t.skip('the fixture raised no gate — no brief to open');
+    const writes = [];
+    page.on('request', (r) => { if (!['GET', 'HEAD'].includes(r.method())) writes.push(`${r.method()} ${r.url()}`); });
+    const id = await gate.getAttribute('data-gate-id');
+    await gate.locator('button', { hasText: /^Brief$/ }).click();
+    const brief = page.locator(`.gate-brief[data-gate="${id}"]`);
+    await brief.locator('.brief-sec').first().waitFor({ timeout: 20000 });
+    const text = await brief.innerText();
+    for (const label of ['Tree', 'Change', 'Undo', 'Reviews', 'Second model', 'Touches']) assert.match(text, new RegExp(label), label);
+    // The fixture's verdicts carry no receipt: whatever they say, none of them is
+    // shown as having seen this tree.
+    assert.doesNotMatch(text, /✓ this tree/);
+    await page.evaluate(() => refreshInbox());
+    await page.waitForTimeout(500);
+    assert.equal(await brief.count(), 1, 'an inbox refresh keeps the open brief');
+    await gate.locator('button', { hasText: /^Brief$/ }).click();
+    assert.equal(await brief.count(), 0, 'a second click closes it');
+    assert.deepEqual(writes, [], 'opening a brief sends no write');
+    assert.deepEqual(errors, []);
+  } finally { await env.close(); }
+});
+
 test('the palette opens on its shortcut and finds a screen', { timeout: 120_000 }, async (t) => {
   const env = await boardUnderTest();
   if (env.skip) return t.skip(env.skip);

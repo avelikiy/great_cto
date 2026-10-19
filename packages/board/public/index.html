@@ -2147,6 +2147,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .dot-orange { background: var(--dot-orange); }
 .dot-amber  { background: var(--status-progress); }
 
+.gate-brief { margin: -2px 0 8px 0; padding: 10px 14px; border-left: 3px solid var(--status-gate); background: var(--bg-muted); font-size: var(--fs-small, 12px); display: grid; gap: 4px; }
+.gate-brief .brief-sec { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: baseline; }
+.gate-brief .brief-k { color: var(--text3); }
+.gate-brief .brief-moved { color: var(--status-blocked); margin-bottom: 4px; }
 .inbox-row {
   display: grid;
   grid-template-columns: 110px 1fr auto;
@@ -4735,6 +4739,75 @@ function ageHours(ts) {
   return Number.isFinite(ms) ? ms / 36e5 : null;
 }
 
+// Gate brief (ADR-036) — what this gate approves, on one panel.
+//
+// The inbox row says which gate is waiting; this says what approving it means:
+// whether the tree moved since the token was issued, what changed and its tier,
+// how expensive it is to undo, which reviewers saw THESE bytes, what the second
+// model said, and which parts of the system and which tests the change touches.
+// A section the server could not read says "unknown" — it is never drawn as an
+// empty, reassuring list. The panel stays open across inbox refreshes.
+const OPEN_BRIEFS = new Map();   // gate id → rendered html
+const BRIEF_TONE = { recorded: 'var(--text2)', empty: 'var(--status-blocked)', unknown: 'var(--status-blocked)' };
+function briefList(xs, max = 12) {
+  const shown = (xs || []).slice(0, max).map(esc).join(', ');
+  return (xs || []).length > max ? `${shown} … +${xs.length - max}` : shown;
+}
+function renderGateBrief(d) {
+  if (!d || d.error || !Array.isArray(d.sections)) {
+    return `<div class="muted">Brief unavailable — ${esc((d && (d.error || d.state)) || 'no response')}. This is not the same as nothing to review.</div>`;
+  }
+  const row = (label, s, body) => `<div class="brief-sec"><span class="brief-k">${label}</span>`
+    + `<span class="brief-v" style="color:${BRIEF_TONE[s.state] || 'inherit'}">${s.state === 'unknown' ? `unknown — ${esc(s.why || '')}` : body}</span></div>`;
+  const by = Object.fromEntries(d.sections.map((s) => [s.key, s]));
+  const t = by.tree, c = by.change, r = by.risk, v = by.reviews, o = by.second, x = by.touches;
+  const head = t.moved
+    ? `<div class="brief-moved"><b>The tree moved after this gate was shown</b> — ${[
+        [...(t.changed || []), ...(t.removed || [])].length ? `changed: ${briefList([...(t.changed || []), ...(t.removed || [])])}` : '',
+        (t.added || []).length ? `added: ${briefList(t.added)}` : '',
+      ].filter(Boolean).join('; ')}. Approving now approves bytes nobody on this page has seen.</div>`
+    : '';
+  const reviews = v.state === 'empty'
+    ? 'no reviewer has recorded a verdict — nobody has looked'
+    : (v.verdicts || []).map((x) => `<span class="${x.onThisTree ? '' : 'muted'}" title="${x.onThisTree ? 'recorded over these exact bytes' : 'saw other bytes, or recorded no receipt'}">${esc(x.agent)} ${esc(x.verdict)}${x.onThisTree ? ' ✓ this tree' : ' · other tree'}</span>`).join(' · ')
+      + (v.rejected ? ` · <span style="color:var(--status-blocked)">${v.rejected} unreadable line(s)</span>` : '');
+  const second = o.opinion === 'ok' ? `${esc(o.provider || '')} ${esc(o.verdict || '')}${o.p0 ? ` · P0 ${o.p0}` : ''}` : `${esc(o.opinion || '')}${o.why ? ` — ${esc(o.why)}` : ''}`;
+  const touches = (x.containers || []).map((g) => `<b>${esc(g.name)}</b> ${g.total}`).join(' · ')
+    + (x.tests ? ` · tests: ${x.tests.length ? briefList(x.tests, 6) : 'none mapped'}` : ` · tests unknown — ${esc(x.testsWhy || '')}`)
+    + (x.unmapped?.length ? ` · <span style="color:var(--status-blocked)">${x.unmapped.length} file(s) without a test</span>` : '');
+  return head
+    + row('Tree', t, t.moved ? 'moved' : 'same as when the gate was shown')
+    + row('Change', c, `${c.total} file(s)${c.tier ? ` · tier ${esc(c.tier)}` : ` · tier unknown${c.tierWhy ? ` — ${esc(c.tierWhy)}` : ''}`}${c.files?.length ? `<details><summary class="muted">files</summary>${briefList(c.files, 100)}</details>` : ''}`)
+    + row('Undo', r, `${esc(r.reversibility)}${r.categories?.length ? ` · ${esc(r.categories.join(', '))}` : ''}`)
+    + row('Reviews', v, reviews)
+    + row('Second model', o, second)
+    + row('Touches', x, touches);
+}
+async function toggleGateBrief(id, btn) {
+  const row = btn.closest('.inbox-row');
+  const open = row && row.nextElementSibling;
+  if (open && open.classList.contains('gate-brief') && open.dataset.gate === id) { open.remove(); OPEN_BRIEFS.delete(id); return; }
+  const box = document.createElement('div');
+  box.className = 'gate-brief'; box.dataset.gate = id;
+  box.innerHTML = '<span class="muted">Reading the evidence…</span>';
+  row.after(box);
+  OPEN_BRIEFS.set(id, box.innerHTML);
+  const d = await api(`/api/gates/${encodeURIComponent(id)}/brief${pqs()}`);
+  const html = renderGateBrief(d);
+  OPEN_BRIEFS.set(id, html);
+  for (const el of document.querySelectorAll('.gate-brief')) if (el.dataset.gate === id) el.innerHTML = html;
+}
+function reattachGateBriefs(root) {
+  if (!OPEN_BRIEFS.size || !root) return;
+  for (const row of root.querySelectorAll('.inbox-row[data-gate-id]')) {
+    const id = row.dataset.gateId;
+    if (!OPEN_BRIEFS.has(id)) continue;
+    const box = document.createElement('div');
+    box.className = 'gate-brief'; box.dataset.gate = id; box.innerHTML = OPEN_BRIEFS.get(id);
+    row.after(box);
+  }
+}
+
 function renderInboxList(rootId, items, countId, opts = {}) {
   const root = document.getElementById(rootId);
   const cnt = document.getElementById(countId);
@@ -4843,6 +4916,7 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const guardedGate = canDecide && t.reversibility && t.reversibility.state !== 'routine';
     const actions = canDecide
       ? `<div class="actions${guardedGate ? ' gate-actions-stack' : ''}" onclick="event.stopPropagation()">
+           <button type="button" class="gate-btn" title="What this gate approves: the change, the reviews on this tree, what it touches" onclick="event.stopPropagation(); toggleGateBrief('${esc(t.id)}', this)">Brief</button>
            <button class="gate-btn gate-reject" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'reject')">Reject…</button>
            <button class="gate-btn gate-approve" title="${guardedGate ? 'expensive to undo — you will be asked to type the gate name' : 'one confirm names the consequence'}" onclick="event.stopPropagation(); gateAction('${esc(t.id)}', 'approve')">${guardedGate ? 'Approve…' : 'Approve'}</button>
          </div>`
@@ -4885,13 +4959,14 @@ function renderInboxList(rootId, items, countId, opts = {}) {
       ? `<span class="why why-${tone}">${esc(t.__reason)}</span>`
       : '';
     return `
-      <div class="inbox-row${aged ? ' row-aged' : ''}" tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
+      <div class="inbox-row${aged ? ' row-aged' : ''}"${canDecide ? ` data-gate-id="${esc(t.id)}"` : ''} tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         ${canDecide ? gateChip(t) : `<span class="id">${esc(t.id || '')}</span>`}
         <span class="ttl">${canDecide ? '' : reasonChip}${esc(canDecide ? String(t.title || '').replace(/^gate:[a-z-]+\s*[—–-]?\s*/, '') : t.title)}${desc}<span class="meta">${meta}</span>${tierNote}</span>
         ${canDecide ? reviewerCells(t) : ''}
         ${actions}${unblock}${rerun}${diffBtn}
       </div>`;
   }).join('');
+  reattachGateBriefs(root);
 }
 
 // Sessions waiting on a person (scripts/lib/session-status.mjs). `blocked` is a
