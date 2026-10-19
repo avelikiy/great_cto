@@ -47,6 +47,50 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.65.0 — 2026-10-19
+
+See what a gate approves before you approve it, and let a lesson reach every
+project only with measured evidence.
+
+### What's new
+
+- **Brief** beside every pending gate on the board: whether the tree moved since
+  the gate was shown, the change and its tier, how expensive it is to undo, the
+  latest verdict per reviewer — marked "this tree" only when its receipt matches
+  these bytes — the second opinion, and which parts of the system and which tests
+  the change touches. A source that cannot be read says "unknown"; no verdict at
+  all says "nobody has looked". The brief never approves or writes
+  (`GET /api/gates/<id>/brief`, [ADR-036](docs/adr/ADR-036-gate-brief.md)).
+- **A lesson seen in three projects is now a candidate, not a global decision.**
+  `~/.great_cto/decisions.md`, which every session of every project reads, gets
+  a lesson only with an A/B eval stamp that is not a regression.
+  `lessons-merge.mjs --measure <slug>` prints the cost and stops; `--yes` runs the
+  lesson's eval with and without the lesson and stamps it. One unmeasured lesson
+  can be promoted on purpose with `--no-eval "<why>" --slug <slug>`, logged as
+  `EVAL_BYPASS`. A lesson that names no eval stays in its projects
+  ([ADR-037](docs/adr/ADR-037-lesson-needs-evidence.md)).
+
+### Fixed
+
+- `/crystallize approve` could not read the eval stamp its own stamper writes:
+  a measured **regression** was activated by `--no-eval`, and a measured
+  improvement was blocked as "no evidence". Both formats are read now; tests run
+  the real stamper through the real gate.
+- A lesson could carry its own eval stamp: `lessons-write` now discards one an
+  incoming entry brings, and drops a stamp whose decision was superseded.
+- A `bd` call that ignored its timeout could hold the board's event loop for as
+  long as it liked: synchronous `bd` calls now stop with SIGKILL at the timeout.
+
+### Verification and boundaries
+
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- continuous-learner's eval was updated to the candidate rule and run live:
+  8/8, no skips ($0.31) — the same as before the change. At 8 cases that shows
+  nothing broke; it does not show an improvement.
+- Not in this release: diagrams in the brief, LLM-written summaries, automatic
+  measuring at session end, any change to who may approve a gate.
+
 ## v3.64.0 — 2026-10-16
 
 Focus Fleet on your project's roles without losing the full catalog.
