@@ -1,7 +1,7 @@
 # ADR-037: A lesson reaches every project only with measured evidence
 
 **Date:** 2026-10-19
-Status: Accepted — not implemented yet
+Status: Accepted — implemented
 Deciders: great_cto maintainers
 Extends: [ADR-009](ADR-009-gates-follow-reversibility.md)
 
@@ -63,6 +63,18 @@ project boundary and was left out.
    `results-history.jsonl`.
 3. Not in scope: auto-measuring at session end, changing project-local lessons,
    rewriting existing `decisions.md` entries (they are listed as "unmeasured").
+
+## Found while implementing
+
+- The GP gate this reuses could not read the stamper's own output
+  (`eval_delta: -20.0% (±5.0%, regression)` vs a bare number and
+  `eval_direction`): a measured regression was activatable with `--no-eval`, a
+  measured improvement was blocked. Fixed first, with round-trip tests.
+- `lessons-write.mjs` kept whatever frontmatter an entry brought, so a learner
+  could stamp its own lesson. Incoming stamps are now discarded like `support:`;
+  a superseded decision drops the stamp it no longer matches.
+- A lesson edited by hand in `lessons.md` can still carry a forged stamp — the
+  file is the operator's. The code paths that write lessons cannot.
 
 ## Consequences
 

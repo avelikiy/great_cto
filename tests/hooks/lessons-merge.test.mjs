@@ -1,6 +1,11 @@
 // Tests for scripts/lessons-merge.mjs
 //
 // Run with:  node --test tests/hooks/lessons-merge.test.mjs
+//
+// Since ADR-037 three projects make a lesson a CANDIDATE; promotion also needs
+// a measured eval stamp. The fixtures below carry a measured improvement unless
+// a test says otherwise, so these tests keep pinning the aggregation itself.
+// The evidence rules have their own suite: tests/lib/lesson-promotion.test.mjs.
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -21,13 +26,15 @@ function makeTmpHome() {
   return home;
 }
 
-function makeLesson({ slug, archetype, project }) {
+const MEASURED = 'eval: EVAL-x.md\neval_delta: +20.0% (±5.0%, improvement)\neval_confidence: improvement';
+function makeLesson({ slug, archetype, project, stamp = MEASURED }) {
   return `---
 date: 2026-05-08
 project: ${project}
 archetype: ${archetype}
 confidence: high
 shape: A
+${stamp}
 ---
 
 ## pattern: ${slug}
@@ -66,7 +73,7 @@ test('no projects → exits clean with informative message', () => {
   try {
     const r = run(home);
     assert.equal(r.exit, 0);
-    assert.match(r.stdout, /no patterns met threshold/);
+    assert.match(r.stdout, /nothing to promote/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -78,7 +85,7 @@ test('single occurrence → not promoted', () => {
     writeProject(home, 'proj-a', makeLesson({ slug: 'always-validate-webhook', archetype: 'fintech', project: 'proj-a' }));
     const r = run(home);
     assert.equal(r.exit, 0);
-    assert.match(r.stdout, /no patterns met threshold/);
+    assert.match(r.stdout, /nothing to promote/);
     assert.equal(existsSync(join(home, '.great_cto', 'decisions.md')), false);
   } finally {
     rmSync(home, { recursive: true, force: true });
@@ -92,7 +99,7 @@ test('two occurrences → not promoted (threshold=3)', () => {
     writeProject(home, 'proj-b', makeLesson({ slug: 'always-validate-webhook', archetype: 'fintech', project: 'proj-b' }));
     const r = run(home);
     assert.equal(r.exit, 0);
-    assert.match(r.stdout, /no patterns met threshold/);
+    assert.match(r.stdout, /nothing to promote/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -128,7 +135,7 @@ test('repeat run skips already-promoted slugs', () => {
     run(home);   // first promotion
     const r2 = run(home);  // second run — should be no-op
     assert.equal(r2.exit, 0);
-    assert.match(r2.stdout, /no patterns met threshold/);
+    assert.match(r2.stdout, /nothing to promote/);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }
@@ -180,6 +187,21 @@ test('multiple distinct patterns aggregate independently', () => {
     assert.match(r.stdout, /promoting 1 pattern/);  // only x has 3 projects
     assert.match(r.stdout, /pattern-x/);
     assert.doesNotMatch(r.stdout, /pattern-y \(/);  // y in only 1 project
+  } finally {
+    rmSync(home, { recursive: true, force: true });
+  }
+});
+
+test('three occurrences without a measurement → a candidate, not a promotion', () => {
+  const home = makeTmpHome();
+  try {
+    for (const p of ['proj-a', 'proj-b', 'proj-c']) {
+      writeProject(home, p, makeLesson({ slug: 'unmeasured', archetype: 'fintech', project: p, stamp: 'eval: EVAL-x.md' }));
+    }
+    const r = run(home);
+    assert.equal(r.exit, 0);
+    assert.match(r.stdout, /candidate\s+unmeasured/);
+    assert.equal(existsSync(join(home, '.great_cto', 'decisions.md')), false);
   } finally {
     rmSync(home, { recursive: true, force: true });
   }

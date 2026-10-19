@@ -13,7 +13,9 @@ continuous-learner agent reads transcript + git + verdicts
    ↓
 Extracts ≤3 lessons per session → .great_cto/lessons.md      (PROJECT-LOCAL)
    ↓
-lessons-merge.mjs: pattern in ≥3 projects → ~/.great_cto/decisions.md  (CROSS-PROJECT)
+lessons-merge.mjs: pattern in ≥3 projects → CANDIDATE
+   ↓
+--measure <slug>: A/B on the lesson's eval → stamp → ~/.great_cto/decisions.md  (CROSS-PROJECT, ADR-037)
    ↓
 Next session
    ↓
@@ -106,7 +108,19 @@ node scripts/lessons-merge.mjs --dry-run
 
 # Re-promote even if already in decisions.md
 node scripts/lessons-merge.mjs --force
+
+# Measure a candidate: prints the plan and cost; --yes runs both arms and stamps it
+node scripts/lessons-merge.mjs --measure <slug>
+node scripts/lessons-merge.mjs --measure <slug> --yes
+
+# Promote ONE unmeasured candidate on purpose (logged as EVAL_BYPASS)
+node scripts/lessons-merge.mjs --no-eval "<why>" --slug <slug>
 ```
+
+A candidate is measured against the eval named in its `eval:` frontmatter: the
+eval's agent as is versus the same agent with the lesson appended, one sample per
+case. A measured regression is never promoted; a lesson with no `eval:` stays in
+its projects. Entries promoted before ADR-037 are listed as "unmeasured".
 
 ### Reset
 

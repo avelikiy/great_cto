@@ -45,6 +45,12 @@
 const FIELD_ORDER = ['date', 'session-id', 'archetype', 'project', 'projects', 'support', 'confidence', 'shape', 'occurrences'];
 const CONFIDENCE_RANK = { low: 1, medium: 2, high: 3 };
 
+// An eval stamp decides whether a lesson reaches every project (ADR-037), so
+// only `lessons-merge.mjs --measure` writes one. An incoming entry's stamp is
+// discarded the same way its `support:` is: a lesson cannot vouch for itself.
+const STAMP_KEYS = ['eval_delta', 'eval_confidence', 'eval_direction'];
+const dropStamp = (meta) => { let had = false; for (const k of STAMP_KEYS) if (k in meta) { delete meta[k]; had = true; } return had; };
+
 /**
  * How much this lesson is actually backed by, as opposed to how sure the agent
  * that wrote it felt.
@@ -197,6 +203,11 @@ export function mergeEntry(existing, incoming) {
     meta.projects = projects.join(', ');
   }
 
+  // The eval a lesson is measured against may be declared on a later sighting;
+  // an existing declaration is never replaced, or a stamp would describe a
+  // measurement against a different eval.
+  if (!meta.eval && incoming.meta.eval) { meta.eval = incoming.meta.eval; changed.push(`eval → ${meta.eval}`); }
+
   // `last-seen` is what makes a stale lesson visible. `date` stays the first
   // sighting, because when a pattern STARTED is a different fact from when it
   // was last true, and collapsing them loses the age of the pattern.
@@ -231,6 +242,8 @@ export function mergeEntry(existing, incoming) {
     // decision with no idea one was overturned, and the reason it was overturned
     // is the most valuable thing in the entry.
     conflict = { slug: existing.slug, was: oldDecision, now: newDecision, when };
+    // The stamp measured the old decision. It says nothing about this one.
+    if (dropStamp(meta)) changed.push('eval stamp dropped — the decision it measured was superseded');
   }
 
   // Evidence accumulates: it is the reason to believe the entry, and each
@@ -283,6 +296,7 @@ export function addLesson(lessonsText, incomingText) {
     if (!('occurrences' in incoming.meta)) incoming.meta.occurrences = '1';
     // Whatever the entry claimed about its own support is discarded here.
     incoming.meta.support = computeSupport(incoming.meta, evidenceLines(incoming.body));
+    dropStamp(incoming.meta);
     const next = [...entries, incoming];
     return { text: render(preamble, next), action: 'appended', slug: incoming.slug, conflict: null, changed: ['new pattern'] };
   }

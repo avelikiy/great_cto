@@ -293,3 +293,39 @@ test('nothing tells a reader that a self-rating is evidence', () => {
   assert.doesNotMatch(reader, /higher confidence/i,
     'read-past-lessons.sh still presents cross-project support as "confidence"');
 });
+
+// ── eval evidence (ADR-037) ─────────────────────────────────────────────────
+// A stamp decides whether a lesson reaches every project, so only the measuring
+// command may write one. A learner that wrote `eval_confidence: improvement`
+// into its own entry would be a lesson vouching for itself.
+const withFm = (text, lines) => text.replace(/^shape: A$/m, `shape: A\n${lines}`);
+const STAMP = 'eval_delta: +20.0% (±5.0%, improvement)\neval_confidence: improvement';
+
+test('a new entry cannot bring its own eval stamp; its eval declaration stays', () => {
+  const r = addLesson('', withFm(entry(), `eval: EVAL-x.md\n${STAMP}`));
+  assert.doesNotMatch(r.text, /eval_confidence|eval_delta/);
+  assert.match(r.text, /^eval: EVAL-x\.md$/m);
+});
+
+test('a repeat sighting cannot add a stamp, and does not erase a measured one', () => {
+  const base = addLesson('', withFm(entry(), 'eval: EVAL-x.md')).text;
+  const stamped = base.replace(/^eval: EVAL-x\.md$/m, `eval: EVAL-x.md\n${STAMP}`);
+  const r = addLesson(stamped, entry({ date: '2026-05-09' }));
+  assert.match(r.text, /^eval_confidence: improvement$/m);
+  const forged = addLesson(base, withFm(entry({ date: '2026-05-09' }), STAMP));
+  assert.doesNotMatch(forged.text, /eval_confidence/);
+});
+
+test('a repeat sighting may declare the eval an entry lacked', () => {
+  const base = addLesson('', entry()).text;
+  const r = addLesson(base, withFm(entry({ date: '2026-05-09' }), 'eval: EVAL-x.md'));
+  assert.match(r.text, /^eval: EVAL-x\.md$/m);
+});
+
+test('a reversed decision drops the stamp: the measured text is no longer the text', () => {
+  const base = addLesson('', withFm(entry(), 'eval: EVAL-x.md')).text;
+  const stamped = base.replace(/^eval: EVAL-x\.md$/m, `eval: EVAL-x.md\n${STAMP}`);
+  const r = addLesson(stamped, entry({ date: '2026-05-09', decision: 'Do the opposite.' }));
+  assert.doesNotMatch(r.text, /eval_confidence|eval_delta/);
+  assert.ok(r.changed.some((c) => /stamp/.test(c)), r.changed.join('; '));
+});
