@@ -86,3 +86,37 @@ test('readEvidence on an unstamped pattern yields nothing, which blocks', () => 
   assert.equal(e.delta, null);
   assert.equal(decideApproval(e).ok, false);
 });
+
+// The two halves must speak one format. The tests above hand-wrote a stamp the
+// stamper never produces (`eval_delta: 0.18`, `eval_direction:`); the stamper
+// writes `eval_delta: -20.0% (±5.0%, regression)` and `eval_confidence:`. Read
+// through the real stamp, a measured regression came back as "no evidence" —
+// and `--no-eval` then ACTIVATED it, while a measured improvement was blocked.
+import { stampTrace } from '../scripts/lib/gp-eval-trace.mjs';
+const stamped = (meanDelta, direction) => stampTrace('---\nid: GP-0001\n---\n# p\n',
+  { ke: 'KE-1', commit: 'abc', ts: '2026-10-19T00:00:00Z', delta: { meanDelta, noiseBand: 0.05, direction } });
+
+test('a real stamped regression is read as a regression and never activates, override or not', () => {
+  const e = readEvidence(stamped(-0.2, 'regression'));
+  assert.equal(e.direction, 'regression');
+  assert.equal(e.delta, -0.2);
+  assert.equal(decideApproval(e).ok, false);
+  assert.equal(decideApproval(e, { bypassReason: 'ship it' }).ok, false);
+});
+
+test('a real stamped improvement activates without an override', () => {
+  const e = readEvidence(stamped(0.2, 'improvement'));
+  assert.equal(e.direction, 'improvement');
+  assert.equal(e.delta, 0.2);
+  const v = decideApproval(e);
+  assert.equal(v.ok, true);
+  assert.equal(v.evidence, 'improvement');
+});
+
+test('a real stamped noisy delta activates as noisy, even when its sign is negative', () => {
+  const e = readEvidence(stamped(-0.02, 'noisy'));
+  assert.equal(e.direction, 'noisy');
+  const v = decideApproval(e);
+  assert.equal(v.ok, true);
+  assert.equal(v.evidence, 'noisy');
+});

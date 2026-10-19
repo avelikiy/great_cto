@@ -29,11 +29,26 @@ export function readEvidence(text = '') {
     const m = String(text).match(new RegExp(`^${key}:\\s*(.+)$`, 'm'));
     return m ? m[1].trim() : null;
   };
-  const delta = grab('eval_delta');
+  // Two dialects. `gp-eval-trace.mjs stamp` — the only writer — records
+  // `eval_delta: -20.0% (±5.0%, regression)` and the direction in
+  // `eval_confidence`; a hand-written stamp may use a bare fraction and
+  // `eval_direction`. Reading only the second turned every real stamp into "no
+  // evidence": a measured regression became activatable with --no-eval.
+  const raw = grab('eval_delta');
+  let delta = null;
+  if (raw != null) {
+    const pct = raw.match(/^([+-]?\d+(?:\.\d+)?)%/);
+    const n = pct ? Number(pct[1]) / 100 : Number(raw.split(/\s/)[0]);
+    delta = Number.isFinite(n) ? Math.round(n * 10000) / 10000 : null;
+  }
+  const confidence = grab('eval_confidence');
+  const DIRECTIONS = ['improvement', 'regression', 'noisy'];
+  const fromStamp = DIRECTIONS.includes(String(confidence).toLowerCase()) ? confidence.toLowerCase()
+    : (raw?.match(/\b(improvement|regression|noisy)\)\s*$/) || [])[1] || null;
   return {
-    delta: delta == null ? null : Number(delta),
-    confidence: grab('eval_confidence'),
-    direction: grab('eval_direction'),
+    delta,
+    confidence,
+    direction: grab('eval_direction') || fromStamp,
   };
 }
 
