@@ -28,11 +28,11 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { homedir, tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
 import { aggregate, promotionDecision, candidatePrompt, stampLesson, CANDIDATE_THRESHOLD } from './lib/lesson-promotion.mjs';
 import { computeDelta } from './lib/gp-eval-trace.mjs';
 import { estimateRun, costLine } from './lib/eval-cost-estimate.mjs';
 import { parseResultsJsonl } from './eval-gate.mjs';
+import { runArm, shortHead } from './lib/eval-arm.mjs';
 
 const ROOT           = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOME           = homedir();
@@ -113,16 +113,12 @@ if (MEASURE) {
     const cand = join(work, 'candidate.md');
     writeFileSync(cand, candidatePrompt(readFileSync(agentPath, 'utf8'), sample));
     const arm = (name, extra) => {
-      const out = join(work, `${name}.jsonl`);
-      const r = spawnSync(process.execPath, [runner, '--filter', filter, '--samples', '1', '--out', out, ...extra], { cwd: ROOT, stdio: ['ignore', 'inherit', 'inherit'] });
-      if (r.status !== 0) die(`${name} arm failed (exit ${r.status}) — nothing stamped`, 1);
-      if (!existsSync(out)) die(`${name} arm wrote no results — nothing stamped`, 1);
-      return parseResultsJsonl(readFileSync(out, 'utf8'));
+      try { return parseResultsJsonl(runArm({ runner, root: ROOT, work, name, filter, extra })); }
+      catch (e) { die(e.message, 1); }
     };
     const delta = computeDelta(arm('baseline', []), arm('candidate', ['--prompt-file', cand]), agent);
     if (!delta.perEval.length) die('the two arms share no scored eval — nothing stamped', 1);
-    let commit = null;
-    try { commit = spawnSync('git', ['rev-parse', '--short', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).stdout.trim() || null; } catch { /* unknown */ }
+    const commit = shortHead(ROOT);
     const text = readFileSync(sample.path, 'utf8');
     writeFileSync(sample.path, stampLesson(text, sample.raw, delta, { ts: new Date().toISOString(), commit, ke: `lesson:${MEASURE}` }));
     console.log(`[lessons-merge] ${MEASURE}: Δ ${(delta.meanDelta * 100).toFixed(1)}% (±${(delta.noiseBand * 100).toFixed(1)}%) → ${delta.direction}; stamped in project ${sample.project}`);
