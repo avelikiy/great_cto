@@ -50,6 +50,35 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.67.0 — 2026-10-20
+
+Every review and architecture document carries a picture of what the change
+touches, and the gate brief shows it beside the approve button.
+
+### What's new
+
+- **`## Change map`** in code-reviewer's `REVIEW-*.md` and architect's
+  `ARCH-*.md`: a Mermaid flowchart drawn from the change itself — the files or
+  components it adds or changes, the calls and data flows between them, new
+  components marked. `artifact-lint` rejects a REVIEW or ARCH dated from
+  2026-10-20 without one, or with a diagram that has no edge; earlier
+  documents are not judged by the new rule. REVIEW documents, which nothing
+  checked before, now also need a Findings section.
+- **Change map on the gate brief.** The brief shows the flowchart from the
+  document the latest reviewer or architect verdict points at, marked "this
+  tree" only when that verdict saw these exact bytes. Only paths under `docs/`
+  are read. The board still ships no diagram library: the source is shown as
+  text, which reads as a list of edges and pastes into any Mermaid viewer.
+
+### Verification and boundaries
+
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- Evals run live. code-reviewer-quality: 24/26, the new change-map case passes.
+  architect-gate-compliance (tuning, actor budget 12000): the change-map case
+  fails on the previous card and passes on this one; 4/6 on both, so the
+  missed 5/6 threshold predates this change (case 2, tracked separately).
+
 ## v3.66.0 — 2026-10-20
 
 A lesson says which part of the harness it changes, and a skill lesson is
