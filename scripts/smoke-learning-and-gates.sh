@@ -1,14 +1,17 @@
 #!/usr/bin/env bash
 # Smoke-check the 3.65–3.67 changes against an INSTALLED great_cto, in a sandbox.
+# Default plugin: the newest great_cto version found in any marketplace cache.
 #
-#   bash scripts/smoke-learning-and-gates.sh                 # newest installed plugin
+#   bash scripts/smoke-learning-and-gates.sh                 # newest installed plugin, any marketplace
 #   bash scripts/smoke-learning-and-gates.sh <plugin-dir>    # a specific one
 #
 # HOME is redirected to a temp directory: the operator's ~/.great_cto is never
 # read or written. Every check prints PASS/FAIL with the fact it saw; the script
 # exits 1 if any check failed. No network, no model calls, no money.
 set -u
-PL="${1:-$(ls -d "$HOME"/.claude/plugins/cache/local/great_cto/*/ 2>/dev/null | sort -V | tail -1)}"
+# Newest installed version across every marketplace: sort by the version
+# directory, not the full path (a marketplace name would otherwise pick it).
+PL="${1:-$(ls -d "$HOME"/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)}"
 PL="${PL%/}"
 [ -f "$PL/scripts/lessons-merge.mjs" ] || { echo "no great_cto plugin at '$PL'"; exit 2; }
 SB=$(mktemp -d "${TMPDIR:-/tmp}/gcto-smoke.XXXXXX")
