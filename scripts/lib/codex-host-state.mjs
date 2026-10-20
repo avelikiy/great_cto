@@ -52,17 +52,26 @@ export function projectCodexState(state) {
 export function listCodexRuns({ root = null, store = codexRunStore() } = {}) {
   let canonicalRoot = null;
   if (root) canonicalRoot = realpathSync(root);
-  if (!existsSync(store)) return { state: 'absent', runs: [], unreadable: 0 };
-  const runs = []; let unreadable = 0;
+  if (!existsSync(store)) return { state: 'absent', runs: [], unreadable: 0, orphaned: 0 };
+  const runs = []; let unreadable = 0; let orphaned = 0;
   for (const name of readdirSync(store).filter(name => /^[0-9a-f-]{36}\.json$/.test(name)).sort()) {
     try {
       const state = JSON.parse(readFileSync(join(store, name), 'utf8'));
       if (state.id !== name.slice(0, -5) || state.version !== 1 || typeof state.root !== 'string') { unreadable += 1; continue; }
-      if (canonicalRoot && realpathSync(state.root) !== canonicalRoot) continue;
+      if (canonicalRoot) {
+        // A run whose project directory was deleted was read fine — it belongs
+        // to no project that exists, so it is not this one. Calling it
+        // unreadable told every board "membership is unknown" for test runs
+        // from /tmp removed weeks earlier.
+        let runRoot;
+        try { runRoot = realpathSync(state.root); }
+        catch (error) { if (error.code === 'ENOENT') { orphaned += 1; continue; } throw error; }
+        if (runRoot !== canonicalRoot) continue;
+      }
       runs.push(projectCodexState(state));
     } catch { unreadable += 1; }
   }
-  return { state: unreadable ? 'degraded' : 'ok', runs: runs.reverse(), unreadable };
+  return { state: unreadable ? 'degraded' : 'ok', runs: runs.reverse(), unreadable, orphaned };
 }
 
 const commandStatus = (bin, args, run = spawnSync) => {

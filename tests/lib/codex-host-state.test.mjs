@@ -97,3 +97,32 @@ test('actual CLI status reads telemetry aggregates without dispatch or approval 
   assert.equal(result.status, 'ready');
   assert.equal(readFileSync(path, 'utf8'), raw, 'read-only status leaves state bytes unchanged');
 });
+
+// A run whose project directory was deleted is READ fine; it just belongs to no
+// project that exists. Counting it as unreadable put "project membership is
+// unknown" on every board for four test runs from /tmp, deleted weeks earlier.
+test('a run whose root no longer exists is orphaned, not unreadable, and not this project', async () => {
+  const { mkdtempSync, mkdirSync: mk, writeFileSync: wf, rmSync: rm } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join: j } = await import('node:path');
+  const { listCodexRuns } = await import('../../scripts/lib/codex-host-state.mjs');
+  const base = mkdtempSync(j(tmpdir(), 'codex-orphan-'));
+  try {
+    const store = j(base, 'runs'); mk(store);
+    const here = j(base, 'here'); mk(here);
+    const gone = j(base, 'gone');
+    const id = (n) => `0000000${n}-0000-0000-0000-000000000000`;
+    wf(j(store, `${id(1)}.json`), JSON.stringify({ id: id(1), version: 1, root: here, status: 'done' }));
+    wf(j(store, `${id(2)}.json`), JSON.stringify({ id: id(2), version: 1, root: gone, status: 'done' }));
+    wf(j(store, `${id(3)}.json`), '{not json');
+    const r = listCodexRuns({ root: here, store });
+    assert.equal(r.runs.length, 1);
+    assert.equal(r.orphaned, 1, 'the deleted-root run is counted as orphaned');
+    assert.equal(r.unreadable, 1, 'only the corrupt file is unreadable');
+    assert.equal(r.state, 'degraded', 'a corrupt file still degrades the read');
+    rm(j(store, `${id(3)}.json`));
+    const clean = listCodexRuns({ root: here, store });
+    assert.equal(clean.state, 'ok', 'an orphaned run alone does not degrade the read');
+    assert.equal(clean.unreadable, 0);
+  } finally { rm(base, { recursive: true, force: true }); }
+});
