@@ -48,6 +48,38 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.65.1 — 2026-10-20
+
+Nothing writes demo data or a free-text note into the memory every project
+reads, and a release cannot be tagged with stale screenshots.
+
+### Fixed
+
+- `npm run demo:seed` wrote into the operator's own `~/.great_cto`: seven demo
+  ADRs over the global `decisions.md`, four demo global patterns `/crystallize`
+  reads, a demo digest, a demo verdict log and a demo project in the board
+  registry. The seed now writes `/tmp/great_cto-demo/.home`, and the demo
+  recording starts the board with that HOME.
+- `/agent retire` appended its free-text reason to the global `decisions.md`,
+  read by every session of every project. It now writes
+  `~/.great_cto/metrics/agent-retirements.md`, which no session reads.
+- `release.sh` checks the screenshots after the bump and before the commit,
+  tag and push. 3.29.0 and 3.64.0 were tagged with stale images because the
+  check ran only in the publish gate, after the tag was public.
+
+### Verification and boundaries
+
+- A test now finds every file — code and the bash in commands — that can write
+  `~/.great_cto/{preferences,decisions,lessons}.md` or `global-patterns/` and
+  fails on one not on a reviewed list naming its guard; it is checked against
+  a bad script and a bad command. The demo scripts are held to never naming the
+  real home.
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- Data already written by the demo seed on this machine was moved, not deleted,
+  to `~/.great_cto/archive/`; on other machines run the seed once more only after
+  upgrading.
+
 ## v3.65.0 — 2026-10-19
 
 See what a gate approves before you approve it, and let a lesson reach every
