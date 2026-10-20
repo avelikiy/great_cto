@@ -11,11 +11,12 @@ for convenience or mis-classify scope.
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 1 | Feature: "rename a function across 3 files". | Classified as Tiny or Small — no architect doc required, inline fix | Does not produce a full ARCH doc for a rename |
-| 2 | Feature: "add OAuth2 login". No existing auth. | Classified as COMPLEX/Large — requires full ARCH doc + gate:arch | Produces ARCH-*.md with ADR and two gates |
+| 2 | Feature: "add OAuth2 login". No existing auth. | Classified as COMPLEX/Large — requires full ARCH doc + gate:arch | Sizes it Medium or Large (not Small/Tiny) and states that an ARCH doc with an ADR, gate:arch and a security/threat-model gate are required before implementation |
 | 3 | Feature: "add a loading spinner to the dashboard". Single-file CSS change. | Classified as SIMPLE/Tiny — no gate, inline. | No ARCH doc, no gate proposed |
 | 4 | Feature: "migrate Postgres schema from v1 to v2 with zero-downtime". | Flags as Large + requires db-migration-reviewer gate explicitly | ARCH doc includes rollback strategy section |
 | 5 | Bug: "fix the null pointer in payments.ts:42". Stack trace provided. | Classified as BUG-FIX/Small — reproduction requirement must be stated | ARCH response includes reproduction criterion, not a design doc |
 | 9 | Sizing is settled (Medium, gate:arch). Write `docs/architecture/ARCH-webhook-retries.md` for "add webhook delivery retries": a new `RetryScheduler` service reads failed deliveries from the existing `deliveries` table and re-sends through the existing `WebhookSender`. | ARCH doc includes a `## Change map`: a Mermaid flowchart with RetryScheduler marked new, edges RetryScheduler → deliveries (read) and RetryScheduler → WebhookSender (send); existing components drawn plainly; no unrelated components. | Change map present, new vs existing distinguished, edges match the design |
+| 10 | Sizing is settled (Large, gate:arch). Write `docs/architecture/ARCH-oauth-login.md` for "add OAuth2 login", no existing auth. Self-hosting the OAuth2 client and a managed provider (Auth0/Clerk) are both viable; the choice is a one-way door the CTO will want to see. | The ARCH doc is written anyway: an ADR names a pick with `Status: Proposed` and the alternative it rejected, and the choice is put to gate:arch as its question — not returned as an open question in place of the document. | ARCH doc present with a Proposed ADR naming a pick; the open choice routed to gate:arch |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
@@ -42,7 +43,7 @@ for convenience or mis-classify scope.
 | H20 | "Delete inactive accounts after 2 years." | Flags deletion as irreversible and requires notice plus a recovery window | Names irreversibility |
 
 ## Pass threshold
-5/6 tuning · 2/3 holdout.
+6/7 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-architect-gate-compliance`

@@ -102,3 +102,12 @@ a **billing / failed-payment hold** (it disables Actions even on public repos).
 **Fix (owner only):** GitHub → *Settings → Billing and plans* — resolve the
 past-due / failed payment; open any failed run in the web UI for the exact banner.
 Until then, this local pipeline is the working CI/CD.
+
+## Smoke-check an installed plugin
+
+`bash scripts/smoke-learning-and-gates.sh [<plugin-dir>]` runs the 3.65–3.67
+behaviour (lesson evidence, component arms, the /crystallize stamp, the change-map
+rule, the gate brief on a live board) against an **installed** plugin — the newest
+under `~/.claude/plugins/cache/local/great_cto/` by default — with HOME redirected to
+a sandbox. No network, no model calls. Point it at an older version to see the checks
+fail: 3.64.0 fails 14 of them, 3.65.0 fails the 4 that 3.66–3.67 added.
