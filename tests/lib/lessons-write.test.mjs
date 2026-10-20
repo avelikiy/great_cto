@@ -329,3 +329,18 @@ test('a reversed decision drops the stamp: the measured text is no longer the te
   assert.doesNotMatch(r.text, /eval_confidence|eval_delta/);
   assert.ok(r.changed.some((c) => /stamp/.test(c)), r.changed.join('; '));
 });
+
+// ── component (ADR-038) ─────────────────────────────────────────────────────
+test('a known component is kept; an unknown one is dropped with a note', () => {
+  assert.match(addLesson('', withFm(entry(), 'component: skill')).text, /^component: skill$/m);
+  const r = addLesson('', withFm(entry(), 'component: vibes'));
+  assert.doesNotMatch(r.text, /^component:/m);
+  assert.ok(r.changed.some((c) => /component/.test(c)), r.changed.join('; '));
+});
+
+test('a repeat sighting fills a missing component but never replaces one', () => {
+  const base = addLesson('', entry()).text;
+  assert.match(addLesson(base, withFm(entry({ date: '2026-05-09' }), 'component: tool')).text, /^component: tool$/m);
+  const set = addLesson('', withFm(entry(), 'component: prompt')).text;
+  assert.match(addLesson(set, withFm(entry({ date: '2026-05-09' }), 'component: skill')).text, /^component: prompt$/m);
+});

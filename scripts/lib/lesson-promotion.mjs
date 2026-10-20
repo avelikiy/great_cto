@@ -97,12 +97,51 @@ export function candidatePrompt(agentPrompt, entry) {
 }
 
 /** Stamp one entry of a lessons.md file and leave every other entry untouched. */
-export function stampLesson(fileText, entryRaw, delta, { ts, commit = null, ke = null } = {}) {
+export function stampLesson(fileText, entryRaw, delta, { ts, commit = null, ke = null, hint = null } = {}) {
   const text = String(fileText);
   const at = text.indexOf(entryRaw);
   if (at < 0) throw new Error('the lesson entry is no longer in its file — re-read and retry');
   // stampTrace inserts frontmatter keys after the FIRST `---\n` of its input,
   // which inside one entry is the entry's own opening fence.
-  const stamped = stampTrace(entryRaw.endsWith('\n') ? entryRaw : `${entryRaw}\n`, { ke, commit, delta, ts }).replace(/\s*$/, '');
+  let stamped = stampTrace(entryRaw.endsWith('\n') ? entryRaw : `${entryRaw}\n`, { ke, commit, delta, ts }).replace(/\s*$/, '');
+  // The control arm's delta, beside the full one (ADR-038).
+  if (hint) {
+    const pct = (n) => `${n >= 0 ? '+' : ''}${(n * 100).toFixed(1)}%`;
+    const line = `eval_delta_hint: ${pct(hint.meanDelta)} (±${(hint.noiseBand * 100).toFixed(1)}%, ${hint.direction})`;
+    stamped = /^eval_delta_hint:.*$/m.test(stamped) ? stamped.replace(/^eval_delta_hint:.*$/m, line) : stamped.replace(/^---\n/, `---\n${line}\n`);
+  }
   return text.slice(0, at) + stamped + text.slice(at + entryRaw.length);
+}
+
+// ── component and control arm (ADR-038) ──────────────────────────────────────
+
+/**
+ * Which arms a lesson's A/B needs, chosen by the part of the harness it changes.
+ * A skill lesson gets a control: the hint alone, so an effect is not credited to
+ * the skill when the hint caused it — or shipped as a hint when the hint hurts.
+ * @returns {{component:string|null, arms:string[], changes:string|null, refuse?:string}}
+ */
+export function measurePlan(agg) {
+  const pick = (k) => agg.samples.map((s) => s.fm[k]).find(Boolean) || null;
+  const component = (pick('component') || '').toLowerCase() || null;
+  const changes = pick('changes');
+  const base = { component, changes, arms: [] };
+  if (!component) return { ...base, refuse: 'declares no `component:` (prompt, constraint, skill, tool, memory) — the arms of its A/B cannot be chosen' };
+  if (component === 'tool') return { ...base, refuse: 'changes a tool — a prompt A/B cannot measure a tool the actor does not have; it stays in its projects' };
+  if (component === 'skill') {
+    if (!changes) return { ...base, refuse: 'is a skill lesson naming no skill — add `changes: skills/<name>/SKILL.md`' };
+    return { ...base, arms: ['baseline', 'hint', 'full'] };
+  }
+  return { ...base, arms: ['baseline', 'lesson'] };
+}
+
+/** System prompts per arm. `baseline` is null: the runner uses the agent as is. */
+export function armPrompts(agentPrompt, entry, skillText = null) {
+  const hint = candidatePrompt(agentPrompt, entry);
+  return {
+    baseline: null,
+    lesson: hint,
+    hint,
+    full: skillText == null ? null : `${hint}\n## Skill the lesson changes\n\n${String(skillText).trim()}\n`,
+  };
 }

@@ -49,6 +49,10 @@ const CONFIDENCE_RANK = { low: 1, medium: 2, high: 3 };
 // only `lessons-merge.mjs --measure` writes one. An incoming entry's stamp is
 // discarded the same way its `support:` is: a lesson cannot vouch for itself.
 const STAMP_KEYS = ['eval_delta', 'eval_confidence', 'eval_direction'];
+// What part of the harness a lesson changes (ADR-038). The arms of its A/B are
+// chosen by it, so an unknown value is dropped rather than guessed at.
+export const COMPONENTS = ['prompt', 'constraint', 'skill', 'tool', 'memory'];
+const COMPONENT_SET = new Set(COMPONENTS);
 const dropStamp = (meta) => { let had = false; for (const k of STAMP_KEYS) if (k in meta) { delete meta[k]; had = true; } return had; };
 
 /**
@@ -207,6 +211,10 @@ export function mergeEntry(existing, incoming) {
   // an existing declaration is never replaced, or a stamp would describe a
   // measurement against a different eval.
   if (!meta.eval && incoming.meta.eval) { meta.eval = incoming.meta.eval; changed.push(`eval → ${meta.eval}`); }
+  // Same rule for the component: a stamp measured one, so it is never replaced.
+  if (!meta.component && COMPONENT_SET.has(String(incoming.meta.component || '').toLowerCase())) {
+    meta.component = incoming.meta.component.toLowerCase(); changed.push(`component → ${meta.component}`);
+  }
 
   // `last-seen` is what makes a stale lesson visible. `date` stays the first
   // sighting, because when a pattern STARTED is a different fact from when it
@@ -297,8 +305,14 @@ export function addLesson(lessonsText, incomingText) {
     // Whatever the entry claimed about its own support is discarded here.
     incoming.meta.support = computeSupport(incoming.meta, evidenceLines(incoming.body));
     dropStamp(incoming.meta);
+    const notes = ['new pattern'];
+    if ('component' in incoming.meta) {
+      const c = String(incoming.meta.component).toLowerCase();
+      if (COMPONENT_SET.has(c)) incoming.meta.component = c;
+      else { delete incoming.meta.component; notes.push(`component "${c}" unknown — dropped (one of ${COMPONENTS.join(', ')})`); }
+    }
     const next = [...entries, incoming];
-    return { text: render(preamble, next), action: 'appended', slug: incoming.slug, conflict: null, changed: ['new pattern'] };
+    return { text: render(preamble, next), action: 'appended', slug: incoming.slug, conflict: null, changed: notes };
   }
 
   const { entry, changed, conflict } = mergeEntry(entries[idx], incoming);

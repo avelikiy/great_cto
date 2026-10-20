@@ -122,6 +122,13 @@ eval's agent as is versus the same agent with the lesson appended, one sample pe
 case. A measured regression is never promoted; a lesson with no `eval:` stays in
 its projects. Entries promoted before ADR-037 are listed as "unmeasured".
 
+The arms follow the lesson's `component:` (ADR-038): `prompt`, `constraint` and
+`memory` run baseline vs lesson; `skill` adds a control arm — the hint alone —
+beside hint + the skill text named in `changes:`, and the stamp records both
+deltas. When the hint alone regresses, the promoted entry says so: the skill
+helps, the hint as advice does not. `tool` lessons are not measured by a prompt
+A/B and stay in their projects. A lesson with no component is refused.
+
 ### Reset
 
 ```bash

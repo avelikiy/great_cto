@@ -193,6 +193,8 @@ project: <basename of cwd>
 confidence: medium|high     # YOUR OWN rating. Never authoritative — see below
 shape: A|B|C|D|E
 eval: EVAL-<name>.md        # optional — the eval whose agent this lesson changes
+component: prompt|constraint|skill|tool|memory   # what part of the harness it changes (ADR-038)
+changes: skills/<name>/SKILL.md   # only for component: skill — the skill it changes
 ---
 
 **Two axes, and only one of them is earned.** `support:` is written by
@@ -249,7 +251,9 @@ a regression — measured by `node "$_LM" --measure <slug>` (prints the cost;
 `--yes` spends it), which runs the lesson's `eval:` with and without the lesson.
 A lesson with no `eval:` stays in its projects. Never write `eval_delta:` or
 `eval_confidence:` yourself: `lessons-write.mjs` discards them, and a lesson
-cannot vouch for itself. Do not run `--measure` or `--no-eval` on your own — they
+cannot vouch for itself. Name the `component:` — a lesson without one cannot be
+measured; a `skill` lesson is measured against a control arm (the hint alone), so
+say which skill it changes. Do not run `--measure` or `--no-eval` on your own — they
 spend money or bypass evidence, and that is the operator's call.
 
 Flags: `--dry-run` previews without writing, `--force` re-promotes a slug already

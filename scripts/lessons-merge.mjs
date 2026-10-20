@@ -28,7 +28,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync, readdirSync, statSy
 import { homedir, tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { aggregate, promotionDecision, candidatePrompt, stampLesson, CANDIDATE_THRESHOLD } from './lib/lesson-promotion.mjs';
+import { aggregate, promotionDecision, measurePlan, armPrompts, stampLesson, CANDIDATE_THRESHOLD } from './lib/lesson-promotion.mjs';
 import { computeDelta } from './lib/gp-eval-trace.mjs';
 import { estimateRun, costLine } from './lib/eval-cost-estimate.mjs';
 import { parseResultsJsonl } from './eval-gate.mjs';
@@ -88,6 +88,16 @@ if (MEASURE) {
   if (!agent) die(`${evalName} binds no agent (\`> Agent:\`) — a lesson cannot be A/B-tested against it`);
   const agentPath = join(ROOT, 'agents', `${agent}.md`);
   if (!existsSync(agentPath)) die(`agents/${agent}.md not found`);
+  // The arms follow what the lesson changes (ADR-038). Refuse before pricing:
+  // an unlabelled lesson cannot be measured, so nothing should look about to run.
+  const plan = measurePlan(agg);
+  if (plan.refuse) die(`lesson "${MEASURE}" ${plan.refuse}`);
+  let skillText = null;
+  if (plan.changes) {
+    const skillPath = join(ROOT, plan.changes);
+    if (!existsSync(skillPath)) die(`lesson "${MEASURE}" changes ${plan.changes}, which is not in this checkout`);
+    skillText = readFileSync(skillPath, 'utf8');
+  }
   const runner = process.env.GREAT_CTO_EVAL_RUNNER || join(ROOT, 'tests', 'eval', 'runner.mjs');
   const filter = evalName.replace(/\.md$/, '');
 
@@ -99,8 +109,8 @@ if (MEASURE) {
       try { const o = JSON.parse(line); if (o?.eval) rows.push({ eval: o.eval, split: o.split ?? null, samples: Number(o.samples) || 1, costUsd: o.costUsd }); } catch { /* skip */ }
     }
   }
-  const est = estimateRun({ rows, split: null, samples: 1, evals: 2 });
-  console.log(`[lessons-merge] measure ${MEASURE} against ${evalName} (agent ${agent}), 1 sample per case, 2 arms`);
+  const est = estimateRun({ rows, split: null, samples: 1, evals: plan.arms.length });
+  console.log(`[lessons-merge] measure ${MEASURE} (${plan.component}) against ${evalName} (agent ${agent}), 1 sample per case, arms: ${plan.arms.join(' · ')}`);
   console.log(`  ${costLine(est)}`);
   if (!YES) {
     console.log('  nothing was run. To spend it and stamp the lesson:');
@@ -110,18 +120,30 @@ if (MEASURE) {
 
   const work = mkdtempSync(join(tmpdir(), 'lesson-ab-'));
   try {
-    const cand = join(work, 'candidate.md');
-    writeFileSync(cand, candidatePrompt(readFileSync(agentPath, 'utf8'), sample));
-    const arm = (name, extra) => {
+    const prompts = armPrompts(readFileSync(agentPath, 'utf8'), sample, skillText);
+    const arm = (name) => {
+      let extra = [];
+      if (prompts[name]) {
+        const file = join(work, name + '.md');
+        writeFileSync(file, prompts[name]);
+        extra = ['--prompt-file', file];
+      }
       try { return parseResultsJsonl(runArm({ runner, root: ROOT, work, name, filter, extra })); }
       catch (e) { die(e.message, 1); }
     };
-    const delta = computeDelta(arm('baseline', []), arm('candidate', ['--prompt-file', cand]), agent);
-    if (!delta.perEval.length) die('the two arms share no scored eval — nothing stamped', 1);
-    const commit = shortHead(ROOT);
+    const results = Object.fromEntries(plan.arms.map((name) => [name, arm(name)]));
+    const treated = plan.arms.includes('full') ? 'full' : 'lesson';
+    const delta = computeDelta(results.baseline, results[treated], agent);
+    if (!delta.perEval.length) die('the arms share no scored eval — nothing stamped', 1);
+    const hint = plan.arms.includes('hint') ? computeDelta(results.baseline, results.hint, agent) : null;
+    const pct = (d) => `${(d.meanDelta * 100).toFixed(1)}% (±${(d.noiseBand * 100).toFixed(1)}%) → ${d.direction}`;
     const text = readFileSync(sample.path, 'utf8');
-    writeFileSync(sample.path, stampLesson(text, sample.raw, delta, { ts: new Date().toISOString(), commit, ke: `lesson:${MEASURE}` }));
-    console.log(`[lessons-merge] ${MEASURE}: Δ ${(delta.meanDelta * 100).toFixed(1)}% (±${(delta.noiseBand * 100).toFixed(1)}%) → ${delta.direction}; stamped in project ${sample.project}`);
+    writeFileSync(sample.path, stampLesson(text, sample.raw, delta, { ts: new Date().toISOString(), commit: shortHead(ROOT), ke: `lesson:${MEASURE}`, hint }));
+    console.log(`[lessons-merge] ${MEASURE}: ${treated} Δ ${pct(delta)}; stamped in project ${sample.project}`);
+    if (hint) {
+      console.log(`  hint alone Δ ${pct(hint)}`);
+      if (hint.direction === 'regression') console.log('  the hint alone is a regression — promote the skill, never the hint as advice');
+    }
     process.exit(0);
   } finally { rmSync(work, { recursive: true, force: true }); }
 }
@@ -165,7 +187,11 @@ function consolidate(d, agg) {
   const priority = archetypes.length >= 3 ? 'high' : 'medium';
   const stamp = d.bypassed
     ? [`promotion: bypassed — ${String(NO_EVAL).trim()}`]
-    : [`eval: ${d.evalName || sample.fm.eval || '?'}`, `eval_delta: ${sample.fm.eval_delta || '?'}`, `eval_confidence: ${sample.fm.eval_confidence || d.evidence}`];
+    : [`eval: ${d.evalName || sample.fm.eval || '?'}`, `eval_delta: ${sample.fm.eval_delta || '?'}`, `eval_confidence: ${sample.fm.eval_confidence || d.evidence}`,
+       ...(sample.fm.eval_delta_hint ? [`eval_delta_hint: ${sample.fm.eval_delta_hint}`] : [])];
+  const component = agg.samples.map((s) => s.fm.component).find(Boolean);
+  const changes = agg.samples.map((s) => s.fm.changes).find(Boolean);
+  const hintHurt = /regression\)\s*$/.test(sample.fm.eval_delta_hint || '');
   return [
     '---',
     `promoted: ${today}`,
@@ -173,6 +199,8 @@ function consolidate(d, agg) {
     `projects: [${projects.map((p) => `"${p}"`).join(', ')}]`,
     `archetypes: [${archetypes.map((a) => `"${a}"`).join(', ')}]`,
     `skill-candidate-priority: ${priority}`,
+    ...(component ? [`component: ${component}`] : []),
+    ...(changes ? [`changes: ${changes}`] : []),
     ...stamp,
     '---',
     '',
@@ -180,6 +208,7 @@ function consolidate(d, agg) {
     '',
     `**Cross-project lesson** — observed in ${agg.projects.size} project(s), ${archetypes.length} archetype(s); ${d.bypassed ? 'promoted WITHOUT measurement by an explicit, logged decision' : `measured: ${d.evidence}`}.`,
     '',
+    ...(hintHurt ? [`**The hint alone made it worse** in the control arm — what helps is ${changes || 'the skill'} itself; do not apply this lesson as advice without it.`, ''] : []),
     sample.raw.replace(/^---[\s\S]*?\n---\s*\n/, '').replace(/^##\s+pattern:[^\n]*\n/m, '').trim(),
     '',
   ].join('\n');

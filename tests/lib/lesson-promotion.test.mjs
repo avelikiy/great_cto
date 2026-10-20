@@ -127,7 +127,7 @@ test('CLI: --no-eval needs --slug, writes that one lesson, and leaves an audit l
 });
 
 test('CLI: --measure without --yes prints the plan and spends nothing', () => {
-  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md'));
+  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md\ncomponent: prompt'));
   const marker = path.join(h, 'runner-called');
   const stub = path.join(h, 'stub-runner.mjs');
   fs.writeFileSync(stub, `import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(marker)}, '1');`);
@@ -139,7 +139,7 @@ test('CLI: --measure without --yes prints the plan and spends nothing', () => {
 });
 
 test('CLI: --measure --yes runs both arms, stamps the lesson where it lives', () => {
-  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md'));
+  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md\ncomponent: prompt'));
   // A stub runner: the candidate arm (with --prompt-file) scores higher.
   const stub = path.join(h, 'stub-runner.mjs');
   fs.writeFileSync(stub, `
@@ -157,4 +157,61 @@ test('CLI: --measure --yes runs both arms, stamps the lesson where it lives', ()
   // And the next merge promotes it.
   assert.equal(run(h, []).status, 0);
   assert.match(decisions(h), /## pattern: retry-once/);
+});
+
+// ── component and control arm (ADR-038) ─────────────────────────────────────
+import { measurePlan, armPrompts } from '../../scripts/lib/lesson-promotion.mjs';
+const one = (extra) => aggregate([{ project: 'p0', path: '/x', text: lesson('retry-once', 'p0', extra) }]).get('retry-once');
+
+test('arms follow the component', () => {
+  assert.deepEqual(measurePlan(one('eval: EVAL-x.md\ncomponent: prompt')).arms, ['baseline', 'lesson']);
+  assert.deepEqual(measurePlan(one('eval: EVAL-x.md\ncomponent: constraint')).arms, ['baseline', 'lesson']);
+  assert.deepEqual(measurePlan(one('eval: EVAL-x.md\ncomponent: skill\nchanges: skills/x/SKILL.md')).arms, ['baseline', 'hint', 'full']);
+});
+
+test('a tool lesson, a skill lesson naming no skill, and an unlabelled lesson are refused with the reason', () => {
+  assert.match(measurePlan(one('eval: EVAL-x.md\ncomponent: tool')).refuse, /tool/);
+  assert.match(measurePlan(one('eval: EVAL-x.md\ncomponent: skill')).refuse, /changes:/);
+  assert.match(measurePlan(one('eval: EVAL-x.md')).refuse, /component:/);
+});
+
+test('the hint arm is the lesson alone; the full arm adds the skill text after it', () => {
+  const e = parseLessons(lesson('retry-once', 'p0'))[0];
+  const p = armPrompts('# Agent\n', e, 'SKILL-BODY-MARKER');
+  assert.equal(p.baseline, null);
+  assert.match(p.hint, /retry the flaky step once/);
+  assert.doesNotMatch(p.hint, /SKILL-BODY-MARKER/);
+  assert.match(p.full, /retry the flaky step once[\s\S]*SKILL-BODY-MARKER/);
+});
+
+test('CLI: a skill lesson whose hint alone hurts is promoted with the skill and says the hint hurts', () => {
+  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md\ncomponent: skill\nchanges: skills/great_cto/SKILL.md'));
+  const stub = path.join(h, 'stub-runner.mjs');
+  fs.writeFileSync(stub, `
+    import fs from 'node:fs';
+    const a = process.argv; const out = a[a.indexOf('--out') + 1];
+    let rate = 0.5;
+    if (a.includes('--prompt-file')) {
+      const p = fs.readFileSync(a[a.indexOf('--prompt-file') + 1], 'utf8');
+      rate = /name: great_cto/.test(p) ? 0.9 : 0.2;   // the skill file's frontmatter marks the full arm
+    }
+    fs.writeFileSync(out, JSON.stringify({ eval: 'EVAL-continuous-learner-extraction.md', agent: 'continuous-learner', rate, stddev: 0.05 }) + '\\n');
+  `);
+  const r = run(h, ['--measure', 'retry-once', '--yes'], { GREAT_CTO_EVAL_RUNNER: stub });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /hint alone.*regression/i);
+  const stamped = fs.readFileSync(path.join(h, '.great_cto', 'projects', 'p0', 'lessons.md'), 'utf8');
+  assert.match(stamped, /^eval_confidence: improvement$/m);
+  assert.match(stamped, /^eval_delta_hint: -30\.0%/m);
+  assert.equal(run(h, []).status, 0);
+  const d = decisions(h);
+  assert.match(d, /^component: skill$/m);
+  assert.match(d, /hint alone made it worse/i);
+});
+
+test('CLI: --measure refuses an unlabelled lesson before spending anything', () => {
+  const h = home((i) => lesson('retry-once', `p${i}`, 'eval: EVAL-continuous-learner-extraction.md'));
+  const r = run(h, ['--measure', 'retry-once', '--yes'], { GREAT_CTO_EVAL_RUNNER: '/nonexistent' });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /component:/);
 });
