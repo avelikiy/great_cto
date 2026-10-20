@@ -28,6 +28,8 @@ const ROOT = resolve(import.meta.dirname || new URL(".", import.meta.url).pathna
 const OUT_DIR = join(ROOT, "site", "assets");
 const VIDEO_DIR = join(ROOT, "tmp", "demo-video");
 const PORT = 4242;
+// The sandbox HOME seed-demo writes its global layer into (see seed-demo.mjs).
+const DEMO_HOME = "/tmp/great_cto-demo/.home";
 const BOARD_URL = `http://localhost:${PORT}/?project=great_cto-demo`;
 
 mkdirSync(OUT_DIR, { recursive: true });
@@ -38,7 +40,7 @@ console.log(`[record-demo] booting board on :${PORT}`);
 const boardProc = spawn(
   "node",
   [join(ROOT, "packages/cli/dist/main.js"), "board", "--port", String(PORT), "--no-open"],
-  { stdio: ["ignore", "pipe", "pipe"], detached: true }
+  { stdio: ["ignore", "pipe", "pipe"], detached: true, env: { ...process.env, HOME: DEMO_HOME } }
 );
 let boardReady = false;
 boardProc.stdout.on("data", (b) => {

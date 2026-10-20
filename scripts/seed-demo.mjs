@@ -18,8 +18,12 @@ import { join } from "node:path";
 import { execFileSync } from "node:child_process";
 
 const ROOT = "/tmp/great_cto-demo";
-const HOME = process.env.HOME;
-const GREAT_CTO = join(HOME, ".great_cto");
+// The demo's global layer lives in a sandbox HOME beside the project, never in
+// the operator's: their ~/.great_cto is read by every session of every project,
+// and seeding it put demo ADRs, patterns and a digest there. record-demo starts
+// the board with HOME set to this directory.
+const DEMO_HOME = join(ROOT, ".home");
+const GREAT_CTO = join(DEMO_HOME, ".great_cto");
 
 console.log(`[seed-demo] resetting ${ROOT}`);
 if (existsSync(ROOT)) rmSync(ROOT, { recursive: true, force: true });
