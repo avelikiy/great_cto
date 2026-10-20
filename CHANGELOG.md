@@ -51,6 +51,40 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.67.1 — 2026-10-20
+
+The board no longer reports Codex runs from deleted test directories as
+unreadable, and the architect's gate-compliance eval judges what it asks.
+
+### Fixed
+
+- **"codex: N run state file(s) could not be read; project membership is
+  unknown"** on Work and History. Those files were read fine; their project
+  directory had been deleted, and resolving the missing path was counted as a
+  read failure. A run whose directory no longer exists is now counted as
+  orphaned — not this project, not an error. A corrupt file still degrades the
+  read.
+- **architect-gate-compliance case 2** required producing an ARCH document
+  while its own expected outcome and the eval's scenario ask for
+  classification. It now checks the sizing and the gates the work requires.
+  Writing the document is tested where it is asked for (case 9, and a new case
+  10: a one-way-door choice goes into a Proposed ADR and to gate:arch).
+
+### Added
+
+- `scripts/smoke-learning-and-gates.sh` — checks the 3.65–3.67 behaviour against
+  an installed plugin in a sandbox HOME, no network and no model calls
+  (`docs/LOCAL-CICD.md`). On 3.64.0 it fails 14 checks, on 3.65.0 the four that
+  3.66–3.67 added.
+
+### Verification and boundaries
+
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- A rule added to the architect card for case 10's behaviour was measured
+  against the previous card as a control: both passed, so the rule had no
+  effect and is not in this release.
+
 ## v3.67.0 — 2026-10-20
 
 Every review and architecture document carries a picture of what the change
