@@ -2,7 +2,7 @@
 // brief is bound to the tree its token was issued for, and it writes nothing.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import fs, { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -63,5 +63,26 @@ test('the brief shows the change, says when the tree moved, and writes nothing',
 
     assert.equal(readFileSync(join(p.dir, '.great_cto', 'tasks.md'), 'utf8'), tasksBefore, 'a brief never changes a gate');
     assert.equal((await api(port, '/api/gates/nope/brief')).status, 404);
+  } finally { await reap(proc); }
+});
+
+test('the brief shows the change map from the document the reviewer verdict points at', async () => {
+  const p = project();
+  fs.mkdirSync(join(p.dir, 'docs', 'reviews'), { recursive: true });
+  fs.writeFileSync(join(p.dir, 'docs', 'reviews', 'REVIEW-x.md'),
+    '# Review\n\n## Findings\n\nnone\n\n## Change map\n\n```mermaid\nflowchart LR\n  A[app.js] --> B[db]\n```\n');
+  fs.writeFileSync(join(p.dir, '.great_cto', 'verdicts', 'code-reviewer.log'), JSON.stringify({
+    v: 1, ts: '2026-10-20T10:00:00Z', agent: 'code-reviewer', verdict: 'APPROVED', meta: { review: 'docs/reviews/REVIEW-x.md' },
+  }) + '\n');
+  const { port, proc } = await startServerOnFreePort({
+    entry: SERVER, cwd: p.dir, readyPath: '/api/heartbeat', portEnv: 'BOARD_PORT',
+    env: { HOME: p.home, GREAT_CTO_NO_UPDATE_CHECK: '1' },
+  });
+  try {
+    await api(port, '/api/inbox');
+    const m = section((await api(port, '/api/gates/g-ship/brief')).body, 'map');
+    assert.equal(m.state, 'recorded');
+    assert.equal(m.path, 'docs/reviews/REVIEW-x.md');
+    assert.match(m.source, /A\[app\.js\] --> B\[db\]/);
   } finally { await reap(proc); }
 });

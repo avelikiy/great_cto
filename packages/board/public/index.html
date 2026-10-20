@@ -2151,6 +2151,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .gate-brief .brief-sec { display: grid; grid-template-columns: 110px 1fr; gap: 10px; align-items: baseline; }
 .gate-brief .brief-k { color: var(--text3); }
 .gate-brief .brief-v { min-width: 0; overflow-wrap: anywhere; }
+.gate-brief .brief-map { margin: 4px 0 0; padding: 6px 8px; background: var(--bg-card); border-radius: 4px; font-size: var(--fs-small, 12px); white-space: pre-wrap; overflow-x: auto; }
 .gate-brief .brief-moved { color: var(--status-blocked); margin-bottom: 4px; }
 .inbox-row {
   display: grid;
@@ -4761,7 +4762,7 @@ function renderGateBrief(d) {
   const row = (label, s, body) => `<div class="brief-sec"><span class="brief-k">${label}</span>`
     + `<span class="brief-v" style="color:${BRIEF_TONE[s.state] || 'inherit'}">${s.state === 'unknown' ? `unknown — ${esc(s.why || '')}` : body}</span></div>`;
   const by = Object.fromEntries(d.sections.map((s) => [s.key, s]));
-  const t = by.tree, c = by.change, r = by.risk, v = by.reviews, o = by.second, x = by.touches;
+  const t = by.tree, c = by.change, r = by.risk, v = by.reviews, o = by.second, x = by.touches, mp = by.map;
   const head = t.moved
     ? `<div class="brief-moved"><b>The tree moved after this gate was shown</b> — ${[
         [...(t.changed || []), ...(t.removed || [])].length ? `changed: ${briefList([...(t.changed || []), ...(t.removed || [])])}` : '',
@@ -4781,6 +4782,9 @@ function renderGateBrief(d) {
     + row('Change', c, `${c.total} file(s)${c.tier ? ` · tier ${esc(c.tier)}` : ` · tier unknown${c.tierWhy ? ` — ${esc(c.tierWhy)}` : ''}`}${c.files?.length ? `<details><summary class="muted">files</summary>${briefList(c.files, 100)}</details>` : ''}`)
     + row('Undo', r, `${esc(r.reversibility)}${r.categories?.length ? ` · ${esc(r.categories.join(', '))}` : ''}`)
     + row('Reviews', v, reviews)
+    + (mp ? row('Change map', mp, mp.state === 'empty'
+        ? `<span class="muted">${esc(mp.why || 'none')}</span>`
+        : `<span class="${mp.onThisTree ? '' : 'muted'}">${esc(mp.agent)} · ${esc(mp.path)}${mp.onThisTree ? ' ✓ this tree' : ' · other tree'}</span><pre class="brief-map">${esc(mp.source)}</pre>`) : '')
     + row('Second model', o, second)
     + row('Touches', x, touches);
 }

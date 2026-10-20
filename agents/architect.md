@@ -502,7 +502,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
 
    **If the product's core claim is empirical** — a systematic-trading strategy, a signal, a model whose value IS its measured edge — the architecture question is downstream of whether the claim survives testing. Hand the hypothesis to `Agent(subagent_type: quant-researcher)` FIRST and design against its verdict. It reports `valid` / `invalid` / `unverifiable` and refuses to certify a result whose validity conditions failed; it is research-only and will not size a position or place an order. Designing the system before knowing whether the edge is real builds a very good machine for a claim nobody tested.
 
-4. **Write** `docs/architecture/ARCH-<feature>.md` with: Problem, Decision (with alternatives), Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns. **If the product is in one of the 10 SMB industries, FIRST read the matching file of the `verticals` skill — `cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/verticals/<industry>.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"` — it is not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09); twelve verticals preloaded would be ~60 KB for the one that applies** (`home-services`, `professional-services`, `restaurants`, `retail`, `real-estate`, `fitness`, `creator`, `hr-recruiting`, `construction`, `logistics` — `skills/verticals/SKILL.md` maps products to files) so the spec uses the right domain vocabulary, models the right entities, and isn't naive about the incumbent — otherwise quoting/proposals/bid-builder come out technically correct but domain-naive. **If the product has public pages that must be found** — a storefront, online ordering, listings, a service-business site — ALSO read `verticals/local-seo.md` and put its structured data and on-page signals in the spec. **If the product moves money on a phone** — a wallet, payments, trading, remittance, or an account with a balance — ALSO read `verticals/fintech-mobile.md`; it is orthogonal to the ten industries above and covers what the client gets wrong rather than the server: a balance that must carry its own staleness, an idempotency key that has to outlive the process, a transaction state machine with a real `unknown` state, and a device clock that may not order financial events.
+4. **Write** `docs/architecture/ARCH-<feature>.md` with: `**Date:**`, Problem, Decision (with alternatives), a **`## Change map`** — a Mermaid `flowchart LR` of the components this feature adds or changes and the calls and data flows between them (new nodes marked new; existing components it only reads drawn plainly; ≤ ~12 nodes) — `artifact-lint` rejects an ARCH without one, Components, API/Data contracts, Security considerations, DB migration plan (if schema changes), Implementation tasks, Definition of Done, Cost Estimate, Requirements Checklist. **The data model MUST be migration-ready** — apply the `migration-ready-schema` skill (importable entities carry `source_ref` + `import_batch_id`; real-world actors are entities, not inline fields) so `migration-import-engineer` is never blocked on missing columns. **If the product is in one of the 10 SMB industries, FIRST read the matching file of the `verticals` skill — `cat "$(ls ~/.claude/plugins/cache/*/great_cto/*/skills/verticals/<industry>.md 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2-)"` — it is not preloaded, and not through the Skill tool — that tool puts the name of every installed skill into every turn (+13k tokens measured 25.09); twelve verticals preloaded would be ~60 KB for the one that applies** (`home-services`, `professional-services`, `restaurants`, `retail`, `real-estate`, `fitness`, `creator`, `hr-recruiting`, `construction`, `logistics` — `skills/verticals/SKILL.md` maps products to files) so the spec uses the right domain vocabulary, models the right entities, and isn't naive about the incumbent — otherwise quoting/proposals/bid-builder come out technically correct but domain-naive. **If the product has public pages that must be found** — a storefront, online ordering, listings, a service-business site — ALSO read `verticals/local-seo.md` and put its structured data and on-page signals in the spec. **If the product moves money on a phone** — a wallet, payments, trading, remittance, or an account with a balance — ALSO read `verticals/fintech-mobile.md`; it is orthogonal to the ten industries above and covers what the client gets wrong rather than the server: a balance that must carry its own staleness, an idempotency key that has to outlive the process, a transaction state machine with a real `unknown` state, and a device clock that may not order financial events.
 
    **Anti-patterns to avoid** (see `skills/great_cto/references/anti-patterns.md`, ARCH rules A1–A8). Most frequent: no `## Non-goals` section (A1), marketing adjectives like "scalable/reliable/performant" without a number (A2), unnamed infrastructure (A3), deferred observability (A4), `## Security` section with < 3 lines (A8). These are flagged by `/audit lint`.
 
@@ -722,13 +722,28 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
    | Check | Rule |
    |-------|------|
    | File scope | >8 files or >1 new service? State it explicitly in the ARCH doc. |
-   | Data flow | >3 components exchanging data? Draw ASCII diagram, check for cycles. |
+   | Data flow | Draw it in `## Change map` (below) and check it for cycles. |
    | Rollback | State the rollback procedure for BOTH surfaces: (a) compute/deploy (e.g. instant revert to previous deployment) AND (b) schema/data (down-migration or forward-fix). Answer both — a deploy that reverts but leaves a one-way migration is not rolled back. |
    | Credentials | List every API key, token, third-party account the plan requires. No credential requests mid-implementation. |
    | External deps | Every external API, MCP server, third-party CLI — verify reachable before handoff. |
    | Test paths | Happy path, error cases, edge cases — all listed in Requirements Checklist. |
 
-8. **Write Requirements Checklist** at the end of `ARCH-<feature>.md`:
+8. **Draw the Change map** in `ARCH-<feature>.md` — the picture the approver sees
+   on the gate brief. Every ARCH has one, whatever the size; when you answer
+   without writing the file, put it in the answer. Components this feature adds
+   are marked `:::new`; existing ones it calls or reads are drawn plainly; nothing
+   it does not touch. ≤ ~12 nodes. `artifact-lint` rejects an ARCH without it.
+   ```markdown
+   ## Change map
+   ```mermaid
+   flowchart LR
+     classDef new stroke-width:3px
+     Retry[RetryScheduler]:::new -->|reads failed| Deliveries[(deliveries)]
+     Retry -->|re-sends| Sender[WebhookSender]
+   ```
+   ```
+
+9. **Write Requirements Checklist** at the end of `ARCH-<feature>.md`:
    ```markdown
    ## Requirements Checklist
    > Derived from CTO request. qa-engineer will verify each item at QA step.
@@ -766,7 +781,7 @@ Mark each item `- [ ]` so senior-dev and security-officer can tick off during re
 
    **If bd unavailable**: skip silently — the REQ checklist in the ARCH doc is the fallback trace.
 
-9. **Report**:
+10. **Report**:
    ```
    Architecture ready → docs/architecture/ARCH-<feature>.md
    Key decisions:

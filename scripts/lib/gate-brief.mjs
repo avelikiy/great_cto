@@ -114,6 +114,52 @@ function touchesSection(binding, tests) {
   return out;
 }
 
+// ── change map (great_cto-2m2l) ──────────────────────────────────────────────
+// code-reviewer and architect draw what a change touches as a Mermaid flowchart
+// in their documents; the brief shows the one the latest verdict points at. The
+// board ships no diagram library, so the page shows the source, which reads as a
+// list of edges and pastes into any Mermaid viewer.
+const MAP_AGENTS = [['code-reviewer', 'review'], ['architect', 'arch']];
+
+/** The flowchart source in a document's `## Change map`, or null. */
+export function changeMapSource(text) {
+  const lines = String(text || '').split('\n');
+  const start = lines.findIndex((l) => /^##\s+change map\b/i.test(l));
+  if (start < 0) return null;
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) if (/^##\s/.test(lines[i])) { end = i; break; }
+  const m = lines.slice(start + 1, end).join('\n').match(/```mermaid\s*\n([\s\S]*?)```/);
+  return m && /^\s*(flowchart|graph)\b/m.test(m[1]) ? m[1].replace(/\s+$/, '') : null;
+}
+
+/** Latest verdict per map agent → the document it points at; only paths under docs/. */
+export function mapDocPaths(verdictLogs) {
+  const out = [];
+  for (const [agent, key] of MAP_AGENTS) {
+    const { records } = parseVerdictLog(verdictLogs?.[agent] || '', { agent });
+    const latest = records.filter((r) => r.meta?.[key]).sort((a, b) => String(b.ts).localeCompare(String(a.ts)))[0];
+    const p = latest?.meta?.[key];
+    if (p && /^docs\/[A-Za-z0-9._/-]+\.md$/.test(p) && !p.split('/').includes('..')) out.push({ agent, path: p });
+  }
+  return out;
+}
+
+function mapSection(verdictLogs, docs, binding, digest) {
+  if (!verdictLogs.ok) return { key: 'map', state: 'unknown', why: verdictLogs.why };
+  const targets = mapDocPaths(verdictLogs.value);
+  if (!targets.length) return { key: 'map', state: 'empty', why: 'no reviewer or architect verdict points at a document with a change map' };
+  const { agent, path } = targets[0];
+  const doc = docs?.[path];
+  if (!doc || !doc.ok) return { key: 'map', state: 'unknown', agent, path, why: doc ? doc.why : 'the document was not read' };
+  const source = changeMapSource(doc.value);
+  if (!source) return { key: 'map', state: 'empty', agent, path, why: `${path} has no Change map section with a flowchart` };
+  const { records } = parseVerdictLog(verdictLogs.value[agent] || '', { agent });
+  const rec = records.filter((r) => r.meta?.review === path || r.meta?.arch === path).sort((a, b) => String(b.ts).localeCompare(String(a.ts)))[0];
+  const current = binding.ok ? binding.value : null;
+  const onThisTree = Boolean(rec?.receipt && current && compareReceipts(rec.receipt, current, { digest }).state === 'matches');
+  return { key: 'map', state: 'recorded', agent, path, onThisTree, source };
+}
+
 /**
  * @param {object} p
  * @param {object} p.gate            pending gate as the inbox returns it
@@ -123,9 +169,10 @@ function touchesSection(binding, tests) {
  * @param {{ok:boolean}} p.secondOpinion
  * @param {{ok:boolean}} p.tier
  * @param {{ok:boolean}} p.tests     affectedTests() result
+ * @param {object} [p.docs]      {path: {ok, value|why}} documents the verdicts point at
  * @param {Function} [p.digest]      file digest for compareReceipts (injected in tests)
  */
-export function gateBrief({ gate, token = null, binding, verdictLogs, secondOpinion, tier, tests, digest = undefined }) {
+export function gateBrief({ gate, token = null, binding, verdictLogs, secondOpinion, tier, tests, docs = {}, digest = undefined }) {
   const tree = treeSection(token, binding, digest);
   return {
     gate: { id: gate?.id || null, title: gate?.title || '', gate: gate?.gate || null },
@@ -135,6 +182,7 @@ export function gateBrief({ gate, token = null, binding, verdictLogs, secondOpin
       changeSection(binding, tier),
       riskSection(gate),
       reviewsSection(verdictLogs, binding, digest),
+      mapSection(verdictLogs, docs, binding, digest),
       secondSection(secondOpinion),
       touchesSection(binding, tests),
     ],

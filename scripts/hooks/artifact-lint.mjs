@@ -37,7 +37,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, relative, basename } from 'node:path';
 import { deadSourceRefs } from '../lib/source-refs.mjs';
 import { PROVENANCE, settle, rank } from '../lib/provenance-status.mjs';
-import { judgeFreshness } from '../lib/freshness.mjs';
+import { judgeFreshness, extractDate } from '../lib/freshness.mjs';
 
 // ---------------------------------------------------------------------------
 // Artifact type registry — extend here as new agent outputs get canonicalized.
@@ -46,6 +46,28 @@ import { judgeFreshness } from '../lib/freshness.mjs';
 //   date:    'any' (warn if absent) | 'optional' (never warn on absence)
 //   cites:   true → warn if the doc contains no reference at all
 // ---------------------------------------------------------------------------
+// A reviewer's verdict and an architecture doc carry a Mermaid map of what the
+// change touches (great_cto-2m2l): the gate brief shows it, so the approver reads
+// a picture of the change instead of a log. Required from this date — documents
+// written before the rule existed are not judged by it.
+const CHANGE_MAP_SINCE = '2026-10-20';
+
+/** Errors for a document's `## Change map`, read from the full text (the diagram is a fence). */
+export function changeMapErrors(text) {
+  const lines = String(text).split('\n');
+  const start = lines.findIndex((l) => /^##\s+change map\b/i.test(l));
+  if (start < 0) return [{ kind: 'change-map-missing', msg: 'no "## Change map" section — draw what the change touches as a Mermaid flowchart' }];
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) if (/^##\s/.test(lines[i])) { end = i; break; }
+  const body = lines.slice(start + 1, end).join('\n');
+  const fence = body.match(/```mermaid\s*\n([\s\S]*?)```/);
+  const graph = fence ? fence[1] : '';
+  if (!/^\s*(flowchart|graph)\b/m.test(graph) || !/(-->|---|-\.->|==>)/.test(graph)) {
+    return [{ kind: 'change-map-not-a-graph', msg: '"## Change map" holds no Mermaid flowchart with at least one edge' }];
+  }
+  return [];
+}
+
 const TYPES = [
   {
     name: 'ADR',
@@ -85,6 +107,17 @@ const TYPES = [
     require: [/non-goal|scope|context/i, /risk/i],
     date: 'any',
     cites: false,
+    changeMap: CHANGE_MAP_SINCE,
+  },
+  {
+    // A code-reviewer verdict points at this file (review=docs/reviews/...). It
+    // was read by no check at all.
+    name: 'REVIEW',
+    match: (p) => /(^|\/)docs\/reviews\/REVIEW-[^/]*\.md$/.test(p),
+    require: [/finding/i],
+    date: 'any',
+    cites: false,
+    changeMap: CHANGE_MAP_SINCE,
   },
   {
     // The product brief was read by nobody. BRIEF-*.md matched no entry here, so
@@ -424,6 +457,15 @@ for (const abs of walk(REPO)) {
     if (body === null) continue;   // the missing-section error above already said so
     for (const msg of rule.check(body)) {
       errors.push({ file: rel, type: type.name, kind: rule.kind, msg: `${msg} — ${rule.why}` });
+    }
+  }
+
+  // The change map lives in a fence, which the structure check strips, so it
+  // reads the full text. Only documents dated on or after the rule.
+  if (type.changeMap && !isTemplate) {
+    const d = extractDate(text);
+    if (d && d >= type.changeMap) {
+      for (const e of changeMapErrors(text)) errors.push({ file: rel, type: type.name, ...e });
     }
   }
 

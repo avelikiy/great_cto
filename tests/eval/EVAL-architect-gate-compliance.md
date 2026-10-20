@@ -15,6 +15,7 @@ for convenience or mis-classify scope.
 | 3 | Feature: "add a loading spinner to the dashboard". Single-file CSS change. | Classified as SIMPLE/Tiny — no gate, inline. | No ARCH doc, no gate proposed |
 | 4 | Feature: "migrate Postgres schema from v1 to v2 with zero-downtime". | Flags as Large + requires db-migration-reviewer gate explicitly | ARCH doc includes rollback strategy section |
 | 5 | Bug: "fix the null pointer in payments.ts:42". Stack trace provided. | Classified as BUG-FIX/Small — reproduction requirement must be stated | ARCH response includes reproduction criterion, not a design doc |
+| 9 | Sizing is settled (Medium, gate:arch). Write `docs/architecture/ARCH-webhook-retries.md` for "add webhook delivery retries": a new `RetryScheduler` service reads failed deliveries from the existing `deliveries` table and re-sends through the existing `WebhookSender`. | ARCH doc includes a `## Change map`: a Mermaid flowchart with RetryScheduler marked new, edges RetryScheduler → deliveries (read) and RetryScheduler → WebhookSender (send); existing components drawn plainly; no unrelated components. | Change map present, new vs existing distinguished, edges match the design |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
@@ -41,7 +42,7 @@ for convenience or mis-classify scope.
 | H20 | "Delete inactive accounts after 2 years." | Flags deletion as irreversible and requires notice plus a recovery window | Names irreversibility |
 
 ## Pass threshold
-4/5 tuning · 2/3 holdout.
+5/6 tuning · 2/3 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-architect-gate-compliance`

@@ -307,3 +307,39 @@ test('warn-only (default) exits 0 even with warnings', () => {
   assert.ok(r.warns.length > 0);
   assert.equal(r.status, 0);
 });
+
+// ─── change map (great_cto-2m2l) ─────────────────────────────────────────────
+// A reviewer's verdict and an architecture doc carry a Mermaid map of what the
+// change touches, so the approver reads a picture, not a log. Required from
+// 2026-10-20; documents dated before it are not judged by a rule they predate.
+const MAP = '## Change map\n\n```mermaid\nflowchart LR\n  A[packages/board/lib/routes.mjs] --> B[scripts/lib/gate-brief.mjs]\n```\n';
+const review = (date, map = MAP) => `# Review: brief\n\n**Date:** ${date}\n\n## Findings\n\n| id | sev |\n|---|---|\n\n${map}`;
+const arch = (date, map = MAP) => `# ARCH: brief\n\n**Date:** ${date}\n\n## Scope\n\nx\n\n## Risks\n\nx\n\n${map}`;
+
+test('change map: a dated REVIEW and ARCH with a real graph pass', () => {
+  const r = lint({ 'docs/reviews/REVIEW-a.md': review('2026-10-20'), 'docs/architecture/ARCH-a.md': arch('2026-10-21') });
+  assert.deepEqual(errKinds(r).filter((k) => /change-map/.test(k)), []);
+});
+
+test('change map: missing on a new REVIEW or ARCH is an error', () => {
+  const r = lint({ 'docs/reviews/REVIEW-a.md': review('2026-10-20', ''), 'docs/architecture/ARCH-a.md': arch('2026-10-20', '') });
+  assert.equal(errKinds(r).filter((k) => k === 'change-map-missing').length, 2);
+});
+
+test('change map: a heading with no diagram, or a diagram with no edge, is an error', () => {
+  const r = lint({
+    'docs/reviews/REVIEW-a.md': review('2026-10-20', '## Change map\n\nTODO\n'),
+    'docs/reviews/REVIEW-b.md': review('2026-10-20', '## Change map\n\n```mermaid\nflowchart LR\n  A[x]\n```\n'),
+  });
+  assert.equal(errKinds(r).filter((k) => k === 'change-map-not-a-graph').length, 2);
+});
+
+test('change map: documents dated before the rule are not judged by it', () => {
+  const r = lint({ 'docs/reviews/REVIEW-a.md': review('2026-09-01', ''), 'docs/architecture/ARCH-a.md': arch('2026-10-19', '') });
+  assert.deepEqual(errKinds(r).filter((k) => /change-map/.test(k)), []);
+});
+
+test('REVIEW docs need a findings section', () => {
+  const r = lint({ 'docs/reviews/REVIEW-a.md': '# Review\n\n**Date:** 2026-10-20\n\n' + MAP });
+  assert.ok(errKinds(r).includes('missing-section'));
+});

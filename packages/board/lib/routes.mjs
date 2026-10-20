@@ -33,7 +33,7 @@ import { bdCacheInvalidate, checkBeadsAvailable, bdWriteSerialised, bd, bdErr, g
 import { getMetrics } from './metrics.mjs';
 import { agentActivity, agentActivitySince } from './agent-activity.mjs';
 import { issueTokensAsync, checkToken, checkBinding, consumeToken, approvalSnapshot, beginGateDecision, readTokens } from './gate-tokens.mjs';
-import { gateBrief, settle, readVerdictLogs } from '../../../scripts/lib/gate-brief.mjs';
+import { gateBrief, settle, readVerdictLogs, mapDocPaths } from '../../../scripts/lib/gate-brief.mjs';
 import { readTurns, turnPatch } from '../../../scripts/lib/turn-snapshot.mjs';
 import { appendEvent } from '../../../scripts/lib/agent-events.mjs';
 
@@ -954,12 +954,22 @@ async function dispatch(req, res, url, cwd) {
     // inbox poll may hold one.
     const touches = await settle(readTouches(c));
     const secondOpinion = await settle(readSecondOpinion(c));
+    const verdictLogs = await settle(() => readVerdictLogs(c));
+    // The documents the latest reviewer/architect verdicts point at, for the
+    // change map. mapDocPaths admits only paths under docs/ with no `..`.
+    const docs = {};
+    if (verdictLogs.ok) {
+      for (const { path: rel } of mapDocPaths(verdictLogs.value)) {
+        docs[rel] = await settle(() => fs.readFileSync(path.join(c, rel), 'utf8'));
+      }
+    }
     const brief = gateBrief({
       gate,
       token: readTokens(c).tokens[id] || null,
       binding: touches.ok ? { ok: true, value: touches.value.binding } : touches,
       tests: touches.ok ? touches.value.tests : touches,
-      verdictLogs: await settle(() => readVerdictLogs(c)),
+      verdictLogs,
+      docs,
       secondOpinion,
       tier: await settle(() => getChangeTier(c)),
     });

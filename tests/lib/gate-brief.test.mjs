@@ -30,7 +30,7 @@ function brief(over = {}) {
 const section = (b, key) => b.sections.find((s) => s.key === key);
 
 test('sections come in a fixed order, the tree first', () => {
-  assert.deepEqual(brief().sections.map((s) => s.key), ['tree', 'change', 'risk', 'reviews', 'second', 'touches']);
+  assert.deepEqual(brief().sections.map((s) => s.key), ['tree', 'change', 'risk', 'reviews', 'map', 'second', 'touches']);
 });
 
 test('the tree the token was issued for, unchanged → not moved', () => {
@@ -144,4 +144,42 @@ test('settle turns a rejection into a reason, never a value', async () => {
   assert.deepEqual(await settle(Promise.resolve(1)), { ok: true, value: 1 });
   assert.deepEqual(await settle(Promise.reject(Error('boom'))), { ok: false, why: 'boom' });
   assert.deepEqual(await settle(() => { throw Error('sync'); }), { ok: false, why: 'sync' });
+});
+
+// ── change map (great_cto-2m2l) ─────────────────────────────────────────────
+import { mapDocPaths, changeMapSource } from '../../scripts/lib/gate-brief.mjs';
+const MAPDOC = '# Review\n\n## Findings\n\nnone\n\n## Change map\n\n```mermaid\nflowchart LR\n  A[a.mjs] --> B[scripts/lib/x.mjs]\n```\n\n## Notes\n';
+
+test('changeMapSource pulls the flowchart out of the Change map section', () => {
+  assert.match(changeMapSource(MAPDOC), /^flowchart LR\n\s+A\[a\.mjs\] --> B/);
+  assert.equal(changeMapSource('# x\n\n## Findings\n'), null);
+});
+
+test('mapDocPaths names the documents the latest verdicts point at, inside docs/ only', () => {
+  const logs = {
+    'code-reviewer': line({ ts: '2026-10-20T10:00:00Z', agent: 'code-reviewer', verdict: 'APPROVED', meta: { review: 'docs/reviews/REVIEW-x.md' } }),
+    architect: line({ ts: '2026-10-19T10:00:00Z', agent: 'architect', verdict: 'DONE', meta: { arch: '../../etc/passwd' } }),
+  };
+  assert.deepEqual(mapDocPaths(logs), [{ agent: 'code-reviewer', path: 'docs/reviews/REVIEW-x.md' }]);
+});
+
+test('the brief shows the reviewer change map, marked by whether its verdict saw this tree', () => {
+  const now = tree({ 'a.mjs': 'd1', 'scripts/lib/x.mjs': 'd2' });
+  const logs = { 'code-reviewer': line({ ts: '2026-10-20T10:00:00Z', agent: 'code-reviewer', verdict: 'APPROVED', receipt: now, meta: { review: 'docs/reviews/REVIEW-x.md' } }) };
+  const m = section(brief({ verdictLogs: ok(logs), docs: { 'docs/reviews/REVIEW-x.md': ok(MAPDOC) } }), 'map');
+  assert.equal(m.state, 'recorded');
+  assert.equal(m.agent, 'code-reviewer');
+  assert.equal(m.onThisTree, true);
+  assert.match(m.source, /flowchart LR/);
+});
+
+test('no map: empty when no verdict points at a document; unknown when the document cannot be read', () => {
+  assert.equal(section(brief(), 'map').state, 'empty');
+  const logs = { 'code-reviewer': line({ ts: '2026-10-20T10:00:00Z', agent: 'code-reviewer', verdict: 'APPROVED', meta: { review: 'docs/reviews/REVIEW-x.md' } }) };
+  const m = section(brief({ verdictLogs: ok(logs), docs: { 'docs/reviews/REVIEW-x.md': failed('ENOENT') } }), 'map');
+  assert.equal(m.state, 'unknown');
+  assert.match(m.why, /ENOENT/);
+  const n = section(brief({ verdictLogs: ok(logs), docs: { 'docs/reviews/REVIEW-x.md': ok('# R\n\n## Findings\n') } }), 'map');
+  assert.equal(n.state, 'empty');
+  assert.match(n.why, /no Change map/);
 });

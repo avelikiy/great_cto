@@ -604,7 +604,7 @@ test('a gate opens its brief, keeps it across a refresh, and the brief writes no
     const brief = page.locator(`.gate-brief[data-gate="${id}"]`);
     await brief.locator('.brief-sec').first().waitFor({ timeout: 20000 });
     const text = await brief.innerText();
-    for (const label of ['Tree', 'Change', 'Undo', 'Reviews', 'Second model', 'Touches']) assert.match(text, new RegExp(label), label);
+    for (const label of ['Tree', 'Change', 'Undo', 'Reviews', 'Change map', 'Second model', 'Touches']) assert.match(text, new RegExp(label), label);
     // The fixture's verdicts carry no receipt: whatever they say, none of them is
     // shown as having seen this tree.
     assert.doesNotMatch(text, /✓ this tree/);

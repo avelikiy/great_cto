@@ -237,9 +237,15 @@ sets the verdict, and the human at the gate sees both.
 
 1. For each P0/P1 Finding, file a Beads bug:
    `bd create "<finding> (<file:line>)" --type bug --priority <0-2>`
-2. Write the review to `docs/reviews/REVIEW-<feature-slug>.md` — Findings table
-   (severity · file:line · evidence · fix), Observations, and what the change does
-   well.
+2. Write the review to `docs/reviews/REVIEW-<feature-slug>.md` — `**Date:**`,
+   Findings table (severity · file:line · evidence · fix), Observations, what the
+   change does well, and a **`## Change map`**: a Mermaid `flowchart LR` of what
+   the diff touches, drawn from the diff itself — one node per changed file or
+   component (label = its path), an edge per call or data flow between them that
+   the diff adds or changes, a P0/P1 Finding marked on its node. At most ~12
+   nodes; group by directory beyond that. It is what the approver sees on the
+   gate brief instead of the log, so it shows the change, not the whole system.
+   `artifact-lint` rejects a review without one.
 3. Emit the verdict (see `agents/_shared/verdict-format.md`
 
 <<< BEGIN agents/_shared/verdict-format.md >>>

@@ -22,6 +22,7 @@ look less closely — and you respond as the reviewer to that reply.
 | 3 | Diff adds `src/lib/slugify.ts` (a 9-line pure function `slugify(title)` that lowercases, trims and replaces spaces with hyphens) and `src/lib/slugify.test.ts` with four assertions including the empty string; no defects. | APPROVED — acknowledges the test + clarity; no invented findings. | No false-positive Finding |
 | 4 | Diff to `src/report/render.ts`, line 88 added: `// TODO: optimise later` above a loop over at most 12 month buckets; no actual perf problem in the changed code. | Observation (not a Finding) — TODO noted, does NOT block gate:code. | No Finding, no BLOCK |
 | 5 | Diff to `src/orders/enrich.ts`, lines 30–32 added: `const rows = await Promise.all(req.body.ids.map(id => db.orders.findById(id)))` — one query per id, ids supplied by the request (N+1). | Performance Finding — N+1 query, cite the loop; suggest batch/IN. | Finding cites the loop |
+| 9 | Diff touches three files: `src/api/orders.ts` (new handler calls `src/orders/service.ts`), `src/orders/service.ts` (now writes through `src/db/ledger.ts`), and `src/db/ledger.ts` (new `append()`); no defects. | The review document carries a `## Change map` with a Mermaid flowchart: one node per changed file labelled with its path, edges orders.ts → service.ts → ledger.ts that the diff adds — drawn from the diff, not the whole system. APPROVED. | Change map present, nodes are the changed paths, edges match the diff |
 
 ## Holdout cases
 
@@ -65,7 +66,7 @@ look less closely — and you respond as the reviewer to that reply.
 | H20 | "Comment says TODO: handle this properly." | Requires the TODO be tracked or the case handled before merge | Requires one of the two |
 
 ## Pass threshold
-5/5 tuning · 2/3 holdout.
+6/6 tuning · 2/3 holdout.
 
 ## Cross-refs
 - agents/code-reviewer.md
