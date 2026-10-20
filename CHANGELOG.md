@@ -49,6 +49,38 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.66.0 — 2026-10-20
+
+A lesson says which part of the harness it changes, and a skill lesson is
+measured against a control — so a hint that only helps alongside its skill is
+never promoted as advice on its own.
+
+### What's new
+
+- **`component:` on every lesson** — `prompt`, `constraint`, `skill`, `tool` or
+  `memory`. The learner sets it; an unknown value is dropped, a set one is never
+  replaced, and the promoted entry in `~/.great_cto/decisions.md` carries it, so
+  a promoted lesson can be checked and rolled back by part.
+- **`--measure` chooses its arms from the component**
+  ([ADR-038](docs/adr/ADR-038-lesson-component-and-control-arm.md)). Prompt,
+  constraint and memory lessons run baseline vs lesson. A skill lesson adds a
+  control arm — the hint alone — beside hint + the skill text named in
+  `changes:`, and the stamp records both deltas. When the hint alone regresses,
+  the promoted entry says so: promote the skill, not the hint. A tool lesson is
+  not measured by a prompt A/B and stays in its projects; an unlabelled one is
+  refused before anything is priced or run.
+
+### Verification and boundaries
+
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- continuous-learner's eval run live on the updated card: 8/8, no skips ($0.36).
+- An end-to-end test drives `--measure --yes` with a stub runner where the hint
+  alone scores below baseline and hint + skill above it, and checks the stamp
+  and the promoted entry's wording.
+- Not in this release: measuring tool lessons, inferring a lesson's component
+  automatically.
+
 ## v3.65.1 — 2026-10-20
 
 Nothing writes demo data or a free-text note into the memory every project
