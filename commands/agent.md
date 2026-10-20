@@ -571,7 +571,7 @@ generation shows up as a row with its lesson and eval delta.
 
 1. **Agent prompt file** — `agents/<name>.md` → `agents/_retired/<name>.md`
 2. **SessionStart sync list** — `<name>` removed from `plugin.json`
-3. **Decisions log** — entry added to `~/.great_cto/decisions.md`
+3. **Retirement log** — entry added to `~/.great_cto/metrics/agent-retirements.md`
 4. **Verdicts** — `~/.great_cto/verdicts/<name>.log` **preserved** (audit trail; never deleted)
 5. **Lessons referencing the agent** — left untouched (historical record)
 
@@ -734,9 +734,11 @@ else:
 PY
 fi
 
-# 5. Decisions log
-mkdir -p ~/.great_cto
-cat <<EOF >> ~/.great_cto/decisions.md
+# 5. Retirement log — beside the fleet, not in the global decisions.md: that
+# file is read by every session of every project, and a free-text reason can
+# carry one project's words into all of them.
+mkdir -p ~/.great_cto/metrics
+cat <<EOF >> ~/.great_cto/metrics/agent-retirements.md
 
 ---
 
@@ -750,7 +752,7 @@ cat <<EOF >> ~/.great_cto/decisions.md
 
 **Reversible:** \`mv agents/_retired/$AGENT_NAME.md agents/$AGENT_NAME.md\` + restore plugin.json
 EOF
-echo "  ✓ logged to ~/.great_cto/decisions.md"
+echo "  ✓ logged to ~/.great_cto/metrics/agent-retirements.md"
 ```
 
 ### Step 5 — Final summary
@@ -759,7 +761,7 @@ echo "  ✓ logged to ~/.great_cto/decisions.md"
 ✓ Retired: $AGENT_NAME
   - File:        agents/_retired/$AGENT_NAME.md
   - Sync list:   removed from plugin.json
-  - Decisions:   logged at ~/.great_cto/decisions.md
+  - Retirement:  logged at ~/.great_cto/metrics/agent-retirements.md
   - Verdicts:    preserved at $LOG (audit)
 
 Next session restart will sync the new state.

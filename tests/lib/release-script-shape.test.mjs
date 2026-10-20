@@ -68,3 +68,14 @@ test('release.sh refuses a branch other than main instead of asking', () => {
   assert.match(check, /if \[ "\$BRANCH" != "main" \]; then\s*\n\s*fail /, 'off main → fail, first statement');
   assert.doesNotMatch(check, /\bread\b/, 'no interactive prompt');
 });
+
+// 3.29.0 and 3.64.0 tagged with stale screenshots: the freshness test only ran
+// in the publish gate, after the tag and the GitHub Release were public.
+test('release.sh checks the screenshots before it commits, tags or pushes', () => {
+  const check = src.indexOf('screenshot-freshness.test.mjs');
+  assert.ok(check > -1, 'release.sh runs the screenshot freshness test');
+  for (const later of ['git commit', 'git tag', 'git push']) {
+    const at = src.indexOf(later);
+    assert.ok(at > -1 && check < at, `the screenshot check comes before ${later}`);
+  }
+});

@@ -163,6 +163,18 @@ else
   fi
 fi
 
+# --- step 1b: screenshots match the release line -------------------------------
+# A minor or major bump makes the README screenshots stale, and the publish gate
+# checks them AFTER this script has already pushed the tag and the GitHub
+# Release: 3.29.0 and 3.64.0 went out with stale images and a red main. The same
+# test runs here, before anything is public.
+step "1b. Screenshots match v$NEW"
+if node --test "$ROOT/tests/lib/screenshot-freshness.test.mjs" >/dev/null 2>&1; then
+  ok "docs/screenshots are from the v${NEW%.*} line"
+else
+  fail "docs/screenshots are older than v${NEW%.*} — re-shoot before tagging: node scripts/capture-screenshots.mjs (this script stages docs/screenshots/*.png)"
+fi
+
 # --- step 2: validate CHANGELOG entry ----------------------------------------
 
 step "2. Validate CHANGELOG entry"
