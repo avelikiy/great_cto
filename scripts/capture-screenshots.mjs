@@ -33,16 +33,21 @@ const OUT = path.join(ROOT, 'docs', 'screenshots');
 const PORT = Number(process.env.CAPTURE_PORT || 3242);
 const CHECK = process.argv.includes('--check');
 
-/** Panel id (data-tab) → output file. */
-const SHOTS = [
+/** Stable image/metadata names, current routes and actual panel identities. */
+export const SHOTS = [
   // The redesign's screens (great_cto-ki1x.26). `board.png` is the one README
   // embeds, so it shows the screen the board opens on — Work since 3.48.
-  { tab: 'work', file: 'board.png', settle: 1500 },
-  { tab: 'ledger', file: 'ledger.png', settle: 2000 },
-  { tab: 'fleet', file: 'fleet.png', settle: 2000 },
-  { tab: 'harness', file: 'harness.png', settle: 2000 },
-  { tab: 'settings', file: 'settings.png', settle: 1500 },
+  { tab: 'work', route: 'work', panel: 'work', file: 'board.png', settle: 1500 },
+  { tab: 'ledger', route: 'insights/ledger', panel: 'budgets', file: 'ledger.png', settle: 2000 },
+  { tab: 'fleet', route: 'settings/executors', panel: 'agents', file: 'fleet.png', settle: 2000 },
+  { tab: 'harness', route: 'settings/runtime', panel: 'harness', file: 'harness.png', settle: 2000 },
+  { tab: 'settings', route: 'settings/general', panel: 'settings', file: 'settings.png', settle: 1500 },
 ];
+
+export async function selectScreenshotPanel(page, shot) {
+  await page.evaluate(route => window.switchTab(route), shot.route);
+  await page.waitForSelector(`#panel-${shot.panel}.active`, { state: 'visible', timeout: 30000 });
+}
 
 const version = JSON.parse(fs.readFileSync(path.join(ROOT, 'packages', 'cli', 'package.json'), 'utf8')).version;
 
@@ -149,16 +154,9 @@ async function main() {
     const written = [];
 
     for (const shot of SHOTS) {
-      // Since 3.48 the board opens on Work with Ledger, Fleet, Harness and
-      // Settings in a collapsed Tools menu. board.png shows it as it opens —
-      // collapsed; the menu is opened only to reach a tab inside it.
-      if (!(await page.$(`[data-tab="${shot.tab}"]:visible`))) {
-        await page.evaluate(() => document.getElementById('tools-nav')?.setAttribute('open', ''));
-      }
-      const nav = await page.$(`[data-tab="${shot.tab}"]:visible`);
-      if (!nav) throw new Error(`no nav item [data-tab="${shot.tab}"] — the board's tabs changed, `
-        + 'so this script is photographing a screen that no longer exists');
-      await nav.click();
+      // Legacy Tools buttons are deliberately hidden. Use the board's actual
+      // router and refuse a missing/hidden target instead of shooting a stale panel.
+      await selectScreenshotPanel(page, shot);
       await sleep(shot.settle);
       // Refuse to photograph an empty panel. The Fleet shot said "No agents match
       // this view" from v3.28 to v3.36 because the fixture HOME had no agents.
@@ -185,4 +183,6 @@ async function main() {
   }
 }
 
-main().catch((e) => { console.error(String(e && e.stack || e)); process.exit(1); });
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch((e) => { console.error(String(e && e.stack || e)); process.exit(1); });
+}

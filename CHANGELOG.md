@@ -52,6 +52,51 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.68.0 — 2026-10-21
+
+Inspect tasks, project knowledge and consumption in one workspace.
+
+### What's new
+
+- **Task-first navigation:** Work, Decisions, Knowledge, Insights and Settings.
+  Legacy Usage, Ledger, Fleet, Harness, Skills and agent-detail URLs remain usable.
+- **Work cockpit:** task filters and Overview, Execution and Evidence tabs.
+  Recorded controlled-run attempts retain separate identities; missing causal
+  dependencies and native-host linkage are explicit rather than inferred.
+- **Project Knowledge:** read-only Markdown, title/path filtering, declared status,
+  source-path metadata and a bounded LR flowchart viewer with source fallback.
+  Unknown projects, traversal, symlinks and oversized reads fail closed. Original
+  document language is preserved; application chrome stays English.
+- **Honest Insights:** recorded task outcomes stay separate from project token
+  consumption, price estimates and budgets. Missing acceptance, regression and
+  actual task-cost measurements remain Unavailable.
+- **Grouped technical controls:** Executors, Runtime, Capabilities and General
+  settings reuse existing controls without changing approval or publication authority.
+
+### Boundaries and verification
+
+This is a read-only projection over the existing controller, not a new graph
+orchestrator, causal execution DAG or workflow editor. The diagram viewer does
+not implement arbitrary Mermaid syntax. Native observations without stable
+controlled-run linkage remain partial. No live-model benchmark, quality uplift
+percentage or domain-pack default change is included.
+
+The [integration architecture](docs/architecture/ARCH-task-first-admin-v2.md)
+links the independent code review, QA and security reports. Real-server browser
+acceptance and populated light/dark contrast checks cover the new screens.
+Opt-in Docker/live-host checks and fixture-intercepted pipeline operations remain
+explicitly NOT CHECKED, not proof of end-to-end host or deployment readiness.
+
+### Release tooling
+
+Screenshot capture now uses the supported nested routes and waits for the actual
+target panel. Existing image names and version stamps are preserved; the old
+hidden Tools buttons are no longer used. Public screenshots use an isolated
+sample project, never the operator's own board.
+
+---
+
 ## v3.67.1 — 2026-10-20
 
 The board no longer reports Codex runs from deleted test directories as
