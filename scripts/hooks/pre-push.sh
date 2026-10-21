@@ -385,7 +385,11 @@ if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receip
 
   if [[ -n "$RECEIPT_OUT" ]]; then
     if [[ "$RECEIPT_RC" -ne 0 ]]; then
-      echo -e "\n${RED}Files changed after the review that approved them.${NC}" >&2
+      if [[ "$RECEIPT_RC" -eq 2 ]]; then
+        echo -e "\n${RED}Review evidence could not be verified.${NC}" >&2
+      else
+        echo -e "\n${RED}Files changed after the review that approved them.${NC}" >&2
+      fi
       echo "$RECEIPT_OUT" >&2
 
       # Posture lives with the project's other postures, not in an env var
@@ -402,9 +406,13 @@ if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receip
       [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "0" ]] && RECEIPT_GATE="warn"
 
       if [[ "$RECEIPT_GATE" == "enforce" ]]; then
-        echo -e "${RED}[pre-push] BLOCKED — re-review, or accept this exact state:${NC}" >&2
-        echo -e "${RED}    node scripts/lib/receipt.mjs --accept${NC}" >&2
-        echo -e "${YELLOW}(one acceptance authorises one push of this state; any further edit voids it)${NC}" >&2
+        if [[ "$RECEIPT_RC" -eq 2 ]]; then
+          echo -e "${RED}[pre-push] BLOCKED — restore readable review evidence before pushing.${NC}" >&2
+        else
+          echo -e "${RED}[pre-push] BLOCKED — re-review, or accept this exact state:${NC}" >&2
+          echo -e "${RED}    node scripts/lib/receipt.mjs --accept${NC}" >&2
+          echo -e "${YELLOW}(one acceptance authorises one push of this state; any further edit voids it)${NC}" >&2
+        fi
         exit 1
       fi
       echo -e "${YELLOW}(warn-only — push allowed. Add 'receipt-gate: enforce' to PROJECT.md to block.)${NC}" >&2

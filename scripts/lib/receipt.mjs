@@ -469,7 +469,13 @@ function requireFs() {
 function currentForReceipt(cwd, receipt) {
   // Persisted evidence is data, not Git options or a new revision expression.
   // Missing bases retain legacy behavior; invalid declared bases stay unreadable.
-  const base = receipt?.base;
+  let base = receipt?.base;
+  // The emitter uses HEAD when there is no conventional default branch. Bind
+  // that legacy symbolic base to the recorded commit, not today's moving HEAD.
+  if (base === 'HEAD') {
+    if (!receipt?.head) return null;
+    base = receipt.head;
+  }
   if (base != null && (typeof base !== 'string' || !/^[0-9a-f]{7,64}$/i.test(base))) return null;
   return treeReceipt(cwd, { base: base || null });
 }
@@ -503,6 +509,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     console.log(`receipt: against ${who}`);
     console.log(describeDrift(cmp).split('\n').map((l) => `  ${l}`).join('\n'));
 
+    if (cmp.state === 'unreadable') process.exit(2);
     if (cmp.state !== 'differs') process.exit(0);
 
     // Drift, but a human may already have looked at exactly this state.
@@ -533,6 +540,10 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const approval = latestApproval(cwd);
     const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
+    if (cmp.state === 'unreadable') {
+      console.error(`receipt: cannot accept — ${cmp.why}`);
+      process.exit(2);
+    }
     if (cmp.state !== 'differs') {
       console.log(`receipt: nothing to accept — ${cmp.why}`);
       process.exit(0);
@@ -563,7 +574,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     try { recorded = JSON.parse(readFileSync(argv[i + 1], 'utf8')); } catch { /* absent */ }
     const cmp = compareReceipts(recorded, currentForReceipt(process.cwd(), recorded));
     console.log(describeDrift(cmp));
-    process.exit(cmp.state === 'differs' ? 1 : 0);
+    process.exit(cmp.state === 'unreadable' ? 2 : cmp.state === 'differs' ? 1 : 0);
   }
   console.log(JSON.stringify(treeReceipt(process.cwd()), null, 2));
 }
