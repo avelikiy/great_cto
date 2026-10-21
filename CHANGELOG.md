@@ -55,7 +55,7 @@ All notable changes to great_cto are documented here.
 
 ## v3.68.0 — 2026-10-21
 
-Inspect tasks, project knowledge and consumption in one workspace.
+Inspect tasks, project knowledge and consumption in one workspace. The pipeline graph now also watches for the architecture stage being skipped.
 
 ### What's new
 
@@ -73,6 +73,24 @@ Inspect tasks, project knowledge and consumption in one workspace.
   actual task-cost measurements remain Unavailable.
 - **Grouped technical controls:** Executors, Runtime, Capabilities and General
   settings reuse existing controls without changing approval or publication authority.
+
+### Graph guard
+
+- On Claude Code the pipeline graph was advice the model could skip. Measured
+  over every local session transcript, after product-owner the model went
+  straight to design-advisor 94 times, and in 84 of 93 cases architect never ran
+  before implementation — the architecture stage and `gate:arch` skipped for UI
+  features, in 12 projects. A hook before each Agent call now catches that turn
+  ([ADR-039](docs/adr/ADR-039-graph-guard.md)): design-advisor, senior-dev or
+  mobile-app-builder dispatched while the latest product brief is newer than the
+  latest architecture. Exempt: small depth, `NO_BUILD`, a signed
+  `/exception graph`.
+- **Observe first.** `graph-guard:` in `.great_cto/PROJECT.md` — `observe`
+  (default) blocks nothing and records a would-block event; `enforce` denies
+  with the reason and the way out; `off`. A verdict log it cannot read never
+  blocks. Two weeks of observations decide whether enforce becomes the default.
+- `scripts/graph-adherence.mjs` re-takes the measurement from local transcripts
+  without printing project names.
 
 ### Boundaries and verification
 
