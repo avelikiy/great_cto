@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cpSync, mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdtempSync, mkdirSync, realpathSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SCRIPT = join(ROOT, 'scripts/lib/receipt.mjs');
 
 function fixture(t) {
-  const temp = mkdtempSync(join(tmpdir(), 'receipt-worktree-'));
+  const temp = realpathSync(mkdtempSync(join(tmpdir(), 'receipt-worktree-')));
   t.after(() => rmSync(temp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }));
   const main = join(temp, 'main'), wt = join(temp, 'linked checkout');
   mkdirSync(main);
@@ -63,6 +63,40 @@ test('shared receipt still compares candidate bytes, not main checkout bytes', t
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /sample\.txt/);
   assert.match(r.stdout, /reviewed file\(s\) changed after the approval/);
+});
+
+test('CLI compares the recorded stage base, not earlier work from the branch fork', t => {
+  const f = fixture(t);
+  writeFileSync(join(f.wt, 'prior.txt'), 'previous stage\n');
+  f.git(f.wt, 'add', 'prior.txt'); f.git(f.wt, 'commit', '-qm', 'prior stage');
+  mkdirSync(join(f.main, '.great_cto/verdicts'));
+  writeFileSync(join(f.main, '.great_cto/verdicts/senior-dev.log'), JSON.stringify({
+    v: 1, ts: '2000-01-01T00:00:00Z', agent: 'senior-dev', verdict: 'DONE', receipt: treeReceipt(f.wt),
+  }) + '\n');
+  writeFileSync(join(f.wt, 'delta.txt'), 'reviewed stage\n');
+  f.git(f.wt, 'add', 'delta.txt'); f.git(f.wt, 'commit', '-qm', 'reviewed stage');
+  f.review();
+  const r = f.verify();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /every reviewed file is byte-identical/);
+  assert.doesNotMatch(r.stdout, /were added after the approval/);
+  const receiptFile = join(f.temp, 'recorded.json');
+  writeFileSync(receiptFile, JSON.stringify(latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') }).receipt));
+  const check = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
+  assert.equal(check.status, 0, check.stderr);
+  assert.match(check.stdout, /every reviewed file is byte-identical/);
+  const noWrite = join(f.temp, 'must-not-write');
+  const recorded = latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') }).receipt;
+  writeFileSync(receiptFile, JSON.stringify({ ...recorded, base: `--output=${noWrite}` }));
+  const invalid = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
+  assert.match(invalid.stdout, /could not be read|unreadable/);
+  assert.equal(existsSync(noWrite), false, 'a persisted base cannot become a Git write option');
+  writeFileSync(join(f.wt, 'delta.txt'), 'changed after review\n');
+  assert.equal(f.verify().status, 1, 'using the recorded base must still detect real drift');
+  const accept = spawnSync(process.execPath, [SCRIPT, '--accept'], { cwd: f.wt, encoding: 'utf8', input: '', env: f.env });
+  assert.equal(accept.status, 2, 'an agent cannot accept drift through a noninteractive process');
+  assert.match(accept.stderr, /needs a terminal/);
+  assert.equal(existsSync(join(f.wt, '.great_cto/.receipt-accept')), false);
 });
 
 test('explicit state directory wins and an absent override never falls back', t => {

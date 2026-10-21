@@ -466,6 +466,14 @@ function requireFs() {
 // `--check <file>`  compares a recorded receipt held in a file.
 // `--verify` compares the newest approving verdict's receipt against now.
 
+function currentForReceipt(cwd, receipt) {
+  // Persisted evidence is data, not Git options or a new revision expression.
+  // Missing bases retain legacy behavior; invalid declared bases stay unreadable.
+  const base = receipt?.base;
+  if (base != null && (typeof base !== 'string' || !/^[0-9a-f]{7,64}$/i.test(base))) return null;
+  return treeReceipt(cwd, { base: base || null });
+}
+
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const argv = process.argv.slice(2);
   if (argv.includes('--state-dir')) {
@@ -483,7 +491,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   if (argv.includes('--verify')) {
     const cwd = process.cwd();
     const approval = latestApproval(cwd);
-    const current = treeReceipt(cwd);
+    const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'no-receipt') {
       // Not silence. A push with no approval to compare against and a push whose
@@ -523,7 +531,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   if (argv.includes('--accept')) {
     const cwd = process.cwd();
     const approval = latestApproval(cwd);
-    const current = treeReceipt(cwd);
+    const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state !== 'differs') {
       console.log(`receipt: nothing to accept — ${cmp.why}`);
@@ -553,7 +561,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const { readFileSync } = await import('node:fs');
     let recorded = null;
     try { recorded = JSON.parse(readFileSync(argv[i + 1], 'utf8')); } catch { /* absent */ }
-    const cmp = compareReceipts(recorded, treeReceipt(process.cwd()));
+    const cmp = compareReceipts(recorded, currentForReceipt(process.cwd(), recorded));
     console.log(describeDrift(cmp));
     process.exit(cmp.state === 'differs' ? 1 : 0);
   }
