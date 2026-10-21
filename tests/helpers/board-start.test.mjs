@@ -20,6 +20,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import net from 'node:net';
+import http from 'node:http';
+import { ChildProcess } from 'node:child_process';
 import { startOnFreePort } from './board-start.mjs';
 
 /** Hold a port so the next binder loses the race, deterministically. */
@@ -120,7 +122,7 @@ test('a collision reported only as text still retries', async () => {
 });
 
 // ── startBoard: the three causes told apart ─────────────────────────────────
-import { startBoard } from './board-start.mjs';
+import { startBoard, startServerOnFreePort } from './board-start.mjs';
 import { mkdtempSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
@@ -210,3 +212,62 @@ test('a CLI that daemonises and exits 0 is not a crash', async () => {
     rmSync(dirname(pidFile), { recursive: true, force: true });
   }
 });
+
+for (const kind of ['board', 'server']) {
+  test(kind + ' readiness budget includes an HTTP request that never sends headers', { timeout: 8000 }, async t => {
+    const dir = mkdtempSync(join(tmpdir(), 'gc-readiness-blackhole-'));
+    const cli = join(dir, 'cli.mjs');
+    writeFileSync(cli, 'setInterval(() => {}, 1000);');
+    let accepted = 0, attempt, guard, child;
+    const blackhole = http.createServer(() => { accepted++; });
+    const originalFetch = globalThis.fetch, originalSpawn = ChildProcess.prototype.spawn;
+    const signals = [];
+    t.after(async () => {
+      clearTimeout(guard);
+      globalThis.fetch = originalFetch;
+      ChildProcess.prototype.spawn = originalSpawn;
+      // Unblock a missing-signal regression too, before awaiting its operation.
+      blackhole.closeAllConnections();
+      if (blackhole.listening) await new Promise(resolve => blackhole.close(resolve));
+      if (child) await reap(child);
+      if (attempt) await attempt.catch(() => {});
+      rmSync(dir, { recursive: true, force: true });
+    });
+    // The real HTTP fault is ready BEFORE the budget starts. This is not an
+    // 800ms SLO for starting another Node process on a contended machine.
+    await new Promise((resolve, reject) => {
+      blackhole.once('error', reject);
+      blackhole.listen(0, '127.0.0.1', resolve);
+    });
+    const target = 'http://127.0.0.1:' + blackhole.address().port;
+    ChildProcess.prototype.spawn = function(options) {
+      const result = originalSpawn.call(this, options);
+      if (options.args?.includes(cli)) child = this; // observe only this test's owned child
+      return result;
+    };
+    globalThis.fetch = (input, init) => {
+      const url = new URL(String(input));
+      if (child && url.hostname === '127.0.0.1' && url.pathname === (kind === 'board' ? '/api/projects' : '/')) {
+        signals.push(init?.signal);
+        // Forward the helper's ORIGINAL signal to a real, already-ready server.
+        return originalFetch(target, init);
+      }
+      return originalFetch(input, init);
+    };
+    const timeoutMs = 800;
+    attempt = kind === 'board'
+      ? startBoard({ cliEntry: cli, project: process.cwd(), timeoutMs, attempts: 1 })
+      : startServerOnFreePort({ entry: cli, cwd: process.cwd(), timeoutMs, attempts: 1 });
+    const outcome = await Promise.race([
+      attempt.then(() => ({ state: 'ready' }), error => ({ state: 'failed', error })),
+      new Promise(resolve => { guard = setTimeout(() => resolve({ state: 'outer-bound' }), timeoutMs + 500); }),
+    ]);
+    clearTimeout(guard);
+    assert.ok(accepted > 0, 'the ready server must have accepted a real HTTP request');
+    assert.equal(outcome.state, 'failed', 'an accepted connection cannot outlive the readiness budget');
+    assert.match(outcome.error.message, /within 800ms/);
+    assert.ok(signals.every(signal => signal instanceof AbortSignal && signal.aborted), 'the actual HTTP request must be aborted by the helper');
+    assert.ok(child?.pid, 'the helper must have spawned this test-owned process');
+    assert.throws(() => process.kill(child.pid, 0), { code: 'ESRCH' }, 'budget failure must reap its child before rejecting');
+  });
+}
