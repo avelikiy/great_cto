@@ -123,8 +123,15 @@ async function dispatch(req, res, url, cwd) {
 
   // These read models accept registered projects or the server's own root,
   // never an arbitrary HOME directory supplied as a query parameter.
-  const scopedProject = ['/api/skills', '/api/usage', '/api/outcomes'].includes(pathname)
+  const knowledgeRead = ['/api/docs', '/api/doc', '/api/docs/search'].includes(pathname);
+  const scopedProject = (knowledgeRead || ['/api/skills', '/api/usage', '/api/outcomes'].includes(pathname))
     ? scopedReadProject(cwd, serverCwd, requestedProject) : null;
+
+  if (knowledgeRead && req.method === 'GET' && !scopedProject) {
+    res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ error: 'Unknown project; documentation was not read', state: 'unavailable' }));
+    return true;
+  }
 
   // Existing synchronous projections may consume a completed snapshot, but
   // HTTP cold reads must await async I/O instead of freezing unrelated clients.
@@ -646,44 +653,48 @@ async function dispatch(req, res, url, cwd) {
   }
 
   if (pathname === '/api/docs' && req.method === 'GET') {
-    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const c = scopedProject.path;
     try {
-      const [{ listDocs }, { systemMap, toMermaid, pipelineMermaid }] = await Promise.all([
-        import('./docs.mjs'), import('../../../scripts/lib/system-map.mjs'),
+      const [{ listDocs, readProjectFile }, { toMermaid, pipelineMermaid }, { knowledgeMap }] = await Promise.all([
+        import('./docs.mjs'), import('../../../scripts/lib/system-map.mjs'), import('./knowledge.mjs'),
       ]);
-      const map = systemMap(c);
+      const map = knowledgeMap(c);
       let pipeline = null;
-      try { pipeline = pipelineMermaid(fs.readFileSync(path.join(c, 'shared', 'pipeline.toml'), 'utf8')); } catch { /* not a great_cto project */ }
+      const pipelineSource = readProjectFile(c, 'shared/pipeline.toml');
+      if (pipelineSource.state === 'readable') pipeline = pipelineMermaid(pipelineSource.content);
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
       res.end(JSON.stringify({
         ...listDocs(c),
-        map: { nodes: map.nodes, edges: map.edges, generatedAt: map.generatedAt, mermaid: toMermaid(map) },
+        map: { ...map, mermaid: toMermaid(map) },
         pipeline,
       }));
-    } catch (e) {
+    } catch {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: String(e.message || e) }));
+      res.end(JSON.stringify({ error: 'Documentation index is unavailable' }));
     }
     return true;
   }
 
   if (pathname === '/api/doc' && req.method === 'GET') {
-    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const c = scopedProject.path;
     const rel = String(url.searchParams.get('path') || '');
     const abs = path.resolve(c, rel);
-    if (!rel || !abs.startsWith(path.resolve(c) + path.sep) || !abs.toLowerCase().endsWith('.md')) {
+    if (!rel || path.isAbsolute(rel) || rel.includes('\0') || rel.split(/[\\/]/).includes('..')
+      || !abs.startsWith(c + path.sep) || !abs.toLowerCase().endsWith('.md')) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({ error: 'path must be a .md file inside the project' }));
       return true;
     }
     try {
-      const st = fs.statSync(abs);
-      if (!st.isFile() || st.size > 1024 * 1024) throw new Error('not a readable doc');
+      const { readProjectFile, declaredStatus } = await import('./docs.mjs');
+      const read = readProjectFile(c, rel);
+      if (read.state !== 'readable') throw new Error('not a readable doc');
       res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify({ name: path.basename(abs), path: rel, content: fs.readFileSync(abs, 'utf8') }));
+      res.end(JSON.stringify({ name: path.basename(abs), path: rel, content: read.content,
+        status: declaredStatus(read.content), sourceRevision: null }));
     } catch {
       res.writeHead(404, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: 'doc not found: ' + rel }));
+      res.end(JSON.stringify({ error: 'Document is missing, unreadable or exceeds the size limit' }));
     }
     return true;
   }
@@ -2332,7 +2343,7 @@ async function dispatch(req, res, url, cwd) {
   //
   // GET /api/docs/search?q=...  ->  { q, matched, scanned, results[] }
   if (pathname === '/api/docs/search' && req.method === 'GET') {
-    const c = url.searchParams.get('project') ? resolveProjectCwd(url.searchParams.get('project')) : cwd;
+    const c = scopedProject.path;
     const q = (url.searchParams.get('q') || '').trim();
     if (q.length < 2) {
       res.writeHead(400, { 'Content-Type': 'application/json' });
@@ -2340,7 +2351,7 @@ async function dispatch(req, res, url, cwd) {
       return true;
     }
     try {
-      const { listDocs } = await import('./docs.mjs');
+      const { listDocs, readProjectFile } = await import('./docs.mjs');
       const all = listDocs(c);
       const needle = q.toLowerCase();
       const results = [];
@@ -2348,9 +2359,9 @@ async function dispatch(req, res, url, cwd) {
       for (const g of (all.groups || [])) {
         for (const d of (g.docs || [])) {
           if (results.length >= 60) break;
-          let text;
-          try { text = fs.readFileSync(path.join(c, d.path), 'utf8'); scanned++; }
-          catch { unreadable++; continue; }   // counted, never silently skipped
+          const read = readProjectFile(c, d.path);
+          if (read.state !== 'readable') { unreadable++; continue; }
+          const text = read.content; scanned++;
           const lines = text.split('\n');
           const hits = [];
           for (let i = 0; i < lines.length && hits.length < 3; i++) {
@@ -2366,9 +2377,9 @@ async function dispatch(req, res, url, cwd) {
       // 187 files and "no results" over 3 that could be opened are different
       // facts, and only one of them means the phrase is not there.
       res.end(JSON.stringify({ q, matched: results.length, scanned, unreadable, results }));
-    } catch (e) {
+    } catch {
       res.writeHead(500, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ error: String(e.message || e) }));
+      res.end(JSON.stringify({ error: 'Documentation search is unavailable' }));
     }
     return true;
   }

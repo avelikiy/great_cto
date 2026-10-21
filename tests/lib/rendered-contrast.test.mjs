@@ -36,6 +36,7 @@ import { parseColor, composite, ratio, AA_TEXT, AA_LARGE } from '../../scripts/l
 import { startServerOnFreePort } from '../helpers/board-start.mjs';
 import { createContrastLifetime } from '../helpers/contrast-lifetime.mjs';
 import { buildFixture } from '../../scripts/lib/screenshot-fixture.mjs';
+import { beginWork, finishWork } from '../../scripts/lib/work-tasks.mjs';
 
 // The port comes from the kernel, not from the pid. `3239 + (pid % 40)` gave
 // forty possible values, so a second run on the same machine could take the
@@ -48,7 +49,8 @@ const THEMES = ['dark', 'light'];
 // in Ledger = budgets); Harness and Settings are panels of their own; share and
 // notifications survive as id'd blocks inside Settings, so they stay listed.
 const PANELS = ['work', 'history', 'inbox', 'kanban', 'agents', 'budgets', 'docs', 'logs',
-  'memory', 'notifications', 'sessions', 'share', 'harness', 'usage', 'skills', 'settings'];
+  'memory', 'notifications', 'sessions', 'share', 'harness', 'usage', 'skills', 'settings',
+  'knowledge', 'admin-outcomes'];
 
 /**
  * Runs in the page. For every element that owns visible text, report its
@@ -249,16 +251,25 @@ test('every panel, both themes: text can be read against what is behind it', { t
 
   let started;
   const fixture = mkdtempSync(path.join(os.tmpdir(), 'gcto-contrast-project-'));
+  t.after(async () => { await lifetime.stop(); rmSync(fixture, { recursive: true, force: true }); });
   buildFixture(fixture);
+  const taskStore = mkdtempSync(path.join(os.tmpdir(), 'gcto-contrast-tasks-'));
+  t.after(() => rmSync(taskStore, { recursive: true, force: true }));
+  const task = beginWork({ root: fixture, host: 'codex', goal: 'Contrast fixture task',
+    acceptance: ['Readable task outcome row in both themes'] }, { store: taskStore });
+  try { finishWork(task.task.taskId, task.operation.operationId, 0, { store: taskStore, root: fixture }); }
+  finally { task.lease?.release(); }
+  writeFileSync(path.join(fixture, 'docs', 'CONTRAST.md'),
+    '# Contrast document\n\n**Status:** Draft\n\nOriginal project text and `inline code`.\n\n'
+    + '```mermaid\nflowchart LR\n A[Controller] --> B[Recorded attempt]\n```\n');
   const state = path.join(fixture, '.test-state');
   mkdirSync(state);
   const registry = path.join(state, 'projects.json');
   writeFileSync(registry, JSON.stringify({ projects: [{ name: 'Contrast fixture', path: fixture }] }));
-  t.after(async () => { await lifetime.stop(); rmSync(fixture, { recursive: true, force: true }); });
   try {
     started = await startServerOnFreePort({ entry: path.resolve('packages/board/server.mjs'), cwd: fixture,
       env: { GREAT_CTO_HOME: state, GREAT_CTO_PROJECTS_FILE: registry,
-        GREAT_CTO_DISCOVERY_ROOT: fixture, GREAT_CTO_NO_UPDATE_CHECK: '1' } });
+        GREAT_CTO_DISCOVERY_ROOT: fixture, GREAT_CTO_TASKS_DIR: taskStore, GREAT_CTO_NO_UPDATE_CHECK: '1' } });
   } catch (e) {
     // Still a skip — but the reason travels with it, so a port collision no
     // longer reads the same as a server that crashed on boot.
@@ -300,6 +311,16 @@ test('every panel, both themes: text can be read against what is behind it', { t
     // audit can miss white text on the dark theme's bright red status fill.
     await page.waitForFunction(() => document.querySelector('#pipeline-track .gate-badge')?.textContent === '1',
       null, { timeout: 15000 });
+
+    // Audit populated new screens, not only their shell/loading placeholders.
+    // Read the fixture through the actual project-scoped HTTP APIs.
+    await page.evaluate(() => switchTab('knowledge'));
+    await page.locator('[data-doc-path="docs/CONTRAST.md"]').click();
+    await page.locator('#knowledge-document .knowledge-diagram').waitFor();
+    await page.evaluate(() => { document.querySelector('#knowledge-document details').open = true; });
+    await page.evaluate(() => switchTab('insights/outcomes'));
+    await page.locator('#admin-outcomes-body .admin-metrics').waitFor();
+    assert.match(await page.locator('#admin-outcomes-body tbody').innerText(), /Contrast fixture task/);
 
     // The page's own panel list must be the one this file walks.
     const shipped = await page.evaluate(() => [...document.querySelectorAll('[id^="panel-"]')].map((e) => e.id.slice(6)).sort());

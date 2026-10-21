@@ -14,7 +14,6 @@
 
 import fs from 'node:fs';
 import { judgeFreshness } from '../../../scripts/lib/freshness.mjs';
-import { linkGraph } from '../../../scripts/lib/doc-links.mjs';
 import path from 'node:path';
 
 /**
@@ -130,6 +129,67 @@ const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', 'scre
 
 /** A cap, so a repository with thousands of markdown files cannot stall the board. */
 export const MAX_DOCS = 500;
+export const MAX_DOC_BYTES = 1024 * 1024;
+
+/** Root aliases are allowed; links inside a project are not read capabilities. */
+function safePath(root, rel) {
+  if (!rel || path.isAbsolute(rel) || rel.includes('\0') || rel.split(/[\\/]/).includes('..')) return null;
+  try {
+    const canonical = fs.realpathSync(root);
+    const abs = path.resolve(canonical, rel);
+    if (!abs.startsWith(canonical + path.sep)) return null;
+    let current = canonical;
+    for (const part of path.relative(canonical, abs).split(path.sep)) {
+      current = path.join(current, part);
+      if (fs.lstatSync(current).isSymbolicLink()) return null;
+    }
+    return abs;
+  } catch { return null; }
+}
+
+/** Bounded descriptor reads also refuse a path replaced between lookup and open. */
+export function readProjectFile(root, rel) {
+  let fd;
+  try {
+    const abs = safePath(root, rel);
+    if (!abs) return { state: 'unreadable', content: null };
+    const expected = fs.lstatSync(abs);
+    if (!expected.isFile()) return { state: 'unreadable', content: null };
+    if (expected.size > MAX_DOC_BYTES) return { state: 'too-large', content: null };
+    fd = fs.openSync(abs, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    const before = fs.fstatSync(fd);
+    if (!before.isFile() || before.dev !== expected.dev || before.ino !== expected.ino
+      || safePath(root, rel) !== abs) return { state: 'unreadable', content: null };
+    if (before.size > MAX_DOC_BYTES) return { state: 'too-large', content: null };
+    const bytes = Buffer.alloc(Math.min(before.size + 1, MAX_DOC_BYTES + 1));
+    let count = 0, n;
+    while (count < bytes.length && (n = fs.readSync(fd, bytes, count, bytes.length - count, count))) count += n;
+    const after = fs.fstatSync(fd);
+    if (count > MAX_DOC_BYTES) return { state: 'too-large', content: null };
+    if (count !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs
+      || after.ctimeMs !== before.ctimeMs) return { state: 'unreadable', content: null };
+    return { state: 'readable', content: bytes.subarray(0, count).toString('utf8') };
+  } catch { return { state: 'unreadable', content: null }; }
+  finally { if (fd !== undefined) fs.closeSync(fd); }
+}
+
+export function declaredStatus(text) {
+  let fence = null;
+  const head = String(text || '').slice(0, 8192).replace(/^\uFEFF/, '').split('\n').filter(line => {
+    const marker = line.match(/^ {0,3}(`{3,}|~{3,})/);
+    if (marker) {
+      if (!fence) fence = marker[1];
+      else if (marker[1][0] === fence[0] && marker[1].length >= fence.length) fence = null;
+      return false;
+    }
+    return !fence;
+  }).join('\n');
+  const fm = head.match(/^---\r?\n([\s\S]*?)\r?\n---(?:\r?\n|$)/);
+  const value = (fm ? fm[1].match(/^status:\s*(.*?)\s*$/im)?.[1] : null)
+    ?? head.match(/^(?:\*\*)?Status(?:\*\*)?:\s*(.*?)\s*$/im)?.[1];
+  const clean = value?.replace(/^["']|["']$/g, '').trim().toLowerCase();
+  return ['draft', 'accepted', 'superseded'].includes(clean) ? clean : null;
+}
 
 /**
  * The title an author gave a document.
@@ -138,8 +198,8 @@ export const MAX_DOCS = 500;
  * is a filename and not what anyone called it. Read from a bounded head: a title
  * is in the first few lines or it is not a title.
  */
-export function titleOf(absPath, { read = fs.readFileSync } = {}) {
-  try { return titleFromText(String(read(absPath, 'utf8'))); }
+export function titleOf(absPath, { read } = {}) {
+  try { return titleFromText(read ? String(read(absPath, 'utf8')) : readProjectFile(path.dirname(absPath), path.basename(absPath)).content); }
   catch { return null; }
 }
 
@@ -155,11 +215,13 @@ const IS_TRANSLATED = /^docs[/\\][a-z]{2}(-[A-Z]{2})?[/\\]/;
 
 function walk(dir, root, out, depth = 0) {
   if (depth > 3 || out.length >= MAX_DOCS) return;
+  const safe = safePath(root, path.relative(root, dir));
+  if (!safe) return;
   let entries;
-  try { entries = fs.readdirSync(dir, { withFileTypes: true }); } catch { return; }
+  try { entries = fs.readdirSync(safe, { withFileTypes: true }); } catch { return; }
   for (const e of entries) {
     if (out.length >= MAX_DOCS) return;
-    if (SKIP.has(e.name) || e.name.startsWith('.') && e.name !== '.great_cto') continue;
+    if (e.isSymbolicLink() || SKIP.has(e.name) || e.name.startsWith('.') && e.name !== '.great_cto') continue;
     const abs = path.join(dir, e.name);
     if (e.isDirectory()) { walk(abs, root, out, depth + 1); continue; }
     if (!e.name.toLowerCase().endsWith('.md')) continue;
@@ -168,7 +230,7 @@ function walk(dir, root, out, depth = 0) {
     // and stood a machine-written summary in the index beside its own source.
     if (IS_COPY.test(e.name) || IS_TRANSLATED.test(path.relative(root, abs))) continue;
     let st;
-    try { st = fs.statSync(abs); } catch { continue; }
+    try { if (!safePath(root, path.relative(root, abs))) continue; st = fs.lstatSync(abs); if (!st.isFile()) continue; } catch { continue; }
     out.push({ abs, rel: path.relative(root, abs), size: st.size, modified: st.mtime.toISOString() });
   }
 }
@@ -333,13 +395,15 @@ function freshnessOf(text, nowMs = Date.now(), staleDays = 180) {
 }
 
 export function listDocs(root, { max = MAX_DOCS } = {}) {
+  try { root = fs.realpathSync(root); } catch { return { total: 0, truncated: false, groups: [], state: 'unreadable' }; }
   const found = [];
   for (const g of DOC_GROUPS) {
     for (const d of g.dirs || []) walk(path.join(root, d), root, found);
     for (const f of g.files || []) {
       const abs = path.join(root, f);
       try {
-        const st = fs.statSync(abs);
+        if (!safePath(root, f)) continue;
+        const st = fs.lstatSync(abs);
         if (st.isFile()) found.push({ abs, rel: f, size: st.size, modified: st.mtime.toISOString() });
       } catch { /* absent */ }
     }
@@ -349,13 +413,6 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
   // the link graph is defined; anything outside it gets `null` — "not measured"
   // and "measured, and the answer is none" are different facts, and rendering
   // the first as the second is the substitution this whole board refuses.
-  let inboundBy = null;
-  try {
-    const g = linkGraph(path.join(root, 'docs'));
-    inboundBy = new Map();
-    for (const [k, v] of g.inbound) inboundBy.set(path.relative(root, k), v.length);
-  } catch { inboundBy = null; }
-
   const seen = new Set();
   const docs = [];
   for (const d of found) {
@@ -365,15 +422,17 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
     // questions about the same bytes, and this used to open every file twice.
     // `null` distinguishes "could not be read" from "read and said nothing" —
     // the distinction the freshness badge now rests on.
-    let text = null;
-    try { text = fs.readFileSync(d.abs, 'utf8'); } catch { /* unreadable */ }
+    const read = readProjectFile(root, d.rel), text = read.content;
     docs.push({
       path: d.rel,
       name: path.basename(d.rel),
       title: (text !== null && titleFromText(text)) || path.basename(d.rel, '.md'),
       group: groupFor(d.rel, { text: text ?? '' }),
       size: d.size,
-      inbound: inboundBy ? (inboundBy.has(d.rel) ? inboundBy.get(d.rel) : null) : null,
+      inbound: null,
+      readState: read.state,
+      status: declaredStatus(text),
+      sourceRevision: null,
       modified: d.modified,
       // A modification time answers "when was this file last touched", which is
       // a different question from "is this still true". A typo fix rejuvenates a
@@ -382,6 +441,27 @@ export function listDocs(root, { max = MAX_DOCS } = {}) {
       // rule produced each — see scripts/lib/freshness.mjs.
       ...freshnessOf(text),
     });
+    // Kept only for this bounded index pass, never serialized into the listing.
+    docs.at(-1)._text = text;
+  }
+
+  const cited = new Map(docs.filter(d => d.path.startsWith('docs/')).map(d => [d.path, new Set()]));
+  const complete = docs.length < max && docs.every(d => d.readState === 'readable');
+  for (const d of docs) {
+    if (!cited.has(d.path) || d._text === null) continue;
+    const add = target => { if (target !== d.path) cited.get(target)?.add(d.path); };
+    for (const m of d._text.matchAll(/\]\(([^)#\s]+\.md)/g)) {
+      add(path.normalize(path.join(path.dirname(d.path), m[1])));
+      add(path.normalize(m[1].replace(/^\.\.\//, '')));
+      add(path.normalize(path.join('docs', m[1])));
+    }
+    for (const m of d._text.matchAll(/\bADR-(\d{3})\b/g)) {
+      for (const target of cited.keys()) if (path.basename(target).startsWith(`ADR-${m[1]}`)) add(target);
+    }
+  }
+  for (const d of docs) {
+    d.inbound = complete && cited.has(d.path) ? cited.get(d.path).size : null;
+    delete d._text;
   }
 
   const groups = DOC_GROUPS.map((g) => ({

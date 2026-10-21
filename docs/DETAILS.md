@@ -59,7 +59,7 @@ Indicative for a solo-CTO project at ~20 pipeline runs a month:
 | deep (cross-cutting) | $12 | 1 | $12 |
 | | | | **~$34** |
 
-The board's **Usage** screen (Tools → Usage) shows Claude Code and Codex side by
+The board's **Insights → Consumption** screen shows Claude Code and Codex side by
 side for the **selected project only**: tokens per day and kind of work, heaviest
 conversations, models, tools, skills, agents, cache share and recorded limit
 refusals. Attribution uses the transcript's working directory and Git repository

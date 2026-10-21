@@ -57,6 +57,53 @@
         + (e.durationMs !== null ? ` · ${esc(e.durationMs)} ms` : '') + '</li>').join('') + '</ol>' : '')
       + '</details>';
   }
+  const categories = [['active', 'All active'], ['attention', 'Needs attention'], ['running', 'Running'], ['queued', 'Queued'], ['completed', 'Completed']];
+  function inCategory(entry, category) {
+    if (category === 'completed') return entry.terminal;
+    if (entry.terminal) return false;
+    if (category === 'attention') return (entry.decisions || []).length > 0 || entry.nativeState === 'blocked' || ['needs_decision', 'blocked', 'unknown'].includes(entry.phase);
+    if (category === 'running') return ['working', 'publishing'].includes(entry.phase);
+    if (category === 'queued') return entry.phase === 'accepted';
+    return true;
+  }
+  function cockpitEntries(data, category, search) {
+    return data.entries.filter(e => inCategory(e, category) && (!search || `${e.title} ${e.key}`.toLowerCase().includes(search.toLowerCase())));
+  }
+  function renderExecution(entry) {
+    const roles = Array.isArray(entry.evidence) ? entry.evidence : [];
+    const execution = entry.execution, nodes = Array.isArray(execution?.nodes) ? execution.nodes.slice(0, 200) : [];
+    return '<section class="work-execution"><h3>Recorded observations</h3>'
+      + '<p>Dependencies not recorded. This is an observation list, not an inferred execution graph. Event order does not establish dependencies.</p>'
+      + `<p>Recorded stage: ${esc(entry.stage || 'not recorded')}</p>`
+      + (execution?.reason ? `<p>${esc(execution.reason)}</p>` : '')
+      + (execution?.truncated ? '<p class="work-warning">Showing the latest 200 recorded attempts; earlier observations are truncated.</p>' : execution?.partial ? '<p class="work-warning">Attempt observations are incomplete.</p>' : '')
+      + (nodes.length ? '<ul class="work-observations" aria-label="Recorded execution attempts">' + nodes.map(n => `<li class="work-observation" data-attempt-id="${esc(n.attemptId)}"><strong>${esc(n.role)} · attempt ${esc(n.number || 'unknown')}</strong>`
+        + `<p>${esc(n.host || 'Host not recorded')} · phase: ${esc(n.phase || 'not recorded')}</p><p>Controller recorded status: ${esc(n.status || 'unknown')}; not current verification or acceptance.</p>`
+        + `<p>Run: ${esc(n.runId)} · Attempt: ${esc(n.attemptId)}</p><p>Started: ${esc(n.startedAt || 'not recorded')} · Finished: ${esc(n.finishedAt || 'not recorded')}</p></li>`).join('') + '</ul>' : '')
+      + (roles.length ? '<ul class="work-observations">' + roles.map(role => `<li class="work-observation">${esc(role.label)} · recorded role observation; acceptance is not inferred</li>`).join('') + '</ul>' : '<p>No role observations recorded.</p>')
+      + (entry.inspector ? renderInspector(entry.inspector).replace('<details ', '<details open ') : '<p>Linked activity unavailable. Absence of events is not proof of inactivity.</p>')
+      + '</section>';
+  }
+  function renderCockpit(data, options = {}) {
+    const category = categories.some(([key]) => key === options.category) ? options.category : 'active';
+    const tab = ['overview', 'execution', 'evidence'].includes(options.tab) ? options.tab : 'overview';
+    const rows = cockpitEntries(data, category, options.search || '');
+    const selected = rows.find(e => e.key === options.selectedKey) || rows[0];
+    const warnings = data.sources.filter(s => ['degraded', 'unavailable'].includes(s.health));
+    const feedback = warnings.map(s => `<p class="work-warning">${esc(s.id)}: ${esc(s.reason || s.health)}</p>`).join('');
+    const observed = `<p class="work-meta">Observed ${esc(data.observedAt)} · ${data.health === 'current' ? 'Sources read' : 'Sources incomplete'}</p>`;
+    const toolbar = '<div class="work-filters" role="group" aria-label="Task status filters">' + categories.map(([key, label]) => `<button type="button" class="work-filter" data-work-filter="${key}" aria-pressed="${category === key}">${label} <span>${cockpitEntries(data, key, options.search || '').length}</span></button>`).join('') + '</div>';
+    if (!selected) return toolbar + observed + feedback + `<p>${warnings.length || data.health !== 'current' ? 'No readable entries match this view; sources are incomplete.' : options.search ? 'No entries match the search.' : 'No work records match this filter.'}</p>`;
+    const list = '<div class="work-task-list" role="group" aria-label="Project tasks">' + rows.map(e => `<button type="button" class="work-task-row" data-work-select="${esc(e.key)}" aria-current="${e.key === selected.key}"><strong>${esc(e.title)}</strong><span>${esc(phaseLabel(e))}</span><small>${esc(e.host || 'Host not linked')} · ${esc(e.stage || 'Stage not recorded')}</small></button>`).join('') + '</div>';
+    const tabs = '<div class="work-tabs" role="tablist" aria-label="Selected task">' + ['overview', 'execution', 'evidence'].map(name => `<button type="button" class="work-tab" id="work-tab-${name}" data-work-tab="${name}" role="tab" aria-selected="${tab === name}" aria-controls="work-detail-panel" tabindex="${tab === name ? 0 : -1}">${name[0].toUpperCase() + name.slice(1)}</button>`).join('') + '</div>';
+    // Only the selected Overview owns mutation controls; observation tabs cannot duplicate them.
+    const detail = tab === 'execution' ? renderExecution(selected) : tab === 'evidence'
+      ? (Array.isArray(selected.evidenceSections) && selected.evidenceSections.length ? renderEvidence(selected.evidenceSections).replace('<details ', '<details open ') : '<p>Evidence unavailable. No verification or acceptance is inferred.</p>')
+      : render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
+    return toolbar + (tab === 'overview' ? '' : observed) + feedback + '<p class="work-meta">Running means host activity was recorded; current liveness is not measured. Closed records do not by themselves prove acceptance.</p>'
+      + `<div class="work-cockpit">${list}<section class="work-detail" aria-label="Selected task details">${tabs}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section></div>`
+      + (data.sessions.length ? `<details><summary>Claude sessions (${data.sessions.length}) · task linkage not recorded</summary>${data.sessions.map(s => `<p>${esc(s.session)} · ${esc(s.state)} · ${esc(s.reason || '')}</p>`).join('')}</details>` : '');
+  }
   function renderEvidence(sections) {
     if (!Array.isArray(sections)) return '';
     return '<details data-work-detail="evidence"><summary>Task evidence · read-only</summary>'
@@ -105,7 +152,7 @@
       status('Draft PR publication recorded. Merge and release remain separate decisions.'); await refresh();
     } catch (error) { if (project === config.project()) { status(error.message); await refresh(); } }
   }
-  let config, snapshot, generation = 0, filter = '';
+  let config, snapshot, generation = 0, filter = '', selectedKey = null, category = 'active', tab = 'overview';
   const status = message => { document.getElementById('work-feedback').textContent = message; };
   async function refresh() {
     const seq = ++generation, project = config.project();
@@ -127,14 +174,18 @@
     const expanded = [...document.querySelectorAll('.work-card details[open]')].map(d => `${d.closest('[data-entry-key]').dataset.entryKey}:${d.dataset.workDetail}`);
     const focused = document.activeElement;
     const focusKey = focused?.dataset?.workKey, focusAction = focused?.dataset?.workAction;
-    document.getElementById('work-list').innerHTML = render(snapshot, false, filter);
+    const focusSelect = focused?.dataset?.workSelect, focusFilter = focused?.dataset?.workFilter, focusTab = focused?.dataset?.workTab;
+    document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab });
     document.getElementById('history-list').innerHTML = render(snapshot, true, filter);
     for (const card of document.querySelectorAll('[data-entry-key]')) for (const detail of card.querySelectorAll('details'))
       if (expanded.includes(`${card.dataset.entryKey}:${detail.dataset.workDetail}`)) detail.open = true;
     if (focusKey) [...document.querySelectorAll('[data-work-key]')].find(b => b.dataset.workKey === focusKey && b.dataset.workAction === focusAction)?.focus();
+    else if (focusSelect) [...document.querySelectorAll('[data-work-select]')].find(b => b.dataset.workSelect === focusSelect)?.focus();
+    else if (focusFilter) [...document.querySelectorAll('[data-work-filter]')].find(b => b.dataset.workFilter === focusFilter)?.focus();
+    else if (focusTab) [...document.querySelectorAll('[data-work-tab]')].find(b => b.dataset.workTab === focusTab)?.focus();
   }
   function reset() {
-    generation++; snapshot = null; previews.clear(); status('');
+    generation++; snapshot = null; previews.clear(); selectedKey = null; category = 'active'; tab = 'overview'; filter = ''; status('');
     for (const id of ['work-list', 'history-list']) document.getElementById(id).textContent = 'Loading project work…';
     refresh();
   }
@@ -156,7 +207,17 @@
       document.getElementById('work-command').textContent = ''; status('');
     });
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
-      const button = event.target.closest('[data-work-action]'); if (!button || !snapshot) return;
+      if (!snapshot) return;
+      const button = event.target.closest('[data-work-action]');
+      if (!button?.dataset.workAction) {
+        const selection = event.target.closest('[data-work-select]');
+        const filterButton = event.target.closest('[data-work-filter]');
+        const tabButton = event.target.closest('[data-work-tab]');
+        if (selection?.dataset.workSelect && snapshot.entries.some(e => e.key === selection.dataset.workSelect)) { selectedKey = selection.dataset.workSelect; tab = 'overview'; paint(); }
+        else if (categories.some(([key]) => key === filterButton?.dataset.workFilter)) { category = filterButton.dataset.workFilter; selectedKey = null; tab = 'overview'; paint(); }
+        else if (['overview', 'execution', 'evidence'].includes(tabButton?.dataset.workTab)) { tab = tabButton.dataset.workTab; paint(); }
+        return;
+      }
       const entry = snapshot.entries.find(e => e.key === button.dataset.workKey);
       if (button.dataset.workAction === 'preview_publication' && entry?.publicationPreview) { previewPublication(entry); return; }
       if (button.dataset.workAction === 'publish_publication' && entry?.publicationPreview) { publish(entry, button); return; }
@@ -165,7 +226,17 @@
       if (action.action === 'copy_resume' || action.action === 'copy_approve') copy(entry.command);
       else options.openIssue(entry.issueIds[0], action.action === 'review_decision');
     });
+    document.getElementById('work-list').addEventListener('keydown', event => {
+      const button = event.target.closest('[data-work-tab]');
+      if (!button || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
+      const tabs = ['overview', 'execution', 'evidence'], current = tabs.indexOf(button.dataset.workTab);
+      if (current < 0) return;
+      event.preventDefault();
+      tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[2] : tabs[(current + (event.key === 'ArrowRight' ? 1 : 2)) % 3];
+      paint();
+      [...document.querySelectorAll('[data-work-tab]')].find(b => b.dataset.workTab === tab)?.focus();
+    });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, render, commandFor, publicationCommand, search(value) { filter = value; paint(); } };
+  window.GctoWork = { bind, refresh, reset, render, renderCockpit, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; paint(); }, search(value) { filter = value; paint(); } };
 })();

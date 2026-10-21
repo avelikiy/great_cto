@@ -16,17 +16,38 @@ const date = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : 
 const RUN_PHASE = { ready: 'accepted', 'awaiting-gate': 'needs_decision',
   'awaiting-release': 'needs_decision', blocked: 'blocked', 'manual-action': 'blocked' };
 
+/** Historical attempt observations only; no context, results or causal edges cross this boundary. */
+function executionAttempts(run) {
+  const short = v => text(v)?.slice(0, 128) || null;
+  const identity = v => text(v) && v.length <= 128 ? v : null;
+  const attempts = Array.isArray(run?.attempts) ? run.attempts : [];
+  const window = attempts.slice(-200);
+  const nodes = window.filter(a => a && identity(a.id) && short(a.role)).map(a => ({
+    runId: identity(run.id), attemptId: identity(a.id), role: short(a.role),
+    host: ['codex', 'claude-code'].includes(a.host) ? a.host : null,
+    number: Number.isInteger(a.number) && a.number > 0 ? a.number : null,
+    phase: short(a.phase), status: short(a.status), startedAt: date(a.startedAt), finishedAt: date(a.finishedAt),
+  }));
+  const truncated = attempts.length > 200;
+  return { state: nodes.length ? 'recorded' : 'unknown', nodes, topology: 'unknown', truncated,
+    partial: !run || truncated || nodes.length !== window.length,
+    reason: !run ? 'Stable attempt observations are unavailable without a single explicitly linked controlled run.'
+      : !nodes.length ? 'No usable attempt observations are recorded.' : null };
+}
+
 /** Recorded observations are not current-tree verification or gate authority. */
 function evidenceSections(entry) {
   const events = entry.inspector?.state === 'recorded' ? entry.inspector.events.length : 0;
+  const attempts = entry.execution?.nodes.length || 0;
   const verdicts = entry.evidence.filter(e => e.kind === 'verdict');
   const reported = verdicts.filter(e => e.verifierReported === true).length;
   const publication = entry.publication;
   const published = ['prepared', 'pushed', 'pr-linked'].includes(publication?.state);
   return [
-    { id: 'execution', label: 'Execution', state: events ? 'recorded' : 'unknown',
+    { id: 'execution', label: 'Execution', state: events || attempts ? 'recorded' : 'unknown',
       detail: events ? `${events} linked activity events in the bounded window. Liveness and task acceptance are not established.${entry.inspector.partial ? ' The activity window is incomplete.' : ''}`
-        : entry.inspector?.reason || 'No explicitly linked execution events are available.' },
+        : attempts ? `${attempts} historical attempt observations. Current verification, dependencies and task acceptance are not established.${entry.execution.partial ? ' Attempt observations are incomplete.' : ''}`
+          : entry.inspector?.reason || 'No explicitly linked execution events are available.' },
     { id: 'checks', label: 'Checks', state: verdicts.length ? 'recorded' : 'unknown',
       detail: verdicts.length ? `In this bounded view: ${verdicts.length} role verdict records; ${reported} verifier-success reports. Test counts and current input bindings are not available in this projection.`
         : 'No task-linked check records are available. Completed roles do not establish verification.' },
@@ -50,7 +71,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
     const phase = active ? 'working' : RUN_PHASE[r.status] || null;
     const pending = !!r.pending || ['awaiting-gate', 'awaiting-release'].includes(r.status);
     const canCopyResume = !terminal && !pending && !active && r.status === 'ready';
-    const updatedAt = (r.attempts || []).flatMap(a => [date(a.startedAt), date(a.finishedAt)])
+    const updatedAt = (Array.isArray(r.attempts) ? r.attempts : []).flatMap(a => [date(a?.startedAt), date(a?.finishedAt)])
       .filter(Boolean).sort((a, b) => Date.parse(b) - Date.parse(a))[0] || date(r.pending?.createdAt);
     entries.push({ key: `run:${r.id}`, kind: 'run', taskId: null, runId: r.id, issueIds: [],
       title: `Controlled run ${r.id}`, goal: null, acceptance: [], host: 'codex',
@@ -66,6 +87,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       evidence: (r.rolesCompleted || []).map(role => ({ kind: 'recorded_role', label: role })),
       stage: text(r.active) || text(r.pending?.role) || (r.wave?.status === 'running' && Array.isArray(r.wave.roles) ? r.wave.roles.filter(role => typeof role === 'string').join(', ') : null),
       inspector: taskInspector([r.id], activity),
+      execution: executionAttempts(r),
       release: r.release ? { status: text(r.release.status), url: text(r.release.url), verifiedAt: date(r.release.verifiedAt) } : null,
     });
   }
@@ -106,6 +128,7 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
         label: `${e.role.slice(0, 80)}: ${text(e.verdict)?.slice(0, 80) || 'not recorded'}`, verifierReported: typeof e.verified === 'boolean' ? e.verified : null })),
       release: run?.release || null, revision: t.revision, metrics: t.metrics,
       inspector: taskInspector([...t.links.runs, ...t.links.sessions], activity),
+      execution: run?.execution || executionAttempts(null),
       publication: t.publication || null,
       publicationAllow: Array.isArray(t.authority?.writeScope) ? t.authority.writeScope.join(',') : '',
       publicationPreview: t.managed !== false && t.intent !== 'research' && t.phase === 'verified' && !owner && !t.decisions?.length,

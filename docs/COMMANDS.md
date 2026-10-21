@@ -155,8 +155,14 @@ and reviewed. `/doctor --fix` applies the safe fixes.
 
 ### /board
 
-Opens `http://localhost:3141` (starts it if needed): **Decisions** — every gate waiting on
-you, **Ledger** — cost and budgets, **Fleet** — agents, **Harness** — reviewer scores.
+Opens `http://localhost:3141` (starts it if needed): **Work** for tasks and recorded
+execution, **Decisions** for pending approvals, **Knowledge** for project documents,
+**Insights** for outcomes, consumption and the ledger, and **Settings** for executors,
+runtime, capabilities and general configuration. Legacy Ledger/Fleet/Harness/Usage
+links still resolve. Knowledge is read-only; unsupported Mermaid syntax remains
+readable as source. Recorded activity and role verdicts do not prove task acceptance.
+
+Implementation contracts and verification reports: [task-first admin architecture](architecture/ARCH-task-first-admin-v2.md).
 
 ### /agent
 

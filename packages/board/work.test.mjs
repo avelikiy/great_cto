@@ -139,3 +139,36 @@ test('task verdict projection is bounded and rejects truthy non-boolean verifica
   assert.match(entry.evidenceSections.find(s => s.id === 'checks').detail, /bounded view: 200 role verdict records; 0 verifier-success reports/);
   assert.equal(entry.evidenceSections.find(s => s.id === 'review').state, 'unknown');
 });
+
+test('execution retains distinct attempt IDs, bounds nodes and never exposes private attempt fields', () => {
+  const attempts = Array.from({ length: 202 }, (_, i) => ({ id: `attempt-${i}`, role: 'senior-dev', host: i % 2 ? 'codex' : 'claude-code',
+    number: i + 1, phase: 'verifying', status: i ? 'verified' : 'rework', startedAt: '2026-10-21T10:00:00Z', finishedAt: 'bad-date',
+    invocationId: 'PRIVATE_INVOCATION', context: { text: 'PRIVATE_CONTEXT' }, prompt: 'PRIVATE_PROMPT', results: 'PRIVATE_RESULT', dispatchEvidence: 'PRIVATE_DISPATCH' }));
+  const entry = project([run({ attempts })]).entries[0], execution = entry.execution;
+  assert.equal(execution.nodes.length, 200); assert.equal(execution.truncated, true); assert.equal(execution.partial, true);
+  assert.equal(execution.topology, 'unknown'); assert.equal(execution.nodes[0].attemptId, 'attempt-2');
+  assert.equal(new Set(execution.nodes.map(n => n.attemptId)).size, 200);
+  assert.equal(execution.nodes[0].runId, id); assert.equal(execution.nodes[0].number, 3);
+  assert.equal(execution.nodes[0].finishedAt, null);
+  assert.equal(entry.evidenceSections.find(s => s.id === 'execution').state, 'recorded');
+  assert.deepEqual(Object.keys(execution.nodes[0]).sort(), ['runId', 'attemptId', 'role', 'host', 'number', 'phase', 'status', 'startedAt', 'finishedAt'].sort());
+  assert.doesNotMatch(JSON.stringify(execution), /PRIVATE_|context|invocation|dispatchEvidence|results/);
+});
+
+test('execution propagates only through explicit single-run task links; native Claude stays unknown', () => {
+  const task = { taskId: randomUUID(), host: 'codex', goal: 'Task', acceptance: [], phase: 'accepted', revision: 1,
+    links: { runs: [id], issues: [], sessions: [] }, operations: [], evidence: [], metrics: {} };
+  const entry = project([run({ attempts: [{ id: 'first', role: 'senior-dev', host: 'codex', number: 1 }, { id: 'second', role: 'senior-dev', host: 'codex', number: 2 }] })], [], { tasks: [task] }).entries[0];
+  assert.equal(entry.kind, 'task'); assert.equal(entry.execution.state, 'recorded');
+  assert.deepEqual(entry.execution.nodes.map(n => n.attemptId), ['first', 'second']);
+  task.host = 'claude-code'; task.links.runs = [];
+  const native = project([], [], { tasks: [task] }).entries[0];
+  assert.equal(native.execution.state, 'unknown'); assert.equal(native.execution.partial, true); assert.equal(native.execution.nodes.length, 0);
+  assert.match(native.execution.reason, /attempt.*unavailable/i);
+});
+
+test('invalid attempt identities stay unknown and cannot be truncated into colliding node IDs', () => {
+  const entry = project([run({ attempts: [{ id: 'x'.repeat(200), role: 'qa-engineer' }, null, { id: 'valid', role: 'qa-engineer', host: 'unexpected', number: -1, context: 'PRIVATE' }] })]).entries[0];
+  assert.equal(entry.execution.partial, true); assert.equal(entry.execution.nodes.length, 1);
+  assert.equal(entry.execution.nodes[0].attemptId, 'valid'); assert.equal(entry.execution.nodes[0].host, null); assert.equal(entry.execution.nodes[0].number, null);
+});

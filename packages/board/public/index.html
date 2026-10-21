@@ -24,6 +24,7 @@
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
 <link rel="shortcut icon" href="/assets/favicon.ico" />
 <link href="/assets/fonts/fonts.css" rel="stylesheet" />
+<link href="/assets/admin-shell.css" rel="stylesheet" />
 <script src="/assets/vendor/marked.min.js"></script>
 <script src="/assets/vendor/purify.min.js"></script>
 <style>
@@ -6176,6 +6177,7 @@ let usageData = null;
 let _usageTimer = null;
 let _usageRequest = 0;
 function resetProjectUsage() {
+  if (typeof window !== 'undefined') window.GctoAdmin?.reset();
   clearTimeout(_usageTimer); clearTimeout(_outcomesTimer);
   ++_usageRequest; ++_outcomesRequest;
   usageData = null;
@@ -9407,6 +9409,7 @@ function navTabKeydown(event, el) {
 const LEGACY_ROUTES = { inbox: 'decisions', budgets: 'ledger', dashboard: 'ledger', agents: 'fleet', notifications: 'settings', share: 'settings' };
 function routeFromHash() {
   const h = (location.hash || '').replace(/^#\/?/, '');
+  if (window.GctoAdmin?.route(h)) return h;
   if (!h || h.startsWith('agents/')) return null;
   // #/fleet/<slug>: open the agent in place (DESIGN §2 deep link).
   const m = h.match(/^fleet\/([a-z0-9-]+)$/i);
@@ -10544,5 +10547,7 @@ const _costLbl = document.getElementById('mp-cost-label');
 if (_costLbl) _costLbl.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
 </script>
 
+<script src="/assets/diagram-view.js"></script>
+<script src="/assets/admin-shell.js"></script>
 </body>
 </html>

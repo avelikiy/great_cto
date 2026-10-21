@@ -30,7 +30,7 @@ try { ({ chromium } = await import('playwright')); } catch { /* reported as a sk
 const SCREENS = [
   ['decisions', 'Decisions'],
   ['ledger', 'Ledger'],
-  ['fleet', 'Fleet'],
+  ['fleet', 'Settings'],
   ['harness', 'Harness'],
   ['usage', 'Usage'],
   ['skills', 'Skills'],
@@ -43,9 +43,13 @@ test('Work evidence opens with keyboard and keeps unlinked checks and runtime Un
     const { page, errors } = await openBoard(env, '#/work');
     const writes = [];
     page.on('request', request => { if (!['GET', 'HEAD'].includes(request.method())) writes.push(request.method()); });
+    await page.getByRole('tab', { name: 'Evidence', exact: true }).focus();
+    await page.keyboard.press('Enter');
     const detail = page.locator('#work-list [data-work-detail="evidence"]').first();
     await detail.waitFor({ state: 'attached', timeout: 15000 });
     await detail.locator('summary').focus();
+    await page.keyboard.press('Enter');
+    assert.equal(await detail.evaluate(el => el.open), false);
     await page.keyboard.press('Enter');
     assert.equal(await detail.evaluate(el => el.open), true);
     assert.equal(await detail.locator('dt').count(), 5);
@@ -246,7 +250,8 @@ test('Skills shows safe local observations with filters, failures and no install
   try {
     const { page, errors } = await openBoard(env, '#/skills');
     await page.waitForSelector('#skills-table tbody tr', { timeout: 10000 });
-    assert.equal(await page.getByRole('tab', { name: 'Skills', exact: true }).getAttribute('aria-selected'), 'true');
+    assert.equal(await page.getByRole('tab', { name: 'Settings', exact: true }).getAttribute('aria-selected'), 'true');
+    assert.equal(await page.getByRole('button', { name: 'Capabilities', exact: true }).getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#skills-table tbody tr').count(), 3);
     assert.match(await page.locator('#skills-status').innerText(), /Partial inventory/);
     assert.match(await page.locator('#skills-body').innerText(), /Upstream revision: unknown/);
@@ -289,7 +294,8 @@ test('an unregistered server project can open Skills and Usage without invented 
     assert.match(await page.locator('#skills-table').innerText(), /local-observation/);
     const requests = [];
     page.on('request', req => { if (/\/api\/(usage|outcomes)[?]/.test(req.url())) requests.push(req.url()); });
-    await page.getByRole('tab', { name: 'Usage', exact: true }).click();
+    await page.getByRole('tab', { name: 'Insights', exact: true }).click();
+    await page.getByRole('button', { name: 'Consumption', exact: true }).click();
     await page.waitForSelector('.usage-card[data-host="codex"]', { timeout: 20000 });
     assert.ok(requests.length > 0);
     assert.ok(requests.every(url => !new URL(url).searchParams.has('project')));
@@ -398,13 +404,12 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
   try {
     const { page } = await openBoard(b);
     assert.equal(await page.locator('.nav-item[data-tab="work"] svg.icon').count(), 1, 'Work has the same icon column as other destinations');
-    await page.locator('#tools-nav summary').click();
-    await page.locator('.nav-item[data-tab="fleet"]').click();
+    await page.getByRole('tab', { name: 'Settings', exact: true }).click();
     await page.waitForSelector('#nav-view-all .nav-label');
     for (const width of [1440, 1000, 375]) {
       await page.setViewportSize({ width, height: 1000 });
       if (width === 375) await page.locator('button[aria-controls="sidebar"]').click();
-      const rows = await page.locator('.nav-item, #tools-nav summary, .nav-view-item').evaluateAll(els => els
+      const rows = await page.locator('#nav-tablist .nav-item, .nav-view-item').evaluateAll(els => els
         .filter(el => el.getClientRects().length && getComputedStyle(el).display !== 'none')
         .map(el => {
           const s = getComputedStyle(el), icon = el.querySelector('svg.icon'), label = el.querySelector('.nav-label');
@@ -412,9 +417,9 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
             font: s.fontSize, padding: s.paddingLeft, gap: s.gap,
             icon: icon?.getBoundingClientRect().width, labelVisible: label && getComputedStyle(label).display !== 'none' };
         }));
-      assert.ok(rows.length >= 8);
+      assert.ok(rows.length >= 5, 'five primary destinations, with contextual filters where visible');
       for (const row of rows) {
-        assert.equal(row.height, width === 375 ? 44 : 36, `${row.name} row height at ${width}`);
+        assert.equal(row.height, 44, `${row.name} row height at ${width}`);
         assert.equal(row.font, rows[0].font, `${row.name} typography at ${width}`);
         assert.equal(row.padding, rows[0].padding, `${row.name} padding at ${width}`);
         assert.equal(row.gap, rows[0].gap, `${row.name} icon gap at ${width}`);
@@ -462,9 +467,10 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
     await page.keyboard.press('Enter');
     assert.equal(await page.locator('#nav-view-all').getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'false');
-    await page.locator('.nav-item[data-tab="history"]').click();
+    await page.locator('#nav-tablist .nav-item[data-tab="work"]').click();
+    await page.locator('[data-work-filter="completed"]').click();
     assert.equal(await page.locator('.nav-item.active').count(), 1, 'only the current destination is active');
-    assert.equal(await page.locator('.nav-item[data-tab="history"]').getAttribute('aria-selected'), 'true');
+    assert.equal(await page.locator('.nav-item[data-tab="work"]').getAttribute('aria-selected'), 'true');
     assert.equal(await page.locator('.nav-views').isVisible(), false, 'Fleet filters stay contextual');
   } finally { await b.close(); }
 });
@@ -474,27 +480,19 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
   if (env.skip) return t.skip(env.skip);
   try {
     const { page } = await openBoard(env, '#/decisions');
-    const tools = page.locator('#tools-nav');
-    assert.equal(await tools.getAttribute('open'), null, 'technical tools start collapsed');
-    await tools.locator('summary').click();
-    assert.notEqual(await tools.getAttribute('open'), null, 'Tools opens through an ordinary click');
-    await page.locator('.nav-item', { hasText: 'Fleet' }).first().click();
+    assert.equal(await page.locator('#nav-tablist .nav-item').count(), 5, 'five primary destinations');
+    await page.getByRole('tab', { name: 'Settings', exact: true }).click();
     await page.waitForTimeout(700);
     assert.match(await page.locator('.panel.active').first().innerText(), /Fleet|agent/i,
       'clicking Fleet in the sidebar shows Fleet');
-    assert.match(page.url(), /#\/fleet/, 'and the URL says where the operator is');
+    assert.match(page.url(), /#\/settings/, 'and the URL says where the operator is');
 
     // The nav is a tablist: a keyboard operator reaches every screen.
-    await tools.locator('summary').focus();
-    await page.keyboard.press('Enter');
-    assert.equal(await tools.getAttribute('open'), null, 'keyboard activation closes Tools');
-    await page.keyboard.press('Enter');
-    assert.notEqual(await tools.getAttribute('open'), null, 'keyboard activation reopens Tools');
-    const ledger = page.locator('.nav-item', { hasText: 'Ledger' }).first();
+    const ledger = page.getByRole('tab', { name: 'Insights', exact: true });
     await ledger.focus();
     await page.keyboard.press('Enter');
     await page.waitForTimeout(700);
-    assert.match(page.url(), /#\/ledger/, 'Enter on a focused nav item navigates');
+    assert.match(page.url(), /#\/insights/, 'Enter on a focused nav item navigates');
   } finally { await env.close(); }
 });
 
