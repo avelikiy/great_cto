@@ -152,7 +152,7 @@
           },
           {
             "type": "command",
-            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\" || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/graph-guard.mjs\" || true",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/graph-guard.mjs\" || true",
             "timeout": 10
           }
         ]

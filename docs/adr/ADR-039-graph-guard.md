@@ -4,6 +4,7 @@
 Status: Accepted — rule 1 shipped in observe mode
 Deciders: great_cto maintainers
 Tracking: Beads epic great_cto-1puj (graph-2: great_cto-1puj.2)
+Related: [ADR-027](ADR-027-one-agent-registration.md) (why an executing controller is not an option on Claude Code), [ADR-037](ADR-037-lesson-needs-evidence.md) (the same rule — nothing ships without a measurement)
 
 ## Context
 
