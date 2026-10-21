@@ -14,6 +14,17 @@ import { issueTokensAsync, readTokens, consumeToken, checkToken, approvalSnapsho
 import { readBindingReceipt, readApprovalReceipt, readSecondOpinion } from './lib/receipt-read.mjs';
 const realGit = execFileSync('/usr/bin/which', ['git'], { encoding: 'utf8' }).trim();
 const server = process.env.TEST_BOARD_SERVER || fileURLToPath(new URL('./server.mjs', import.meta.url));
+const receiptFailureKinds = new Map([
+  ['Receipt reader busy; retry', 'busy'], ['Invalid receipt deadline', 'invalid-deadline'],
+  ['Receipt worker unavailable', 'worker-unavailable'], ['Receipt worker failed', 'worker-failed'],
+  ['Receipt read unavailable', 'read-unavailable'], ['Receipt read timed out', 'read-timed-out'],
+  ['Receipt worker returned invalid evidence', 'invalid-evidence'], ['Receipt output exceeded limit', 'output-limit'],
+]);
+function receiptFailureDiagnostic(error, startedAt) {
+  let kind = 'other';
+  try { kind = receiptFailureKinds.get(error?.message) || 'other'; } catch {}
+  return { kind, elapsedMs: Math.max(0, Math.round(performance.now() - startedAt)) };
+}
 async function waitFor(fn, timeoutMs = 5000, observe) {
   const started = performance.now(), end = started + timeoutMs;
   while (!fn() && performance.now() < end) await new Promise(r => setTimeout(r, 25));
@@ -38,6 +49,20 @@ test('receipt handshake diagnostics run only after failure and preserve assertio
   });
   assert.equal(observations, 1);
   await assert.rejects(waitFor(() => false, 0, () => { throw Error('diagnostic probe failed'); }), /handshake did not arrive; diagnostics unavailable/);
+});
+test('receipt rejection diagnostics expose fixed categories and elapsed time, never raw errors', () => {
+  for (const [message, expected] of receiptFailureKinds) {
+    const result = receiptFailureDiagnostic(Error(message), performance.now());
+    assert.deepEqual(Object.keys(result).sort(), ['elapsedMs', 'kind']);
+    assert.equal(result.kind, expected);
+    assert.ok(Number.isInteger(result.elapsedMs) && result.elapsedMs >= 0);
+  }
+  const opaque = 'opaque private diagnostic data';
+  for (const error of [Error(opaque), null, { get message() { throw Error(opaque); } }]) {
+    const result = receiptFailureDiagnostic(error, performance.now());
+    assert.equal(result.kind, 'other');
+    assert.ok(!JSON.stringify(result).includes(opaque));
+  }
 });
 function repository(t, format = 'sha1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-'));
@@ -184,17 +209,20 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
   process.env.PATH = bin + path.delimiter + process.env.PATH;
   process.env.GCTO_RECEIPT_CONTROL_ROOT = control; process.env.GCTO_RECEIPT_REAL_GIT = realGit;
   try {
+    const readStartedAt = performance.now();
     const pending = readBindingReceipt(cwd, { timeoutMs: 1000 });
-    let receiptState = 'pending';
-    pending.then(() => { receiptState = 'resolved'; }, () => { receiptState = 'rejected'; });
+    let receiptState = 'pending', rejection = null;
+    pending.then(() => { receiptState = 'resolved'; }, error => {
+      receiptState = 'rejected'; rejection = receiptFailureDiagnostic(error, readStartedAt);
+    });
     const refused = assert.rejects(pending, /Receipt/);
     await waitFor(() => fs.existsSync(path.join(control, 'git-held')), 5000, () => ({
-      phase: 'await-git-held', receiptState, markerPresent: fs.existsSync(path.join(control, 'git-held')),
+      phase: 'await-git-held', receiptState, rejection, markerPresent: fs.existsSync(path.join(control, 'git-held')),
     }));
     const pid = Number(fs.readFileSync(path.join(control, 'git-held'), 'utf8').trim());
     await refused;
     await waitFor(() => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } }, 5000, () => ({
-      phase: 'await-owned-git-exit', receiptState, markerPresent: fs.existsSync(path.join(control, 'git-held')),
+      phase: 'await-owned-git-exit', receiptState, rejection, markerPresent: fs.existsSync(path.join(control, 'git-held')),
     }));
     for (const key of keys) { if (old[key] === undefined) delete process.env[key]; else process.env[key] = old[key]; }
     assert.ok((await readBindingReceipt(cwd)).head, 'deadline must release the project slot');
