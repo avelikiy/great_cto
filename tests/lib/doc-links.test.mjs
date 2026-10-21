@@ -102,7 +102,7 @@ test('the orphan count is frozen, and only shrinks deliberately', (t) => {
   //
   // Ignored paths dropped, both trees now agree, and the number means the
   // same thing in a clean clone as it does on a machine full of drafts.
-  const FROZEN = 48;
+  const FROZEN = 47;
   const ignored = gitIgnoredDocs();
   if (!ignored) return t.skip('git could not list ignored paths — the count would be the machine, not the repo');
 
