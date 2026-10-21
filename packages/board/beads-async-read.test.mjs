@@ -24,11 +24,31 @@ async function setup(t, mode = 'hold') {
   });
   return { root, cwd, ...mod };
 }
-async function waitFor(fn, budget = 5000) {
-  const end = performance.now() + budget;
+async function waitFor(fn, budget = 5000, observe) {
+  const started = performance.now(), end = started + budget;
   while (!fn() && performance.now() < end) await new Promise(r => setTimeout(r, 25));
-  assert.ok(fn(), 'fixture observation exceeded its fixed deadline');
+  const found = fn();
+  let context = '';
+  if (!found && observe) {
+    try { context = '; ' + JSON.stringify({ ...observe(), elapsedMs: Math.round(performance.now() - started) }); }
+    catch { context = '; diagnostics unavailable'; }
+  }
+  assert.ok(found, 'fixture observation exceeded its fixed deadline' + context);
 }
+test('fixture failure diagnostics are lazy and never mask the original deadline assertion', async () => {
+  let observations = 0;
+  await waitFor(() => true, 0, () => { observations++; });
+  assert.equal(observations, 0, 'a successful observation must add no diagnostic work');
+  await assert.rejects(waitFor(() => false, 0, () => {
+    observations++; return { phase: 'await-descendant', markerPresent: false };
+  }), error => {
+    assert.equal(error.code, 'ERR_ASSERTION');
+    assert.match(error.message, /fixed deadline.*"phase":"await-descendant".*"markerPresent":false.*"elapsedMs":\d+/);
+    return true;
+  });
+  assert.equal(observations, 1);
+  await assert.rejects(waitFor(() => false, 0, () => { throw Error('diagnostic probe failed'); }), /fixed deadline; diagnostics unavailable/);
+});
 test('concurrent cold readers join one subprocess and wait for real tasks', async t => {
   const f = await setup(t);
   let settled = 0;
@@ -112,13 +132,20 @@ for (const mode of ['hang', 'leader-exit']) test(`actual owner SIGKILL closes ${
   });
   let leader, descendant, worker;
   const dead = pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } };
+  const markers = () => Object.fromEntries(['started', 'descendant', 'worker'].map(name =>
+    [name, fs.existsSync(path.join(f.root, 'project.' + name))]));
   try {
-    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')));
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')), 5000, () => ({
+      phase: 'await-descendant', mode, markers: markers(), ownerPidObserved: Number.isInteger(owner.pid),
+      ownerExited: owner.exitCode !== null || owner.signalCode !== null,
+    }));
     leader = Number(fs.readFileSync(path.join(f.root, 'project.started'), 'utf8').trim());
     descendant = Number(fs.readFileSync(path.join(f.root, 'project.descendant'), 'utf8'));
     worker = Number(fs.readFileSync(path.join(f.root, 'project.worker'), 'utf8'));
     const exited = once(owner, 'exit');owner.kill('SIGKILL');await exited;
-    await waitFor(() => dead(leader) && dead(descendant) && dead(worker));
+    await waitFor(() => dead(leader) && dead(descendant) && dead(worker), 5000, () => ({
+      phase: 'await-owned-exit', mode, leaderDead: dead(leader), descendantDead: dead(descendant), workerDead: dead(worker),
+    }));
   } finally {
     // Fixed captured fixture PIDs only; cleanup is not the preceding assertion.
     try { owner.kill('SIGKILL'); } catch {}
@@ -130,16 +157,25 @@ for (const mode of ['closed-success', 'closed-fail']) test(`completed ${mode} re
   const sentinel = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], { stdio: 'ignore' });
   const dead = pid => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } };
   let descendant, worker;
+  let readState = 'not-started';
   try {
     const read = f.getTasksAsync(f.cwd);
+    readState = 'pending';
+    read.then(() => { readState = 'resolved'; }, () => { readState = 'rejected'; });
     const completed = mode === 'closed-fail' ? assert.rejects(read, /exited 1/) : read;
-    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')));
+    await waitFor(() => fs.existsSync(path.join(f.root, 'project.descendant')), 5000, () => ({
+      phase: 'await-descendant', mode, readState,
+      markers: Object.fromEntries(['started', 'descendant', 'worker'].map(name =>
+        [name, fs.existsSync(path.join(f.root, 'project.' + name))])),
+    }));
     descendant = Number(fs.readFileSync(path.join(f.root, 'project.descendant'), 'utf8'));
     worker = Number(fs.readFileSync(path.join(f.root, 'project.worker'), 'utf8'));
     const result = await completed;
     if (mode === 'closed-success') assert.equal(result[0].id, 'FIXTURE-1');
     else assert.equal(bdCache.has(f.cwd), false);
-    await waitFor(() => dead(descendant) && dead(worker));
+    await waitFor(() => dead(descendant) && dead(worker), 5000, () => ({
+      phase: 'await-owned-exit', mode, readState, descendantDead: dead(descendant), workerDead: dead(worker),
+    }));
     assert.equal(dead(sentinel.pid), false, 'unrelated process must survive');
   } finally {
     // Captured test-owned PIDs only; the assertion above is not cleanup.
