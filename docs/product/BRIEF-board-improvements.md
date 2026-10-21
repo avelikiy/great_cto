@@ -1,5 +1,9 @@
 # Product Brief — great_cto admin board: from project-viewer to fleet control surface
 
+**Date:** 2026-08-09
+
+Historical proposal first committed on this date. The project counts and findings below describe that original snapshot, not a new validation or approval. Later task-first navigation is documented in [ARCH-task-first-admin-v2](../architecture/ARCH-task-first-admin-v2.md).
+
 Analysis + prioritised improvement plan. Not a new product — a reprioritisation of an
 existing internal tool. Evidence paths are relative to the repo root. Two audits (endpoint
 project-scoping, UI empty-state handling) and a 4-persona / 3-model debate back the ranking.
@@ -182,7 +186,7 @@ above all of them as the landing.
 
 1. **Aggregation location** — roll up server-side (a new `/api/fleet` that loops the
    registry) vs client-side (fan out N `?project=` calls, render as they land)? Client-side
-   is cheaper and shows partial results honestly (each row resolves independently, `unread`
+   is cheaper and shows partial results (each row resolves independently, `unread`
    until it does); server-side is one round-trip but blocks on the slowest project. Lean
    client-side for v1, but it's the architect's call.
 2. **"Stuck" definition** — what threshold makes a project "quiet"? Last verdict / last task

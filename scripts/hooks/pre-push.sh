@@ -392,7 +392,10 @@ if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receip
       # nobody exports. `GREAT_CTO_ENFORCE_RECEIPT` still overrides, per
       # invocation, in both directions.
       RECEIPT_GATE="warn"
-      if grep -qE '^[[:space:]]*receipt-gate:[[:space:]]*enforce[[:space:]]*$' .great_cto/PROJECT.md 2>/dev/null; then
+      # Read posture beside the shared verdicts too: a linked checkout need not
+      # have its own PROJECT.md. Do not turn the primary project's enforce into warn.
+      RECEIPT_STATE_DIR="$(node scripts/lib/receipt.mjs --state-dir)"
+      if grep -qE '^[[:space:]]*receipt-gate:[[:space:]]*enforce[[:space:]]*$' "$RECEIPT_STATE_DIR/PROJECT.md" 2>/dev/null; then
         RECEIPT_GATE="enforce"
       fi
       [[ "${GREAT_CTO_ENFORCE_RECEIPT:-}" == "1" ]] && RECEIPT_GATE="enforce"

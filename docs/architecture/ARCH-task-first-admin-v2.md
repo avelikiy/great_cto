@@ -2,7 +2,7 @@
 
 For the board implementer and reviewer, this document fixes how the approved five-section design reuses the existing project-scoped read models without becoming another controller.
 
-Date: 2026-10-21. Feature: `great_cto-ejgk`. Size: Medium. Archetype: devtools.
+**Date:** 2026-10-21. Feature: `great_cto-ejgk`. Size: Medium. Archetype: devtools.
 Authority: user approval of the isolated `admin-graph-design-v2` prototype; implementation does not authorize merge, release, installation or deployment.
 
 ## Signals and gate
@@ -16,6 +16,19 @@ Required gate: project-isolation/security regression tests, browser integration 
 The operator should find a task, its recorded execution/evidence and the next supported action without reconstructing them from Fleet, Harness and Usage. Five primary entries are Work, Decisions, Knowledge, Insights and Settings. The approved prototype is visual intent, not evidence that its fictional metrics or sample graph are available from the product.
 
 The v2 README explicitly leaves dark theme details, expanded graph-node detail and complete settings/mobile-document navigation for subsequent design. Implement responsive access and preserve current theme behavior; do not invent additional approved screen designs. The source already has document browsing, source maps and project-scoped usage readers. Reuse these before introducing new components.
+
+## Change map
+
+```mermaid
+flowchart LR
+  Stores[Existing project and controller stores] --> Reads[Project-scoped read models]
+  Files[Selected project Markdown] --> Boundary[Bounded canonical-path document reads]
+  Reads --> UI[Work Decisions Knowledge Insights Settings]
+  Boundary --> UI
+  UI --> Controls[Existing supported action and approval controls]
+```
+
+This is an architecture map, not evidence of causal task execution. Existing controllers retain write and approval authority; navigation adds no new execution path.
 
 ## Decision and alternatives
 
