@@ -89,6 +89,7 @@ test('CLI compares the recorded stage base, not earlier work from the branch for
   const recorded = latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') }).receipt;
   writeFileSync(receiptFile, JSON.stringify({ ...recorded, base: `--output=${noWrite}` }));
   const invalid = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
+  assert.equal(invalid.status, 2, 'invalid evidence must not report a successful check');
   assert.match(invalid.stdout, /could not be read|unreadable/);
   assert.equal(existsSync(noWrite), false, 'a persisted base cannot become a Git write option');
   writeFileSync(join(f.wt, 'delta.txt'), 'changed after review\n');
@@ -97,6 +98,30 @@ test('CLI compares the recorded stage base, not earlier work from the branch for
   assert.equal(accept.status, 2, 'an agent cannot accept drift through a noninteractive process');
   assert.match(accept.stderr, /needs a terminal/);
   assert.equal(existsSync(join(f.wt, '.great_cto/.receipt-accept')), false);
+});
+
+test('legacy HEAD base on a nonstandard branch remains verifiable and detects committed drift', t => {
+  const f = fixture(t);
+  f.git(f.main, 'branch', '-m', 'experimental');
+  writeFileSync(join(f.wt, 'sample.txt'), 'reviewed dirty bytes\n');
+  assert.equal(treeReceipt(f.wt).base, 'HEAD', 'exercise the emitter own legacy format');
+  f.review();
+  assert.match(f.verify().stdout, /every reviewed file is byte-identical/);
+  const recorded = latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') }).receipt;
+  const receiptFile = join(f.temp, 'head-receipt.json'); writeFileSync(receiptFile, JSON.stringify(recorded));
+  writeFileSync(join(f.wt, 'sample.txt'), 'changed and committed after review\n');
+  f.git(f.wt, 'add', 'sample.txt'); f.git(f.wt, 'commit', '-qm', 'post-review drift');
+  assert.equal(f.verify().status, 1);
+  const check = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
+  assert.equal(check.status, 1, check.stdout + check.stderr);
+  writeFileSync(receiptFile, JSON.stringify({ ...recorded, head: null }));
+  const missingHead = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
+  assert.equal(missingHead.status, 2, 'legacy HEAD without its recorded commit cannot fall back to current HEAD');
+  writeFileSync(join(f.main, '.great_cto/verdicts/code-reviewer.log'), JSON.stringify({
+    v: 1, ts: '2000-01-01T00:00:00Z', agent: 'code-reviewer', verdict: 'APPROVED',
+    receipt: { ...recorded, base: 'f'.repeat(40) },
+  }) + '\n');
+  assert.equal(f.verify().status, 2, 'a missing Git object cannot make an unreadable check successful');
 });
 
 test('explicit state directory wins and an absent override never falls back', t => {
@@ -144,4 +169,16 @@ test('pre-push retains shared receipt-gate enforcement from the main project', t
   });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stderr, /BLOCKED — re-review/);
+  const approval = latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') });
+  writeFileSync(join(f.main, '.great_cto/verdicts/code-reviewer.log'), JSON.stringify({
+    ...approval, receipt: { ...approval.receipt, base: 'f'.repeat(40) },
+  }) + '\n');
+  const unreadable = spawnSync('bash', [join(ROOT, 'scripts/hooks/pre-push.sh')], {
+    cwd: f.wt, encoding: 'utf8', input: '',
+    env: { ...f.env, GREAT_CTO_SKIP_RECEIPT_CHECK: '', GREAT_CTO_ENFORCE_RECEIPT: '',
+      GREAT_CTO_WORKSPACE: join(f.temp, 'no-workspace'), GREAT_CTO_PRIVATE_TERMS: join(f.temp, 'no-private-terms') },
+  });
+  assert.equal(unreadable.status, 1, unreadable.stdout + unreadable.stderr);
+  assert.match(unreadable.stderr, /evidence could not be verified/);
+  assert.doesNotMatch(unreadable.stderr, /--accept/, 'unreadable evidence cannot be accepted as a known state');
 });
