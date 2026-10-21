@@ -29,7 +29,8 @@ import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import * as fsModule from 'node:fs';
-import { join } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
@@ -351,12 +352,23 @@ export function describeDrift(cmp, { max = 10 } = {}) {
 export const APPROVING_AGENTS = Object.freeze(['code-reviewer', 'security-officer', 'qa-engineer']);
 const APPROVING_VERDICTS = new Set(['APPROVED', 'PASS', 'PASSED']);
 
-export function latestApproval(cwd = process.cwd(), { agents = APPROVING_AGENTS, read = readFileSync } = {}) {
+/** Same state location as log-verdict.sh; the candidate bytes stay in cwd. */
+export function verdictStateDir(cwd = process.cwd(), env = process.env) {
+  if (env.GREAT_CTO_DIR) return resolve(cwd, env.GREAT_CTO_DIR);
+  const common = git(['rev-parse', '--git-common-dir'], cwd)?.trim();
+  const gitdir = git(['rev-parse', '--git-dir'], cwd)?.trim();
+  if (common && gitdir && resolve(cwd, common) !== resolve(cwd, gitdir)) {
+    return join(dirname(resolve(cwd, common)), '.great_cto');
+  }
+  return join(cwd, '.great_cto');
+}
+
+export function latestApproval(cwd = process.cwd(), { agents = APPROVING_AGENTS, read = readFileSync, stateDir = verdictStateDir(cwd) } = {}) {
   let best = null;
   for (const agent of agents) {
     let text;
     try {
-      text = read(join(cwd, '.great_cto', 'verdicts', `${agent}.log`), 'utf8');
+      text = read(join(stateDir, 'verdicts', `${agent}.log`), 'utf8');
     } catch { continue; }
     for (const line of String(text).split('\n')) {
       if (!line.trim()) continue;
@@ -454,8 +466,12 @@ function requireFs() {
 // `--check <file>`  compares a recorded receipt held in a file.
 // `--verify` compares the newest approving verdict's receipt against now.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   const argv = process.argv.slice(2);
+  if (argv.includes('--state-dir')) {
+    console.log(verdictStateDir());
+    process.exit(0);
+  }
   if (argv.includes('--emit')) {
     // `--verdicts <dir>`: measure the change from where the previous stage stood.
     const vi = argv.indexOf('--verdicts');

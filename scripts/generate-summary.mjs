@@ -262,12 +262,17 @@ function heuristicSummary(content, kind) {
   // Pull first 5 bullets after first H2 (or just first 5 bullets if no H2)
   let bullets = [];
   let pastH2 = false;
+  let section = '';
   for (const l of lines) {
     if (/^##\s/.test(l)) pastH2 = true;
+    const heading = l.match(/^#{2,6}\s+(.+)/);
+    if (heading) section = heading[1].trim();
     if (!pastH2) continue;
     const m = l.match(/^\s*[-*]\s+(.+)/);
     if (m) {
-      bullets.push(m[1].slice(0, 100));
+      // A bullet under "What this will not do" means the opposite without
+      // its heading. Preserve source context instead of inventing a decision.
+      bullets.push(`${section ? `**${section}:** ` : ''}${m[1].slice(0, 100).trimEnd()}`);
       if (bullets.length >= 5) break;
     }
   }

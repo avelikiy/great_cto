@@ -91,6 +91,14 @@ Some intro.
   assert.match(summary, /Full doc:/);
 });
 
+test('heuristic summary preserves non-goal context instead of reversing its bullets', async () => {
+  const { heuristicSummary } = await import('../../scripts/generate-summary.mjs');
+  const content = '# Receipt plan\n\n## What this will not do\n\n- Claim a receipt proves the review was good.\n\n## Checks\n\n- Compare the reviewed bytes.\n';
+  const summary = heuristicSummary(content, 'plan');
+  assert.match(summary, /\*\*What this will not do:\*\* Claim a receipt proves/);
+  assert.match(summary, /\*\*Checks:\*\* Compare the reviewed bytes/);
+});
+
 test('generator writes .summary.md for ARCH artifact (heuristic mode)', () => {
   const root = tempArtifactDir();
   const arch = writeArtifact(root, 'docs/architecture/ARCH-test-feature.md',
