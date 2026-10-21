@@ -149,6 +149,11 @@
             "timeout": 5,
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -n \"$GREAT_CTO_AGENT_BUDGET_FILE\" ] || exit 0; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/agent-execution-budget.mjs\" pre; _budget_exit=$?; if [ $_budget_exit -ne 0 ]; then exit 2; fi",
             "statusMessage": "Checking shared agent execution budget..."
+          },
+          {
+            "type": "command",
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/graph-guard.mjs\" || true",
+            "timeout": 10
           }
         ]
       },
