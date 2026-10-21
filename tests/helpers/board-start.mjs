@@ -97,8 +97,8 @@ export function startBoard({ cliEntry, project, home, args = [], env = {}, timeo
     let exited = null;
     proc.once('exit', (code, signal) => { exited = { code, signal }; });
 
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
+    const deadline = performance.now() + timeoutMs;
+    while (performance.now() < deadline) {
       // A collision is knowable before the deadline, and knowing it early is
       // what makes the retry cheap instead of costing a full timeout each go.
       if (/EADDRINUSE|address already in use/i.test(stderr)) {
@@ -122,10 +122,17 @@ export function startBoard({ cliEntry, project, home, args = [], env = {}, timeo
         );
       }
       try {
-        const r = await fetch(`http://127.0.0.1:${port}/api/projects`);
-        if (r.ok || r.status === 404) return { port, proc };
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) break;
+        // A connected socket without response headers is still startup time.
+        // Bound this await by the SAME budget, not a fresh per-request timer.
+        const r = await fetch(`http://127.0.0.1:${port}/api/projects`, {
+          signal: AbortSignal.timeout(Math.ceil(remaining)),
+        });
+        if ((r.ok || r.status === 404) && performance.now() < deadline) return { port, proc };
       } catch { /* not up yet */ }
-      await new Promise((r) => setTimeout(r, 150));
+      const remaining = deadline - performance.now();
+      if (remaining > 0) await new Promise((r) => setTimeout(r, Math.min(150, remaining)));
     }
 
     await reapQuietly(proc);
@@ -167,8 +174,8 @@ export function startServerOnFreePort({
     let exited = null;
     proc.once('exit', (code, signal) => { exited = { code, signal }; });
 
-    const deadline = Date.now() + timeoutMs;
-    while (Date.now() < deadline) {
+    const deadline = performance.now() + timeoutMs;
+    while (performance.now() < deadline) {
       if (/EADDRINUSE|address already in use/i.test(stderr)) {
         await reapQuietly(proc);
         throw Object.assign(new Error(`server hit EADDRINUSE on :${port}`), { code: 'EADDRINUSE' });
@@ -180,10 +187,15 @@ export function startServerOnFreePort({
         );
       }
       try {
-        const r = await fetch(`http://127.0.0.1:${port}${readyPath}`, { signal: AbortSignal.timeout(1500) });
-        if (r.ok) return { port, proc };
+        const remaining = deadline - performance.now();
+        if (remaining <= 0) break;
+        const r = await fetch(`http://127.0.0.1:${port}${readyPath}`, {
+          signal: AbortSignal.timeout(Math.ceil(Math.min(1500, remaining))),
+        });
+        if (r.ok && performance.now() < deadline) return { port, proc };
       } catch { /* not up yet */ }
-      await new Promise((r) => setTimeout(r, 250));
+      const remaining = deadline - performance.now();
+      if (remaining > 0) await new Promise((r) => setTimeout(r, Math.min(250, remaining)));
     }
     await reapQuietly(proc);
     // Returned rather than thrown is NOT an option here: the caller decides
