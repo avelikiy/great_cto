@@ -154,6 +154,9 @@ test('an unreadable real repository receipt cannot mint an unbound token', async
 });
 test('receipt deadline releases its owned Git child and bounded read slot', { timeout: 7000 }, async t => {
   const cwd = repository(t), control = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-deadline-'));
+  // Hold the first Git read: cleanup must not depend on a prior HEAD round-trip
+  // finishing before the unchanged receipt deadline starts killing the group.
+  fs.writeFileSync(path.join(control, 'hold-head'), 'ready');
   const bin = path.join(control, 'bin'); fs.mkdirSync(bin);
   fs.symlinkSync(fileURLToPath(new URL('./fixtures/held-receipt-git.mjs', import.meta.url)), path.join(bin, 'git'));
   const keys = ['PATH', 'GCTO_RECEIPT_CONTROL_ROOT', 'GCTO_RECEIPT_REAL_GIT'];
