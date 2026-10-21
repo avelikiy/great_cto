@@ -87,7 +87,7 @@ test('CLI compares the recorded stage base, not earlier work from the branch for
   assert.match(check.stdout, /every reviewed file is byte-identical/);
   const noWrite = join(f.temp, 'must-not-write');
   const recorded = latestApproval(f.wt, { stateDir: join(f.main, '.great_cto') }).receipt;
-  writeFileSync(receiptFile, JSON.stringify({ ...recorded, base: `--output=${noWrite}` }));
+  writeFileSync(receiptFile, JSON.stringify({ ...recorded, base: '--output=' + noWrite }));
   const invalid = spawnSync(process.execPath, [SCRIPT, '--check', receiptFile], { cwd: f.wt, encoding: 'utf8', env: f.env });
   assert.equal(invalid.status, 2, 'invalid evidence must not report a successful check');
   assert.match(invalid.stdout, /could not be read|unreadable/);
