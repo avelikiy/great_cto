@@ -3,11 +3,14 @@ import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import { SHOTS, selectScreenshotPanel } from '../../scripts/capture-screenshots.mjs';
 
-test('screenshot names stay stable while routes reach the five actual target panels', async () => {
+test('legacy screenshot names stay stable and the showcase reaches actual target panels', async () => {
   assert.deepEqual(SHOTS.map(({ file, route, panel }) => [file, route, panel]), [
     ['board.png', 'work', 'work'], ['ledger.png', 'insights/ledger', 'budgets'],
     ['fleet.png', 'settings/executors', 'agents'], ['harness.png', 'settings/runtime', 'harness'],
     ['settings.png', 'settings/general', 'settings'],
+    ['execution.png', 'work', 'work'], ['evidence.png', 'work', 'work'],
+    ['knowledge.png', 'knowledge', 'knowledge'], ['insights.png', 'insights/outcomes', 'admin-outcomes'],
+    ['work-social.png', 'work', 'work'],
   ]);
   for (const shot of SHOTS) {
     const calls = [];
