@@ -33,8 +33,9 @@ capture at 1200:630 aspect ratio, not a cropped or relabeled historical image.
 ## Boundaries
 
 No live model calls, comparison benchmark, installed-plugin change, local operator
-board replacement, merge, release or website deployment. Independent review is
-pending. This is changed-area verification, not a fresh full product release gate.
+board replacement, merge, release or website deployment. Independent source-only
+review is recorded separately from these checks and does not authorize delivery.
+This is changed-area verification, not a fresh full product release gate.
 The causal graph implementation is a separate source candidate; these screenshots
 demonstrate the released 3.68 observation list, not that unreleased feature.
 
