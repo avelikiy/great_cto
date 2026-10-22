@@ -4,21 +4,38 @@ Date: 2026-10-22
 Scope: great_cto-bqxg; plugin PR #199 and site PR #6 (stacked on site PR #5).
 Contract: [shared role-group symbols](../design/DESIGN-agent-group-icons.md).
 
+Full-gate and independently reviewed source candidate:
+`b6d60f12e4c4cf46722dffd42bd774951a344ee0`,
+tree `670ddfe0a31d10ea209d4a796c40fd40f5d9fe6b`.
+Final independently reviewed site candidate:
+`f8261da68462f3df463e50e0b75cae485b328a53`,
+tree `5e91ef569cf8365c5654da09b0a07b6a7b143009`.
+The later source change records results in this report only; runtime code and
+tests remain those of the pinned source candidate.
+
 ## Results
 
 | Check | Result |
 | --- | --- |
 | Focused plugin contracts and affected consumers | 49 passed, 0 failed/skipped |
 | New isolated board Chromium scenario | Passed: 72 roles, profile keyboard opening, 390/1440 widths, light/dark, failed asset fallback |
-| Site Node suite | 51 passed, 0 failed/skipped |
+| Site Node suite | 54 passed, 0 failed/skipped |
 | Site full build | Passed |
 | Site strict design checks | Green; 24 pre-existing orphan-selector advisories remain |
 | Site Chromium runner | Passed: 72 roster roles, 9 groups, 54 role-row checks after changing all three presets at both widths; zero page errors |
 | Site JavaScript-disabled check | Initial roster and homepage symbols remain visible |
 | Local npm tarball | Both canonical asset and Node bridge included; asset bytes identical; extracted Fleet import passed |
+| Extracted npm board HTTP | Canonical asset returned HTTP 200 and text/javascript; served HTML loads it |
 | Documentation regressions | Design-dials and doc-links tests passed after correction; enforced artifact lint passed |
-| Full candidate gate | First run has two documentation failures; final corrected-candidate run pending |
-| Independent read-only review | Separately authorized; pending green full gate |
+| Full candidate gate | Corrected run exit 0, no failures; 15 baseline NOT CHECKED remain explicit |
+| Independent read-only review | APPROVE for both pinned candidates after correcting one site P2 |
+
+Final full-gate counts: root/hooks/board 1504 passed; library 3492 passed and
+6 skipped; eval 242, documentation 76, browser 19, CLI 375 and archetype E2E 34
+passed without failures or skips. Pipeline L1-L5 executed checks passed, with
+9 explicit NOT CHECKED. The final banner is GREEN with 15 NOT CHECKED, not ALL
+GATES GREEN. Live Docker/controller/model-worker scenarios, real capture and
+delivery, paid learning and deployment remain outside this run's proof.
 
 The local, unpublished archive retains the existing package version. Its SHA-256
 is `5db7e20207b04e0628069cfe0ea36043d99ecae2a5077007244ad23d9d5493c2`.
@@ -44,6 +61,30 @@ reference. Neither frozen test threshold was increased. The pre-push artifact
 advisory also exposed missing design-contract sections; those are now declared
 and enforced artifact lint is clean. The existing generated reference's prose
 advisory was not hidden or used to weaken a check.
+
+## Independent review and correction
+
+The first independent read-only review found no source P0-P2 findings, but
+requested changes for site commit `763911a7db71a63e6aa681eb041a0811db55c4b1`:
+the new canonical-asset copy checked the destination parent, not its leaf.
+A file-level symlink could therefore overwrite an external file. Two new
+regressions for existing and dangling leaf links failed before the correction.
+
+The site now rejects leaf symlinks with lstat, retains the parent realpath
+guard, and stages the copy inside assets before renaming the directory entry.
+An external hardlink's inode is not truncated. A third regression verifies
+hardlink preservation and cleanup of staging files. After correction the full
+site build, 54 Node tests, strict design checks and browser runner passed again.
+
+The reviewer independently reran 6 site icon regressions on the final site pin
+and returned APPROVE for both pinned candidates, with no remaining P0-P2
+findings. In the initial review the reviewer independently ran 21 source
+contracts, the board icon browser scenario, 33 site contracts and the site
+browser runner, and checked the package hash and runtime-file inclusion.
+The reviewer read, but did not rerun, the full source gate and final overall
+site suites. No reviewer writes, receipts or publication operations were made.
+These filesystem guards do not claim a sandbox against hostile same-UID
+mutation of ancestor directories.
 
 ## Reproduction
 
