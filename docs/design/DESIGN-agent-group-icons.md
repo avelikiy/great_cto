@@ -7,6 +7,12 @@ stale_after: 2027-04-22
 
 ## Design system and display contract
 
+DESIGN_VARIANCE: 2/10 - retain the current admin and site, adding only shared outline symbols.
+MOTION_INTENSITY: 1/10 - symbols are static; role meaning must not depend on animation.
+VISUAL_DENSITY: 7/10 - the 72-role inventory needs compact 14 px symbols beside readable names.
+
+The role inventory is documented in [Agents](../reference/agents.md).
+
 Nine monochrome outline symbols identify role groups: Plan, Architecture,
 Build, Test & review, Security, Domain reviewers, Ops, Memory and Other.
 They are not individual portraits, live execution status, measured quality,
