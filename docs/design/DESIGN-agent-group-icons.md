@@ -1,6 +1,11 @@
+---
+date: 2026-10-22
+stale_after: 2027-04-22
+---
+
 # Shared role-group symbols
 
-## Display contract
+## Design system and display contract
 
 Nine monochrome outline symbols identify role groups: Plan, Architecture,
 Build, Test & review, Security, Domain reviewers, Ops, Memory and Other.
@@ -22,13 +27,19 @@ builder matching; security and operations specialists precede domain reviewers.
 Unknown roles use Other. This does not alter dispatch, mandatory reviewers,
 gates, approval levels, budgets or host selection.
 
-## Rendering and safety
+## Component inventory
 
 - Board group headings, role rows and profile titles share the same symbols.
   Row status dots remain separate. Symbols are 14 px and inherit theme colors.
 - The site renders symbols on its homepage, roster cards, main-path roles and
   context picker, including after changing a preset. Grouping in the lifecycle
   documentation is not replaced with UI classification.
+
+## Accessibility and responsive behavior
+
+- Board symbols retain their 14 px geometry at 390 px and 1440 px viewport
+  widths in both light and dark themes. The site legend wraps rather than
+  introducing horizontal scrolling; site glyphs follow adjacent type size.
 - SVG output comes only from authored constants. Untrusted group keys are
   never interpolated into attributes or markup. Role names remain escaped.
 - Symbols use `aria-hidden="true"` and `focusable="false"`; adjacent text
@@ -37,6 +48,20 @@ gates, approval levels, budgets or host selection.
   The site renders its initial symbols on the server, even without JavaScript.
 - Public asset and CSS URLs use content hashes on the site; board JavaScript
   follows its existing no-cache static-asset policy.
+
+## Numeric contract and figure style
+
+Symbols introduce no metrics. Existing Fleet runs, pass rate and cost columns
+retain their tabular figures and their explicit missing-data states. A group
+count describes roster membership, not execution success or measured quality.
+
+## Destructive actions and cost of recovery
+
+This change adds no action, permission or mutable data endpoint. Existing
+profile actions, gate approval and their confirmations remain unchanged.
+Recovery is replacing the UI asset with a prior build; a missing board asset
+does not remove textual role names or actions. Release and installation remain
+separately authorized operations.
 
 ## Verification boundary
 
