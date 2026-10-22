@@ -8,6 +8,7 @@ import { RULES } from '../hooks/auto-attach-reviewers.mjs';
 import { codexRoleProfile } from './codex-role-profiles.mjs';
 import { validateReviewReusePolicy } from './scoped-review-reuse.mjs';
 import { assertReviewGraphFloor, assertPreparationGraphFloor } from './review-graph-floor.mjs';
+import { recordTrace, traceIncoming, traceParents, traceSchedule } from './execution-trace.mjs';
 
 const mandatory = ['code-reviewer', 'qa-engineer', 'security-officer'];
 const contracts = new Set(['auth-engineer', 'subscription-billing-engineer', 'integrations-engineer', 'connector-builder',
@@ -82,7 +83,12 @@ export function schedulePreparation(state) {
   state.specialistPreparation = { roles, selected, fingerprint: plan.fingerprint, plan, hardGates: gates,
     reports: [], status: roles.length ? 'scheduled' : 'complete', reusablePass: false };
   state.specialistImplementationGraph = structuredClone(state.graph);
-  if (roles.length) state.queue.splice(state.queue.indexOf('senior-dev'), 1, ...roles);
+  if (roles.length) {
+    state.queue.splice(state.queue.indexOf('senior-dev'), 1, ...roles);
+    const admission = recordTrace(state, 'transition', { role: 'senior-dev',
+      parents: [...traceIncoming(state, 'senior-dev'), ...traceParents(state, Object.keys(state.results))] });
+    for (const role of roles) traceSchedule(state, role, [admission]);
+  }
 }
 
 export function specialistRole(state, role) { return state.specialistStages?.[role]?.role || role; }

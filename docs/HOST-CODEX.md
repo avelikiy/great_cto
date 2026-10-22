@@ -121,6 +121,38 @@ leaves a lock directory requires operator inspection before removing that lock.
 
 ## Implemented controls
 
+### Recorded execution graph (source candidate)
+
+New controlled runs record an additive `executionTrace` in the same operator-owned
+state JSON. `status`, `list` and the board's Work → Execution expose a bounded,
+read-only graph: dispatch intent, supplied context, checks, verifier outcomes,
+selected transitions, joins, gates, rework, recovery and artifact publication.
+Each dispatch binds a workflow snapshot and input receipt digest. Supplied context
+does not prove the model read or used it. Parallel siblings share a frozen input;
+serialized report application does not create a sibling dependency.
+The stage-context digest covers inline stage context, not separately admitted
+private domain packets. Historical scoped reuse has its own report digest and
+explicit `reuse` node: no domain worker was invoked, and fresh verification and
+current gates remain required. Rework clears every affected scheduling frontier
+while retaining the invalidated nodes as history.
+
+Node details show attempt/host identity and recorded digests. Inspection, zoom and
+keyboard navigation do not approve or resume a run. A recorded gate approval does
+not establish deployment, acceptance or correct model output. Publication remains
+an artifact operation with `activation: none`.
+
+The trace is bounded to 512 nodes, 2048 edges and 64 workflow snapshots. Reaching a
+limit explicitly marks history incomplete without changing execution authority.
+Each snapshot has at most 256 rules and 16 values per transition field; malformed
+stored arrays are refused before their entries are traversed by the projection.
+A dispatch intent without an outcome is unknown, not proof of a currently live
+worker. Legacy runs have no trace; native sessions retain partial observations.
+No edges are reconstructed from timestamps, matching role names or task titles.
+The operator-owned JSON is not tamper-proof against the same OS user.
+
+This section describes the source candidate, not an installed-version or release
+claim. No model benchmark or quality-uplift result follows from graph availability.
+
 - Explicit specialist prompts; graph-based dispatch, verdict branches and joins.
 - Read-only Codex workers with plugins, apps and subagents disabled; user config
   and host skill discovery disabled to avoid unrelated tools and context overflow.

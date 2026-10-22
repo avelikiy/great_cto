@@ -9,6 +9,7 @@ import { assessChange, pinChangeBase, runtimeGatePolicy, nativeRuntimePolicy } f
 import { newRun, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { recordStandDown } from '../../scripts/lib/stand-down.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { projectExecutionTrace } from '../../scripts/lib/execution-trace.mjs';
 
 function fixture(t) {
   const dir = mkdtempSync(join(tmpdir(), 'runtime-gates-'));
@@ -115,6 +116,9 @@ test('Codex legacy enforces all gates; adaptive mode skips arch but still stops 
   assert.deepEqual(s.pending.gates, ['gate:arch']);
   s.pending = null; s.released = []; s.gatePolicy = { mode: 'adaptive', ...f.options, skipped: [] }; advance(s);
   assert.equal(s.status, 'ready'); assert.deepEqual(s.queue, ['senior-dev']);
+  const skipped = projectExecutionTrace(s).nodes.find(n => n.kind === 'gate' && n.status === 'skipped');
+  assert.deepEqual(skipped.gates, ['gate:arch']);
+  assert.equal(s.approvals.length, 0, 'recording a policy stand-down never grants approval');
   s.queue = []; s.results['senior-dev'] = { verdict: 'DONE', digest: 'b', receipt: treeReceipt(f.root) }; advance(s);
   assert.deepEqual(s.pending.gates, ['gate:ship']);
 });

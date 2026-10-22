@@ -9,6 +9,7 @@ import { prepareRelease, approveRelease, executeRelease, recoverRelease, validat
 import { safePath, runStage, cancel, advance } from '../../scripts/lib/codex-pipeline.mjs';
 import { runChecks } from '../../scripts/lib/codex-checks.mjs';
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { initializeTrace, projectExecutionTrace } from '../../scripts/lib/execution-trace.mjs';
 const image = process.env.GREAT_CTO_LIVE_DOCKER_IMAGE || `node@sha256:${'a'.repeat(64)}`;
 const content = 'export const x = 2;\n';
 const artifacts = () => validateArtifacts([{ path: 'dist/index.mjs', base64: Buffer.from(content).toString('base64') }]);
@@ -32,6 +33,23 @@ function fixture(t) {
   return { root, allowed: ['src'], checkPolicy, releasePolicy, results, released: roles, status: 'ready' };
 }
 const smoke = async () => ({ state: 'passed', code: 0, stdout: 'test fixture smoke', stderr: '' });
+
+test('release graph records approval and publication without exposing tokens or targets', async t => {
+  const s = fixture(t); s.id = 'release-graph'; s.graph = {}; s.queue = ['devops']; initializeTrace(s);
+  prepareRelease(s);
+  const token = s.release.token, before = JSON.stringify(s.executionTrace);
+  assert.throws(() => approveRelease(s, 'wrong'), /token/);
+  assert.equal(JSON.stringify(s.executionTrace), before);
+  approveRelease(s, token);
+  await executeRelease(s, { safePath, checks: smoke });
+  const graph = projectExecutionTrace(s), approved = graph.nodes.find(n => n.kind === 'approval');
+  const intent = graph.nodes.find(n => n.kind === 'release' && n.status === 'intent');
+  const published = graph.nodes.find(n => n.kind === 'release' && n.status === 'published');
+  assert(graph.edges.some(e => e.from === approved.id && e.to === intent.id));
+  assert(graph.edges.some(e => e.from === intent.id && e.to === published.id));
+  assert.equal(published.resultDigest, s.release.artifactDigest);
+  assert(!JSON.stringify(graph).includes(token)); assert(!JSON.stringify(graph).includes(s.releasePolicy.releaseRoot));
+});
 
 test('real trusted local build and post-release smoke need no Docker and preserve release approval', async t => {
   const s = fixture(t);

@@ -8025,7 +8025,9 @@ async function init() {
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
   if (currentTab === 'skills') loadSkillsInventory();
-  window.GctoWork.reset();
+  // Work already reads the URL's project during bind(). Late bootstrap data
+  // must refresh that same scope, not erase an Execution/Evidence selection.
+  window.GctoWork.refresh();
   document.getElementById('project-name').textContent = proj;
   document.getElementById('crumb-project').textContent = proj;
   document.title = `${proj} · great_cto`;

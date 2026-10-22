@@ -1,4 +1,5 @@
 /** Controller invocation evidence, not provider API usage or quality scores. */
+import { recordTrace, traceKey } from './execution-trace.mjs';
 const hosts = new Set(['codex', 'claude-code']);
 const kinds = new Set(['worker', 'verifier']);
 
@@ -23,6 +24,11 @@ export async function observeControllerCall(state, identity, run, save = () => {
     throw error;
   } finally {
     record.finishedAt = new Date().toISOString();
+    if (identity.attemptId) recordTrace(state, 'result', {
+      key: `${identity.kind === 'worker' ? 'dispatch' : 'verifier-call'}:${identity.attemptId}`,
+      role: identity.role, attemptId: identity.attemptId, host: identity.host, status: record.outcome,
+      parents: [traceKey(state, `${identity.kind === 'worker' ? 'context' : 'verifier'}:${identity.attemptId}`)], relation: 'outcome',
+    });
     save(state);
   }
 }

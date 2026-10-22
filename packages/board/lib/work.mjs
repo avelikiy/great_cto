@@ -29,7 +29,8 @@ function executionAttempts(run) {
     phase: short(a.phase), status: short(a.status), startedAt: date(a.startedAt), finishedAt: date(a.finishedAt),
   }));
   const truncated = attempts.length > 200;
-  return { state: nodes.length ? 'recorded' : 'unknown', nodes, topology: 'unknown', truncated,
+  const graph = run?.executionGraph || { state: 'unavailable', complete: false, nodes: [], edges: [], snapshots: [], reason: 'No linked controller-recorded graph is available.' };
+  return { state: nodes.length ? 'recorded' : 'unknown', nodes, topology: graph.state === 'recorded' ? 'recorded' : 'unknown', graph, truncated,
     partial: !run || truncated || nodes.length !== window.length,
     reason: !run ? 'Stable attempt observations are unavailable without a single explicitly linked controlled run.'
       : !nodes.length ? 'No usable attempt observations are recorded.' : null };

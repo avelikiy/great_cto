@@ -10,6 +10,7 @@ import { assertSpecialistEpoch } from '../../scripts/lib/controlled-specialists.
 import { codexRoleProfile } from '../../scripts/lib/codex-role-profiles.mjs';
 import { REVIEWERS_BY_ARCHETYPE, PACK_REVIEWERS, COMPLIANCE_REVIEWERS } from '../../scripts/lib/required-reviewers.mjs';
 import { assertBenchmarkReviewDispatches } from '../../scripts/lib/benchmark-review-dispatch.mjs';
+import { projectExecutionTrace } from '../../scripts/lib/execution-trace.mjs';
 
 function fixture(t, archetype = 'fintech', policy = true) {
   const root = mkdtempSync(join(tmpdir(), 'controlled-specialists-'));
@@ -106,6 +107,12 @@ test('operator-pinned scoped report skips only domain worker; fresh verifier and
       dependencyAttestation: { state: 'complete', inputDigest: state.attempts.at(-1).scopedInput.digest,
         checks: ['fresh dependency closure and current task inspection'] } }; } });
   assert.equal(workers, 0); assert.equal(verifiers, 1);
+  const trace = projectExecutionTrace(f.next), attemptId = f.next.attempts.at(-1).id;
+  const reuseNode = trace.nodes.find(n => n.kind === 'reuse' && n.attemptId === attemptId);
+  assert(reuseNode); assert.equal(reuseNode.verdict, 'historical-report-no-worker');
+  assert.match(reuseNode.contextDigest, /^[a-f0-9]{64}$/);
+  assert(!trace.nodes.some(n => n.attemptId === attemptId && n.role === f.role && n.status === 'returned'), 'no invented worker outcome for reused report');
+  assert(trace.edges.some(e => e.from === reuseNode.id && e.to === trace.nodes.find(n => n.kind === 'verifier' && n.attemptId === attemptId).id));
   assert.deepEqual(f.next.dispatchEvidence.records.slice(before).map(r => r.kind), ['verifier']);
   assert.equal(f.next.results[f.role].reuse.runId, f.state.id);
   assert.equal(f.next.results[f.role].scopedReview, undefined, 'reused result cannot mint recursive reuse');

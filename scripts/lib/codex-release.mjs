@@ -6,6 +6,7 @@ import { validateArtifacts, bundleDigest, digest, artifactPath } from './codex-a
 import { validateCheckPolicy, runChecks } from './codex-checks.mjs';
 import { treeReceipt } from './receipt.mjs';
 import { publishGitHubRelease } from './codex-github-release.mjs';
+import { recordTrace, traceKey, traceIncoming, traceSchedule } from './execution-trace.mjs';
 const ROOT_MARKER = '.great-cto-release-root';
 const ROOT_MARKER_CONTENT = 'great-cto-release-root:v1\n';
 const backendFields = policy => policy.backend === 'local'
@@ -83,11 +84,16 @@ export function prepareRelease(state) {
   const r = state.release;
   r.bindingDigest = digest(JSON.stringify({ id: r.id, target: r.target, policyDigest: r.policyDigest, artifactDigest: r.artifactDigest, receipt: r.receipt }));
   state.status = 'awaiting-release';
+  recordTrace(state, 'gate', { key: `release:${r.id}:gate`, role: 'devops', status: 'pending',
+    parents: traceIncoming(state, 'devops'), relation: 'gate', input: receipt, resultDigest: r.artifactDigest, gates: ['gate:release'] });
 }
 
 export function approveRelease(state, token) {
   const r = assertRelease(state);
   if (state.status !== 'awaiting-release' || r.status !== 'awaiting-approval' || token !== r.token) throw Error('release approval token does not match');
+  const approved = recordTrace(state, 'approval', { key: `release:${r.id}:approval`, role: 'devops', status: 'approved',
+    parents: [traceKey(state, `release:${r.id}:gate`)], relation: 'approval', input: r.receipt, resultDigest: r.artifactDigest, gates: ['gate:release'] });
+  traceSchedule(state, 'devops', [approved]);
   r.approvedAt = new Date().toISOString(); r.status = 'approved'; delete r.token;
   state.status = 'ready';
 }
@@ -113,6 +119,9 @@ function verifyDirectory(path, artifacts) {
 export function recoverRelease(state) {
   const r = assertRelease(state);
   if (!r.approvedAt || !['publishing', 'failed'].includes(r.status)) throw Error('release is not recoverable');
+  const recovery = recordTrace(state, 'recovery', { role: 'devops', status: 'recovered',
+    parents: traceIncoming(state, 'devops'), relation: 'recovery', input: r.receipt, resultDigest: r.artifactDigest });
+  traceSchedule(state, 'devops', [recovery]);
   // Reuse operation ID and candidate; never rebuild or approve a replacement.
   state.status = 'ready'; delete state.reason;
 }
@@ -120,6 +129,7 @@ export function recoverRelease(state) {
 export async function executeRelease(state, { safePath, checks = runChecks, gh, save = () => {} } = {}) {
   const r = assertRelease(state);
   if (!r.approvedAt || !['approved', 'publishing', 'failed', 'verified'].includes(r.status)) throw Error('release was not approved');
+  const publication = recordTrace(state, 'release', { role: 'devops', status: 'intent', parents: traceIncoming(state, 'devops'), relation: 'release', input: r.receipt, resultDigest: r.artifactDigest });
   r.status = 'publishing'; save(state);
   if (r.adapter === 'github-release') {
     try {
@@ -131,8 +141,11 @@ export async function executeRelease(state, { safePath, checks = runChecks, gh, 
       }, { safePath }) });
       Object.assign(r, { url: published.url, remoteAssets: published.remoteAssets, smoke: published.smoke,
         publishedAt: r.publishedAt ?? new Date().toISOString(), status: 'verified', verifiedAt: new Date().toISOString() });
-      assertRelease(state); save(state); return r;
+      assertRelease(state);
+      recordTrace(state, 'release', { key: `release:${r.id}:published`, role: 'devops', status: 'published', parents: [publication], relation: 'release', resultDigest: r.artifactDigest });
+      save(state); return r;
     } catch (error) {
+      traceSchedule(state, 'devops', [recordTrace(state, 'release', { role: 'devops', status: 'failed', parents: [publication], relation: 'release', resultDigest: r.artifactDigest })]);
       r.status = 'failed'; state.status = 'blocked'; state.reason = error.message; save(state); throw error;
     }
   }
@@ -160,8 +173,10 @@ export async function executeRelease(state, { safePath, checks = runChecks, gh, 
     if (r.smoke?.state !== 'passed' || r.smoke.code !== 0) throw Error('post-release smoke did not pass');
     assertRelease(state);
     r.status = 'verified'; r.verifiedAt = new Date().toISOString();
+    recordTrace(state, 'release', { key: `release:${r.id}:published`, role: 'devops', status: 'published', parents: [publication], relation: 'release', resultDigest: r.artifactDigest });
     save(state); return r;
   } catch (error) {
+    traceSchedule(state, 'devops', [recordTrace(state, 'release', { role: 'devops', status: 'failed', parents: [publication], relation: 'release', resultDigest: r.artifactDigest })]);
     r.status = 'failed'; state.status = 'blocked'; state.reason = error.message; save(state); throw error;
   } finally {
     // Only this invocation's private staging directory is discarded. A published

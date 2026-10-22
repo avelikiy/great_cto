@@ -73,7 +73,8 @@
     const roles = Array.isArray(entry.evidence) ? entry.evidence : [];
     const execution = entry.execution, nodes = Array.isArray(execution?.nodes) ? execution.nodes.slice(0, 200) : [];
     return '<section class="work-execution"><h3>Recorded observations</h3>'
-      + '<p>Dependencies not recorded. This is an observation list, not an inferred execution graph. Event order does not establish dependencies.</p>'
+      + renderExecutionGraph(execution?.graph)
+      + (execution?.graph?.state === 'recorded' ? '' : '<p>Dependencies not recorded. This is an observation list, not an inferred execution graph. Event order does not establish dependencies.</p>')
       + `<p>Recorded stage: ${esc(entry.stage || 'not recorded')}</p>`
       + (execution?.reason ? `<p>${esc(execution.reason)}</p>` : '')
       + (execution?.truncated ? '<p class="work-warning">Showing the latest 200 recorded attempts; earlier observations are truncated.</p>' : execution?.partial ? '<p class="work-warning">Attempt observations are incomplete.</p>' : '')
@@ -83,6 +84,60 @@
       + (roles.length ? '<ul class="work-observations">' + roles.map(role => `<li class="work-observation">${esc(role.label)} · recorded role observation; acceptance is not inferred</li>`).join('') + '</ul>' : '<p>No role observations recorded.</p>')
       + (entry.inspector ? renderInspector(entry.inspector).replace('<details ', '<details open ') : '<p>Linked activity unavailable. Absence of events is not proof of inactivity.</p>')
       + '</section>';
+  }
+  function renderExecutionGraph(graph) {
+    if (graph?.state !== 'recorded' || !Array.isArray(graph.nodes) || !graph.nodes.length)
+      return `<p class="work-meta">${esc(graph?.reason || 'Controller-recorded graph unavailable. Native and legacy observations remain partial.')}</p>`;
+    if (graph.nodes.length > 512 || !Array.isArray(graph.edges) || graph.edges.length > 2048) return '<p>Graph exceeds the display limit.</p>';
+    const nodes = graph.nodes, ids = new Map(nodes.map((n, i) => [n.id, i]));
+    if (ids.size !== nodes.length || graph.edges.some(e => !ids.has(e.from) || !ids.has(e.to) || ids.get(e.from) >= ids.get(e.to)))
+      return '<p>Graph dependencies cannot be displayed safely.</p>';
+    const levels = new Map(nodes.map(n => [n.id, 0]));
+    const parents = new Map(nodes.map(n => [n.id, []]));
+    for (const e of graph.edges) parents.get(e.to).push(e);
+    const rows = new Map(), positions = new Map();
+    for (const n of nodes) {
+      const level = Math.max(0, ...parents.get(n.id).map(e => levels.get(e.from) + 1));
+      levels.set(n.id, level);
+      const row = rows.get(level) || 0; rows.set(level, row + 1);
+      positions.set(n.id, { x: 24 + row * 236, y: 24 + level * 112 });
+    }
+    const width = Math.max(500, Math.max(...rows.values()) * 236 + 24), height = (Math.max(...levels.values()) + 1) * 112 + 24;
+    const edges = graph.edges.map(e => {
+      const a = positions.get(e.from), b = positions.get(e.to);
+      return `<path d="M${a.x + 104} ${a.y + 78} C${a.x + 104} ${a.y + 98},${b.x + 104} ${b.y - 20},${b.x + 104} ${b.y}" marker-end="url(#execution-arrow)"><title>${esc(e.kind)}: ${esc(e.from)} to ${esc(e.to)}</title></path>`;
+    }).join('');
+    const short = value => String(value || '').length > 27 ? String(value).slice(0, 26) + '…' : String(value || '');
+    const boxes = nodes.map(n => {
+      const p = positions.get(n.id);
+      return `<g class="execution-node" role="button" tabindex="0" data-graph-node="${esc(n.id)}" aria-label="${esc(n.kind)} ${esc(n.role || '')}: ${esc(n.status)}. Open recorded details." transform="translate(${p.x},${p.y})"><rect width="208" height="78" rx="6"/><text x="12" y="23">${esc(short(n.role || n.kind))}</text><text x="12" y="45">${esc(n.kind)} · ${esc(n.status)}</text><text x="12" y="64">${esc(n.host || 'controller')}</text></g>`;
+    }).join('');
+    const details = nodes.map(n => `<details class="execution-node-detail" data-graph-detail="${esc(n.id)}"><summary>${esc(n.id)} · ${esc(n.kind)} · ${esc(n.role || 'controller')} · ${esc(n.status)}</summary><dl>`
+      + [['Attempt', n.attemptId], ['Host', n.host], ['Recorded at', n.at], ['Verdict', n.verdict], ['Wave', n.waveId], ['Gates', (n.gates || []).join(', ')],
+        ['Workflow snapshot SHA-256', n.graphDigest], ['Input receipt SHA-256', n.inputDigest], ['Output receipt SHA-256', n.outputDigest],
+        [n.kind === 'reuse' ? 'Historical report SHA-256 (worker not invoked)' : 'Stage context SHA-256', n.contextDigest], ['Result SHA-256', n.resultDigest]]
+        .map(([key, value]) => `<dt>${esc(key)}</dt><dd><code>${esc(value || 'Not recorded')}</code></dd>`).join('')
+      + `<dt>Recorded predecessors</dt><dd>${parents.get(n.id).map(e => `${esc(e.from)} (${esc(e.kind)})`).join(', ') || 'None recorded; not proof of complete external inputs'}</dd></dl></details>`).join('');
+    return `<section class="execution-graph" aria-label="Controller-recorded execution graph"><h3>Controller-recorded graph</h3><p>${nodes.length} nodes · ${graph.edges.length} recorded edges · ${graph.snapshots?.length || 0} workflow snapshots. ${graph.complete ? 'Controller history recorded from run creation.' : 'Partial history: missing edges are not inferred.'}</p>`
+      + `<p class="work-meta">Dispatch, input, verification, gate and join edges describe controller observations. Intent is not proof of a live worker; recorded approval is not deployment or task acceptance. Historical reuse does not invoke a worker. Stage context digests exclude separately admitted domain packets.</p>`
+      + (graph.reason ? `<p class="work-warning">${esc(graph.reason)}</p>` : '')
+      + `<div class="execution-graph-tools" role="group" aria-label="Graph zoom"><button type="button" class="gate-btn" data-graph-scale="0.75">Zoom out</button><button type="button" class="gate-btn" data-graph-scale="1.333333">Zoom in</button><button type="button" class="gate-btn" data-graph-scale="reset">Reset zoom</button></div>`
+      + `<div class="execution-graph-canvas" tabindex="0" aria-label="Scrollable graph. Tab to a node and press Enter for details."><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Recorded execution dependencies"><defs><marker id="execution-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8"/></marker></defs><g class="execution-edges" fill="none">${edges}</g>${boxes}</svg></div>`
+      + `<h3>Recorded node details</h3><p class="work-meta">Use the graph or expand a node below. Digests bind recorded inputs, not correctness.</p>${details}</section>`;
+  }
+  function graphInteraction(target) {
+    const node = target.closest('[data-graph-node]');
+    if (node?.dataset.graphNode) {
+      const detail = [...document.querySelectorAll('[data-graph-detail]')].find(el => el.dataset.graphDetail === node.dataset.graphNode);
+      if (detail) { detail.open = true; detail.querySelector('summary')?.focus(); detail.scrollIntoView({ block: 'nearest' }); }
+      return true;
+    }
+    const scale = target.closest('[data-graph-scale]');
+    if (!scale?.dataset.graphScale) return false;
+    const svg = scale.closest('.execution-graph').querySelector('svg'), bounds = svg.viewBox.baseVal;
+    const next = scale.dataset.graphScale === 'reset' ? 1 : Math.min(2, Math.max(0.25, Number(svg.dataset.zoom || 1) * Number(scale.dataset.graphScale)));
+    svg.dataset.zoom = String(next); svg.setAttribute('width', String(bounds.width * next)); svg.setAttribute('height', String(bounds.height * next));
+    return true;
   }
   function renderCockpit(data, options = {}) {
     const category = categories.some(([key]) => key === options.category) ? options.category : 'active';
@@ -207,6 +262,7 @@
       document.getElementById('work-command').textContent = ''; status('');
     });
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
+      if (graphInteraction(event.target)) return;
       if (!snapshot) return;
       const button = event.target.closest('[data-work-action]');
       if (!button?.dataset.workAction) {
@@ -227,6 +283,7 @@
       else options.openIssue(entry.issueIds[0], action.action === 'review_decision');
     });
     document.getElementById('work-list').addEventListener('keydown', event => {
+      if (['Enter', ' '].includes(event.key) && event.target.closest('[data-graph-node]')) { event.preventDefault(); graphInteraction(event.target); return; }
       const button = event.target.closest('[data-work-tab]');
       if (!button || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       const tabs = ['overview', 'execution', 'evidence'], current = tabs.indexOf(button.dataset.workTab);
@@ -238,5 +295,5 @@
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, render, renderCockpit, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; paint(); }, search(value) { filter = value; paint(); } };
+  window.GctoWork = { bind, refresh, reset, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; paint(); }, search(value) { filter = value; paint(); } };
 })();

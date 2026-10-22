@@ -1266,6 +1266,11 @@ async function dispatch(req, res, url, cwd) {
   // shared sanitized projection only: prompts, approval tokens and artifact
   // bytes never cross into the browser payload.
   if (pathname === '/api/codex-runs') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify({ error: 'Unknown project; execution graphs were not read', state: 'unavailable' }));
+      return true;
+    }
     const result = listCodexRuns({ root: cwd });
     const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' };
     if (result.state === 'degraded') headers['X-Board-Degraded'] = encodeURIComponent(`${result.unreadable} unreadable Codex run state file(s)`);

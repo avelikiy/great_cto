@@ -1,4 +1,18 @@
 /* Approved task-first shell, using existing light/dark semantic tokens. */
+.execution-graph{min-width:0;margin:18px 0;padding:16px;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg-card)}
+.execution-graph-tools{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}
+.execution-graph-canvas{overflow:auto;max-width:100%;max-height:560px;border:1px solid var(--border-strong);background:var(--bg-page)}
+.execution-graph-canvas svg{display:block;max-width:none;font-family:var(--sans);font-size:12px;color:var(--text)}
+.execution-node{cursor:pointer;outline:none}
+.execution-node rect{fill:var(--bg-card);stroke:var(--text2);stroke-width:1.5}
+.execution-node text{fill:var(--text)}
+.execution-node:focus rect,.execution-node:hover rect{stroke:var(--focus-ring);stroke-width:3}
+.execution-edges{stroke:var(--text2);stroke-width:1.5}
+#execution-arrow path{fill:var(--text2)}
+.execution-node-detail{margin:8px 0;padding:10px;border:1px solid var(--border-strong);border-radius:5px;overflow-wrap:anywhere}
+.execution-node-detail summary{cursor:pointer;min-height:28px}
+.execution-node-detail dt{margin-top:10px;font-weight:600}
+.execution-node-detail dd{margin:4px 0;color:var(--text2);overflow-wrap:anywhere}
 #nav-tablist .nav-item{width:100%;background:transparent;border:0;border-radius:5px;font-family:var(--sans,Geist,sans-serif);font-size:14px;text-align:left;min-height:44px;color:var(--text2);cursor:pointer}
 #nav-tablist .nav-item.active{background:var(--accent-soft);color:var(--text);font-weight:600}
 #nav-tablist .nav-item:hover{background:var(--bg-muted)}
