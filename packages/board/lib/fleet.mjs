@@ -10,6 +10,7 @@ import { readVerdicts } from './verdicts.mjs';
 // dispatcher enforces the same verdict — one definition, so the board cannot
 // show `within` while the dispatcher holds the stage.
 import { parseAgentBudgets, judgeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
+import { classifyAgentGroup } from '../../../scripts/lib/agent-groups.mjs';
 
 // ── Agent fleet view (DESIGN-agents-fleet-view §3) ─────────────────────────
 //
@@ -33,23 +34,7 @@ const AGENTS_DIR = process.env.GREAT_CTO_AGENTS_DIR
   || path.join(os.homedir(), '.claude', 'agents');
 
 function deriveDomain(slug) {
-  const s = slug.toLowerCase();
-  if (/architect|adr|design|prompt|decision-scorer|project-auditor/.test(s)) return 'arch';
-  if (/security|sec-|threat|pci|gdpr|hipaa|smart-contract/.test(s)) return 'security';
-  // `review` used to be in this alternation, and it matched every `*-reviewer`
-  // slug — so 37 of the 40 agents in `qa` were domain reviewers, the `domain`
-  // bucket below was permanently empty, and the panel grouped 58% of the fleet
-  // under one heading. The rule that was supposed to separate them sat two lines
-  // later and could never be reached.
-  if (/\bqa\b|test|eval|performance|^code-reviewer$/.test(s)) return 'qa';
-  if (/devops|deploy|infra|l3|support|oncall/.test(s)) return 'ops';
-  if (/reviewer$/.test(s)) return 'domain';
-  if (/pm|plan|product|coordinator/.test(s)) return 'pm';
-  if (/learn|memory|continuous|knowledge/.test(s)) return 'memory';
-  // After qa: `e2e-test-engineer` and `ai-eval-engineer` test, they do not build.
-  // Before this rule 19 agents, senior-dev among them, sat in `other`.
-  if (/^senior-dev$|-engineer$|-builder$|scaffolder|ci-resolver/.test(s)) return 'build';
-  return 'other';
+  return classifyAgentGroup(slug);
 }
 
 // Founder Q#5 — picked: baked-in regex set (start small, expand later).

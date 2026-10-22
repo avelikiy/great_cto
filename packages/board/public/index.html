@@ -1524,8 +1524,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
   .fleet-group-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
-  .fleet-group-head .grp-icon, .agent-row .grp-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text2); vertical-align: -2px; }
+  .fleet-group-head .grp-icon, .agent-row .grp-icon, #agent-drawer-title .grp-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text2); vertical-align: -2px; }
   .agent-row .grp-icon { margin-right: 6px; color: var(--text3); }
+  #agent-drawer-title .grp-icon { margin-right: 6px; }
   .fleet-group-collapsed { display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
   .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
   .ar-posture { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -3397,6 +3398,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 </style>
 </head>
 <body>
+<script src="/assets/agent-groups.js"></script>
 <script src="/assets/work-view.js"></script>
 <div class="board">
   <!-- Subtle emerald glow background -->
@@ -9770,7 +9772,7 @@ function renderFleetList() {
   // Groups come from deriveDomain() on the server — one taxonomy, not two. A
   // group with rows in this view is expanded; the rest are one line each with
   // their count, so 70 agents fit a screen without a scroll or a virtualizer.
-  const DOMAINS = AGENT_GROUPS.map(([key]) => key);
+  const DOMAINS = AGENT_GROUPS.map(g => g.key);
   const totals = {}; for (const a of fleetState.agents) totals[a.domain] = (totals[a.domain] || 0) + 1;
   const byDomain = {}; for (const a of filtered) (byDomain[a.domain] = byDomain[a.domain] || []).push(a);
   const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
@@ -9794,22 +9796,9 @@ function renderFleetList() {
 // One glyph per role group, so a reviewer and a builder differ at a glance —
 // 72 agents share 10 frontmatter colors, and a color says nothing about the role.
 // Keys are deriveDomain() on the server; order is the pipeline's.
-const AGENT_GROUPS = [
-  ['pm', 'Plan', '<rect x="6" y="4" width="12" height="17" rx="2"/><path d="M9 4h6v3H9zM9 12h6M9 16h4"/>'],
-  ['arch', 'Architecture', '<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>'],
-  ['build', 'Build', '<path d="M8 7l-5 5 5 5M16 7l5 5-5 5M14 4l-4 16"/>'],
-  ['qa', 'Test & review', '<circle cx="12" cy="12" r="9"/><path d="M8 12l3 3 5-6"/>'],
-  ['security', 'Security', '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>'],
-  ['domain', 'Domain reviewers', '<path d="M12 4v16M8 20h8M5 8h14M5 8l-2 6h4zM19 8l-2 6h4z"/>'],
-  ['ops', 'Ops', '<rect x="4" y="4" width="16" height="6" rx="1"/><rect x="4" y="14" width="16" height="6" rx="1"/><path d="M8 7h.01M8 17h.01"/>'],
-  ['memory', 'Memory', '<path d="M6 3h12v18l-6-4-6 4z"/>'],
-  ['other', 'Other', '<circle cx="12" cy="12" r="3"/>'],
-];
-function groupLabel(key) { return (AGENT_GROUPS.find(([k]) => k === key) || [])[1] || key; }
-function groupIcon(key) {
-  const g = AGENT_GROUPS.find(([k]) => k === key) || AGENT_GROUPS[AGENT_GROUPS.length - 1];
-  return `<svg class="grp-icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${g[2]}</svg>`;
-}
+const AGENT_GROUPS = window.GctoAgentGroups?.groups || [];
+function groupLabel(key) { return window.GctoAgentGroups?.label(key) || key; }
+function groupIcon(key) { return window.GctoAgentGroups?.icon(key) || ''; }
 
 // AgentRow (DESIGN §6.4 / §8.5): slug · posture · last verdict · runs · pass · 30d $.
 // Numbers that can be summed are tabular and right-aligned; identifiers are not.
@@ -10001,7 +9990,7 @@ function renderAgentProfile(p, extra = {}) {
   const title = document.getElementById('agent-drawer-title');
   const pill  = document.getElementById('agent-drawer-pill');
   if (!body) return;
-  title.textContent = p.slug;
+  title.innerHTML = groupIcon(window.GctoAgentGroups?.classify(p.slug)) + esc(p.slug);
   const row = (fleetState.agents || []).find((a) => a.slug === p.slug) || {};
   const tier = extra.tier;
   const tierChip = tier
