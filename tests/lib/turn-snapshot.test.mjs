@@ -17,7 +17,7 @@ function repo(t) {
   const root = mkdtempSync(join(tmpdir(), 'gcto-turns-'));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const git = (...a) => execFileSync('git', a, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
-  git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't'); git('config', 'commit.gpgsign', 'false');
+  git('init', '-q', '-b', 'main'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't'); git('config', 'commit.gpgsign', 'false');
   writeFileSync(join(root, 'app.js'), 'export const x = 1;\n');
   writeFileSync(join(root, '.gitignore'), 'node_modules/\n');
   git('add', '.'); git('commit', '-q', '-m', 'init');
@@ -70,7 +70,7 @@ test('a turn records new files, and its diff holds only that turn', (t) => {
   assert.equal(t1.ref, `${TURN_REF_PREFIX}s1/1`);
   assert.deepEqual(turnDiff(root, { session: 's1', turn: 1 }).paths.sort(), ['app.js', 'new.mjs']);
   assert.deepEqual(turnDiff(root, { session: 's1', turn: 2 }).paths, ['app.js'], 'turn 2 did not touch new.mjs');
-  assert.equal(git('branch', '--list').trim(), '* master', 'not a branch');
+  assert.equal(git('branch', '--list').trim(), '* main', 'not a branch');
 });
 
 test('the events log and gitignored files stay out of a snapshot', (t) => {
