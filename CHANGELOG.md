@@ -53,6 +53,48 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.68.1 — 2026-10-22
+
+Review receipts are compared against the base their stage actually recorded,
+and a verification that cannot be read is refused rather than read as passed.
+
+### Fixed
+
+- **Review receipts in worktrees.** A receipt recorded in a linked worktree is
+  now compared against the stage base it recorded, not against whatever base the
+  checking tree resolves to; legacy receipts without a recorded base keep their
+  original comparison instead of failing.
+- **Unreadable verification is refused.** When the verification state cannot be
+  read, the receipt check refuses (exit 2 in enforce mode) instead of treating
+  the missing evidence as agreement. Artifact metadata is refreshed with the
+  receipt.
+
+### Tests
+
+- Board readiness HTTP is bounded by the remaining startup budget; lifecycle
+  handshake phases and the classified receipt-rejection reason are printed only
+  when a lifecycle test fails; a hostile-receipt probe no longer trips the plugin
+  scanner; the orphan-document ratchet is tightened. Deadlines and assertions are
+  unchanged.
+
+- `turn-snapshot` names its branch (`git init -b main`) instead of trusting git's
+  default, which differs between Apple and Homebrew git. Added by the publisher
+  after its own gate went red on that assertion alone.
+
+### Verification and boundaries
+
+- Full local gate passed before the tag and again inside the publish step, browser tests included with no skips.
+- The same eight commits were prepared by Codex as PR #196 (rebased onto 3.68.0
+  from the follow-ups added to PR #195 after its verified candidate); its own
+  full gate on that exact head was green with 15 checks explicitly NOT CHECKED —
+  live Docker/controller/export, real mixed-host and model execution, and
+  capture, learning, notification, release, deployment and human-approval
+  scenarios.
+- One earlier full run on the pre-rebase tree failed in a receipt test. The
+  cause is not explained; a later green run is not proof that it is fixed. It is
+  tracked separately.
+
 ## v3.68.0 — 2026-10-21
 
 Inspect tasks, project knowledge and consumption in one workspace. The pipeline graph now also watches for the architecture stage being skipped.
