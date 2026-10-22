@@ -8,6 +8,9 @@
 // integration path.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const { deriveDomain, clusterFailureModes, isSuccess, isFailure } =
   await import('./lib/fleet.mjs');
@@ -30,12 +33,38 @@ test('each agent lands in the domain a reader would expect', () => {
 });
 
 test('an unrecognised agent is `other`, not a silent miscategory', () => {
-  assert.equal(deriveDomain('app-scaffolder'), 'other');
+  assert.equal(deriveDomain('mystery-agent'), 'other');
   assert.equal(deriveDomain(''), 'other');
 });
 
 test('domain matching is case-insensitive', () => {
   assert.equal(deriveDomain('Security-Officer'), 'security');
+});
+
+// `other` used to hold 19 shipped agents, senior-dev among them: everyone who
+// writes code shared one heading with the agents nobody had classified.
+test('the agents that write code are `build`', () => {
+  for (const slug of ['senior-dev', 'app-scaffolder', 'ci-resolver', 'mobile-app-builder',
+    'connector-builder', 'auth-engineer', 'integrations-engineer', 'subscription-billing-engineer',
+    'media-pipeline-engineer', 'migration-import-engineer', 'geo-routing-engineer', 'growth-engineer']) {
+    assert.equal(deriveDomain(slug), 'build', slug);
+  }
+});
+
+test('the rest of the former `other` lands where its card says it works', () => {
+  const expected = {
+    coordinator: 'pm', 'decision-scorer': 'arch', 'project-auditor': 'arch',
+    'smart-contract-auditor': 'security', 'performance-engineer': 'qa',
+    'knowledge-extractor': 'memory',
+  };
+  for (const [slug, domain] of Object.entries(expected)) assert.equal(deriveDomain(slug), domain, slug);
+});
+
+test('almost no shipped agent is left in `other`', () => {
+  const dir = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'agents');
+  const other = fs.readdirSync(dir).filter((f) => f.endsWith('.md'))
+    .map((f) => f.slice(0, -3)).filter((s) => deriveDomain(s) === 'other');
+  assert.deepEqual(other, ['quant-researcher']);
 });
 
 // The qa rule used to match on `review`, which every `*-reviewer` slug contains.

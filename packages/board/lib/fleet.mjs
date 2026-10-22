@@ -34,18 +34,21 @@ const AGENTS_DIR = process.env.GREAT_CTO_AGENTS_DIR
 
 function deriveDomain(slug) {
   const s = slug.toLowerCase();
-  if (/architect|adr|design|prompt/.test(s)) return 'arch';
-  if (/security|sec-|threat|pci|gdpr|hipaa/.test(s)) return 'security';
+  if (/architect|adr|design|prompt|decision-scorer|project-auditor/.test(s)) return 'arch';
+  if (/security|sec-|threat|pci|gdpr|hipaa|smart-contract/.test(s)) return 'security';
   // `review` used to be in this alternation, and it matched every `*-reviewer`
   // slug — so 37 of the 40 agents in `qa` were domain reviewers, the `domain`
   // bucket below was permanently empty, and the panel grouped 58% of the fleet
   // under one heading. The rule that was supposed to separate them sat two lines
   // later and could never be reached.
-  if (/\bqa\b|test|eval|^code-reviewer$/.test(s)) return 'qa';
+  if (/\bqa\b|test|eval|performance|^code-reviewer$/.test(s)) return 'qa';
   if (/devops|deploy|infra|l3|support|oncall/.test(s)) return 'ops';
   if (/reviewer$/.test(s)) return 'domain';
-  if (/pm|plan|product/.test(s)) return 'pm';
-  if (/learn|memory|continuous/.test(s)) return 'memory';
+  if (/pm|plan|product|coordinator/.test(s)) return 'pm';
+  if (/learn|memory|continuous|knowledge/.test(s)) return 'memory';
+  // After qa: `e2e-test-engineer` and `ai-eval-engineer` test, they do not build.
+  // Before this rule 19 agents, senior-dev among them, sat in `other`.
+  if (/^senior-dev$|-engineer$|-builder$|scaffolder|ci-resolver/.test(s)) return 'build';
   return 'other';
 }
 
