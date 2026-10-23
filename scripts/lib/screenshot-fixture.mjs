@@ -18,6 +18,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 
 /** ISO timestamps relative to a fixed instant, so a capture is reproducible. */
 const T0 = Date.parse('2026-08-20T09:00:00Z');
@@ -160,3 +161,64 @@ export function buildFixture(dir) {
 }
 
 export const FIXTURE_NAME = 'acme-storefront';
+
+export const SAMPLE_TASK_ID = 'ac000000-0000-4000-8000-000000000001';
+export const SAMPLE_RUN_ID = 'ac000000-0000-4000-8000-000000000002';
+
+/** Presentation records only. Never execute or approve these synthetic runs. */
+export function buildShowcaseRecords(root, home) {
+  root = fs.realpathSync(root);
+  home = fs.realpathSync(home);
+  const relative = path.relative(root, home);
+  if (!relative || (!relative.startsWith(`..${path.sep}`) && relative !== '..' && !path.isAbsolute(relative))) {
+    throw new Error('showcase HOME must be outside the sample project');
+  }
+  const tasks = path.join(home, '.great_cto', 'work-tasks');
+  const runs = path.join(home, '.great_cto', 'codex-runs');
+  for (const dir of [tasks, runs]) fs.mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const attempts = [
+    ['senior-dev', 'codex', 1, 'rework', 6, 5],
+    ['code-reviewer', 'claude-code', 1, 'done', 5, 4],
+    ['senior-dev', 'codex', 2, 'done', 4, 3],
+    ['qa-engineer', 'claude-code', 1, 'done', 3, 2],
+    ['security-officer', 'codex', 1, 'done', 3, 2],
+  ].map(([role, host, number, status, start, end], i) => ({
+    id: `sample-attempt-${i + 1}`, role, host, number, status, phase: 'returned',
+    startedAt: at(start), finishedAt: at(end),
+  }));
+  const run = {
+    version: 1, id: SAMPLE_RUN_ID, root, status: 'awaiting-gate', active: null,
+    queue: ['devops'], hostRoutes: { 'code-reviewer': 'claude-code', 'qa-engineer': 'claude-code' },
+    attempts, results: { 'code-reviewer': {}, 'qa-engineer': {}, 'security-officer': {} },
+    pending: { role: 'security-officer', gates: ['ship'], createdAt: at(1) },
+    reason: 'Sample project: inspect the recorded review before authorizing the next stage. No release or deployment has run.',
+  };
+  const task = {
+    schemaVersion: 1, taskId: SAMPLE_TASK_ID, root, managed: true,
+    projectId: 'project:' + createHash('sha256').update(root).digest('hex'),
+    host: 'codex', goal: 'Sample project: harden checkout retries', intent: 'delivery',
+    acceptance: ['A retry retains the original payment idempotency key', 'A partial refund cannot be applied twice'],
+    revision: 1, phase: 'needs_decision', stage: 'security-officer',
+    reason: run.reason, createdAt: at(7), updatedAt: at(1),
+    links: { runs: [SAMPLE_RUN_ID], sessions: [], issues: ['acme-1a', 'acme-3c'] },
+    operations: [], observations: [], decisions: [{
+      decisionId: createHash('sha256').update('sample-only-no-approval').digest('hex'),
+      engine: 'codex', kind: 'gate', state: 'pending', bindingState: 'unverifiable',
+      label: 'Sample ship gate: inspect in the host controller; no approval is granted',
+    }],
+    evidence: [
+      { role: 'code-reviewer', verdict: 'REWORK', verified: false },
+      { role: 'qa-engineer', verdict: 'PASS', verified: false },
+      { role: 'security-officer', verdict: 'PASS', verified: false },
+    ],
+    metrics: { firstObservedStartAt: at(6), timeToObservedStartMs: 3600000, interruptions: { rework: 1 } },
+  };
+  fs.writeFileSync(path.join(tasks, `${SAMPLE_TASK_ID}.json`), JSON.stringify(task, null, 2), { mode: 0o600 });
+  fs.writeFileSync(path.join(runs, `${SAMPLE_RUN_ID}.json`), JSON.stringify(run, null, 2), { mode: 0o600 });
+  fs.writeFileSync(path.join(root, 'docs', 'ARCHITECTURE.md'),
+    '# Checkout retry boundary\n\n**Status:** Proposed\n\nSample project. Synthetic design data, not a production deployment.\n\n'
+    + '## Payment boundary\n\nThe server owns the idempotency key. Retries reuse it; card data stays with the payment provider.\n\n'
+    + '```mermaid\nflowchart LR\nCart[Storefront] --> API[Checkout API]\nAPI --> DB[Idempotency store]\nAPI --> PSP[Payment provider]\n```\n\n'
+    + '## Invariants\n\n- One key per payment intent, including retries.\n- A refund is recorded once.\n- The diagram describes design, not live execution.\n');
+  return { tasks, runs, taskId: SAMPLE_TASK_ID, runId: SAMPLE_RUN_ID };
+}
