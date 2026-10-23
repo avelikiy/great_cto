@@ -1,0 +1,38 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { buildFixture } from '../../scripts/lib/screenshot-fixture.mjs';
+import { seedRecordedCapture } from '../../scripts/lib/screenshot-causal-fixture.mjs';
+import { listCodexRuns } from '../../scripts/lib/codex-host-state.mjs';
+import { projectWork } from '../../packages/board/lib/work.mjs';
+
+test('public graph capture uses actual offline controller transitions and withholds executable approval', async t => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-causal-capture-test-'));
+  t.after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+  const root = path.join(tmp, 'acme-storefront'), home = path.join(tmp, 'home');
+  fs.mkdirSync(root); fs.mkdirSync(home); buildFixture(root);
+  await assert.rejects(seedRecordedCapture(root, root), /outside/);
+  const otherHome = path.join(home, 'nested'); fs.mkdirSync(otherHome);
+  await assert.rejects(seedRecordedCapture(root, otherHome), /isolated temporary/);
+  const id = await seedRecordedCapture(root, home);
+  const store = path.join(home, '.great_cto/codex-runs');
+  const listing = listCodexRuns({ root, store });
+  assert.equal(listing.state, 'ok'); assert.equal(listing.runs.length, 1);
+  const run = listing.runs[0]; assert.equal(run.id, id);
+  const graph = run.executionGraph;
+  assert.equal(graph.state, 'recorded'); assert.equal(graph.complete, true);
+  assert.equal(graph.nodes.filter(n => n.kind === 'attempt').length, 2);
+  assert.deepEqual(new Set(graph.nodes.filter(n => n.kind === 'attempt').map(n => n.host)), new Set(['codex', 'claude-code']));
+  const approved = graph.nodes.find(n => n.kind === 'approval');
+  assert(approved); assert(graph.edges.some(e => e.from === approved.id));
+  const raw = JSON.parse(fs.readFileSync(path.join(store, id + '.json')));
+  assert.equal(raw.pending.token, undefined);
+  const entry = projectWork({ projectId: 'fixture', codex: listing }).entries.find(e => e.runId === id);
+  assert.equal(entry.execution.topology, 'recorded');
+  assert.equal(entry.capabilities.some(c => c.enabled), false);
+  assert.match(entry.reason, /synthetic|offline/i);
+  assert.doesNotMatch(JSON.stringify(graph), /"token"|"prompt"|\.capture-plugin/);
+  await assert.rejects(seedRecordedCapture(root, home), /fresh|existing/i);
+});

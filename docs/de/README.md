@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark." width="900" />
 
-*Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark. 3.69.0.*
+*Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark. 3.70.0.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> Übersetzung des englischen [README](../../README.md), Version **v3.69.0** (2026-10-23).
+> Übersetzung des englischen [README](../../README.md), Version **v3.70.0** (2026-10-23).
 > Bei Abweichungen gilt die englische Fassung.
 
 ---
@@ -64,7 +64,7 @@ Mit `great-cto board` öffnest du das lokale Board, normalerweise auf `localhost
 
 `unverifiable`, `unmeasured` und `unavailable` bedeuten keinen erfolgreichen Check.
 
-Execution zeigt protokollierte Versuche, keinen kausalen Graphen oder Live-Terminal. Diagramme beschreiben deklarierte Architektur. Tokenverbrauch und Kosten sind keine Qualitätsbewertung. Dokumente behalten ihre Sprache; die Oberfläche ist Englisch.
+Execution zeigt vom Controller aufgezeichnete kausale Graphen; native und ältere Sitzungen bleiben unvollständig oder nicht verfügbar. Fehlende Kanten werden nicht erfunden. Das Beispiel nutzt Offline-Stubs, keine Live-Modelle. Diagramme beschreiben deklarierte Architektur. Tokenverbrauch und Kosten sind keine Qualitätsbewertung. Dokumente behalten ihre Sprache; die Oberfläche ist Englisch.
 
 <details>
 <summary>Ausführung, Belege, Projektwissen und Ergebnisse ansehen</summary>

@@ -16,14 +16,14 @@ Run through the version-pinned npm entrypoint. Installing the Codex plugin does
 not add an executable to `PATH`:
 
 ```sh
-npx --yes great-cto@3.69.0 codex-host doctor
-npx --yes great-cto@3.69.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
-npx --yes great-cto@3.69.0 codex-host status <run-uuid>
-npx --yes great-cto@3.69.0 codex-host approve <run-uuid> --token <pending-token>
-npx --yes great-cto@3.69.0 codex-host resume <run-uuid>
-npx --yes great-cto@3.69.0 codex-host recover <run-uuid>
-npx --yes great-cto@3.69.0 codex-host cancel <run-uuid>
-npx --yes great-cto@3.69.0 codex-host list --dir /path/to/project
+npx --yes great-cto@3.70.0 codex-host doctor
+npx --yes great-cto@3.70.0 codex-host start --dir /path/to/project --allow src,docs --prompt 'Implement the specified feature'
+npx --yes great-cto@3.70.0 codex-host status <run-uuid>
+npx --yes great-cto@3.70.0 codex-host approve <run-uuid> --token <pending-token>
+npx --yes great-cto@3.70.0 codex-host resume <run-uuid>
+npx --yes great-cto@3.70.0 codex-host recover <run-uuid>
+npx --yes great-cto@3.70.0 codex-host cancel <run-uuid>
+npx --yes great-cto@3.70.0 codex-host list --dir /path/to/project
 ```
 
 For a mixed run from a source checkout, assign roles at start. Unlisted roles
@@ -121,7 +121,7 @@ leaves a lock directory requires operator inspection before removing that lock.
 
 ## Implemented controls
 
-### Recorded execution graph (source candidate)
+### Recorded execution graph (3.70.0)
 
 New controlled runs record an additive `executionTrace` in the same operator-owned
 state JSON. `status`, `list` and the board's Work → Execution expose a bounded,
@@ -150,8 +150,9 @@ worker. Legacy runs have no trace; native sessions retain partial observations.
 No edges are reconstructed from timestamps, matching role names or task titles.
 The operator-owned JSON is not tamper-proof against the same OS user.
 
-This section describes the source candidate, not an installed-version or release
-claim. No model benchmark or quality-uplift result follows from graph availability.
+This requires a 3.70.0 installation and a newly created controlled run; upgrading
+does not reconstruct earlier history. No model benchmark or quality-uplift result
+follows from graph availability.
 
 - Explicit specialist prompts; graph-based dispatch, verdict branches and joins.
 - Read-only Codex workers with plugins, apps and subagents disabled; user config

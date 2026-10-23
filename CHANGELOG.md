@@ -55,6 +55,38 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.70.0 — 2026-10-23
+
+Controlled runs now retain their recorded causal execution history.
+
+### What's new
+
+- The existing controller records bounded attempts, input identities, mandatory
+  checks, verification, gates, joins, repair, recovery, reuse and publication in
+  the same atomic run state. No second orchestrator or execution authority.
+- Execution renders a read-only project-scoped graph with keyboard node details,
+  zoom and mobile/light/dark layouts. Native and legacy history remains explicitly
+  partial or unavailable; missing edges are never inferred from timestamps.
+- Fresh isolated screenshots demonstrate actual offline controller transitions,
+  not hand-drawn dependencies. All sample data and responses are synthetic.
+
+### Verification and boundaries
+
+- Independent review approved PR #198 after fixing invalidated scheduling
+  frontiers. Historical reuse does not invoke a worker or inherit approval.
+- Approval tokens, prompts, raw reports and private paths are excluded from the
+  graph projection. Dispatch policy, required reviewers and gates remain intact.
+- The canonical gate retains 15 NOT CHECKED categories. Live provider/Docker
+  scenarios, native causal adapters, real deployment and quality uplift are not
+  certified by deterministic tests or public captures.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.69.0 — 2026-10-23
 
 Recognize role responsibilities consistently in the board and team pages.

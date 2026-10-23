@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct." width="900" />
 
-*Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct. 3.69.0.*
+*Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct. 3.70.0.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> Traduction du [README](../../README.md) anglais, version **v3.69.0** (2026-10-23).
+> Traduction du [README](../../README.md) anglais, version **v3.70.0** (2026-10-23).
 > En cas de divergence, la version anglaise fait foi.
 
 ---
@@ -63,7 +63,7 @@ Lancez `great-cto board` pour ouvrir le tableau local, normalement sur `localhos
 
 `unverifiable`, `unmeasured` et `unavailable` ne signifient pas qu'une vérification est réussie.
 
-Execution montre les tentatives enregistrées, pas un graphe causal ni un terminal en direct. Les diagrammes décrivent l'architecture déclarée. Tokens et coûts ne mesurent pas la qualité. Les documents gardent leur langue ; l'interface est en anglais.
+Execution montre les graphes causaux enregistrés par le contrôleur ; les sessions natives et anciennes restent partielles ou indisponibles. Aucun lien absent n'est inventé. L'exemple utilise des réponses simulées hors ligne, pas des modèles en direct. Les diagrammes décrivent l'architecture déclarée. Tokens et coûts ne mesurent pas la qualité. Les documents gardent leur langue ; l'interface est en anglais.
 
 <details>
 <summary>Voir l'exécution, les preuves, les documents et les résultats</summary>

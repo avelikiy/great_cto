@@ -26,6 +26,7 @@ import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { buildFixture, buildShowcaseRecords, SAMPLE_TASK_ID } from './lib/screenshot-fixture.mjs';
+import { seedRecordedCapture } from './lib/screenshot-causal-fixture.mjs';
 import { writeTextChunk } from './lib/png-meta.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -78,6 +79,7 @@ async function main() {
   fs.mkdirSync(path.join(fakeHome, '.great_cto'), { recursive: true });
   buildFixture(projectRoot);
   const records = buildShowcaseRecords(projectRoot, fakeHome);
+  const graphRunId = await seedRecordedCapture(projectRoot, fakeHome);
 
   // The registry the switcher reads. One project, so the switcher cannot show
   // anything the operator would not want photographed.
@@ -168,9 +170,11 @@ async function main() {
       // router and refuse a missing/hidden target instead of shooting a stale panel.
       await selectScreenshotPanel(page, shot);
       if (shot.panel === 'work') {
-        await page.locator(`[data-work-select="task:${SAMPLE_TASK_ID}"]`).click();
+        const selected = shot.detail === 'execution' ? `run:${graphRunId}` : `task:${SAMPLE_TASK_ID}`;
+        await page.locator(`[data-work-select="${selected}"]`).click();
         await page.locator(`[data-work-tab="${shot.detail || 'overview'}"]`).click();
         await page.waitForSelector(`#work-tab-${shot.detail || 'overview'}[aria-selected="true"]`);
+        if (shot.detail === 'execution') await page.waitForSelector('.execution-graph svg');
       }
       if (shot.document) {
         await page.locator(`[data-doc-path="${shot.document}"]`).click();

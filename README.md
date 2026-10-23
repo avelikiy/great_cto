@@ -11,7 +11,7 @@
 
 <img src="docs/screenshots/board.png" alt="Work: a selected checkout task, its acceptance criteria and pending host decision. Sample project with synthetic records." width="900" />
 
-*Sample project, not a live-model benchmark. Captured from the 3.69 interface.*
+*Sample project, not a live-model benchmark. Captured from the 3.70 interface.*
 
 ```bash
 npx great-cto init
@@ -73,10 +73,12 @@ Readings such as `unverifiable`, `unmeasured` and `unavailable` are not passes.
 <details>
 <summary>See recorded execution, evidence, project knowledge and outcomes</summary>
 
-![Execution attempts across Codex and Claude Code. Synthetic sample; dependencies are not recorded.](docs/screenshots/execution.png)
+![Controller-recorded graph across Codex and Claude Code routes. Synthetic offline sample, not a live-model benchmark.](docs/screenshots/execution.png)
 
-Execution shows recorded attempts, including rework and host attribution. It is
-**not a causal execution graph**, live terminal or workflow editor.
+Execution shows controller-recorded causal history for controlled runs, including
+attempts, checks, verification, gates and repair. Native and legacy sessions stay
+partial or unavailable; missing edges are not inferred. This is not a live terminal
+or workflow editor. The sample graph comes from offline stub responses, not models.
 
 ![Task evidence separates recorded observations from unknown checks, review provenance and runtime health.](docs/screenshots/evidence.png)
 

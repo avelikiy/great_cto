@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção." width="900" />
 
-*Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção. 3.69.0.*
+*Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção. 3.70.0.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> Tradução do [README](../../README.md) em inglês, versão **v3.69.0** (2026-10-23).
+> Tradução do [README](../../README.md) em inglês, versão **v3.70.0** (2026-10-23).
 > Em caso de divergência, vale a versão em inglês.
 
 ---
@@ -63,7 +63,7 @@ Execute `great-cto board` para abrir o painel local, normalmente em `localhost:3
 
 `unverifiable`, `unmeasured` e `unavailable` não significam aprovação de uma verificação.
 
-Execution mostra tentativas registradas, não um grafo causal nem terminal ao vivo. Diagramas descrevem a arquitetura declarada. Tokens e custos não medem qualidade. Documentos mantêm seu idioma; a interface é em inglês.
+Execution mostra grafos causais registrados pelo controlador; sessões nativas e antigas continuam parciais ou indisponíveis. Ligações ausentes não são inventadas. O exemplo usa respostas offline simuladas, não modelos ao vivo. Diagramas descrevem a arquitetura declarada. Tokens e custos não medem qualidade. Documentos mantêm seu idioma; a interface é em inglês.
 
 <details>
 <summary>Ver execução, evidências, documentos e resultados</summary>

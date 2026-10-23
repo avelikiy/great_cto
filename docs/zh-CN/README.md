@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="使用合成数据的示例项目，不是实际模型运行的基准测试。" width="900" />
 
-*使用合成数据的示例项目，不是实际模型运行的基准测试。 3.69.0.*
+*使用合成数据的示例项目，不是实际模型运行的基准测试。 3.70.0.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> 本文译自英文 [README](../../README.md) **v3.69.0**（2026-10-23）。
+> 本文译自英文 [README](../../README.md) **v3.70.0**（2026-10-23）。
 > 如有出入，以英文版为准。
 
 ---
@@ -62,7 +62,7 @@ npx great-cto init
 
 `unverifiable`、`unmeasured` 和 `unavailable` 不代表检查通过。
 
-Execution 显示已记录的尝试，不是因果图或实时终端。图表描述声明的架构。token 和费用不是质量指标。文档保留原语言，界面使用英语。
+Execution 显示控制器记录的因果图。原生和旧会话仍为部分可用或不可用，不推断缺失的依赖关系。示例使用离线桩响应，不是实际模型执行。图表描述声明的架构。token 和费用不是质量指标。文档保留原语言，界面使用英语。
 
 <details>
 <summary>查看执行、证据、项目文档和结果</summary>
