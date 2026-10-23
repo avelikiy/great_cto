@@ -7842,6 +7842,7 @@ async function switchProject(slug) {
   if (window._gctoSSE) { try { window._gctoSSE.close(); } catch {} window._gctoSSE = null; }
   serverDefaultProject = false;
   currentProject = slug;
+  prepareFleetScope();
   document.getElementById('project-name').textContent = slug;
   document.getElementById('crumb-project').textContent = slug;
   document.title = `${slug} · great_cto`;
@@ -9609,7 +9610,7 @@ const fleetState = {
   projectId: null, focusId: null, proposal: null, proposalRequest: 0, proposalLoading: false,
   proposalFailed: false, changeIdentity: null, focusHost: (location.search || '').match(/(?:^\?|&)host=(codex|claude-code)(?:&|$)/)?.[1] || null,
   proposalDenied: false, proposalOffline: false, proposalInvalid: false,
-  deniedScope: null, accessGeneration: 0,
+  deniedScope: null, accessGeneration: 0, projectionScope: pqs(),
 };
 const FLEET_CORE_ROLES = new Set();
 function focusRegistryValid(r) {
@@ -9641,15 +9642,16 @@ function focusAccessDenied(data) {
 }
 function focusOffline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
 function fleetAccessDenied() { return fleetState.deniedScope === pqs(); }
-function purgeFleetProject() {
+function clearFleetProjection(denied = false) {
   ++fleetState.accessGeneration;
   for (const key of ['registryRequest','proposalRequest','requiredRequest','rosterRequest']) ++fleetState[key];
-  fleetState.deniedScope = pqs();
+  fleetState.deniedScope = denied ? pqs() : null;
   acceptFocusRegistry(null);
   for (const key of ['focusId','proposal','required','requiredScope','rosterScope','summary','drawerSlug','usage','changeIdentity']) fleetState[key] = null;
   fleetState.agents = []; fleetState.legacy_count = 0; fleetState.search = '';
-  fleetState.registryLoading = false; fleetState.proposalLoading = false;
-  fleetState.registryDenied = true; fleetState.proposalDenied = true;
+  fleetState.registryLoading = !denied; fleetState.proposalLoading = false;
+  fleetState.registryDenied = denied; fleetState.proposalDenied = denied;
+  fleetState.registryOffline = false; fleetState.proposalOffline = false;
   fleetState.registryFailed = false; fleetState.proposalFailed = false; fleetState.proposalInvalid = false;
   for (const id of ['agent-drawer-body','agent-drawer-pill','legacy-agents-count']) {
     const el = document.getElementById(id); if (el) el.textContent = '';
@@ -9662,11 +9664,23 @@ function purgeFleetProject() {
   const search = document.getElementById('fleet-search'); if (search) search.value = '';
   renderFocusInspection(); renderFleetList();
 }
+function prepareFleetScope() {
+  const scope = pqs();
+  if (fleetState.projectionScope === scope) return;
+  fleetState.projectionScope = scope;
+  clearFleetProjection();
+}
+function purgeFleetProject() {
+  prepareFleetScope();
+  clearFleetProjection(true);
+}
 function retryFleetProject() {
+  prepareFleetScope();
   fleetState.deniedScope = null; fleetState.registryDenied = false; fleetState.proposalDenied = false;
   return refreshAgentsInstalled();
 }
 async function refreshFocusRegistry() {
+  prepareFleetScope();
   if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.registryRequest;
   if (fleetState.registryScope !== scope) {
@@ -9678,15 +9692,18 @@ async function refreshFocusRegistry() {
   renderFocusInspection();
   try {
     const data = await api(`/api/focus-registry${scope}`);
+    prepareFleetScope();
     if (request !== fleetState.registryRequest || scope !== pqs()) return;
     if (focusAccessDenied(data)) { purgeFleetProject(); return; }
     fleetState.registryDenied = focusAccessDenied(data); fleetState.registryOffline = !data && focusOffline();
     acceptFocusRegistry(data); fleetState.registryFailed = !fleetState.registry;
     if (!fleetState.registry) { fleetState.focusId = null; fleetState.proposal = null; }
   } catch {
+    prepareFleetScope();
     if (request !== fleetState.registryRequest || scope !== pqs()) return;
     acceptFocusRegistry(null); fleetState.registryFailed = true; fleetState.proposal = null;
   } finally {
+    prepareFleetScope();
     if (request === fleetState.registryRequest && scope === pqs()) {
       fleetState.registryLoading = false; renderFocusInspection(); renderFleetList();
       if (fleetState.registry && fleetState.focusId) refreshFocusProposal();
@@ -9694,6 +9711,7 @@ async function refreshFocusRegistry() {
   }
 }
 function setFleetFocus(id) {
+  prepareFleetScope();
   if (fleetAccessDenied()) return;
   fleetState.focusId = fleetState.registryScope === pqs() && fleetState.registry?.directions.some(d => d.id === id) ? id : null;
   fleetState.proposal = null; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
@@ -9719,6 +9737,7 @@ function validFocusProposal(p) {
     && (p.assessmentState === 'known' ? /^[a-f0-9]{64}$/.test(p.assessmentFingerprint) : p.assessmentFingerprint === null && !p.nodes.length && !p.edges.length && !p.routeClasses.length);
 }
 async function refreshFocusProposal() {
+  prepareFleetScope();
   if (fleetAccessDenied()) return;
   const key = focusRequestKey(), request = ++fleetState.proposalRequest;
   const focusId = fleetState.focusId;
@@ -9727,6 +9746,7 @@ async function refreshFocusProposal() {
   try {
     const scope = pqs(), sep = scope ? '&' : '?';
     const data = await api(`/api/focus-proposal${scope}${sep}focus=${encodeURIComponent(focusId || '')}&host=${encodeURIComponent(fleetState.focusHost || '')}`);
+    prepareFleetScope();
     if (request !== fleetState.proposalRequest || key !== focusRequestKey()) return;
     if (focusAccessDenied(data)) { purgeFleetProject(); return; }
     fleetState.proposalDenied = focusAccessDenied(data); fleetState.proposalOffline = !data && focusOffline();
@@ -9735,9 +9755,11 @@ async function refreshFocusProposal() {
     else if (data && !fleetState.proposalDenied) fleetState.proposalInvalid = true;
     else fleetState.proposalFailed = true;
   } catch {
+    prepareFleetScope();
     if (request !== fleetState.proposalRequest || key !== focusRequestKey()) return;
     fleetState.proposal = null; fleetState.proposalFailed = true;
   } finally {
+    prepareFleetScope();
     if (request === fleetState.proposalRequest && key === focusRequestKey()) {
       fleetState.proposalLoading = false; renderFocusInspection();
     }
@@ -9809,12 +9831,14 @@ function requiredOf(slug) {
   return fleetRequirementsKnown() ? r.reviewers.find((x) => x.agent === slug) || null : null;
 }
 async function refreshRequiredReviewers() {
+  prepareFleetScope();
   if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.requiredRequest;
   fleetState.required = null;
   fleetState.requiredScope = null;
   renderFleetList();
   const r = await api(`/api/required-reviewers${scope}`);
+  prepareFleetScope();
   if (request !== fleetState.requiredRequest || scope !== pqs()) return;
   fleetState.required = r;
   fleetState.requiredScope = scope;
@@ -9828,9 +9852,11 @@ function usageOf(slug) {
   return u && u.state === 'counted' && u.agents ? (u.agents[slug] || { dispatches: 0, lastRun: null, projects: 0 }) : null;
 }
 async function refreshAgentUsage() {
+  prepareFleetScope();
   const generation = fleetState.accessGeneration;
   if (fleetAccessDenied()) return;
   const u = await api('/api/agent-usage');
+  prepareFleetScope();
   if (!u || generation !== fleetState.accessGeneration || fleetAccessDenied()) return;
   fleetState.usage = u;
   renderFleetList();
@@ -9839,6 +9865,7 @@ async function refreshAgentUsage() {
 }
 
 async function refreshAgentsInstalled() {
+  prepareFleetScope();
   if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.rosterRequest;
   if (fleetState.rosterScope !== scope) {
@@ -9850,6 +9877,7 @@ async function refreshAgentsInstalled() {
   refreshRequiredReviewers();
   refreshFocusRegistry();
   const data = await api(`/api/agents-installed${scope}`);
+  prepareFleetScope();
   if (!data || request !== fleetState.rosterRequest || scope !== pqs()) return;
   fleetState.agents = data.agents || [];
   fleetState.summary = data.summary || null;
@@ -10132,6 +10160,7 @@ function agoStr(iso) {
 let _drawerLastFocus = null;
 
 async function openAgentDrawer(slug, opts = {}) {
+  prepareFleetScope();
   const generation = fleetState.accessGeneration, scope = pqs();
   const current = () => !fleetAccessDenied() && generation === fleetState.accessGeneration && scope === pqs() && fleetState.drawerSlug === slug;
   if (fleetAccessDenied()) return;
@@ -10182,10 +10211,12 @@ async function openAgentDrawer(slug, opts = {}) {
   let profile;
   try { profile = await api(`/api/agents/${encodeURIComponent(slug)}`); }
   catch (err) {
+    prepareFleetScope();
     if (!current()) return;
     body.innerHTML = `<div class="cost-empty">Could not load <code>${esc(slug)}</code>: ${esc(String(err && err.message || err))} <button type="button" class="btn-ghost-sm" onclick="openAgentDrawer('${esc(slug)}', { fromHash: true })">Try again</button></div>`;
     return;
   }
+  prepareFleetScope();
   if (!current()) return;
   if (!profile || profile.error) {
     body.innerHTML = `<div class="cost-empty">Agent <code>${esc(slug)}</code> not found.</div>`;

@@ -17,7 +17,9 @@ test('four advisory focus directions work by keyboard and reflow without executi
   for (const role of ['architect', 'senior-dev', 'game-reviewer']) fs.writeFileSync(path.join(agents, `great_cto-${role}.md`), `---\nname: ${role}\ndescription: Fixture role\n---\n`);
   fs.mkdirSync(path.join(home, '.great_cto'), { recursive: true });
   const registry = path.join(home, '.great_cto', 'projects.json');
-  fs.writeFileSync(registry, JSON.stringify({ projects: [{ slug: FIXTURE_NAME, path: root }] }));
+  const otherProjects=['focus-b','focus-c'].map(slug=>({slug,path:path.join(tmp,slug)}));
+  for(const project of otherProjects){fs.mkdirSync(path.join(project.path,'.great_cto'),{recursive:true});fs.writeFileSync(path.join(project.path,'.great_cto','PROJECT.md'),'archetype: web-service\n');}
+  fs.writeFileSync(registry, JSON.stringify({ projects: [{ slug: FIXTURE_NAME, path: root },...otherProjects] }));
   const projectFile = path.join(root, '.great_cto', 'PROJECT.md'), before = fs.readFileSync(projectFile, 'utf8');
   let server, browser;
   try {
@@ -98,6 +100,30 @@ test('four advisory focus directions work by keyboard and reflow without executi
     assert.doesNotMatch(await page.locator('body').innerHTML(),/PRIVATE_(?:REFUSAL|REVIEWER|ROLE|DESCRIPTION|DRAWER)_CANARY/);
     assert.deepEqual(await page.evaluate(()=>({registry:fleetState.registry,projectId:fleetState.projectId,focusId:fleetState.focusId,required:fleetState.required,agents:fleetState.agents,denied:fleetState.proposalDenied})),
       {registry:null,projectId:null,focusId:null,required:null,agents:[],denied:true});
+    await page.evaluate(async()=>{await switchProject('focus-b');});
+    await page.waitForFunction(()=>fleetState.registryScope===pqs()&&!fleetState.registryLoading&&fleetState.registry&&fleetState.agents.length>0);
+    await page.evaluate(()=>{
+      fleetState.agents[0].description='B_PRIVATE_CANARY'; renderFleetList();
+      document.getElementById('agent-drawer-body').textContent='B_PRIVATE_DRAWER_CANARY';
+    });
+    let releaseSwitch;
+    const switchBarrier=new Promise(resolve=>{releaseSwitch=resolve;});
+    await page.route('**/api/**',async route=>{
+      const url=new URL(route.request().url());
+      if(url.searchParams.get('project')===FIXTURE_NAME&&['/api/tasks','/api/metrics','/api/share','/api/inbox'].includes(url.pathname)){
+        await switchBarrier; await route.continue();
+      }else await route.fallback();
+    });
+    await page.evaluate(slug=>{window.__focusProjectSwitch=switchProject(slug);},FIXTURE_NAME);
+    assert.equal(/B_PRIVATE_(?:DRAWER_)?CANARY/.test(await page.locator('body').innerHTML()),false,'B data disappears before generic A responses resolve');
+    assert.match(await page.locator('#focus-directions').innerText(),/Loading focus directions/);
+    assert.deepEqual(await page.evaluate(()=>({projectId:fleetState.projectId,registry:fleetState.registry,agents:fleetState.agents,denied:fleetState.registryDenied})),
+      {projectId:null,registry:null,agents:[],denied:false});
+    releaseSwitch(); await page.evaluate(()=>window.__focusProjectSwitch);
+    await page.waitForFunction(()=>fleetState.registryScope===pqs()&&!fleetState.registryLoading&&fleetState.registry&&fleetState.agents.length>0);
+    await page.evaluate(async()=>{await switchProject('focus-c');});
+    await page.waitForFunction(()=>fleetState.registryScope===pqs()&&!fleetState.registryLoading&&fleetState.registry&&fleetState.agents.length>0);
+    assert.equal(await page.evaluate(()=>fleetState.deniedScope),null);
     assert.deepEqual(errors, []);
     assert.equal(fs.readFileSync(projectFile, 'utf8'), before);
   } finally {

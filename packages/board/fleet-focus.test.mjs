@@ -208,3 +208,68 @@ for (const late of ['success','error']) test(`proposal denial purges project sta
   run("setFleetFocus('mental-care')");
   assert.equal(run('fleetState.proposalDenied'),true,'denial stays latched until explicit retry or project switch');
 });
+
+for (const entry of ['refreshAgentsInstalled','refreshFocusRegistry','refreshFocusProposal']) test(`denied A to loaded B to selected A clears the prior projection via ${entry}`, async () => {
+  const run=fixture(async url=>{
+    const project=url.match(/project=([a-z])/)?.[1];
+    if(url.startsWith('/api/focus-registry'))return {projectId:project,registry:focusRegistry()};
+    if(url.startsWith('/api/agents-installed'))return {agents:[{slug:`project-${project}-private`}],summary:{installed:1}};
+    if(url.startsWith('/api/required-reviewers'))return {state:'read',reviewers:[{agent:`project-${project}-reviewer`}]};
+    return null;
+  });
+  run('purgeFleetProject()');
+  for (const loaded of ['b','c']) {
+    run(`scope='?project=${loaded}'`); await run('refreshAgentsInstalled()');
+    assert.equal(run('fleetState.projectId'),loaded);
+    assert.equal(run('fleetState.agents[0].slug'),`project-${loaded}-private`);
+    run("scope='?project=a'");
+    const selected=run(`${entry}()`);
+    assert.equal(run('fleetState.projectId'),null,'previous project identity must clear before checking denial');
+    assert.equal(run('fleetState.registry'),null);
+    assert.equal(run('fleetState.agents.length'),0);
+    assert.equal(run('fleetState.required'),null);
+    assert.equal(run('fleetState.registryDenied'),false,'switching project resets the previous scoped denial');
+    assert.equal(run('fleetState.registryLoading'),true,'scope transition is loading, not a failed registry read');
+    await selected;
+    assert.notEqual(run('fleetState.projectId'),loaded);
+  }
+});
+
+test('same-project automatic reads remain refused until explicit Retry', async () => {
+  const calls=[];
+  const run=fixture(async url=>{calls.push(url);return url.startsWith('/api/focus-registry')?{projectId:'a',registry:focusRegistry()}:null;});
+  run('purgeFleetProject()');
+  await run('refreshAgentsInstalled()'); await run('refreshFocusRegistry()'); await run('refreshFocusProposal()');
+  assert.equal(calls.length,0);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  await run('retryFleetProject()');
+  assert(calls.some(url=>url.startsWith('/api/focus-registry')));
+  assert.equal(run('fleetState.registryDenied'),false);
+  assert.equal(run('fleetState.projectId'),'a');
+});
+
+for (const outcome of ['success','error']) test(`pending B callbacks cannot overwrite A denial after a third-project transition: ${outcome}`, async () => {
+  const pending=[];
+  const run=fixture(url=>url==='/api/agent-usage'?Promise.resolve(null):new Promise((resolve,reject)=>pending.push({url,resolve,reject})));
+  run("scope='?project=b'");
+  const roster=run('refreshAgentsInstalled()');
+  const registry=run('refreshFocusRegistry()');
+  run("fleetState.focusId='mental-care'"); const proposal=run('refreshFocusProposal()');
+  run("scope='?project=c'"); run('purgeFleetProject()');
+  run("scope='?project=a'"); run('purgeFleetProject()');
+  for(const item of pending) {
+    if(outcome==='error'&&item.url.startsWith('/api/focus-'))item.reject(Error('B_PRIVATE_ERROR'));
+    else if(item.url.startsWith('/api/focus-registry'))item.resolve({projectId:'b',registry:focusRegistry()});
+    else if(item.url.startsWith('/api/focus-proposal'))item.resolve({projectId:'b',host:'codex',changeIdentity:null,proposal:conditionalGraphProposal({focusId:'mental-care',host:'codex'})});
+    else if(item.url.startsWith('/api/required-reviewers'))item.resolve({state:'read',reviewers:[{agent:'b-private-reviewer'}]});
+    else item.resolve({agents:[{slug:'b-private-role'}],summary:{installed:1}});
+  }
+  await Promise.allSettled([roster,registry,proposal]);
+  assert.equal(run('fleetState.projectId'),null);
+  assert.equal(run('fleetState.registry'),null);
+  assert.equal(run('fleetState.required'),null);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.deniedScope'),'?project=a');
+  assert.equal(run('fleetState.proposalDenied'),true);
+  assert.equal(run('fleetState.proposalLoading || fleetState.registryLoading'),false);
+});
