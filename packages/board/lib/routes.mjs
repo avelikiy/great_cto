@@ -3,6 +3,7 @@ import path from 'path';
 import { execFileSync, execFile } from 'child_process';
 import { fileURLToPath } from 'node:url';
 import os from 'os';
+import { createHash } from 'node:crypto';
 import {
   getVapidKeys,
   addSubscription,
@@ -17,7 +18,9 @@ import { agentUsage, usageSnapshot } from '../../../scripts/lib/agent-usage.mjs'
 import { isProjectState } from '../../../scripts/lib/great-cto-scope.mjs';
 import { usageReports } from './usage-report.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
-import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
+import { reviewerStatus, requiredReviewers } from '../../../scripts/lib/required-reviewers.mjs';
+import { gatesForApprovalLevel, levelFromProjectMd } from '../../../scripts/lib/approval-level.mjs';
+import { boundedFile } from '../../../scripts/lib/domain-evidence.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
@@ -65,7 +68,7 @@ import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/li
 // without importing a server. Re-exported here: this module's callers are unchanged.
 import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
 import { readApprovalReceipt, readSecondOpinion, readTouches } from './receipt-read.mjs';
-import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
+import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog, getFocusRegistry, getFocusProposal } from './fleet.mjs';
 import { getResume, getShareState, toggleShare } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
@@ -92,9 +95,56 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
   return base;
 }
 
+export const isFocusReadPath = pathname => ['/api/focus-registry', '/api/focus-proposal'].includes(pathname);
+
+/** Registry identities only. Resolving membership must never open PROJECT.md aliases. */
+export function resolveFocusProject(requested, serverRoot = process.cwd()) {
+  const canonical = root => {
+    try { const resolved = fs.realpathSync(root); return fs.statSync(resolved).isDirectory() ? resolved : null; }
+    catch { return null; }
+  };
+  const own = canonical(serverRoot);
+  if (!requested) return { cwd: own, resolved: own ? 'cwd' : 'unavailable' };
+  const entries = readProjectsRegistry().projects;
+  const candidates = (Array.isArray(entries) ? entries : []).filter(p => typeof p?.path === 'string');
+  const strong = candidates.filter(p => [p.slug, p.name, p.path].includes(requested));
+  const matches = strong.length ? strong : candidates.filter(p => path.basename(p.path) === requested);
+  const roots = new Set(matches.map(p => canonical(p.path)).filter(Boolean));
+  if (!roots.size && own && [own, serverRoot, path.basename(own)].includes(requested)) roots.add(own);
+  return roots.size === 1 ? { cwd: [...roots][0], resolved: 'slug' } : { cwd: null, resolved: 'unavailable' };
+}
+
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
   const serverCwd = cwd;
+  const requestedProject = url.searchParams.get('project');
+
+  // Focus membership is registry-only, before any generic metadata alias scan.
+  if (isFocusReadPath(pathname)) {
+    const respond = (status, body) => {
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method !== 'GET') { respond(405, { state: 'unavailable', error: 'Read-only endpoint' }); return true; }
+    const project = resolveFocusProject(requestedProject, serverCwd);
+    if (!project.cwd) { respond(404, { state: 'unavailable', error: 'Unknown project' }); return true; }
+    cwd = project.cwd;
+    const projectId = createHash('sha256').update(cwd).digest('hex');
+    if (pathname === '/api/focus-registry') {
+      respond(200, { projectId, registry: getFocusRegistry() }); return true;
+    }
+    const focusId = url.searchParams.get('focus');
+    const host = ['codex', 'claude-code'].includes(url.searchParams.get('host')) ? url.searchParams.get('host') : null;
+    let text = null;
+    try { text = boundedFile(path.join(cwd, '.great_cto', 'PROJECT.md'), 65536).toString('utf8'); }
+    catch { /* Missing or unsafe metadata cannot establish reviewer requirements. */ }
+    const archetype = text?.match(/^(?:archetype|primary):\s*(\S+)/m)?.[1];
+    const requiredGates = text ? gatesForApprovalLevel(levelFromProjectMd(text), { archetype }) : [];
+    // No public run projection attests a current assessment; missing policy is incomplete.
+    const plan = { version: 1, state: 'unknown', reviewers: text ? requiredReviewers(text).map(({ agent }) => ({ agent })) : [{ agent: null }] };
+    const proposal = getFocusProposal({ focusId, host, plan, requiredGates });
+    respond(200, { projectId, host, changeIdentity: null, proposal }); return true;
+  }
 
   // The selected project, resolved ONCE for every route below.
   //
@@ -112,7 +162,6 @@ async function dispatch(req, res, url, cwd) {
   // pre-existing behaviour and it is defensible, but it must not be silent, so
   // it is announced in a header rather than shown as if it were the project asked
   // for.
-  const requestedProject = url.searchParams.get('project');
   if (requestedProject) {
     const info = resolveProjectInfo(requestedProject);
     cwd = info.cwd;
@@ -1787,6 +1836,10 @@ async function dispatch(req, res, url, cwd) {
   // retired (sidecar file marker), and savings_x. The board's /agents tab
   // renders these into the .agent-row list with no further server round-trips.
   if (pathname === '/api/agents-installed') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Unknown project', state: 'unavailable' })); return true;
+    }
     res.writeHead(200, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify(getAgentsFleet(cwd)));
     return true;

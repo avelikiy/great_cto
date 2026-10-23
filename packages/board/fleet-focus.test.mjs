@@ -2,18 +2,21 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createContext, runInContext } from 'node:vm';
+import { focusRegistry } from '../../scripts/lib/focus-registry.mjs';
+import { conditionalGraphProposal } from '../../scripts/lib/conditional-graph-proposal.mjs';
 
 const html = readFileSync(new URL('./public/index.html', import.meta.url), 'utf8');
-function fixture(api = async () => null) {
+function fixture(api = async () => null, host = 'codex') {
   const context = createContext({
-    scope: '?project=a', api, pqs() { return context.scope; },
-    renderFleetList() {}, renderLegacyAgentsSection() {}, location: { hash: '' },
+    scope: '?project=a', api, sharedRegistry: focusRegistry(), sharedProposal: conditionalGraphProposal({focusId:'mental-care',host:'codex'}), pqs() { return context.scope; },
+    renderFleetList() {}, renderLegacyAgentsSection() {}, location: { hash: '', search:host ? `?host=${host}` : '' },
     document: { getElementById() { return null; } },
   });
   const start = html.indexOf('const fleetState = {');
   const end = html.indexOf('function sortFleet(', start);
   assert.ok(start > 0 && end > start);
   runInContext(html.slice(start, end), context);
+  runInContext("if (typeof acceptFocusRegistry === 'function') acceptFocusRegistry({projectId:'a',registry:sharedRegistry});", context);
   return code => runInContext(code, context);
 }
 const known = "fleetState.required = {state:'read',reviewers:[{agent:'pci-reviewer',verdict:false}]}; fleetState.requiredScope = pqs();";
@@ -97,4 +100,176 @@ test('focus navigation is keyboard accessible and explains uncertainty without c
   assert.match(html, /Project reviewer requirements are unknown/);
   assert.match(html, /required reviewer\(s\) missing from the installed catalog/);
   assert.match(html, /Display only, not an execution plan or proof of expertise/);
+});
+
+test('focus choices require explicit selection and do not narrow the reviewer catalog', () => {
+  const run = fixture(); run(known);
+  assert.equal(run('fleetState.focusId'), null);
+  run("setFleetFocus('mental-care')");
+  assert.equal(run('fleetState.focusId'), 'mental-care');
+  assert.equal(run("inFleetView({slug:'pci-reviewer'},'project')"), true);
+  run("setFleetFocus('inferred-from-project-name')");
+  assert.equal(run('fleetState.focusId'), null);
+});
+
+test('missing host identity stays unavailable rather than inferring controlled execution', () => {
+  const run = fixture(undefined, null);
+  assert.equal(run('fleetState.focusHost'), null);
+});
+
+test('unknown registry preserves full catalog even when reviewer requirements are known', () => {
+  const run = fixture(); run(known);
+  run('acceptFocusRegistry({registry:{schemaVersion:2}})');
+  assert.equal(run("inFleetView({slug:'game-reviewer'},'project')"), true);
+  assert.equal(run("inFleetView({slug:'pci-reviewer',retired:true},'project')"), true);
+});
+
+test('late proposal success, error and finally cannot replace a newer focus or project', async () => {
+  const pending = [];
+  const run = fixture(url => new Promise((resolve, reject) => pending.push({url, resolve, reject})));
+  run("fleetState.focusId='mental-care'");
+  const old = run('refreshFocusProposal()');
+  run("fleetState.focusId='telemedicine'");
+  const latest = run('refreshFocusProposal()');
+  pending[0].reject(new Error('/private/overlay TOKEN_CANARY'));
+  await old;
+  assert.equal(run('fleetState.proposalLoading'), true);
+  pending[1].resolve({projectId:'a',host:'codex',changeIdentity:null,proposal:conditionalGraphProposal({focusId:'telemedicine',host:'codex'})});
+  await latest;
+  assert.equal(run('fleetState.proposalLoading'), false);
+  assert.equal(run('fleetState.proposal.proposal.focusId'), 'telemedicine');
+  run("fleetState.focusId='mental-care'");
+  const slow = run('refreshFocusProposal()');
+  run("scope='?project=b'; fleetState.projectId='b'; fleetState.focusId=null");
+  pending[2].resolve({projectId:'a',proposal:{schemaVersion:1,focusId:'mental-care'}});
+  await slow;
+  assert.equal(run('fleetState.proposal?.proposal?.focusId === "mental-care"'), false);
+});
+
+test('unsupported proposal reason, dangling edge or dropped mandatory roles cannot claim available assessment', () => {
+  const run = fixture();
+  assert.equal(run('validFocusProposal(sharedProposal)'), true);
+  run("sharedProposal.reasons=['/private/overlay TOKEN_CANARY']");
+  assert.equal(run('validFocusProposal(sharedProposal)'), false);
+  run("sharedProposal.reasons=['missing-evidence']; sharedProposal.requiredRoles=[]");
+  assert.equal(run('validFocusProposal(sharedProposal)'), false);
+});
+
+test('change and registry version switches invalidate an in-flight proposal', async () => {
+  const pending = [];
+  const run = fixture(url => new Promise(resolve => pending.push(resolve)));
+  run("fleetState.focusId='mental-care'");
+  const first = run('refreshFocusProposal()');
+  run("fleetState.changeIdentity='new-change'");
+  pending[0]({projectId:'a',proposal:{schemaVersion:1,focusId:'mental-care'}}); await first;
+  assert.equal(run('fleetState.proposal'), null);
+  const second = run('refreshFocusProposal()');
+  run('fleetState.registry.registryVersion=2');
+  pending[1]({projectId:'a',proposal:{schemaVersion:1,focusId:'mental-care'}}); await second;
+  assert.equal(run('fleetState.proposal'), null);
+});
+
+test('denied registry read purges focus and proposal without reflecting the refusal payload', async () => {
+  const run = fixture(async () => ({error:'host not allowed /private/overlay TOKEN_CANARY'}));
+  run("fleetState.focusId='mental-care'; fleetState.proposal={private:'TOKEN_CANARY'}");
+  await run('refreshFocusRegistry()');
+  assert.equal(run('fleetState.registryDenied'), true);
+  assert.equal(run('fleetState.registry'), null);
+  assert.equal(run('fleetState.focusId'), null);
+  assert.equal(run('fleetState.proposal'), null);
+});
+
+for (const late of ['success','error']) test(`proposal denial purges project state and fences late ${late} across every reader`, async () => {
+  const pending=[];
+  const run=fixture(url=>url==='/api/agent-usage'?Promise.resolve(null):new Promise((resolve,reject)=>pending.push({url,resolve,reject})));
+  const roster=run('refreshAgentsInstalled()');
+  run("acceptFocusRegistry({projectId:'a',registry:sharedRegistry}); fleetState.focusId='mental-care'; fleetState.agents=[{slug:'PRIVATE_PROJECT_ROLE'}]; fleetState.summary={installed:1}; fleetState.drawerSlug='PRIVATE_PROJECT_ROLE';"+known);
+  const older=run('refreshFocusProposal()');
+  const refused=run('refreshFocusProposal()');
+  pending.at(-1).resolve({state:'refused',error:'PRIVATE_REFUSAL'}); await refused;
+  for (const key of ['registry','projectId','focusId','proposal','required','requiredScope','rosterScope','summary','drawerSlug']) assert.equal(run(`fleetState.${key}`),null,key);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.registryDenied'),true);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  for (const item of pending.slice(0,-1)) {
+    if(item.url.startsWith('/api/focus-proposal')&&late==='error')item.reject(Error('PRIVATE_LATE_ERROR'));
+    else if(item.url.startsWith('/api/focus-proposal'))item.resolve({projectId:'a',host:'codex',changeIdentity:null,proposal:conditionalGraphProposal({focusId:'mental-care',host:'codex'})});
+    else if(item.url.startsWith('/api/focus-registry'))item.resolve({projectId:'a',registry:focusRegistry()});
+    else if(item.url.startsWith('/api/required-reviewers'))item.resolve({state:'read',reviewers:[{agent:'pci-reviewer'}]});
+    else item.resolve({agents:[{slug:'PRIVATE_PROJECT_ROLE'}],summary:{installed:1}});
+  }
+  await Promise.allSettled([roster,older]);
+  assert.equal(run('fleetState.registry'),null);
+  assert.equal(run('fleetState.required'),null);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.proposalLoading'),false);
+  assert.equal(run('fleetState.registryLoading'),false);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  run("setFleetFocus('mental-care')");
+  assert.equal(run('fleetState.proposalDenied'),true,'denial stays latched until explicit retry or project switch');
+});
+
+for (const entry of ['refreshAgentsInstalled','refreshFocusRegistry','refreshFocusProposal']) test(`denied A to loaded B to selected A clears the prior projection via ${entry}`, async () => {
+  const run=fixture(async url=>{
+    const project=url.match(/project=([a-z])/)?.[1];
+    if(url.startsWith('/api/focus-registry'))return {projectId:project,registry:focusRegistry()};
+    if(url.startsWith('/api/agents-installed'))return {agents:[{slug:`project-${project}-private`}],summary:{installed:1}};
+    if(url.startsWith('/api/required-reviewers'))return {state:'read',reviewers:[{agent:`project-${project}-reviewer`}]};
+    return null;
+  });
+  run('purgeFleetProject()');
+  for (const loaded of ['b','c']) {
+    run(`scope='?project=${loaded}'`); await run('refreshAgentsInstalled()');
+    assert.equal(run('fleetState.projectId'),loaded);
+    assert.equal(run('fleetState.agents[0].slug'),`project-${loaded}-private`);
+    run("scope='?project=a'");
+    const selected=run(`${entry}()`);
+    assert.equal(run('fleetState.projectId'),null,'previous project identity must clear before checking denial');
+    assert.equal(run('fleetState.registry'),null);
+    assert.equal(run('fleetState.agents.length'),0);
+    assert.equal(run('fleetState.required'),null);
+    assert.equal(run('fleetState.registryDenied'),false,'switching project resets the previous scoped denial');
+    assert.equal(run('fleetState.registryLoading'),true,'scope transition is loading, not a failed registry read');
+    await selected;
+    assert.notEqual(run('fleetState.projectId'),loaded);
+  }
+});
+
+test('same-project automatic reads remain refused until explicit Retry', async () => {
+  const calls=[];
+  const run=fixture(async url=>{calls.push(url);return url.startsWith('/api/focus-registry')?{projectId:'a',registry:focusRegistry()}:null;});
+  run('purgeFleetProject()');
+  await run('refreshAgentsInstalled()'); await run('refreshFocusRegistry()'); await run('refreshFocusProposal()');
+  assert.equal(calls.length,0);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  await run('retryFleetProject()');
+  assert(calls.some(url=>url.startsWith('/api/focus-registry')));
+  assert.equal(run('fleetState.registryDenied'),false);
+  assert.equal(run('fleetState.projectId'),'a');
+});
+
+for (const outcome of ['success','error']) test(`pending B callbacks cannot overwrite A denial after a third-project transition: ${outcome}`, async () => {
+  const pending=[];
+  const run=fixture(url=>url==='/api/agent-usage'?Promise.resolve(null):new Promise((resolve,reject)=>pending.push({url,resolve,reject})));
+  run("scope='?project=b'");
+  const roster=run('refreshAgentsInstalled()');
+  const registry=run('refreshFocusRegistry()');
+  run("fleetState.focusId='mental-care'"); const proposal=run('refreshFocusProposal()');
+  run("scope='?project=c'"); run('purgeFleetProject()');
+  run("scope='?project=a'"); run('purgeFleetProject()');
+  for(const item of pending) {
+    if(outcome==='error'&&item.url.startsWith('/api/focus-'))item.reject(Error('B_PRIVATE_ERROR'));
+    else if(item.url.startsWith('/api/focus-registry'))item.resolve({projectId:'b',registry:focusRegistry()});
+    else if(item.url.startsWith('/api/focus-proposal'))item.resolve({projectId:'b',host:'codex',changeIdentity:null,proposal:conditionalGraphProposal({focusId:'mental-care',host:'codex'})});
+    else if(item.url.startsWith('/api/required-reviewers'))item.resolve({state:'read',reviewers:[{agent:'b-private-reviewer'}]});
+    else item.resolve({agents:[{slug:'b-private-role'}],summary:{installed:1}});
+  }
+  await Promise.allSettled([roster,registry,proposal]);
+  assert.equal(run('fleetState.projectId'),null);
+  assert.equal(run('fleetState.registry'),null);
+  assert.equal(run('fleetState.required'),null);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.deniedScope'),'?project=a');
+  assert.equal(run('fleetState.proposalDenied'),true);
+  assert.equal(run('fleetState.proposalLoading || fleetState.registryLoading'),false);
 });

@@ -11,6 +11,15 @@ import { readVerdicts } from './verdicts.mjs';
 // show `within` while the dispatcher holds the stage.
 import { parseAgentBudgets, judgeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { classifyAgentGroup } from '../../../scripts/lib/agent-groups.mjs';
+import { focusRegistry, coreRoleIds } from '../../../scripts/lib/focus-registry.mjs';
+import { conditionalGraphProposal } from '../../../scripts/lib/conditional-graph-proposal.mjs';
+
+export function getFocusRegistry() { return focusRegistry(); }
+
+// The shared pure builder owns field validation and never reflects raw assessment text.
+export function getFocusProposal(input = {}) {
+  return conditionalGraphProposal(input);
+}
 
 // ── Agent fleet view (DESIGN-agents-fleet-view §3) ─────────────────────────
 //
@@ -249,6 +258,7 @@ function posture(toolsLine, fileReadable) {
 
   return {
     agents,
+    coreRoles: coreRoleIds(),
     total,
     summary: {
       installed: total,

@@ -47,10 +47,14 @@ let locked = null, projectLease = null, work = null, taskForFinish = null;
 try {
   if (command === 'doctor') {
     const result = codexHostDoctor({ pluginRoot: resolve(value('--plugin-root') || join(dirname(fileURLToPath(import.meta.url)), '..')), store });
-    console.log(JSON.stringify(result, null, 2)); process.exit(result.state === 'ready' ? 0 : 2);
+    console.log(JSON.stringify(result, null, 2));
+    await new Promise(resolve => process.stdout.write('', resolve));
+    process.exit(result.state === 'ready' ? 0 : 2);
   }
   if (command === 'list') {
     console.log(JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2));
+    // Explicit exit must wait for large JSON queued to a pipe, not just its first buffer.
+    await new Promise(resolve => process.stdout.write('', resolve));
     process.exit(0);
   }
   let state;
