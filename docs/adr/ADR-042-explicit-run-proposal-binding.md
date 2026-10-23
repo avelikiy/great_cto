@@ -2,7 +2,7 @@
 
 **Date:** 2026-10-23
 
-Status: PROPOSED. For board implementers and the architecture approver, this decision permits a new private-state reader only after fresh human gate:arch `great_cto-ely5.15.2`. [Full architecture](../architecture/ARCH-bound-run-proposal.md). It does not extend the already accepted [ADR-041](ADR-041-four-domain-conditional-graphs.md) by implication.
+Status: ACCEPTED. The operator explicitly approved this decision on 2026-10-23 in gate:arch `great_cto-ely5.15.2`. This permits implementation of the bounded private-state reader and stored-snapshot inspection, not execution activation or release. [Full architecture](../architecture/ARCH-bound-run-proposal.md). It does not extend the already accepted [ADR-041](ADR-041-four-domain-conditional-graphs.md) by implication.
 
 ## Context
 
@@ -59,6 +59,6 @@ No database or run-state schema change. Existing snapshots must pass all support
 
 ## Validation and Approval Boundary
 
-Fresh human gate:arch is required because a private-state/public-API boundary was outside ADR-041 approval and authoritative gates-only/devtools includes arch. This decision is proposed and does not approve itself. PM freezes a new acceptance file after architecture approval; old frozen gates remain read-only. No human plan pause is added by the current approval helper.
+Fresh human gate:arch was required because a private-state/public-API boundary was outside ADR-041 approval and authoritative gates-only/devtools includes arch. The operator supplied explicit approval on 2026-10-23; root recorded it in `great_cto-ely5.15.2`. PM freezes a new acceptance file after this architecture approval; old frozen gates remain read-only. No human plan pause is added by the current approval helper. Implementation checks and independent review remain outstanding.
 
 Reader fault tests, route membership/version tests, pure-projector regressions, real browser race/denial checks and packed-runtime verification precede independent code review, QA and security. The current mandatory reviewer/gate floor remains. No execution activation, benchmark, publication, deployment, release or installation approval follows from reading this ADR.

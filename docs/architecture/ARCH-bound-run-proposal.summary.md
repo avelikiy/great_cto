@@ -1,6 +1,6 @@
 # ARCH: Bound-run Proposal · summary
 
-Date: 2026-10-23. Status: PROPOSED; fresh human gate:arch required.
+Date: 2026-10-23. Status: ACCEPTED by explicit operator approval in gate:arch `great_cto-ely5.15.2`; implementation remains unverified.
 
 Decision: explicit project/run/phase and snapshot/epoch/plan/base/policy binding. Stored content only; no current-tree assessment, reusable PASS or unique historical epoch claim.
 
@@ -12,6 +12,6 @@ Preserve: API/projector v1, contracts/reviews/gates, pack admission and denial f
 
 Risks: privacy, stale authority and races. Require fault/API/browser/package checks and independent review.
 
-Next: human gate `great_cto-ely5.15.2`, then PM. No plan pause. Costs unknown; no new service, region or cost tier.
+Next: PM freezes acceptance and work packets, then implementation and independent checks. No plan pause or execution/release authority. Costs unknown; no new service, region or cost tier.
 
 [Full architecture](ARCH-bound-run-proposal.md).

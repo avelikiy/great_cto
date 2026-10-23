@@ -1,6 +1,6 @@
 # ADR-042: Bound-run Proposal · summary
 
-Date: 2026-10-23. Status: PROPOSED; fresh human gate:arch required.
+Date: 2026-10-23. Status: ACCEPTED by explicit operator approval in gate:arch `great_cto-ely5.15.2`; implementation remains unverified.
 
 Choose stored-snapshot inspection with exact project/run/phase/snapshot/epoch/plan/base/policy binding. No persisted epoch UUID or current-tree assurance.
 

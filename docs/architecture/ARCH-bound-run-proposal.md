@@ -4,7 +4,7 @@
 
 For board implementers, API reviewers and the operator approving this slice, this proposal chooses inspection of an explicitly selected stored controlled-run snapshot without claiming a current working-tree assessment.
 
-Status: PROPOSED. Human gate:arch `great_cto-ely5.15.2` must approve this new boundary before runtime implementation. Parent: `great_cto-ely5.15`; architecture task: `great_cto-ely5.15.1`. [ADR-042](../adr/ADR-042-explicit-run-proposal-binding.md) records the decision. [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md) approved registry, pure projector and board display only; its approval does not cover this reader.
+Status: ACCEPTED. The operator explicitly approved ADR-042 on 2026-10-23 in gate:arch `great_cto-ely5.15.2`. Approval covers this bounded stored-snapshot inspection design, not implementation verification or execution/release authority. Parent: `great_cto-ely5.15`; architecture task: `great_cto-ely5.15.1`. [ADR-042](../adr/ADR-042-explicit-run-proposal-binding.md) records the decision. [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md) approved registry, pure projector and board display only; its approval does not cover this reader.
 
 ## Signals and Depth
 
@@ -267,7 +267,7 @@ Byte ceilings, no retries and no background refresh are the cost controls. No sa
 
 Human decision: approve explicit stored-snapshot inspection and its new private-state/public-API boundary, with truthful content identity and no current-tree assurance. Gate:arch is mandatory under authoritative gates-only/devtools policy and the input/boundary/data signals. ADR-041 approval cannot substitute for this decision. Root records the gate ID and reviews/commits this planning artifact; the architecture writer does not approve the gate, commit, push or create a PR.
 
-After approval, PM freezes the implementation acceptance and work packets. No human gate:plan pause applies under the current helper output. Mandatory reviewers, security/compliance requirements and release/installation authorities remain intact. This document is a proposal until the operator resolves the exact architecture gate.
+The operator resolved gate:arch `great_cto-ely5.15.2` with explicit approval on 2026-10-23. PM now freezes the implementation acceptance and work packets. No human gate:plan pause applies under the current helper output. Mandatory reviewers, security/compliance requirements and release/installation authorities remain intact. Acceptance of this architecture does not mark its implementation requirements as verified.
 
 ## Requirements Checklist
 
