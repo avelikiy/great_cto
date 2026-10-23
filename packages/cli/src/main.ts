@@ -1529,6 +1529,8 @@ async function main(): Promise<void> {
     try {
       await checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
     } catch { /* update hint never affects the exit */ }
+    // Status and task JSON can exceed a pipe buffer; keep the complete response before exit.
+    await new Promise<void>(resolve => process.stdout.write("", () => resolve()));
     process.exit(code);
   };
 
