@@ -9,8 +9,8 @@ import {
   addSubscription,
   removeSubscription,
 } from '../push-adapter.mjs';
-import { GREAT_CTO_DIR, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
-import { eventSurface, readFileSafe, originAllowed } from './util.mjs';
+import { GREAT_CTO_DIR, PROJECTS_FILE, VAPID_KEYS_FILE, PUSH_SUBS_FILE, BUILD_VERSION } from './config.mjs';
+import { eventSurface, readFileSafe, originAllowed, hostAllowed } from './util.mjs';
 import { sseClients, notifHistory } from './state.mjs';
 import { autoRegisterProject, listProjects, resolveProjectCwd, resolveProjectInfo, getChangeTier, readProjectsRegistry, getRegistryDegradation } from './projects.mjs';
 import { readVerdictsWithHealth } from './verdicts.mjs';
@@ -62,7 +62,8 @@ function publicationWorker(args, cwd, timeout = 20000) {
       try { resolve(JSON.parse(stdout)); } catch { reject(Error('publication response is unreadable')); }
     }));
 }
-import { listCodexRuns } from '../../../scripts/lib/codex-host-state.mjs';
+import { listCodexRuns, codexRunStore } from '../../../scripts/lib/codex-host-state.mjs';
+import { readBoundRunBinding, readBoundRunProposal } from '../../../scripts/lib/bound-run-proposal.mjs';
 import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/lib/stack-capabilities.mjs';
 // Moved to scripts/lib so the cross-review Stop hook can ask the same question
 // without importing a server. Re-exported here: this module's callers are unchanged.
@@ -95,17 +96,75 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
   return base;
 }
 
-export const isFocusReadPath = pathname => ['/api/focus-registry', '/api/focus-proposal'].includes(pathname);
+export const isBoundRunReadPath = pathname => ['/api/focus-run-binding', '/api/focus-run-proposal'].includes(pathname);
+export const isFocusReadPath = pathname => isBoundRunReadPath(pathname) || ['/api/focus-registry', '/api/focus-proposal'].includes(pathname);
+
+const boundRunLimits = ['stored-snapshot-not-revalidated', 'content-identity-not-historical-epoch', 'proposal-not-execution-evidence'];
+const boundRunFailure = (pathname, reason) => ({ schemaVersion: 1,
+  kind: pathname === '/api/focus-run-binding' ? 'controlled-run-proposal-binding' : 'controlled-run-proposal-inspection',
+  state: 'unavailable', reason, binding: null, proposal: null, advisory: true, changesExecution: false,
+  provenance: 'stored-snapshot', currentTreeAssessment: false, reusablePass: false,
+  requiredRoles: ['code-reviewer', 'qa-engineer', 'security-officer'], limitations: [...boundRunLimits] });
+
+function boundRunOriginAllowed(req) {
+  const headers = req.headers || {};
+  const single = name => {
+    const raw = req.rawHeaders || [];
+    const values = [];
+    for (let i = 0; i < raw.length; i += 2) if (String(raw[i]).toLowerCase() === name) values.push(raw[i + 1]);
+    return values.length <= 1 && (values.length === 0 || values[0] === headers[name])
+      && (headers[name] === undefined || typeof headers[name] === 'string');
+  };
+  if (!['host', 'origin', 'referer', 'sec-fetch-site'].every(single) || !hostAllowed(headers.host)
+    || headers.host !== headers.host.trim() || headers['sec-fetch-site'] === 'cross-site') return false;
+  try {
+    // Transport is server-owned. Forwarded headers cannot redefine this boundary.
+    const expected = new URL(`${req.socket?.encrypted ? 'https' : 'http'}://${headers.host}`).origin;
+    if (headers.origin !== undefined) {
+      const parsed = new URL(headers.origin);
+      if (parsed.origin !== headers.origin || parsed.origin !== expected) return false;
+    }
+    if (headers.referer !== undefined) {
+      const parsed = new URL(headers.referer);
+      if (parsed.username || parsed.password || parsed.origin !== expected) return false;
+    }
+    return true;
+  } catch { return false; }
+}
+
+function boundRunSelection(req, url) {
+  const proposal = url.pathname === '/api/focus-run-proposal';
+  const keys = proposal ? ['project', 'run', 'phase', 'focus', 'snapshot', 'epoch', 'plan', 'base', 'policy'] : ['project', 'run', 'phase'];
+  const target = req.url || url.pathname + url.search;
+  if (Buffer.byteLength(target) > 2048 || /%(?![a-f0-9]{2})/i.test(target)) return null;
+  const query = url.searchParams;
+  if ([...query].length !== keys.length || [...query.keys()].some(k => !keys.includes(k))
+    || keys.some(k => query.getAll(k).length !== 1)) return null;
+  const values = Object.fromEntries(query);
+  if (!values.project || values.project.length > 256 || /[\x00-\x1f\x7f\ufffd]/.test(values.project)
+    || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(values.run)
+    || !['preparation', 'review'].includes(values.phase)) return null;
+  if (proposal && (!['fintech-crypto', 'telemedicine', 'venture-pipeline', 'mental-care'].includes(values.focus)
+    || !['snapshot', 'epoch', 'plan', 'policy'].every(k => /^[a-f0-9]{64}$/.test(values[k]))
+    || !/^(?:[a-f0-9]{40}|[a-f0-9]{64})$/.test(values.base))) return null;
+  return values;
+}
 
 /** Registry identities only. Resolving membership must never open PROJECT.md aliases. */
-export function resolveFocusProject(requested, serverRoot = process.cwd()) {
+export function resolveFocusProject(requested, serverRoot = process.cwd(), { registryOnly = false } = {}) {
   const canonical = root => {
     try { const resolved = fs.realpathSync(root); return fs.statSync(resolved).isDirectory() ? resolved : null; }
     catch { return null; }
   };
-  const own = canonical(serverRoot);
+  const own = registryOnly ? null : canonical(serverRoot);
   if (!requested) return { cwd: own, resolved: own ? 'cwd' : 'unavailable' };
-  const entries = readProjectsRegistry().projects;
+  let entries;
+  if (registryOnly) {
+    // The legacy registry helper logs raw filesystem/parser errors. Private
+    // inspection must fail silently with a fixed public category instead.
+    try { entries = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(boundedFile(PROJECTS_FILE, 1048576))).projects; }
+    catch { return { cwd: null, resolved: 'unavailable' }; }
+  } else entries = readProjectsRegistry().projects;
   const candidates = (Array.isArray(entries) ? entries : []).filter(p => typeof p?.path === 'string');
   const strong = candidates.filter(p => [p.slug, p.name, p.path].includes(requested));
   const matches = strong.length ? strong : candidates.filter(p => path.basename(p.path) === requested);
@@ -116,6 +175,27 @@ export function resolveFocusProject(requested, serverRoot = process.cwd()) {
 
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
+  if (isBoundRunReadPath(pathname)) {
+    const respond = (status, body, extra = {}) => {
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...extra });
+      res.end(JSON.stringify(body));
+    };
+    const refuse = (status, reason, extra) => { respond(status, boundRunFailure(pathname, reason), extra); return true; };
+    if (!boundRunOriginAllowed(req)) return refuse(403, 'access-denied');
+    if (req.method !== 'GET') return refuse(405, 'method-not-allowed', { Allow: 'GET' });
+    const selected = boundRunSelection(req, url);
+    if (!selected) return refuse(400, 'invalid-selection');
+    try {
+      const project = resolveFocusProject(selected.project, cwd, { registryOnly: true });
+      if (!project.cwd) return refuse(404, 'unavailable');
+      const input = { projectRoot: project.cwd, projectId: createHash('sha256').update(project.cwd).digest('hex'),
+        runId: selected.run, phase: selected.phase, storeDir: codexRunStore() };
+      const result = pathname === '/api/focus-run-binding' ? await readBoundRunBinding(input)
+        : await readBoundRunProposal({ ...input, focusId: selected.focus, binding: { snapshotDigest: selected.snapshot,
+          epochDigest: selected.epoch, planFingerprint: selected.plan, base: selected.base, policyDigest: selected.policy } });
+      respond(result.status, result.body); return true;
+    } catch { return refuse(404, 'unavailable'); }
+  }
   const serverCwd = cwd;
   const requestedProject = url.searchParams.get('project');
 

@@ -17,7 +17,9 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/tasks/<id>/history` | GET | `{events: [...]}`; 404 for unknown id |
 | `/api/agents-installed?project=<slug>` | GET | `{agents: [...], total: N, coreRoles: [...], summary: {...}}`; shared eight core contract IDs, not eight mandatory model calls. Unknown project: 404. |
 | `/api/focus-registry?project=<slug>` | GET | `{projectId, registry}`; schema/registry version 1, four directions, five existing candidate/explicit-only packs and eight core IDs. Read-only, no-store; unknown project: 404, non-GET: 405. |
-| `/api/focus-proposal?project=<slug>&focus=<id>&host=<codex-or-claude-code>` | GET | `{projectId, host, changeIdentity:null, proposal}`; advisory-only, no-store. The current HTTP adapter returns an unavailable assessment because it has no safe current bound-plan reader. Unknown project: 404, non-GET: 405. |
+| `/api/focus-proposal?project=<slug>&focus=<id>&host=<codex-or-claude-code>` | GET | `{projectId, host, changeIdentity:null, proposal}`; advisory-only, no-store. This legacy adapter returns an unavailable current assessment; explicit stored snapshot inspection uses the additive routes below. Unknown project: 404, non-GET: 405. |
+| `/api/focus-run-binding?project=<registered-selector>&run=<uuid>&phase=<preparation-or-review>` | GET | Version 1 `controlled-run-proposal-binding` descriptor for one stored snapshot, including project/run/phase identity and the complete binding. Explicit registered project required; no enumeration or latest-run fallback. |
+| `/api/focus-run-proposal?project=<registered-selector>&run=<uuid>&phase=<preparation-or-review>&focus=<id>&snapshot=<sha256>&epoch=<sha256>&plan=<sha256>&base=<commit>&policy=<sha256>` | GET | Version 1 `controlled-run-proposal-inspection` envelope with the exact binding and unchanged nested v1 proposal. Review snapshots only; preparation returns `planning-only-evidence`. |
 
 Focus endpoints resolve registered identities without reading PROJECT metadata
 aliases: registry slug/name/path, an unambiguous basename, or the server's own
@@ -48,12 +50,73 @@ dispatch a role or approve a gate. Registry invariants are descriptions, not
 executed checks or proof of domain expertise.
 
 The pure shared projector can represent a known caller-supplied plan, but the
-HTTP adapter deliberately does not scan source or infer freshness from a base
+legacy HTTP adapter deliberately does not scan source or infer freshness from a base
 query, project name, recent run or successful process exit. Its unavailable
 response preserves mandatory/declared review requirements and prohibits
 selective omission. Missing host identity remains unavailable; it is not
 silently inferred to be Codex. Neither endpoint returns private source, prompts,
 raw assessment reasons, absolute project paths or overlay bindings.
+
+### Explicit stored-run inspection
+
+The two `focus-run-*` routes inspect saved controlled Codex evidence. They do
+not assess the current tree, attest native worker enforcement, approve a gate
+or change scheduling. The observed Execution graph remains a separate view.
+The original `/api/focus-proposal` response keeps `changeIdentity:null` and its
+unavailable assessment; the additive routes do not change that contract.
+
+Require exactly one occurrence of every documented query key and no other
+keys. The request URL is limited to 2 KiB; registered project selectors are
+limited to 256 characters. Run IDs are lowercase canonical hexadecimal UUIDs,
+without a version restriction. Phase is `preparation` or `review`, focus is one
+of the four IDs above, digests are 64 lowercase hex characters, and base is a
+40- or 64-character lowercase pinned commit. The server owns the store location
+(`GREAT_CTO_CODEX_RUNS_DIR` or the existing controlled-run store default); no
+query can override it. Resolution uses registered slug/name/path or a unique
+registered basename, without PROJECT metadata alias scans or an unregistered
+server-root fallback.
+
+First request a binding descriptor. Its `binding` contains `snapshotDigest`,
+`epochDigest`, `planFingerprint`, `base` and `policyDigest`. Map these to
+`snapshot`, `epoch`, `plan`, `base` and `policy` in the proposal query. An exact
+review selection returns `state:available`, `controller:codex`, `focusId`,
+`registryVersion:1`, the binding and `proposal`. A valid preparation selection
+can return a descriptor, but requesting its graph returns unavailable with
+`reason:planning-only-evidence`, `binding:null` and `proposal:null`.
+
+All envelopes declare `provenance:stored-snapshot`, `advisory:true`,
+`changesExecution:false`, `currentTreeAssessment:false` and
+`reusablePass:false`. Proposal envelopes include
+`stored-snapshot-not-revalidated`, `content-identity-not-historical-epoch` and
+`proposal-not-execution-evidence` limitations. Digests describe content, not a
+unique historical occurrence or protection against same-UID ABA replacement.
+No source assessment, subprocess, model call, directory listing or state write
+is performed by inspection. The reader requires trusted canonical private
+storage and refuses writable ancestors, including sticky temporary directories.
+
+Both bootstrap and direct dispatch enforce Host plus exact transport-derived
+Origin before resolving projects or reading registry/metadata/state. A present
+Origin must exactly equal the request scheme, approved Host and port; foreign,
+`null`, malformed and duplicate values fail. A present Referer must have that
+same origin; cross-site Fetch-Site fails. Requests without Origin and Referer
+are allowed for CLI callers. Forwarded headers cannot redefine the origin.
+This browser isolation does not provide CLI authentication.
+
+| Status | Fixed reason / result |
+|---|---|
+| 400 | `invalid-selection`; no registry or evidence read |
+| 403 | `access-denied`; no registry or evidence read |
+| 404 | `unavailable`; unknown project, missing run and other-project run share a fixed unavailable envelope |
+| 405 | `method-not-allowed`, `Allow: GET`; no registry or evidence read |
+| 200 | `unsupported-evidence`, `unsafe-evidence`, `invalid-evidence` or `planning-only-evidence`; no partial binding or graph |
+| 409 | `snapshot-changed`; discard descriptor and graph, then explicitly obtain a fresh descriptor |
+
+Every response is JSON with `Cache-Control: no-store`, without wildcard CORS,
+ETag or conditional cache reuse. Unavailable envelopes contain `binding:null`
+and `proposal:null`; raw private values and exception messages are excluded.
+The response budget is 96 KiB, including at most 64 KiB of nested proposal.
+Clients must clear prior inspection state on refusal, malformed/unknown schema,
+changed selection or offline failure; retry is explicit.
 
 ## Common gotcha — array vs object
 
