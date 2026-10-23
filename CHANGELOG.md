@@ -81,9 +81,6 @@ Controlled runs now retain their recorded causal execution history.
   scenarios, native causal adapters, real deployment and quality uplift are not
   certified by deterministic tests or public captures.
 
-- _Add one bullet per shipped feature._
-- _Cite ADRs introduced (if any)._
-- _Mention test counts and opt-out flags._
 
 ---
 
