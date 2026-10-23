@@ -1519,6 +1519,40 @@ async function reportCodexUpgrade(): Promise<number> {
   return 0;
 }
 
+// A successful write() may still have queued pipe bytes. Complete an ordered
+// empty write before forced exit, without keeping a broken consumer alive.
+function drainOutput(stream: NodeJS.WriteStream): Promise<boolean> {
+  if (stream.destroyed || stream.closed || stream.writableFinished) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (complete: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stream.off("error", completed);
+      stream.off("close", completed);
+      stream.off("finish", completed);
+      resolve(complete);
+    };
+    const completed = (): void => finish(true);
+    const timer = setTimeout(() => finish(false), 1000);
+    timer.unref();
+    stream.once("error", completed);
+    stream.once("close", completed);
+    stream.once("finish", completed);
+    if (!stream.writableEnded) {
+      try {
+        stream.write("", (error?: Error | null) => {
+          // Node emits the write error after its callback; leave the listener
+          // in place for that event before cleaning up a callback-only failure.
+          if (error) queueMicrotask(completed);
+          else completed();
+        });
+      } catch { completed(); }
+    }
+  });
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2));
   const rawArgv = args.rootArgv;
@@ -1552,7 +1586,11 @@ async function main(): Promise<void> {
     try {
       await checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
     } catch { /* update hint never affects the exit */ }
-    process.exit(code);
+    // An unref deadline cannot keep an otherwise empty event loop alive.
+    // Until completion is proven, even that early exit must fail closed.
+    process.exitCode = code || 1;
+    const completed = await Promise.all([drainOutput(process.stdout), drainOutput(process.stderr)]);
+    process.exit(completed.every(Boolean) ? code : code || 1);
   };
 
   // `great-cto telemetry <on|off|status|whoami>` — inspect / toggle, never sends.
