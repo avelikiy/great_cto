@@ -109,8 +109,10 @@ worktree**. Both CLIs must be installed and authenticated. See the
 `npx great-cto init --host codex` gives Codex the skills, the MCP server and six
 safety guards as plugin hooks (approve them once: run `codex` in a terminal and
 choose **Trust all and continue**). An ordinary Codex plugin session does not
-automatically run this project's native Claude command/role lifecycle. Start
-the controlled pipeline through the CLI instead:
+automatically run this project's native Claude command/role lifecycle.
+The Codex installation has no native plugin surface for these slash commands
+or role agents. The remaining Claude workflow hooks do not silently run there.
+Start the controlled pipeline through the CLI instead:
 
 ```bash
 great-cto run "add Google login" --host codex --allow src,tests,docs
