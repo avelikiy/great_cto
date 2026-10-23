@@ -97,6 +97,18 @@ test('missing and other-root records are indistinguishable', async t => {
   fs.unlinkSync(f.stateFile); const missing = await reader.readBoundRunBinding(f.args);
   assert.deepEqual(foreign, missing); unavailable(missing, 'unavailable', 404);
 });
+for (const [name, mutate] of [
+  ['unknown version', s => { s.version = 2; }],
+  ['mismatched ID', s => { s.id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; }],
+  ['missing ID', s => { delete s.id; }],
+  ['native metadata', s => { delete s.specialistPolicy; delete s.specialistReview; }],
+  ['malformed phase', s => { s.specialistReview = 'PRIVATE_CANARY'; }],
+]) test(`explicit foreign root with ${name} is indistinguishable from missing before metadata interpretation`, async t => {
+  const f = fixture(t); fs.unlinkSync(f.stateFile); const missing = await reader.readBoundRunBinding(f.args);
+  f.state.root = f.store; mutate(f.state); f.save();
+  const foreign = await reader.readBoundRunBinding(f.args); assert.deepEqual(foreign, missing);
+  unavailable(foreign, 'unavailable', 404);
+});
 for (const [name, mutate, reason] of [
   ['version', s => { s.version = 2; }, 'unsupported-evidence'],
   ['missing phase', s => { delete s.specialistReview; }, 'unsupported-evidence'],
@@ -172,6 +184,13 @@ test('policy change after descriptor is snapshot-changed even if stored policy r
 test('changed malformed phase after descriptor is snapshot-changed before structural interpretation', async t => {
   const f = fixture(t); const b = await reader.readBoundRunBinding(f.args);
   f.state.specialistReview.plan.version = 3; f.save();
+  unavailable(await reader.readBoundRunProposal({ ...f.args, focusId: 'fintech-crypto', binding: b.body.binding }), 'snapshot-changed', 409);
+});
+for (const [name, mutate] of [
+  ['version', s => { s.version = 2; }],
+  ['id', s => { s.id = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'; }],
+]) test(`own-root ${name} mutation after descriptor returns snapshot-changed before metadata interpretation`, async t => {
+  const f = fixture(t); const b = await reader.readBoundRunBinding(f.args); mutate(f.state); f.save();
   unavailable(await reader.readBoundRunProposal({ ...f.args, focusId: 'fintech-crypto', binding: b.body.binding }), 'snapshot-changed', 409);
 });
 const statWith = (stat, patch) => Object.assign(Object.create(stat), patch);

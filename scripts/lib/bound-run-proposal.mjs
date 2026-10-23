@@ -185,11 +185,14 @@ async function inspect(input, proposal, dependencies) {
     const stateRead = boundedRead(fs, join(storeDir, `${runId}.json`), 1048576, uid, true, handles, buffers);
     let state;
     try { state = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(stateRead.bytes)); } catch { fail('invalid-evidence'); }
-    check(object(state), 'invalid-evidence'); check(state.version === 1, 'unsupported-evidence');
-    check(state.id === runId && typeof state.root === 'string', 'invalid-evidence');
-    check(state.root === projectRoot, 'unavailable');
+    check(object(state), 'invalid-evidence');
+    // An explicit foreign root must not expose that run's schema or phase metadata.
+    if (typeof state.root === 'string' && state.root !== projectRoot) fail('unavailable');
     const snapshotDigest = sha(stateRead.bytes);
     if (proposal) check(snapshotDigest === input.binding.snapshotDigest, 'snapshot-changed');
+    check(state.version === 1, 'unsupported-evidence');
+    check(state.id === runId && typeof state.root === 'string', 'invalid-evidence');
+    check(state.root === projectRoot, 'unavailable');
     directories.push(...directoryChain(fs, join(projectRoot, '.great_cto'), uid));
     const policyRead = boundedRead(fs, join(projectRoot, '.great_cto', 'PROJECT.md'), 65536, uid, false, handles, buffers);
     const policyDigest = sha(policyRead.bytes);

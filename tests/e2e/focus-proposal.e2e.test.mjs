@@ -11,6 +11,28 @@ import { startServerOnFreePort } from '../helpers/board-start.mjs';
 import { reapAndClean } from '../helpers/reap.mjs';
 import { conditionalGraphProposal } from '../../scripts/lib/conditional-graph-proposal.mjs';
 
+async function proposalHeadingScaleFailures(page, state, expectedHeadings) {
+  const failures=[];
+  for(const theme of ['dark','light']) {
+    await page.evaluate(t=>document.documentElement.dataset.theme=t,theme);
+    for(const width of [1440,320]) {
+      await page.setViewportSize({width,height:1000});
+      const rendered=await page.locator('#focus-proposal').evaluate(el=>({
+        token:getComputedStyle(document.documentElement).getPropertyValue('--fs-title-s').trim(),
+        body:getComputedStyle(el.closest('.focus-inspection')).fontSize,
+        headings:[...el.querySelectorAll('h3')].map(h=>({text:h.textContent,size:getComputedStyle(h).fontSize})),
+      }));
+      assert.equal(rendered.headings.length,expectedHeadings,`${state}/${theme}/${width} heading coverage`);
+      if(width===320)assert.equal(rendered.body,'16px',`${state}/${theme} mobile body remains readable`);
+      for(const heading of rendered.headings)if(heading.size!==rendered.token)
+        failures.push(`${state}/${theme}/${width}: ${heading.text}: ${heading.size}, expected ${rendered.token}`);
+    }
+  }
+  await page.setViewportSize({width:1440,height:1000});
+  await page.evaluate(()=>document.documentElement.dataset.theme='dark');
+  return failures;
+}
+
 test('actual stored-run API renders review evidence and rejects a changed synthetic snapshot', { timeout:120000 }, async()=>{
   // A sticky temporary ancestor cannot establish the reader's trust boundary.
   const trustedHome = fs.realpathSync(os.homedir());
@@ -147,6 +169,7 @@ test('stored snapshot controls inspect explicit envelopes with keyboard, privacy
     });
     const uuid=page.getByLabel('Controlled run UUID',{exact:true}),phase=page.getByLabel('Snapshot phase',{exact:true});
     const load=page.getByRole('button',{name:'Load snapshot',exact:true}),inspect=page.getByRole('button',{name:'Inspect stored proposal',exact:true});
+    const headingFailures=await proposalHeadingScaleFailures(page,'empty',1);
     await load.click();assert.equal(requests.length,0);assert.equal(await uuid.getAttribute('aria-invalid'),'true',await page.locator('#bound-run-status').innerText());assert.equal(await uuid.evaluate(el=>el===document.activeElement),true);
     await uuid.fill(run);await phase.selectOption('preparation');assert.equal(requests.length,0);
     await load.focus();await load.press('Enter');await page.getByText('Planning snapshot: graph unavailable under projector v1.',{exact:true}).waitFor();
@@ -161,6 +184,8 @@ test('stored snapshot controls inspect explicit envelopes with keyboard, privacy
     assert.match(await page.locator('#bound-run-graph').innerText(),/not an approval or reusable PASS/);
     assert(await page.locator('#bound-run-graph li').count()>0);
     assert.equal(await inspect.evaluate(el=>el===document.activeElement),true);
+    headingFailures.push(...await proposalHeadingScaleFailures(page,'populated',2));
+    assert.deepEqual(headingFailures,[],'proposal headings use the declared h3 token in both states, themes and desktop/mobile layouts');
     for(const theme of ['dark','light']){
       await page.evaluate(t=>document.documentElement.setAttribute('data-theme',t),theme);
       const contrast=await uuid.evaluate(el=>{
