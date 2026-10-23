@@ -4,6 +4,7 @@ import * as fs from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { conditionalGraphProposal } from '../../scripts/lib/conditional-graph-proposal.mjs';
 
 import * as reader from '../../scripts/lib/bound-run-proposal.mjs';
 const uuid = '12345678-1234-1234-1234-123456789abc';
@@ -339,4 +340,38 @@ test('regulatory preparation accepts full writer floor plus extra gates without 
   const b = await reader.readBoundRunBinding(args); assert.equal(b.body.state, 'available');
   unavailable(await reader.readBoundRunProposal({ ...args, focusId: 'fintech-crypto', binding: b.body.binding },
     { projector: () => assert.fail('preparation has no graph') }), 'planning-only-evidence');
+});
+for (const role of ['pci-reviewer', 'design-advisor']) {
+  for (const endpoint of ['descriptor', 'proposal']) test(`${endpoint} rejects selected ${role} absent from declared plan and policy without dropping it`, async t => {
+    const f = fixture(t); const phase = f.state.specialistReview;
+    phase.selected = [role]; phase.hardGates = ['gate:ship', 'gate:security', 'gate:compliance']; f.save();
+    // A structurally exact caller binding must not make inconsistent saved selection acceptable.
+    const binding = { snapshotDigest: sha(fs.readFileSync(f.stateFile)),
+      epochDigest: sha(JSON.stringify({ assessmentFingerprint: 'c'.repeat(64), base, hardGates: phase.hardGates,
+        phase: 'review', planFingerprint: fingerprint, policyDigest: sha(policy), roles: mandatory, selected: [role] })),
+      planFingerprint: fingerprint, base, policyDigest: sha(policy) };
+    let projectorCalls = 0;
+    const result = endpoint === 'descriptor' ? await reader.readBoundRunBinding(f.args)
+      : await reader.readBoundRunProposal({ ...f.args, focusId: 'fintech-crypto', binding },
+        { projector: value => { projectorCalls++; return conditionalGraphProposal(value); } });
+    unavailable(result, 'invalid-evidence'); assert.equal(projectorCalls, 0);
+  });
+}
+test('review selected declared reviewer and policy contract both survive projection', async t => {
+  const f = fixture(t); const phase = f.state.specialistReview;
+  phase.plan.reviewers.push({ agent: 'pci-reviewer', reasons: ['declared regulatory reviewer'], files: [] });
+  phase.roles.push('pci-reviewer'); phase.selected = ['pci-reviewer', 'design-advisor'];
+  phase.hardGates = ['gate:ship', 'gate:security', 'gate:compliance'];
+  f.state.specialistPolicy.workflow = 'phased-change'; f.state.specialistPolicy.contracts = ['design-advisor']; f.save();
+  const b = await reader.readBoundRunBinding(f.args); assert.equal(b.body.state, 'available');
+  const p = await reader.readBoundRunProposal({ ...f.args, focusId: 'fintech-crypto', binding: b.body.binding });
+  assert.equal(p.body.state, 'available');
+  for (const role of ['pci-reviewer', 'design-advisor', ...mandatory]) assert.ok(p.body.proposal.requiredRoles.includes(role));
+  for (const gate of ['security', 'compliance', 'ship']) assert.ok(p.body.proposal.requiredGates.includes(gate));
+});
+test('empty explicit review selected remains compatible with mandatory-only plan', async t => {
+  const f = fixture(t); f.state.specialistReview.selected = []; f.save();
+  const b = await reader.readBoundRunBinding(f.args); assert.equal(b.body.state, 'available');
+  const p = await reader.readBoundRunProposal({ ...f.args, focusId: 'fintech-crypto', binding: b.body.binding });
+  assert.equal(p.body.state, 'available'); for (const role of mandatory) assert.ok(p.body.proposal.requiredRoles.includes(role));
 });

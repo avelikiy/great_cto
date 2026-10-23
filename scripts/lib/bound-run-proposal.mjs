@@ -156,6 +156,7 @@ function validateEvidence(state, phase, policyDigest) {
     validateAssessment(a);
     check(roleList(selectedPhase.roles) && sameSet(selectedPhase.roles, required.filter(r => !contracts.has(r))));
     if (Object.hasOwn(selectedPhase, 'selected')) check(roleList(selectedPhase.selected)
+      && selectedPhase.selected.every(r => required.includes(r))
       && required.filter(r => !mandatory.includes(r)).every(r => selectedPhase.selected.includes(r)));
   }
   const hardGates = selectedPhase.hardGates.map(g => g.replace(/^gate:/, ''));
