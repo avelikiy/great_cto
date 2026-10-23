@@ -71,6 +71,8 @@ interface CliArgs {
   demo: boolean;               // --demo: inject synthetic cases so the operator console comes alive
   useLlm: boolean;        // --use-llm: force LLM even on high confidence
   noLlm: boolean;         // --no-llm: skip LLM even on low confidence
+  noTelemetry: boolean;  // request-only refusal, never changes stored consent
+  rootArgv: string[];    // delegated argv excludes only consumed root flags
   host: "claude-code" | "codex" | null;  // --host codex: install for Codex instead of Claude Code
   hostInput?: string; // retain invalid prefix values for daily-adapter validation
   upgradeSelf: boolean;   // `upgrade --self` / `upgrade self`: upgrade the CLI itself, not companion plugins
@@ -93,6 +95,8 @@ function parseArgs(argv: string[]): CliArgs {
     version: null,
     useLlm: false,
     noLlm: false,
+    noTelemetry: false,
+    rootArgv: argv,
     host: null,
     upgradeSelf: false,
     purgeData: false,
@@ -101,8 +105,17 @@ function parseArgs(argv: string[]): CliArgs {
   };
 
   const rest: string[] = [];
+  const telemetryFlagIndices = new Set<number>();
+  const webhookValueOptions = new Set(["--secret", "--url", "--format", "--triggers", "--events", "--routing-key"]);
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]!;
+    // Webhook values may themselves look like options. Consume each owned
+    // value once so it cannot claim a later standalone root refusal as data.
+    if (args.command === "webhook" && webhookValueOptions.has(a)) {
+      rest.push(a);
+      if (i + 1 < argv.length) rest.push(argv[++i]!);
+      continue;
+    }
     if (a === "-h" || a === "--help") args.command = "help";
     else if (a === "-v" || a === "--version") args.command = "version";
     else if (a === "-y" || a === "--yes") args.yes = true;
@@ -115,6 +128,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--no-open") args.boardNoOpen = true;
     else if (a === "--use-llm") args.useLlm = true;
     else if (a === "--no-llm") args.noLlm = true;
+    else if (a === "--no-telemetry") { args.noTelemetry = true; telemetryFlagIndices.add(i); }
     else if (a === "--host") { const v = argv[++i] ?? ""; args.hostInput = v; args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a.startsWith("--host=")) { const v = a.slice("--host=".length); args.hostInput = v; args.host = (v === "codex" || v === "claude-code") ? v : null; }
     else if (a === "--bind") args.consoleBind = argv[++i] ?? null;
@@ -162,7 +176,7 @@ function parseArgs(argv: string[]): CliArgs {
       if (a === "install") {
         (args as unknown as { _fromInstall: boolean })._fromInstall = true;
       }
-    } else if (!a.startsWith("-") && args.command === "init" && i === 0) {
+    } else if (!a.startsWith("-") && args.command === "init" && i - telemetryFlagIndices.size === 0) {
       // First positional that isn't a recognised subcommand → unknown
       args.command = "unknown";
       args.unknownToken = a;
@@ -175,6 +189,9 @@ function parseArgs(argv: string[]): CliArgs {
 
   args.dir = resolve(args.dir);
   args.positional = rest;
+  // A consumed option value or an early-break tail belongs to its original
+  // parser. Filtering by value would erase literal data in either case.
+  args.rootArgv = argv.filter((_, i) => !telemetryFlagIndices.has(i));
   return args;
 }
 
@@ -803,6 +820,9 @@ ${bold("Options:")}
                          even when heuristic confidence is high
       --no-llm           Skip LLM suggestion (run heuristic only)
                          Or set ${cyan("GREATCTO_NO_LLM=1")}
+      --no-telemetry     Disable telemetry for this invocation, even if opted in
+                         Put before task/worker/codex-host/run/status/resume/statusline
+                         Does not disable update checks or command network access
   -h, --help             Show this help
   -v, --version          Show great-cto CLI version
 
@@ -1255,10 +1275,12 @@ async function runInit(args: CliArgs): Promise<number> {
   installPrePushHook(args.dir);
 
   // ── 7. opt-IN telemetry prompt (default OFF) ─────────────
-  await promoteTelemetryOptIn({ archetype: String(archetype), cliVersion: getCliVersion(), yes: args.yes });
+  if (!args.noTelemetry) {
+    await promoteTelemetryOptIn({ archetype: String(archetype), cliVersion: getCliVersion(), yes: args.yes });
+  }
   // If already enabled (prior opt-in or env var), count this (re)install toward MAU.
-  if (isTelemetryEnabled()) {
-    await sendInstallPing({ cliVersion: getCliVersion(), archetype: String(archetype), consent: true })
+  if (isTelemetryEnabled(args.noTelemetry)) {
+    await sendInstallPing({ cliVersion: getCliVersion(), archetype: String(archetype), consent: true, noTelemetry: args.noTelemetry })
       .catch(() => { /* never block init on telemetry */ });
   }
 
@@ -1498,8 +1520,8 @@ async function reportCodexUpgrade(): Promise<number> {
 }
 
 async function main(): Promise<void> {
-  const rawArgv = process.argv.slice(2);
-  const args = parseArgs(rawArgv);
+  const args = parseArgs(process.argv.slice(2));
+  const rawArgv = args.rootArgv;
 
   // Anonymous, opt-IN usage telemetry (default OFF — see docs/PRIVACY.md). `finish`
   // is the single exit funnel: it fires one fire-and-forget event (command + node + os
@@ -1516,6 +1538,7 @@ async function main(): Promise<void> {
         subcommand: args.command,
         exitCode: code,
         durationMs: Date.now() - __tStart,
+        noTelemetry: args.noTelemetry,
       });
     } catch { /* telemetry never affects the exit */ }
     // Update hint / prompt — printed after the command's own output, never
