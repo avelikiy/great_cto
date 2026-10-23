@@ -178,9 +178,10 @@ export async function sendInstallPing(opts: {
   cliVersion: string;
   archetype: string;
   consent: boolean;
+  noTelemetry?: boolean;
 }): Promise<void> {
   if (!opts.consent) return;
-  if (!isTelemetryEnabled()) return;
+  if (!isTelemetryEnabled(opts.noTelemetry)) return;
   const evt = sanitize({ cliVersion: opts.cliVersion, command: "install", archetype: opts.archetype });
   if (!evt) return;
   await send(evt);
@@ -193,8 +194,9 @@ export async function sendUsagePing(opts: {
   exitCode: number;
   durationMs?: number;
   archetype?: string;
+  noTelemetry?: boolean;
 }): Promise<void> {
-  if (!isTelemetryEnabled()) return;
+  if (!isTelemetryEnabled(opts.noTelemetry)) return;
   const evt = sanitize({
     cliVersion: opts.cliVersion,
     command: opts.subcommand,
