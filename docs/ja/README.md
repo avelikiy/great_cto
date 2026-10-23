@@ -2,14 +2,16 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**すでに使っているコーディングエージェントで、プロダクトを出荷。**
+**開発ワークフローを実行。証拠を確認。何をリリースするか判断。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+<img src="../screenshots/board.png" alt="合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。" width="900" />
+
+*合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。 3.69.0.*
 
 ```bash
 npx great-cto init
@@ -21,18 +23,12 @@ npx great-cto init
 
 </div>
 
-> 英語版 [README](../../README.md) **v3.48.0**（2026-10-02）の翻訳です。
+> 英語版 [README](../../README.md) **v3.69.0**（2026-10-23）の翻訳です。
 > 内容が異なる場合は英語版が正となります。
 
 ---
 
-**コーディングエージェントはコードを出荷する。これはそれを検証する。**
-
-プロダクトや機能を説明してください。役割を絞った **72 agents** が、ブリーフ、
-アーキテクチャ、ビルド、レビュー、セキュリティまで進め、別ファミリーの第二のモデルが
-同じ diff を読みます。何を作るか、どう作るか、出荷するか — 3 つの判断はあなたに残り、
-成果物は**あなたのリポジトリ**と**動く URL** です。LLM プロバイダーへの支払いは
-ご自身で行い、great_cto は MIT で一切課金しません。
+great_cto は、明示的な段階、レビュー、ゲートを通じて Claude Code のネイティブワークフローと実験的な制御型 Codex 実行を調整します。ローカルボードでタスク、記録された実行、プロジェクト文書、使用量を結びます。公開カタログは **72** エージェントを含みますが、掲載だけでは実行や専門性の証明になりません。証拠がなければ不明のままです。マージ、リリース、デプロイにはそれぞれ証拠と承認が必要です。費用は利用するプロバイダーに支払い、MIT ライセンスの great_cto 自体は課金しません。
 
 ## クイックスタート
 
@@ -53,16 +49,44 @@ Claude Code を再起動します。日々使うのは 3 つだけです:
 それ以外 — `/review`、`/spec`、`/save`、`/digest` など — は必要なときに:
 [全コマンド](../COMMANDS.md)。
 
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
-</p>
+## 1 つのプロジェクト、5 つの画面
 
-`localhost:3141` のボードは **Work** から開きます — あなたのタスク、あなたを待つ判断、
-すでに出荷されたもの。コスト、エージェント、レビュアーは **Tools** にあります。
-欠落を成功に見せることはありません: 判断できなかったチェックは `unverifiable`、
-計測されていないコストは `unmeasured`、実行できなかったレビュアーは `unavailable` です。
+`great-cto board` でローカルボードを開きます。通常は `localhost:3141` です。
+
+| 画面 | 確認できる内容 |
+|---|---|
+| **Work** | タスク、受け入れ条件、次の対応可能な操作と Overview、Execution、Evidence タブ |
+| **Decisions** | 承認待ちの判断と既存のゲート操作。権限は拡張しません |
+| **Knowledge** | プロジェクトの Markdown、ADR、Mermaid ソースへのフォールバック付きの制限された図表示。読み取り専用 |
+| **Insights** | 記録された結果、プロジェクト別トークン、見積もり、個別の予算 |
+| **Settings** | Executors、Runtime、Capabilities、General |
+
+`unverifiable`、`unmeasured`、`unavailable` は検証成功を意味しません。
+
+Execution は記録された試行を表示し、因果グラフやライブ端末ではありません。図は宣言されたアーキテクチャを示します。トークンや費用は品質の指標ではありません。文書は元の言語を維持し、UI は英語です。
+
+<details>
+<summary>実行、証拠、プロジェクト文書、結果を見る</summary>
+
+![Execution: 合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。](../screenshots/execution.png)
+
+![Evidence: 合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。](../screenshots/evidence.png)
+
+![Knowledge: 合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。](../screenshots/knowledge.png)
+
+![Insights: 合成データを使ったサンプルプロジェクト。実モデルのベンチマークではありません。](../screenshots/insights.png)
+
+[キャプチャの契約](../reference/public-showcase.md).
+
+</details>
 
 ## OpenAI Codex では
+
+| モード | 実行と権限 |
+|---|---|
+| Claude Code native | ネイティブのコマンド、専門ロール、hooks。判断は対応するホストに残ります |
+| Controlled Codex / mixed-host (experimental) | コントローラーがルーティング、テキスト提案、verifier、明示的ゲートを管理します |
+| Codex plugin session | Skills、MCP、安全用 hooks。インストールだけでは制御型パイプラインは開始されません |
 
 `npx great-cto init --host codex` で Codex にスキル、MCP サーバー、6 つの安全フックが
 入ります（一度だけ承認: ターミナルで `codex` を起動し **Trust all and continue** を選択）。
@@ -98,8 +122,9 @@ great-cto resume --host codex
 | | |
 |---|---|
 | 1 機能をエンドツーエンドで完全トレース | **1h 26m · $3.40** — [証跡](https://greatcto.systems/proof) |
-| プロダクト丸ごと — オープンベンチマークで 7 本 | **$171** · **70/100**, **2026-07-10** — [再現する](../benchmarks/BENCH-2026-07-batch1.md) |
-| 典型的な 1 か月、20 回の実行 | **~$34** — LLM プロバイダーへの支払いのみ |
+| プロダクト丸ごと — オープンベンチマークで 7 本 | 中央値 **$171** · **70/100**, **2026-07-10** — [再現する](../benchmarks/BENCH-2026-07-batch1.md) |
+
+これらは過去の観測であり、現在の 2 ホスト型パイプラインや domain packs のベンチマークではありません。品質向上率は確立されていません。Domain packs は引き続き opt-in で、存在だけでは専門性や成果の向上を証明できません。
 
 ## 制限事項
 

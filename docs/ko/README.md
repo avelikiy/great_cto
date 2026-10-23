@@ -2,14 +2,16 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**이미 쓰고 있는 코딩 에이전트로 제품을 출시하세요.**
+**개발 워크플로를 실행하고, 근거를 검토하고, 출시할 것을 결정하세요.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+<img src="../screenshots/board.png" alt="합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다." width="900" />
+
+*합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다. 3.69.0.*
 
 ```bash
 npx great-cto init
@@ -21,18 +23,12 @@ npx great-cto init
 
 </div>
 
-> 영어 [README](../../README.md) **v3.48.0**(2026-10-02) 번역본입니다.
+> 영어 [README](../../README.md) **v3.69.0**(2026-10-23) 번역본입니다.
 > 내용이 다를 경우 영어판이 기준입니다.
 
 ---
 
-**코딩 에이전트는 코드를 내보냅니다. 이것은 그 코드를 검증합니다.**
-
-제품이나 기능을 설명하세요. 좁은 역할을 맡은 **72 agents**가 브리프, 아키텍처,
-빌드, 리뷰, 보안까지 진행하고, 다른 계열의 두 번째 모델이 같은 diff를 읽습니다.
-무엇을 만들지, 어떻게 만들지, 출시할지 — 세 가지 결정은 당신에게 남고, 결과물은
-**당신 소유의 저장소**와 **작동하는 URL**입니다. LLM 제공자 비용은 직접 지불하며,
-great_cto는 MIT이고 아무것도 청구하지 않습니다.
+great_cto는 명시적인 단계, 리뷰, 게이트를 통해 Claude Code의 네이티브 워크플로와 실험적인 제어형 Codex 실행을 조정합니다. 로컬 보드는 작업, 기록된 실행, 프로젝트 문서, 사용량을 연결합니다. 공개 카탈로그에는 **72**개 에이전트가 있지만 등록 자체가 실행이나 전문성을 입증하지는 않습니다. 근거가 없으면 미확인으로 남습니다. 병합, 릴리스, 배포에는 각각 증거와 승인이 필요합니다. 비용은 사용하는 제공자에 지불하며 MIT 라이선스의 great_cto 자체는 청구하지 않습니다.
 
 ## 빠른 시작
 
@@ -53,16 +49,44 @@ Claude Code를 다시 시작하세요. 매일 쓰는 것은 세 가지입니다:
 나머지 — `/review`, `/spec`, `/save`, `/digest` 등 — 는 필요할 때 쓰면 됩니다:
 [전체 명령어](../COMMANDS.md).
 
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
-</p>
+## 프로젝트 하나, 화면 다섯 개
 
-`localhost:3141`의 보드는 **Work**로 열립니다 — 당신의 작업, 당신을 기다리는 결정,
-이미 출시된 것. 비용, 에이전트, 리뷰어는 **Tools**에 있습니다. 부재를 성공처럼
-보여 주는 일은 없습니다: 판단하지 못한 검사는 `unverifiable`, 측정되지 않은 비용은
-`unmeasured`, 실행되지 못한 리뷰어는 `unavailable`로 표시됩니다.
+`great-cto board`로 로컬 보드를 엽니다. 기본 주소는 `localhost:3141`입니다.
+
+| 화면 | 확인할 수 있는 내용 |
+|---|---|
+| **Work** | 작업, 인수 조건, 다음 지원 작업과 Overview, Execution, Evidence 탭 |
+| **Decisions** | 대기 중인 결정과 기존 게이트 제어. 권한을 확대하지 않습니다 |
+| **Knowledge** | 프로젝트 Markdown, ADR, Mermaid 소스 대체 표시를 지원하는 제한된 다이어그램 뷰어. 읽기 전용 |
+| **Insights** | 기록된 결과, 프로젝트별 토큰, 추정치와 별도 예산 |
+| **Settings** | Executors, Runtime, Capabilities, General |
+
+`unverifiable`, `unmeasured`, `unavailable`은 검증 성공을 의미하지 않습니다.
+
+Execution은 기록된 시도를 보여 주며 인과 그래프나 실시간 터미널이 아닙니다. 다이어그램은 선언된 아키텍처를 설명합니다. 토큰과 비용은 품질 지표가 아닙니다. 문서는 원래 언어를 유지하고 UI는 영어입니다.
+
+<details>
+<summary>실행, 근거, 프로젝트 문서와 결과 보기</summary>
+
+![Execution: 합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다.](../screenshots/execution.png)
+
+![Evidence: 합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다.](../screenshots/evidence.png)
+
+![Knowledge: 합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다.](../screenshots/knowledge.png)
+
+![Insights: 합성 데이터를 사용한 예제 프로젝트이며 실제 모델 벤치마크가 아닙니다.](../screenshots/insights.png)
+
+[캡처 계약](../reference/public-showcase.md).
+
+</details>
 
 ## OpenAI Codex에서
+
+| 모드 | 실행과 권한 |
+|---|---|
+| Claude Code native | 네이티브 명령, 전문 역할, hooks. 결정은 해당 호스트에 남습니다 |
+| Controlled Codex / mixed-host (experimental) | 컨트롤러가 라우팅, 텍스트 제안, verifier, 명시적 게이트를 관리합니다 |
+| Codex plugin session | Skills, MCP, 안전 hooks. 설치만으로 제어형 파이프라인이 자동 시작되지는 않습니다 |
 
 `npx great-cto init --host codex`는 Codex에 스킬, MCP 서버, 여섯 개의 안전 훅을
 제공합니다(한 번 승인: 터미널에서 `codex`를 실행하고 **Trust all and continue** 선택).
@@ -98,8 +122,9 @@ great-cto resume --host codex
 | | |
 |---|---|
 | 기능 하나를 처음부터 끝까지, 전체 추적 | **1h 26m · $3.40** — [증빙](https://greatcto.systems/proof) |
-| 제품 하나 전체 — 공개 벤치마크에서 7개 구축 | **$171** · **70/100**, **2026-07-10** — [재현하기](../benchmarks/BENCH-2026-07-batch1.md) |
-| 일반적인 한 달, 20회 실행 | **~$34** — LLM 제공자 비용만 지불 |
+| 제품 하나 전체 — 공개 벤치마크에서 7개 구축 | 중앙값 **$171** · **70/100**, **2026-07-10** — [재현하기](../benchmarks/BENCH-2026-07-batch1.md) |
+
+이 수치는 과거 관측이며 현재의 두 호스트 파이프라인이나 domain packs 벤치마크가 아닙니다. 품질 향상 비율은 입증되지 않았습니다. Domain packs는 계속 opt-in이며 존재 자체가 전문성이나 더 나은 결과를 입증하지 않습니다.
 
 ## 한계
 

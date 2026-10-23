@@ -34,6 +34,9 @@ Missing evidence stays unknown; a successful worker is not proof that a task
 was accepted, merged or deployed. You use your own provider account;
 great_cto is MIT and bills nothing.
 
+The public catalog contains 72 agents grouped by responsibility. Catalog
+availability is not proof of execution or expertise.
+
 ## Quick start
 
 ```bash
@@ -57,6 +60,7 @@ decision still waits for you. Everything else — `/review`, `/spec`, `/save`,
 ## One project, five views
 
 Run `great-cto board` to open the local board, normally at `localhost:3141`.
+Readings such as `unverifiable`, `unmeasured` and `unavailable` are not passes.
 
 | View | What you can inspect |
 |---|---|
