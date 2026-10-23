@@ -12,6 +12,6 @@ Preserve: API/projector v1, contracts/reviews/gates, pack admission and denial f
 
 Risks: privacy, stale authority and races. Require fault/API/browser/package checks and independent review.
 
-Next: human gate `great_cto-ely5.15.2`, then PM. No plan pause. Costs unknown.
+Next: human gate `great_cto-ely5.15.2`, then PM. No plan pause. Costs unknown; no new service, region or cost tier.
 
 [Full architecture](ARCH-bound-run-proposal.md).
