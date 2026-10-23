@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, copyFileSync, writeFileSync, rmSync, realpathSync, chmodSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { tmpdir, homedir } from 'node:os';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { runtimeImportClosure } from '../../packages/cli/scripts/runtime-import-closure.mjs';
@@ -37,23 +37,24 @@ test('derived board closure includes the bound reader and imports outside the ch
       assessment: { known: true, tier: 'T1', base, fingerprint: 'c'.repeat(64), files: ['src/view.ts'],
         reasons: ['auto:T1:behavioral(1)'], escalatedFromLabel: null },
       reviewers: roles.map(agent => ({ agent, reasons: ['mandatory independent delivery review'], files: [] })) };
+    const privateCanaries = { prompt: randomUUID(), token: randomUUID() };
     writeFileSync(join(storeDir, `${runId}.json`), JSON.stringify({ version: 1, id: runId, root: projectRoot,
       specialistPolicy: { mode: 'adaptive', workflow: 'existing-change', contracts: [], base, projectDigest: sha(policy) },
       specialistReview: { roles, fingerprint, plan, hardGates: ['gate:ship'], reusablePass: false },
-      prompt: 'PRIVATE_PACKAGE_CANARY', token: 'PRIVATE_PACKAGE_TOKEN' }), { mode: 0o600 });
+      ...privateCanaries }), { mode: 0o600 });
     // Optional operator-owned test input exercises the exact extracted archive;
     // normal CI exercises the derived isolated closure with the same fixture.
     const entry = process.env.GREAT_CTO_BOUND_PACKED_READER
       ? pathToFileURL(process.env.GREAT_CTO_BOUND_PACKED_READER).href : './scripts/lib/bound-run-proposal.mjs';
     const code = `import {readFileSync} from 'node:fs';
-const m = await import(${JSON.stringify(entry)});
-const args = JSON.parse(readFileSync(0, 'utf8'));
+const {readerEntry, ...args} = JSON.parse(readFileSync(0, 'utf8'));
+const m = await import(readerEntry);
 const binding = await m.readBoundRunBinding(args);
 const proposal = await m.readBoundRunProposal({...args, focusId:'fintech-crypto', binding:binding.body.binding});
 console.log(JSON.stringify({binding,proposal}));`;
     const result = spawnSync(process.execPath, ['--input-type=module', '-e', code], {
       cwd: isolated, encoding: 'utf8', timeout: 30000,
-      input: JSON.stringify({ projectRoot, projectId: sha(projectRoot), storeDir, runId, phase: 'review' }),
+      input: JSON.stringify({ readerEntry: entry, projectRoot, projectId: sha(projectRoot), storeDir, runId, phase: 'review' }),
       env: { PATH: process.env.PATH, HOME: isolated, LANG: 'C', TZ: 'UTC' },
     });
     assert.equal(result.error, undefined, 'isolated import must start and complete');
@@ -65,6 +66,8 @@ console.log(JSON.stringify({binding,proposal}));`;
     assert.equal(response.proposal.body.currentTreeAssessment, false);
     assert.equal(response.proposal.body.reusablePass, false);
     assert.doesNotMatch(result.stdout, /PRIVATE_PACKAGE_(?:CANARY|TOKEN)/);
+    for (const [field, value] of Object.entries(privateCanaries))
+      assert.equal(result.stdout.includes(value), false, `isolated response must not expose the injected ${field}`);
     assert.ok(!result.stdout.includes(projectRoot) && !result.stdout.includes(storeDir));
   } finally {
     rmSync(isolated, { recursive: true, force: true });

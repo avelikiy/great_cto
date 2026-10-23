@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { chromium } from 'playwright';
 import { buildFixture, FIXTURE_NAME } from '../../scripts/lib/screenshot-fixture.mjs';
 import { commitFixture } from '../helpers/committed-fixture.mjs';
@@ -57,11 +57,12 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     assessment:{known:true,tier:'T1',base,fingerprint:'c'.repeat(64),files:['src/view.ts'],reasons:['auto:T1:behavioral(1)'],escalatedFromLabel:null},
     reviewers:roles.map(agent=>({agent,reasons:['mandatory independent delivery review'],files:[]})),
   };
+  const privateCanaries = {prompt:randomUUID(),token:randomUUID()};
   const state = {
     version:1,id:runId,root,
     specialistPolicy:{mode:'adaptive',workflow:'existing-change',base,contracts:[],projectDigest:sha(policy)},
     specialistReview:{roles,fingerprint,plan,hardGates:['gate:ship'],reusablePass:false},
-    hostRoutes:{'qa-engineer':'claude-code'},prompt:'PRIVATE_REAL_API_PROMPT_CANARY',token:'PRIVATE_REAL_API_TOKEN_CANARY',
+    hostRoutes:{'qa-engineer':'claude-code'},...privateCanaries,
   };
   const stateFile = path.join(store,`${runId}.json`), original = JSON.stringify(state);
   fs.writeFileSync(stateFile,original,{mode:0o600});
@@ -88,6 +89,7 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     assert.equal(bindingResponse.status(),200);
     assert.equal(bindingResponse.headers()['cache-control'],'no-store');
     const descriptor=await bindingResponse.json();
+    for(const [field,value] of Object.entries(privateCanaries))assert.equal(JSON.stringify(descriptor).includes(value),false,`descriptor must not expose the injected ${field}`);
     assert.equal(descriptor.state,'available');
     assert.equal(descriptor.binding.snapshotDigest,sha(original));
     assert.equal(descriptor.binding.policyDigest,sha(policy));
@@ -100,6 +102,7 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     ]);
     assert.equal(proposalResponse.status(),200);
     const inspected=await proposalResponse.json();
+    for(const [field,value] of Object.entries(privateCanaries))assert.equal(JSON.stringify(inspected).includes(value),false,`proposal must not expose the injected ${field}`);
     assert.equal(inspected.state,'available');
     assert.equal(inspected.provenance,'stored-snapshot');
     assert.equal(inspected.currentTreeAssessment,false);assert.equal(inspected.reusablePass,false);
@@ -112,6 +115,7 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     assert.match(await page.locator('#bound-run-descriptor').innerText(),/Controlled Codex/);
     assert.match(await page.locator('#bound-run-graph').innerText(),/not revalidated against the current working tree/);
     assert.doesNotMatch(await page.locator('body').innerHTML(),/PRIVATE_REAL_API_(?:PROMPT|TOKEN)_CANARY/);
+    for(const [field,value] of Object.entries(privateCanaries))assert.equal((await page.locator('body').innerHTML()).includes(value),false,`rendered proposal must not expose the injected ${field}`);
     assert.equal(fs.readFileSync(stateFile,'utf8'),original,'inspection is read-only');
     if(process.env.GREAT_CTO_BOUND_UI_EVIDENCE_DIR){
       const evidence=fs.realpathSync(process.env.GREAT_CTO_BOUND_UI_EVIDENCE_DIR);
@@ -128,6 +132,7 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     ]);
     assert.equal(changedResponse.status(),409);
     const changed=await changedResponse.json();
+    for(const [field,value] of Object.entries(privateCanaries))assert.equal(JSON.stringify(changed).includes(value),false,`changed response must not expose the injected ${field}`);
     assert.equal(changed.binding,null);assert.equal(changed.proposal,null);assert.equal(changed.reason,'snapshot-changed');
     await page.getByText('Stored snapshot changed. Load the snapshot again before inspecting its proposal.',{exact:true}).waitFor();
     assert.equal(await page.locator('#bound-run-descriptor').innerHTML(),'');
@@ -135,6 +140,7 @@ test('actual stored-run API renders review evidence and rejects a changed synthe
     assert.equal(requests.length,3,'409 must not trigger an automatic read or retry');
     assert.equal(fs.readFileSync(projectFile,'utf8'),policy);
     assert.doesNotMatch(await page.locator('body').innerHTML(),/PRIVATE_REAL_API_(?:PROMPT|TOKEN|MUTATION)_CANARY/);
+    for(const [field,value] of Object.entries(privateCanaries))assert.equal((await page.locator('body').innerHTML()).includes(value),false,`cleared proposal must not expose the injected ${field}`);
     assert.deepEqual(errors,[]);
   }finally{await browser?.close();if(server)await reapAndClean(server.proc,dir);else fs.rmSync(dir,{recursive:true,force:true});}
 });
