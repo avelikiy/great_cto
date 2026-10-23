@@ -18,7 +18,7 @@ import { originAllowed, hostAllowed, parseAllowedHosts, isInsideDir } from './li
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts, watchAgentEvents } from './lib/watchers.mjs';
-import { dispatch, isFocusReadPath, resolveFocusProject } from './lib/routes.mjs';
+import { dispatch, isFocusReadPath, isBoundRunReadPath, resolveFocusProject } from './lib/routes.mjs';
 import { log } from './lib/log.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -26,6 +26,20 @@ import { log } from './lib/log.mjs';
 // ── HTTP router ────────────────────────────────────────────────────────────────
 const MAX_BODY_BYTES = 2 * 1024 * 1024; // 2 MB — board payloads are tiny; cap guards against unbounded `body += c` accumulation.
 const server = http.createServer(async (req, res) => {
+  let url;
+  try { url = new URL(req.url, `http://localhost:${PORT}`); }
+  catch {
+    res.writeHead(400, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+    res.end(JSON.stringify({ state: 'unavailable', reason: 'invalid-selection', binding: null, proposal: null }));
+    return;
+  }
+  const pathname = url.pathname;
+  // Private inspection must pass its own Host/origin/query guard before the
+  // bootstrap resolves projects or installs the legacy wildcard CORS headers.
+  if (isBoundRunReadPath(pathname)) {
+    await dispatch(req, res, url, process.cwd());
+    return;
+  }
   // Single-point body-size guard: every route reads `body += c`, so cap cumulative
   // request bytes here and kill the socket on overflow rather than buffering forever.
   if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(req.method)) {
@@ -51,8 +65,6 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
-  const url = new URL(req.url, `http://localhost:${PORT}`);
-  const pathname = url.pathname;
   const proj = url.searchParams.get('project');
   // BH-5 fix: surface project resolution as a response header. Previously
   // ?project=<unknown> silently returned cwd's data — user thought they

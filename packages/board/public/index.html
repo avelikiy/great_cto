@@ -2684,11 +2684,25 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .focus-direction-group button:focus-visible, .focus-inspection summary:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
 .focus-inspection { margin:16px 0 24px; color:var(--text); overflow-wrap:anywhere; font-variant-numeric:normal; }
 .focus-inspection h2 { font-size:var(--fs-title-s); margin:20px 0 8px; }
+#focus-proposal h3 { font-size:var(--fs-title-s); }
 .focus-inspection p { margin:8px 0; }
 .focus-inspection details { margin:8px 0; border-top:1px solid var(--border); padding-top:8px; }
 .focus-inspection summary { cursor:pointer; padding:6px 0; }
 .focus-inspection li { margin:8px 0; }
 .focus-inspection .focus-meta { font-size:var(--fs-small); color:var(--text2); }
+.bound-run-form { display:flex; flex-wrap:wrap; gap:8px; align-items:end; font-size:14px; }
+.bound-run-field { display:flex; flex-direction:column; gap:8px; }
+.bound-run-field:first-child { flex:1 1 320px; }
+.bound-run-form input, .bound-run-form select, #bound-run-panel button { min-height:32px; padding:4px 10px; border:1px solid var(--text3); border-radius:0; background:var(--bg-muted); color:var(--text); font:inherit; }
+.bound-run-form input, #bound-run-descriptor dd { font-family:var(--mono); font-variant-numeric:normal; }
+#bound-run-panel :is(input,select,button,summary):focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
+#bound-run-panel dd { margin:0 0 8px; overflow-wrap:anywhere; }
+#bound-run-panel [aria-disabled="true"] { cursor:progress; }
+@media (max-width:767px), (pointer:coarse) {
+  .bound-run-form { font-size:16px; }
+  .bound-run-field, .bound-run-form button, #bound-run-inspect, #bound-run-retry { width:100%; }
+  .bound-run-form input, .bound-run-form select, #bound-run-panel button { min-height:44px; font-size:16px; }
+}
 @media (max-width:767px), (pointer:coarse) {
   .focus-inspection { font-size:16px; }
   .focus-direction-group button, .focus-inspection summary, .focus-inspection .btn-ghost-sm { min-height:44px; }
@@ -3836,8 +3850,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <details id="focus-core"><summary id="focus-core-summary">Core contracts unavailable</summary><div id="focus-core-body"></div></details>
           <div id="focus-packs"></div>
           <section id="focus-proposal" aria-labelledby="focus-proposal-title" aria-busy="false">
-            <h2 id="focus-proposal-title">Proposed graph</h2>
+            <h2 id="focus-proposal-title">Stored proposal</h2>
             <p>Advisory. Does not change execution.</p>
+            <section id="bound-run-panel" aria-label="Stored snapshot inspection">
+              <p>Current working tree has not been checked.</p>
+              <form class="bound-run-form" onsubmit="event.preventDefault(); loadBoundRunSnapshot()" autocomplete="off">
+                <div class="bound-run-field"><label for="bound-run-id">Controlled run UUID</label><input id="bound-run-id" type="text" maxlength="36" autocomplete="off" spellcheck="false" aria-describedby="bound-run-hint bound-run-id-error" oninput="setBoundRunSelection(this.value,document.getElementById('bound-run-phase').value)"></div>
+                <div class="bound-run-field"><label for="bound-run-phase">Snapshot phase</label><select id="bound-run-phase" aria-describedby="bound-run-phase-error" onchange="setBoundRunSelection(document.getElementById('bound-run-id').value,this.value)"><option value="">Choose phase</option><option value="preparation">Preparation</option><option value="review">Review</option></select></div>
+                <button id="bound-run-load" type="submit" aria-disabled="false">Load snapshot</button>
+              </form>
+              <p id="bound-run-hint">Enter the exact controlled Codex run UUID.</p>
+              <p id="bound-run-id-error"></p><p id="bound-run-phase-error"></p>
+              <p id="bound-run-status" role="status" aria-live="polite" aria-atomic="true">Enter a controlled run UUID and choose a snapshot phase, then load its stored snapshot.</p>
+              <div id="bound-run-descriptor" aria-busy="false"></div>
+              <button id="bound-run-inspect" type="button" hidden aria-disabled="false" onclick="inspectBoundRunProposal()">Inspect stored proposal</button>
+              <button id="bound-run-retry" type="button" hidden onclick="loadBoundRunSnapshot()">Retry</button>
+              <div id="bound-run-graph" aria-busy="false"></div>
+            </section>
+            <h3>Current change proposal</h3>
             <div id="focus-proposal-body">No proposal available for this change.</div>
           </section>
         </section>
@@ -9611,8 +9641,166 @@ const fleetState = {
   proposalFailed: false, changeIdentity: null, focusHost: (location.search || '').match(/(?:^\?|&)host=(codex|claude-code)(?:&|$)/)?.[1] || null,
   proposalDenied: false, proposalOffline: false, proposalInvalid: false,
   deniedScope: null, accessGeneration: 0, projectionScope: pqs(),
+  boundRunId:'', boundPhase:'', boundDescriptor:null, boundInspection:null,
+  bindingRequest:0, inspectionRequest:0, boundLoading:false, boundInspecting:false,
+  boundStatus:'Enter a controlled run UUID and choose a snapshot phase, then load its stored snapshot.', boundRetry:false,
 };
 const FLEET_CORE_ROLES = new Set();
+const BOUND_KEYS = ['snapshotDigest','epochDigest','planFingerprint','base','policyDigest'];
+function clearBoundRunEvidence(message = 'Selection changed. Load the snapshot again.', clearSelection = false) {
+  if (fleetAccessDenied()) message = 'You do not have access to this project. Choose another project.';
+  ++fleetState.bindingRequest; ++fleetState.inspectionRequest;
+  fleetState.boundDescriptor = null; fleetState.boundInspection = null;
+  fleetState.boundLoading = false; fleetState.boundInspecting = false;
+  fleetState.boundStatus = message; fleetState.boundRetry = false;
+  if (clearSelection) {
+    fleetState.boundRunId = ''; fleetState.boundPhase = '';
+    for (const id of ['bound-run-id','bound-run-phase']) { const el = document.getElementById(id); if (el) el.value = ''; }
+  }
+  renderBoundRunInspection();
+}
+function setBoundRunSelection(run, phase) {
+  prepareFleetScope();
+  fleetState.boundRunId = run; fleetState.boundPhase = phase;
+  clearBoundRunEvidence();
+  for (const id of ['bound-run-id','bound-run-phase']) {
+    const el = document.getElementById(id); if (el) el.removeAttribute('aria-invalid');
+    const error = document.getElementById(`${id}-error`); if (error) error.textContent = '';
+  }
+}
+function boundRunKey(includeBinding = false) {
+  return JSON.stringify([pqs(),fleetState.projectId,fleetState.focusHost,fleetState.boundRunId,fleetState.boundPhase,
+    fleetState.focusId,fleetState.registry,includeBinding ? fleetState.boundDescriptor?.binding : null]);
+}
+function boundRunBindingValid(binding) {
+  return binding && Object.keys(binding).length === BOUND_KEYS.length && BOUND_KEYS.every(key =>
+    typeof binding[key] === 'string' && (key === 'base' ? /^(?:[a-f0-9]{40}|[a-f0-9]{64})$/ : /^[a-f0-9]{64}$/).test(binding[key]));
+}
+function boundRunProposalValid(proposal) {
+  const only = (value, keys) => value && Object.keys(value).every(key => keys.includes(key));
+  return validFocusProposal(proposal)
+    && only(proposal,['schemaVersion','kind','advisory','changesExecution','focusId','registryVersion','assessmentState','assessmentFingerprint','routeClasses','nodes','edges','requiredRoles','requiredRolesComplete','requiredGates','reasons','limitations'])
+    && proposal.nodes.every(node => only(node,['id','kind']))
+    && proposal.edges.every(edge => only(edge,['id','kind','source','target','reason']));
+}
+function validBoundEnvelope(data, inspection = false) {
+  const allowed = ['schemaVersion','kind','state','projectId','controller','runId','phase','binding','provenance','currentTreeAssessment','reusablePass','advisory','changesExecution'];
+  if (inspection) allowed.push('focusId','registryVersion','proposal','limitations');
+  if (!data || Object.keys(data).some(key => !allowed.includes(key)) || JSON.stringify(data).length > 98304
+    || data.schemaVersion !== 1 || data.kind !== `controlled-run-proposal-${inspection ? 'inspection' : 'binding'}`
+    || data.state !== 'available' || data.projectId !== fleetState.projectId || data.controller !== 'codex'
+    || data.runId !== fleetState.boundRunId || data.phase !== fleetState.boundPhase
+    || data.provenance !== 'stored-snapshot' || data.currentTreeAssessment !== false || data.reusablePass !== false
+    || (Object.hasOwn(data,'advisory') && data.advisory !== true) || (Object.hasOwn(data,'changesExecution') && data.changesExecution !== false)
+    || !boundRunBindingValid(data.binding)) return false;
+  if (!inspection) return true;
+  return data.registryVersion === 1 && fleetState.registry?.registryVersion === 1 && data.focusId === fleetState.focusId
+    && data.advisory === true && data.changesExecution === false && fleetState.boundPhase === 'review'
+    && BOUND_KEYS.every(key => data.binding[key] === fleetState.boundDescriptor?.binding[key])
+    && boundRunProposalValid(data.proposal) && data.proposal.focusId === data.focusId
+    && data.proposal.assessmentState === 'known' && data.proposal.requiredRolesComplete === true && data.proposal.nodes.length > 0
+    && Array.isArray(data.limitations) && data.limitations.length === 3
+    && ['stored-snapshot-not-revalidated','content-identity-not-historical-epoch','proposal-not-execution-evidence'].every(code => data.limitations.includes(code));
+}
+function boundRunFailure(status, data) {
+  if (status === 403) { purgeFleetProject(); return; }
+  const messages = {
+    'snapshot-changed':'Stored snapshot changed. Load the snapshot again before inspecting its proposal.',
+    'planning-only-evidence':'Planning snapshot: graph unavailable under projector v1.',
+    'unsupported-native-evidence':'Native evidence unavailable. Stored snapshot inspection requires an explicitly selected controlled Codex run.',
+    'unsupported-evidence':'Stored snapshot unavailable. Evidence could not be safely inspected.',
+    'unsafe-evidence':'Stored snapshot unavailable. Evidence could not be safely inspected.',
+    'invalid-evidence':'Stored snapshot unavailable. Evidence could not be safely inspected.',
+  };
+  const message = status === 409 ? messages['snapshot-changed'] : status === 404
+    ? 'Stored snapshot unavailable for this selection. Check the UUID, phase and project, then retry.'
+    : messages[data?.reason] || 'Stored snapshot unavailable. Unsupported or invalid response.';
+  clearBoundRunEvidence(message); fleetState.boundRetry = true; renderBoundRunInspection();
+}
+async function readBoundRun(inspection) {
+  prepareFleetScope();
+  if (fleetAccessDenied() || fleetState.boundLoading || fleetState.boundInspecting) return;
+  if (inspection && (!fleetState.boundDescriptor || fleetState.boundPhase !== 'review' || !fleetState.registry?.directions.some(d => d.id === fleetState.focusId))) return;
+  const descriptor = fleetState.boundDescriptor;
+  if (!inspection) clearBoundRunEvidence();
+  else { fleetState.boundInspection = null; ++fleetState.inspectionRequest; }
+  if (focusOffline()) { clearBoundRunEvidence('Board unavailable offline. Reconnect, then retry.'); fleetState.boundRetry = true; renderBoundRunInspection(); return; }
+  if (fleetState.focusHost !== 'codex') { clearBoundRunEvidence('Native evidence unavailable. Stored snapshot inspection requires an explicitly selected controlled Codex run.'); return; }
+  const params = new URLSearchParams(pqs().replace(/^\?/,''));
+  const project = params.getAll('project');
+  if (project.length !== 1 || !project[0] || !fleetState.projectId || fleetState.registryScope !== pqs() || !fleetState.registry) { clearBoundRunEvidence('Choose a registered project before loading a snapshot.'); return; }
+  const invalid = [];
+  if (!/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/.test(fleetState.boundRunId)) invalid.push(['bound-run-id','Enter a lowercase UUID in 8-4-4-4-12 format.']);
+  if (!['review','preparation'].includes(fleetState.boundPhase)) invalid.push(['bound-run-phase','Choose Preparation or Review.']);
+  if (invalid.length) {
+    for (const [id,message] of invalid) { const el = document.getElementById(id); if (el) el.setAttribute('aria-invalid','true'); const error = document.getElementById(`${id}-error`); if (error) error.textContent = message; }
+    document.getElementById(invalid[0][0])?.focus(); return;
+  }
+  const counter = inspection ? 'inspectionRequest' : 'bindingRequest', busy = inspection ? 'boundInspecting' : 'boundLoading';
+  const request = ++fleetState[counter], access = fleetState.accessGeneration, key = boundRunKey(inspection);
+  const current = () => { prepareFleetScope(); return !fleetAccessDenied() && access === fleetState.accessGeneration && request === fleetState[counter] && key === boundRunKey(inspection); };
+  fleetState[busy] = true; fleetState.boundStatus = inspection ? 'Inspecting stored proposal…' : 'Loading stored snapshot…';
+  renderBoundRunInspection();
+  const query = new URLSearchParams({project:project[0],run:fleetState.boundRunId,phase:fleetState.boundPhase});
+  if (inspection) {
+    query.set('focus',fleetState.focusId);
+    for (const [param,field] of [['snapshot','snapshotDigest'],['epoch','epochDigest'],['plan','planFingerprint'],['base','base'],['policy','policyDigest']]) query.set(param,descriptor.binding[field]);
+  }
+  try {
+    const response = await fetch(`/api/focus-run-${inspection ? 'proposal' : 'binding'}?${query}`, {cache:'no-store',credentials:'same-origin',redirect:'error'});
+    if (!current()) return;
+    if (response.status === 403) { purgeFleetProject(); return; }
+    const data = await response.json();
+    if (!current()) return;
+    if (focusOffline()) { clearBoundRunEvidence('Board unavailable offline. Reconnect, then retry.'); fleetState.boundRetry = true; renderBoundRunInspection(); return; }
+    if (!response.ok || !validBoundEnvelope(data,inspection)) { boundRunFailure(response.status,data); return; }
+    // Store only the public, validated contract. Raw backend metadata never enters UI state.
+    if (inspection) {
+      fleetState.boundInspection = data;
+      fleetState.boundStatus = 'Stored proposal loaded.';
+    } else {
+      fleetState.boundDescriptor = data;
+      fleetState.boundStatus = data.phase === 'preparation' ? 'Planning snapshot: graph unavailable under projector v1.'
+        : fleetState.focusId ? 'Stored snapshot loaded. Inspect its proposal for the selected focus.' : 'Stored snapshot loaded. Choose a focus direction to inspect its proposal.';
+    }
+    fleetState.boundRetry = false;
+  } catch {
+    if (!current()) return;
+    clearBoundRunEvidence(focusOffline() ? 'Board unavailable offline. Reconnect, then retry.' : inspection ? "Couldn't inspect stored proposal." : "Couldn't load stored snapshot.");
+    fleetState.boundRetry = true; renderBoundRunInspection();
+  } finally {
+    if (current()) { fleetState[busy] = false; renderBoundRunInspection(); }
+  }
+}
+function loadBoundRunSnapshot() { return readBoundRun(false); }
+function inspectBoundRunProposal() { return readBoundRun(true); }
+if (typeof window !== 'undefined') window.addEventListener('offline', () => {
+  clearBoundRunEvidence('Board unavailable offline. Reconnect, then retry.');
+  fleetState.boundRetry = !fleetAccessDenied(); renderBoundRunInspection();
+});
+function renderBoundRunInspection() {
+  const status = document.getElementById('bound-run-status'); if (!status) return;
+  status.textContent = fleetState.boundStatus;
+  const descriptor = document.getElementById('bound-run-descriptor'), graph = document.getElementById('bound-run-graph');
+  const load = document.getElementById('bound-run-load'), inspect = document.getElementById('bound-run-inspect'), retry = document.getElementById('bound-run-retry');
+  load.textContent = fleetState.boundLoading ? 'Loading snapshot…' : 'Load snapshot'; load.setAttribute('aria-disabled',String(fleetState.boundLoading));
+  inspect.textContent = fleetState.boundInspecting ? 'Inspecting stored proposal…' : 'Inspect stored proposal'; inspect.setAttribute('aria-disabled',String(fleetState.boundInspecting));
+  const d = fleetState.boundDescriptor;
+  inspect.hidden = !d || d.phase !== 'review' || !fleetState.registry?.directions.some(direction => direction.id === fleetState.focusId);
+  retry.hidden = !fleetState.boundRetry || fleetAccessDenied();
+  retry.textContent = fleetState.boundStatus.includes('changed.') ? 'Load snapshot again' : 'Retry';
+  retry.setAttribute('aria-disabled',String(fleetState.boundLoading));
+  descriptor.setAttribute('aria-busy',String(fleetState.boundLoading)); graph.setAttribute('aria-busy',String(fleetState.boundInspecting));
+  // Keep disclosure focus and open state while the independent inspection request runs.
+  if (descriptor.dataset.identity !== (d ? JSON.stringify(d.binding) : '')) {
+    descriptor.dataset.identity = d ? JSON.stringify(d.binding) : '';
+    descriptor.innerHTML = d ? `<h3>Stored snapshot</h3><dl><dt>Controller</dt><dd>Controlled Codex</dd><dt>Run</dt><dd>${esc(d.runId)}</dd><dt>Phase</dt><dd>${d.phase === 'review' ? 'Review' : 'Preparation'}</dd><dt>Snapshot</dt><dd>${esc(d.binding.snapshotDigest.slice(0,12))}</dd></dl><details><summary>Binding details</summary><dl>${BOUND_KEYS.map(key => `<dt>${({snapshotDigest:'Snapshot digest',epochDigest:'Epoch content digest',planFingerprint:'Plan fingerprint',base:'Base',policyDigest:'Policy digest'})[key]}</dt><dd>${esc(d.binding[key])}</dd>`).join('')}</dl></details>` : '';
+  }
+  const p = fleetState.boundInspection?.proposal;
+  graph.innerHTML = p ? `<ol>${p.nodes.map(n => `<li>${esc(n.id)}<div class="focus-meta">Kind: ${esc(n.kind)}</div><div>Requires: ${p.edges.filter(e => e.target === n.id).map(e => `${esc(e.source)} (${esc(focusCodeText(e.reason))})`).join(', ') || 'None'}</div></li>`).join('')}</ol><p>Stored snapshot, not revalidated against the current working tree.</p><p>Content identity does not identify a unique historical epoch.</p><p>Proposal dependencies are not recorded execution evidence. This is not an approval or reusable PASS.</p><p>Required delivery review: ${p.requiredRoles.map(esc).join(', ')}.</p><p>Required gates: ${p.requiredGates.map(esc).join(', ') || 'None'}.</p>` : '';
+  if (!p) graph.textContent = 'Mandatory delivery review remains code-reviewer, qa-engineer and security-officer.';
+  if (retry.hidden && document.activeElement === retry) load.focus();
+}
 function focusRegistryValid(r) {
   const slug = v => typeof v === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(v);
   return r?.schemaVersion === 1 && r.registryVersion === 1 && Array.isArray(r.coreRoles)
@@ -9627,11 +9815,13 @@ function focusRegistryValid(r) {
         && p.invariants.every(i => typeof i.rule === 'string' && i.rule.length <= 4096)));
 }
 function acceptFocusRegistry(data) {
+  const before = JSON.stringify([fleetState.projectId,fleetState.registry]);
   fleetState.registry = focusRegistryValid(data?.registry) ? data.registry : null;
   fleetState.registryScope = fleetState.registry ? pqs() : null;
   fleetState.projectId = fleetState.registry ? data.projectId : null;
   FLEET_CORE_ROLES.clear();
   for (const role of fleetState.registry?.coreRoles || []) FLEET_CORE_ROLES.add(role);
+  if (before !== JSON.stringify([fleetState.projectId,fleetState.registry])) clearBoundRunEvidence();
 }
 function focusRequestKey() {
   return JSON.stringify([pqs(), fleetState.projectId, fleetState.focusId, fleetState.changeIdentity,
@@ -9646,6 +9836,7 @@ function clearFleetProjection(denied = false) {
   ++fleetState.accessGeneration;
   for (const key of ['registryRequest','proposalRequest','requiredRequest','rosterRequest']) ++fleetState[key];
   fleetState.deniedScope = denied ? pqs() : null;
+  clearBoundRunEvidence(denied ? 'You do not have access to this project. Choose another project.' : 'Selection changed. Load the snapshot again.', true);
   acceptFocusRegistry(null);
   for (const key of ['focusId','proposal','required','requiredScope','rosterScope','summary','drawerSlug','usage','changeIdentity']) fleetState[key] = null;
   fleetState.agents = []; fleetState.legacy_count = 0; fleetState.search = '';
@@ -9713,6 +9904,7 @@ async function refreshFocusRegistry() {
 function setFleetFocus(id) {
   prepareFleetScope();
   if (fleetAccessDenied()) return;
+  clearBoundRunEvidence();
   fleetState.focusId = fleetState.registryScope === pqs() && fleetState.registry?.directions.some(d => d.id === id) ? id : null;
   fleetState.proposal = null; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
   ++fleetState.proposalRequest; fleetState.proposalLoading = false;
@@ -9788,6 +9980,7 @@ function focusCodeText(code) {
     'publication-requires-proof':'Publication requires proof.', 'proof-before-publication':'Proof precedes publication.' })[code] || 'Reason unavailable.';
 }
 function renderFocusInspection() {
+  renderBoundRunInspection();
   const controls = document.getElementById('focus-directions');
   if (!controls) return;
   const r = fleetState.registryScope === pqs() ? fleetState.registry : null;
