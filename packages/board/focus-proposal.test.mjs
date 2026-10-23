@@ -6,6 +6,7 @@ import path from 'node:path';
 import * as fleet from './lib/fleet.mjs';
 import { startServerOnFreePort } from '../../tests/helpers/board-start.mjs';
 import { reapAndClean } from '../../tests/helpers/reap.mjs';
+import { execFileSync } from 'node:child_process';
 
 const evidence = () => ({ version: 1, state: 'planned', advisory: true, planningOnly: false, reusablePass: false,
   scope: 'whole Git-visible tree plus project declaration; ignored runtime inputs not attested', fingerprint: 'b'.repeat(64),
@@ -21,6 +22,72 @@ test('public proposal composes routes and retains reviewers while excluding priv
   for (const role of ['code-reviewer', 'qa-engineer', 'security-officer', 'pci-reviewer']) assert(p.requiredRoles.includes(role));
   assert(p.edges.every(e => e.kind === 'proposed-dependency'));
   assert.doesNotMatch(JSON.stringify(p), /TOKEN_CANARY|private\/overlay|secret\/prompt|startedAt|succeeded/);
+});
+
+test('actual HTTP focus resolution never opens own or foreign PROJECT aliases before bounded validation', { timeout: 45000 }, async () => {
+  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-focus-membership-')));
+  const root = path.join(tmp, 'own'), foreign = path.join(tmp, 'foreign'), home = path.join(tmp, 'home');
+  for (const dir of [root, foreign, home]) fs.mkdirSync(path.join(dir, '.great_cto'), { recursive: true });
+  const ownMd = path.join(root, '.great_cto', 'PROJECT.md'), foreignMd = path.join(foreign, '.great_cto', 'PROJECT.md');
+  for (const file of [ownMd, foreignMd]) fs.writeFileSync(file, 'archetype: fintech\nproject: metadata-only-alias\n');
+  const registry = path.join(home, '.great_cto', 'projects.json'), arm = path.join(tmp, 'armed'), trace = path.join(tmp, 'reads.jsonl');
+  fs.writeFileSync(registry, JSON.stringify({ projects: [{slug:'known',name:'Known Project',path:root},{slug:'foreign',path:foreign}] }));
+  const probe = path.join(tmp, 'probe.mjs');
+  fs.writeFileSync(probe, `import fs from 'node:fs'; import {syncBuiltinESMExports} from 'node:module';
+const arm=${JSON.stringify(arm)},trace=${JSON.stringify(trace)};
+const read=fs.readFileSync,open=fs.openSync;
+const check=(file,kind,flags)=>{if(!fs.existsSync(arm)||typeof file!=='string'||!file.endsWith('/.great_cto/PROJECT.md'))return;
+ const safe=kind==='open'&&typeof flags==='number'&&(flags&fs.constants.O_NOFOLLOW)!==0&&(flags&fs.constants.O_NONBLOCK)!==0;
+ fs.appendFileSync(trace,JSON.stringify({file,kind,safe})+'\\n');
+ if(!safe)throw Object.assign(Error('unsafe metadata read blocked by fixture'),{code:'EACCES'});};
+fs.readFileSync=function(file,...args){check(file,'read');return read.call(this,file,...args)};
+fs.openSync=function(file,flags,...args){check(file,'open',flags);return open.call(this,file,flags,...args)};
+syncBuiltinESMExports();`);
+  let server;
+  try {
+    server = await startServerOnFreePort({ entry:path.resolve('packages/board/server.mjs'), cwd:root, portEnv:'PORT',
+      readyPath:'/api/focus-registry?project=known', env:{HOME:home,GREAT_CTO_PROJECTS_FILE:registry,GREAT_CTO_NO_UPDATE_CHECK:'1',NODE_OPTIONS:`--import=${probe}`} });
+    fs.writeFileSync(arm, 'armed');
+    const base = `http://127.0.0.1:${server.port}`;
+    const read = async (endpoint, project) => {
+      fs.writeFileSync(trace, '');
+      const response = await fetch(`${base}/api/${endpoint}?project=${encodeURIComponent(project)}&focus=mental-care&host=codex`);
+      const body = await response.json();
+      return {status:response.status,body,reads:fs.readFileSync(trace,'utf8').split('\n').filter(Boolean).map(JSON.parse)};
+    };
+    for (const selected of ['known','Known Project','own',root]) {
+      const registryRead = await read('focus-registry',selected);
+      assert.equal(registryRead.status,200);
+      assert.deepEqual(registryRead.reads,[],`registry must not enumerate PROJECT aliases for ${selected}`);
+    }
+    for (const selected of ['unknown-project','metadata-only-alias',home]) {
+      for (const endpoint of ['focus-registry','focus-proposal']) {
+        const unknown = await read(endpoint,selected);
+        assert.equal(unknown.status,404);
+        assert.deepEqual(unknown.reads,[],'unknown membership must not inspect project metadata');
+      }
+    }
+    const normal = await read('focus-proposal','known');
+    assert.equal(normal.status,200);
+    assert.deepEqual(normal.reads.map(r=>({file:r.file,kind:r.kind,safe:r.safe})),[{file:ownMd,kind:'open',safe:true}]);
+    const privateMd = path.join(home,'private.md'); fs.writeFileSync(privateMd,'archetype: healthcare\n');
+    for (const kind of ['symlink','hardlink','fifo']) {
+      for (const target of [ownMd,foreignMd]) {
+        fs.unlinkSync(target);
+        if(kind==='symlink')fs.symlinkSync(privateMd,target);
+        else if(kind==='hardlink')fs.linkSync(privateMd,target);
+        else execFileSync('mkfifo',[target]);
+      }
+      for (const selected of ['known','unknown-project']) for (const endpoint of ['focus-registry','focus-proposal']) {
+        const result = await read(endpoint,selected);
+        assert.equal(result.status,selected==='known'?200:404);
+        assert.deepEqual(result.reads,[],`${kind} metadata must never be opened by focus resolution`);
+        if(endpoint==='focus-proposal'&&selected==='known')assert.equal(result.body.proposal.requiredRolesComplete,false);
+      }
+    }
+  } finally {
+    if(server)await reapAndClean(server.proc,tmp);else fs.rmSync(tmp,{recursive:true,force:true});
+  }
 });
 
 test('missing or unknown evidence is unavailable and native limits remain explicit', () => {

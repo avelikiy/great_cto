@@ -80,6 +80,24 @@ test('four advisory focus directions work by keyboard and reflow without executi
     await page.screenshot({ path: '/tmp/four-domain-focus-desktop.png', fullPage: true });
     await page.setViewportSize({ width: 375, height: 1000 });
     await page.screenshot({ path: '/tmp/four-domain-focus-mobile.png', fullPage: true });
+    // The refusal exercises actual page rendering; success data still comes
+    // from the real API, while this boundary supplies only an access denial.
+    await page.route('**/api/focus-proposal?**', route => route.fulfill({status:403,contentType:'application/json',body:JSON.stringify({state:'refused',error:'PRIVATE_REFUSAL_CANARY'})}));
+    await page.evaluate(async () => {
+      fleetState.required={state:'read',reviewers:[{agent:'PRIVATE_REVIEWER_CANARY'}]}; fleetState.requiredScope=pqs();
+      fleetState.agents=[{slug:'PRIVATE_ROLE_CANARY',description:'PRIVATE_DESCRIPTION_CANARY'}];
+      fleetState.drawerSlug='PRIVATE_ROLE_CANARY';
+      document.getElementById('agent-drawer-body').textContent='PRIVATE_DRAWER_CANARY';
+      await refreshFocusProposal();
+    });
+    assert.match(await page.locator('#focus-directions').innerText(), /You do not have access to this project/);
+    assert.equal(await page.locator('#focus-directions').getByRole('button',{name:'Retry',exact:true}).count(),1);
+    assert.equal(await page.locator('[data-focus-direction]').count(),0);
+    assert.equal(await page.locator('#focus-packs details').count(),0);
+    assert.equal(await page.locator('#agent-drawer-body').innerHTML(),'');
+    assert.doesNotMatch(await page.locator('body').innerHTML(),/PRIVATE_(?:REFUSAL|REVIEWER|ROLE|DESCRIPTION|DRAWER)_CANARY/);
+    assert.deepEqual(await page.evaluate(()=>({registry:fleetState.registry,projectId:fleetState.projectId,focusId:fleetState.focusId,required:fleetState.required,agents:fleetState.agents,denied:fleetState.proposalDenied})),
+      {registry:null,projectId:null,focusId:null,required:null,agents:[],denied:true});
     assert.deepEqual(errors, []);
     assert.equal(fs.readFileSync(projectFile, 'utf8'), before);
   } finally {

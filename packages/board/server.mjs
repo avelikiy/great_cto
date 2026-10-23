@@ -18,7 +18,7 @@ import { originAllowed, hostAllowed, parseAllowedHosts, isInsideDir } from './li
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts, watchAgentEvents } from './lib/watchers.mjs';
-import { dispatch } from './lib/routes.mjs';
+import { dispatch, isFocusReadPath, resolveFocusProject } from './lib/routes.mjs';
 import { log } from './lib/log.mjs';
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -58,8 +58,8 @@ const server = http.createServer(async (req, res) => {
   // ?project=<unknown> silently returned cwd's data — user thought they
   // were viewing projectX but saw projectY. Now: X-Project-Fallback header
   // tells the client what happened.
-  const projInfo = resolveProjectInfo(proj);
-  const cwd = projInfo.cwd;
+  const projInfo = isFocusReadPath(pathname) ? resolveFocusProject(proj) : resolveProjectInfo(proj);
+  const cwd = projInfo.cwd || process.cwd();
   if (projInfo.resolved === 'fallback') {
     res.setHeader('X-Project-Fallback', `requested='${projInfo.requested}' served='cwd'`);
     res.setHeader('X-Project-Resolved', 'fallback');

@@ -9609,6 +9609,7 @@ const fleetState = {
   projectId: null, focusId: null, proposal: null, proposalRequest: 0, proposalLoading: false,
   proposalFailed: false, changeIdentity: null, focusHost: (location.search || '').match(/(?:^\?|&)host=(codex|claude-code)(?:&|$)/)?.[1] || null,
   proposalDenied: false, proposalOffline: false, proposalInvalid: false,
+  deniedScope: null, accessGeneration: 0,
 };
 const FLEET_CORE_ROLES = new Set();
 function focusRegistryValid(r) {
@@ -9639,11 +9640,38 @@ function focusAccessDenied(data) {
   return data?.state === 'refused' || (typeof data?.error === 'string' && /host not allowed|access denied|forbidden/i.test(data.error));
 }
 function focusOffline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
+function fleetAccessDenied() { return fleetState.deniedScope === pqs(); }
+function purgeFleetProject() {
+  ++fleetState.accessGeneration;
+  for (const key of ['registryRequest','proposalRequest','requiredRequest','rosterRequest']) ++fleetState[key];
+  fleetState.deniedScope = pqs();
+  acceptFocusRegistry(null);
+  for (const key of ['focusId','proposal','required','requiredScope','rosterScope','summary','drawerSlug','usage','changeIdentity']) fleetState[key] = null;
+  fleetState.agents = []; fleetState.legacy_count = 0; fleetState.search = '';
+  fleetState.registryLoading = false; fleetState.proposalLoading = false;
+  fleetState.registryDenied = true; fleetState.proposalDenied = true;
+  fleetState.registryFailed = false; fleetState.proposalFailed = false; fleetState.proposalInvalid = false;
+  for (const id of ['agent-drawer-body','agent-drawer-pill','legacy-agents-count']) {
+    const el = document.getElementById(id); if (el) el.textContent = '';
+  }
+  const title = document.getElementById('agent-drawer-title'); if (title) title.textContent = 'Agent profile';
+  for (const id of ['agent-drawer','agent-drawer-backdrop']) {
+    const el = document.getElementById(id); if (el) { el.removeAttribute('open'); el.setAttribute('aria-hidden','true'); }
+  }
+  const legacy = document.getElementById('legacy-agents-section'); if (legacy) legacy.hidden = true;
+  const search = document.getElementById('fleet-search'); if (search) search.value = '';
+  renderFocusInspection(); renderFleetList();
+}
+function retryFleetProject() {
+  fleetState.deniedScope = null; fleetState.registryDenied = false; fleetState.proposalDenied = false;
+  return refreshAgentsInstalled();
+}
 async function refreshFocusRegistry() {
+  if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.registryRequest;
   if (fleetState.registryScope !== scope) {
     acceptFocusRegistry(null); fleetState.focusId = null; fleetState.proposal = null;
-    fleetState.proposalLoading = false; ++fleetState.proposalRequest;
+    fleetState.proposalLoading = false; fleetState.proposalDenied = false; ++fleetState.proposalRequest;
   }
   fleetState.proposal = null; ++fleetState.proposalRequest; fleetState.proposalLoading = false;
   fleetState.registryLoading = true; fleetState.registryFailed = false; fleetState.registryDenied = false; fleetState.registryOffline = false;
@@ -9651,6 +9679,7 @@ async function refreshFocusRegistry() {
   try {
     const data = await api(`/api/focus-registry${scope}`);
     if (request !== fleetState.registryRequest || scope !== pqs()) return;
+    if (focusAccessDenied(data)) { purgeFleetProject(); return; }
     fleetState.registryDenied = focusAccessDenied(data); fleetState.registryOffline = !data && focusOffline();
     acceptFocusRegistry(data); fleetState.registryFailed = !fleetState.registry;
     if (!fleetState.registry) { fleetState.focusId = null; fleetState.proposal = null; }
@@ -9665,6 +9694,7 @@ async function refreshFocusRegistry() {
   }
 }
 function setFleetFocus(id) {
+  if (fleetAccessDenied()) return;
   fleetState.focusId = fleetState.registryScope === pqs() && fleetState.registry?.directions.some(d => d.id === id) ? id : null;
   fleetState.proposal = null; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
   ++fleetState.proposalRequest; fleetState.proposalLoading = false;
@@ -9689,6 +9719,7 @@ function validFocusProposal(p) {
     && (p.assessmentState === 'known' ? /^[a-f0-9]{64}$/.test(p.assessmentFingerprint) : p.assessmentFingerprint === null && !p.nodes.length && !p.edges.length && !p.routeClasses.length);
 }
 async function refreshFocusProposal() {
+  if (fleetAccessDenied()) return;
   const key = focusRequestKey(), request = ++fleetState.proposalRequest;
   const focusId = fleetState.focusId;
   fleetState.proposal = null; fleetState.proposalLoading = true; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
@@ -9697,6 +9728,7 @@ async function refreshFocusProposal() {
     const scope = pqs(), sep = scope ? '&' : '?';
     const data = await api(`/api/focus-proposal${scope}${sep}focus=${encodeURIComponent(focusId || '')}&host=${encodeURIComponent(fleetState.focusHost || '')}`);
     if (request !== fleetState.proposalRequest || key !== focusRequestKey()) return;
+    if (focusAccessDenied(data)) { purgeFleetProject(); return; }
     fleetState.proposalDenied = focusAccessDenied(data); fleetState.proposalOffline = !data && focusOffline();
     if (data?.projectId === fleetState.projectId && data?.host === fleetState.focusHost
       && data?.changeIdentity === fleetState.changeIdentity && data?.proposal?.focusId === focusId && validFocusProposal(data.proposal)) fleetState.proposal = data;
@@ -9739,7 +9771,7 @@ function renderFocusInspection() {
   const r = fleetState.registryScope === pqs() ? fleetState.registry : null;
   controls.setAttribute('aria-busy', String(fleetState.registryLoading));
   if (!r) controls.innerHTML = fleetState.registryLoading ? 'Loading focus directions…'
-    : fleetState.registryDenied ? 'You do not have access to this project. <button type="button" onclick="document.getElementById(\'proj-switch\').click()">Choose another project</button>'
+    : fleetState.registryDenied ? 'You do not have access to this project. <button type="button" onclick="retryFleetProject()">Retry</button><button type="button" onclick="document.getElementById(\'proj-switch\').click()">Choose another project</button>'
     : `${fleetState.registryOffline ? 'Board unavailable offline. Reconnect, then retry.' : "Couldn't load focus directions."} <button type="button" onclick="refreshFocusRegistry()">Retry</button>`;
   else {
     if (!controls.querySelector('[data-focus-direction]')) controls.innerHTML = r.directions.map(d => `<button type="button" data-focus-direction="${esc(d.id)}" aria-pressed="false" onclick="setFleetFocus(this.dataset.focusDirection)">${esc(d.label)}</button>`).join('');
@@ -9777,6 +9809,7 @@ function requiredOf(slug) {
   return fleetRequirementsKnown() ? r.reviewers.find((x) => x.agent === slug) || null : null;
 }
 async function refreshRequiredReviewers() {
+  if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.requiredRequest;
   fleetState.required = null;
   fleetState.requiredScope = null;
@@ -9795,8 +9828,10 @@ function usageOf(slug) {
   return u && u.state === 'counted' && u.agents ? (u.agents[slug] || { dispatches: 0, lastRun: null, projects: 0 }) : null;
 }
 async function refreshAgentUsage() {
+  const generation = fleetState.accessGeneration;
+  if (fleetAccessDenied()) return;
   const u = await api('/api/agent-usage');
-  if (!u) return;
+  if (!u || generation !== fleetState.accessGeneration || fleetAccessDenied()) return;
   fleetState.usage = u;
   renderFleetList();
   // The first scan of a large history takes about a minute; ask again until it lands.
@@ -9804,6 +9839,7 @@ async function refreshAgentUsage() {
 }
 
 async function refreshAgentsInstalled() {
+  if (fleetAccessDenied()) return;
   const scope = pqs(), request = ++fleetState.rosterRequest;
   if (fleetState.rosterScope !== scope) {
     fleetState.agents = [];
@@ -9884,14 +9920,14 @@ function renderFleetViews() {
     const attention = agents.filter(a => inFleetView(a, 'needs')).length;
     const missing = fleetRequirementsKnown()
       ? fleetState.required.reviewers.filter(r => !agents.some(a => a.slug === r.agent)).map(r => r.agent) : [];
-    note.textContent = fleetRequirementsKnown()
+    note.textContent = fleetAccessDenied() ? 'You do not have access to this project.' : fleetRequirementsKnown()
       ? `Core roles and this project's required reviewers. ${missing.length} required reviewer(s) missing from the installed catalog${missing.length ? ': ' + missing.join(', ') : ''}. ${attention} installed agent(s) need attention across the full catalog; open Needs attention. Display only, not an execution plan or proof of expertise.`
       : 'Project reviewer requirements are unknown; showing the installed catalog rather than hiding specialists. Display only; execution policy is unchanged.';
   }
   for (const [key, label] of FLEET_VIEWS) {
     const el = document.getElementById(`nav-view-${key}`);
     if (!el) continue;
-    const n = agents.filter((a) => inFleetView(a, key)).length;
+    const n = fleetAccessDenied() ? 'Unavailable' : agents.filter((a) => inFleetView(a, key)).length;
     const selected = fleetState.view === key;
     el.classList.toggle('active', selected);
     el.setAttribute('aria-pressed', String(selected));
@@ -9904,7 +9940,7 @@ function renderFleetViews() {
   if (title) {
     const [, label] = FLEET_VIEWS.find(([k]) => k === fleetState.view) || ['all', 'All agents'];
     const n = agents.filter((a) => inFleetView(a, fleetState.view)).length;
-    title.innerHTML = `${esc(label)} <span class="muted" style="font-weight:400;font-size:var(--fs-title-s)">${n} of ${agents.length}</span>`;
+    title.innerHTML = fleetAccessDenied() ? 'Project access unavailable' : `${esc(label)} <span class="muted" style="font-weight:400;font-size:var(--fs-title-s)">${n} of ${agents.length}</span>`;
   }
 }
 
@@ -9959,6 +9995,7 @@ function renderFleetList() {
   const el = document.getElementById('fleet-list');
   if (!el) return;
   renderFleetViews();
+  if (fleetAccessDenied()) { el.innerHTML = '<li class="empty">You do not have access to this project.</li>'; return; }
   const filtered = sortFleet(applyFleetFilters(fleetState.agents));
   if (!filtered.length) {
     el.innerHTML = '<li class="empty" style="padding:20px;text-align:center;color:var(--text3)">No agents match this view.</li>';
@@ -10095,6 +10132,9 @@ function agoStr(iso) {
 let _drawerLastFocus = null;
 
 async function openAgentDrawer(slug, opts = {}) {
+  const generation = fleetState.accessGeneration, scope = pqs();
+  const current = () => !fleetAccessDenied() && generation === fleetState.accessGeneration && scope === pqs() && fleetState.drawerSlug === slug;
+  if (fleetAccessDenied()) return;
   const drawer  = document.getElementById('agent-drawer');
   const backdrop = document.getElementById('agent-drawer-backdrop');
   const body    = document.getElementById('agent-drawer-body');
@@ -10142,9 +10182,11 @@ async function openAgentDrawer(slug, opts = {}) {
   let profile;
   try { profile = await api(`/api/agents/${encodeURIComponent(slug)}`); }
   catch (err) {
+    if (!current()) return;
     body.innerHTML = `<div class="cost-empty">Could not load <code>${esc(slug)}</code>: ${esc(String(err && err.message || err))} <button type="button" class="btn-ghost-sm" onclick="openAgentDrawer('${esc(slug)}', { fromHash: true })">Try again</button></div>`;
     return;
   }
+  if (!current()) return;
   if (!profile || profile.error) {
     body.innerHTML = `<div class="cost-empty">Agent <code>${esc(slug)}</code> not found.</div>`;
     return;
@@ -10152,7 +10194,7 @@ async function openAgentDrawer(slug, opts = {}) {
   if (fleetState.drawerSlug !== slug) return; // drawer swapped while loading
   const extra = { tier: null, tiersState: null, receipt: null, standDowns: null };
   renderAgentProfile(profile, extra);
-  const settle = (p, apply) => p.then(apply, () => {}).then(() => { if (fleetState.drawerSlug === slug) renderAgentProfile(profile, extra); });
+  const settle = (p, apply) => p.then(value => { if (current()) apply(value); }, () => {}).then(() => { if (current()) renderAgentProfile(profile, extra); });
   await Promise.all([
     settle(api(`/api/gate-tiers${pqs()}`), (t) => { extra.tiersState = t; extra.tier = t?.agents?.[slug] || null; }),
     settle(api(`/api/stand-downs${pqs()}`), (d) => { extra.standDowns = d; }),

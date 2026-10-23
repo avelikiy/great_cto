@@ -95,9 +95,56 @@ function verdictHeaders(cwd, base = { 'Content-Type': 'application/json', 'Cache
   return base;
 }
 
+export const isFocusReadPath = pathname => ['/api/focus-registry', '/api/focus-proposal'].includes(pathname);
+
+/** Registry identities only. Resolving membership must never open PROJECT.md aliases. */
+export function resolveFocusProject(requested, serverRoot = process.cwd()) {
+  const canonical = root => {
+    try { const resolved = fs.realpathSync(root); return fs.statSync(resolved).isDirectory() ? resolved : null; }
+    catch { return null; }
+  };
+  const own = canonical(serverRoot);
+  if (!requested) return { cwd: own, resolved: own ? 'cwd' : 'unavailable' };
+  const entries = readProjectsRegistry().projects;
+  const candidates = (Array.isArray(entries) ? entries : []).filter(p => typeof p?.path === 'string');
+  const strong = candidates.filter(p => [p.slug, p.name, p.path].includes(requested));
+  const matches = strong.length ? strong : candidates.filter(p => path.basename(p.path) === requested);
+  const roots = new Set(matches.map(p => canonical(p.path)).filter(Boolean));
+  if (!roots.size && own && [own, serverRoot, path.basename(own)].includes(requested)) roots.add(own);
+  return roots.size === 1 ? { cwd: [...roots][0], resolved: 'slug' } : { cwd: null, resolved: 'unavailable' };
+}
+
 async function dispatch(req, res, url, cwd) {
   const pathname = url.pathname;
   const serverCwd = cwd;
+  const requestedProject = url.searchParams.get('project');
+
+  // Focus membership is registry-only, before any generic metadata alias scan.
+  if (isFocusReadPath(pathname)) {
+    const respond = (status, body) => {
+      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      res.end(JSON.stringify(body));
+    };
+    if (req.method !== 'GET') { respond(405, { state: 'unavailable', error: 'Read-only endpoint' }); return true; }
+    const project = resolveFocusProject(requestedProject, serverCwd);
+    if (!project.cwd) { respond(404, { state: 'unavailable', error: 'Unknown project' }); return true; }
+    cwd = project.cwd;
+    const projectId = createHash('sha256').update(cwd).digest('hex');
+    if (pathname === '/api/focus-registry') {
+      respond(200, { projectId, registry: getFocusRegistry() }); return true;
+    }
+    const focusId = url.searchParams.get('focus');
+    const host = ['codex', 'claude-code'].includes(url.searchParams.get('host')) ? url.searchParams.get('host') : null;
+    let text = null;
+    try { text = boundedFile(path.join(cwd, '.great_cto', 'PROJECT.md'), 65536).toString('utf8'); }
+    catch { /* Missing or unsafe metadata cannot establish reviewer requirements. */ }
+    const archetype = text?.match(/^(?:archetype|primary):\s*(\S+)/m)?.[1];
+    const requiredGates = text ? gatesForApprovalLevel(levelFromProjectMd(text), { archetype }) : [];
+    // No public run projection attests a current assessment; missing policy is incomplete.
+    const plan = { version: 1, state: 'unknown', reviewers: text ? requiredReviewers(text).map(({ agent }) => ({ agent })) : [{ agent: null }] };
+    const proposal = getFocusProposal({ focusId, host, plan, requiredGates });
+    respond(200, { projectId, host, changeIdentity: null, proposal }); return true;
+  }
 
   // The selected project, resolved ONCE for every route below.
   //
@@ -115,7 +162,6 @@ async function dispatch(req, res, url, cwd) {
   // pre-existing behaviour and it is defensible, but it must not be silent, so
   // it is announced in a header rather than shown as if it were the project asked
   // for.
-  const requestedProject = url.searchParams.get('project');
   if (requestedProject) {
     const info = resolveProjectInfo(requestedProject);
     cwd = info.cwd;
@@ -1789,35 +1835,6 @@ async function dispatch(req, res, url, cwd) {
   // each row carries domain (slug-derived), runs_30d, success_rate, last_run,
   // retired (sidecar file marker), and savings_x. The board's /agents tab
   // renders these into the .agent-row list with no further server round-trips.
-  if (['/api/focus-registry', '/api/focus-proposal'].includes(pathname)) {
-    const respond = (status, body) => {
-      res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-      res.end(JSON.stringify(body));
-    };
-    if (req.method !== 'GET') { respond(405, { state: 'unavailable', error: 'Read-only endpoint' }); return true; }
-    const project = scopedReadProject(cwd, serverCwd, requestedProject);
-    if (!project) { respond(404, { state: 'unavailable', error: 'Unknown project' }); return true; }
-    const projectId = createHash('sha256').update(cwd).digest('hex');
-    if (pathname === '/api/focus-registry') {
-      respond(200, { projectId, registry: getFocusRegistry() }); return true;
-    }
-    const focusId = url.searchParams.get('focus');
-    const host = ['codex', 'claude-code'].includes(url.searchParams.get('host')) ? url.searchParams.get('host') : null;
-    let text = null;
-    try {
-      text = boundedFile(path.join(fs.realpathSync(cwd), '.great_cto', 'PROJECT.md'), 65536).toString('utf8');
-    } catch { /* Missing or unsafe metadata cannot establish reviewer requirements. */ }
-    const archetype = text?.match(/^(?:archetype|primary):\s*(\S+)/m)?.[1];
-    const requiredGates = text ? gatesForApprovalLevel(levelFromProjectMd(text), { archetype }) : [];
-    // Existing public run projections cannot attest that a saved assessment is
-    // current. A click must not scan source or invent a fresh evidence binding.
-    // The shared validator marks an unenumerable requirement as incomplete;
-    // an unreadable declaration is not evidence of an empty reviewer policy.
-    const plan = { version: 1, state: 'unknown', reviewers: text ? requiredReviewers(text).map(({ agent }) => ({ agent })) : [{ agent: null }] };
-    const proposal = getFocusProposal({ focusId, host, plan, requiredGates });
-    respond(200, { projectId, host, changeIdentity: null, proposal }); return true;
-  }
-
   if (pathname === '/api/agents-installed') {
     if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
       res.writeHead(404, { 'Content-Type': 'application/json' });

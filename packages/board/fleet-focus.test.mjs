@@ -178,3 +178,33 @@ test('denied registry read purges focus and proposal without reflecting the refu
   assert.equal(run('fleetState.focusId'), null);
   assert.equal(run('fleetState.proposal'), null);
 });
+
+for (const late of ['success','error']) test(`proposal denial purges project state and fences late ${late} across every reader`, async () => {
+  const pending=[];
+  const run=fixture(url=>url==='/api/agent-usage'?Promise.resolve(null):new Promise((resolve,reject)=>pending.push({url,resolve,reject})));
+  const roster=run('refreshAgentsInstalled()');
+  run("acceptFocusRegistry({projectId:'a',registry:sharedRegistry}); fleetState.focusId='mental-care'; fleetState.agents=[{slug:'PRIVATE_PROJECT_ROLE'}]; fleetState.summary={installed:1}; fleetState.drawerSlug='PRIVATE_PROJECT_ROLE';"+known);
+  const older=run('refreshFocusProposal()');
+  const refused=run('refreshFocusProposal()');
+  pending.at(-1).resolve({state:'refused',error:'PRIVATE_REFUSAL'}); await refused;
+  for (const key of ['registry','projectId','focusId','proposal','required','requiredScope','rosterScope','summary','drawerSlug']) assert.equal(run(`fleetState.${key}`),null,key);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.registryDenied'),true);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  for (const item of pending.slice(0,-1)) {
+    if(item.url.startsWith('/api/focus-proposal')&&late==='error')item.reject(Error('PRIVATE_LATE_ERROR'));
+    else if(item.url.startsWith('/api/focus-proposal'))item.resolve({projectId:'a',host:'codex',changeIdentity:null,proposal:conditionalGraphProposal({focusId:'mental-care',host:'codex'})});
+    else if(item.url.startsWith('/api/focus-registry'))item.resolve({projectId:'a',registry:focusRegistry()});
+    else if(item.url.startsWith('/api/required-reviewers'))item.resolve({state:'read',reviewers:[{agent:'pci-reviewer'}]});
+    else item.resolve({agents:[{slug:'PRIVATE_PROJECT_ROLE'}],summary:{installed:1}});
+  }
+  await Promise.allSettled([roster,older]);
+  assert.equal(run('fleetState.registry'),null);
+  assert.equal(run('fleetState.required'),null);
+  assert.equal(run('fleetState.agents.length'),0);
+  assert.equal(run('fleetState.proposalLoading'),false);
+  assert.equal(run('fleetState.registryLoading'),false);
+  assert.equal(run('fleetState.proposalDenied'),true);
+  run("setFleetFocus('mental-care')");
+  assert.equal(run('fleetState.proposalDenied'),true,'denial stays latched until explicit retry or project switch');
+});
