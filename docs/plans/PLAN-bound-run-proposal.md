@@ -69,7 +69,7 @@ Every other packet's files are denied. All controller, pure projector, observed 
 
 Root exclusively owns optional `tests/lib/bound-run-package.test.mjs` for the packed import probe outside checkout. No packaging manifest changes are expected. Builders deny this path.
 
-One validated IMPL-BRIEF per builder is in docs/impl-briefs/IMPL-BRIEF-great_cto-ely5.15.6.md, .7.md and .8.md (full filenames, same prefix). These are mandatory before claim. Frozen acceptance B1–B14 is normative and supplies exact test commands; no builder edits it.
+One validated IMPL-BRIEF per builder is linked here: [reader packet](../impl-briefs/IMPL-BRIEF-great_cto-ely5.15.6.md), [API packet](../impl-briefs/IMPL-BRIEF-great_cto-ely5.15.7.md) and [UI packet](../impl-briefs/IMPL-BRIEF-great_cto-ely5.15.8.md). These are mandatory before claim. Frozen acceptance B1–B14 is normative and supplies exact test commands; no builder edits it.
 
 R implements trusted exact-file read, membership, all structural/policy/binding checks, closed roles/gates, response byte ceilings and pure projection. It MUST support preparation planningOnly:true descriptors and unavailable graph without mutating flag, with reader spies. Synthetic FS metadata or private trusted root only. No real operator runs or production trust bypass.
 
