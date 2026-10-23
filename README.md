@@ -11,7 +11,7 @@
 
 <img src="docs/screenshots/board.png" alt="Work: a selected checkout task, its acceptance criteria and pending host decision. Sample project with synthetic records." width="900" />
 
-*Sample project, not a live-model benchmark. Captured from the released 3.68 interface.*
+*Sample project, not a live-model benchmark. Captured from the 3.69 interface.*
 
 ```bash
 npx great-cto init

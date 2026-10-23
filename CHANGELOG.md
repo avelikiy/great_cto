@@ -54,6 +54,44 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.69.0 — 2026-10-23
+
+Recognize role responsibilities consistently in the board and team pages.
+
+### What's new
+
+- Nine shared outline symbols identify the role groups across the 72-role
+  inventory. The board shows them in group headings, executor rows and profile
+  titles; the site uses the same source on the homepage and Team page.
+- The README presents tasks, execution observations, evidence, project
+  knowledge and consumption with fresh isolated sample captures. Host support,
+  missing evidence and deployment authority are stated separately.
+- The browser keeps role names and actions readable if the symbol asset fails.
+  Initial site symbols also render without JavaScript; changed context presets
+  retain their matching symbols.
+
+### Safety and verification boundaries
+
+- Symbols identify responsibility, not run status, expertise or measured model
+  quality. Dispatch, required reviewers, permissions, budgets and gates are
+  unchanged. The separate causal execution-graph candidate is not included.
+- Independent review approved the shared symbols after correcting the site's
+  asset-copy leaf-symlink handling. Existing and dangling leaf links are refused;
+  atomic replacement preserves external hardlink contents.
+- Verification covers all 72 role mappings, browser rendering on desktop and
+  mobile, both admin themes, missing-asset fallback, public asset identity and
+  autonomous npm packaging. The earlier symbol gate recorded 19 browser tests
+  without skips; the corrected site suite recorded 54 tests without skips.
+- Live provider/model execution, live Docker/controller scenarios, real
+  delivery and paid learning are not certified. The full gate's existing
+  15 NOT CHECKED boundaries remain explicit, not converted into passes.
+
+See the [symbol verification report](docs/qa-reports/QA-2026-10-22-agent-group-icons.md)
+and [public capture contract](docs/reference/public-showcase.md).
+
+---
+
 ## v3.68.1 — 2026-10-22
 
 Review receipts are compared against the base their stage actually recorded,
