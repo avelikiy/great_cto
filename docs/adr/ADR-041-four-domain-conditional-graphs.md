@@ -1,8 +1,10 @@
 # ADR-041: Four Domain Focus with Advisory Conditional Graphs
 
+**Date:** 2026-10-23
+
 For cross-host implementers and reviewers, this decision adds shared focus metadata and conditional graph proposals while retaining the current execution and review authorities.
 
-Date: 2026-10-23. Status: PROPOSED; gate:arch pending. Tracking: great_cto-ely5, great_cto-ely5.1. Full contract: [ARCH-four-domain-conditional-graphs](../architecture/ARCH-four-domain-conditional-graphs.md).
+Date: 2026-10-23. Status: ACCEPTED for the three-component read-only slice; explicit operator approval on 2026-10-23, human gate `great_cto-0ane` resolved. Tracking: great_cto-ely5, great_cto-ely5.1. Full contract: [ARCH-four-domain-conditional-graphs](../architecture/ARCH-four-domain-conditional-graphs.md).
 
 ## Context
 
@@ -50,4 +52,4 @@ No database or run-state migration. Revert additive registry/proposal consumers 
 
 Freeze acceptance commands before builders run. Check four mappings, complete catalog, existing floor tests, unknown/stale/malformed inputs, malicious rendering, project response races, host limits, no scheduling mutations and no proposal-to-trace promotion. Independent review and current QA/security remain required after deterministic checks.
 
-Approve gate:arch for the three-component read-only slice only. Runtime/default reduction, true three-LLM-node activation, publication, release and installation remain separate decisions with baseline and negative controls. This ADR records no gate approval, clinical conclusion, compliance certification or vendor/model quality claim.
+The operator approved gate:arch for the three-component read-only slice only. PM must freeze the implementation plan before builders start; whether a human plan pause applies is derived from the canonical approval-level helper. The current gates-only/devtools policy does not require gate:plan. Runtime/default reduction, true three-LLM-node activation, publication, release and installation remain separate decisions with baseline and negative controls. This ADR records architecture approval, not a clinical conclusion, compliance certification or vendor/model quality claim.

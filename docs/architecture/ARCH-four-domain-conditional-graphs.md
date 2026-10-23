@@ -1,8 +1,17 @@
 # ARCH: Four Domain Focus and Conditional Graph Proposals
 
+**Date:** 2026-10-23
+
 For implementers and independent reviewers, this design introduces four visible focus directions and an advisory change graph while preserving the existing execution authority and review floor.
 
-Date: 2026-10-23. Status: Proposed, pending gate:arch. Tracking: great_cto-ely5; architecture task great_cto-ely5.1. Source baseline: `709bdfd9`. Decision: [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md).
+Date: 2026-10-23. Status: Architecture approved by the operator on 2026-10-23; human gate `great_cto-0ane` resolved. Tracking: great_cto-ely5; architecture task great_cto-ely5.1. Source baseline: `709bdfd9`. Decision: [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md).
+
+Approval covers the three-component read-only slice below. It does not approve
+runtime/default policy reduction, paid model runs, publication or installation.
+The implementation plan is the next workflow artifact. Human pauses are derived
+from `scripts/lib/approval-level.mjs`: the current `gates-only` / `devtools`
+policy does not add `gate:plan`. This does not waive implementation verification
+or the separate publication boundary.
 
 ## Depth and Signals
 
@@ -28,6 +37,13 @@ Date: 2026-10-23. Status: Proposed, pending gate:arch. Tracking: great_cto-ely5;
 5. **Non-goals:** No three-model-call execution policy activation, clinical claim, compliance certification, expertise claim, production financial execution or new orchestrator.
 
 There is no feature-specific product brief in this worktree. This document traces requirements to the approved operator request supplied in the task handoff; older unrelated briefs are not substituted for it.
+
+### Scope and non-goals
+
+The approved first slice covers the shared focus registry, pure advisory
+proposal and read-only board projection. It does not reduce actual model calls,
+change the controller, activate private domain packs or authorize publication.
+Actual runtime simplification remains a separate tracked delivery slice.
 
 ## Current Topology and Authority
 
@@ -99,6 +115,23 @@ flowchart LR
 ```
 
 This is the proposed implementation dependency DAG. It is not a historical execution graph and must never be inserted into ADR-040 trace state as observed causality.
+
+## Change map
+
+```mermaid
+flowchart LR
+  Packs[Existing public domain metadata] --> Registry[New focus-registry module]
+  Input[Supplied specialist-plan data] --> Proposal[New pure proposal module]
+  Registry --> Fleet[Existing fleet adapter]
+  Proposal --> Fleet
+  Fleet --> Routes[Existing HTTP routes]
+  Routes --> UI[Existing Fleet page]
+  Trace[Unchanged controller trace] --> Recorded[Separate recorded execution view]
+```
+
+This is an import/read-model change map, not observed execution. The board
+returns unavailable when it has no safe current bound plan; the supplied-plan
+arrow describes the pure projector contract, not a new source scan from a click.
 
 ## Focus Registry Contract
 

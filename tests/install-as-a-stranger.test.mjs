@@ -95,3 +95,23 @@ test('commands use the plugin CLI only when its build is there', async () => {
   assert.match(board, /-f\s+"\$PLUGIN_DIR\/packages\/cli\/dist\/main\.js"/,
     'board.md must check for the built CLI before running the plugin copy');
 });
+
+test('focus board imports resolve from a standalone installation outside the checkout', async () => {
+  const { mkdtempSync, mkdirSync, cpSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { execFileSync } = await import('node:child_process');
+  const dir = mkdtempSync(join(tmpdir(), 'gcto-focus-install-'));
+  try {
+    for (const part of ['scripts', 'shared', 'packages/board/lib', 'packages/board/public/assets/agent-groups.js', 'packages/cli/src']) {
+      mkdirSync(dirname(join(dir, part)), { recursive: true });
+      cpSync(join(repoRoot, part), join(dir, part), { recursive: true });
+    }
+    const result = execFileSync(process.execPath, ['--input-type=module', '-e',
+      "import {getFocusRegistry,getFocusProposal} from './packages/board/lib/fleet.mjs'; console.log(JSON.stringify({registry:getFocusRegistry(),proposal:getFocusProposal({focusId:'mental-care',host:'claude-code'})}));"],
+    { cwd: dir, encoding: 'utf8', env: { ...process.env, HOME: dir } });
+    const value = JSON.parse(result);
+    assert.deepEqual(value.registry.directions.map(d => d.id), ['fintech-crypto', 'telemedicine', 'venture-pipeline', 'mental-care']);
+    assert.equal(value.proposal.assessmentState, 'unavailable');
+    assert(value.proposal.limitations.includes('native-causal-coverage-unavailable'));
+  } finally { rmSync(dir, { recursive: true, force: true }); }
+});

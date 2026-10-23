@@ -17,7 +17,7 @@ MOTION_INTENSITY: 1/10 — focus and hover feedback suffice; graph motion would 
 VISUAL_DENSITY:   8/10 — retain compact Fleet rows and inline evidence, with disclosures for details; 9 would require shrinking the existing 14px body floor.
 ```
 
-This is a plan, pending gate:arch. It authorizes no implementation or execution-policy change. Scope and authority come from [ARCH](../architecture/ARCH-four-domain-conditional-graphs.md) and [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md), which retain ADR-032/033/034/040 constraints. Primary checkout PROJECT declares gates-only; the worktree's missing local PROJECT is not approval. Beads design phase: `great_cto-ely5.6`.
+This is a design contract. The operator approved its architecture on 2026-10-23; human gate `great_cto-0ane` is resolved for the read-only slice. The document does not grant execution-policy changes. Scope and authority come from [ARCH](../architecture/ARCH-four-domain-conditional-graphs.md) and [ADR-041](../adr/ADR-041-four-domain-conditional-graphs.md), which retain ADR-032/033/034/040 constraints. Primary checkout PROJECT declares gates-only; the worktree's missing local PROJECT is not approval. Beads design phase: `great_cto-ely5.6`.
 
 ## 1. Design system pick
 
@@ -71,7 +71,19 @@ State copy and action contract:
 | Permission refused | `You do not have access to this project.` Authorized recovery `Choose another project` | Same refusal, no leaked stage/pack/count or stale previous payload |
 | Refresh same project/change | Keep last known content only with `Last loaded <timestamp>. Refreshing…` | A last known proposal is labeled `Previous proposal. Revalidation pending.` and cannot support omission; if binding differs clear it immediately |
 
+### Destructive actions and cost of recovery
+
 No destructive action is introduced. Focus/reset/disclosure are low recovery-cost local presentation changes and act immediately without confirmation or undo toast. Existing destructive controls elsewhere keep their current recovery-cost tiers; this feature adds no bulk selection, hidden selection scope or confirmation ritual.
+
+### Unavailable-state density refinement
+
+Fixture inspection found repeated advisory sentences displaced the catalog,
+especially on mobile. Keep the advisory/non-executing status and the unavailable
+assessment/no-selective-omission warning visible. Show native coverage limits
+in the host line. Put detailed limitation entries and gate names inside a
+keyboard-operable `Evidence and host limits` disclosure, each as separate text.
+Do not repeat the same execution-policy warning in both the focus explanation
+and selection status. This reduces repetition, not access to evidence or gates.
 
 ## 3. Wireframe-as-text
 
@@ -131,7 +143,9 @@ Every pair exceeds 3:1. Use --text for substantive content, --text2/--text3 only
 
 Permission: hide inaccessible records and features when their presence cannot be disclosed; do not expose counts before authorization. Read-only proposal and requirements remain selectable, high-contrast text for an authorized reader. For a recoverable refusal show an operable recovery link explaining the reason. Do not disable controls and attach inaccessible tooltips. Masking is not needed because secrets must not enter the projection; any existing mask must be fixed-length.
 
-Numeric contract: inventory counts and stage totals use tabular figures, right-aligned in numeric columns; their column headings align right too. Stage ordinal markers, dates, timestamps, versions, IDs and digests are not summable: no tabular override or right alignment. Current global numeric CSS must be overridden in those new components if necessary. No huge display figures, money, rates or estimated performance metrics are introduced. Counts have integer display precision and exact integer stored precision. Negative counts are invalid and yield unavailable, never a minus-color trick. If an existing linked financial table is displayed, retain currency-specific precision (JPY 0, TND 3), aligned decimals, written minus signs and its rounding note; this feature does not create another money format.
+### Numeric contract and figure style
+
+Inventory counts and stage totals use tabular figures, right-aligned in numeric columns; their column headings align right too. Stage ordinal markers, dates, timestamps, versions, IDs and digests are not summable: no tabular override or right alignment. Current global numeric CSS must be overridden in those new components if necessary. No huge display figures, money, rates or estimated performance metrics are introduced. Counts have integer display precision and exact integer stored precision. Negative counts are invalid and yield unavailable, never a minus-color trick. If an existing linked financial table is displayed, retain currency-specific precision (JPY 0, TND 3), aligned decimals, written minus signs and its rounding note; this feature does not create another money format.
 
 Absence vocabulary: measured empty count `0`; unavailable `Unavailable`; not applicable `Not applicable`; known empty predecessor list `None`. A blank or dash alone is prohibited in new fields. Rounded-to-zero, estimated/forecast, suppressed and unreliable numbers are not produced by this projection. If such upstream values appear, reject them as unsupported rather than silently coercing to zero. A missing field never becomes a successful empty graph.
 

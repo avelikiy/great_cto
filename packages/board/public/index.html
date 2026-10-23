@@ -2678,6 +2678,25 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .log-empty { font-size: var(--fs-body); color: var(--text3); font-style: italic; }
 
 /* ── Agents installed list (legacy — kept for fallback) ───────────────── */
+.focus-direction-group { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.focus-direction-group button { min-height:32px; padding:4px 10px; background:var(--bg-card); color:var(--text); border:1px solid var(--border); border-radius:0; font:inherit; cursor:pointer; }
+.focus-direction-group button[aria-pressed="true"] { border-color:var(--focus-ring); text-decoration:underline; text-underline-offset:4px; }
+.focus-direction-group button:focus-visible, .focus-inspection summary:focus-visible { outline:2px solid var(--focus-ring); outline-offset:2px; }
+.focus-inspection { margin:16px 0 24px; color:var(--text); overflow-wrap:anywhere; font-variant-numeric:normal; }
+.focus-inspection h2 { font-size:var(--fs-title-s); margin:20px 0 8px; }
+.focus-inspection p { margin:8px 0; }
+.focus-inspection details { margin:8px 0; border-top:1px solid var(--border); padding-top:8px; }
+.focus-inspection summary { cursor:pointer; padding:6px 0; }
+.focus-inspection li { margin:8px 0; }
+.focus-inspection .focus-meta { font-size:var(--fs-small); color:var(--text2); }
+@media (max-width:767px), (pointer:coarse) {
+  .focus-inspection { font-size:16px; }
+  .focus-direction-group button, .focus-inspection summary, .focus-inspection .btn-ghost-sm { min-height:44px; }
+  .focus-direction-group button { flex:1 1 140px; }
+}
+@media (max-width:767px) { #panel-agents .metrics-page { padding:24px 12px; } }
+@media (max-width:340px) { .focus-direction-group button { flex-basis:100%; } }
+@media (prefers-reduced-motion:reduce) { .focus-inspection * { transition-duration:0ms!important; } }
 .agents-installed { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; margin-top: 4px; }
 /* Agent budget bars (Paperclip cascading budget pattern) */
 .ab-title { font-weight: 500; color: var(--text2); margin-bottom: 6px; }
@@ -3809,6 +3828,20 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         </section>
         <p id="fleet-focus-note" class="muted" role="status"></p>
 
+        <section class="focus-inspection" aria-label="Focus inspection">
+          <div>Focus direction</div>
+          <div id="focus-directions" class="focus-direction-group" role="group" aria-label="Focus direction" aria-busy="true">Loading focus directions…</div>
+          <p>Display focus only. Execution policy is unchanged.</p>
+          <p id="focus-selection-status" role="status" aria-live="polite">Choose a focus to inspect its candidate packs.</p>
+          <details id="focus-core"><summary id="focus-core-summary">Core contracts unavailable</summary><div id="focus-core-body"></div></details>
+          <div id="focus-packs"></div>
+          <section id="focus-proposal" aria-labelledby="focus-proposal-title" aria-busy="false">
+            <h2 id="focus-proposal-title">Proposed graph</h2>
+            <p>Advisory. Does not change execution.</p>
+            <div id="focus-proposal-body">No proposal available for this change.</div>
+          </section>
+        </section>
+
         <!-- §3.1 Fleet controls -->
         <section aria-label="Fleet controls" class="fleet-controls-row">
           <input type="search" id="fleet-search" placeholder="Filter agents  ( / )" aria-label="Filter agents by slug" />
@@ -3820,7 +3853,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             <option value="llm_usd_30d_est">LLM spend (30d)</option>
             <option value="slug">slug A→Z</option>
           </select>
-          <button type="button" id="fleet-reset-filters" class="btn-ghost-sm">Reset</button>
+          <button type="button" id="fleet-reset-filters" class="btn-ghost-sm">Reset filters</button>
         </section>
 
         <!-- §3.1 Fleet list -->
@@ -9571,11 +9604,170 @@ const fleetState = {
   requiredRequest: 0,
   rosterRequest: 0,
   rosterScope: null,
+  registry: null, registryScope: null, registryRequest: 0, registryLoading: false, registryFailed: false,
+  registryDenied: false, registryOffline: false,
+  projectId: null, focusId: null, proposal: null, proposalRequest: 0, proposalLoading: false,
+  proposalFailed: false, changeIdentity: null, focusHost: (location.search || '').match(/(?:^\?|&)host=(codex|claude-code)(?:&|$)/)?.[1] || null,
+  proposalDenied: false, proposalOffline: false, proposalInvalid: false,
 };
-const FLEET_CORE_ROLES = new Set([
-  'product-owner', 'architect', 'pm', 'senior-dev', 'code-reviewer',
-  'qa-engineer', 'security-officer', 'devops',
-]);
+const FLEET_CORE_ROLES = new Set();
+function focusRegistryValid(r) {
+  const slug = v => typeof v === 'string' && /^[a-z][a-z0-9-]{0,63}$/.test(v);
+  return r?.schemaVersion === 1 && r.registryVersion === 1 && Array.isArray(r.coreRoles)
+    && r.coreRoles.length === 8 && new Set(r.coreRoles).size === 8 && r.coreRoles.every(slug)
+    && Array.isArray(r.directions) && r.directions.length === 4 && new Set(r.directions.map(d => d.id)).size === 4
+    && r.directions.every(d => slug(d.id) && typeof d.label === 'string' && d.label.length <= 80
+      && Array.isArray(d.packs) && d.packs.length >= 1 && d.packs.length <= 2
+      && d.packs.every(p => slug(p.packId) && typeof p.version === 'string' && p.version.length <= 32
+        && typeof p.digest === 'string' && /^[a-f0-9]{64}$/.test(p.digest)
+        && p.maturity === 'candidate' && p.activation === 'explicit-only'
+        && Array.isArray(p.invariants) && p.invariants.length === 3
+        && p.invariants.every(i => typeof i.rule === 'string' && i.rule.length <= 4096)));
+}
+function acceptFocusRegistry(data) {
+  fleetState.registry = focusRegistryValid(data?.registry) ? data.registry : null;
+  fleetState.registryScope = fleetState.registry ? pqs() : null;
+  fleetState.projectId = fleetState.registry ? data.projectId : null;
+  FLEET_CORE_ROLES.clear();
+  for (const role of fleetState.registry?.coreRoles || []) FLEET_CORE_ROLES.add(role);
+}
+function focusRequestKey() {
+  return JSON.stringify([pqs(), fleetState.projectId, fleetState.focusId, fleetState.changeIdentity,
+    fleetState.registry?.registryVersion, fleetState.focusHost]);
+}
+function focusAccessDenied(data) {
+  return data?.state === 'refused' || (typeof data?.error === 'string' && /host not allowed|access denied|forbidden/i.test(data.error));
+}
+function focusOffline() { return typeof navigator !== 'undefined' && navigator.onLine === false; }
+async function refreshFocusRegistry() {
+  const scope = pqs(), request = ++fleetState.registryRequest;
+  if (fleetState.registryScope !== scope) {
+    acceptFocusRegistry(null); fleetState.focusId = null; fleetState.proposal = null;
+    fleetState.proposalLoading = false; ++fleetState.proposalRequest;
+  }
+  fleetState.proposal = null; ++fleetState.proposalRequest; fleetState.proposalLoading = false;
+  fleetState.registryLoading = true; fleetState.registryFailed = false; fleetState.registryDenied = false; fleetState.registryOffline = false;
+  renderFocusInspection();
+  try {
+    const data = await api(`/api/focus-registry${scope}`);
+    if (request !== fleetState.registryRequest || scope !== pqs()) return;
+    fleetState.registryDenied = focusAccessDenied(data); fleetState.registryOffline = !data && focusOffline();
+    acceptFocusRegistry(data); fleetState.registryFailed = !fleetState.registry;
+    if (!fleetState.registry) { fleetState.focusId = null; fleetState.proposal = null; }
+  } catch {
+    if (request !== fleetState.registryRequest || scope !== pqs()) return;
+    acceptFocusRegistry(null); fleetState.registryFailed = true; fleetState.proposal = null;
+  } finally {
+    if (request === fleetState.registryRequest && scope === pqs()) {
+      fleetState.registryLoading = false; renderFocusInspection(); renderFleetList();
+      if (fleetState.registry && fleetState.focusId) refreshFocusProposal();
+    }
+  }
+}
+function setFleetFocus(id) {
+  fleetState.focusId = fleetState.registryScope === pqs() && fleetState.registry?.directions.some(d => d.id === id) ? id : null;
+  fleetState.proposal = null; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
+  ++fleetState.proposalRequest; fleetState.proposalLoading = false;
+  renderFocusInspection();
+  if (fleetState.focusId) return refreshFocusProposal();
+}
+function validFocusProposal(p) {
+  const ids = v => Array.isArray(v) && v.length <= 128 && v.every(s => typeof s === 'string' && /^[a-z][a-z0-9:-]{0,100}$/.test(s));
+  if (!(p?.schemaVersion === 1 && p.registryVersion === 1 && p.kind === 'conditional-graph-proposal'
+    && p.advisory === true && p.changesExecution === false && ['known','unavailable'].includes(p.assessmentState)
+    && ids(p.requiredRoles) && typeof p.requiredRolesComplete === 'boolean' && ids(p.requiredGates)
+    && Array.isArray(p.nodes) && p.nodes.length <= 128 && Array.isArray(p.edges) && p.edges.length <= 256
+    && Array.isArray(p.routeClasses) && p.routeClasses.every(c => ['ordinary','architecture','sensitive','publication'].includes(c))
+    && Array.isArray(p.reasons) && p.reasons.length > 0 && p.reasons.every(c => focusCodeText(c) !== 'Reason unavailable.')
+    && Array.isArray(p.limitations) && p.limitations.every(c => focusCodeText(c) !== 'Reason unavailable.')
+    && ['code-reviewer','qa-engineer','security-officer'].every(role => p.requiredRoles.includes(role))
+    && JSON.stringify(p).length <= 65536)) return false;
+  const nodeIds = new Set(p.nodes.map(n => n.id));
+  return nodeIds.size === p.nodes.length && new Set(p.edges.map(e => e.id)).size === p.edges.length
+    && p.nodes.every(n => ids([n.id]) && ['contract','implementation','deterministic-check','independent-review','specialist','gate','publication-proof'].includes(n.kind))
+    && p.edges.every(e => e.kind === 'proposed-dependency' && nodeIds.has(e.source) && nodeIds.has(e.target) && focusCodeText(e.reason) !== 'Reason unavailable.')
+    && (p.assessmentState === 'known' ? /^[a-f0-9]{64}$/.test(p.assessmentFingerprint) : p.assessmentFingerprint === null && !p.nodes.length && !p.edges.length && !p.routeClasses.length);
+}
+async function refreshFocusProposal() {
+  const key = focusRequestKey(), request = ++fleetState.proposalRequest;
+  const focusId = fleetState.focusId;
+  fleetState.proposal = null; fleetState.proposalLoading = true; fleetState.proposalFailed = false; fleetState.proposalDenied = false; fleetState.proposalOffline = false; fleetState.proposalInvalid = false;
+  renderFocusInspection();
+  try {
+    const scope = pqs(), sep = scope ? '&' : '?';
+    const data = await api(`/api/focus-proposal${scope}${sep}focus=${encodeURIComponent(focusId || '')}&host=${encodeURIComponent(fleetState.focusHost || '')}`);
+    if (request !== fleetState.proposalRequest || key !== focusRequestKey()) return;
+    fleetState.proposalDenied = focusAccessDenied(data); fleetState.proposalOffline = !data && focusOffline();
+    if (data?.projectId === fleetState.projectId && data?.host === fleetState.focusHost
+      && data?.changeIdentity === fleetState.changeIdentity && data?.proposal?.focusId === focusId && validFocusProposal(data.proposal)) fleetState.proposal = data;
+    else if (data && !fleetState.proposalDenied) fleetState.proposalInvalid = true;
+    else fleetState.proposalFailed = true;
+  } catch {
+    if (request !== fleetState.proposalRequest || key !== focusRequestKey()) return;
+    fleetState.proposal = null; fleetState.proposalFailed = true;
+  } finally {
+    if (request === fleetState.proposalRequest && key === focusRequestKey()) {
+      fleetState.proposalLoading = false; renderFocusInspection();
+    }
+  }
+}
+function focusCodeText(code) {
+  return ({ 'missing-evidence':'Current bound change evidence is unavailable.', 'missing-pinned-base':'Pinned change metadata is unavailable.',
+    'unsupported-focus':'Focus unavailable. Choose a supported direction.', 'unsupported-host':'Host requirements are unavailable.',
+    'unsupported-plan-schema':'The assessment schema is unsupported.', 'assessment-base-mismatch':'The assessment does not match this change.',
+    'invalid-evidence-metadata':'Assessment metadata is unavailable.', 'invalid-assessment':'Assessment evidence is unavailable.',
+    'invalid-reviewer-metadata':'Reviewer requirements are unavailable.', 'invalid-gates':'Gate requirements are unavailable.',
+    'proposal-overflow':'The proposal exceeds the supported projection.',
+    'evidence-unavailable':'Current change assessment is unavailable.', 'ordinary-route':'Implementation, deterministic checks and independent delivery review.',
+    'architecture-route':'Architecture and planning contracts precede implementation.', 'sensitive-route':'Sensitive change requires additional review.',
+    'publication-route':'Publication requires artifact, access and runtime proof.',
+    'caller-supplied-evidence-not-reverified':'Supplied evidence has not been reverified by this view.',
+    'proposal-not-execution-evidence':'Proposed dependencies are not recorded execution evidence.',
+    'publication-requires-separate-authority':'Publication requires separate authority.',
+    'native-causal-coverage-unavailable':'Recorded execution: unavailable. Native causal coverage is partial or unavailable.',
+    'native-enforcement-not-attested':'Native enforcement has not been attested.', 'no-selective-omission':'Selective omission is not permitted.',
+    'requirements-incomplete':'Reviewer requirements are incomplete. Selective omission is not permitted.',
+    'requirements-overflow':'Reviewer requirements exceed the supported projection.',
+    'verify-implementation':'Verify the implementation.', 'architecture-before-plan':'Architecture precedes the plan.',
+    'plan-before-implementation':'Planning precedes implementation.', 'required-delivery-review':'Required independent delivery review.',
+    'required-gate-before-implementation':'Required gate precedes implementation.', 'required-review-before-gate':'Required review precedes the gate.',
+    'publication-requires-proof':'Publication requires proof.', 'proof-before-publication':'Proof precedes publication.' })[code] || 'Reason unavailable.';
+}
+function renderFocusInspection() {
+  const controls = document.getElementById('focus-directions');
+  if (!controls) return;
+  const r = fleetState.registryScope === pqs() ? fleetState.registry : null;
+  controls.setAttribute('aria-busy', String(fleetState.registryLoading));
+  if (!r) controls.innerHTML = fleetState.registryLoading ? 'Loading focus directions…'
+    : fleetState.registryDenied ? 'You do not have access to this project. <button type="button" onclick="document.getElementById(\'proj-switch\').click()">Choose another project</button>'
+    : `${fleetState.registryOffline ? 'Board unavailable offline. Reconnect, then retry.' : "Couldn't load focus directions."} <button type="button" onclick="refreshFocusRegistry()">Retry</button>`;
+  else {
+    if (!controls.querySelector('[data-focus-direction]')) controls.innerHTML = r.directions.map(d => `<button type="button" data-focus-direction="${esc(d.id)}" aria-pressed="false" onclick="setFleetFocus(this.dataset.focusDirection)">${esc(d.label)}</button>`).join('');
+    for (const button of controls.querySelectorAll('[data-focus-direction]')) button.setAttribute('aria-pressed', String(button.dataset.focusDirection === fleetState.focusId));
+  }
+  const direction = r?.directions.find(d => d.id === fleetState.focusId);
+  const descriptions = { 'fintech-crypto':'Evidence descriptions only. No custody or performance guarantee.', telemedicine:'Workflow descriptions only. No clinical or compliance validation.', 'venture-pipeline':'Evidence descriptions only. No investment recommendation.', 'mental-care':'Wellbeing safety descriptions only. No diagnosis or treatment claim.' };
+  document.getElementById('focus-selection-status').textContent = direction
+    ? `${direction.label} focus selected. ${descriptions[direction.id] || ''}` : 'Choose a focus to inspect its candidate packs.';
+  document.getElementById('focus-core-summary').textContent = r ? `${r.coreRoles.length} core contracts available` : 'Core contracts unavailable';
+  document.getElementById('focus-core-body').innerHTML = r ? `<ul>${r.coreRoles.map(id => `<li>${esc(id)}</li>`).join('')}</ul><p>Availability does not require a model call for every contract.</p>` : '';
+  document.getElementById('focus-packs').innerHTML = direction ? direction.packs.map(p => `<details><summary>${esc(p.packId)} · Candidate · Explicit-only</summary><p class="focus-meta">Version: ${esc(p.version)} · Digest: ${esc(p.digest)}</p><p>Descriptive invariants</p><ul>${p.invariants.map(i => `<li>${esc(i.rule)}</li>`).join('')}</ul><p>Descriptions are not executable checks.</p></details>`).join('') : '';
+  const body = document.getElementById('focus-proposal-body');
+  document.getElementById('focus-proposal').setAttribute('aria-busy', String(fleetState.proposalLoading));
+  if (fleetState.proposalLoading) { body.textContent = 'Loading proposal…'; return; }
+  if (fleetState.proposalDenied) { body.textContent = 'You do not have access to this project. Choose another project.'; return; }
+  if (fleetState.proposalInvalid) { body.textContent = 'Proposal unavailable for this change. Reason unavailable. Selective omission is not permitted.'; return; }
+  if (fleetState.proposalOffline) { body.innerHTML = 'Board unavailable offline. Reconnect, then retry. <button type="button" class="btn-ghost-sm" onclick="refreshFocusProposal()">Retry</button>'; return; }
+  if (fleetState.proposalFailed) { body.innerHTML = `Couldn't load proposal. <button type="button" class="btn-ghost-sm" onclick="refreshFocusProposal()">Retry</button>`; return; }
+  const p = fleetState.proposal?.proposal;
+  if (!p || !direction) { body.textContent = 'No proposal available for this change.'; return; }
+  const host = fleetState.focusHost === 'codex' ? 'Controlled Codex' : fleetState.focusHost === 'claude-code' ? 'Native Claude' : 'unavailable';
+  body.innerHTML = `<p>Host: ${host}${fleetState.focusHost === 'claude-code' ? ' · Recorded execution: unavailable. Native coverage is partial or unavailable.' : ''}</p><p>Assessment: ${p.assessmentState === 'known' ? 'available' : 'unavailable. Selective omission is not permitted.'}</p>`
+    + (p.routeClasses.length ? `<p>Routes: ${p.routeClasses.map(c => esc(c[0].toUpperCase() + c.slice(1))).join(' · ')}</p>` : '')
+    + (p.nodes.length ? `<ol>${p.nodes.map(n => { const dependencies = p.edges.filter(e => e.target === n.id); return `<li>${esc(n.id)}<div class="focus-meta">Kind: ${esc(n.kind)}</div><div>Requires: ${dependencies.length ? dependencies.map(e => `${esc(e.source)} (${esc(focusCodeText(e.reason))})`).join(', ') : 'None'}</div></li>`; }).join('')}</ol>` : '')
+    + `<details><summary>Required delivery review</summary><ul>${p.requiredRoles.map(role => `<li>${esc(role)}</li>`).join('')}</ul></details>`
+    + `<details id="focus-evidence-limits"><summary>Evidence and host limits</summary><p>Required gates: ${p.requiredGates.length ? p.requiredGates.map(esc).join(', ') : 'None'}</p><ul>${[...p.reasons, ...p.limitations].map(code => `<li>${esc(focusCodeText(code))}</li>`).join('')}</ul><p>No recorded run selected.</p></details>`;
+}
 function fleetRequirementsKnown() {
   return fleetState.requiredScope === pqs() && fleetState.required?.state === 'read'
     && Array.isArray(fleetState.required.reviewers);
@@ -9620,6 +9812,7 @@ async function refreshAgentsInstalled() {
   }
   refreshAgentUsage();
   refreshRequiredReviewers();
+  refreshFocusRegistry();
   const data = await api(`/api/agents-installed${scope}`);
   if (!data || request !== fleetState.rosterRequest || scope !== pqs()) return;
   fleetState.agents = data.agents || [];
@@ -9662,7 +9855,7 @@ function agentNeedsAttention(a) {
 function inFleetView(a, view) {
   if (view === 'project') {
     // An unavailable policy is not evidence that a specialist is unnecessary.
-    if (!fleetRequirementsKnown()) return !a.retired;
+    if (!fleetRequirementsKnown() || fleetState.registryScope !== pqs() || !fleetState.registry) return !!requiredOf(a.slug) || !a.retired;
     return !!requiredOf(a.slug) || (!a.retired && FLEET_CORE_ROLES.has(a.slug));
   }
   if (view === 'retired') return !!a.retired;
