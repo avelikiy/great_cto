@@ -25,7 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { buildFixture } from './lib/screenshot-fixture.mjs';
+import { buildFixture, buildShowcaseRecords, SAMPLE_TASK_ID } from './lib/screenshot-fixture.mjs';
 import { writeTextChunk } from './lib/png-meta.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -42,6 +42,11 @@ export const SHOTS = [
   { tab: 'fleet', route: 'settings/executors', panel: 'agents', file: 'fleet.png', settle: 2000 },
   { tab: 'harness', route: 'settings/runtime', panel: 'harness', file: 'harness.png', settle: 2000 },
   { tab: 'settings', route: 'settings/general', panel: 'settings', file: 'settings.png', settle: 1500 },
+  { tab: 'execution', route: 'work', panel: 'work', file: 'execution.png', detail: 'execution', settle: 500 },
+  { tab: 'evidence', route: 'work', panel: 'work', file: 'evidence.png', detail: 'evidence', settle: 500 },
+  { tab: 'knowledge', route: 'knowledge', panel: 'knowledge', file: 'knowledge.png', document: 'docs/ARCHITECTURE.md', settle: 500 },
+  { tab: 'insights', route: 'insights/outcomes', panel: 'admin-outcomes', file: 'insights.png', settle: 500 },
+  { tab: 'work-social', route: 'work', panel: 'work', file: 'work-social.png', viewport: { width: 1200, height: 630 }, settle: 500 },
 ];
 
 export async function selectScreenshotPanel(page, shot) {
@@ -72,6 +77,7 @@ async function main() {
   fs.mkdirSync(projectRoot, { recursive: true });
   fs.mkdirSync(path.join(fakeHome, '.great_cto'), { recursive: true });
   buildFixture(projectRoot);
+  const records = buildShowcaseRecords(projectRoot, fakeHome);
 
   // The registry the switcher reads. One project, so the switcher cannot show
   // anything the operator would not want photographed.
@@ -103,9 +109,13 @@ async function main() {
       ...process.env,
       HOME: fakeHome,
       USERPROFILE: fakeHome,
+      CODEX_HOME: path.join(fakeHome, '.codex'),
+      CLAUDE_CONFIG_DIR: path.join(fakeHome, '.claude'),
       PORT: String(PORT),
       GREAT_CTO_PROJECTS_FILE: path.join(fakeHome, '.great_cto', 'projects.json'),
       GREAT_CTO_NO_BOARD: '1',
+      GREAT_CTO_TASKS_DIR: records.tasks,
+      GREAT_CTO_CODEX_RUNS_DIR: records.runs,
     },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
@@ -124,12 +134,11 @@ async function main() {
     const page = await browser.newPage({
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 2,
-      colorScheme: 'dark',
+      colorScheme: 'light',
     });
-    // The board reads its theme from localStorage before first paint; setting it
-    // here avoids photographing a light flash on a dark shot.
+    // Match the public site's light theme without changing the operator's board.
     await page.addInitScript(() => {
-      try { localStorage.setItem('gcto_board_theme', 'dark'); } catch { /* private mode */ }
+      try { localStorage.setItem('gcto_board_theme', 'light'); } catch { /* private mode */ }
     });
     // Not `networkidle`: the board holds an SSE stream open for live updates, so
     // the network is never idle and the wait can only time out.
@@ -154,9 +163,20 @@ async function main() {
     const written = [];
 
     for (const shot of SHOTS) {
+      await page.setViewportSize(shot.viewport || { width: 1440, height: 900 });
       // Legacy Tools buttons are deliberately hidden. Use the board's actual
       // router and refuse a missing/hidden target instead of shooting a stale panel.
       await selectScreenshotPanel(page, shot);
+      if (shot.panel === 'work') {
+        await page.locator(`[data-work-select="task:${SAMPLE_TASK_ID}"]`).click();
+        await page.locator(`[data-work-tab="${shot.detail || 'overview'}"]`).click();
+        await page.waitForSelector(`#work-tab-${shot.detail || 'overview'}[aria-selected="true"]`);
+      }
+      if (shot.document) {
+        await page.locator(`[data-doc-path="${shot.document}"]`).click();
+        await page.waitForSelector('#knowledge-document .knowledge-diagram');
+      }
+      if (shot.tab === 'insights') await page.waitForSelector('#admin-outcomes-body .admin-metrics');
       await sleep(shot.settle);
       // Refuse to photograph an empty panel. The Fleet shot said "No agents match
       // this view" from v3.28 to v3.36 because the fixture HOME had no agents.
@@ -167,6 +187,7 @@ async function main() {
         ['great_cto.version', version],
         ['great_cto.panel', shot.tab],
         ['great_cto.fixture', 'acme-storefront'],
+        ['great_cto.sample', 'synthetic; not a live-model benchmark'],
       ].reduce((buf, [k, v]) => writeTextChunk(buf, k, v), raw);
       fs.writeFileSync(path.join(destDir, shot.file), stamped);
       written.push(shot.file);

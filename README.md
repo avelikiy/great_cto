@@ -2,14 +2,16 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Ship products with the coding agent you already have.**
+**Run coding workflows. Inspect the evidence. Decide what ships.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+<img src="docs/screenshots/board.png" alt="Work: a selected checkout task, its acceptance criteria and pending host decision. Sample project with synthetic records." width="900" />
+
+*Sample project, not a live-model benchmark. Captured from the 3.69 interface.*
 
 ```bash
 npx great-cto init
@@ -23,13 +25,17 @@ npx great-cto init
 
 ---
 
-**Your coding agent ships code. This is what checks it.**
+**Your coding agent writes code. Keep the work, checks and decisions connected.**
 
-Describe a product or a feature. **72 agents** with narrow jobs take it through
-brief, architecture, build, review and security; a second model from another family
-reads the same diff. Three decisions stay yours — what gets built, how, and
-whether it ships — and what lands is a **repository you own** and a **URL that
-works**. You pay your own LLM provider; great_cto is MIT and bills nothing.
+great_cto coordinates Claude Code workflows and experimental controlled Codex
+runs through explicit stages, review and gates. The local board brings tasks,
+recorded execution, project documents and consumption into one workspace.
+Missing evidence stays unknown; a successful worker is not proof that a task
+was accepted, merged or deployed. You use your own provider account;
+great_cto is MIT and bills nothing.
+
+The public catalog contains 72 agents grouped by responsibility. Catalog
+availability is not proof of execution or expertise.
 
 ## Quick start
 
@@ -51,22 +57,66 @@ decision still waits for you. Everything else — `/review`, `/spec`, `/save`,
 `/digest` and the rest — is there when you need it:
 [all commands](docs/COMMANDS.md).
 
-<p align="center">
-  <img src="docs/screenshots/board.png" alt="The board at localhost:3141" width="900" />
-</p>
+## One project, five views
 
-The board at `localhost:3141` opens on **Work** — your tasks, the decisions
-waiting on you, and what already shipped. Cost, agents and reviewers are under
-**Tools**. Nothing on it renders an absence as a pass: a check that could not
-decide reads `unverifiable`, a cost nobody measured `unmeasured`, a reviewer
-that could not run `unavailable`.
+Run `great-cto board` to open the local board, normally at `localhost:3141`.
+Readings such as `unverifiable`, `unmeasured` and `unavailable` are not passes.
+
+| View | What you can inspect |
+|---|---|
+| **Work** | Tasks, acceptance criteria, the next supported action, and Overview / Execution / Evidence tabs |
+| **Decisions** | Pending decisions and existing gate controls, without broadening their authority |
+| **Knowledge** | Read-only project Markdown, ADRs and a bounded diagram viewer with Mermaid source fallback |
+| **Insights** | Recorded task outcomes, project-scoped token consumption, estimates and budgets kept separate |
+| **Settings** | Executors, Runtime, Capabilities and General controls |
+
+<details>
+<summary>See recorded execution, evidence, project knowledge and outcomes</summary>
+
+![Execution attempts across Codex and Claude Code. Synthetic sample; dependencies are not recorded.](docs/screenshots/execution.png)
+
+Execution shows recorded attempts, including rework and host attribution. It is
+**not a causal execution graph**, live terminal or workflow editor.
+
+![Task evidence separates recorded observations from unknown checks, review provenance and runtime health.](docs/screenshots/evidence.png)
+
+A role verdict is not independent-review proof. Merge, release and deployment
+need their own evidence; unknown is not zero or pass.
+
+![Knowledge displays a sample architecture document and declared flowchart, not live execution.](docs/screenshots/knowledge.png)
+
+Documents keep their original language. The application interface is English.
+The diagram describes declared architecture, not a running task.
+
+![Insights shows sample task metadata while cost per accepted task remains unavailable.](docs/screenshots/insights.png)
+
+These screenshots use isolated synthetic ACME records. They do not measure
+host quality, acceptance rate or quality uplift. [Capture contract](docs/reference/public-showcase.md).
+
+</details>
 
 ## On OpenAI Codex
 
+There are three distinct modes, not identical native integrations:
+
+| Mode | Execution and authority |
+|---|---|
+| Claude Code native pipeline | Native commands, specialist roles and hooks; decisions stay in the linked host |
+| Controlled Codex / mixed-host pipeline (experimental) | Controller-owned role routing, validated text proposals, verifier and explicit gates |
+| Codex plugin in an ordinary session | Skills, MCP and safety hooks; installation alone does not start the controlled pipeline |
+
+Mixed runs can assign roles to either CLI. Eligible review joins can inspect
+the same frozen tree concurrently; this is **not two writers editing the same
+worktree**. Both CLIs must be installed and authenticated. See the
+[host guide](docs/HOST-CODEX.md) for routing, recovery and manual-action boundaries.
+
 `npx great-cto init --host codex` gives Codex the skills, the MCP server and six
 safety guards as plugin hooks (approve them once: run `codex` in a terminal and
-choose **Trust all and continue**). Codex has no native plugin surface for slash
-commands or role agents, so the pipeline runs through the CLI instead:
+choose **Trust all and continue**). An ordinary Codex plugin session does not
+automatically run this project's native Claude command/role lifecycle.
+The Codex installation has no native plugin surface for these slash commands
+or role agents. The remaining Claude workflow hooks do not silently run there.
+Start the controlled pipeline through the CLI instead:
 
 ```bash
 great-cto run "add Google login" --host codex --allow src,tests,docs
@@ -103,7 +153,10 @@ and ship gates at every level. [How the gates work](docs/GATES.md).
 |---|---|
 | One feature, end to end, fully traced | **1h 26m · $3.40** in tokens — [the receipts](https://greatcto.systems/proof) |
 | A whole product — 7 built in the open benchmark | median **$171** in tokens · **70/100** quality, measured **2026-07-10** — [reproduce it](docs/benchmarks/BENCH-2026-07-batch1.md) |
-| Typical month, 20 pipeline runs | **~$34** — you pay your own LLM provider, nothing else |
+
+These are historical observations, not a benchmark of the current two-host
+pipeline or domain packs. No quality-uplift percentage is established.
+Domain packs remain opt-in; their presence does not prove expertise or better outcomes.
 
 ## Limitations
 

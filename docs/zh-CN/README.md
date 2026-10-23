@@ -2,14 +2,16 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**用你已有的编码 agent 交付产品。**
+**运行开发工作流，检查证据，决定发布什么。**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+<img src="../screenshots/board.png" alt="使用合成数据的示例项目，不是实际模型运行的基准测试。" width="900" />
+
+*使用合成数据的示例项目，不是实际模型运行的基准测试。 3.69.0.*
 
 ```bash
 npx great-cto init
@@ -21,17 +23,12 @@ npx great-cto init
 
 </div>
 
-> 本文译自英文 [README](../../README.md) **v3.48.0**（2026-10-02）。
+> 本文译自英文 [README](../../README.md) **v3.69.0**（2026-10-23）。
 > 如有出入，以英文版为准。
 
 ---
 
-**你的编码代理负责交付代码。它负责检查。**
-
-描述一个产品或功能。**72 agents** 各司其职，带它走完简报、架构、构建、评审和安全；
-另一家族的第二个模型阅读同一份 diff。三个决定始终由你做出——做什么、怎么做、是否
-发布——最终交付的是**属于你的仓库**和**可用的 URL**。LLM 费用由你直接付给提供商；
-great_cto 采用 MIT 许可，不收取任何费用。
+great_cto 通过明确的阶段、评审和 gate，协调 Claude Code 原生工作流及实验性的受控 Codex 运行。本地面板连接任务、执行记录、项目文档和使用量。公开目录包含 **72** 个代理；目录中存在并不证明实际执行或专业能力。缺少证据时保持未知。合并、发布和部署都需要各自的证据及授权。费用直接支付给你的提供商；great_cto 采用 MIT 许可，本身不收费。
 
 ## 快速开始
 
@@ -51,16 +48,44 @@ npx great-cto init
 批准的内容；待定的决定仍会等你。其余的——`/review`、`/spec`、`/save`、`/digest`
 等——需要时随时可用：[全部命令](../COMMANDS.md)。
 
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
-</p>
+## 一个项目，五个视图
 
-`localhost:3141` 上的面板默认打开 **Work**——你的任务、等你决定的事项，以及已经
-发布的内容。成本、代理和评审者位于 **Tools**。它从不把缺失显示为成功：无法判断的
-检查显示 `unverifiable`，无人计量的成本显示 `unmeasured`，无法运行的评审者显示
-`unavailable`。
+运行 `great-cto board` 打开本地面板，默认地址为 `localhost:3141`。
+
+| 视图 | 可检查的内容 |
+|---|---|
+| **Work** | 任务、验收条件、下一步支持的操作及 Overview、Execution、Evidence 标签 |
+| **Decisions** | 待处理决策和现有 gate 控件，不扩大权限 |
+| **Knowledge** | 只读项目 Markdown、ADR 和有限的图表查看器，支持 Mermaid 源码回退 |
+| **Insights** | 执行结果记录、项目范围的 token、估算及独立预算 |
+| **Settings** | Executors、Runtime、Capabilities 和 General |
+
+`unverifiable`、`unmeasured` 和 `unavailable` 不代表检查通过。
+
+Execution 显示已记录的尝试，不是因果图或实时终端。图表描述声明的架构。token 和费用不是质量指标。文档保留原语言，界面使用英语。
+
+<details>
+<summary>查看执行、证据、项目文档和结果</summary>
+
+![Execution: 使用合成数据的示例项目，不是实际模型运行的基准测试。](../screenshots/execution.png)
+
+![Evidence: 使用合成数据的示例项目，不是实际模型运行的基准测试。](../screenshots/evidence.png)
+
+![Knowledge: 使用合成数据的示例项目，不是实际模型运行的基准测试。](../screenshots/knowledge.png)
+
+![Insights: 使用合成数据的示例项目，不是实际模型运行的基准测试。](../screenshots/insights.png)
+
+[截图约定](../reference/public-showcase.md).
+
+</details>
 
 ## 在 OpenAI Codex 上
+
+| 模式 | 执行及权限 |
+|---|---|
+| Claude Code native | 原生命令、专门角色和 hooks；决策保留在相应宿主中 |
+| Controlled Codex / mixed-host (experimental) | 控制器管理路由、文本提案、verifier 和明确的 gate |
+| Codex plugin session | Skills、MCP 和安全 hooks；安装本身不会自动启动受控 pipeline |
 
 `npx great-cto init --host codex` 为 Codex 提供技能、MCP 服务器和六个安全钩子（只需
 批准一次：在终端运行 `codex`，选择 **Trust all and continue**）。Codex 没有用于斜杠
@@ -95,8 +120,9 @@ great-cto resume --host codex
 | | |
 |---|---|
 | 一个功能端到端，完整追踪 | **1h 26m · $3.40** — [凭证](https://greatcto.systems/proof) |
-| 一个完整产品——开放基准中构建了 7 个 | **$171** · **70/100**, **2026-07-10** — [复现](../benchmarks/BENCH-2026-07-batch1.md) |
-| 典型月份，20 次运行 | **~$34** — 只付给你自己的 LLM 提供商 |
+| 一个完整产品——开放基准中构建了 7 个 | 中位数 **$171** · **70/100**, **2026-07-10** — [复现](../benchmarks/BENCH-2026-07-batch1.md) |
+
+这些是历史观察，不是当前双宿主 pipeline 或 domain packs 的基准测试。尚未确定质量提升百分比。Domain packs 仍需主动启用；其存在并不证明专业能力或更好的结果。
 
 ## 局限
 

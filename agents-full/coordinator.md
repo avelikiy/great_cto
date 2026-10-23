@@ -2,6 +2,7 @@
 name: coordinator
 description: "Multi-agent coordinator. Use when a CTO request spans 3+ independent work streams,…"
 model: sonnet
+color: purple
 authority: autonomous
 tools: Read, Write, Edit, Bash, Glob, Grep, Agent
 allowed-tools: Read, Write, Edit, Bash, Glob, Grep, Agent

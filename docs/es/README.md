@@ -2,14 +2,16 @@
 
 <img src="../screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Lanza productos con el agente de código que ya tienes.**
+**Ejecuta flujos de programación. Revisa la evidencia. Decide qué se publica.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](../../LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<a href="https://greatcto.systems/proof"><img src="https://greatcto.systems/assets/one-real-run.gif" alt="One real run, end to end: prompt, architect, human gate, parallel implementers, a reviewer's PARTIAL and the fix, 47 passing assertions, the ship gate, the merged PR — 1h 26m, $3.40" width="720" /></a>
+<img src="../screenshots/board.png" alt="Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo." width="900" />
+
+*Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo. 3.69.0.*
 
 ```bash
 npx great-cto init
@@ -21,18 +23,12 @@ npx great-cto init
 
 </div>
 
-> Traducción del [README](../../README.md) en inglés, versión **v3.48.0** (2026-10-02).
+> Traducción del [README](../../README.md) en inglés, versión **v3.69.0** (2026-10-23).
 > Si hay discrepancias, prevalece la versión en inglés.
 
 ---
 
-**Tu agente de código entrega código. Esto es lo que lo revisa.**
-
-Describe un producto o una funcionalidad. **72 agentes** con tareas acotadas lo llevan
-por brief, arquitectura, construcción, revisión y seguridad; un segundo modelo de otra
-familia lee el mismo diff. Tres decisiones siguen siendo tuyas — qué se construye,
-cómo y si se publica — y lo que queda es un **repositorio tuyo** y una **URL que
-funciona**. Pagas a tu propio proveedor de LLM; great_cto es MIT y no cobra nada.
+great_cto coordina flujos nativos de Claude Code y ejecuciones controladas experimentales de Codex mediante etapas, revisiones y gates explícitos. El panel local conecta tareas, ejecución registrada, documentos y consumo. El catálogo público contiene **72** agentes; figurar en él no demuestra ejecución ni experiencia. La evidencia ausente sigue siendo desconocida. Merge, release y despliegue requieren sus propias pruebas y autorizaciones. Pagas a tu proveedor; great_cto usa MIT y no cobra.
 
 ## Inicio rápido
 
@@ -53,17 +49,44 @@ flujo por sí mismo. `/resume` continúa solo lo que ya aprobaste; una decisión
 pendiente sigue esperándote. Todo lo demás — `/review`, `/spec`, `/save`, `/digest`
 y el resto — está ahí cuando lo necesites: [todos los comandos](../COMMANDS.md).
 
-<p align="center">
-  <img src="../screenshots/board.png" alt="great_cto board" width="900" />
-</p>
+## Un proyecto, cinco vistas
 
-El panel en `localhost:3141` abre en **Work** — tus tareas, las decisiones que te
-esperan y lo que ya se publicó. Costes, agentes y revisores están en **Tools**. Nada
-ahí presenta una ausencia como un éxito: una comprobación que no pudo decidir muestra
-`unverifiable`, un coste que nadie midió `unmeasured`, un revisor que no pudo
-ejecutarse `unavailable`.
+Ejecuta `great-cto board` para abrir el panel local, normalmente en `localhost:3141`.
+
+| Vista | Qué puedes inspeccionar |
+|---|---|
+| **Work** | Tareas, criterios de aceptación, siguiente acción compatible y pestañas Overview, Execution y Evidence |
+| **Decisions** | Decisiones pendientes y controles de gates existentes, sin ampliar su autoridad |
+| **Knowledge** | Markdown del proyecto, ADR y visor limitado de diagramas con alternativa de código Mermaid, solo lectura |
+| **Insights** | Resultados registrados, tokens por proyecto, estimaciones y presupuestos separados |
+| **Settings** | Executors, Runtime, Capabilities y General |
+
+`unverifiable`, `unmeasured` y `unavailable` no equivalen a una comprobación aprobada.
+
+Execution muestra intentos registrados, no un grafo causal ni un terminal en vivo. Los diagramas describen arquitectura declarada. Los tokens y el coste no miden calidad. Los documentos conservan su idioma; la interfaz está en inglés.
+
+<details>
+<summary>Ver ejecución, evidencia, conocimiento del proyecto y resultados</summary>
+
+![Execution: Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo.](../screenshots/execution.png)
+
+![Evidence: Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo.](../screenshots/evidence.png)
+
+![Knowledge: Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo.](../screenshots/knowledge.png)
+
+![Insights: Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo.](../screenshots/insights.png)
+
+[Contrato de capturas](../reference/public-showcase.md).
+
+</details>
 
 ## En OpenAI Codex
+
+| Modo | Ejecución y autoridad |
+|---|---|
+| Claude Code native | Comandos, roles especializados y hooks nativos; las decisiones permanecen en el host correspondiente |
+| Controlled Codex / mixed-host (experimental) | El controlador gestiona rutas, propuestas de texto, verificador y gates explícitos |
+| Codex plugin session | Skills, MCP y hooks de seguridad; instalar el plugin no inicia automáticamente la pipeline controlada |
 
 `npx great-cto init --host codex` da a Codex los skills, el servidor MCP y seis hooks
 de seguridad (apruébalos una vez: ejecuta `codex` en una terminal y elige
@@ -99,8 +122,9 @@ seguridad, cumplimiento y publicación en todos los niveles. [Cómo funcionan lo
 | | |
 |---|---|
 | Una funcionalidad completa, totalmente trazada | **1h 26m · $3.40** — [los recibos](https://greatcto.systems/proof) |
-| Un producto entero — 7 construidos en el benchmark abierto | **$171** · **70/100**, **2026-07-10** — [reprodúcelo](../benchmarks/BENCH-2026-07-batch1.md) |
-| Mes típico, 20 ejecuciones | **~$34** — pagas a tu propio proveedor de LLM, nada más |
+| Un producto entero — 7 construidos en el benchmark abierto | mediana **$171** · **70/100**, **2026-07-10** — [reprodúcelo](../benchmarks/BENCH-2026-07-batch1.md) |
+
+Son observaciones históricas, no un benchmark de la pipeline actual de dos hosts ni de los domain packs. No hay un porcentaje demostrado de mejora de calidad. Los domain packs siguen siendo opt-in; su presencia no demuestra experiencia ni mejores resultados.
 
 ## Limitaciones
 

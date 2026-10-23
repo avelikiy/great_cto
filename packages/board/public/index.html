@@ -1524,6 +1524,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .bar > i { display: block; height: 100%; background: var(--accent); }
   /* Fleet (great_cto-ki1x.8): saved views in the sidebar, domain groups, AgentRow cells */
   .fleet-group-head { display: flex; align-items: center; gap: 8px; padding: 8px 12px 4px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); font-weight: 500; }
+  .fleet-group-head .grp-icon, .agent-row .grp-icon, #agent-drawer-title .grp-icon { width: 14px; height: 14px; flex-shrink: 0; color: var(--text2); vertical-align: -2px; }
+  .agent-row .grp-icon { margin-right: 6px; color: var(--text3); }
+  #agent-drawer-title .grp-icon { margin-right: 6px; }
   .fleet-group-collapsed { display: flex; flex-wrap: wrap; gap: 20px; padding: 10px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text3); }
   .ar-cells { display: grid; grid-template-columns: minmax(200px, 1.4fr) 130px 48px 56px 80px auto; gap: 12px; align-items: center; margin-top: 4px; }
   .ar-posture { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -3395,6 +3398,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 </style>
 </head>
 <body>
+<script src="/assets/agent-groups.js"></script>
 <script src="/assets/work-view.js"></script>
 <div class="board">
   <!-- Subtle emerald glow background -->
@@ -9770,7 +9774,7 @@ function renderFleetList() {
   // Groups come from deriveDomain() on the server — one taxonomy, not two. A
   // group with rows in this view is expanded; the rest are one line each with
   // their count, so 70 agents fit a screen without a scroll or a virtualizer.
-  const DOMAINS = ['arch', 'security', 'qa', 'ops', 'domain', 'pm', 'memory', 'other'];
+  const DOMAINS = AGENT_GROUPS.map(g => g.key);
   const totals = {}; for (const a of fleetState.agents) totals[a.domain] = (totals[a.domain] || 0) + 1;
   const byDomain = {}; for (const a of filtered) (byDomain[a.domain] = byDomain[a.domain] || []).push(a);
   const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
@@ -9783,13 +9787,20 @@ function renderFleetList() {
       : `<li class="fleet-group-collapsed"><span class="abs">${esc(uu.state === 'computing' ? 'counting dispatches in the session logs…' : (uu.why || 'dispatches not counted'))}</span></li>`;
   const head = usageLine + `<li class="fleet-head" aria-hidden="true"><span></span><span>Agent</span><span>Posture</span><span>Last verdict</span><span class="tab">Runs</span><span class="tab">Pass</span><span class="tab">30d $</span><span></span></li>`;
   const rows = head + expanded.map((d) => `
-    <li class="fleet-group-head"><span>${esc(d)} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
+    <li class="fleet-group-head">${groupIcon(d)}<span>${esc(groupLabel(d))} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
     ${byDomain[d].map(agentRowHtml).join('')}`).join('');
   const tail = collapsed.length
-    ? `<li class="fleet-group-collapsed">${collapsed.map((d) => `<span title="no ${esc(d)} agent is in this view">${esc(d)} · 0 of ${totals[d]}</span>`).join('')}</li>`
+    ? `<li class="fleet-group-collapsed">${collapsed.map((d) => `<span title="no ${esc(groupLabel(d))} agent is in this view">${esc(groupLabel(d))} · 0 of ${totals[d]}</span>`).join('')}</li>`
     : '';
   el.innerHTML = rows + tail;
 }
+
+// One glyph per role group, so a reviewer and a builder differ at a glance —
+// 72 agents share 10 frontmatter colors, and a color says nothing about the role.
+// Keys are deriveDomain() on the server; order is the pipeline's.
+const AGENT_GROUPS = window.GctoAgentGroups?.groups || [];
+function groupLabel(key) { return window.GctoAgentGroups?.label(key) || key; }
+function groupIcon(key) { return window.GctoAgentGroups?.icon(key) || ''; }
 
 // AgentRow (DESIGN §6.4 / §8.5): slug · posture · last verdict · runs · pass · 30d $.
 // Numbers that can be summed are tabular and right-aligned; identifiers are not.
@@ -9852,7 +9863,7 @@ function agentRowHtml(a) {
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-status" aria-hidden="true"></span>
-        <span class="ar-name">${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
+        <span class="ar-name">${groupIcon(a.domain)}${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
         <span class="ar-posture">${requiredChip(a)}${postureChips(a)}</span>
         <span class="mono cap ar-last">${last}</span>
         <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
@@ -9981,7 +9992,7 @@ function renderAgentProfile(p, extra = {}) {
   const title = document.getElementById('agent-drawer-title');
   const pill  = document.getElementById('agent-drawer-pill');
   if (!body) return;
-  title.textContent = p.slug;
+  title.innerHTML = groupIcon(window.GctoAgentGroups?.classify(p.slug)) + esc(p.slug);
   const row = (fleetState.agents || []).find((a) => a.slug === p.slug) || {};
   const tier = extra.tier;
   const tierChip = tier
