@@ -16,6 +16,7 @@ how to opt in, how to opt out, and how to verify what's being sent.
 | Default state | **Disabled** |
 | How to enable | `GREAT_CTO_TELEMETRY=on` env var or `~/.great_cto/telemetry.json: { "enabled": true }` |
 | How to disable | unset env var, or `GREAT_CTO_TELEMETRY=off`, or `DO_NOT_TRACK` set to anything |
+| Disable for one invocation | `great-cto --no-telemetry <command>` overrides env/config opt-in without changing it |
 | Honors `DO_NOT_TRACK` (consoledonottrack.com) | Yes, at any non-empty value — overrides everything else |
 | Skips automatically in CI | Yes (detected via `CI=true`, `GITHUB_ACTIONS`, etc.) |
 | Where data goes | `https://telemetry.greatcto.systems/v1/event` (Cloudflare Worker) |
@@ -84,6 +85,22 @@ The client checks all of these before sending. Any one disabling = no event sent
 4. `~/.great_cto/telemetry.json: { "enabled": false }`
 5. CI detection: `CI` / `GITHUB_ACTIONS` / `GITLAB_CI` / `CIRCLECI` / `BUILDKITE` / `JENKINS_URL` / `TF_BUILD`
 6. **Default state when none of the above is set: opt-out** (telemetry off until you explicitly turn it on)
+
+The root CLI also accepts `--no-telemetry` for one invocation. It overrides
+environment and config opt-in, skips the init consent question, and leaves
+`telemetry.json` unchanged. A later invocation without the flag uses your
+existing preference again. Explicit `telemetry on` and `telemetry off`
+commands still change that stored preference.
+
+For ordinary commands, the flag may appear before or after the command:
+`great-cto --no-telemetry help` and `great-cto help --no-telemetry` are equivalent.
+For `task`, `worker`, `codex-host`, `run`, `status`, `resume`, and `statusline`,
+place it **before the command**, for example `great-cto --no-telemetry run -- "my prompt"`.
+Everything after those command names belongs to the delegated parser; a literal
+`--no-telemetry` in that tail is preserved as data or a delegated option.
+
+This flag does not disable the separate update check (use
+`GREAT_CTO_NO_UPDATE_CHECK=1`) or network access performed by the selected command.
 
 ## How to opt in
 
