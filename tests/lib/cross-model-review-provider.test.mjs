@@ -2,7 +2,7 @@
 //
 // Before this, a missing OPENROUTER_API_KEY exited 1 — the BLOCK code. "The
 // review blocked this" and "the review did not happen" were the same number.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
@@ -37,8 +37,14 @@ test('the log line carries provider, state, verdict and the P0 count', () => {
   assert.equal(skipped.findings, null, 'a skipped review has no finding count, not zero');
 });
 
+const projectRoots = new Set();
+after(() => {
+  for (const dir of projectRoots) rmSync(dir, { recursive: true, force: true });
+});
+
 function project(withMd) {
   const dir = mkdtempSync(path.join(tmpdir(), 'gc-xr-'));
+  projectRoots.add(dir);
   mkdirSync(path.join(dir, '.great_cto'));
   if (withMd) writeFileSync(path.join(dir, '.great_cto', 'PROJECT.md'), withMd);
   return dir;
