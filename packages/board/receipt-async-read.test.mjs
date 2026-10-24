@@ -8,12 +8,48 @@ import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { syncBuiltinESMExports } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { treeReceipt, compareReceipts } from '../../scripts/lib/receipt.mjs';
 import { secondOpinionForTree } from '../../scripts/lib/second-opinion-for-tree.mjs';
 import { issueTokensAsync, readTokens, consumeToken, checkToken, approvalSnapshot, beginGateDecision } from './lib/gate-tokens.mjs';
 import { readBindingReceipt, readApprovalReceipt, readSecondOpinion } from './lib/receipt-read.mjs';
 const realGit = execFileSync('/usr/bin/which', ['git'], { encoding: 'utf8' }).trim();
 const server = process.env.TEST_BOARD_SERVER || fileURLToPath(new URL('./server.mjs', import.meta.url));
+const startupTraceFixture = fileURLToPath(new URL('./fixtures/receipt-startup-trace.cjs', import.meta.url));
+const startupTraceEvents = new Set(['process-entry', 'spawn-start', 'spawn-return', 'spawn-error', 'fork-start', 'fork-return', 'fork-error', 'child-spawn', 'child-error', 'child-exit', 'child-close', 'exec-start', 'exec-end', 'exec-error', 'kill-start', 'kill-end', 'kill-error', 'git-held-written']);
+const startupTraceRoles = new Set(['supervisor', 'receipt-worker', 'git-fixture', 'other']);
+const startupTraceErrors = new Set(['ENOENT', 'EACCES', 'EPERM', 'ESRCH', 'ETIMEDOUT', 'EINVAL', 'EPIPE', 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER', 'UNKNOWN']);
+const startupTraceSignals = new Set(['SIGTERM', 'SIGKILL', 'SIGINT', 'SIGHUP', 'SIGABRT', 0]);
+const startupTraceKeys = ['atMs', 'childPid', 'errorCode', 'event', 'exitCode', 'group', 'pid', 'ppid', 'role', 'signal', 'targetPid'];
+function readReceiptStartupTrace(root) {
+  let fd;
+  try {
+    fd = fs.openSync(path.join(root, 'receipt-startup-trace.jsonl'), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    const stat = fs.fstatSync(fd);
+    if (!stat.isFile() || stat.size > 64 * 1024) return [];
+    const bytes = Buffer.alloc(stat.size);
+    const count = fs.readSync(fd, bytes, 0, bytes.length, 0);
+    const records = [];
+    const integer = value => Number.isSafeInteger(value) && value >= 0;
+    const optionalPid = value => value === null || (integer(value) && value > 0);
+    for (const line of bytes.subarray(0, count).toString('utf8').split('\n')) {
+      if (records.length === 128) break;
+      let row;
+      try { row = JSON.parse(line); } catch { continue; }
+      if (!row || Array.isArray(row) || Object.keys(row).sort().join() !== startupTraceKeys.join()) continue;
+      if (!startupTraceEvents.has(row.event) || !startupTraceRoles.has(row.role) || !integer(row.atMs)
+          || !integer(row.pid) || row.pid === 0 || !integer(row.ppid)
+          || !optionalPid(row.childPid) || !optionalPid(row.targetPid)
+          || !(row.group === null || typeof row.group === 'boolean')
+          || !(row.exitCode === null || integer(row.exitCode))
+          || !(row.errorCode === null || startupTraceErrors.has(row.errorCode))
+          || !(row.signal === null || startupTraceSignals.has(row.signal))) continue;
+      records.push(row);
+    }
+    return records;
+  } catch { return []; }
+  finally { if (fd !== undefined) { try { fs.closeSync(fd); } catch { /* Failure diagnostics must not replace the original result. */ } } }
+}
 const receiptFailureKinds = new Map([
   ['Receipt reader busy; retry', 'busy'], ['Invalid receipt deadline', 'invalid-deadline'],
   ['Receipt worker unavailable', 'worker-unavailable'], ['Receipt worker failed', 'worker-failed'],
@@ -63,6 +99,80 @@ test('receipt rejection diagnostics expose fixed categories and elapsed time, ne
     assert.equal(result.kind, 'other');
     assert.ok(!JSON.stringify(result).includes(opaque));
   }
+});
+test('receipt startup trace is inert without a control root', () => {
+  const env = { ...process.env }; delete env.GCTO_RECEIPT_CONTROL_ROOT;
+  const result = execFileSync(process.execPath, ['--eval', `
+    const assert = require('node:assert/strict'), cp = require('node:child_process');
+    const originalSpawn = cp.spawn, originalKill = process.kill;
+    require(${JSON.stringify(startupTraceFixture)});
+    assert.equal(cp.spawn, originalSpawn); assert.equal(process.kill, originalKill);
+  `], { env, encoding: 'utf8' });
+  assert.equal(result, '');
+});
+test('receipt startup trace sanitizes events and preserves operation semantics', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-trace-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const canary = randomUUID();
+  const result = execFileSync(process.execPath, ['--require', startupTraceFixture, '--eval', `
+    const assert = require('node:assert/strict'), cp = require('node:child_process'), fs = require('node:fs'), path = require('node:path');
+    const root = process.env.GCTO_RECEIPT_CONTROL_ROOT;
+    assert.equal(cp.execFileSync(process.execPath, ['--eval', ''], { encoding: 'utf8' }), '');
+    const child = cp.spawn(process.execPath, ['--eval', ''], { stdio: 'ignore' });
+    assert.equal(child.listenerCount('error'), 0);
+    const opaque = new Error(${JSON.stringify(canary)}); opaque.code = ${JSON.stringify(canary)};
+    assert.throws(() => child.emit('error', opaque), error => error === opaque);
+    child.once('close', code => { assert.equal(code, 0); });
+    const missing = cp.spawn(path.join(root, ${JSON.stringify(canary)}), [], { stdio: 'ignore' });
+    missing.on('error', error => assert.equal(error.code, 'ENOENT'));
+    missing.once('close', () => {});
+    assert.equal(process.kill(process.pid, 0), true);
+    assert.throws(() => process.kill(process.pid, ${JSON.stringify(canary)}));
+    fs.appendFileSync(path.join(root, 'git-held'), String(process.pid) + '\\n');
+    assert.equal(fs.readFileSync(path.join(root, 'git-held'), 'utf8'), String(process.pid) + '\\n');
+  `, canary], { env: { ...process.env, GCTO_RECEIPT_CONTROL_ROOT: root, PRIVATE_TRACE_VALUE: canary }, encoding: 'utf8' });
+  assert.equal(result, '');
+  const raw = fs.readFileSync(path.join(root, 'receipt-startup-trace.jsonl'), 'utf8');
+  assert.ok(!raw.includes(canary)); assert.ok(!raw.includes(root)); assert.ok(!raw.includes(startupTraceFixture));
+  const records = readReceiptStartupTrace(root);
+  assert.equal(records.length, raw.trim().split('\n').length);
+  for (const event of ['process-entry', 'spawn-start', 'child-spawn', 'child-error', 'child-exit', 'child-close', 'exec-start', 'exec-end', 'kill-start', 'kill-end', 'kill-error', 'git-held-written']) {
+    assert.ok(records.some(row => row.event === event), event);
+  }
+  assert.ok(records.some(row => row.event === 'child-error' && row.errorCode === null));
+  assert.ok(records.some(row => row.event === 'child-error' && row.errorCode === 'ENOENT'));
+  assert.ok(records.some(row => row.event === 'kill-start' && row.signal === 0));
+  const valid = records[0], trace = path.join(root, 'receipt-startup-trace.jsonl');
+  fs.writeFileSync(trace, [JSON.stringify(valid), '{', JSON.stringify({ ...valid, errorCode: canary }), JSON.stringify({ ...valid, signal: canary }), JSON.stringify({ ...valid, extra: canary }), JSON.stringify({ ...valid, pid: -1 })].join('\n'));
+  assert.deepEqual(readReceiptStartupTrace(root), [valid]);
+  fs.writeFileSync(trace, (JSON.stringify(valid) + '\n').repeat(129));
+  assert.equal(readReceiptStartupTrace(root).length, 128);
+  fs.writeFileSync(trace, Buffer.alloc(64 * 1024 + 1));
+  assert.deepEqual(readReceiptStartupTrace(root), []);
+  fs.unlinkSync(trace); fs.symlinkSync(path.join(root, 'git-held'), trace);
+  assert.deepEqual(readReceiptStartupTrace(root), []);
+});
+test('receipt startup trace bounds writes and isolates logger failures', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-trace-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const result = execFileSync(process.execPath, ['--require', startupTraceFixture, '--eval', `
+    const assert = require('node:assert/strict'), fs = require('node:fs'), cp = require('node:child_process');
+    const stat = fs.fstatSync;
+    fs.fstatSync = () => { throw Error('PRIVATE_LOGGER_FAILURE'); };
+    assert.equal(cp.execFileSync(process.execPath, ['--eval', ''], { encoding: 'utf8' }), '');
+    assert.equal(process.kill(process.pid, 0), true);
+    assert.throws(() => process.kill(process.pid, 'PRIVATE_INVALID_SIGNAL'), error => error.code === 'ERR_UNKNOWN_SIGNAL');
+    fs.fstatSync = stat;
+    for (let i = 0; i < 100; i++) assert.equal(process.kill(process.pid, 0), true);
+  `], { env: { ...process.env, GCTO_RECEIPT_CONTROL_ROOT: root }, encoding: 'utf8' });
+  assert.equal(result, '');
+  assert.deepEqual(readReceiptStartupTrace(root).map(row => row.event), ['process-entry']);
+  fs.unlinkSync(path.join(root, 'receipt-startup-trace.jsonl'));
+  execFileSync(process.execPath, ['--require', startupTraceFixture, '--eval', 'for (let i = 0; i < 100; i++) process.kill(process.pid, 0)'], {
+    env: { ...process.env, GCTO_RECEIPT_CONTROL_ROOT: root }, stdio: 'pipe',
+  });
+  assert.equal(readReceiptStartupTrace(root).length, 64);
+  assert.ok(fs.statSync(path.join(root, 'receipt-startup-trace.jsonl')).size <= 64 * 1024);
 });
 function repository(t, format = 'sha1') {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-'));
@@ -204,10 +314,11 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
   fs.writeFileSync(path.join(control, 'hold-head'), 'ready');
   const bin = path.join(control, 'bin'); fs.mkdirSync(bin);
   fs.symlinkSync(fileURLToPath(new URL('./fixtures/held-receipt-git.mjs', import.meta.url)), path.join(bin, 'git'));
-  const keys = ['PATH', 'GCTO_RECEIPT_CONTROL_ROOT', 'GCTO_RECEIPT_REAL_GIT'];
+  const keys = ['PATH', 'GCTO_RECEIPT_CONTROL_ROOT', 'GCTO_RECEIPT_REAL_GIT', 'NODE_OPTIONS'];
   const old = Object.fromEntries(keys.map(key => [key, process.env[key]]));
   process.env.PATH = bin + path.delimiter + process.env.PATH;
   process.env.GCTO_RECEIPT_CONTROL_ROOT = control; process.env.GCTO_RECEIPT_REAL_GIT = realGit;
+  process.env.NODE_OPTIONS = `${old.NODE_OPTIONS || ''} --require ${JSON.stringify(startupTraceFixture)}`;
   try {
     const readStartedAt = performance.now();
     const pending = readBindingReceipt(cwd, { timeoutMs: 1000 });
@@ -218,11 +329,13 @@ test('receipt deadline releases its owned Git child and bounded read slot', { ti
     const refused = assert.rejects(pending, /Receipt/);
     await waitFor(() => fs.existsSync(path.join(control, 'git-held')), 5000, () => ({
       phase: 'await-git-held', receiptState, rejection, markerPresent: fs.existsSync(path.join(control, 'git-held')),
+      startupTrace: readReceiptStartupTrace(control),
     }));
     const pid = Number(fs.readFileSync(path.join(control, 'git-held'), 'utf8').trim());
     await refused;
     await waitFor(() => { try { process.kill(pid, 0); return false; } catch (e) { return e.code === 'ESRCH'; } }, 5000, () => ({
       phase: 'await-owned-git-exit', receiptState, rejection, markerPresent: fs.existsSync(path.join(control, 'git-held')),
+      startupTrace: readReceiptStartupTrace(control),
     }));
     for (const key of keys) { if (old[key] === undefined) delete process.env[key]; else process.env[key] = old[key]; }
     assert.ok((await readBindingReceipt(cwd)).head, 'deadline must release the project slot');
