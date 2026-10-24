@@ -72,7 +72,7 @@ for (const host of ['codex', 'claude-code']) for (const kind of ['worker', 'chec
   const f = createRun(t, {checks: kind === 'checks', hostRoutes: {'qa-engineer': host, 'security-officer': host}}); reassess(f);
   const ownerPath = leaseOwnerPath(f), oldOwner = readFileSync(ownerPath); let checkpoint = null;
   f.cleanupFns.unshift(() => writeFileSync(ownerPath, oldOwner));
-  const fault = () => {checkpoint = readFileSync(runFile(f, f.state.id)); if (loss === 'source') writeFileSync(join(f.root, 'src/app.mjs'), 'source moved after awaited actual result'); else writeJSON(ownerPath, {...readJSON(ownerPath), token: 'transferred-synthetic-lease'});};
+  const fault = () => {checkpoint = readFileSync(runFile(f, f.state.id)); if (loss === 'source') writeFileSync(join(f.root, 'src/app.mjs'), 'source moved after awaited actual result'); else writeJSON(ownerPath, {...readJSON(ownerPath), token: JSON.parse(oldOwner).token + ':synthetic-transfer'});};
   const realRunner = host === 'codex' ? runCodexExec : runClaudeExec;
   const options = {
     shipBoundary: f.boundary, contextStore: f.runs, save: state => f.boundary.save(state),
@@ -102,7 +102,7 @@ test('N15 parallel awaited sibling lease transfer fences both completions and pr
   const f = createRun(t, {graph: parallelGraph, hostRoutes: {'qa-engineer': 'codex', 'security-officer': 'claude-code'}}); reassess(f);
   const path = leaseOwnerPath(f), owner = readFileSync(path); let checkpoint;
   f.cleanupFns.unshift(() => writeFileSync(path, owner));
-  const runners = {codex: async args => {const result = await runCodexExec(args); checkpoint = readFileSync(runFile(f, f.state.id)); writeJSON(path, {...readJSON(path), token: 'parallel-transferred'}); return result;}, 'claude-code': runClaudeExec};
+  const runners = {codex: async args => {const result = await runCodexExec(args); checkpoint = readFileSync(runFile(f, f.state.id)); writeJSON(path, {...readJSON(path), token: JSON.parse(owner).token + ':synthetic-transfer'}); return result;}, 'claude-code': runClaudeExec};
   try {await reviewAll(f, {parallel: true, runners});} catch { /* expected lease refusal */ }
   assert.ok(checkpoint); assert.deepEqual(readFileSync(runFile(f, f.state.id)), checkpoint);
   const saved = stored(f, f.state.id); assert.deepEqual(saved.results, {}); assert.equal(saved.approvals.length, 0); assert.equal(saved.released.length, 0); writeFileSync(path, owner);

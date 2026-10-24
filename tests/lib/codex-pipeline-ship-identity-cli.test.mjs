@@ -61,11 +61,11 @@ test('N15 corrupt and overflow revisions refuse before mutation/effects and neve
 test('P07/N15 real direct and parent-handoff lease assertions detect transferred token/pid/project', async t => {
   const f = fixture(t); isolated(f, t); const lease = acquireProjectLease(f.root, {store: f.tasks}); const path = leaseOwnerPath(f); const original = readFileSync(path);
   f.cleanupFns.push(() => {writeFileSync(path, original); lease.release();}); assert.doesNotThrow(() => lease.assertOwned());
-  for (const delta of [{token: 'transferred'}, {pid: process.pid + 1}, {projectId: 'other-project'}]) {writeJSON(path, {...JSON.parse(original), ...delta}); assert.throws(() => lease.assertOwned()); writeFileSync(path, original);}
+  for (const delta of [{token: JSON.parse(original).token + ':synthetic-transfer'}, {pid: process.pid + 1}, {projectId: 'other-project'}]) {writeJSON(path, {...JSON.parse(original), ...delta}); assert.throws(() => lease.assertOwned()); writeFileSync(path, original);}
   const child = fork(join(HERE, 'lease-child.mjs'), [], {env: {...f.env, GREAT_CTO_WORK_LEASE: lease.token, SHIP_FIXTURE_ROOT: f.root, SHIP_FIXTURE_LEASE_MODULE: join(REPO, 'scripts/lib/work-tasks.mjs')}, stdio: ['ignore', 'pipe', 'pipe', 'ipc']});
   f.cleanupFns.unshift(() => {if (child.exitCode === null && !child.killed) child.kill();}); const [ready] = await once(child, 'message'); assert.equal(ready.ready, true, ready.error);
   child.send('check'); const [owned] = await once(child, 'message'); assert.equal(owned.owned, true);
-  writeJSON(path, {...JSON.parse(original), token: 'transferred-parent'}); child.send('check'); const [lost] = await once(child, 'message'); assert.equal(lost.owned, false); writeFileSync(path, original);
+  writeJSON(path, {...JSON.parse(original), token: JSON.parse(original).token + ':synthetic-transfer'}); child.send('check'); const [lost] = await once(child, 'message'); assert.equal(lost.owned, false); writeFileSync(path, original);
   const exit = once(child, 'exit'); child.send('release'); await once(child, 'message'); await exit;
   assert.equal(existsSync(path), true, 'child handoff release cannot delete parent lease');
 });

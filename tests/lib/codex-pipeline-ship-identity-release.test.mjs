@@ -49,7 +49,7 @@ for (const command of ['approve-release', 'approve-task']) for (const loss of ['
 
 test('N15 release approve-task transferred parent lease refuses before release approval or generation write', async t => {
   const f = await releaseRun(t); f.release(); const op = operation(f); const path = leaseOwnerPath(f), owner = readFileSync(path);
-  f.cleanupFns.unshift(() => writeFileSync(path, owner)); writeJSON(path, {...JSON.parse(owner), token: 'synthetic-transferred-parent'});
+  f.cleanupFns.unshift(() => writeFileSync(path, owner)); writeJSON(path, {...JSON.parse(owner), token: JSON.parse(owner).token + ':synthetic-transfer'});
   const bytes = readFileSync(runFile(f, f.state.id)), before = effects(f);
   const out = approveCLI(f, 'approve-task', op); assert.equal(out.status, 2); assert.deepEqual(readFileSync(runFile(f, f.state.id)), bytes); assert.deepEqual(effects(f), before);
   writeFileSync(path, owner);
@@ -60,7 +60,7 @@ for (const loss of ['source', 'global-floor', 'strict-context', 'lease']) test(`
   if (loss === 'strict-context') {f.boundary.invalidate(f.state, {reason: 'synthetic-before-devops-revocation'}); f.boundary.save(f.state);}
   if (loss === 'source') writeFileSync(join(f.root, 'src/app.mjs'), 'uncommitted source before devops');
   if (loss === 'global-floor') scenario(f, {tasks: [{id: 'unrelated:devops-blocker', status: 'blocked', labels: []}]});
-  if (loss === 'lease') {const path = leaseOwnerPath(f), owner = readFileSync(path); f.cleanupFns.unshift(() => writeFileSync(path, owner)); writeJSON(path, {...JSON.parse(owner), token: 'synthetic-devops-lease-loss'});}
+  if (loss === 'lease') {const path = leaseOwnerPath(f), owner = readFileSync(path); f.cleanupFns.unshift(() => writeFileSync(path, owner)); writeJSON(path, {...JSON.parse(owner), token: JSON.parse(owner).token + ':synthetic-transfer'});}
   const bytes = readFileSync(runFile(f, f.state.id)), before = effects(f);
   try {await runStage(f.state, {shipBoundary: f.boundary, save: value => f.boundary.save(value), contextStore: f.runs});} catch { /* strict guard refusal */ }
   assert.deepEqual(readFileSync(runFile(f, f.state.id)), bytes); assert.deepEqual(effects(f), before);

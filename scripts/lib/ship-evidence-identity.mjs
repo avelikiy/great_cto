@@ -237,6 +237,8 @@ export function evaluateBoundShipEvidence(input) {
     for (const key of ['openObligations', 'resolvedObligations', 'supersededObligations']) result[key].sort(sortBy('findingId'));
     result.state = unknown ? 'UNKNOWN' : blocked ? 'BLOCKED' : 'PASS';
   } catch {
+    // Invalid input is explicitly reported through diagnostic() below. Preserve
+    // recoverable negatives, never reinterpret an unreadable assessment as PASS.
     result.state = 'UNKNOWN';
     result.openObligations = recoverObligations(input);
     result.resolvedObligations = [];
