@@ -275,9 +275,14 @@ path out of the tracked `council.json` and ordinary drafts.
 An explicit operator runtime directory holds the authoritative budget ledger;
 the task has a secondary local record. Reservations survive process restarts.
 Timeout, cancellation or response loss after possible sending leaves cost Unknown
-and retains the reserve. No automatic retry, paid reconciliation or background
-cleanup is performed. Missing usage fields do not become zero; provider-reported
-cost is distinct from cost calculated using the pinned standard token rates.
+and retains the full reserve unless complete usage and accounting are durable.
+If a validated response and known charge are durably settled, the final deadline
+or cancellation check still withholds late advice, but keeps the charge and
+private validated report and releases only the unused reserve. Accounting
+settlement is not proof of advice delivery. No automatic retry, paid
+reconciliation or background cleanup is performed. Missing usage fields do not
+become zero; provider-reported cost is distinct from cost calculated using the
+pinned standard token rates.
 
 Retention is an operator procedure: keep task reports for the task's lifetime,
 and metadata/known accounting records for 30 days after its terminal state.
