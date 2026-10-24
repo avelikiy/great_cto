@@ -5,7 +5,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, readFileSync, existsSync, rmSync, realpathSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { decideProvider, reviewLogLine, EXIT } from '../../scripts/lib/cross-model-review.mjs';
@@ -100,6 +101,26 @@ test('an unpriced model logs cost null and prints "unpriced" — never $0', () =
   assert.equal(last.model, 'gpt-5.6-terra');
 });
 
+test('legacy Kimi selection cannot coerce incomplete provider usage to measured zero', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, ['--model', 'moonshotai/kimi-k3.1-pro'], {
+    GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']), GREAT_CTO_MODEL_PRICES: '{}',
+  });
+  assert.equal(r.status, EXIT.PASS, r.stdout + r.stderr);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.cost, null);
+  assert.match(r.stdout, /cost unpriced/);
+});
+
+test('explicit profile conflicts exit before ambient PROJECT or native reviewer log', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, ['--profile', 'kimi-readonly-v1', '--provider', 'codex'], {
+    GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']),
+  });
+  assert.equal(r.status, EXIT.USAGE, r.stdout + r.stderr);
+  assert.equal(existsSync(path.join(dir, '.great_cto', 'cross-review.log')), false);
+});
+
 // A review that did not happen must say WHY, and the why must be the cause —
 // not whatever the provider happened to mention first. On 2026-09-06 an
 // exhausted plan quota displayed "Skill descriptions were shortened to fit the
@@ -177,4 +198,48 @@ test('CLI fails closed on conflicting verdicts and blocks a P0 even with PASS', 
     const r = run(dir, [], { GREAT_CTO_CODEX_BIN: fakeCodex(dir, answer) });
     assert.equal(r.status, exit, r.stdout + r.stderr);
   }
+});
+
+test('known-cost deadline after durable evidence maps to exit 3 without native reviewer log', t => {
+  const dir = mkdtempSync(path.join(realpathSync(tmpdir()), 'gc-kimi-deadline-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const hash = value => createHash('sha256').update(value).digest('hex');
+  const diff = 'diff --git a/x.js b/x.js\nindex abcdef0..abcdef1 100644\n--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n';
+  writeFileSync(path.join(dir, 'x.js'), '2\n', { mode: 0o644 });
+  const manifest = [{ path: 'x.js', mode: '100644', sha256: hash('2\n'), contextClass: 'synthetic' }];
+  const envelope = { version: 1, taskId: 'synthetic-timeout', mode: 'diff-review', contextClass: 'synthetic',
+    reason: 'explicit-review', diff, spec: null, acceptanceHash: hash('rubric'), sourceBinding: {
+      sourceSha: 'a'.repeat(40), manifest, manifestHash: hash(JSON.stringify(manifest)), dirtyDiffHash: hash(diff) } };
+  writeFileSync(path.join(dir, 'envelope.json'), JSON.stringify(envelope));
+  const program = `
+import fs from 'node:fs'; import path from 'node:path';
+let text = ''; for await (const chunk of process.stdin) { text += chunk; if (Buffer.byteLength(text) > 131072) throw Error('fixture-input-too-large'); }
+const {dir} = JSON.parse(text), operatorRoot = path.join(dir, 'operator');
+let elapsed = 0, posts = 0; Object.defineProperty(performance, 'now', { value: () => elapsed });
+const rename = fs.renameSync; fs.renameSync = (...args) => { const r = rename(...args); if (String(args[1]).endsWith('/report.json')) elapsed = 1000; return r; };
+const {runProfileReview} = await import(process.argv[1]);
+const model = 'moonshotai/kimi-k3.1-pro', canonical = model + '-20261023', tag = 'moonshotai/mxfp4';
+const pricing = {prompt:'0.000002',completion:'0.00001',input_cache_read:'0.0000002'}, supported_parameters = ['reasoning','max_tokens','structured_outputs','response_format'];
+const metadata = [{data:[{id:model,canonical_slug:canonical,pricing,supported_parameters,reasoning:{supported_efforts:['low']}}]},
+ {data:{id:model,endpoints:[{tag,provider_name:'Moonshot',name:'Moonshot | ' + canonical,pricing,supported_parameters,status:0}]}},
+ {data:[{model_id:model,tag,provider_name:'Moonshot'}]}];
+const result = await runProfileReview({argv:['--profile','kimi-readonly-v1','--root',dir,'--envelope','envelope.json','--task','synthetic-timeout','--context-class','synthetic','--reason','explicit-review','--operator-root',operatorRoot],
+ apiKey:'example-synthetic-key', now:()=>1792843200000, timeoutMs:1000,
+ fetchImpl:async(url,init)=> { if(init.method==='POST') posts++; return new Response(JSON.stringify(init.method==='POST'
+  ? {model,provider:'Moonshot',choices:[{finish_reason:'stop',message:{content:JSON.stringify({version:1,mode:'diff-review',summary:'Synthetic review.',findings:[]})}}],usage:{prompt_tokens:100,completion_tokens:50,prompt_tokens_details:{cached_tokens:0},completion_tokens_details:{reasoning_tokens:0}}}
+  : metadata[url.endsWith('/models')?0:url.endsWith('/endpoints/zdr')?2:1])); }});
+const record = JSON.parse(fs.readFileSync(path.join(operatorRoot,'kimi-review-ledger.json'),'utf8')).requests[0];
+console.log(JSON.stringify({result,posts,record,nativeLog:fs.existsSync(path.join(dir,'.great_cto/cross-review.log'))}));
+`;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', program,
+    new URL('../../scripts/lib/cross-model-review.mjs', import.meta.url).href],
+  { input: JSON.stringify({ dir }), encoding: 'utf8', maxBuffer: 65536 });
+  assert.equal(child.status, 0, child.stderr);
+  const x = JSON.parse(child.stdout);
+  assert.equal(x.result.exitCode, 3); assert.equal(x.result.summary.status, 'timeout');
+  assert.equal(x.result.summary.reasonCode, 'deadline-exceeded'); assert.equal(x.result.summary.verdict, null);
+  assert.equal(x.result.summary.findings, null); assert.equal(x.result.summary.costState, 'known');
+  assert.ok(Math.abs(x.result.summary.costUsd - 0.0007) < 1e-12);
+  assert.equal(x.record.state, 'complete'); assert.equal(x.record.reservationUsd, 0);
+  assert.equal(x.posts, 1); assert.equal(x.nativeLog, false);
 });

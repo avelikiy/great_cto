@@ -36,7 +36,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { resolveSecondOpinion, codexReview, SECOND_OPINION_PROVIDERS } from './second-opinion.mjs';
-import { callOpenRouter, pickReviewerModel } from './cross-model-review.mjs';
+import { callOpenRouter, pickReviewerModel, validateKimiRuntimePaths } from './cross-model-review.mjs';
 import { resolvePrice, priceUsage, round4 } from './cost-meter.mjs';
 
 export const COUNCIL_STAGES = Object.freeze(['arch']);
@@ -150,6 +150,7 @@ function withTimeout(p, ms) {
 export async function runCouncil({
   root, feature, brief = '', projectMd = '', env = process.env, codex = null,
   askers = {}, now = () => new Date(), timeoutMs = 300_000,
+  extraProfiles = [], kimiRuntime = {},
 }) {
   const decl = councilFromProjectMd(projectMd);
   if (decl.state !== 'on') return { state: decl.state, why: decl.why };
@@ -228,7 +229,32 @@ export async function runCouncil({
   };
   mkdirSync(dir, { recursive: true });
   writeFileSync(join(dir, 'council.json'), JSON.stringify(manifest, null, 2) + '\n');
-  return { state: 'ran', manifest };
+  // Private extras never enter the tracked native manifest or its arithmetic.
+  const extraMembers = [];
+  for (const extra of Array.isArray(extraProfiles) ? extraProfiles : []) {
+    if (!extra?.envelope) continue;
+    const member = { member: 'draft-extra-kimi-readonly-v1', state: 'skipped', why: 'invalid-extra-profile',
+      verdict: null, advisory: true, authority: 'NONE', releaseEligibility: 'NOT_CHECKED', privateReportPath: null };
+    extraMembers.push(member);
+    if (extra.profile !== 'kimi-readonly-v1' || extra.envelope.mode !== 'architecture-alternative') continue;
+    try {
+      const { buildKimiInputBinding, runKimiReview } = await import('./kimi-review-profile.mjs');
+      buildKimiInputBinding(extra.envelope);
+      validateKimiRuntimePaths(root, kimiRuntime.operatorRoot);
+      const r = await runKimiReview({ root, profile: extra.profile, envelope: extra.envelope,
+        operatorRoot: kimiRuntime.operatorRoot, get apiKey() { return kimiRuntime.apiKey; },
+        fetchImpl: kimiRuntime.fetchImpl, now: kimiRuntime.now, uuid: kimiRuntime.uuid,
+        signal: kimiRuntime.signal, timeoutMs: kimiRuntime.timeoutMs,
+        ...(Object.hasOwn(kimiRuntime, 'model') ? { model: kimiRuntime.model } : {}),
+        ...(Object.hasOwn(kimiRuntime, 'provider') ? { provider: kimiRuntime.provider } : {}) });
+      Object.assign(member, { state: r.status === 'complete' ? 'drafted'
+        : r.status === 'unavailable' ? 'unavailable'
+          : ['not-requested', 'policy-denied', 'budget-denied'].includes(r.status) ? 'skipped' : 'failed',
+      why: r.reasonCode, status: r.status, privateReportPath: r.privateReportPath,
+      cost: { state: r.costState, usd: r.costUsd }, bindingDigest: r.bindingDigest });
+    } catch { member.why = 'invalid-extra-envelope'; }
+  }
+  return { state: 'ran', manifest, extraMembers };
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────

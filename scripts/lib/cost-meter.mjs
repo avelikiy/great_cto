@@ -60,6 +60,9 @@ export const DEFAULT_PRICES = {
   // override via ~/.great_cto/model-prices.json or GREAT_CTO_MODEL_PRICES).
   'moonshotai/kimi-k2':  { input: 0.55, output: 2.2 },
   'moonshotai/kimi-k3':  { input: 3,    output: 15 },
+  // Standard endpoint snapshot, 2026-10-24. Highspeed is a different rate.
+  'moonshotai/kimi-k3.1-pro': { input: 2, output: 10, cacheRead: 0.2 },
+  'moonshotai/kimi-k3.1-pro-20261023': { input: 2, output: 10, cacheRead: 0.2 },
   // Read from OpenRouter's /models on 2026-08-27, not guessed. Until now these
   // reported `priced: false` — correctly, and that honesty is why an eval run on
   // glm-5.3-flash showed $0.000: not free, unpriced. Now they are priced exactly.
@@ -159,7 +162,7 @@ export function resolvePrice(model, prices = effectivePrices()) {
  * 172 turns of `claude-fable-5` were billed at $0.00 for exactly that reason,
  * and the total looked like a total rather than a total plus a hole.
  *
- * @returns {{usd:number, priced:boolean, assumed:boolean, source:string, model:string}}
+ * @returns {{usd:number|null, priced:boolean, assumed:boolean, source:string, model:string}}
  */
 /**
  * Cache-write dollars. Anthropic bills a 5-minute cache write at 1.25× the input
@@ -180,7 +183,30 @@ export function cacheWriteUsd(usage, inputPrice) {
   return total * 1.25 * inputPrice;
 }
 
+const KIMI_STANDARD_MODELS = new Set(['moonshotai/kimi-k3.1-pro', 'moonshotai/kimi-k3.1-pro-20261023']);
+
+function priceKimiUsage({ model, usage, prices }) {
+  const { price, source } = resolvePrice(model, prices);
+  const input = usage?.prompt_tokens;
+  const output = usage?.completion_tokens;
+  const cached = usage?.prompt_tokens_details?.cached_tokens;
+  const reasoning = usage?.completion_tokens_details?.reasoning_tokens;
+  const providerReportedUsd = typeof usage?.cost === 'number' && Number.isFinite(usage.cost) && usage.cost >= 0 ? usage.cost : null;
+  const base = { model, source, assumed: false, providerReportedUsd, costProvenance: 'calculated-standard-token-rates' };
+  if (source !== 'exact' || !price || ![price.input, price.output, price.cacheRead].every(n => Number.isFinite(n) && n >= 0)
+      || ![input, output, cached, reasoning].every(n => Number.isSafeInteger(n) && n >= 0)
+      || (Object.hasOwn(usage, 'total_tokens') && (!Number.isSafeInteger(usage.total_tokens) || usage.total_tokens !== input + output))
+      || (Object.hasOwn(usage, 'cost') && providerReportedUsd === null)
+      || cached > input || reasoning > output) {
+    return { ...base, usd: null, priced: false, usageState: 'unknown', costState: 'unknown' };
+  }
+  // OpenRouter includes cache reads in prompt and reasoning in completion.
+  const usd = ((input - cached) * price.input + cached * price.cacheRead + output * price.output) / 1_000_000;
+  return { ...base, usd, priced: true, usageState: 'known', costState: 'known' };
+}
+
 export function priceUsage({ model, usage, prices }) {
+  if (KIMI_STANDARD_MODELS.has(model)) return priceKimiUsage({ model, usage, prices: prices || effectivePrices() });
   const { price, source } = resolvePrice(model, prices || effectivePrices());
   if (!usage || !price) {
     return { usd: 0, priced: false, assumed: false, source, model: model || '' };
@@ -199,9 +225,11 @@ export function priceUsage({ model, usage, prices }) {
  * @param {string} opts.model
  * @param {{input_tokens?:number, output_tokens?:number}} opts.usage  Anthropic response.usage
  * @param {object} [opts.prices]  override table (for tests)
- * @returns {number} USD (0 if usage or price unknown)
+ * @returns {number|null} USD; exact Kimi requires complete raw OpenRouter usage
+ * and returns null when unknown. Legacy models retain the numeric 0 fallback.
  */
 export function costForUsage({ model, usage, prices }) {
+  if (KIMI_STANDARD_MODELS.has(model)) return priceKimiUsage({ model, usage, prices: prices || effectivePrices() }).usd;
   if (!usage) return 0;
   const p = priceForModel(model, prices);
   if (!p) return 0;
@@ -246,6 +274,10 @@ function main(argv) {
     return process.exit(2);
   }
   const cost = costForUsage({ model, usage: { input_tokens: inTok, output_tokens: outTok } });
+  if (cost === null) {
+    process.stderr.write('cost-meter: complete provider usage required — cost unknown\n');
+    return process.exit(2);
+  }
   process.stdout.write(String(round4(cost)));
 }
 
