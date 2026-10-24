@@ -262,7 +262,9 @@ The profile has no model tools and its answer has `authority: NONE`,
 mandatory native review or a human gate.
 
 Reports stay under `.great_cto/kimi-review/<task-hash>/<request-uuid>/`, excluded
-from Git. Directories use mode `0700` and files `0600`. Metadata records ids,
+from Git. Directories use mode `0700` and files `0600`. Existing task and operator
+runtime parents must also be caller-owned and private; unsafe permissions are
+rejected without changing those directories. Metadata records ids,
 hashes, status, usage and cost provenance, without prompts, raw provider bodies,
 credentials or reasoning text. Parsed findings and alternatives may quote source
 and therefore remain private in a separate report. Status output omits those

@@ -193,7 +193,13 @@ provider-reported cost retain separate provenance. Missing or partial usage is
 Unknown, never a measured zero. Each admitted call reserves $0.25 against local
 task/operator caps before sending; a timeout or lost response retains that
 reservation and does not trigger an automatic retry. The reservation is an
-accounting control, not a hard billing guarantee. Live compatibility, latency,
+accounting control, not a hard billing guarantee. Existing task and operator
+runtime directories must already be owned by the caller and private (`0700`);
+unsafe existing permissions are rejected, not silently changed. The 180-second
+cancellation deadline covers admission checkpoints and HTTP headers/body;
+synchronous filesystem durability can delay the final return beyond that
+deadline. This is not a hard wall-clock completion guarantee.
+Live compatibility, latency,
 quality improvement and release eligibility remain unverified by offline tests.
 
 Two documents govern how this product describes itself, both approved at
