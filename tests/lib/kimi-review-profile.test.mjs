@@ -5,6 +5,7 @@ import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Import failure is asserted explicitly so the initial RED names the missing API.
 let api;
@@ -416,40 +417,16 @@ test('one-byte streams copy UTF8 correctly without one Buffer allocation per fra
   const first = fixtures()[0]; first.padding = 'fragmented '.repeat(6000) + '漢💡';
   const rawMetadata = JSON.stringify(first);
   // Instrument allocation only in a dedicated process; no shared runner global is patched.
-  const source = `
-    import { runKimiReview } from ${JSON.stringify(new URL('../../scripts/lib/kimi-review-profile.mjs', import.meta.url).href)};
-    import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
-    import { tmpdir } from 'node:os'; import path from 'node:path';
-    const parent = await realpath(tmpdir()); const dir = await mkdtemp(path.join(parent, 'kimi-fragments-'));
-    const root = path.join(dir, 'repo'), operatorRoot = path.join(dir, 'operator');
-    const metadata = ${JSON.stringify(fixtures())};
-    const payload = new TextEncoder().encode(${JSON.stringify(rawMetadata)});
-    const fragment = new Uint8Array(1), empty = new Uint8Array(0);
-    const originalFrom = Buffer.from; let fragmentAllocations = 0, reads = 0, keyReads = 0;
-    Buffer.from = function(...args) { if (args[0] === fragment || args[0] === empty) fragmentAllocations++; return originalFrom.apply(Buffer, args); };
-    try {
-      await mkdir(root, { mode: 0o700 }); await mkdir(operatorRoot, { mode: 0o700 });
-      await mkdir(path.join(root, 'src'), { mode: 0o700 }); await writeFile(path.join(root, 'src/sum.js'), ${JSON.stringify(SOURCE)}, { mode: 0o644 });
-      const result = await runKimiReview({ profile: 'kimi-readonly-v1', envelope: ${JSON.stringify(envelope())}, root, operatorRoot,
-        get apiKey() { keyReads++; return 'example-synthetic-key'; }, uuid: () => '12345678-1234-4234-8234-123456789abc', now: () => 1792843200000,
-        fetchImpl: async (url, init) => {
-          if (init.method === 'POST') return new Response(JSON.stringify(${JSON.stringify(completion())}));
-          if (!url.endsWith('/models')) return new Response(JSON.stringify(metadata[url.endsWith('/endpoints/zdr') ? 2 : 1]));
-          let cursor = 0, sendEmpty = true;
-          return new Response(new ReadableStream({ pull(controller) {
-            if (sendEmpty) { controller.enqueue(empty); sendEmpty = false; return; }
-            if (cursor === payload.length) { controller.close(); return; }
-            fragment[0] = payload[cursor++]; reads++; controller.enqueue(fragment);
-          } }, { highWaterMark: 0 }));
-        } });
-      process.stdout.write(JSON.stringify({ status: result.status, metadataHash: result.metadataHashes?.models, reads, keyReads, fragmentAllocations }));
-    } finally { Buffer.from = originalFrom; await rm(dir, { recursive: true, force: true }); }
-  `;
-  const child = spawnSync(process.execPath, ['--input-type=module', '-e', source], { encoding: 'utf8', maxBuffer: 65536 });
+  const staticFixturePath = fileURLToPath(new URL('../fixtures/kimi-fragment-child.mjs', import.meta.url));
+  const input = JSON.stringify({ envelope: envelope(), metadata: fixtures(), rawMetadata, source: SOURCE, completion: completion() });
+  assert.ok(Buffer.byteLength(input) <= 131072, 'synthetic fixture input must fit its explicit byte cap');
+  const child = spawnSync(process.execPath, [staticFixturePath], { input, encoding: 'utf8', maxBuffer: 65536 });
   assert.equal(child.status, 0, child.stderr); const observed = JSON.parse(child.stdout);
   assert.equal(observed.status, 'complete'); assert.equal(observed.metadataHash, hash(rawMetadata));
   assert.equal(observed.reads, Buffer.byteLength(rawMetadata)); assert.equal(observed.keyReads, 1);
   assert.ok(observed.fragmentAllocations < 64, `retained-fragment copy path allocated ${observed.fragmentAllocations} Buffers`);
   t.diagnostic(JSON.stringify({ metadataBytes: Buffer.byteLength(rawMetadata), reads: observed.reads,
     fragmentBufferCopies: observed.fragmentAllocations, metadataHashMatches: observed.metadataHash === hash(rawMetadata) }));
+  const oversized = spawnSync(process.execPath, [staticFixturePath], { input: ' '.repeat(131073), encoding: 'utf8', maxBuffer: 65536 });
+  assert.notEqual(oversized.status, 0); assert.match(oversized.stderr, /fixture-input-too-large/);
 });
