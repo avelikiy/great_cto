@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import { spawnSync } from 'node:child_process';
 import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile, chmod } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -345,4 +346,110 @@ test('deleted new and index patch modes must agree with the declared source mode
     const r = await runKimiReview({ profile: 'kimi-readonly-v1', envelope: e, get apiKey() { assert.fail('mode mismatch accessed credential'); }, fetchImpl: () => assert.fail('mode mismatch fetched') });
     assert.equal(r.status, 'policy-denied'); assert.equal(r.verdict, null);
   }
+});
+
+test('raw selected fields deny quoted assignments before credential and HTTP access', async t => {
+  const { runKimiReview, buildKimiInputBinding } = requireApi();
+  const canary = randomBytes(24).toString('hex');
+  const assignments = [
+    `api_key = ${canary}`, `api_key = "${canary}"`, `api_key = '${canary}'`,
+    'api_key = ' + String.fromCharCode(96) + canary + String.fromCharCode(96),
+    JSON.stringify({ password: canary }), JSON.stringify({ password: canary }).replaceAll('"', '\\"'),
+    `"access_token" : '${canary}'`,
+  ];
+  for (const field of ['diff', 'spec', 'brief', 'projectContext']) for (const assignment of assignments) {
+    const { options, calls } = await runtime(t); const e = envelope(); let keyReads = 0;
+    if (field === 'diff') {
+      e.diff = DIFF.replace('+export const sum = (a, b) => a + b;', `+${assignment}`);
+      const bytes = `${assignment}\nexport const name = "sum";\n`;
+      await writeFile(path.join(options.root, 'src/sum.js'), bytes);
+      e.sourceBinding.manifest[0].sha256 = hash(bytes); e.sourceBinding.dirtyDiffHash = hash(e.diff);
+      e.sourceBinding.manifestHash = hash(JSON.stringify(e.sourceBinding.manifest));
+    } else if (field === 'spec') e.spec = assignment;
+    else { e.mode = 'architecture-alternative'; e.reason = 'architecture-alternative';
+      e.brief = 'A synthetic queue.'; e.projectContext = 'Explicit synthetic context.';
+      e[field] = assignment; e.sourceBinding.dirtyDiffHash = null;
+    }
+    options.envelope = e;
+    Object.defineProperty(options, 'apiKey', { get() { keyReads++; return 'example-synthetic-key'; } });
+    const r = await runKimiReview(options);
+    assert.equal(r.reasonCode, 'secret-detected', `${field}: quoted raw assignment must be denied`);
+    assert.equal(r.status, 'policy-denied'); assert.equal(r.verdict, null); assert.equal(keyReads, 0); assert.equal(calls.length, 0);
+    assert.throws(() => buildKimiInputBinding(e), /secret-detected/);
+  }
+});
+
+function deletedEnvelope(file = 'src/sum.js', start = 1, expectedBytes = 'obsolete();\n') {
+  const diff = `diff --git a/${file} b/${file}\ndeleted file mode 100644\nindex abcdef0..0000000\n--- a/${file}\n+++ /dev/null\n@@ -${start} +0,0 @@\n-obsolete();\n`;
+  const e = envelope({ diff }); e.sourceBinding.manifest[0].path = file;
+  e.sourceBinding.manifest[0].sha256 = hash(expectedBytes); e.sourceBinding.dirtyDiffHash = hash(diff);
+  e.sourceBinding.manifestHash = hash(JSON.stringify(e.sourceBinding.manifest)); return e;
+}
+
+test('full hash verified deletions allow missing parent suffixes', async t => {
+  const { runKimiReview } = requireApi();
+  for (const missing of ['src', 'src/gone', 'src/gone/deep']) {
+    const { options } = await runtime(t);
+    await rm(path.join(options.root, 'src'), { recursive: true, force: true });
+    if (missing !== 'src') await mkdir(path.join(options.root, 'src'), { mode: 0o700 });
+    if (missing === 'src/gone/deep') await mkdir(path.join(options.root, 'src/gone'), { mode: 0o700 });
+    options.envelope = deletedEnvelope(`${missing}/last.js`);
+    const r = await runKimiReview(options);
+    assert.equal(r.status, 'complete', `${missing}: ${r.reasonCode}`); assert.equal(r.verdict, 'PASS');
+  }
+});
+
+test('missing deletion parents never bypass existing symlinks non-directories or hash proof', async t => {
+  const { runKimiReview } = requireApi();
+  for (const problem of ['symlink', 'non-directory', 'partial', 'wrong-hash', 'not-deleted']) {
+    const { options, calls, dir } = await runtime(t);
+    await rm(path.join(options.root, 'src'), { recursive: true, force: true });
+    if (problem === 'symlink') await symlink(path.join(dir, 'missing-outside'), path.join(options.root, 'src'));
+    if (problem === 'non-directory') await writeFile(path.join(options.root, 'src'), 'not a directory');
+    options.envelope = problem === 'not-deleted' ? envelope()
+      : deletedEnvelope('src/gone/last.js', problem === 'partial' ? 2 : 1, problem === 'wrong-hash' ? 'different bytes' : 'obsolete();\n');
+    const r = await runKimiReview(options); assert.equal(r.status, 'policy-denied', problem); assert.equal(calls.length, 0);
+  }
+});
+
+test('one-byte streams copy UTF8 correctly without one Buffer allocation per fragment', t => {
+  const first = fixtures()[0]; first.padding = 'fragmented '.repeat(6000) + '漢💡';
+  const rawMetadata = JSON.stringify(first);
+  // Instrument allocation only in a dedicated process; no shared runner global is patched.
+  const source = `
+    import { runKimiReview } from ${JSON.stringify(new URL('../../scripts/lib/kimi-review-profile.mjs', import.meta.url).href)};
+    import { mkdtemp, mkdir, writeFile, rm, realpath } from 'node:fs/promises';
+    import { tmpdir } from 'node:os'; import path from 'node:path';
+    const parent = await realpath(tmpdir()); const dir = await mkdtemp(path.join(parent, 'kimi-fragments-'));
+    const root = path.join(dir, 'repo'), operatorRoot = path.join(dir, 'operator');
+    const metadata = ${JSON.stringify(fixtures())};
+    const payload = new TextEncoder().encode(${JSON.stringify(rawMetadata)});
+    const fragment = new Uint8Array(1), empty = new Uint8Array(0);
+    const originalFrom = Buffer.from; let fragmentAllocations = 0, reads = 0, keyReads = 0;
+    Buffer.from = function(...args) { if (args[0] === fragment || args[0] === empty) fragmentAllocations++; return originalFrom.apply(Buffer, args); };
+    try {
+      await mkdir(root, { mode: 0o700 }); await mkdir(operatorRoot, { mode: 0o700 });
+      await mkdir(path.join(root, 'src'), { mode: 0o700 }); await writeFile(path.join(root, 'src/sum.js'), ${JSON.stringify(SOURCE)}, { mode: 0o644 });
+      const result = await runKimiReview({ profile: 'kimi-readonly-v1', envelope: ${JSON.stringify(envelope())}, root, operatorRoot,
+        get apiKey() { keyReads++; return 'example-synthetic-key'; }, uuid: () => '12345678-1234-4234-8234-123456789abc', now: () => 1792843200000,
+        fetchImpl: async (url, init) => {
+          if (init.method === 'POST') return new Response(JSON.stringify(${JSON.stringify(completion())}));
+          if (!url.endsWith('/models')) return new Response(JSON.stringify(metadata[url.endsWith('/endpoints/zdr') ? 2 : 1]));
+          let cursor = 0, sendEmpty = true;
+          return new Response(new ReadableStream({ pull(controller) {
+            if (sendEmpty) { controller.enqueue(empty); sendEmpty = false; return; }
+            if (cursor === payload.length) { controller.close(); return; }
+            fragment[0] = payload[cursor++]; reads++; controller.enqueue(fragment);
+          } }, { highWaterMark: 0 }));
+        } });
+      process.stdout.write(JSON.stringify({ status: result.status, metadataHash: result.metadataHashes?.models, reads, keyReads, fragmentAllocations }));
+    } finally { Buffer.from = originalFrom; await rm(dir, { recursive: true, force: true }); }
+  `;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', source], { encoding: 'utf8', maxBuffer: 65536 });
+  assert.equal(child.status, 0, child.stderr); const observed = JSON.parse(child.stdout);
+  assert.equal(observed.status, 'complete'); assert.equal(observed.metadataHash, hash(rawMetadata));
+  assert.equal(observed.reads, Buffer.byteLength(rawMetadata)); assert.equal(observed.keyReads, 1);
+  assert.ok(observed.fragmentAllocations < 64, `retained-fragment copy path allocated ${observed.fragmentAllocations} Buffers`);
+  t.diagnostic(JSON.stringify({ metadataBytes: Buffer.byteLength(rawMetadata), reads: observed.reads,
+    fragmentBufferCopies: observed.fragmentAllocations, metadataHashMatches: observed.metadataHash === hash(rawMetadata) }));
 });
