@@ -120,6 +120,51 @@ test('Kimi partial or invalid usage stays Unknown, including absent zero counter
   assert.equal(priceUsage({ model: KIMI, usage: zero, prices: DEFAULT_PRICES }).usd, 0);
 });
 
+test('Kimi rejects contradictory or invalid present total token counts', () => {
+  for (const model of [KIMI, `${KIMI}-20261023`]) {
+    for (const total_tokens of [1, -1, 1200.5, '1200', null, undefined, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+      const usage = { ...kimiUsage(), total_tokens };
+      const p = priceUsage({ model, usage, prices: DEFAULT_PRICES });
+      assert.equal(p.usd, null, `invalid total ${String(total_tokens)} must not be priced`);
+      assert.equal(p.priced, false);
+      assert.equal(p.usageState, 'unknown');
+      assert.equal(p.costState, 'unknown');
+      assert.equal(costForUsage({ model, usage, prices: DEFAULT_PRICES }), null);
+    }
+    const p = priceUsage({ model, usage: { ...kimiUsage(), total_tokens: 1200 }, prices: DEFAULT_PRICES });
+    assert.equal(p.usd, 0.00328);
+    assert.equal(p.priced, true);
+    assert.equal(p.usageState, 'known');
+    assert.equal(p.costState, 'known');
+  }
+});
+
+test('Kimi rejects invalid present provider cost rather than treating it as absent', () => {
+  for (const model of [KIMI, `${KIMI}-20261023`]) {
+    for (const cost of [-1, NaN, Infinity, -Infinity, '0.005', null, undefined]) {
+      const usage = { ...kimiUsage(), cost };
+      const p = priceUsage({ model, usage, prices: DEFAULT_PRICES });
+      assert.equal(p.usd, null, `invalid cost ${String(cost)} must not be priced`);
+      assert.equal(p.priced, false);
+      assert.equal(p.providerReportedUsd, null);
+      assert.equal(p.usageState, 'unknown');
+      assert.equal(p.costState, 'unknown');
+      assert.equal(costForUsage({ model, usage, prices: DEFAULT_PRICES }), null);
+    }
+    for (const cost of [0, 0.005]) {
+      const p = priceUsage({ model, usage: { ...kimiUsage(), cost }, prices: DEFAULT_PRICES });
+      assert.equal(p.usd, 0.00328);
+      assert.equal(p.providerReportedUsd, cost);
+      assert.equal(p.costState, 'known');
+    }
+    const usage = kimiUsage(); delete usage.cost;
+    const p = priceUsage({ model, usage, prices: DEFAULT_PRICES });
+    assert.equal(p.usd, 0.00328);
+    assert.equal(p.providerReportedUsd, null);
+    assert.equal(p.costState, 'known');
+  }
+});
+
 test('cost CLI cannot print a measured zero for incomplete Kimi usage', () => {
   const r = spawnSync(process.execPath, [new URL('./cost-meter.mjs', import.meta.url).pathname,
     '--model', KIMI, '--in', '1000', '--out', '200'], { encoding: 'utf8',

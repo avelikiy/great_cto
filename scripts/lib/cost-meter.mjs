@@ -195,6 +195,8 @@ function priceKimiUsage({ model, usage, prices }) {
   const base = { model, source, assumed: false, providerReportedUsd, costProvenance: 'calculated-standard-token-rates' };
   if (source !== 'exact' || !price || ![price.input, price.output, price.cacheRead].every(n => Number.isFinite(n) && n >= 0)
       || ![input, output, cached, reasoning].every(n => Number.isSafeInteger(n) && n >= 0)
+      || (Object.hasOwn(usage, 'total_tokens') && (!Number.isSafeInteger(usage.total_tokens) || usage.total_tokens !== input + output))
+      || (Object.hasOwn(usage, 'cost') && providerReportedUsd === null)
       || cached > input || reasoning > output) {
     return { ...base, usd: null, priced: false, usageState: 'unknown', costState: 'unknown' };
   }
