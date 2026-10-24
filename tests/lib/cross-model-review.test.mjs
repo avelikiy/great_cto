@@ -155,7 +155,7 @@ function profileFixture(t, output = { version: 1, mode: 'diff-review', summary: 
   const calls = [];
   return { root, file, envelope, calls, options: { argv: ['--profile', 'kimi-readonly-v1', '--envelope', file,
     '--task', 'synthetic-review', '--context-class', 'synthetic', '--reason', 'explicit-review', '--root', root,
-    '--operator-root', path.join(dir, 'operator')], env: { OPENROUTER_API_KEY: 'synthetic-placeholder' },
+    '--operator-root', path.join(dir, 'operator')], env: { OPENROUTER_API_KEY: 'example-synthetic-key' },
     now: () => 1792843200000, fetchImpl: async (url, init) => { calls.push({ url, init });
       return new Response(JSON.stringify(init.method === 'POST' ? { model, provider: 'Moonshot',
         choices: [{ finish_reason: finish, message: { content: JSON.stringify(output) } }],

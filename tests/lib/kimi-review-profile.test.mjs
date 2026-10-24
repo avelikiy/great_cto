@@ -51,7 +51,7 @@ async function runtime(t, response = completion(), modifyMetadata = null) {
   const calls = [], metadata = fixtures();
   modifyMetadata?.(metadata);
   return { calls, dir, options: { profile: 'kimi-readonly-v1', envelope: envelope(), root: path.join(dir, 'repo'),
-    operatorRoot: path.join(dir, 'operator'), apiKey: 'synthetic-test-key',
+    operatorRoot: path.join(dir, 'operator'), apiKey: 'example-synthetic-key',
     uuid: () => '12345678-1234-4234-8234-123456789abc', now: () => 1792843200000,
     fetchImpl: async (url, options) => { calls.push({ url, options });
       const metadataIndex = url.endsWith('/models') ? 0 : url.endsWith('/endpoints/zdr') ? 2 : 1;
@@ -105,7 +105,7 @@ test('fresh pinned metadata and sole POST produce bound private advisory output'
   for (const key of ['temperature', 'top_p', 'tools', 'tool_choice', 'plugins', 'transforms', 'stop']) assert.equal(Object.hasOwn(body, key), false);
   for (const call of calls.slice(0, 3)) assert.equal(call.options.headers?.Authorization, undefined);
   const persisted = await readFile(result.privateReportPath, 'utf8');
-  assert.ok(persisted.includes('The arithmetic change')); assert.equal(persisted.includes('synthetic-test-key'), false);
+  assert.ok(persisted.includes('The arithmetic change')); assert.equal(persisted.includes('example-synthetic-key'), false);
   assert.equal(verifyKimiBinding({ ...result, verdict: 'BLOCK' }, options.envelope), false);
   assert.equal(verifyKimiBinding(result, envelope({ spec: 'changed rubric' })), false);
   assert.equal(verifyKimiBinding(result, envelope({ acceptanceHash: hash('rubric-v2') })), false);
@@ -259,9 +259,9 @@ test('malformed JSON is invalid and an echoed credential is never a report', asy
     options.fetchImpl = (url, init) => init.method === 'POST' ? new Response(raw) : original(url, init);
     const r = await runKimiReview(options); assert.equal(r.status, 'invalid'); assert.equal(r.verdict, null);
   }
-  const { options } = await runtime(t, completion({ ...validReview(), summary: 'synthetic-test-key' }));
+  const { options } = await runtime(t, completion({ ...validReview(), summary: 'example-synthetic-key' }));
   const r = await runKimiReview(options); assert.equal(r.status, 'invalid'); assert.equal(r.result, null);
-  assert.equal(JSON.stringify(r).includes('synthetic-test-key'), false);
+  assert.equal(JSON.stringify(r).includes('example-synthetic-key'), false);
 });
 
 test('elapsed preflight deadline prevents POST even before the timer callback runs', async t => {

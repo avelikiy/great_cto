@@ -201,7 +201,7 @@ function extraRuntime() {
   const calls = [], result = { version: 1, mode: 'architecture-alternative', decision: 'PRIVATE_SYNTHETIC_DRAFT',
     alternatives: [{ name: 'Queue', mechanism: 'Bounded queue.', tradeoff: 'Storage.', failureMode: 'Backlog.' },
       { name: 'Direct', mechanism: 'Synchronous.', tradeoff: 'Latency.', failureMode: 'Timeout.' }], risks: ['Bound capacity.'], openQuestions: [] };
-  return { dir, envelope, calls, runtime: { operatorRoot: path.join(dir, 'operator'), apiKey: 'synthetic-placeholder',
+  return { dir, envelope, calls, runtime: { operatorRoot: path.join(dir, 'operator'), apiKey: 'example-synthetic-key',
     now: () => 1792843200000, fetchImpl: async (url, init) => { calls.push({ url, init });
       return new Response(JSON.stringify(init.method === 'POST' ? { model, provider: 'Moonshot',
         choices: [{ finish_reason: 'stop', message: { content: JSON.stringify(result) } }],
@@ -246,7 +246,7 @@ test('council extra root validation precedes credential lookup', async () => {
   const r = await runCouncil({ root: x.dir, feature: 'synthetic', projectMd: OPENROUTER_ONLY(),
     env: ENV, askers: { openrouter: recorder('native').ask },
     extraProfiles: [{ profile: 'kimi-readonly-v1', envelope: x.envelope }],
-    kimiRuntime: { operatorRoot: linked, get apiKey() { keyReads++; return 'synthetic-placeholder'; }, fetchImpl: x.runtime.fetchImpl } });
+    kimiRuntime: { operatorRoot: linked, get apiKey() { keyReads++; return 'example-synthetic-key'; }, fetchImpl: x.runtime.fetchImpl } });
   assert.equal(keyReads, 0);
   assert.equal(r.extraMembers[0].state, 'skipped');
   assert.equal(x.calls.length, 0);
@@ -258,7 +258,7 @@ test('council does not eagerly spread an extra credential before source verifica
   const r = await runCouncil({ root: x.dir, feature: 'synthetic', projectMd: OPENROUTER_ONLY(),
     env: ENV, askers: { openrouter: recorder('native').ask }, extraProfiles: [{ profile: 'kimi-readonly-v1', envelope: x.envelope }],
     kimiRuntime: { operatorRoot: x.runtime.operatorRoot, fetchImpl: x.runtime.fetchImpl,
-      get apiKey() { keyReads++; return 'synthetic-placeholder'; } } });
+      get apiKey() { keyReads++; return 'example-synthetic-key'; } } });
   assert.equal(keyReads, 0);
   assert.equal(r.extraMembers[0].state, 'skipped');
   assert.equal(x.calls.length, 0);
