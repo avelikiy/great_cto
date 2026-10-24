@@ -164,7 +164,7 @@ from ambient project files, home settings or transcripts.
 | Complete advisory PASS | 0 | Valid scoped diff review, no gate authority |
 | Complete advisory BLOCK | 1 | Valid scoped diff review reporting a blocking finding |
 | Invalid invocation | 2 | No usable explicit selection or envelope |
-| Noncomplete review | 3 | Null verdict; unavailable, denied, incomplete, invalid or failed |
+| Noncomplete review | 3 | Null verdict; timeout, unavailable, denied, incomplete, invalid or failed |
 
 Status output contains counts and hashes, while findings remain in private
 runtime reports. The profile never appends to `.great_cto/cross-review.log`.
@@ -191,14 +191,42 @@ million cache reads. Cache reads are a subset of prompt tokens;
 reasoning is already included in completion tokens. Calculated token cost and
 provider-reported cost retain separate provenance. Missing or partial usage is
 Unknown, never a measured zero. Each admitted call reserves $0.25 against local
-task/operator caps before sending; a timeout or lost response retains that
-reservation and does not trigger an automatic retry. The reservation is an
+task/operator caps before sending. A lost or incompletely accounted response
+retains the full reservation. A timeout after complete, durable accounting keeps
+the known charge and releases only the unused reservation; timeout does not make
+an incurred charge Unknown. Neither case triggers an automatic retry. The reservation is an
 accounting control, not a hard billing guarantee. Existing task and operator
 runtime directories must already be owned by the caller and private (`0700`);
-unsafe existing permissions are rejected, not silently changed. The 180-second
-cancellation deadline covers admission checkpoints and HTTP headers/body;
-synchronous filesystem durability can delay the final return beyond that
-deadline. This is not a hard wall-clock completion guarantee.
+unsafe existing permissions are rejected, not silently changed.
+
+One monotonic deadline starts when the profile is explicitly selected, before
+input preparation, and covers admission checkpoints and HTTP headers/body. The
+production budget is 180 seconds. After the candidate and required evidence and
+accounting are durable, a final direct clock sample decides whether advice may
+be returned. At or beyond the deadline, an otherwise complete candidate becomes
+`timeout` / `deadline-exceeded`, with null verdict/result and no normalized
+review. Known usage, charges and the private validated report remain available.
+Caller cancellation observed at this checkpoint suppresses advice in the same
+way; expiry takes precedence over cancellation. Budget breach and persistence
+uncertainty retain their existing failure and accounting protections. Synchronous
+filesystem durability and scheduling can delay physical return beyond the
+deadline. There is no hard wall-clock completion guarantee or background worker.
+
+Response validation, accounting settlement and caller eligibility are separate
+facts. New private metadata uses `evidenceVersion: 2`, `responseState`
+(`validated`, `invalid`, or `incomplete`), the bounded `deadlineMs`, and
+`validatedElapsedMs` (null until validation; it may exceed the deadline).
+`callerOutcome` remains `not-recorded`. Validated evidence has status `validated`
+and reason `response-validated`; it does not record a predicted caller success.
+A real report and complete valid usage must be durable before known accounting
+releases the unused reserve. A validated report with incomplete usage keeps its
+full unresolved hold. Ledger `complete` describes accounting, not timely advice.
+Reading evidence after restart never upgrades it to PASS, a council draft or
+authority to send again. Unsupported evidence versions fail closed. Legacy
+metadata and report bytes and hashes remain unchanged and gain no new deadline
+guarantee; late reports are for explicit private inspection. The profile binding
+includes the immutable deadline policy, so results from the previous policy are
+stale against the current profile.
 Live compatibility, latency,
 quality improvement and release eligibility remain unverified by offline tests.
 

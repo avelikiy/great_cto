@@ -17,6 +17,7 @@ const METADATA_KEYS = new Set([
   'inputDigest', 'manifestHash', 'acceptanceHash', 'sourceSha', 'taskId',
   'mode', 'contextClass', 'reason', 'requestId', 'advisory', 'metadataCheckedAt',
   'httpStatus', 'diagnosticCount',
+  'evidenceVersion', 'responseState', 'deadlineMs', 'validatedElapsedMs', 'callerOutcome',
 ]);
 const USAGE_KEYS = new Set([
   'promptTokens', 'completionTokens', 'reasoningTokens', 'cacheReadTokens',
@@ -230,6 +231,17 @@ function completeUsage(value) {
 function safeMetadata(metadata) {
   const result = {};
   if (!isObject(metadata)) return result;
+  if (Object.hasOwn(metadata, 'evidenceVersion')) {
+    if (metadata.evidenceVersion !== 2 || !['validated', 'invalid', 'incomplete'].includes(metadata.responseState) ||
+        !Number.isSafeInteger(metadata.deadlineMs) || metadata.deadlineMs <= 0 || metadata.deadlineMs > 180000 ||
+        metadata.callerOutcome !== 'not-recorded' || (metadata.responseState === 'validated'
+          ? !finiteCost(metadata.validatedElapsedMs) || metadata.validatedElapsedMs > Number.MAX_SAFE_INTEGER
+          : metadata.validatedElapsedMs !== null) || metadata.status === 'complete') fail('evidence-invalid');
+  } else if (['responseState', 'deadlineMs', 'validatedElapsedMs', 'callerOutcome'].some(key => Object.hasOwn(metadata, key))) {
+    fail('evidence-invalid');
+  }
+  if (metadata.status === 'validated' && (metadata.evidenceVersion !== 2 || metadata.responseState !== 'validated' ||
+      metadata.reasonCode !== 'response-validated')) fail('evidence-invalid');
   for (const [key, value] of Object.entries(metadata)) {
     if (METADATA_KEYS.has(key)) {
       if (value === null || typeof value === 'boolean' || finiteCost(value)) result[key] = value;
@@ -329,6 +341,7 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
   async function begin(request) {
     try {
       if (!validIdentity(request)) fail('invalid-input');
+      const metadata = safeMetadata(request.metadata);
       const token = { version: 1, taskId: request.taskId, taskHash: hashTask(request.taskId),
         requestId: request.requestId, bindingDigest: request.bindingDigest, reservationUsd: HOLD };
       return transaction(token, (ledger, locations, timestamp) => {
@@ -345,7 +358,7 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
         fs.mkdirSync(locations.requestDir, { mode: 0o700 });
         checkedDirectory(locations.requestDir, { privateMode: true });
         syncDirectory(locations.taskDir);
-        atomicJson(locations.metadataFile, { ...safeMetadata(request.metadata), taskId: token.taskId,
+        atomicJson(locations.metadataFile, { ...metadata, taskId: token.taskId,
           requestId: token.requestId, bindingDigest: token.bindingDigest, reservationUsd: HOLD });
         record.state = 'reserved';
         writeTask(ledger, locations);
@@ -383,7 +396,7 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
         const provenNoSend = record.state === 'reserved' && !record.sent && outcome.sent === false &&
           outcome.costState === 'not-incurred' && outcome.costUsd === 0;
         const knownCost = ['known', 'breach'].includes(outcome.costState) && finiteCost(outcome.costUsd);
-        const usableReport = outcome.status !== 'complete' || isObject(outcome.report);
+        const usableReport = !['complete', 'validated'].includes(outcome.status) || isObject(outcome.report);
         const validUsage = completeUsage(outcome.usage);
         const canAccount = knownCost && usableReport && validUsage;
         record.sent = record.sent || outcome.sent === true;
@@ -396,8 +409,8 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
         const priorMetadata = readJson(locations.metadataFile);
         if (!isObject(priorMetadata)) fail('ledger-invalid');
         // Required evidence and the secondary accounting must be durable before a release.
-        const finalMetadata = { ...safeMetadata(priorMetadata), ...safeMetadata(outcome.metadata),
-          ...safeMetadata({ status: outcome.status }), costState: canAccount ? (outcome.costUsd > HOLD ? 'breach' : 'known') :
+        const finalMetadata = { ...safeMetadata({ ...safeMetadata(priorMetadata), ...safeMetadata(outcome.metadata),
+          status: outcome.status }), costState: canAccount ? (outcome.costUsd > HOLD ? 'breach' : 'known') :
             provenNoSend ? 'not-incurred' : 'Unknown', costUsd: canAccount ? outcome.costUsd : null,
           usage: safeUsage(outcome.usage) };
         const finalReport = outcome.report ?? null;
@@ -433,6 +446,7 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
         if (record.state === 'preparing') fail('persistence-failed');
         const metadata = readJson(locations.metadataFile);
         if (!isObject(metadata)) fail('ledger-invalid');
+        safeMetadata(metadata);
         const loadedReport = readJson(locations.reportFile, { missing: true });
         const report = loadedReport === MISSING ? null : loadedReport;
         if (record.evidence !== null && (record.evidence.metadataSha256 !== hashJson(metadata) ||
@@ -441,7 +455,7 @@ export function createKimiReviewStore({ root, operatorRoot, now = () => Date.now
         // Its completed status must never turn an unresolved hold into a successful result.
         const authoritativeMetadata = { ...metadata, costState: record.costState,
           costUsd: record.costUsd, reservationUsd: record.reservationUsd };
-        if (ACTIVE.has(record.state) && record.evidence === null && metadata.status === 'complete') {
+        if (ACTIVE.has(record.state) && record.evidence === null && ['complete', 'validated'].includes(metadata.status)) {
           authoritativeMetadata.status = 'failed';
           authoritativeMetadata.reasonCode = 'persistence-failed';
         }

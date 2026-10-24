@@ -3,6 +3,7 @@
 // a temp project, so nothing is written into this repository.
 
 import { test, after } from 'node:test';
+import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, readFileSync, existsSync, rmSync, realpathSync, symlinkSync, writeFileSync } from 'node:fs';
@@ -280,4 +281,46 @@ test('extra council unavailable failed and denied outcomes remain distinct witho
     assert.equal(r.manifest.total, 1); assert.equal(r.manifest.drafted, 1);
     assert.doesNotMatch(JSON.stringify(r), /PRIVATE_ERROR_BODY/);
   }
+});
+
+test('known-cost late extra remains failed and private without native council quorum changes', () => {
+  const x = extraRuntime();
+  const program = `
+import fs from 'node:fs'; import path from 'node:path';
+let text = ''; for await (const chunk of process.stdin) { text += chunk; if (Buffer.byteLength(text) > 131072) throw Error('fixture-input-too-large'); }
+const {dir,envelope} = JSON.parse(text), operatorRoot = path.join(dir,'operator');
+let elapsed = 0, posts = 0; Object.defineProperty(performance,'now',{value:()=>elapsed});
+const rename = fs.renameSync; fs.renameSync = (...args)=> { const r=rename(...args); if(String(args[1]).endsWith('/report.json')) elapsed=1000; return r; };
+const {runCouncil} = await import(process.argv[1]);
+const model='moonshotai/kimi-k3.1-pro',canonical=model+'-20261023',tag='moonshotai/mxfp4';
+const pricing={prompt:'0.000002',completion:'0.00001',input_cache_read:'0.0000002'},supported_parameters=['reasoning','max_tokens','structured_outputs','response_format'];
+const metadata=[{data:[{id:model,canonical_slug:canonical,pricing,supported_parameters,reasoning:{supported_efforts:['low']}}]},
+ {data:{id:model,endpoints:[{tag,provider_name:'Moonshot',name:'Moonshot | '+canonical,pricing,supported_parameters,status:0}]}},
+ {data:[{model_id:model,tag,provider_name:'Moonshot'}]}];
+const report={version:1,mode:'architecture-alternative',decision:'PRIVATE_LATE_DRAFT',alternatives:[
+ {name:'Queue',mechanism:'Bounded queue.',tradeoff:'Storage.',failureMode:'Backlog.'},
+ {name:'Direct',mechanism:'Synchronous.',tradeoff:'Latency.',failureMode:'Timeout.'}],risks:['Bound capacity.'],openQuestions:[]};
+const result=await runCouncil({root:dir,feature:'late-extra',projectMd:'council: arch\\ncouncil-members: openrouter\\n',
+ env:{OPENROUTER_API_KEY:'example-synthetic-key',GREAT_CTO_COUNCIL_MODEL:'anthropic/claude-sonnet-4'},
+ askers:{openrouter:async()=>({state:'ok',text:'NATIVE_DRAFT',usage:null,model:'anthropic/claude-sonnet-4'})},
+ extraProfiles:[{profile:'kimi-readonly-v1',envelope}],kimiRuntime:{operatorRoot,apiKey:'example-synthetic-key',now:()=>1792843200000,timeoutMs:1000,
+ fetchImpl:async(url,init)=>{if(init.method==='POST')posts++;return new Response(JSON.stringify(init.method==='POST'
+ ?{model,provider:'Moonshot',choices:[{finish_reason:'stop',message:{content:JSON.stringify(report)}}],usage:{prompt_tokens:100,completion_tokens:20,prompt_tokens_details:{cached_tokens:0},completion_tokens_details:{reasoning_tokens:0}}}
+ :metadata[url.endsWith('/models')?0:url.endsWith('/endpoints/zdr')?2:1]));}}});
+const extra=result.extraMembers[0],record=JSON.parse(fs.readFileSync(path.join(operatorRoot,'kimi-review-ledger.json'),'utf8')).requests[0];
+console.log(JSON.stringify({result,posts,record,privateReport:JSON.parse(fs.readFileSync(extra.privateReportPath,'utf8')),
+ tracked:fs.readFileSync(path.join(dir,'docs/architecture/council/late-extra/council.json'),'utf8')}));
+`;
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', program,
+    new URL('../../scripts/lib/council.mjs', import.meta.url).href],
+  { input: JSON.stringify({ dir: x.dir, envelope: x.envelope }), encoding: 'utf8', maxBuffer: 65536 });
+  assert.equal(child.status, 0, child.stderr);
+  const observed = JSON.parse(child.stdout), extra = observed.result.extraMembers[0];
+  assert.equal(extra.state, 'failed'); assert.equal(extra.status, 'timeout'); assert.equal(extra.why, 'deadline-exceeded');
+  assert.equal(extra.verdict, null); assert.equal(extra.cost.state, 'known');
+  assert.ok(Math.abs(extra.cost.usd - 0.0004) < 1e-12); assert.ok(extra.privateReportPath);
+  assert.equal(observed.record.state, 'complete'); assert.equal(observed.record.reservationUsd, 0); assert.equal(observed.posts, 1);
+  assert.equal(observed.privateReport.decision, 'PRIVATE_LATE_DRAFT');
+  assert.equal(observed.result.manifest.total, 1); assert.equal(observed.result.manifest.drafted, 1);
+  assert.doesNotMatch(observed.tracked, /kimi|PRIVATE_LATE_DRAFT|privateReportPath/);
 });

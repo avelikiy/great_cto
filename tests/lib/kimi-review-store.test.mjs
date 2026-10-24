@@ -610,3 +610,74 @@ test('partial, negative and inconsistent raw usage always retains Unknown full h
     assert.equal(read.reservation.costState, 'Unknown');
   }
 });
+
+const evidenceV2 = (responseState = 'validated') => ({ evidenceVersion: 2, responseState,
+  deadlineMs: 1000, validatedElapsedMs: responseState === 'validated' ? 1001.5 : null,
+  callerOutcome: 'not-recorded' });
+const validated = () => ({ ...finished(), status: 'validated', metadata: { ...finished().metadata,
+  ...evidenceV2(), status: 'validated', reasonCode: 'response-validated' } });
+
+test('validated v2 evidence settles accounting without recording caller delivery on restart', async t => {
+  const f = fixture(t), s = f.store(), { token } = await s.begin({ ...input(), metadata: evidenceV2('incomplete') });
+  await s.markSent(token);
+  assert.equal((await s.finish(token, validated())).ok, true);
+  const metadataFile = path.join(requestPath(f, token), 'metadata.json');
+  const before = fs.readFileSync(metadataFile);
+  const read = await f.store().read(token);
+  assert.equal(read.metadata.evidenceVersion, 2);
+  assert.equal(read.metadata.status, 'validated');
+  assert.equal(read.metadata.reasonCode, 'response-validated');
+  assert.equal(read.metadata.responseState, 'validated');
+  assert.equal(read.metadata.validatedElapsedMs, 1001.5);
+  assert.equal(read.metadata.callerOutcome, 'not-recorded');
+  assert.equal(read.reservation.state, 'complete');
+  assert.equal(read.reservation.costUsd, 0.1);
+  assert.equal(read.reservation.reservationUsd, 0);
+  assert.deepEqual(fs.readFileSync(metadataFile), before);
+});
+
+test('validated evidence without a real report never releases known-cost reservation', async t => {
+  for (const report of [null, [], 'not a report']) {
+    const f = fixture(t), s = f.store(), { token } = await s.begin(input());
+    await s.markSent(token);
+    await s.finish(token, { ...validated(), report });
+    const record = readLedger(f).requests[0];
+    assert.equal(record.state, 'Unknown');
+    assert.equal(record.costUsd, 0.1);
+    assert.equal(record.reservationUsd, 0.25);
+  }
+});
+
+test('validated private report with incomplete usage retains its full hold and evidence', async t => {
+  const f = fixture(t), s = f.store(), { token } = await s.begin(input());
+  await s.markSent(token);
+  assert.equal((await s.finish(token, { ...validated(), usage: null })).ok, true);
+  const read = await f.store().read(token);
+  assert.equal(read.metadata.responseState, 'validated');
+  assert.equal(read.metadata.callerOutcome, 'not-recorded');
+  assert.equal(read.reservation.reservationUsd, 0.25);
+  assert.deepEqual(read.report, validated().report);
+});
+
+test('unsupported or malformed evidence versions fail closed before admission', async t => {
+  const f = fixture(t), s = f.store();
+  for (const change of [{ evidenceVersion: 3 }, { evidenceVersion: '2' }, { responseState: 'complete' },
+    { callerOutcome: 'complete' }, { deadlineMs: 180001 }, { deadlineMs: 0 },
+    { validatedElapsedMs: -1 }, { validatedElapsedMs: Infinity }, { responseState: 'invalid' }]) {
+    const result = await s.begin({ ...input(), metadata: { ...evidenceV2(), ...change } });
+    assert.equal(result.ok, false, JSON.stringify(change));
+  }
+  assert.equal(fs.existsSync(operatorPath(f)), false);
+});
+
+test('legacy evidence keeps original bytes and hashes without a new delivery claim', async t => {
+  const f = fixture(t), s = f.store(), { token } = await s.begin(input());
+  await s.markSent(token); await s.finish(token, finished());
+  const files = ['metadata.json', 'report.json'].map(name => path.join(requestPath(f, token), name));
+  const before = files.map(file => fs.readFileSync(file));
+  const evidence = structuredClone(readLedger(f).requests[0].evidence);
+  const read = await f.store().read(token);
+  assert.equal(read.ok, true); assert.equal(read.metadata.evidenceVersion, undefined);
+  assert.deepEqual(files.map(file => fs.readFileSync(file)), before);
+  assert.deepEqual(read.reservation.evidence, evidence);
+});

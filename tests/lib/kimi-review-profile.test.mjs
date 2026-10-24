@@ -430,3 +430,122 @@ test('one-byte streams copy UTF8 correctly without one Buffer allocation per fra
   const oversized = spawnSync(process.execPath, [staticFixturePath], { input: ' '.repeat(131073), encoding: 'utf8', maxBuffer: 65536 });
   assert.notEqual(oversized.status, 0); assert.match(oversized.stderr, /fixture-input-too-large/);
 });
+
+// Isolate clock/fs instrumentation; fixture data crosses stdin, never program text.
+const finalizationChild = `
+import fs from 'node:fs';
+import path from 'node:path';
+let input = '';
+for await (const chunk of process.stdin) { input += chunk; if (Buffer.byteLength(input) > 131072) throw Error('fixture-input-too-large'); }
+const c = JSON.parse(input), calls = [], states = [];
+let elapsed = 0, deadlineDelay = null;
+Object.defineProperty(performance, 'now', { value: () => elapsed });
+const schedule = globalThis.setTimeout;
+globalThis.setTimeout = (callback, delay, ...args) => { deadlineDelay ??= delay; return schedule(callback, delay, ...args); };
+const controller = new AbortController(), rename = fs.renameSync;
+fs.renameSync = (...args) => {
+  const result = rename(...args);
+  if (String(args[1]).endsWith('/report.json')) {
+    elapsed = c.elapsed;
+    if (c.cancel) controller.abort();
+  }
+  if (String(args[1]).endsWith('/kimi-review-ledger.json')) {
+    states.push(JSON.parse(fs.readFileSync(args[1], 'utf8')).requests[0].state);
+  }
+  return result;
+};
+const {runKimiReview, verifyKimiBinding} = await import(process.argv[1]);
+const options = { profile: 'kimi-readonly-v1', root: c.root, operatorRoot: c.operatorRoot,
+  get envelope() { if (c.prepareDelay) elapsed = c.prepareDelay; return c.envelope; },
+  apiKey: 'example-synthetic-key', uuid: () => '12345678-1234-4234-8234-123456789abc',
+  now: () => 1792843200000, signal: controller.signal, timeoutMs: 1000,
+  fetchImpl: async (url, init) => {
+    calls.push(init.method);
+    return new Response(JSON.stringify(init.method === 'POST' ? c.response : c.metadata[url.endsWith('/models') ? 0 : url.endsWith('/endpoints/zdr') ? 2 : 1]));
+  } };
+const result = await runKimiReview(options);
+const metadata = result.privateReportPath ? JSON.parse(fs.readFileSync(path.join(path.dirname(result.privateReportPath), 'metadata.json'), 'utf8')) : null;
+const report = result.privateReportPath ? JSON.parse(fs.readFileSync(result.privateReportPath, 'utf8')) : null;
+const ledgerFile = path.join(c.operatorRoot, 'kimi-review-ledger.json');
+const record = fs.existsSync(ledgerFile) ? JSON.parse(fs.readFileSync(ledgerFile, 'utf8')).requests[0] : null;
+console.log(JSON.stringify({ result, metadata, report, record, states, deadlineDelay, posts: calls.filter(method => method === 'POST').length,
+  normalizedPresent: Object.hasOwn(result, 'normalizedReview'), bindingValid: verifyKimiBinding(result, c.envelope) }));
+`;
+
+async function finalization(t, changes = {}) {
+  const { options } = await runtime(t);
+  const data = { root: options.root, operatorRoot: options.operatorRoot, envelope: options.envelope,
+    metadata: fixtures(), response: completion(), elapsed: 999, ...changes };
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', finalizationChild,
+    new URL('../../scripts/lib/kimi-review-profile.mjs', import.meta.url).href],
+  { input: JSON.stringify(data), encoding: 'utf8', maxBuffer: 65536 });
+  assert.equal(child.status, 0, child.stderr);
+  return JSON.parse(child.stdout);
+}
+
+test('final direct clock sample rejects equal and expired deadlines after one durable settlement', async t => {
+  for (const elapsed of [999, 1000, 1001]) {
+    const x = await finalization(t, { elapsed });
+    assert.equal(x.result.status, elapsed === 999 ? 'complete' : 'timeout');
+    assert.equal(x.result.verdict, elapsed === 999 ? 'PASS' : null);
+    assert.equal(x.bindingValid, elapsed === 999);
+    assert.equal(x.result.costState, 'known'); assert.equal(x.record.costState, 'known');
+    assert.equal(x.record.reservationUsd, 0); assert.equal(x.posts, 1);
+    assert.equal(x.states.filter(state => state === 'Unknown').length, 1);
+    assert.equal(x.states.filter(state => state === 'complete').length, 1);
+    assert.equal(x.metadata.status, 'validated'); assert.equal(x.metadata.reasonCode, 'response-validated');
+    assert.equal(x.metadata.evidenceVersion, 2); assert.equal(x.metadata.callerOutcome, 'not-recorded');
+    assert.equal(x.metadata.responseState, 'validated'); assert.deepEqual(x.report, validReview());
+    if (elapsed >= 1000) {
+      assert.equal(x.result.reasonCode, 'deadline-exceeded'); assert.equal(x.result.result, null);
+      assert.equal(x.normalizedPresent, false);
+    }
+    const { terminalHash, ...returned } = x.result;
+    assert.equal(terminalHash, hash(JSON.stringify(returned)));
+  }
+});
+
+test('caller cancellation during durable finish suppresses advice without another finish', async t => {
+  for (const elapsed of [999, 1000]) {
+    const x = await finalization(t, { elapsed, cancel: true });
+    assert.equal(x.result.status, elapsed === 999 ? 'failed' : 'timeout');
+    assert.equal(x.result.reasonCode, elapsed === 999 ? 'caller-cancelled' : 'deadline-exceeded');
+    assert.equal(x.result.verdict, null); assert.equal(x.result.result, null); assert.equal(x.normalizedPresent, false);
+    assert.equal(x.result.costState, 'known'); assert.ok(x.result.privateReportPath);
+    assert.equal(x.states.filter(state => state === 'Unknown').length, 1);
+    assert.equal(x.record.state, 'complete'); assert.equal(x.posts, 1);
+  }
+});
+
+test('deadline begins before envelope preparation and cannot grant a late POST', async t => {
+  const x = await finalization(t, { prepareDelay: 1001 });
+  assert.equal(x.result.status, 'timeout'); assert.equal(x.result.verdict, null);
+  assert.equal(x.posts, 0); assert.equal(x.record, null);
+});
+
+test('transport cancellation timer uses the invocation deadline remaining after preparation', async t => {
+  const x = await finalization(t, { prepareDelay: 900, elapsed: 999 });
+  assert.equal(x.deadlineDelay, 100);
+});
+
+test('late validated evidence preserves breach authority and Unknown holds', async t => {
+  for (const [usage, costState, reserve] of [[{ ...completion().usage, cost: 0.3 }, 'breach', 0],
+    [null, 'Unknown', 0.25]]) {
+    const x = await finalization(t, { elapsed: 1001, response: completion(validReview(), { usage }) });
+    assert.equal(x.result.status, costState === 'breach' ? 'failed' : 'timeout');
+    assert.equal(x.result.reasonCode, costState === 'breach' ? 'budget-breach' : 'deadline-exceeded');
+    assert.equal(x.record.costState, costState); assert.equal(x.record.reservationUsd, reserve);
+    assert.ok(x.metadata, 'validated report must retain a private evidence reference even on breach');
+    assert.equal(x.metadata.responseState, 'validated'); assert.deepEqual(x.report, validReview());
+    assert.equal(x.result.verdict, null); assert.equal(x.result.result, null); assert.equal(x.normalizedPresent, false);
+  }
+});
+
+test('timely architecture evidence is validated and retains a null caller verdict', async t => {
+  const e = envelope({ mode: 'architecture-alternative', reason: 'architecture-alternative', brief: 'Bound work.', projectContext: 'Synthetic.',
+    sourceBinding: { ...envelope().sourceBinding, dirtyDiffHash: null } });
+  const x = await finalization(t, { envelope: e, response: completion(architecture()) });
+  assert.equal(x.result.status, 'complete'); assert.equal(x.result.verdict, null);
+  assert.equal(x.metadata.status, 'validated'); assert.equal(x.metadata.validatedElapsedMs, 0);
+  assert.deepEqual(x.report, architecture());
+});

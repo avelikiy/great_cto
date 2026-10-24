@@ -34,6 +34,8 @@ export const KIMI_PROFILE = freeze({ version: 1, id: 'kimi-readonly-v1', model: 
     'https://openrouter.ai/api/v1/models', 'https://openrouter.ai/api/v1/models/moonshotai/kimi-k3.1-pro/endpoints',
     'https://openrouter.ai/api/v1/endpoints/zdr'],
   timeoutMs: 180000, inputLimitBytes: 65536, responseLimitBytes: 262144, metadataLimitBytes: 8388608,
+  deadlinePolicy: { version: 1, origin: 'selected-invocation-entry', eligibility: 'after-durable-accounting',
+    expiredAt: 'elapsed-greater-than-or-equal', physicalReturnBound: false },
   maxTokens: 8192, reservationUsd: 0.25, price: { prompt: 0.000002, completion: 0.00001, cacheRead: 0.0000002 },
   inputPolicy: { version: 2, secretPatternSources: secretPatterns.map(pattern => pattern.source), secretPatternFlags: 'i',
     selectedStringFields: { 'diff-review': ['diff', 'spec'], 'architecture-alternative': ['brief', 'projectContext'] } },
@@ -398,6 +400,7 @@ export async function runKimiReview(options = {}) {
   // Do not destructure capabilities until the caller has explicitly selected this profile.
   const profile = options.profile ?? null;
   if (profile === null) return baseTerminal();
+  const startedMonotonic = performance.now();
   let terminal = { ...baseTerminal(), requestedModel: KIMI_PROFILE.model, requestedEndpoint: KIMI_PROFILE.endpoint };
   const early = code => ({ ...terminal, status: 'policy-denied', reasonCode: code });
   if (profile !== KIMI_PROFILE.id) return early('unknown-profile');
@@ -407,15 +410,17 @@ export async function runKimiReview(options = {}) {
   const { envelope, root, operatorRoot, fetchImpl, now = Date.now, uuid = randomUUID, signal, timeoutMs = KIMI_PROFILE.timeoutMs } = options;
   if (typeof fetchImpl !== 'function' || typeof root !== 'string' || typeof operatorRoot !== 'string' || typeof now !== 'function' || typeof uuid !== 'function'
     || !Number.isSafeInteger(timeoutMs) || timeoutMs <= 0 || timeoutMs > KIMI_PROFILE.timeoutMs) return early('missing-or-invalid-runtime');
-  let started; const startedMonotonic = performance.now();
+  let started;
   try { started = now(); ensure(Number.isFinite(started)); } catch { return early('invalid-clock'); }
   terminal = { ...terminal, ...prepared.binding, binding: prepared.binding, taskId: envelope.taskId, mode: envelope.mode,
     contextClass: envelope.contextClass, reason: envelope.reason, profileHash: PROFILE_HASH };
   const controller = new AbortController(); let timedOut = false, store, token, apiKey, sent = false;
+  let responseState = 'incomplete', validatedElapsedMs = null, validatedReport = null;
   const callerAbort = () => controller.abort();
   signal?.addEventListener('abort', callerAbort, { once: true });
   if (signal?.aborted) controller.abort();
-  const deadline = setTimeout(() => { timedOut = true; controller.abort(); }, timeoutMs);
+  const deadline = setTimeout(() => { timedOut = true; controller.abort(); },
+    Math.max(0, timeoutMs - (performance.now() - startedMonotonic)));
   const checkDeadline = () => {
     // A synchronous durability operation can delay the timer callback. It cannot grant more HTTP time.
     if (performance.now() - startedMonotonic >= timeoutMs || now() - started >= timeoutMs) {
@@ -425,19 +430,35 @@ export async function runKimiReview(options = {}) {
   };
   const terminalResult = () => {
     let elapsed = 0;
-    try { elapsed = Math.max(0, now() - started, performance.now() - startedMonotonic); } catch {}
+    try { elapsed = Math.max(0, now() - started); } catch {}
     const result = { ...terminal, elapsedMs: elapsed };
+    // Durability may starve the timer. Only this final direct sample grants advice.
+    const monotonicElapsed = performance.now() - startedMonotonic;
+    result.elapsedMs = Math.max(elapsed, monotonicElapsed, 0);
+    if (result.status === 'complete' && (monotonicElapsed >= timeoutMs || timedOut || signal?.aborted)) {
+      const expired = monotonicElapsed >= timeoutMs || timedOut;
+      result.status = expired ? 'timeout' : 'failed';
+      result.reasonCode = expired ? 'deadline-exceeded' : 'caller-cancelled';
+      result.verdict = null; result.result = null;
+      delete result.normalizedReview;
+    }
     return { ...result, terminalHash: terminalHash(result) };
   };
+  const evidenceMetadata = () => ({ evidenceVersion: 2, responseState, deadlineMs: timeoutMs,
+    validatedElapsedMs, callerOutcome: 'not-recorded' });
   const persist = async () => {
     if (!token) return;
     terminal.elapsedMs = Math.max(0, now() - started, performance.now() - startedMonotonic);
-    const metadata = { ...terminal }; delete metadata.binding; delete metadata.result; delete metadata.normalizedReview; delete metadata.privateReportPath;
-    const saved = await store.finish(token, { status: terminal.status, costState: terminal.costState, costUsd: !sent && terminal.costState === 'not-incurred' ? 0 : terminal.costUsd,
-      usage: terminal.usage ?? null, metadata, report: terminal.result, sent });
+    const status = responseState === 'validated' ? 'validated' : terminal.status;
+    const metadata = { ...terminal, ...evidenceMetadata(), status,
+      ...(responseState === 'validated' ? { reasonCode: 'response-validated' } : {}) };
+    for (const key of ['binding', 'result', 'normalizedReview', 'privateReportPath', 'verdict']) delete metadata[key];
+    const saved = await store.finish(token, { status, costState: terminal.costState, costUsd: !sent && terminal.costState === 'not-incurred' ? 0 : terminal.costUsd,
+      usage: terminal.usage ?? null, metadata, report: validatedReport, sent });
     if (!saved.ok) terminal = { ...terminal, status: 'failed', reasonCode: 'evidence-persistence-failed', costState: sent ? 'unknown' : 'not-incurred',
-      costUsd: null, verdict: null, result: null, normalizedReview: undefined, privateReportPath: null };
+      costUsd: null, verdict: null, result: null, privateReportPath: null };
     else terminal.privateReportPath = saved.privateReportPath ?? null;
+    if (!saved.ok) delete terminal.normalizedReview;
   };
   try {
     checkDeadline();
@@ -462,7 +483,7 @@ export async function runKimiReview(options = {}) {
     terminal.requestId = requestId;
     const { createKimiReviewStore } = await import('./kimi-review-store.mjs');
     store = createKimiReviewStore({ root, operatorRoot, now });
-    const metadata = { ...terminal }; delete metadata.binding; delete metadata.result; delete metadata.privateReportPath;
+    const metadata = { ...terminal, ...evidenceMetadata() }; delete metadata.binding; delete metadata.result; delete metadata.privateReportPath;
     const reservation = await store.begin({ taskId: envelope.taskId, requestId, bindingDigest: terminal.bindingDigest, metadata, reservationUsd: KIMI_PROFILE.reservationUsd });
     if (!reservation.ok) { terminal.status = 'budget-denied'; terminal.reasonCode = reservation.reasonCode; return terminalResult(); }
     token = reservation.token; terminal.reservationUsd = KIMI_PROFILE.reservationUsd;
@@ -483,6 +504,7 @@ export async function runKimiReview(options = {}) {
     terminal.responseHash = hash(raw);
     ensure(response.ok && !response.redirected, 'provider-http-error');
     checkDeadline();
+    responseState = 'invalid';
     const output = parseJson(raw, 'invalid-json');
     ensure(output && typeof output === 'object' && !Object.hasOwn(output, 'error'), 'provider-error');
     if (Object.hasOwn(output, 'model')) { ensure(output.model === KIMI_PROFILE.model || output.model === KIMI_PROFILE.canonicalSlug, 'response-model-mismatch'); terminal.observedModel = output.model; }
@@ -491,6 +513,7 @@ export async function runKimiReview(options = {}) {
     ensure(Array.isArray(output.choices) && output.choices.length === 1, 'invalid-choices');
     const choice = output.choices[0], message = choice?.message;
     terminal.completionReason = ['stop', 'length', 'content_filter', 'tool_calls', 'error'].includes(choice?.finish_reason) ? choice.finish_reason : null;
+    if (choice?.finish_reason !== 'stop') responseState = 'incomplete';
     ensure(choice?.finish_reason === 'stop', 'incomplete-completion');
     ensure(message && typeof message.content === 'string' && message.content.trim()
       && !message.refusal && !message.function_call && (!message.tool_calls || Array.isArray(message.tool_calls) && message.tool_calls.length === 0), 'invalid-message');
@@ -500,6 +523,7 @@ export async function runKimiReview(options = {}) {
     ensure(!JSON.stringify(parsed).includes(apiKey), 'credential-in-output');
     ensure(prepared.binding.bindingDigest === buildKimiInputBinding(envelope).bindingDigest, 'stale-binding');
     await verifySources(root, envelope, prepared.patch, checkDeadline);
+    responseState = 'validated'; validatedElapsedMs = Math.max(0, performance.now() - startedMonotonic); validatedReport = parsed;
     terminal = { ...terminal, status: 'complete', reasonCode: 'advisory-complete', result: parsed };
     if (terminal.costState === 'breach') { terminal.status = 'failed'; terminal.reasonCode = 'budget-breach'; terminal.result = null; }
     else if (envelope.mode === 'diff-review') {
@@ -515,6 +539,8 @@ export async function runKimiReview(options = {}) {
       : code === 'incomplete-completion' ? 'incomplete' : ['provider-http-error', 'provider-error', 'transport-or-format-error'].includes(code) ? 'failed' : 'invalid';
     terminal = { ...terminal, status, reasonCode: aborted ? (timedOut ? 'deadline-exceeded' : 'caller-cancelled') : code,
       costState: sent ? terminal.costState : 'not-incurred', costUsd: sent ? terminal.costUsd : null, verdict: null, result: null };
+    delete terminal.normalizedReview;
+    if (terminal.costState === 'breach') { terminal.status = 'failed'; terminal.reasonCode = 'budget-breach'; }
     try { await persist(); } catch { terminal.status = 'failed'; terminal.reasonCode = 'evidence-persistence-failed'; terminal.costState = sent ? 'unknown' : 'not-incurred'; }
     return terminalResult();
   } finally { clearTimeout(deadline); signal?.removeEventListener('abort', callerAbort); }
