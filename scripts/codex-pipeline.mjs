@@ -19,6 +19,9 @@ const command = args.shift();
 if (args.some(arg => arg.startsWith('--domain-policy='))) {
   console.error('--domain-policy requires a separate private file argument'); process.exit(2);
 }
+if (args.some(arg => arg.startsWith('--ship-evidence-policy='))) {
+  console.error('--ship-evidence-policy requires a separate private file argument'); process.exit(2);
+}
 if (command !== 'start' && args.includes('--domain-policy')) {
   console.error('domain policy is frozen at start; do not override it'); process.exit(2);
 }

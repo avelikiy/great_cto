@@ -388,7 +388,8 @@ function makeBoundary({root, store, lease, readPersistedState, writeGeneration},
       if (stableDigest(readJSON(generationPath)) !== digest || sha(readFileSync(generationPath)) !== digest) fail('SHIP_EVIDENCE_UNKNOWN');
       const binding = {version: 'ship-bound-run/v1', revision: nextRevision, phase: next.phase, policyPath: descriptor.policyPath, policyDigest: descriptor.policyDigest, registrationDigest: descriptor.registrationDigest, storeDigest: sha(store), contextDigest: next.expected ? stableDigest(next.expected) : null, assignmentStoreDigest: stableDigest(next.assignments), originRegistryDigest: stableDigest(next.originRegistry), generationDigest: digest};
       stagedState.shipEvidence = binding;
-      if (stagedState.pending?.gates.includes('gate:ship') && !saved?.pending) {
+      const isNewPending = stagedState.pending && (!saved?.pending || stagedState.pending.token !== saved.pending.token);
+      if (stagedState.pending?.gates.includes('gate:ship') && isNewPending) {
         stagedState.pending.shipEvidenceRevision = nextRevision; stagedState.pending.shipEvidenceContextDigest = binding.contextDigest;
       }
       assertLease(); assertSource(); assertProtectedEffect();

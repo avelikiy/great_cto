@@ -1127,17 +1127,23 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
     if (prepared.boundResult) deferredResults[role] = prepared.boundResult;
     if (!state.results[role] && !prepared.boundResult) { state.wave.status = 'discarded'; break; } // Other snapshot is invalid.
   }
-  if (state.shipEvidence && state.wave.roles.every(role => deferredResults[role])) {
-    shipBoundary.assertCurrent(state, {effect: 'metadata'});
-    Object.assign(state.results, deferredResults); advance(state, {shipBoundary}); save(state);
-  }
-  const completed = state.wave.roles.every(role => state.results[role]);
-  if (completed || state.wave.status === 'discarded' || state.status !== 'ready' || !state.wave.roles.includes(state.queue[0])) {
+  const finalizeWave = completed => {
     state.waveHistory ??= [];
     state.waveHistory.push({ id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts,
       ...(state.wave.domainContexts ? { domainContexts: state.wave.domainContexts } : {}),
       status: completed ? 'verified' : 'discarded', at: new Date().toISOString() });
-    state.wave = null; save(state);
+    state.wave = null;
+  };
+  if (state.shipEvidence && state.wave.roles.every(role => deferredResults[role])) {
+    shipBoundary.assertCurrent(state, {effect: 'metadata'});
+    Object.assign(state.results, deferredResults);
+    // Persist housekeeping with the new decision, not as a later pin-staling save.
+    finalizeWave(true); advance(state, {shipBoundary}); save(state);
+    return state;
+  }
+  const completed = state.wave.roles.every(role => state.results[role]);
+  if (completed || state.wave.status === 'discarded' || state.status !== 'ready' || !state.wave.roles.includes(state.queue[0])) {
+    finalizeWave(completed); save(state);
   }
   return state;
 }
