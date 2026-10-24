@@ -1642,7 +1642,13 @@ async function main(): Promise<void> {
   if (args.command === "run" || args.command === "status" || args.command === "resume") {
     const { runDaily } = await import('./run.js');
     const dailyArgs = [...(args.hostInput !== undefined ? ['--host', args.hostInput] : []), ...(args.taskArgs ?? [])];
-    await finish(runDaily(args.command, dailyArgs, { cwd: args.dir }));
+    const code = runDaily(args.command, dailyArgs, { cwd: args.dir });
+    if (args.command === 'status') {
+      await new Promise<void>((resolve, reject) => {
+        process.stdout.write('', error => error ? reject(error) : resolve());
+      });
+    }
+    await finish(code);
   }
   if (args.command === "serve") {
     try {

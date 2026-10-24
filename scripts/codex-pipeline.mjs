@@ -50,7 +50,11 @@ try {
     console.log(JSON.stringify(result, null, 2)); process.exit(result.state === 'ready' ? 0 : 2);
   }
   if (command === 'list') {
-    console.log(JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2));
+    const output = JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2) + '\n';
+    // Piped stdout is asynchronous: exiting before the callback can truncate JSON.
+    await new Promise((resolve, reject) => {
+      process.stdout.write(output, error => error ? reject(error) : resolve());
+    });
     process.exit(0);
   }
   let state;
