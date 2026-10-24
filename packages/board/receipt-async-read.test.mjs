@@ -8,6 +8,7 @@ import { spawn, execFileSync } from 'node:child_process';
 import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import { syncBuiltinESMExports } from 'node:module';
+import { randomUUID } from 'node:crypto';
 import { treeReceipt, compareReceipts } from '../../scripts/lib/receipt.mjs';
 import { secondOpinionForTree } from '../../scripts/lib/second-opinion-for-tree.mjs';
 import { issueTokensAsync, readTokens, consumeToken, checkToken, approvalSnapshot, beginGateDecision } from './lib/gate-tokens.mjs';
@@ -112,27 +113,27 @@ test('receipt startup trace is inert without a control root', () => {
 test('receipt startup trace sanitizes events and preserves operation semantics', t => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-trace-'));
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
-  const secret = 'PRIVATE_TRACE_VALUE';
+  const canary = randomUUID();
   const result = execFileSync(process.execPath, ['--require', startupTraceFixture, '--eval', `
     const assert = require('node:assert/strict'), cp = require('node:child_process'), fs = require('node:fs'), path = require('node:path');
     const root = process.env.GCTO_RECEIPT_CONTROL_ROOT;
     assert.equal(cp.execFileSync(process.execPath, ['--eval', ''], { encoding: 'utf8' }), '');
     const child = cp.spawn(process.execPath, ['--eval', ''], { stdio: 'ignore' });
     assert.equal(child.listenerCount('error'), 0);
-    const opaque = new Error(${JSON.stringify(secret)}); opaque.code = ${JSON.stringify(secret)};
+    const opaque = new Error(${JSON.stringify(canary)}); opaque.code = ${JSON.stringify(canary)};
     assert.throws(() => child.emit('error', opaque), error => error === opaque);
     child.once('close', code => { assert.equal(code, 0); });
-    const missing = cp.spawn(path.join(root, ${JSON.stringify(secret)}), [], { stdio: 'ignore' });
+    const missing = cp.spawn(path.join(root, ${JSON.stringify(canary)}), [], { stdio: 'ignore' });
     missing.on('error', error => assert.equal(error.code, 'ENOENT'));
     missing.once('close', () => {});
     assert.equal(process.kill(process.pid, 0), true);
-    assert.throws(() => process.kill(process.pid, ${JSON.stringify(secret)}));
+    assert.throws(() => process.kill(process.pid, ${JSON.stringify(canary)}));
     fs.appendFileSync(path.join(root, 'git-held'), String(process.pid) + '\\n');
     assert.equal(fs.readFileSync(path.join(root, 'git-held'), 'utf8'), String(process.pid) + '\\n');
-  `, secret], { env: { ...process.env, GCTO_RECEIPT_CONTROL_ROOT: root, PRIVATE_TRACE_VALUE: secret }, encoding: 'utf8' });
+  `, canary], { env: { ...process.env, GCTO_RECEIPT_CONTROL_ROOT: root, PRIVATE_TRACE_VALUE: canary }, encoding: 'utf8' });
   assert.equal(result, '');
   const raw = fs.readFileSync(path.join(root, 'receipt-startup-trace.jsonl'), 'utf8');
-  assert.ok(!raw.includes(secret)); assert.ok(!raw.includes(root)); assert.ok(!raw.includes(startupTraceFixture));
+  assert.ok(!raw.includes(canary)); assert.ok(!raw.includes(root)); assert.ok(!raw.includes(startupTraceFixture));
   const records = readReceiptStartupTrace(root);
   assert.equal(records.length, raw.trim().split('\n').length);
   for (const event of ['process-entry', 'spawn-start', 'child-spawn', 'child-error', 'child-exit', 'child-close', 'exec-start', 'exec-end', 'kill-start', 'kill-end', 'kill-error', 'git-held-written']) {
@@ -142,7 +143,7 @@ test('receipt startup trace sanitizes events and preserves operation semantics',
   assert.ok(records.some(row => row.event === 'child-error' && row.errorCode === 'ENOENT'));
   assert.ok(records.some(row => row.event === 'kill-start' && row.signal === 0));
   const valid = records[0], trace = path.join(root, 'receipt-startup-trace.jsonl');
-  fs.writeFileSync(trace, [JSON.stringify(valid), '{', JSON.stringify({ ...valid, errorCode: secret }), JSON.stringify({ ...valid, signal: secret }), JSON.stringify({ ...valid, extra: secret }), JSON.stringify({ ...valid, pid: -1 })].join('\n'));
+  fs.writeFileSync(trace, [JSON.stringify(valid), '{', JSON.stringify({ ...valid, errorCode: canary }), JSON.stringify({ ...valid, signal: canary }), JSON.stringify({ ...valid, extra: canary }), JSON.stringify({ ...valid, pid: -1 })].join('\n'));
   assert.deepEqual(readReceiptStartupTrace(root), [valid]);
   fs.writeFileSync(trace, (JSON.stringify(valid) + '\n').repeat(129));
   assert.equal(readReceiptStartupTrace(root).length, 128);
