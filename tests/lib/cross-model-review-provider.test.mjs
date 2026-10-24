@@ -100,6 +100,26 @@ test('an unpriced model logs cost null and prints "unpriced" — never $0', () =
   assert.equal(last.model, 'gpt-5.6-terra');
 });
 
+test('legacy Kimi selection cannot coerce incomplete provider usage to measured zero', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, ['--model', 'moonshotai/kimi-k3.1-pro'], {
+    GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']), GREAT_CTO_MODEL_PRICES: '{}',
+  });
+  assert.equal(r.status, EXIT.PASS, r.stdout + r.stderr);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.cost, null);
+  assert.match(r.stdout, /cost unpriced/);
+});
+
+test('explicit profile conflicts exit before ambient PROJECT or native reviewer log', () => {
+  const dir = project('capabilities:\n  second_opinion: codex\n');
+  const r = run(dir, ['--profile', 'kimi-readonly-v1', '--provider', 'codex'], {
+    GREAT_CTO_CODEX_BIN: fakeCodex(dir, ['VERDICT: PASS']),
+  });
+  assert.equal(r.status, EXIT.USAGE, r.stdout + r.stderr);
+  assert.equal(existsSync(path.join(dir, '.great_cto', 'cross-review.log')), false);
+});
+
 // A review that did not happen must say WHY, and the why must be the cause —
 // not whatever the provider happened to mention first. On 2026-09-06 an
 // exhausted plan quota displayed "Skill descriptions were shortened to fit the

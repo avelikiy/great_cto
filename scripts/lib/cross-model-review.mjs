@@ -13,14 +13,14 @@
 //   node scripts/lib/cross-model-review.mjs --diff /tmp/d.diff --spec docs/architecture/ARCH-x.md
 //   GREAT_CTO_CROSS_REVIEW_MODEL=google/gemini-2.5-pro node ... --diff -
 
-import { readFileSync } from 'node:fs';
+import { readFileSync, lstatSync, openSync, closeSync, fstatSync, readSync, constants } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
 import { principalError } from './provider-exhaustion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, resolve, parse, sep } from 'node:path';
 import { reviewInputBinding, parseLegacyReview } from './review-contract.mjs';
 
 /**
@@ -128,6 +128,93 @@ export async function callOpenRouter({ apiKey, model, system, user, maxTokens = 
 
 function readArg(argv, name) { const i = argv.indexOf(name); return i > -1 ? argv[i + 1] : null; }
 
+/** Read explicitly selected input without following symlinks or special files. */
+function readProfileFile(file, root, cap) {
+  if (typeof file !== 'string' || !file || file === '-' || Buffer.byteLength(file) > 4096
+      || file.split(/[\\/]/).includes('..') || /[\x00-\x1f\x7f]/.test(file)) throw new Error('invalid-input-file');
+  const target = resolve(root, file), parsed = parse(target);
+  const parts = target.slice(parsed.root.length).split(sep);
+  let current = parsed.root;
+  for (let i = 0; i < parts.length; i++) {
+    if (parts[i] === '.git' || /^\.env(?:\.|$)/i.test(parts[i])) throw new Error('invalid-input-file');
+    current = join(current, parts[i]);
+    const st = lstatSync(current);
+    if (st.isSymbolicLink() || (i < parts.length - 1 ? !st.isDirectory() : !st.isFile())) throw new Error('invalid-input-file');
+  }
+  const fd = openSync(target, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  try {
+    const st = fstatSync(fd);
+    if (!st.isFile() || st.size > cap) throw new Error('invalid-input-file');
+    const bytes = Buffer.alloc(cap + 1);
+    let size = 0, n;
+    while (size <= cap && (n = readSync(fd, bytes, size, cap + 1 - size, null)) > 0) size += n;
+    if (size > cap) throw new Error('invalid-input-file');
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(0, size));
+  } finally { closeSync(fd); }
+}
+
+/** Check explicit runtime roots before any credential getter is evaluated. */
+export function validateKimiRuntimePaths(root, operatorRoot) {
+  for (const [directory, allowMissing] of [[root, false], [operatorRoot, true]]) {
+    if (typeof directory !== 'string' || !directory || Buffer.byteLength(directory) > 4096
+        || /[\x00-\x1f\x7f]/.test(directory)) throw new Error('invalid-runtime-path');
+    const target = resolve(directory), parsed = parse(target);
+    let current = parsed.root, missing = false;
+    for (const part of target.slice(parsed.root.length).split(sep).filter(Boolean)) {
+      if (Buffer.byteLength(part) > 255 || part === '.git' || /^\.env(?:\.|$)/i.test(part)) throw new Error('invalid-runtime-path');
+      current = join(current, part);
+      if (missing) continue;
+      try {
+        const st = lstatSync(current);
+        if (st.isSymbolicLink() || !st.isDirectory()) throw new Error('invalid-runtime-path');
+      } catch (error) {
+        if (allowMissing && error.code === 'ENOENT') missing = true;
+        else throw error;
+      }
+    }
+  }
+}
+
+/** Explicit extra opinion. Runtime capabilities are resolved only after admission. */
+export async function runProfileReview(options = {}) {
+  const argv = options.argv ?? [];
+  if (!argv.includes('--profile')) return null;
+  const denied = () => ({ exitCode: EXIT.USAGE, summary: { status: 'usage-error', verdict: null,
+    advisory: true, authority: 'NONE', releaseEligibility: 'NOT_CHECKED', reasonCode: 'invalid-profile-invocation' } });
+  const allowed = new Set(['--profile', '--envelope', '--task', '--context-class', '--reason', '--root', '--operator-root', '--diff', '--spec']);
+  const flags = new Map();
+  for (let i = 0; i < argv.length; i += 2) {
+    const flag = argv[i], value = argv[i + 1];
+    if (!allowed.has(flag) || flags.has(flag) || typeof value !== 'string' || !value || value.startsWith('--')) return denied();
+    flags.set(flag, value);
+  }
+  if (flags.get('--profile') !== 'kimi-readonly-v1'
+      || ['--envelope', '--task', '--context-class', '--reason', '--operator-root'].some(k => !flags.has(k))) return denied();
+  let root, operatorRoot, envelope, profileApi;
+  try {
+    root = resolve(flags.get('--root') || process.cwd());
+    operatorRoot = resolve(root, flags.get('--operator-root'));
+    validateKimiRuntimePaths(root, operatorRoot);
+    envelope = JSON.parse(readProfileFile(flags.get('--envelope'), root, 131072));
+    if (!envelope || envelope.mode !== 'diff-review' || envelope.taskId !== flags.get('--task')
+        || envelope.contextClass !== flags.get('--context-class') || envelope.reason !== flags.get('--reason')) return denied();
+    for (const [flag, field, cap] of [['--diff', 'diff', 96000], ['--spec', 'spec', 16000]]) {
+      if (flags.has(flag) && readProfileFile(flags.get(flag), root, cap) !== envelope[field]) return denied();
+    }
+    profileApi = await import('./kimi-review-profile.mjs');
+    profileApi.buildKimiInputBinding(envelope);
+  } catch { return denied(); }
+  const result = await profileApi.runKimiReview({ profile: flags.get('--profile'), envelope, root,
+    operatorRoot,
+    get apiKey() { return options.apiKey ?? (options.env ?? process.env).OPENROUTER_API_KEY; },
+    fetchImpl: options.fetchImpl, now: options.now, uuid: options.uuid, signal: options.signal, timeoutMs: options.timeoutMs });
+  const complete = result.status === 'complete' && ['PASS', 'BLOCK'].includes(result.verdict);
+  return { exitCode: complete ? result.verdict === 'BLOCK' ? EXIT.BLOCK : EXIT.PASS : EXIT.SKIPPED,
+    summary: { status: result.status, reasonCode: result.reasonCode, verdict: complete ? result.verdict : null,
+      advisory: true, authority: 'NONE', releaseEligibility: 'NOT_CHECKED', bindingDigest: result.bindingDigest,
+      findings: result.result?.findings?.length ?? null, costState: result.costState, costUsd: result.costUsd } };
+}
+
 /**
  * The tree's identity at review time — git HEAD and whether it was dirty.
  * CLI-only: the pure `reviewLogLine` above never shells out; per this file's
@@ -147,6 +234,11 @@ function gitIdentity(cwd) {
 }
 
 async function main(argv) {
+  if (argv.includes('--profile')) {
+    const r = await runProfileReview({ argv, fetchImpl: fetch });
+    console.log(JSON.stringify(r.summary));
+    process.exit(r.exitCode);
+  }
   const diffPath = readArg(argv, '--diff');
   if (!diffPath) { console.error('Usage: cross-model-review.mjs --diff <file|-> [--spec <file>] [--model <slug>] [--provider codex|openrouter]'); process.exit(EXIT.USAGE); }
 
@@ -216,7 +308,8 @@ async function main(argv) {
   // was present and costForUsage prices an unknown model at nothing. A reviewer
   // that reads as free is the defect this repository has removed twice already.
   const priced = resolvePrice(res.model).price != null;
-  const cost = res.usage && priced ? round4(costForUsage({ model: res.model, usage: res.usage })) : null;
+  const calculated = res.usage && priced ? costForUsage({ model: res.model, usage: res.usage }) : null;
+  const cost = calculated === null ? null : round4(calculated);
 
   for (const f of findings) console.log(`  ${f.severity} ${f.file}:${f.line} — ${f.issue}`);
   if (verdict == null) {

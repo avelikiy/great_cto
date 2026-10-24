@@ -114,6 +114,88 @@ OpenAI's own Codex plugin ships the same idea and warns about exactly that. It
 also blocks a given diff **once** — a hook that can refuse to end the turn
 forever is a hang, not a guardrail.
 
+## Optional Kimi advisory review
+
+The `kimi-readonly-v1` profile is an additional, explicitly requested opinion
+through OpenRouter. Selecting it does not run or replace the project's native
+second opinion. An invocation without `--profile` keeps the existing behavior,
+even when an OpenRouter key is present. The profile has no tools and cannot
+approve a gate, change source, or authorize a release.
+
+The following command is an illustrative synthetic invocation for a separately
+authorized live session. Source implementation and offline fixtures do not
+activate a provider or establish account compatibility. No credential setup is
+part of this example.
+
+```bash
+node scripts/lib/cross-model-review.mjs \
+  --profile kimi-readonly-v1 --envelope ./synthetic-review.json \
+  --task synthetic-review --context-class synthetic --reason explicit-review \
+  --root . --operator-root ./.great_cto/kimi-operator
+```
+
+Prepare the envelope explicitly. Version `1` requires `taskId`, `mode`
+(`diff-review`), `contextClass` (`public` or `synthetic`), `reason`, the complete
+`diff`, nullable `spec`, and an `acceptanceHash` (SHA-256 of the task's review
+rubric). `sourceBinding` includes `sourceSha`, a path-sorted `manifest`, its
+`manifestHash`, and `dirtyDiffHash`. Every manifest entry supplies a relative
+`path`, Git regular-file `mode`, SHA-256 of the submitted blob bytes and its
+explicit `contextClass`; a rename also supplies `oldPath`. The manifest hash is
+SHA-256 of its sorted JSON array, and the dirty diff hash covers the exact UTF-8
+diff bytes. Classification applies to the selected bytes, including dirty or
+untracked changes. A public repository name does not classify local changes.
+`sourceSha` records the caller-selected commit identity. The adapter verifies
+declared local blob bytes and submitted hunks; it does not attest that the patch
+is the complete Git diff of that commit.
+
+The required task, classification and reason flags must match the envelope.
+Reasons are `explicit-review`, `correctness-risk`, `reviewer-disagreement`, or
+`architecture-alternative`. `--model` and `--provider` conflict with the profile
+and exit `2`. Envelope and optional `--diff`/`--spec` files must be bounded regular
+files without symlink components; supplied diff/spec bytes must match the
+envelope. Manifest sources under the explicit root must also be regular files
+whose mode and bytes match the declared source binding. Private, unknown,
+EU-required, secret-bearing, oversized or incomplete
+inputs are denied before inference. Nothing is silently truncated or collected
+from ambient project files, home settings or transcripts.
+
+| Outcome | Exit | Meaning |
+|---|---:|---|
+| Complete advisory PASS | 0 | Valid scoped diff review, no gate authority |
+| Complete advisory BLOCK | 1 | Valid scoped diff review reporting a blocking finding |
+| Invalid invocation | 2 | No usable explicit selection or envelope |
+| Noncomplete review | 3 | Null verdict; unavailable, denied, incomplete, invalid or failed |
+
+Status output contains counts and hashes, while findings remain in private
+runtime reports. The profile never appends to `.great_cto/cross-review.log`.
+Verify the result binding against the current envelope before using an older
+report; changed source, rubric, prompt or profile makes that result stale.
+Rebuild the source manifest from current files first: the pure binding verifier
+checks the supplied envelope and does not read the filesystem itself.
+
+For architecture alternatives, `runCouncil` accepts
+`extraProfiles: [{ profile: 'kimi-readonly-v1', envelope }]` and explicit
+`kimiRuntime` options (`operatorRoot`, `apiKey`, `fetchImpl`, and optional clock,
+UUID, cancellation and deadline). Both `council: arch` and a separate envelope
+with mode `architecture-alternative`, selected `brief` and `projectContext` are
+required. It does not send ambient `PROJECT.md` to the extra member. The returned
+`extraMembers` identifies `draft-extra-kimi-readonly-v1` separately from the
+legacy members. Its draft and private path do not enter the tracked council
+manifest or its quorum/count arithmetic. Architecture results have no PASS
+verdict. An architect may explicitly incorporate verified conclusions later.
+
+The 2026-10-24 [OpenRouter model metadata](https://openrouter.ai/api/v1/models)
+and [standard endpoint metadata](https://openrouter.ai/api/v1/models/moonshotai/kimi-k3.1-pro/endpoints)
+snapshot advertises $2 input / $10 output per million tokens, with $0.20 per
+million cache reads. Cache reads are a subset of prompt tokens;
+reasoning is already included in completion tokens. Calculated token cost and
+provider-reported cost retain separate provenance. Missing or partial usage is
+Unknown, never a measured zero. Each admitted call reserves $0.25 against local
+task/operator caps before sending; a timeout or lost response retains that
+reservation and does not trigger an automatic retry. The reservation is an
+accounting control, not a hard billing guarantee. Live compatibility, latency,
+quality improvement and release eligibility remain unverified by offline tests.
+
 Two documents govern how this product describes itself, both approved at
 `gate:product` on 2026-09-07:
 [BRIEF-story-rewrite-2026-09](product/BRIEF-story-rewrite-2026-09.md) — what the
