@@ -11,6 +11,7 @@ import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs'
 import { projectExecutionTrace } from './lib/execution-trace.mjs';
 import { readBenchmarkRegistration, bindBenchmarkTrial } from './lib/adaptive-benchmark-collector.mjs';
 import { readDomainPolicy } from './lib/domain-admission.mjs';
+import { initializeShipBinding, reassessShipBinding, createShipControllerBoundary } from './lib/gate-check-bound.mjs';
 
 // State is outside the worker workspace. A per-run exclusive lock covers the entire subprocess lifetime.
 const args = process.argv.slice(2);
@@ -37,7 +38,14 @@ const inheritedLease = process.env.GREAT_CTO_WORK_LEASE;
 delete process.env.GREAT_CTO_WORK_LEASE;
 const store = codexRunStore();
 mkdirSync(store, { recursive: true, mode: 0o700 });
+let shipBoundary = null;
 const save = state => {
+  if (state.shipEvidence) {
+    const committed = shipBoundary.save(state);
+    try { observeWorkRun(state); }
+    catch { throw Object.assign(Error(`SHIP_COMMITTED_OBSERVATION_UNKNOWN persistedRevision=${committed.revision}`), {code: 'SHIP_COMMITTED_OBSERVATION_UNKNOWN', persistedRevision: committed.revision}); }
+    return committed;
+  }
   const file = join(store, `${state.id}.json`);
   writeFileSync(`${file}.tmp`, JSON.stringify(state, null, 2), { mode: 0o600 });
   renameSync(`${file}.tmp`, file);
@@ -59,6 +67,10 @@ try {
   }
   let state;
   if (command === 'start') {
+    if (args.includes('--ship-evidence-policy')) {
+      const permitted = new Set(['--ship-evidence-policy', '--dir', '--task-id', '--allow', '--intent', '--max-attempts', '--prompt', '--routes', '--checks-policy', '--release-policy', '--gate-policy', '--specialist-policy', '--domain-policy', '--entry', '--benchmark-trial']);
+      for (let i = 0; i < args.length; i += 2) if (!permitted.has(args[i]) || !args[i + 1] || args[i + 1].startsWith('--') || args.filter(a => a === args[i]).length !== 1) throw Error('SHIP_CAPABILITY_INVALID');
+    }
     const root = realpathSync(resolve(value('--dir') || '.'));
     const taskId = value('--task-id');
     const allowed = (value('--allow') || '').split(',').map(p => p.trim()).filter(Boolean);
@@ -126,13 +138,27 @@ try {
       bindBenchmarkTrial(state, readBenchmarkRegistration(root, value('--benchmark-trial')));
     }
     linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
-    save(state);
+    if (args.includes('--ship-evidence-policy')) {
+      if (args.filter(a => a === '--ship-evidence-policy').length !== 1 || !value('--ship-evidence-policy') || value('--ship-evidence-policy').startsWith('--') || args.includes('--ship-revision')) throw Error('SHIP_POLICY_INVALID');
+      const lock = join(store, `${state.id}.lock`); mkdirSync(lock, {mode: 0o700}); locked = lock;
+      const initialized = initializeShipBinding({state, policyPath: value('--ship-evidence-policy'), lease: projectLease}, {runStore: realpathSync(store)});
+      state = initialized.state; shipBoundary = initialized.boundary;
+      try { observeWorkRun(state); } catch { throw Object.assign(Error(`SHIP_COMMITTED_OBSERVATION_UNKNOWN persistedRevision=1`), {code: 'SHIP_COMMITTED_OBSERVATION_UNKNOWN', persistedRevision: 1}); }
+    } else save(state);
   } else {
     if (args.includes('--domain-policy')) throw Error('domain policy is frozen at start; do not override during resume');
     const id = args[0];
     if (!/^[0-9a-f-]{36}$/.test(id || '')) throw Error('a run UUID is required');
     state = JSON.parse(readFileSync(join(store, `${id}.json`), 'utf8'));
     if (state.id !== id || state.version !== 1) throw Error('invalid run state');
+    if (args.includes('--ship-evidence-policy')) throw Error('SHIP_POLICY_INVALID');
+    if (state.shipEvidence && command !== 'status') {
+      const permitted = new Set(['--ship-revision', '--dir', ...(command === 'approve-task' ? ['--operation', '--decision'] : []), ...(['approve', 'approve-release', 'reject'].includes(command) ? ['--token'] : []), ...(command === 'reject' ? ['--reason'] : [])]);
+      for (let i = 1; i < args.length; i += 2) if (!permitted.has(args[i]) || !args[i + 1] || args[i + 1].startsWith('--') || args.filter(a => a === args[i]).length !== 1) throw Error('SHIP_CAPABILITY_INVALID');
+      const revision = value('--ship-revision');
+      if (!/^[1-9][0-9]*$/.test(revision || '') || !Number.isSafeInteger(Number(revision)) || Number(revision) >= Number.MAX_SAFE_INTEGER) throw Error('SHIP_INVALID_REVISION');
+      if (value('--dir') && realpathSync(value('--dir')) !== state.root) throw Error('SHIP_UNBOUND');
+    }
     if (command !== 'status') {
       if (command === 'resume' && state.taskId && !inheritedLease) {
         work = beginWork({ root: state.root, host: 'codex', kind: 'resume', taskId: state.taskId });
@@ -140,30 +166,44 @@ try {
       } else projectLease = acquireProjectLease(state.root, { reuseToken: inheritedLease });
     }
   }
-  if (!['start', 'resume', 'status', 'approve', 'reject', 'approve-release', 'recover', 'cancel', 'approve-task'].includes(command)) throw Error('expected start, resume, status, approve, reject, approve-release, recover, cancel, list or doctor');
+  if (!['start', 'resume', 'status', 'approve', 'reject', 'approve-release', 'recover', 'cancel', 'approve-task', 'reassess-ship'].includes(command)) throw Error('expected a supported controller command');
   if (command !== 'status') {
     const lock = join(store, `${state.id}.lock`);
-    mkdirSync(lock); locked = lock;
+    if (!locked) { mkdirSync(lock, {mode: 0o700}); locked = lock; }
     // Reload under lock so simultaneous approvals cannot overwrite one another.
     state = JSON.parse(readFileSync(join(store, `${state.id}.json`), 'utf8'));
+    if (state.shipEvidence && command !== 'start') {
+      if (Number(value('--ship-revision')) !== state.shipEvidence.revision) throw Error('SHIP_STALE_REVISION');
+      shipBoundary = createShipControllerBoundary({root: state.root, store: dirname(state.shipEvidence.policyPath), lease: projectLease}, {runStore: realpathSync(store)});
+    }
+    if (command === 'reassess-ship') {
+      const reassessed = reassessShipBinding({state, expectedRevision: Number(value('--ship-revision')), lease: projectLease}, {runStore: realpathSync(store)});
+      state = reassessed.state; shipBoundary = reassessed.boundary;
+      try { observeWorkRun(state); } catch { throw Object.assign(Error(`SHIP_COMMITTED_OBSERVATION_UNKNOWN persistedRevision=${state.shipEvidence.revision}`), {code: 'SHIP_COMMITTED_OBSERVATION_UNKNOWN', persistedRevision: state.shipEvidence.revision}); }
+    } else {
+    if (state.shipEvidence) {
+      if (['recover', 'reject', 'cancel'].includes(command)) shipBoundary.invalidate(state, {reason: `operator-${command}`});
+      else shipBoundary.assertCurrent(state, {effect: 'metadata'});
+    }
     if (command === 'approve-task') {
       if (!inheritedLease || !state.taskId) throw Error('task approval requires operator operation ownership');
       const task = readWorkTask(state.taskId, { root: state.root });
       const operation = task.operations.find(o => o.operationId === value('--operation'));
       const decision = controlledDecisions(state)[0];
       if (!operation || operation.state !== 'running' || operation.kind !== 'approve' || operation.data?.decisionId !== value('--decision') || !decision || decision.decisionId !== value('--decision')) throw Error('task approval is stale or unbound');
-      if (decision.kind === 'release') approveRelease(state, state.release.token); else approve(state, state.pending.token);
+      if (decision.kind === 'release') { if (state.shipEvidence) shipBoundary.assertCurrent(state, {effect: 'release'}); approveRelease(state, state.release.token); } else approve(state, state.pending.token, {shipBoundary});
       save(state);
-    } else if (command === 'approve') { approve(state, value('--token')); save(state); }
+    } else if (command === 'approve') { approve(state, value('--token'), {shipBoundary}); save(state); }
     else if (command === 'reject') { reject(state, value('--token'), value('--reason')); save(state); }
-    else if (command === 'approve-release') { approveRelease(state, value('--token')); save(state); }
+    else if (command === 'approve-release') { if (state.shipEvidence) shipBoundary.assertCurrent(state, {effect: 'release'}); approveRelease(state, value('--token')); save(state); }
     else if (command === 'recover') { recover(state); save(state); }
     else if (command === 'cancel') { cancel(state); save(state); }
     // ADR-026: each stage's context goes to <store>/<run-id>/context/, outside the
     // worker workspace like the state file itself.
     else while (state.status === 'ready') {
-      if (state.wave || parallelPair(state)) await runParallelWave(state, { save, contextStore: store });
-      else await runStage(state, { save, contextStore: store });
+      if (state.wave || parallelPair(state)) await runParallelWave(state, { save, contextStore: store, shipBoundary });
+      else await runStage(state, { save, contextStore: store, shipBoundary });
+    }
     }
   }
   console.log(JSON.stringify({ id: state.id, status: state.status, reason: state.reason,
@@ -182,10 +222,12 @@ try {
     rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;
 } catch (error) {
-  console.error(`codex-pipeline: ${error.message}`);
+  console.error(`codex-pipeline: ${error.code || error.message}${error.persistedRevision ? ` persistedRevision=${error.persistedRevision}` : ''}`);
   process.exitCode = 2;
 } finally {
-  try { if (locked) rmdirSync(locked);
-    if (taskForFinish) finishWork(taskForFinish, work.operation.operationId, process.exitCode || 0); }
-  finally { projectLease?.release(); }
+  try {
+    try { if (locked) rmdirSync(locked);
+      if (taskForFinish) finishWork(taskForFinish, work.operation.operationId, process.exitCode || 0); }
+    finally { projectLease?.release(); }
+  } catch (error) { console.error(`codex-pipeline: cleanup failed ${error.code || 'UNKNOWN'}`); process.exitCode = 2; }
 }

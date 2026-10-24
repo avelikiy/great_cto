@@ -86,17 +86,31 @@ export function acquireProjectLease(root, { store = workTaskStore(), reuseToken 
   root = canonical(root); ensureStore(root, store);
   const dir = join(store, 'leases'); mkdirSync(dir, { recursive: true, mode: 0o700 });
   const lock = join(dir, digest(root) + '.lock');
+  const ownershipAssertion = (token, ownerPid) => {
+    const initialLock = lstatSync(lock), initialOwner = lstatSync(join(lock, 'owner.json'));
+    return () => {
+      const ls = lstatSync(lock), os = lstatSync(join(lock, 'owner.json'));
+      if (!ls.isDirectory() || !os.isFile() || ls.isSymbolicLink() || os.isSymbolicLink()
+        || (ls.mode & 0o077) || (os.mode & 0o077)
+        || ls.uid !== process.getuid() || os.uid !== process.getuid()
+        || ls.ino !== initialLock.ino || os.ino !== initialOwner.ino) throw Error('project lease ownership changed');
+      const owner = JSON.parse(readFileSync(join(lock, 'owner.json'), 'utf8'));
+      if (owner.token !== token || owner.pid !== ownerPid || owner.projectId !== projectIdentity(root)
+        || ownerPid !== (reuseToken ? process.ppid : process.pid)) throw Error('project lease ownership changed');
+      return true;
+    };
+  };
   if (reuseToken) {
     const owner = JSON.parse(readFileSync(join(lock, 'owner.json'), 'utf8'));
     if (owner.token !== reuseToken || owner.pid !== process.ppid || owner.projectId !== projectIdentity(root)) throw Error('invalid project lease handoff');
-    return { token: owner.token, release() {} };
+    return { token: owner.token, assertOwned: ownershipAssertion(owner.token, owner.pid), release() {} };
   }
   try { mkdirSync(lock, { mode: 0o700 }); }
   catch (e) { if (e.code === 'EEXIST') throw Error('project execution is already owned; inspect its lease before recovery'); throw e; }
   const token = randomUUID();
   try { writeFileSync(join(lock, 'owner.json'), JSON.stringify({ token, pid: process.pid, projectId: projectIdentity(root), acquiredAt: new Date().toISOString() }), { mode: 0o600 }); }
   catch (e) { rmSync(lock, { recursive: true }); throw e; }
-  return { token, release() {
+  return { token, assertOwned: ownershipAssertion(token, process.pid), release() {
     const owner = JSON.parse(readFileSync(join(lock, 'owner.json'), 'utf8'));
     if (owner.token !== token || owner.pid !== process.pid) throw Error('project lease ownership changed');
     rmSync(lock, { recursive: true });
