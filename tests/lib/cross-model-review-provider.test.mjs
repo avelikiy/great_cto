@@ -59,7 +59,14 @@ function fakeCodex(dir, lines) {
 }
 function run(dir, extra = [], env = {}, diffText = '--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n') {
   const diff = path.join(dir, 'd.diff'); writeFileSync(diff, diffText);
-  return spawnSync('node', [SCRIPT, '--diff', diff, '--root', dir, ...extra], { encoding: 'utf8', env: { ...process.env, OPENROUTER_API_KEY: '', ...env } });
+  const home = mkdtempSync(path.join(dir, 'synthetic-home-'));
+  const codexHome = path.join(home, '.codex');
+  mkdirSync(codexHome, { mode: 0o700 });
+  const bin = env.GREAT_CTO_CODEX_BIN || path.join(dir, 'synthetic-codex-absent');
+  if (bin === path.join(dir, 'codex') && existsSync(bin)) {
+    writeFileSync(path.join(codexHome, 'auth.json'), JSON.stringify({ auth_mode: 'synthetic-fixture-no-credentials' }), { mode: 0o600 });
+  }
+  return spawnSync('node', [SCRIPT, '--diff', diff, '--root', dir, ...extra], { encoding: 'utf8', env: { ...process.env, OPENROUTER_API_KEY: '', ...env, HOME: home, CODEX_HOME: codexHome, GREAT_CTO_CODEX_BIN: bin } });
 }
 
 test('codex declared: the review runs through the fake codex and a P0 blocks', () => {
