@@ -1,9 +1,6 @@
----
-date: 2026-10-25
----
-
 # ADR-044: Host graph observations and explicit coverage
 
+**Date:** 2026-10-25
 Status: Accepted design; implementation and runtime acceptance are separate
 Extends: [ADR-040](ADR-040-recorded-execution-graph.md)
 
