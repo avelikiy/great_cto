@@ -69,26 +69,32 @@
   function cockpitEntries(data, category, search) {
     return data.entries.filter(e => inCategory(e, category) && (!search || `${e.title} ${e.key}`.toLowerCase().includes(search.toLowerCase())));
   }
-  function renderExecution(entry) {
+  function renderExecution(entry, options = {}) {
     const roles = Array.isArray(entry.evidence) ? entry.evidence : [];
     const execution = entry.execution, nodes = Array.isArray(execution?.nodes) ? execution.nodes.slice(0, 200) : [];
-    return '<section class="work-execution"><h3>Recorded observations</h3>'
-      + renderExecutionGraph(execution?.graph)
+    return (options.canvas ? '<section class="work-execution work-execution-flat">' : '<section class="work-execution"><h3>Recorded observations</h3>')
+      + renderExecutionGraph(execution?.graph, options)
       + (execution?.graph?.state === 'recorded' ? '' : '<p>Dependencies not recorded. This is an observation list, not an inferred execution graph. Event order does not establish dependencies.</p>')
       + `<p>Recorded stage: ${esc(entry.stage || 'not recorded')}</p>`
       + (execution?.reason ? `<p>${esc(execution.reason)}</p>` : '')
       + (execution?.truncated ? '<p class="work-warning">Showing the latest 200 recorded attempts; earlier observations are truncated.</p>' : execution?.partial ? '<p class="work-warning">Attempt observations are incomplete.</p>' : '')
+      + (options.canvas && entry.inspector?.partial ? '<p class="work-warning">Activity window is incomplete.</p>' : '')
+      + (options.canvas && entry.inspector?.reason ? `<p class="work-warning">${esc(entry.inspector.reason)}</p>` : '')
+      + (options.canvas && !entry.inspector ? '<p class="work-meta">Linked activity unavailable. Absence of events is not proof of inactivity.</p>' : '')
+      + (options.canvas ? '<details class="work-attempt-details"><summary>Recorded observations & technical details</summary>' : '')
       + (nodes.length ? '<ul class="work-observations" aria-label="Recorded execution attempts">' + nodes.map(n => `<li class="work-observation" data-attempt-id="${esc(n.attemptId)}"><strong>${esc(n.role)} · attempt ${esc(n.number || 'unknown')}</strong>`
         + `<p>${esc(n.host || 'Host not recorded')} · phase: ${esc(n.phase || 'not recorded')}</p><p>Controller recorded status: ${esc(n.status || 'unknown')}; not current verification or acceptance.</p>`
         + `<p>Run: ${esc(n.runId)} · Attempt: ${esc(n.attemptId)}</p><p>Started: ${esc(n.startedAt || 'not recorded')} · Finished: ${esc(n.finishedAt || 'not recorded')}</p></li>`).join('') + '</ul>' : '')
       + (roles.length ? '<ul class="work-observations">' + roles.map(role => `<li class="work-observation">${esc(role.label)} · recorded role observation; acceptance is not inferred</li>`).join('') + '</ul>' : '<p>No role observations recorded.</p>')
       + (entry.inspector ? renderInspector(entry.inspector).replace('<details ', '<details open ') : '<p>Linked activity unavailable. Absence of events is not proof of inactivity.</p>')
+      + (options.canvas ? '</details>' : '')
       + '</section>';
   }
-  function renderExecutionGraph(graph) {
+  function renderExecutionGraph(graph, options = {}) {
     if (graph?.state !== 'recorded' || !Array.isArray(graph.nodes) || !graph.nodes.length)
       return `<p class="work-meta">${esc(graph?.reason || 'Controller-recorded graph unavailable. Native and legacy observations remain partial.')}</p>`;
     if (graph.nodes.length > 512 || !Array.isArray(graph.edges) || graph.edges.length > 2048) return '<p>Graph exceeds the display limit.</p>';
+    const horizontal = options.canvas && options.direction !== 'tb';
     const nodes = graph.nodes, ids = new Map(nodes.map((n, i) => [n.id, i]));
     if (ids.size !== nodes.length || graph.edges.some(e => !ids.has(e.from) || !ids.has(e.to) || ids.get(e.from) >= ids.get(e.to)))
       return '<p>Graph dependencies cannot be displayed safely.</p>';
@@ -100,17 +106,18 @@
       const level = Math.max(0, ...parents.get(n.id).map(e => levels.get(e.from) + 1));
       levels.set(n.id, level);
       const row = rows.get(level) || 0; rows.set(level, row + 1);
-      positions.set(n.id, { x: 24 + row * 236, y: 24 + level * 112 });
+      positions.set(n.id, horizontal ? { x: 24 + level * 272, y: 24 + row * 112 } : { x: 24 + row * 236, y: 24 + level * 112 });
     }
-    const width = Math.max(500, Math.max(...rows.values()) * 236 + 24), height = (Math.max(...levels.values()) + 1) * 112 + 24;
+    const width = horizontal ? (Math.max(...levels.values()) + 1) * 272 : Math.max(500, Math.max(...rows.values()) * 236 + 24), height = horizontal ? Math.max(240, Math.max(...rows.values()) * 112 + 24) : (Math.max(...levels.values()) + 1) * 112 + 24;
     const edges = graph.edges.map(e => {
       const a = positions.get(e.from), b = positions.get(e.to);
+      if (horizontal) return `<path d="M${a.x + 208} ${a.y + 39} C${a.x + 240} ${a.y + 39},${b.x - 32} ${b.y + 39},${b.x} ${b.y + 39}" marker-end="url(#execution-arrow)"><title>${esc(e.kind)}: ${esc(e.from)} to ${esc(e.to)}</title></path>`;
       return `<path d="M${a.x + 104} ${a.y + 78} C${a.x + 104} ${a.y + 98},${b.x + 104} ${b.y - 20},${b.x + 104} ${b.y}" marker-end="url(#execution-arrow)"><title>${esc(e.kind)}: ${esc(e.from)} to ${esc(e.to)}</title></path>`;
     }).join('');
     const short = value => String(value || '').length > 27 ? String(value).slice(0, 26) + '…' : String(value || '');
     const boxes = nodes.map(n => {
       const p = positions.get(n.id);
-      return `<g class="execution-node" role="button" tabindex="0" data-graph-node="${esc(n.id)}" aria-label="${esc(n.kind)} ${esc(n.role || '')}: ${esc(n.status)}. Open recorded details." transform="translate(${p.x},${p.y})"><rect width="208" height="78" rx="6"/><text x="12" y="23">${esc(short(n.role || n.kind))}</text><text x="12" y="45">${esc(n.kind)} · ${esc(n.status)}</text><text x="12" y="64">${esc(n.host || 'controller')}</text></g>`;
+      return `<g class="execution-node" role="button" tabindex="0" data-graph-node="${esc(n.id)}" aria-label="${esc(n.kind)} ${esc(n.role || '')}: ${esc(n.status)}. Open recorded details." transform="translate(${p.x},${p.y})">${options.canvas ? `<title>${esc(n.kind)} · ${esc(n.role || 'controller')} · ${esc(n.status)}</title>` : ''}<rect width="208" height="78" rx="6"/><text x="12" y="23">${esc(short(n.role || n.kind))}</text><text x="12" y="45">${options.canvas ? esc(short(`${n.kind} · ${n.status}`)) : `${esc(n.kind)} · ${esc(n.status)}`}</text><text x="12" y="64">${esc(n.host || 'controller')}</text></g>`;
     }).join('');
     const details = nodes.map(n => `<details class="execution-node-detail" data-graph-detail="${esc(n.id)}"><summary>${esc(n.id)} · ${esc(n.kind)} · ${esc(n.role || 'controller')} · ${esc(n.status)}</summary><dl>`
       + [['Attempt', n.attemptId], ['Host', n.host], ['Recorded at', n.at], ['Verdict', n.verdict], ['Wave', n.waveId], ['Gates', (n.gates || []).join(', ')],
@@ -121,25 +128,30 @@
     return `<section class="execution-graph" aria-label="Controller-recorded execution graph"><h3>Controller-recorded graph</h3><p>${nodes.length} nodes · ${graph.edges.length} recorded edges · ${graph.snapshots?.length || 0} workflow snapshots. ${graph.complete ? 'Controller history recorded from run creation.' : 'Partial history: missing edges are not inferred.'}</p>`
       + `<p class="work-meta">Dispatch, input, verification, gate and join edges describe controller observations. Intent is not proof of a live worker; recorded approval is not deployment or task acceptance. Historical reuse does not invoke a worker. Stage context digests exclude separately admitted domain packets.</p>`
       + (graph.reason ? `<p class="work-warning">${esc(graph.reason)}</p>` : '')
-      + `<div class="execution-graph-tools" role="group" aria-label="Graph zoom"><button type="button" class="gate-btn" data-graph-scale="0.75">Zoom out</button><button type="button" class="gate-btn" data-graph-scale="1.333333">Zoom in</button><button type="button" class="gate-btn" data-graph-scale="reset">Reset zoom</button></div>`
-      + `<div class="execution-graph-canvas" tabindex="0" aria-label="Scrollable graph. Tab to a node and press Enter for details."><svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Recorded execution dependencies"><defs><marker id="execution-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8"/></marker></defs><g class="execution-edges" fill="none">${edges}</g>${boxes}</svg></div>`
-      + `<h3>Recorded node details</h3><p class="work-meta">Use the graph or expand a node below. Digests bind recorded inputs, not correctness.</p>${details}</section>`;
+      + `<div class="execution-graph-tools execution-graph-toolbar" role="group" aria-label="Graph zoom"><button type="button" class="gate-btn" data-graph-scale="0.75">Zoom out</button><button type="button" class="gate-btn" data-graph-scale="1.333333">Zoom in</button><button type="button" class="gate-btn" data-graph-scale="reset">Reset zoom</button>${options.canvas ? `<button type="button" class="gate-btn" data-graph-scale="fit">Fit graph</button><button type="button" class="gate-btn" data-graph-direction="lr" aria-pressed="${horizontal}">Left to right</button><button type="button" class="gate-btn" data-graph-direction="tb" aria-pressed="${!horizontal}">Top to bottom</button>` : ''}</div>`
+      + `<div class="execution-graph-canvas" tabindex="0" aria-label="Scrollable graph. Tab to a node and press Enter for details."><svg data-graph-layout="${horizontal ? 'lr' : 'tb'}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Recorded execution dependencies"><defs><marker id="execution-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8"/></marker></defs><g class="execution-edges" fill="none">${edges}</g>${boxes}</svg></div>`
+      + (options.canvas ? '<details class="execution-node-list"><summary>Recorded node details · keyboard list</summary>' : '<h3>Recorded node details</h3>') + `<p class="work-meta">Use the graph or expand a node below. Digests bind recorded inputs, not correctness.</p>${details}${options.canvas ? '</details>' : ''}</section>`;
   }
   function graphInteraction(target) {
+    const direction = target.closest('[data-graph-direction]');
+    if (config?.canvas && ['lr', 'tb'].includes(direction?.dataset.graphDirection)) { graphDirection = direction.dataset.graphDirection; closeWorkDialog(false); paint(); document.querySelector?.('[data-graph-direction][aria-pressed="true"]')?.focus(); return true; }
     const node = target.closest('[data-graph-node]');
     if (node?.dataset.graphNode) {
       const detail = [...document.querySelectorAll('[data-graph-detail]')].find(el => el.dataset.graphDetail === node.dataset.graphNode);
-      if (detail) { detail.open = true; detail.querySelector('summary')?.focus(); detail.scrollIntoView({ block: 'nearest' }); }
+      if (detail && config?.canvas) openNodeInspector(detail, node);
+      else if (detail) { detail.open = true; detail.querySelector('summary')?.focus(); detail.scrollIntoView({ block: 'nearest' }); }
       return true;
     }
     const scale = target.closest('[data-graph-scale]');
     if (!scale?.dataset.graphScale) return false;
     const svg = scale.closest('.execution-graph').querySelector('svg'), bounds = svg.viewBox.baseVal;
-    const next = scale.dataset.graphScale === 'reset' ? 1 : Math.min(2, Math.max(0.25, Number(svg.dataset.zoom || 1) * Number(scale.dataset.graphScale)));
+    const fit = scale.dataset.graphScale === 'fit' ? Math.min(1, Math.max(0.05, (scale.closest('.execution-graph').querySelector('.execution-graph-canvas').clientWidth - 2) / bounds.width)) : null;
+    const next = fit ?? (scale.dataset.graphScale === 'reset' ? 1 : Math.min(2, Math.max(0.25, Number(svg.dataset.zoom || 1) * Number(scale.dataset.graphScale))));
     svg.dataset.zoom = String(next); svg.setAttribute('width', String(bounds.width * next)); svg.setAttribute('height', String(bounds.height * next));
     return true;
   }
   function renderCockpit(data, options = {}) {
+    if (options.canvas) return renderWorkspace(data, options);
     const category = categories.some(([key]) => key === options.category) ? options.category : 'active';
     const tab = ['overview', 'execution', 'evidence'].includes(options.tab) ? options.tab : 'overview';
     const rows = cockpitEntries(data, category, options.search || '');
@@ -158,6 +170,55 @@
     return toolbar + (tab === 'overview' ? '' : observed) + feedback + '<p class="work-meta">Running means host activity was recorded; current liveness is not measured. Closed records do not by themselves prove acceptance.</p>'
       + `<div class="work-cockpit">${list}<section class="work-detail" aria-label="Selected task details">${tabs}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section></div>`
       + (data.sessions.length ? `<details><summary>Claude sessions (${data.sessions.length}) · task linkage not recorded</summary>${data.sessions.map(s => `<p>${esc(s.session)} · ${esc(s.state)} · ${esc(s.reason || '')}</p>`).join('')}</details>` : '');
+  }
+  const taskTabs = ['overview', 'execution', 'evidence'];
+  function parseRoute(input) {
+    if (typeof input !== 'string' || input.length > 4096 || /[\u0000-\u001f\u007f]/.test(input)) return null;
+    const [path, query, extra] = input.split('?');
+    if (extra !== undefined) return null;
+    const params = new URLSearchParams(query || '');
+    if ([...params.keys()].some(key => !['category', 'search'].includes(key) || params.getAll(key).length !== 1)) return null;
+    const category = params.get('category') || (path === 'work/completed' ? 'completed' : 'active'), search = params.get('search') || '';
+    if (!categories.some(([key]) => key === category) || search.length > 1000 || /[\u0000-\u001f\u007f]/.test(search)) return null;
+    let selectedKey = null, tab = 'overview';
+    if (path !== 'work' && path !== 'work/completed') {
+      const match = path.match(/^work\/task\/([^/]+)\/(overview|execution|evidence)$/);
+      if (!match) return null;
+      try { selectedKey = decodeURIComponent(match[1]); } catch { return null; }
+      if (!selectedKey || selectedKey.length > 512 || /[\u0000-\u001f\u007f]/.test(selectedKey)) return null;
+      tab = match[2];
+    }
+    return { canonical: workspaceRoute(selectedKey, tab, category, search), selectedKey, tab, category, search };
+  }
+  function workspaceRoute(key, selectedTab, selectedCategory, search) {
+    const params = new URLSearchParams();
+    if (selectedCategory !== 'active') params.set('category', selectedCategory);
+    if (search) params.set('search', search);
+    return (key ? `work/task/${encodeURIComponent(key)}/${selectedTab}` : 'work') + (params.size ? '?' + params : '');
+  }
+  function taskRows(rows, selected = null) {
+    return rows.map(e => `<button type="button" class="work-task-row" data-work-select="${esc(e.key)}" aria-current="${e.key === selected}"><strong>${esc(e.title)}</strong><span>${esc(phaseLabel(e))}</span><small>${esc(e.host || 'Host not linked')} · ${esc(e.stage || 'Stage not recorded')}</small></button>`).join('');
+  }
+  function renderWorkspace(data, options) {
+    const category = categories.some(([key]) => key === options.category) ? options.category : 'active';
+    const tab = taskTabs.includes(options.tab) ? options.tab : 'overview';
+    const rows = cockpitEntries(data, category, options.search || '');
+    const feedback = data.sources.filter(s => ['degraded', 'unavailable'].includes(s.health)).map(s => `<p class="work-warning">${esc(s.id)}: ${esc(s.reason || s.health)}</p>`).join('');
+    const observation = `<p class="work-meta">Observed ${esc(data.observedAt)} · ${data.health === 'current' ? 'Sources read' : 'Sources incomplete'}. Recorded activity is not proof of current liveness or task acceptance.</p>`;
+    if (!options.selectedKey) {
+      const toolbar = '<div class="work-filters" role="group" aria-label="Task status filters">' + categories.map(([key, label]) => `<button type="button" class="work-filter" data-work-filter="${key}" aria-pressed="${category === key}">${label} <span>${cockpitEntries(data, key, options.search || '').length}</span></button>`).join('') + '</div>';
+      return `<section class="work-workspace work-list-only" aria-label="Project work list">${toolbar}${observation}${feedback}` + (rows.length ? `<div class="work-task-list" role="group" aria-label="Project tasks">${taskRows(rows)}</div>` : `<p>${data.health !== 'current' || feedback ? 'No readable entries match this view; sources are incomplete.' : options.search ? 'No entries match the search.' : 'No work records match this filter.'}</p>`) + '</section>';
+    }
+    const selected = data.entries.find(e => e.key === options.selectedKey);
+    const back = '<button type="button" class="work-back" data-work-back>← Work</button>';
+    if (!selected) return `<section class="work-workspace work-detail-only">${back}${observation}${feedback}<h2>Selected task is unavailable</h2><p>The requested task is not in the readable records for this project. Another task will not be substituted.</p></section>`;
+    const tabs = '<div class="work-tabs" role="tablist" aria-label="Selected task">' + taskTabs.map(name => `<button type="button" class="work-tab" id="work-tab-${name}" data-work-tab="${name}" role="tab" aria-selected="${tab === name}" aria-controls="work-detail-panel" tabindex="${tab === name ? 0 : -1}">${name[0].toUpperCase() + name.slice(1)}</button>`).join('') + '</div>';
+    const detail = tab === 'execution' ? renderExecution(selected, { canvas: true, direction: options.direction }) : tab === 'evidence'
+      ? (Array.isArray(selected.evidenceSections) && selected.evidenceSections.length ? renderEvidence(selected.evidenceSections).replace('<details ', '<details open ') : '<p>Evidence unavailable. No verification or acceptance is inferred.</p>')
+      : render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
+    const runLabel = selected.title.match(/^Controlled run ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
+    const title = runLabel ? `Controlled run <small class="work-meta work-run-identifier">${esc(runLabel[1].slice(0, 8))}</small>` : esc(selected.title);
+    return `<section class="work-workspace work-detail-only" data-selected-work="${esc(selected.key)}"><header class="work-task-header"><div class="work-task-navigation">${back}<span class="work-meta">${esc(selected.kind)} · ${esc(selected.host || 'Host not linked')}</span><button type="button" data-work-switch>Switch task</button><button type="button" data-work-previous${rows.findIndex(e => e.key === selected.key) > 0 ? '' : ' disabled'} aria-label="Previous task in current filter">Previous</button><button type="button" data-work-next${rows.findIndex(e => e.key === selected.key) >= 0 && rows.findIndex(e => e.key === selected.key) < rows.length - 1 ? '' : ' disabled'} aria-label="Next task in current filter">Next</button></div><h2>${title}</h2><p>${esc(phaseLabel(selected))}</p></header>${tabs}${feedback}${tab === 'overview' ? '' : observation}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section>`;
   }
   function renderEvidence(sections) {
     if (!Array.isArray(sections)) return '';
@@ -207,40 +268,118 @@
       status('Draft PR publication recorded. Merge and release remain separate decisions.'); await refresh();
     } catch (error) { if (project === config.project()) { status(error.message); await refresh(); } }
   }
-  let config, snapshot, generation = 0, filter = '', selectedKey = null, category = 'active', tab = 'overview';
+  let config, snapshot, snapshotProject = null, generation = 0, filter = '', selectedKey = null, category = 'active', tab = 'overview';
+  let graphDirection = 'lr';
+  let activeDialog = null, dialogOpener = null, dialogEscape = null, pendingPaint = false, listPosition = null;
   const status = message => { document.getElementById('work-feedback').textContent = message; };
+  function notifyView() { config?.onViewChange?.({ detail: !!selectedKey, tab }); }
+  function navigateRoute(input) {
+    const route = parseRoute(input);
+    if (!route) return false;
+    closeWorkDialog(false);
+    const wasDetail = !!selectedKey;
+    if (selectedKey !== route.selectedKey) graphDirection = 'lr';
+    selectedKey = route.selectedKey; tab = route.tab; category = route.category; filter = route.search;
+    if (snapshot && snapshotProject !== config?.project()) { snapshot = null; previews.clear(); document.getElementById('work-list').innerHTML = ''; document.getElementById('work-list').textContent = 'Loading selected project…'; }
+    notifyView(); paint();
+    if (wasDetail && !selectedKey) restoreListPosition();
+    return true;
+  }
+  function rememberListPosition() {
+    const list = document.getElementById('work-list'), scroller = list.closest?.('.panel');
+    listPosition = { project: config.project(), category, filter, key: selectedKey, top: scroller?.scrollTop || 0 };
+  }
+  function restoreListPosition() {
+    if (!listPosition || listPosition.project !== config.project() || listPosition.category !== category || listPosition.filter !== filter) return;
+    const list = document.getElementById('work-list'), scroller = list.closest?.('.panel');
+    if (scroller) scroller.scrollTop = listPosition.top;
+    [...document.querySelectorAll('[data-work-select]')].find(n => n.dataset.workSelect === listPosition.key)?.focus({ preventScroll: true });
+  }
+  function changeWorkspace() {
+    closeWorkDialog(false); notifyView(); paint();
+    config.navigate?.(workspaceRoute(selectedKey, tab, category, filter));
+  }
+  function closeWorkDialog(restore = true) {
+    if (!activeDialog) return;
+    const dialog = activeDialog, opener = dialogOpener;
+    activeDialog = null; dialogOpener = null;
+    if (dialogEscape) { document.removeEventListener('keydown', dialogEscape, true); dialogEscape = null; }
+    if (dialog.open) dialog.close();
+    dialog.remove();
+    if (pendingPaint) { pendingPaint = false; paint(); }
+    if (restore && opener?.isConnected) opener.focus();
+  }
+  function makeWorkDialog(className, title, opener, content, modal) {
+    closeWorkDialog(false);
+    const dialog = document.createElement('dialog'); dialog.className = className;
+    dialog.setAttribute('aria-label', title);
+    dialog.innerHTML = `<header><h2>${esc(title)}</h2><button type="button" data-dialog-close aria-label="Close ${esc(title)}">Close</button></header>${content}`;
+    document.body.append(dialog); activeDialog = dialog; dialogOpener = opener;
+    dialogEscape = event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeWorkDialog(); } };
+    document.addEventListener('keydown', dialogEscape, true);
+    dialog.addEventListener('cancel', event => { event.preventDefault(); closeWorkDialog(); });
+    dialog.addEventListener('keydown', event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeWorkDialog(); } });
+    dialog.addEventListener('click', event => { if (event.target.closest('[data-dialog-close]')) closeWorkDialog(); });
+    dialog.addEventListener('close', () => { if (activeDialog === dialog) closeWorkDialog(); });
+    if (modal) dialog.showModal(); else dialog.show();
+    return dialog;
+  }
+  function openTaskSwitcher(opener) {
+    const rows = cockpitEntries(snapshot, category, filter);
+    const dialog = makeWorkDialog('work-switcher', 'Switch task', opener, '<label>Find a task<input type="search" data-switch-search placeholder="Title or task ID"></label><p class="work-meta">Tasks in the current project and list filter.</p><div data-switch-rows>' + taskRows(rows, selectedKey) + '</div><p data-switch-empty hidden>No matching task.</p>', true);
+    const input = dialog.querySelector('[data-switch-search]'); input.focus();
+    input.addEventListener('input', () => { let count = 0; dialog.querySelectorAll('[data-work-select]').forEach(button => { const entry = rows.find(e => e.key === button.dataset.workSelect); button.hidden = !`${entry.title} ${entry.key}`.toLowerCase().includes(input.value.toLowerCase()); if (!button.hidden) count++; }); dialog.querySelector('[data-switch-empty]').hidden = count > 0; });
+    dialog.addEventListener('click', event => { const button = event.target.closest('[data-work-select]'); if (button && snapshot?.entries.some(e => e.key === button.dataset.workSelect) && snapshotProject === config.project()) { selectedKey = button.dataset.workSelect; tab = 'overview'; changeWorkspace(); document.querySelector('[data-work-tab]')?.focus(); } });
+  }
+  function openNodeInspector(detail, opener) {
+    document.querySelectorAll('[data-graph-detail][open]').forEach(node => { node.open = false; });
+    const content = detail.outerHTML.replace('<details ', '<details open ');
+    const dialog = makeWorkDialog('work-node-inspector', 'Recorded node details', opener, '<p class="work-meta">Recorded inputs, not proof of correctness, current activity or acceptance.</p>' + content, false);
+    dialog.querySelector('summary')?.focus();
+  }
   async function refresh() {
     const seq = ++generation, project = config.project();
     try {
       const data = await config.read(`/api/work${project ? '?project=' + encodeURIComponent(project) : ''}`);
       if (seq !== generation || project !== config.project()) return;
       if (!data || data.error || data.schemaVersion !== 1) throw Error(data?.error || 'Cannot read work state. Check the board connection and refresh.');
-      if (snapshot?.revision === data.revision) return;
-      snapshot = data; paint();
+      if (snapshotProject === project && snapshot?.revision === data.revision) return;
+      snapshot = data; snapshotProject = project;
+      if (config.canvas && activeDialog?.open) { pendingPaint = true; previews.clear(); } else paint();
     } catch (error) {
       if (seq !== generation || project !== config.project()) return;
-      snapshot = null;
+      snapshot = null; snapshotProject = null; pendingPaint = false; closeWorkDialog(false);
       for (const id of ['work-list', 'history-list']) document.getElementById(id).textContent = error.message;
     }
   }
   function paint() {
-    if (!snapshot) return;
+    if (!snapshot || (config?.canvas && snapshotProject !== config.project())) return;
     previews.clear(); // Repaint removes the reviewed diff and its confirmation controls.
     const expanded = [...document.querySelectorAll('.work-card details[open]')].map(d => `${d.closest('[data-entry-key]').dataset.entryKey}:${d.dataset.workDetail}`);
     const focused = document.activeElement;
     const focusKey = focused?.dataset?.workKey, focusAction = focused?.dataset?.workAction;
     const focusSelect = focused?.dataset?.workSelect, focusFilter = focused?.dataset?.workFilter, focusTab = focused?.dataset?.workTab;
-    document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab });
+    const focusNode = focused?.dataset?.graphNode;
+    const oldCanvas = config.canvas ? document.querySelector?.('.execution-graph-canvas') : null;
+    const oldSvg = oldCanvas?.querySelector('svg'), oldZoom = oldSvg ? Number(oldSvg.dataset.zoom || 1) : 1;
+    const graphScroll = oldCanvas?.closest('[data-selected-work]')?.dataset.selectedWork === selectedKey && oldSvg?.dataset.graphLayout === graphDirection ? { left: oldCanvas.scrollLeft, top: oldCanvas.scrollTop } : null;
+    document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab, canvas: !!config.canvas, direction: graphDirection });
     document.getElementById('history-list').innerHTML = render(snapshot, true, filter);
+    if (graphScroll) {
+      const canvas = document.querySelector?.('.execution-graph-canvas'), svg = canvas?.querySelector('svg');
+      if (svg && Number.isFinite(oldZoom) && oldZoom > 0) { const bounds = svg.viewBox.baseVal; svg.dataset.zoom = String(oldZoom); svg.setAttribute('width', String(bounds.width * oldZoom)); svg.setAttribute('height', String(bounds.height * oldZoom)); canvas.scrollLeft = graphScroll.left; canvas.scrollTop = graphScroll.top; }
+    }
     for (const card of document.querySelectorAll('[data-entry-key]')) for (const detail of card.querySelectorAll('details'))
       if (expanded.includes(`${card.dataset.entryKey}:${detail.dataset.workDetail}`)) detail.open = true;
     if (focusKey) [...document.querySelectorAll('[data-work-key]')].find(b => b.dataset.workKey === focusKey && b.dataset.workAction === focusAction)?.focus();
     else if (focusSelect) [...document.querySelectorAll('[data-work-select]')].find(b => b.dataset.workSelect === focusSelect)?.focus();
     else if (focusFilter) [...document.querySelectorAll('[data-work-filter]')].find(b => b.dataset.workFilter === focusFilter)?.focus();
     else if (focusTab) [...document.querySelectorAll('[data-work-tab]')].find(b => b.dataset.workTab === focusTab)?.focus();
+    else if (focusNode) [...document.querySelectorAll('[data-graph-node]')].find(n => n.dataset.graphNode === focusNode)?.focus({ preventScroll: true });
   }
   function reset() {
-    generation++; snapshot = null; previews.clear(); selectedKey = null; category = 'active'; tab = 'overview'; filter = ''; status('');
+    closeWorkDialog(false); pendingPaint = false; listPosition = null; graphDirection = 'lr';
+    generation++; snapshotProject = null; snapshot = null; previews.clear(); selectedKey = null; category = 'active'; tab = 'overview'; filter = ''; status(''); notifyView();
     for (const id of ['work-list', 'history-list']) document.getElementById(id).textContent = 'Loading project work…';
     refresh();
   }
@@ -262,16 +401,24 @@
       document.getElementById('work-command').textContent = ''; status('');
     });
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
+      if (config.canvas && snapshotProject !== config.project()) return;
       if (graphInteraction(event.target)) return;
-      if (!snapshot) return;
+      if (!snapshot || (config.canvas && snapshotProject !== config.project())) return;
+      if (config.canvas) {
+        if (event.target.closest('[data-work-back]')) { selectedKey = null; tab = 'overview'; changeWorkspace(); restoreListPosition(); return; }
+        const switcher = event.target.closest('[data-work-switch]');
+        if (switcher) { openTaskSwitcher(switcher); return; }
+        const direction = event.target.closest('[data-work-previous]') ? -1 : event.target.closest('[data-work-next]') ? 1 : 0;
+        if (direction) { const rows = cockpitEntries(snapshot, category, filter), index = rows.findIndex(e => e.key === selectedKey), next = index >= 0 ? rows[index + direction] : null; if (next) { selectedKey = next.key; tab = 'overview'; changeWorkspace(); } return; }
+      }
       const button = event.target.closest('[data-work-action]');
       if (!button?.dataset.workAction) {
         const selection = event.target.closest('[data-work-select]');
         const filterButton = event.target.closest('[data-work-filter]');
         const tabButton = event.target.closest('[data-work-tab]');
-        if (selection?.dataset.workSelect && snapshot.entries.some(e => e.key === selection.dataset.workSelect)) { selectedKey = selection.dataset.workSelect; tab = 'overview'; paint(); }
-        else if (categories.some(([key]) => key === filterButton?.dataset.workFilter)) { category = filterButton.dataset.workFilter; selectedKey = null; tab = 'overview'; paint(); }
-        else if (['overview', 'execution', 'evidence'].includes(tabButton?.dataset.workTab)) { tab = tabButton.dataset.workTab; paint(); }
+        if (selection?.dataset.workSelect && snapshot.entries.some(e => e.key === selection.dataset.workSelect)) { if (config.canvas) { rememberListPosition(); listPosition.key = selection.dataset.workSelect; } selectedKey = selection.dataset.workSelect; tab = 'overview'; if (config.canvas) changeWorkspace(); else paint(); }
+        else if (categories.some(([key]) => key === filterButton?.dataset.workFilter)) { category = filterButton.dataset.workFilter; selectedKey = null; tab = 'overview'; if (config.canvas) changeWorkspace(); else paint(); }
+        else if (['overview', 'execution', 'evidence'].includes(tabButton?.dataset.workTab)) { tab = tabButton.dataset.workTab; if (config.canvas) changeWorkspace(); else paint(); }
         return;
       }
       const entry = snapshot.entries.find(e => e.key === button.dataset.workKey);
@@ -283,6 +430,7 @@
       else options.openIssue(entry.issueIds[0], action.action === 'review_decision');
     });
     document.getElementById('work-list').addEventListener('keydown', event => {
+      if (config.canvas && snapshotProject !== config.project()) return;
       if (['Enter', ' '].includes(event.key) && event.target.closest('[data-graph-node]')) { event.preventDefault(); graphInteraction(event.target); return; }
       const button = event.target.closest('[data-work-tab]');
       if (!button || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
@@ -290,10 +438,10 @@
       if (current < 0) return;
       event.preventDefault();
       tab = event.key === 'Home' ? tabs[0] : event.key === 'End' ? tabs[2] : tabs[(current + (event.key === 'ArrowRight' ? 1 : 2)) % 3];
-      paint();
+      if (config.canvas) changeWorkspace(); else paint();
       [...document.querySelectorAll('[data-work-tab]')].find(b => b.dataset.workTab === tab)?.focus();
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; paint(); }, search(value) { filter = value; paint(); } };
+  window.GctoWork = { bind, refresh, reset, parseRoute, navigateRoute, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; notifyView(); paint(); }, search(value) { filter = value; if (config?.canvas) { if (!selectedKey) changeWorkspace(); } else paint(); } };
 })();

@@ -4139,6 +4139,9 @@ let metrics = {};
 let shareState = { enabled: false, url: null };
 let currentTab = 'work';
 window.GctoWork.bind({
+  canvas: true,
+  navigate: canonical => window.GctoAdmin?.navigateWork(canonical),
+  onViewChange: view => window.GctoAdmin?.setWorkView(view),
   project: () => new URLSearchParams(location.search).get('project') || '',
   visible: () => currentTab === 'work' || currentTab === 'history',
   read: url => api(url),
@@ -7815,6 +7818,7 @@ async function switchProject(slug) {
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
   if (currentTab === 'skills') loadSkillsInventory();
+  if (window.GctoWork.parseRoute((location.hash || '').replace(/^#\/?/, ''))?.selectedKey) history.replaceState(history.state, '', '#/work');
   window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
@@ -7882,6 +7886,7 @@ function filterTasks(q) {
 function onSearch(q) {
   window.GctoWork.search(q);
   searchQuery = q;
+  if (currentTab === 'work' || currentTab === 'history') return;
   renderKanban(filterTasks(q));
   document.getElementById('topbar-task-count').textContent =
     `${filterTasks(q).length} ${q ? 'MATCH' : 'ISSUES'}`;
@@ -9432,7 +9437,24 @@ function routeFromHash() {
   }
   return ROUTES[h] ? h : (LEGACY_ROUTES[h] || null);
 }
-addEventListener('hashchange', () => { const r = routeFromHash(); if (r) switchTab(r); });
+let routeReplay = 0, lastRouteReplay = '';
+async function replayBoardRoute() {
+  if (location.href === lastRouteReplay) return;
+  lastRouteReplay = location.href;
+  const ticket = ++routeReplay, project = new URLSearchParams(location.search).get('project') || '';
+  const expectedHash = location.hash;
+  if (project && typeof currentProject !== 'undefined' && currentProject && project !== currentProject) {
+    const loading = switchProject(project);
+    history.replaceState(history.state, '', expectedHash || '#/work');
+    await loading;
+    if (ticket !== routeReplay || project !== new URLSearchParams(location.search).get('project')) return;
+    history.replaceState(history.state, '', expectedHash || '#/work');
+  }
+  if (ticket !== routeReplay) return;
+  const r = routeFromHash(); if (r) switchTab(r);
+}
+addEventListener('hashchange', replayBoardRoute);
+addEventListener('popstate', replayBoardRoute);
 addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); if (r && r !== 'work') switchTab(r); });
 
 async function refreshLogs() {
