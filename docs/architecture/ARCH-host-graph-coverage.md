@@ -34,6 +34,24 @@ before enabling an adapter capability. A fixture is evidence for a parser, not
 evidence that the installed host emits that event. Version/auth detection alone
 does not certify event coverage.
 
+## Change map
+
+```mermaid
+flowchart LR
+  C[Controlled Codex and Claude runners] --> N[Metadata normalizer]
+  H[Opt-in native host hooks] --> B[Project and session binding]
+  B --> N
+  N --> J[Private bounded journal and loss markers]
+  J --> P[Read-only coverage and graph projection]
+  P --> A[Project-scoped admin canvas]
+  T[Existing controller causal trace] --> A
+  T --> G[Existing verifier and gate authority]
+```
+
+- Host observations supply classified metadata and coverage to the canvas.
+- Observation collectors cannot write controller transitions or approve a gate.
+- Journal gaps remain visible in the read-only projection.
+
 ## Components and ownership
 
 ```text

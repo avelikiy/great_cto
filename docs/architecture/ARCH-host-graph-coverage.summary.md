@@ -3,6 +3,8 @@
 
 _Generated heuristically (no ANTHROPIC_API_KEY). For higher quality summaries, set ANTHROPIC_API_KEY._
 
-- **Date:** 2026-10-25
+- **Change map:** Host observations supply classified metadata and coverage to the canvas.
+- **Change map:** Observation collectors cannot write controller transitions or approve a gate.
+- **Change map:** Journal gaps remain visible in the read-only projection.
 
 - **Full doc:** docs/architecture/ARCH-host-graph-coverage.md
