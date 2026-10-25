@@ -76,11 +76,12 @@ function emit(state, event) {
   // The user ran this pipeline here, so it keeps its log here even before /start.
   return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id }, { explicit: true });
 }
-const toolListener = (state, agent, invocationId = null, sourceAudited = false) => (ev) => {
+const toolListener = (state, agent, invocationId = null, sourceAudited = false, trustedAttemptId = null) => (ev) => {
   if (state.observeHostGraph === true && invocationId) {
     const attempt = (state.attempts || []).find(a => a.invocationId === invocationId || a.verifierInvocationId === invocationId);
+    // Parallel worker callbacks precede prepared attempts, but their wave ID is durable.
     const host = agent.startsWith('claude-') ? 'claude-code' : 'codex';
-    const observed = observeHostGraph({ binding: graphBinding({ root: state.root, runId: state.id, sessionId: invocationId, attemptId: attempt?.id || null, host }),
+    const observed = observeHostGraph({ binding: graphBinding({ root: state.root, runId: state.id, sessionId: invocationId, attemptId: attempt?.id || trustedAttemptId, host }),
       host, mode: 'controlled', sourceVersion: sourceAudited ? state.hostObservationSources?.find(s => s.host === host)?.sourceVersion || null : null, event: ev });
     state.hostObservationHealth ||= { state: 'recorded', recorded: 0 };
     state.hostObservationHealth.recorded += observed.recorded;
@@ -1033,7 +1034,7 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
         const result = await observeControllerCall(state, { id: `${waveId}:${role}`, attemptId: state.wave.attemptIds[role], host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: admitted.options.prompt, cwd: state.root,
           sandbox: 'read-only', ephemeral: true, timeoutMs: 300000,
           bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-          invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: roleHost(state, role) === 'codex' || state.observeHostGraph === true ? toolListener(state, agent, invocationId, runner === runCodexExec || runner === runClaudeExec) : null }), save);
+          invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: roleHost(state, role) === 'codex' || state.observeHostGraph === true ? toolListener(state, agent, invocationId, runner === runCodexExec || runner === runClaudeExec, state.wave.attemptIds[role]) : null }), save);
         observeRunnerHealth(state, result, { host: roleHost(state, role), invocationId, attemptId: state.wave.attemptIds[role] });
         ok = true;
         return result;

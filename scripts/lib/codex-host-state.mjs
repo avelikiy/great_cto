@@ -8,12 +8,21 @@ import { detectClaude } from './claude-exec.mjs';
 import { dispatchEvidenceSummary } from './controller-dispatch-evidence.mjs';
 import { projectExecutionTrace } from './execution-trace.mjs';
 import { graphBinding, projectHostObservations } from './host-graph-observer.mjs';
+import { invocationIdentity } from './invocation-identity.mjs';
 
 export const codexRunStore = ({ home = homedir(), env = process.env } = {}) =>
   env.GREAT_CTO_CODEX_RUNS_DIR || join(home, '.great_cto', 'codex-runs');
 
 export function projectCodexState(state) {
   const observationInvocations = (state.attempts || []).flatMap(a => [{ ...a, observationHost: a.host || 'codex', observationId: a.invocationId }, ...(a.verifierInvocationId ? [{ ...a, observationHost: 'codex', observationId: a.verifierInvocationId }] : [])]).filter(a => a.observationId);
+  // A frozen wave is persisted before dispatch; prepared attempts appear later.
+  for (const role of state.wave?.roles || []) {
+    const id = state.wave.attemptIds?.[role], observationHost = state.wave.hosts?.[role];
+    const observationId = invocationIdentity({ session_id: state.id, agent_id: id });
+    if (observationId && ['codex', 'claude-code'].includes(observationHost)
+      && !observationInvocations.some(a => a.observationId === observationId && a.observationHost === observationHost))
+      observationInvocations.push({ id, observationHost, observationId });
+  }
   return {
     id: state.id,
     version: state.version,
@@ -26,6 +35,7 @@ export function projectCodexState(state) {
     controllerDispatch: dispatchEvidenceSummary(state),
     executionGraph: projectExecutionTrace(state),
     hostObservationHealth: state.hostObservationHealth || null,
+    hostObservationBindings: observationInvocations.map(a => ({ attemptId: a.id, sessionId: a.observationId, host: a.observationHost })),
     hostObservationOmittedAttempts: Math.max(0, observationInvocations.length - 8),
     hostObservations: state.observeHostGraph === true ? observationInvocations.slice(-8).map(a =>
       projectHostObservations(graphBinding({ root: state.root, runId: state.id, sessionId: a.observationId, attemptId: a.id, host: a.observationHost }))) : [],

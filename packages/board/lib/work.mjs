@@ -225,7 +225,7 @@ export function getHostGraphPage(root, { host, sessionId, runId = null, cursor =
   const listing = listCodexRuns({ root });
   if (listing.state === 'degraded') throw Error('controlled membership is unreadable');
   const run = listing.runs.find(r => r.id === runId);
-  const attempt = run?.attempts.find(a => (a.invocationId === sessionId && a.host === host) || (a.verifierInvocationId === sessionId && host === 'codex'));
-  if (!attempt) throw Error('controlled observation does not belong to this project');
-  return projectHostObservations(graphBinding({ root, runId, sessionId, attemptId: attempt.id, host }), { cursor });
+  const binding = run?.hostObservationBindings.find(b => b.sessionId === sessionId && b.host === host);
+  if (!binding) throw Error('controlled observation does not belong to this project');
+  return projectHostObservations(graphBinding({ root, runId, sessionId, attemptId: binding.attemptId, host }), { cursor });
 }

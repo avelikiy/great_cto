@@ -58,6 +58,9 @@ Supplementary journals are bounded independently of the existing controller
 trace. Work shows the latest eight attempt journals and explicitly reports older
 omissions. The page endpoint can read a bound older invocation using its run,
 host and invocation identity; it cannot select another project by path.
+Frozen wave bindings also expose in-flight worker observations before prepared
+attempts are applied. Once an attempt is materialized, its membership is deduplicated;
+both projection and pagination retain the same project, host and invocation checks.
 
 ## Native sessions
 
