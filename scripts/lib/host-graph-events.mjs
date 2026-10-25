@@ -49,6 +49,7 @@ function ignoredPayload(host, mode, raw, sourceVersion) {
   // as gaps until independently classified; subtype alone is not evidence.
   if (mode === 'controlled' && sourceVersion === '2.1.292' && raw.type === 'system' && raw.subtype === 'ui_invalidate'
     && raw.event === 'ui.render' && uuid(raw.uuid) && uuid(raw.session_id)
+    && Object.keys(raw).length === 5
     && Object.keys(raw).every(key => ['type', 'subtype', 'event', 'uuid', 'session_id'].includes(key))) return true;
   if (['assistant', 'user'].includes(raw.type)) {
     const content = raw.message?.content;

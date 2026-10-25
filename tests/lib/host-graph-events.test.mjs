@@ -198,5 +198,6 @@ test('only the audited Claude 2.1.292 UI render invalidation is excluded from gr
   ]) assert.deepEqual(call(event).diagnostics, ['unsupported-event-shape']);
   assert.deepEqual(call(raw, '2.1.293').diagnostics, ['unsupported-event-shape']);
   assert.deepEqual(call(raw, null).diagnostics, ['unsupported-event-shape']);
+  assert.deepEqual(call(Object.create(raw)).diagnostics, ['unsupported-event-shape']);
   assert.deepEqual(normalize('claude-code', raw, { sourceVersion: '2.1.292', mode: 'native' }).diagnostics, ['unsupported-event-shape']);
 });
