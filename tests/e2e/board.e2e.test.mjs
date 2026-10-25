@@ -41,6 +41,8 @@ test('Work evidence opens with keyboard and keeps unlinked checks and runtime Un
   if (env.skip) return t.skip(env.skip);
   try {
     const { page, errors } = await openBoard(env, '#/work');
+    // Work is now a list; select the same first task explicitly before inspection.
+    await page.locator('#work-list [data-work-select]').first().click();
     const writes = [];
     page.on('request', request => { if (!['GET', 'HEAD'].includes(request.method())) writes.push(request.method()); });
     await page.getByRole('tab', { name: 'Evidence', exact: true }).focus();
