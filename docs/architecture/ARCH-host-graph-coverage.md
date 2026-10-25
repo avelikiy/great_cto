@@ -1,6 +1,9 @@
+---
+date: 2026-10-25
+---
+
 # ARCH: Host graph coverage
 
-Date: 2026-10-25
 Design: [ADR-044](../adr/ADR-044-host-graph-coverage.md)
 State: Implementation contract; no completion or live-provider claim
 

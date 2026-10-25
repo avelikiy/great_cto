@@ -30,7 +30,7 @@ test('verifier binding is durable before first external event, including crash-t
   assert(verifierReached); assert.equal(state.status, 'awaiting-gate');
 });
 
-test('opt-in audits refresh exact configured host executables and persist version provenance', async () => {
+test('opt-in version checks refresh exact configured host executables and persist provenance', async () => {
   const { refreshHostObservationSources } = await import('../../scripts/lib/codex-pipeline.mjs');
   const state = { observeHostGraph: true }; let calls = 0, saved;
   const audit = options => { calls++; assert.equal(options.binaries.codex, process.env.GREAT_CTO_CODEX_BIN || 'codex');
