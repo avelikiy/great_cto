@@ -1,5 +1,7 @@
 # Canvas focus for controlled execution
 
+Related contract: [controller-recorded causal execution graph](../adr/ADR-040-recorded-execution-graph.md).
+
 Approved direction: Canvas focus. This change is a browser layout and navigation projection. It adds no controller transition, provider call, backend endpoint, evidence claim or approval authority.
 
 Work is a project-scoped list. Selecting a task opens a separate view inside the existing work panel. Overview, Execution and Evidence remain distinct. Execution uses a compact desktop navigation rail, one graph canvas and an on-demand inspector. The mobile navigation drawer remains the existing accessible drawer. Task switching uses a project-scoped picker, not a permanently pinned master list.
