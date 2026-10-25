@@ -76,3 +76,67 @@ test('canvas graph orientation changes geometry only and long node labels retain
   assert.match(tb, /verification: a to b/); assert.match(lr, /<title>a-very-long-controller-transition-kind · writer · an-extremely-long-recorded-status<\/title>/);
   assert.doesNotMatch(lr, /<text x="12" y="45">a-very-long-controller-transition-kind/);
 });
+function dialogHarness() {
+  const nodes = new Map(), handlers = new Map(), docHandlers = new Map(), dialogs = [];
+  let project = 'project-a', revision = 0, switcher = null, graphNode = null, graphDetail = null, focused = null;
+  const focusable = dataset => ({ dataset, isConnected: true, focus() { focused = this; }, closest(selector) { return selector === '[data-graph-node]' && this.dataset.graphNode ? this : selector === '[data-work-switch]' && 'workSwitch' in this.dataset ? this : null; } });
+  const node = id => {
+    if (!nodes.has(id)) {
+      const n = { textContent: '', addEventListener(kind, fn) { handlers.set(`${id}:${kind}`, fn); } }; let html = '';
+      Object.defineProperty(n, 'innerHTML', { get() { return html; }, set(value) {
+        html = value;
+        if (id !== 'work-list') return;
+        if (switcher) switcher.isConnected = false;
+        if (graphNode) graphNode.isConnected = false;
+        switcher = value.includes('data-work-switch') ? focusable({ workSwitch: '' }) : null;
+        graphNode = value.includes('data-graph-node="a"') ? focusable({ graphNode: 'a' }) : null;
+        graphDetail = graphNode ? { dataset: { graphDetail: 'a' }, open: false, outerHTML: '<details data-graph-detail="a"><summary>Recorded node</summary></details>' } : null;
+      } }); nodes.set(id, n);
+    }
+    return nodes.get(id);
+  };
+  const document = {
+    getElementById: node, get activeElement() { return focused; }, querySelector() { return null; },
+    querySelectorAll(selector) {
+      if (selector === '[data-work-switch]') return switcher ? [switcher] : [];
+      if (selector === '[data-graph-node]') return graphNode ? [graphNode] : [];
+      if (selector === '[data-graph-detail]') return graphDetail ? [graphDetail] : [];
+      return [];
+    },
+    addEventListener(kind, fn) { docHandlers.set(kind, fn); }, removeEventListener(kind, fn) { if (docHandlers.get(kind) === fn) docHandlers.delete(kind); },
+    body: { append(dialog) { dialogs.push(dialog); } },
+    createElement() {
+      const listeners = new Map(), input = focusable({}); input.addEventListener = () => {};
+      return { open: false, innerHTML: '', setAttribute() {}, addEventListener(kind, fn) { listeners.set(kind, fn); }, querySelector() { return input; }, querySelectorAll() { return []; },
+        show() { this.open = true; }, showModal() { this.open = true; }, close() { this.open = false; listeners.get('close')?.(); }, remove() { dialogs.splice(dialogs.indexOf(this), 1); } };
+    },
+  };
+  const context = { window: {}, document, URLSearchParams, setInterval() {} }; vm.createContext(context); vm.runInContext(source, context);
+  const ui = context.window.GctoWork;
+  ui.bind({ canvas: true, project: () => project, visible: () => true, read: async () => { const data = fixture(String(++revision)); data.entries[0].execution.graph = { state: 'recorded', complete: true, nodes: [{ id: 'a', kind: 'attempt', status: 'intent' }], edges: [] }; return data; } });
+  return { ui, dialogs, switcher: () => switcher, graphNode: () => graphNode, focused: () => focused, setProject(value) { project = value; },
+    openSwitcher() { handlers.get('work-list:click')({ target: { closest: selector => selector === '[data-work-switch]' ? switcher : null } }); },
+    openNode() { handlers.get('work-list:click')({ target: { closest: selector => selector === '[data-graph-node]' ? graphNode : null } }); },
+    escape() { docHandlers.get('keydown')?.({ key: 'Escape', preventDefault() {}, stopPropagation() {} }); },
+  };
+}
+test('leaving Work closes body-mounted dialogs and removes their Escape listener', async () => {
+  const h = dialogHarness(); await h.ui.refresh(); h.ui.navigateRoute('work/task/task%3Aone/execution'); h.openNode();
+  assert.equal(h.dialogs.length, 1); h.ui.leaveView(); assert.equal(h.dialogs.length, 0);
+  h.escape(); assert.equal(h.dialogs.length, 0);
+});
+test('Escape restores the equivalent picker or graph opener after a deferred refresh replaces DOM', async () => {
+  for (const kind of ['switcher', 'node']) {
+    const h = dialogHarness(); await h.ui.refresh(); h.ui.navigateRoute('work/task/task%3Aone/execution');
+    const original = kind === 'switcher' ? h.switcher() : h.graphNode();
+    if (kind === 'switcher') h.openSwitcher(); else h.openNode();
+    await h.ui.refresh(); assert.equal(h.dialogs.length, 1); h.escape();
+    const replacement = kind === 'switcher' ? h.switcher() : h.graphNode();
+    assert.notEqual(replacement, original); assert.equal(original.isConnected, false); assert.equal(h.focused(), replacement); assert.equal(h.dialogs.length, 0);
+  }
+});
+test('dialog focus restoration never jumps to an identically keyed node in another project', async () => {
+  const h = dialogHarness(); await h.ui.refresh(); h.ui.navigateRoute('work/task/task%3Aone/execution'); h.openNode();
+  h.setProject('project-b'); await h.ui.refresh(); h.escape();
+  assert.notEqual(h.focused(), h.graphNode()); assert.equal(h.dialogs.length, 0);
+});

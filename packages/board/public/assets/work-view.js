@@ -270,7 +270,7 @@
   }
   let config, snapshot, snapshotProject = null, generation = 0, filter = '', selectedKey = null, category = 'active', tab = 'overview';
   let graphDirection = 'lr';
-  let activeDialog = null, dialogOpener = null, dialogEscape = null, pendingPaint = false, listPosition = null;
+  let activeDialog = null, dialogOpener = null, dialogReturn = null, dialogEscape = null, pendingPaint = false, listPosition = null;
   const status = message => { document.getElementById('work-feedback').textContent = message; };
   function notifyView() { config?.onViewChange?.({ detail: !!selectedKey, tab }); }
   function navigateRoute(input) {
@@ -301,20 +301,27 @@
   }
   function closeWorkDialog(restore = true) {
     if (!activeDialog) return;
-    const dialog = activeDialog, opener = dialogOpener;
-    activeDialog = null; dialogOpener = null;
+    const dialog = activeDialog, opener = dialogOpener, returnTo = dialogReturn;
+    activeDialog = null; dialogOpener = null; dialogReturn = null;
     if (dialogEscape) { document.removeEventListener('keydown', dialogEscape, true); dialogEscape = null; }
     if (dialog.open) dialog.close();
     dialog.remove();
     if (pendingPaint) { pendingPaint = false; paint(); }
-    if (restore && opener?.isConnected) opener.focus();
+    if (!restore || !returnTo || returnTo.project !== config.project() || returnTo.task !== selectedKey) return;
+    const replacement = returnTo.node
+      ? [...document.querySelectorAll('[data-graph-node]')].find(node => node.dataset.graphNode === returnTo.node)
+      : returnTo.switcher ? document.querySelectorAll('[data-work-switch]')[0] : null;
+    if (opener?.isConnected) opener.focus();
+    else replacement?.focus();
   }
+  function leaveView() { pendingPaint = false; closeWorkDialog(false); }
   function makeWorkDialog(className, title, opener, content, modal) {
     closeWorkDialog(false);
     const dialog = document.createElement('dialog'); dialog.className = className;
     dialog.setAttribute('aria-label', title);
     dialog.innerHTML = `<header><h2>${esc(title)}</h2><button type="button" data-dialog-close aria-label="Close ${esc(title)}">Close</button></header>${content}`;
     document.body.append(dialog); activeDialog = dialog; dialogOpener = opener;
+    dialogReturn = { project: config.project(), task: selectedKey, node: opener?.dataset?.graphNode || null, switcher: Object.prototype.hasOwnProperty.call(opener?.dataset || {}, 'workSwitch') };
     dialogEscape = event => { if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeWorkDialog(); } };
     document.addEventListener('keydown', dialogEscape, true);
     dialog.addEventListener('cancel', event => { event.preventDefault(); closeWorkDialog(); });
@@ -443,5 +450,5 @@
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, parseRoute, navigateRoute, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; notifyView(); paint(); }, search(value) { filter = value; if (config?.canvas) { if (!selectedKey) changeWorkspace(); } else paint(); } };
+  window.GctoWork = { bind, refresh, reset, leaveView, parseRoute, navigateRoute, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; notifyView(); paint(); }, search(value) { filter = value; if (config?.canvas) { if (!selectedKey) changeWorkspace(); } else paint(); } };
 })();

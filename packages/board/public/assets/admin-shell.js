@@ -129,10 +129,10 @@
         open(0);return;
       }
       const r=route(id);
-      if(!r) {bar.hidden=true;return original(id,el);}
+      if(!r) {window.GctoWork.leaveView?.();setWorkView({detail:false});bar.hidden=true;return original(id,el);}
       selectedRoute=r.canonical;
       if (r.workRoute) { window.GctoWork.navigateRoute(r.canonical); const input = panel('search-input'); if(input) input.value = window.GctoWork.parseRoute(r.canonical).search; }
-      else setWorkView({detail:false});
+      else { window.GctoWork.leaveView?.(); setWorkView({detail:false}); }
       const old={inbox:'decisions',budgets:'ledger',agents:'fleet','admin-outcomes':'admin-outcomes',knowledge:'knowledge'}[r.panel]||r.panel;
       original(old); // Keep established loaders and mutation guards.
       document.querySelectorAll('.nav-item[data-tab]').forEach(n=>{const active=n.closest('#nav-tablist')&&n.dataset.tab===r.primary;n.classList.toggle('active',!!active);n.setAttribute('aria-selected',String(!!active));});

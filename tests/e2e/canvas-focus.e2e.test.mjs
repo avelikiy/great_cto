@@ -37,8 +37,10 @@ test('canvas workspace preserves route history, project identity, evidence and u
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const base = `http://127.0.0.1:${server.port}`, key = 'run:' + state.id;
-    await page.goto(`${base}/?project=${FIXTURE_NAME}#/work`);
+    await page.goto(`${base}/#/work`);
     await page.locator(`[data-work-select="${key}"]`).waitFor();
+    await page.waitForFunction(slug => new URLSearchParams(location.search).get('project') === slug && currentProject === slug, FIXTURE_NAME);
+    assert.equal(await page.locator('#project-name').innerText(), FIXTURE_NAME, 'registered default scope is made explicit before navigation history is created');
     assert.equal(await page.locator('.work-detail-only').count(), 0, 'Work is a list, not an automatic task selection');
     const source = await (await page.request.get(`${base}/api/work?project=${FIXTURE_NAME}`)).json();
     const graph = source.entries.find(entry => entry.key === key).execution.graph;
@@ -98,6 +100,32 @@ test('canvas workspace preserves route history, project identity, evidence and u
     assert.equal(await page.locator('.work-node-inspector [data-work-action]').count(), 0);
     await page.keyboard.press('Escape'); await page.locator('.work-node-inspector').waitFor({ state: 'detached' });
     assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-graph-node')), firstId, 'Escape restores selected graph-node focus');
+
+    await first.focus(); await first.press('Enter');
+    await page.locator('.work-node-inspector[open]').waitFor();
+    await page.locator('#nav-tablist [data-tab="knowledge"]').click();
+    await page.locator('#panel-knowledge').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.work-node-inspector').count(), 0, 'leaving Work removes the body-mounted node inspector');
+    await page.locator('#nav-tablist [data-tab="work"]').click();
+    await page.locator('.work-list-only').waitFor();
+    await page.locator(`[data-work-select="${key}"]`).click();
+    await page.locator('#work-tab-execution').click();
+    await first.focus(); await first.press('Enter');
+    await page.locator('.work-node-inspector[open]').waitFor();
+    const projectTasks = path.join(root, '.great_cto', 'tasks.md'), beforeTasks = fs.readFileSync(projectTasks, 'utf8');
+    const changedTitle = 'Refreshed task sentinel';
+    fs.writeFileSync(projectTasks, beforeTasks.replace(issue.title, changedTitle));
+    await page.evaluate(() => window.GctoWork.refresh());
+    assert.equal(await page.evaluate(key => window.GctoWork.getSnapshot().entries.find(entry => entry.key === key)?.title, issue.key), changedTitle, 'an open inspector receives a newer project snapshot');
+    await page.keyboard.press('Escape');
+    await page.locator('.work-node-inspector').waitFor({ state: 'detached' });
+    assert.equal(await page.evaluate(() => document.activeElement?.getAttribute('data-graph-node')), firstId, 'Escape after a pending repaint restores focus to the replacement graph node');
+    await page.getByRole('button', { name: 'Switch task', exact: true }).click();
+    assert(await page.locator('.work-switcher').innerText().then(text => text.includes(changedTitle)), 'the pending snapshot is rendered, not discarded when inspector closes');
+    await page.keyboard.press('Escape');
+    fs.writeFileSync(projectTasks, beforeTasks);
+    await page.evaluate(() => window.GctoWork.refresh());
+
     for (const width of [375, 768, 1280, 1440, 1920]) {
       await page.setViewportSize({ width, height: 1000 });
       assert((await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, `${width}px viewport has no outer horizontal overflow`);
@@ -131,6 +159,16 @@ test('canvas workspace preserves route history, project identity, evidence and u
     await page.goForward();
     await page.waitForFunction(slug => currentProject === slug && document.getElementById('project-name')?.textContent === slug, otherSlug);
     await page.locator('.work-list-only').waitFor();
+    // Simulate a legacy history entry created before default-project URLs were
+    // canonicalized. Real browser Back must resolve the server default again.
+    await page.evaluate(slug => {
+      history.pushState({ legacyCanvasFixture: true }, '', '/#/work');
+      history.pushState(null, '', '/?project=' + encodeURIComponent(slug) + '#/work');
+    }, otherSlug);
+    await page.goBack();
+    await page.waitForFunction(slug => currentProject === slug && new URLSearchParams(location.search).get('project') === slug && document.getElementById('project-name')?.textContent === slug, FIXTURE_NAME);
+    await page.locator(`[data-work-select="${key}"]`).waitFor({ state: 'visible' });
+    assert(!await page.locator('#work-list').innerText().then(text => text.includes('Secondary workspace sentinel')), 'legacy unqualified history restores default-project data rather than retaining the last project');
     await page.goto(`${base}/?project=${FIXTURE_NAME}#/work/task/run%3Amissing/execution`);
     await page.getByRole('heading', { name: 'Selected task is unavailable', exact: true }).waitFor();
     assert.equal(await page.locator('#work-list [data-selected-work]').count(), 0, 'an unavailable explicit task is never replaced by another project task');
