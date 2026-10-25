@@ -46,6 +46,47 @@ A decision request includes the choice, recommendation, consequences and why
 it needs the user now. Existing checks and configured human gates still apply;
 this entry never approves a gate, changes approval-level or expands write scope.
 
+## Optional source-bound ship reviews
+
+Use this route only when the operator explicitly supplies the policy and asks
+for a bound run. Existing unbound workflows retain their interface; do not
+auto-enable binding, select the newest run or infer trusted context from model
+output. Missing bound context is UNKNOWN/BLOCKED for source-bound approval.
+
+```text
+node scripts/codex-pipeline.mjs start --ship-evidence-policy /external/S/policy.json [existing start arguments]
+node scripts/codex-pipeline.mjs reassess-ship RUN --ship-revision N
+node scripts/lib/gate-check-bound.mjs --dir ROOT --store EXTERNAL --run RUN --revision N --json
+```
+
+The policy belongs to an existing private external store explicitly registered
+by the operator. Start creates a PROVISIONAL binding, not review satisfaction.
+Before mandatory source review, stop for the operator to prepare required report
+artifacts, commit all source/report changes and explicitly invoke reassess-ship
+on the clean intended candidate, including untracked files. The controller does
+not commit or reassess automatically. Fresh native reviewer invocations then
+inspect committed artifacts read-only with `proposal.files=[]`; required checks
+and a fresh independent Codex verifier must succeed against the unchanged
+candidate. Kimi output is advisory, never required native approval. Missing
+artifacts or proposed writes stop as `UNSUPPORTED_REVIEW_OUTPUT`, requiring
+preparation and explicit reassessment. Default report-producing graphs may be
+unsupported by this controlled source-review route.
+
+For bound `resume`, `approve`, `approve-task`, `approve-release`, `recover`,
+`reject` and `cancel`, retain existing arguments and supply the exact current
+`--ship-revision N`. Read-only status does not increment it; successful saves do.
+A stale revision, drift or incomplete evidence stops the operation; do not
+auto-rebind or retry approval as if an observed committed change never happened.
+Reassessment preserves negative obligations, global tasks and attempt/budget
+limits. Legacy `gate-check.mjs` is diagnostic and non-authoritative for this
+source identity; latest-role positives and `--as` cannot waive required reviews.
+On the bound gate CLI, `--as` is diagnostic exit 2.
+
+Preserve mandatory reviewers, global floors, configured human gates and explicit
+operator approval. A bound PASS retains `publicationEligibility: NOT_CHECKED`;
+it authorizes no release, install or activation. This route does not establish
+100% native verification or full release parity.
+
 ---
 
 ## Guard: no description

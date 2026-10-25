@@ -80,8 +80,29 @@ node "$PD/scripts/lib/exceptions.mjs" list 2>/dev/null || node scripts/lib/excep
 
 Render any `✗` (expired/revoked/tampered) exceptions as **⚠️ High** ("signed exception
 EXC-… expired — remediate the work it covered or re-sign"). Active ones expiring within 7
-days → **🔔 Medium**. If a release is imminent, also run `gate-check.mjs gate:ship` and show
-any blocking tasks. See `/exception`.
+days → **🔔 Medium**. If a release is imminent, show legacy
+`gate-check.mjs gate:ship` findings as non-authoritative governance diagnostics.
+`--as` never waives a required role, and latest-per-role positives do not prove
+current source approval. See `/exception`.
+
+For an explicitly operator-bound run with known ROOT, external store EXTERNAL,
+run UUID RUN and current persisted revision N, also run:
+
+```text
+node scripts/lib/gate-check-bound.mjs --dir ROOT --store EXTERNAL --run RUN --revision N --json
+```
+
+Use only the supplied bound context; do not discover a newest run, activate a
+binding or reassess from Inbox. Missing context, stale revision, source drift or
+incomplete evidence is UNKNOWN/BLOCKED, never a green ship signal. Bound `--as`
+is diagnostic exit 2. PROVISIONAL/NEEDS_REASSESSMENT requires operator preparation
+of committed source/reports and explicit `reassess-ship RUN --ship-revision N`,
+followed by fresh native read-only reviews (`proposal.files=[]`), required checks
+and a fresh independent Codex verifier. Kimi remains advisory. Report current
+bound state without clearing global negatives or tasks; PASS preserves human
+gates and `publicationEligibility: NOT_CHECKED`. It grants no release/install
+authority and proves no full native or release parity. These signals override
+the empty-state message below when ship evidence is unknown or blocked.
 
 ## Step 3 — Render
 
