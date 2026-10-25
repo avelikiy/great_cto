@@ -95,7 +95,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -137,7 +137,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -165,7 +165,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -245,7 +245,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -340,7 +340,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -368,7 +368,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -405,7 +405,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -461,7 +461,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -485,7 +485,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }

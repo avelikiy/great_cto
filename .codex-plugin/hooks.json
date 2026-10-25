@@ -28,7 +28,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }
@@ -40,7 +40,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }
@@ -52,7 +52,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }
@@ -64,7 +64,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }
@@ -76,7 +76,7 @@
           {
             "type": "command",
             "timeout": 5,
-            "command": "[ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; node \"$_pd/scripts/hooks/codex-adapter.mjs\" host-graph-observer; EXIT=$?; if [ $EXIT -eq 2 ]; then exit 2; fi; exit 0"
           }
         ]
       }
