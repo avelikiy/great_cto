@@ -201,3 +201,28 @@ test('only the audited Claude 2.1.292 UI render invalidation is excluded from gr
   assert.deepEqual(call(Object.create(raw)).diagnostics, ['unsupported-event-shape']);
   assert.deepEqual(normalize('claude-code', raw, { sourceVersion: '2.1.292', mode: 'native' }).diagnostics, ['unsupported-event-shape']);
 });
+
+test('native Codex post-tool completion does not assert success from an output-only payload', () => {
+  const native = { mode: 'native' };
+  for (const response of ['', 'ok', 'Exit code 7', { ok: true }, { exit_code: 7 }, { is_error: true }]) {
+    const result = normalize('codex', { hook_event_name: 'PostToolUse', tool_use_id: 'call-1', tool_name: 'Bash', tool_response: response }, native);
+    assert.equal(result.event.phase, 'completed');
+    assert.equal(result.event.outcome, 'unknown', 'native result content is not an authoritative outcome field');
+    assert(!JSON.stringify(result).includes('Exit code 7'));
+  }
+  assert.equal(normalize('claude-code', { hook_event_name: 'PostToolUse', tool_use_id: 'call-1', tool_name: 'Read' }, native).event.outcome, 'succeeded');
+  assert.equal(normalize('codex', { type: 'item.completed', item: { id: 'call-1', type: 'command_execution', status: 'completed', exit_code: 7 } }).event.outcome, 'failed');
+});
+
+test('native Codex lifecycle uses explicit turn identity for stable source replay only', () => {
+  const native = { mode: 'native', binding: { ...binding, attemptId: null } };
+  const raw = { hook_event_name: 'UserPromptSubmit', turn_id: 'turn-1' };
+  const first = normalize('codex', raw, native), replay = normalize('codex', raw, native);
+  assert(first.event.sourceEventId); assert.equal(first.event.id, replay.event.id);
+  assert(!first.diagnostics.includes('missing-source-event-identity'));
+  assert.notEqual(first.event.id, normalize('codex', { ...raw, hook_event_name: 'Stop' }, native).event.id);
+  assert.notEqual(first.event.id, normalize('codex', { ...raw, turn_id: 'turn-2' }, native).event.id);
+  assert.deepEqual(first.event.parentIds, []);
+  for (const id of [null, {}, '', 'x'.repeat(161)]) assert(normalize('codex', { ...raw, turn_id: id }, native).diagnostics.includes('missing-source-event-identity'));
+  assert(normalize('claude-code', raw, native).diagnostics.includes('missing-source-event-identity'), 'other hosts do not inherit Codex semantics');
+});

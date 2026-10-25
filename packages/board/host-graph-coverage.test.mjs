@@ -100,3 +100,13 @@ test('selected task shows supplemental host graphs alongside the controller grap
   assert.equal((html.match(/<section class="execution-graph"/g) || []).length, 2);
   assert.doesNotMatch(html, /data-work-action/);
 });
+
+test('host observation details distinguish completion phase from unknown outcome', () => {
+  const graph = observation({ nodes: [{ id: 'native-post', kind: 'tool', role: 'shell', host: 'codex', status: 'completed', phase: 'completed', outcome: 'unknown' }] });
+  const html = renderer().renderExecutionGraph(graph, { canvas: true });
+  assert.match(html, /<dt>Phase<\/dt><dd><code>completed<\/code>/);
+  assert.match(html, /<dt>Outcome<\/dt><dd><code>unknown<\/code>/);
+  assert.doesNotMatch(html, /succeeded|data-work-action/);
+  const escaped = renderer().renderExecutionGraph(observation({ nodes: [{ id: 'hostile', kind: 'tool', phase: '<phase>', outcome: '<outcome>' }] }));
+  assert.match(escaped, /&lt;phase&gt;/); assert.match(escaped, /&lt;outcome&gt;/);
+});

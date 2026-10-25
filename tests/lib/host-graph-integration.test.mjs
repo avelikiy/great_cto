@@ -129,3 +129,23 @@ test('Codex adapter observes original malformed patch once without gaining deny 
   assert.equal(row.graph.nodes.filter(n => n.kind === 'tool').length, 1);
   assert.equal(row.graph.nodes.find(n => n.kind === 'tool').role, 'write');
 });
+
+test('native Codex explicit turn identity survives replay without invented gaps or edges', async t => {
+  const { enableNativeGraph } = await import('../../scripts/lib/host-graph-bindings.mjs');
+  const f = fixture(t), sessionId = randomUUID();
+  enableNativeGraph({ root: f.root, host: 'codex', sourceVersion: '0.164.0' }, f);
+  const ingest = event => observeNativeGraphHook({ root: f.root, host: 'codex', event: { session_id: sessionId, ...event } }, f);
+  ingest({ hook_event_name: 'SessionStart' });
+  for (const turn_id of ['turn-a', 'turn-b']) for (const hook_event_name of ['UserPromptSubmit', 'Stop']) {
+    assert.notEqual(ingest({ hook_event_name, turn_id }).state, 'degraded');
+    assert.notEqual(ingest({ hook_event_name, turn_id }).state, 'degraded');
+  }
+  let graph = nativeGraphObservations(f.root, f)[0].graph;
+  assert.equal(graph.nodes.filter(n => n.kind === 'turn').length, 4);
+  assert.equal(graph.edges.length, 0, 'source identity is not a causal dependency');
+  assert(!graph.diagnostics.includes('missing-source-event-identity'));
+  ingest({ hook_event_name: 'Stop', turn_id: {} });
+  graph = nativeGraphObservations(f.root, f)[0].graph;
+  assert(graph.diagnostics.includes('missing-source-event-identity'));
+  assert.equal(graph.complete, false);
+});

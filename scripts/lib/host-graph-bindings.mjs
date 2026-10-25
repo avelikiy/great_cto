@@ -6,6 +6,7 @@ import { homedir } from 'node:os';
 import { assertExternal, projectIdentity } from './work-tasks.mjs';
 import { readHostGraph } from './host-graph-journal.mjs';
 import { graphBinding, observeHostGraph, projectHostObservations, recordHostGraphGap } from './host-graph-observer.mjs';
+import { codexNativeTurnIdentity } from './host-graph-events.mjs';
 const hostSet = new Set(['codex', 'claude-code']);
 const validVersion = value => value === null || (typeof value === 'string' && value.length <= 80 && /^\d{1,5}\.\d{1,5}\.\d{1,5}(?:[-.+][A-Za-z0-9.-]{1,32})?$/.test(value));
 const identity = value => typeof value === 'string' && /^[A-Za-z0-9_.:-]{1,128}$/.test(value);
@@ -70,7 +71,8 @@ export function observeNativeGraphHook({ root, host, event }, { store = nativeGr
     }
   }
   if (!b) return { state: 'not-enrolled' };
-  if ((['UserPromptSubmit', 'Stop'].includes(event.hook_event_name) || (event.hook_event_name === 'SessionStart' && event.source === 'resume')) && !event.event_id) {
+  if ((['UserPromptSubmit', 'Stop'].includes(event.hook_event_name) || (event.hook_event_name === 'SessionStart' && event.source === 'resume'))
+    && !event.event_id && !(host === 'codex' && codexNativeTurnIdentity(event))) {
     // Retain each received delivery without pretending it has a replay-safe host ID.
     b = { ...b, sourceEventId: randomUUID() };
     recordHostGraphGap(b, host, 'native', ['missing-source-event-identity'], { store: journalStore });

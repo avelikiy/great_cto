@@ -32,6 +32,14 @@ warning. This permits inspection without claiming exact source replay coverage.
 Native verification, gate and artifact dimensions remain unsupported; consult
 bound controller/evidence records for those authorities.
 
+Native Codex `PostToolUse` confirms completion, not tool success: it also fires
+for failed calls, without an authoritative outcome field. These observations
+retain an unknown outcome, regardless of text or nested values in `tool_response`.
+Controlled Codex stream events retain their explicit status/exit-code semantics.
+For native Codex prompt/stop events, a valid explicit `turn_id` can identify source
+replays; it creates no causal edge and does not replace project/session bindings.
+Absent or malformed source identities retain the gap warning.
+
 ## Audit without model calls
 
 ```sh

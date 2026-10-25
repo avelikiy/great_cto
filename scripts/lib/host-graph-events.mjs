@@ -27,6 +27,10 @@ function toolClass(name) {
 }
 const opaque = value => typeof value === 'string' && value.length > 0 && value.length <= 512 ? hash(value) : null;
 const record = value => value && typeof value === 'object' && !Array.isArray(value);
+export function codexNativeTurnIdentity(raw) {
+  if (!['UserPromptSubmit', 'Stop'].includes(raw?.hook_event_name)) return null;
+  return safeId(raw.event_id) || safeId(raw.turn_id);
+}
 const codexTrackedItems = new Set(['command_execution', 'file_change', 'mcp_tool_call', 'web_search', 'collab_tool_call']);
 function ignoredClaudeBlock(block) {
   if (!record(block)) return false;
@@ -114,6 +118,12 @@ export function normalizeHostEvent({ host, mode, sourceVersion, event: raw, bind
   const hookShape = mode === 'native' && typeof raw.hook_event_name === 'string';
   const parsed = host === 'codex' && !hookShape ? codexEvent(raw) : claudeEvent(raw);
   if (!parsed) return rejected('unsupported-event-shape');
+  if (host === 'codex' && hookShape) {
+    // Codex PostToolUse also fires for failed calls; output content is not a status.
+    if (raw.hook_event_name === 'PostToolUse') parsed.outcome = 'unknown';
+    const turnIdentity = codexNativeTurnIdentity(raw);
+    if (turnIdentity) parsed.source = turnIdentity;
+  }
   const parents = binding.parentIds ?? [];
   if (!Array.isArray(parents) || parents.length > 16 || parents.some(p => !safeId(p))) return rejected('invalid-trusted-parents');
   const diagnostics = [];

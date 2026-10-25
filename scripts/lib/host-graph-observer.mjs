@@ -33,7 +33,8 @@ export function projectHostObservations(binding, options = {}) {
   try {
     const read = readHostGraph(binding, options), events = read.events || [];
     const nodes = events.map(e => ({ id: e.id, kind: e.kind, role: e.toolClass || e.kind,
-      host: e.host, sourceVersion: e.sourceVersion || null, status: e.outcome === 'unknown' ? e.phase : e.outcome,
+      host: e.host, sourceVersion: e.sourceVersion || null, phase: e.phase, outcome: e.outcome,
+      status: e.outcome === 'unknown' ? e.phase : e.outcome,
       at: e.occurredAt || e.observedAt, attemptId: e.attemptId, source: 'host-observation' }));
     const ids = new Set(nodes.map(n => n.id)), edges = [], starts = new Map(), ends = new Map();
     const callKey = e => JSON.stringify([e.host, e.sessionId, e.attemptId, e.callId]);
