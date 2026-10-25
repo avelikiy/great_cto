@@ -2,16 +2,16 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Run coding workflows. Inspect the evidence. Decide what ships.**
+**See the work. Trace the decisions.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<img src="docs/screenshots/board.png" alt="Work: a selected checkout task, its acceptance criteria and pending host decision. Sample project with synthetic records." width="900" />
+<img src="docs/screenshots/execution.png" alt="Controller-recorded execution graph in the actual 3.70 interface. Isolated synthetic project with offline stub responses, not live models." width="900" />
 
-*Sample project, not a live-model benchmark. Captured from the 3.70 interface.*
+*Actual 3.70 interface. The graph uses an offline controller run with stub responses, not live models.*
 
 ```bash
 npx great-cto init
@@ -25,7 +25,7 @@ npx great-cto init
 
 ---
 
-**Your coding agent writes code. Keep the work, checks and decisions connected.**
+**Keep the task, its checks and your next decision connected.**
 
 great_cto coordinates Claude Code workflows and experimental controlled Codex
 runs through explicit stages, review and gates. The local board brings tasks,
@@ -34,8 +34,9 @@ Missing evidence stays unknown; a successful worker is not proof that a task
 was accepted, merged or deployed. You use your own provider account;
 great_cto is MIT and bills nothing.
 
-The public catalog contains 72 agents grouped by responsibility. Catalog
-availability is not proof of execution or expertise.
+Project focus presents eight core roles plus the selected project's required
+reviewers. The full 72-role catalog remains available. Catalog availability is
+not proof of execution or expertise.
 
 ## Quick start
 
@@ -96,6 +97,40 @@ These screenshots use isolated synthetic ACME records. They do not measure
 host quality, acceptance rate or quality uplift. [Capture contract](docs/reference/public-showcase.md).
 
 </details>
+
+## Eight core roles, task-dependent specialists
+
+| Responsibility | Role |
+|---|---|
+| Problem and acceptance | `product-owner` |
+| System design and tradeoffs | `architect` |
+| Plan and dependencies | `pm` |
+| Implementation | `senior-dev` |
+| Independent code review | `code-reviewer` |
+| Verification and regressions | `qa-engineer` |
+| Risk and ship gate | `security-officer` |
+| Authorized deployment | `devops` |
+
+These are responsibility contracts, not eight mandatory model calls or eight
+concurrent agents. Project focus is a presentation view; it does not remove
+specialists, change dispatch or waive required checks. Risk-specific reviewers
+remain governed by project policy.
+
+## Focused engineering context
+
+Five versioned, opt-in domain pack candidates cover four focus areas:
+
+| Area | Engineering invariants | Boundary |
+|---|---|---|
+| **Money & crypto execution** | Payment idempotency, ambiguous sends, scoped authority; signing boundaries, paper/live separation and chain finality | Two technical packs; no investment-performance claim |
+| **Telemedicine workflows** | Clinician authority, prescription state transitions and evidence integrity | No clinical efficacy or certification claim |
+| **Venture evidence** | Claim provenance, entity lineage and quarantine of unverified assertions | No investment-outcome claim |
+| **Mental wellbeing safety** | Subject isolation, crisis escalation precedence and clinical-claim boundaries | Separate from diagnosis, treatment and clinical validation |
+
+Packs add engineering context. They do not broaden permissions or change
+required-reviewer routing. Their presence does not prove invocation, expertise
+or better outcomes. No quality uplift from matched core-versus-pack trials is
+established. Private project overlays are not part of the public showcase.
 
 ## On OpenAI Codex
 
