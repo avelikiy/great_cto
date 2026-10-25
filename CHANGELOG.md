@@ -57,6 +57,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.71.0 — 2026-10-25
+
+Opt-in host observations add source-labelled Codex and Claude Code lanes beside the controller-owned execution graph, with explicit coverage and loss reporting.
+
+### What's new
+
+- Project-, host- and session-bound metadata journals for structured execution and native observer hooks. Collection is off by default; prompts, tool arguments, output and credentials are excluded.
+- Read-only graph lanes, node inspection, coverage dimensions, paging, search and layout controls. Controller transitions remain distinct from supplemental host observations.
+- Bounded private journals, identity validation, deduplication, persistent loss markers and fail-closed file handling. Observers cannot approve gates or change execution authority.
+- CLI controls for auditing sources, enabling collection, binding sessions, reading observations and revoking collection.
+
+### Fixed
+
+- Bind parallel worker observations before prepared attempts appear in controller history, preserving project isolation and verified joins.
+- Treat native Codex tool completion as an unknown outcome when the host payload provides no reliable success signal, including a real nonzero-exit case.
+- Preserve gaps for malformed delivery identities and unrecognised host events instead of inventing causal edges or completeness.
+
+### Validation and limits
+
+The implementation tree passed the canonical local gate, including 22 browser scenarios without skips. Live synthetic-project checks exercised Codex, Claude Code through OpenRouter, concurrent controlled workers and native lifecycle observations. Native observations do not attest complete host coverage; resume identities and child deliveries can remain unavailable. Fifteen opt-in/live checks in the canonical suite remain NOT CHECKED. These results do not establish deployment success, general native-session completeness or measured quality uplift. A fresh gate on the versioned release candidate is required before publication. Domain packs and graph collection remain opt-in; the separate Kimi reviewer candidate is not included.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.70.1 — 2026-10-25
 
 Work opens as a full-width list, and each task has its own workspace with a wide execution canvas. The public README and Blueprint landing describe the current controlled-run graphs, focused domains and responsibility contracts without claiming live-model completeness.
