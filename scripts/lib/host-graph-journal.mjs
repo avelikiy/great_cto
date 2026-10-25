@@ -72,7 +72,7 @@ function normalize(event, binding, expected) {
 }
 const comparable = event => { const { observedAt, ...rest } = event; return JSON.stringify(rest); };
 function descriptor(file, flags) {
-  const fd = openSync(file, flags | (constants.O_NOFOLLOW || 0), 0o600);
+  const fd = openSync(file, flags | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0), 0o600);
   try {
     const info = fstatSync(fd);
     if (!info.isFile() || info.nlink !== 1 || (info.mode & 0o077) || (typeof process.getuid === 'function' && info.uid !== process.getuid())) throw Error('journal file must be owner-only 0600 with one link');

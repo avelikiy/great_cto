@@ -23,7 +23,7 @@ function secure(root, store, create = false) {
 }
 function syncDirectory(store) { const fd = openSync(store, constants.O_RDONLY); try { fsyncSync(fd); } finally { closeSync(fd); } }
 function readPrivate(file) {
-  const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW || 0));
+  const fd = openSync(file, constants.O_RDONLY | (constants.O_NOFOLLOW || 0) | (constants.O_NONBLOCK || 0));
   try {
     const stat = fstatSync(fd);
     if (!stat.isFile() || stat.nlink !== 1 || stat.mode & 0o077 || stat.size > 4096 || (process.getuid && stat.uid !== process.getuid())) throw Error('unsafe graph enrollment');
