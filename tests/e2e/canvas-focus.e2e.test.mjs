@@ -37,7 +37,21 @@ test('canvas workspace preserves route history, project identity, evidence and u
     const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } }), errors = [];
     page.on('pageerror', error => errors.push(error.message));
     const base = `http://127.0.0.1:${server.port}`, key = 'run:' + state.id;
+    let releaseScopedRead, captureScopedRead;
+    const scopedReadHeld = new Promise(resolve => { releaseScopedRead = resolve; });
+    const scopedReadCaptured = new Promise(resolve => { captureScopedRead = resolve; });
+    const initialScopedWork = url => url.pathname === '/api/work' && url.searchParams.get('project') === FIXTURE_NAME;
+    await page.route(initialScopedWork, async route => {
+      const response = await route.fetch(); captureScopedRead();
+      await scopedReadHeld; await route.fulfill({ response });
+    });
     await page.goto(`${base}/#/work`);
+    await scopedReadCaptured;
+    await page.waitForFunction(slug => new URLSearchParams(location.search).get('project') === slug && currentProject === slug, FIXTURE_NAME);
+    assert.equal(await page.locator('#work-list [data-work-select]').count(), 0, 'default-scope rows are cleared while the explicit project read is pending');
+    assert.match(await page.locator('#work-list').innerText(), /Loading/);
+    releaseScopedRead();
+    await page.unrouteAll({ behavior: 'wait' });
     await page.locator(`[data-work-select="${key}"]`).waitFor();
     await page.waitForFunction(slug => new URLSearchParams(location.search).get('project') === slug && currentProject === slug, FIXTURE_NAME);
     assert.equal(await page.locator('#project-name').innerText(), FIXTURE_NAME, 'registered default scope is made explicit before navigation history is created');

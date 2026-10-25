@@ -8035,6 +8035,8 @@ async function init() {
   if (!urlProject && !serverDefaultProject) {
     const scopedURL = new URL(location.href); scopedURL.searchParams.set('project', proj);
     history.replaceState(history.state, '', scopedURL.toString());
+    const workRoute = (location.hash || '#/work').replace(/^#\/?/, '');
+    if (window.GctoWork.parseRoute(workRoute)) window.GctoWork.navigateRoute(workRoute);
   }
   currentProject = proj;
   resetProjectUsage();
