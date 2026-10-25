@@ -121,8 +121,7 @@ export function normalizeHostEvent({ host, mode, sourceVersion, event: raw, bind
   if (host === 'codex' && hookShape) {
     // Codex PostToolUse also fires for failed calls; output content is not a status.
     if (raw.hook_event_name === 'PostToolUse') parsed.outcome = 'unknown';
-    const turnIdentity = codexNativeTurnIdentity(raw);
-    if (turnIdentity) parsed.source = turnIdentity;
+    if (['UserPromptSubmit', 'Stop'].includes(raw.hook_event_name)) parsed.source = codexNativeTurnIdentity(raw);
   }
   const parents = binding.parentIds ?? [];
   if (!Array.isArray(parents) || parents.length > 16 || parents.some(p => !safeId(p))) return rejected('invalid-trusted-parents');

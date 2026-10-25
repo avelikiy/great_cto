@@ -224,5 +224,6 @@ test('native Codex lifecycle uses explicit turn identity for stable source repla
   assert.notEqual(first.event.id, normalize('codex', { ...raw, turn_id: 'turn-2' }, native).event.id);
   assert.deepEqual(first.event.parentIds, []);
   for (const id of [null, {}, '', 'x'.repeat(161)]) assert(normalize('codex', { ...raw, turn_id: id }, native).diagnostics.includes('missing-source-event-identity'));
+  for (const event_id of [{}, 'bad id', 'x'.repeat(161)]) assert(normalize('codex', { ...raw, event_id, turn_id: {} }, native).diagnostics.includes('missing-source-event-identity'));
   assert(normalize('claude-code', raw, native).diagnostics.includes('missing-source-event-identity'), 'other hosts do not inherit Codex semantics');
 });

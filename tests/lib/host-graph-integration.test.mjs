@@ -148,4 +148,9 @@ test('native Codex explicit turn identity survives replay without invented gaps 
   graph = nativeGraphObservations(f.root, f)[0].graph;
   assert(graph.diagnostics.includes('missing-source-event-identity'));
   assert.equal(graph.complete, false);
+  const beforeMalformed = graph.nodes.filter(n => n.kind === 'turn').length;
+  ingest({ hook_event_name: 'Stop', event_id: {}, turn_id: {} });
+  ingest({ hook_event_name: 'Stop', event_id: {}, turn_id: {} });
+  graph = nativeGraphObservations(f.root, f)[0].graph;
+  assert.equal(graph.nodes.filter(n => n.kind === 'turn').length, beforeMalformed + 2, 'malformed source IDs cannot collapse distinct received deliveries');
 });

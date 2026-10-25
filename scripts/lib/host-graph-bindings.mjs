@@ -71,8 +71,9 @@ export function observeNativeGraphHook({ root, host, event }, { store = nativeGr
     }
   }
   if (!b) return { state: 'not-enrolled' };
-  if ((['UserPromptSubmit', 'Stop'].includes(event.hook_event_name) || (event.hook_event_name === 'SessionStart' && event.source === 'resume'))
-    && !event.event_id && !(host === 'codex' && codexNativeTurnIdentity(event))) {
+  const turnHook = ['UserPromptSubmit', 'Stop'].includes(event.hook_event_name);
+  const sourceIdentityPresent = host === 'codex' && turnHook ? !!codexNativeTurnIdentity(event) : !!event.event_id;
+  if ((turnHook || (event.hook_event_name === 'SessionStart' && event.source === 'resume')) && !sourceIdentityPresent) {
     // Retain each received delivery without pretending it has a replay-safe host ID.
     b = { ...b, sourceEventId: randomUUID() };
     recordHostGraphGap(b, host, 'native', ['missing-source-event-identity'], { store: journalStore });
