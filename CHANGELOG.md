@@ -77,9 +77,6 @@ Work opens as a full-width list, and each task has its own workspace with a wide
 
 The implementation candidate passed the full local gate with no executed failures, including 21 browser scenarios without skips. Independent source and security reviews approved the candidate. A fresh release gate is run on the combined release tree before publication. Fifteen live/opt-in checks remain NOT CHECKED; offline fixtures do not demonstrate live providers, complete native-session graphs, deployment success or a measured quality uplift. Domain packs remain opt-in. The release does not include the separate unreleased Kimi reviewer candidate.
 
-- _Add one bullet per shipped feature._
-- _Cite ADRs introduced (if any)._
-- _Mention test counts and opt-out flags._
 
 ---
 

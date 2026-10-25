@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção." width="900" />
 
-*Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção. 3.70.0.*
+*Projeto de exemplo com dados sintéticos, não um benchmark de modelos em produção. 3.70.1.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> Tradução do [README](../../README.md) em inglês, versão **v3.70.0** (2026-10-23).
+> Tradução do [README](../../README.md) em inglês, versão **v3.70.1** (2026-10-25).
 > Em caso de divergência, vale a versão em inglês.
 
 ---
@@ -79,6 +79,34 @@ Execution mostra grafos causais registrados pelo controlador; sessões nativas e
 [Contrato das capturas](../reference/public-showcase.md).
 
 </details>
+
+## Oito papéis centrais, especialistas conforme a tarefa
+
+| Responsabilidade | Papel |
+|---|---|
+| Problema e aceitação | `product-owner` |
+| Projeto do sistema e escolhas | `architect` |
+| Plano e dependências | `pm` |
+| Implementação | `senior-dev` |
+| Revisão independente de código | `code-reviewer` |
+| Verificação e regressões | `qa-engineer` |
+| Riscos e gate de publicação | `security-officer` |
+| Deploy autorizado | `devops` |
+
+São contratos de responsabilidade, não oito chamadas obrigatórias ao modelo nem oito agentes simultâneos. Project focus é uma visão de apresentação: não remove especialistas, não altera o despacho e não dispensa verificações obrigatórias. Os revisores específicos de cada risco continuam sujeitos à política do projeto.
+
+## Contexto de engenharia focado
+
+Cinco candidatos a domain packs, versionados e ativados explicitamente, cobrem quatro áreas:
+
+| Área | Invariantes de engenharia | Limite |
+|---|---|---|
+| **Dinheiro e execução cripto** | Idempotência de pagamentos, envios com resultado incerto, autoridade limitada; limites de assinatura, separação paper/live e finalidade da cadeia | Dois packs técnicos; sem afirmação de desempenho de investimentos |
+| **Fluxos de telemedicina** | Autoridade do profissional clínico, transições de estado de prescrições e integridade das evidências | Sem afirmação de eficácia clínica ou certificação |
+| **Evidências de venture** | Proveniência de afirmações, linhagem de entidades e quarentena de alegações não verificadas | Sem afirmação sobre resultados de investimentos |
+| **Segurança do bem-estar mental** | Isolamento do estado de cada pessoa, prioridade do escalonamento em crises e limites das afirmações clínicas | Separada de diagnóstico, tratamento e validação clínica |
+
+Os packs acrescentam contexto de engenharia. Não ampliam permissões nem alteram o roteamento dos revisores obrigatórios. Sua presença não prova execução, expertise ou resultados melhores. Não foi estabelecido ganho de qualidade em ensaios comparáveis do núcleo isolado versus núcleo com pack. Overlays privados de projetos não fazem parte da apresentação pública.
 
 ## No OpenAI Codex
 

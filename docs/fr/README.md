@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct." width="900" />
 
-*Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct. 3.70.0.*
+*Projet d'exemple avec données synthétiques, pas un benchmark de modèles en direct. 3.70.1.*
 
 ```bash
 npx great-cto init
@@ -23,7 +23,7 @@ npx great-cto init
 
 </div>
 
-> Traduction du [README](../../README.md) anglais, version **v3.70.0** (2026-10-23).
+> Traduction du [README](../../README.md) anglais, version **v3.70.1** (2026-10-25).
 > En cas de divergence, la version anglaise fait foi.
 
 ---
@@ -79,6 +79,34 @@ Execution montre les graphes causaux enregistrés par le contrôleur ; les sessi
 [Contrat des captures](../reference/public-showcase.md).
 
 </details>
+
+## Huit rôles centraux, des spécialistes selon la tâche
+
+| Responsabilité | Rôle |
+|---|---|
+| Problème et acceptation | `product-owner` |
+| Conception du système et compromis | `architect` |
+| Plan et dépendances | `pm` |
+| Implémentation | `senior-dev` |
+| Revue indépendante du code | `code-reviewer` |
+| Vérification et régressions | `qa-engineer` |
+| Risques et gate de publication | `security-officer` |
+| Déploiement autorisé | `devops` |
+
+Il s’agit de contrats de responsabilité, pas de huit appels obligatoires au modèle ni de huit agents simultanés. Project focus est une vue de présentation : elle ne supprime aucun spécialiste, ne change pas l’affectation et ne dispense d’aucun contrôle obligatoire. Les reviewers propres à chaque risque restent régis par la politique du projet.
+
+## Un contexte d’ingénierie ciblé
+
+Cinq candidats à des domain packs, versionnés et activés explicitement, couvrent quatre axes :
+
+| Domaine | Invariants d’ingénierie | Limite |
+|---|---|---|
+| **Argent et exécution crypto** | Idempotence des paiements, envois au résultat incertain, autorité limitée ; frontières de signature, séparation paper/live et finalité de la chaîne | Deux packs techniques ; aucune affirmation de performance d’investissement |
+| **Processus de télémédecine** | Habilitation du clinicien, transitions d’état des prescriptions et intégrité des preuves | Aucune affirmation d’efficacité clinique ou de certification |
+| **Preuves venture** | Provenance des affirmations, traçabilité des entités et mise en quarantaine des assertions non vérifiées | Aucune affirmation de résultat d’investissement |
+| **Sécurité du bien-être mental** | Isolation de l’état de chaque personne, priorité de l’escalade en cas de crise et limites des affirmations cliniques | Séparée du diagnostic, du traitement et de la validation clinique |
+
+Les packs ajoutent un contexte d’ingénierie. Ils n’élargissent pas les permissions et ne modifient pas le routage des reviewers obligatoires. Leur présence ne prouve ni leur invocation, ni une expertise, ni de meilleurs résultats. Aucun gain de qualité n’est établi par des essais comparables du noyau seul face au noyau avec pack. Les overlays privés des projets ne font pas partie de la présentation publique.
 
 ## Sur OpenAI Codex
 
