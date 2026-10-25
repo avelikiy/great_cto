@@ -7,6 +7,8 @@ import { parsePipelineToml } from './pipeline-toml.mjs';
 import { scan } from './secret-patterns.mjs';
 import { runCodexExec, codexToolEvent } from './codex-exec.mjs';
 import { runClaudeExec } from './claude-exec.mjs';
+import { auditHostGraphRuntimes } from './host-graph-runtime.mjs';
+import { graphBinding, observeHostGraph, recordHostGraphGap } from './host-graph-observer.mjs';
 import { appendEvent } from './agent-events.mjs';
 import { snapshotTurn, pruneTurns } from './turn-snapshot.mjs';
 import { treeReceipt } from './receipt.mjs';
@@ -74,10 +76,35 @@ function emit(state, event) {
   // The user ran this pipeline here, so it keeps its log here even before /start.
   return appendEvent(join(state.root, '.great_cto'), { ...event, session: state.id }, { explicit: true });
 }
-const toolListener = (state, agent, invocationId = null) => (ev) => {
+const toolListener = (state, agent, invocationId = null, sourceAudited = false) => (ev) => {
+  if (state.observeHostGraph === true && invocationId) {
+    const attempt = (state.attempts || []).find(a => a.invocationId === invocationId || a.verifierInvocationId === invocationId);
+    const host = agent.startsWith('claude-') ? 'claude-code' : 'codex';
+    const observed = observeHostGraph({ binding: graphBinding({ root: state.root, runId: state.id, sessionId: invocationId, attemptId: attempt?.id || null, host }),
+      host, mode: 'controlled', sourceVersion: sourceAudited ? state.hostObservationSources?.find(s => s.host === host)?.sourceVersion || null : null, event: ev });
+    state.hostObservationHealth ||= { state: 'recorded', recorded: 0 };
+    state.hostObservationHealth.recorded += observed.recorded;
+    if (observed.state === 'degraded') state.hostObservationHealth.state = 'degraded';
+  }
   const e = codexToolEvent(ev);
   if (e) emit(state, { ...e, agent, invocation_id: invocationId });
 };
+
+/** Provider-free audit is refreshed for each controller action, never a completeness attestation. */
+export function refreshHostObservationSources(state, { save = () => {}, audit = auditHostGraphRuntimes } = {}) {
+  if (state.observeHostGraph !== true) return;
+  state.hostObservationSources = audit({ binaries: {
+    codex: process.env.GREAT_CTO_CODEX_BIN || 'codex', 'claude-code': process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
+  } });
+  save(state);
+}
+
+function observeRunnerHealth(state, response, { host, invocationId, attemptId }) {
+  if (!state.observeHostGraph || response.observationHealth !== 'degraded') return;
+  state.hostObservationHealth ||= { state: 'recorded', recorded: 0 };
+  state.hostObservationHealth.state = 'degraded';
+  recordHostGraphGap(graphBinding({ root: state.root, runId: state.id, sessionId: invocationId, attemptId, host }), host, 'controlled', ['observer-transport-failure']);
+}
 
 /**
  * ADR-026 — what a stage is told about the stages before it.
@@ -175,8 +202,10 @@ function releaseSummary(state) {
 
 export async function verifyStage(state, role, proposal, execute) {
   const agent = 'codex-verifier';
+  const verifierAttempt = state.attempts?.findLast(a => a.role === role);
   const invocationId = invocationIdentity({ session_id: state.id,
-    agent_id: `${state.attempts?.findLast(a => a.role === role)?.id || randomUUID()}:verifier` });
+    agent_id: `${verifierAttempt?.id || randomUUID()}:verifier` });
+  if (verifierAttempt) verifierAttempt.verifierInvocationId = invocationId;
   const t0 = Date.now();
   let ok = false;
   emit(state, { kind: 'agent-start', agent, invocation_id: invocationId });
@@ -189,10 +218,10 @@ export async function verifyStage(state, role, proposal, execute) {
       if (attempt && admitted.evidence) attempt.domainVerifierContext = admitted.evidence;
       return execute(admitted.options);
     };
-    const result = cleanResponse(await invoke({
+    const verifierResponse = await invoke({
       cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
       bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
-      invocationId, onEvent: toolListener(state, agent, invocationId),
+      invocationId, onEvent: toolListener(state, agent, invocationId, execute === runCodexExec),
       prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
         frozenPolicyContext(state) +
         (state.specialistStages?.[role] ? `Controlled phase: ${state.specialistStages[role].phase}, before implementation. Verify an implementable contract/threat model and its evidence; do not require nonexistent implementation or treat design sign-off as code approval. Capability: ${codexRoleProfile(specialistRole(state, role))}\n` : '') +
@@ -220,7 +249,9 @@ export async function verifyStage(state, role, proposal, execute) {
         `Do not treat file existence, a previous agent's statement or tests that were not executed as evidence of correctness. ` +
         `Return ONLY JSON {"state":"verified|rework|unverifiable","findings":["..."],"checks":["what you actually inspected or ran"]}, plus dependencyAttestation when scoped dependency evidence is provided. ` +
         `Use unverifiable if unable to inspect the evidence. Use rework when you find defects. No gate approval or file proposals.`,
-    }));
+    });
+    observeRunnerHealth(state, verifierResponse, { host: 'codex', invocationId, attemptId: verifierAttempt?.id || null });
+    const result = cleanResponse(verifierResponse);
     if (!['verified', 'rework', 'unverifiable'].includes(result.state) || !Array.isArray(result.findings) || !Array.isArray(result.checks) || !result.checks.length) throw Error('invalid or empty verifier evidence');
     if (attestWorkflow && result.state === 'verified') {
       const a = result.workflowAttestation;
@@ -650,6 +681,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
   if (state.status === 'cancelled') return state;
   if (state.active) throw Error('interrupted stage: inspect state and files before starting a new run');
   if (state.status !== 'ready') return state;
+  refreshHostObservationSources(state, { save });
   preflightSpecialistEpoch(state, save);
   if (state.steps >= 32) throw Error('32-stage run limit reached');
   assertArtifacts(state);
@@ -753,8 +785,9 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
       stageStarted = true; emit(state, { kind: 'agent-start', agent, invocation_id: attempt.invocationId });
       return observeControllerCall(state, { id: `${attempt.id}:worker`, attemptId: attempt.id, host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: admitted.options.prompt, cwd: state.root, sandbox: 'read-only', ephemeral: true,
       bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-      invocationId: attempt.invocationId, timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, attempt.invocationId) }), save);
+      invocationId: attempt.invocationId, timeoutMs: 300000, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: roleHost(state, role) === 'codex' || state.observeHostGraph === true ? toolListener(state, agent, attempt.invocationId, runner === runCodexExec || runner === runClaudeExec) : null }), save);
     });
+    observeRunnerHealth(state, response, { host: roleHost(state, role), invocationId: attempt.invocationId, attemptId: attempt.id });
     const proposalSource = traceKey(state, `dispatch:${attempt.id}`) || traceKey(state, `reuse:${attempt.id}`) || contextNode;
     // Codex can recover its session-index lookup without degrading the worker.
     // Keep the diagnostic in the receipt; every other warning/error blocks.
@@ -833,6 +866,7 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     const beforeVerifier = stageReceipt(state, treeReceipt(state.root), 'verifier input');
     if (JSON.stringify(beforeVerifier) !== JSON.stringify(receipt)) throw Error('working tree changed before verification');
     if (!attempt.checks || attempt.checks.state === 'passed') {
+      attempt.verifierInvocationId = invocationIdentity({ session_id: state.id, agent_id: `${attempt.id}:verifier` });
       recordTrace(state, 'verifier', { key: `verifier:${attempt.id}`, role, attemptId: attempt.id, host: 'codex', status: 'intent',
         parents: [traceKey(state, `checks:${attempt.id}`) || proposalSource,
           ...traceParents(state, Object.keys(state.results), false)], relation: 'verification', input: receipt });
@@ -959,6 +993,7 @@ function preflightParallelProposals(state, roles, responses) {
 /** Dispatch two read-only workers together, then apply their proposals one by one. */
 export async function runParallelWave(state, { runners = { codex: runCodexExec, 'claude-code': runClaudeExec },
   verify = verifyStage, checks = runChecks, save = () => {}, contextStore = null } = {}) {
+  refreshHostObservationSources(state, { save });
   preflightSpecialistEpoch(state, save);
   if (!state.wave) {
     const roles = parallelPair(state);
@@ -998,7 +1033,8 @@ export async function runParallelWave(state, { runners = { codex: runCodexExec, 
         const result = await observeControllerCall(state, { id: `${waveId}:${role}`, attemptId: state.wave.attemptIds[role], host: roleHost(state, role), role, kind: 'worker' }, () => runner({ prompt: admitted.options.prompt, cwd: state.root,
           sandbox: 'read-only', ephemeral: true, timeoutMs: 300000,
           bin: roleHost(state, role) === 'codex' ? process.env.GREAT_CTO_CODEX_BIN || 'codex' : process.env.GREAT_CTO_CLAUDE_BIN || 'claude',
-          invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: toolListener(state, agent, invocationId) }), save);
+          invocationId, extraArgs: roleHost(state, role) === 'codex' ? workerArgs : [], onEvent: roleHost(state, role) === 'codex' || state.observeHostGraph === true ? toolListener(state, agent, invocationId, runner === runCodexExec || runner === runClaudeExec) : null }), save);
+        observeRunnerHealth(state, result, { host: roleHost(state, role), invocationId, attemptId: state.wave.attemptIds[role] });
         ok = true;
         return result;
       } finally {

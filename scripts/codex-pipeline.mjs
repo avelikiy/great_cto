@@ -61,6 +61,7 @@ try {
   if (command === 'start') {
     const root = realpathSync(resolve(value('--dir') || '.'));
     const taskId = value('--task-id');
+    const observeHostGraph = args.includes('--observe-graph');
     const allowed = (value('--allow') || '').split(',').map(p => p.trim()).filter(Boolean);
     let acceptance = [], intent = value('--intent') || 'delivery', maxAttempts = value('--max-attempts') === null ? 3 : Number(value('--max-attempts'));
     if (taskId) {
@@ -119,6 +120,7 @@ try {
     state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy, domainPolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
       maxAttempts, hostRoutes, gatePolicy });
+    state.observeHostGraph = observeHostGraph;
     state.taskId = taskId || work.task.taskId;
     state.acceptance = acceptance;
     if (args.includes('--benchmark-trial')) {

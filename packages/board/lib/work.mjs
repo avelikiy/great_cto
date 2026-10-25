@@ -10,6 +10,8 @@ import { measureWork, compareWork } from '../../../scripts/lib/work-metrics.mjs'
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { agentActivity } from './agent-activity.mjs';
 import { taskInspector } from './task-inspector.mjs';
+import { graphBinding, projectHostObservations } from '../../../scripts/lib/host-graph-observer.mjs';
+import { nativeGraphObservations, readNativeGraphPage } from '../../../scripts/lib/host-graph-bindings.mjs';
 
 const text = v => typeof v === 'string' ? v : null;
 const date = v => typeof v === 'string' && Number.isFinite(Date.parse(v)) ? v : null;
@@ -30,7 +32,7 @@ function executionAttempts(run) {
   }));
   const truncated = attempts.length > 200;
   const graph = run?.executionGraph || { state: 'unavailable', complete: false, nodes: [], edges: [], snapshots: [], reason: 'No linked controller-recorded graph is available.' };
-  return { state: nodes.length ? 'recorded' : 'unknown', nodes, topology: graph.state === 'recorded' ? 'recorded' : 'unknown', graph, truncated,
+  return { state: nodes.length ? 'recorded' : 'unknown', nodes, observations: run?.hostObservations || [], observationHealth: run?.hostObservationHealth || null, omittedObservationAttempts: run?.hostObservationOmittedAttempts || 0, topology: graph.state === 'recorded' ? 'recorded' : 'unknown', graph, truncated,
     partial: !run || truncated || nodes.length !== window.length,
     reason: !run ? 'Stable attempt observations are unavailable without a single explicitly linked controlled run.'
       : !nodes.length ? 'No usable attempt observations are recorded.' : null };
@@ -63,7 +65,7 @@ function evidenceSections(entry) {
 }
 
 export function projectWork({ projectId, issues = [], codex = { state: 'absent', runs: [] },
-  tasks = [], sessions = [], sources = [], activity = { state: 'none', events: [] }, observedAt = new Date().toISOString() }) {
+  tasks = [], sessions = [], nativeGraphs = [], sources = [], activity = { state: 'none', events: [] }, observedAt = new Date().toISOString() }) {
   const entries = [];
   for (const r of codex.runs || []) {
     // Completion of a controller run is not proof of the user's acceptance criteria.
@@ -139,6 +141,20 @@ export function projectWork({ projectId, issues = [], codex = { state: 'absent',
       command: approveCommand || (enabled ? `great-cto resume --task ${t.taskId} --host ${t.host} --revision ${t.revision}` : null),
     });
   }
+  for (const observed of nativeGraphs) {
+    const linked = entries.filter(e => e.taskId && tasks.some(t => t.taskId === e.taskId && t.links.sessions.includes(observed.sessionId) && t.host === observed.host));
+    if (linked.length === 1) {
+      const entry = linked[0]; entry.execution ||= executionAttempts(null);
+      if (entry.execution.graph?.source !== 'host-observation' && entry.execution.topology !== 'recorded') {
+        entry.execution.graph = observed.graph; entry.execution.topology = 'observed';
+      } else (entry.execution.observations ||= []).push(observed.graph);
+    } else if (!linked.length) entries.push({ key: `native:${observed.host}:${observed.sessionId}`, kind: 'native', taskId: null,
+      runId: null, issueIds: [], title: `Observed ${observed.host} session`, goal: null, acceptance: [],
+      host: observed.host, phase: 'unknown', nativeState: 'observed', terminal: false, updatedAt: null,
+      outcome: null, reason: 'Enrolled native observations; task acceptance and execution authority are not established.',
+      decisions: [], capabilities: [], command: null, evidence: [], release: null,
+      execution: { state: observed.graph.state, nodes: [], topology: 'observed', graph: observed.graph, partial: true, observations: [] } });
+  }
   for (const entry of entries) entry.evidenceSections = evidenceSections(entry);
   entries.sort((a, b) => (a.terminal - b.terminal) || (b.decisions.length - a.decisions.length)
     || (Date.parse(b.updatedAt || '') || 0) - (Date.parse(a.updatedAt || '') || 0) || a.key.localeCompare(b.key));
@@ -193,8 +209,23 @@ export function getWork(cwd) {
     sessions = readSessionStatus(cwd);
     source('claude_sessions', unreadable ? 'degraded' : 'current', unreadable ? `${unreadable} session state file(s) could not be read` : null);
   } catch { source('claude_sessions', 'unavailable', 'Cannot read Claude session status'); }
+  let nativeGraphs = [];
+  try { nativeGraphs = nativeGraphObservations(cwd); source('native_graphs', nativeGraphs.some(r => r.graph.health === 'degraded') ? 'degraded' : 'current', null); }
+  catch { source('native_graphs', 'unavailable', 'Native graph enrollment is unreadable'); }
   let canonical = cwd;
   try { canonical = realpathSync(cwd); } catch { /* source health already reports inaccessible data */ }
   const projectId = 'project:' + createHash('sha256').update(canonical).digest('hex');
-  return { ...projectWork({ projectId, issues, codex, tasks, sessions, sources, activity, observedAt }), projectName: basename(cwd) };
+  return { ...projectWork({ projectId, issues, codex, tasks, sessions, nativeGraphs, sources, activity, observedAt }), projectName: basename(cwd) };
+}
+
+/** Read-only pagination, with exact enrollment or controlled attempt membership. */
+export function getHostGraphPage(root, { host, sessionId, runId = null, cursor = null }) {
+  if (!['codex', 'claude-code'].includes(host)) throw Error('invalid graph host');
+  if (!runId || runId === sessionId) return readNativeGraphPage({ root, host, sessionId, cursor });
+  const listing = listCodexRuns({ root });
+  if (listing.state === 'degraded') throw Error('controlled membership is unreadable');
+  const run = listing.runs.find(r => r.id === runId);
+  const attempt = run?.attempts.find(a => (a.invocationId === sessionId && a.host === host) || (a.verifierInvocationId === sessionId && host === 'codex'));
+  if (!attempt) throw Error('controlled observation does not belong to this project');
+  return projectHostObservations(graphBinding({ root, runId, sessionId, attemptId: attempt.id, host }), { cursor });
 }

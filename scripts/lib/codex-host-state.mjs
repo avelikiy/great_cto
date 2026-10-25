@@ -7,11 +7,13 @@ import { detectCodex } from './codex-exec.mjs';
 import { detectClaude } from './claude-exec.mjs';
 import { dispatchEvidenceSummary } from './controller-dispatch-evidence.mjs';
 import { projectExecutionTrace } from './execution-trace.mjs';
+import { graphBinding, projectHostObservations } from './host-graph-observer.mjs';
 
 export const codexRunStore = ({ home = homedir(), env = process.env } = {}) =>
   env.GREAT_CTO_CODEX_RUNS_DIR || join(home, '.great_cto', 'codex-runs');
 
 export function projectCodexState(state) {
+  const observationInvocations = (state.attempts || []).flatMap(a => [{ ...a, observationHost: a.host || 'codex', observationId: a.invocationId }, ...(a.verifierInvocationId ? [{ ...a, observationHost: 'codex', observationId: a.verifierInvocationId }] : [])]).filter(a => a.observationId);
   return {
     id: state.id,
     version: state.version,
@@ -23,11 +25,15 @@ export function projectCodexState(state) {
     hostRoutes: state.hostRoutes || {},
     controllerDispatch: dispatchEvidenceSummary(state),
     executionGraph: projectExecutionTrace(state),
+    hostObservationHealth: state.hostObservationHealth || null,
+    hostObservationOmittedAttempts: Math.max(0, observationInvocations.length - 8),
+    hostObservations: state.observeHostGraph === true ? observationInvocations.slice(-8).map(a =>
+      projectHostObservations(graphBinding({ root: state.root, runId: state.id, sessionId: a.observationId, attemptId: a.id, host: a.observationHost }))) : [],
     wave: state.wave ? { id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results || {}),
-    attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt, invocationId }) =>
+    attempts: (state.attempts || []).map(({ id, role, host, number, phase, status, startedAt, finishedAt, invocationId, verifierInvocationId }) =>
       ({ id, role, host: host || 'codex', number, phase, status, startedAt, finishedAt,
-        ...(invocationId ? { invocationId } : {}) })),
+        ...(invocationId ? { invocationId } : {}), ...(verifierInvocationId ? { verifierInvocationId } : {}) })),
     pending: state.pending ? { role: state.pending.role, gates: state.pending.gates || [], createdAt: state.pending.createdAt } : null,
     release: state.release ? {
       adapter: state.release.adapter,
