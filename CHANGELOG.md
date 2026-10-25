@@ -56,6 +56,33 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.70.1 — 2026-10-25
+
+Work opens as a full-width list, and each task has its own workspace with a wide execution canvas. The public README and Blueprint landing describe the current controlled-run graphs, focused domains and responsibility contracts without claiming live-model completeness.
+
+### What's new
+
+- Canvas focus: compact 64px navigation in Execution, task switching, previous/next navigation, graph fit/zoom and horizontal or vertical layouts.
+- Read-only node inspector with keyboard focus restoration; recorded graph nodes and edges retain their existing meaning.
+- Project-bound task URLs, history and filter restoration; unavailable tasks never silently select another record.
+- Blueprint README and refreshed synthetic screenshots. No customer records or private project context are included.
+
+### Fixed
+
+- Close the mobile drawer on read-only Work navigation and clear the inspector when leaving Work.
+- Await stdout completion for large codex-pipeline list/status JSON responses instead of truncating them on immediate process exit.
+
+### Validation and limits
+
+The implementation candidate passed the full local gate with no executed failures, including 21 browser scenarios without skips. Independent source and security reviews approved the candidate. A fresh release gate is run on the combined release tree before publication. Fifteen live/opt-in checks remain NOT CHECKED; offline fixtures do not demonstrate live providers, complete native-session graphs, deployment success or a measured quality uplift. Domain packs remain opt-in. The release does not include the separate unreleased Kimi reviewer candidate.
+
+- _Add one bullet per shipped feature._
+- _Cite ADRs introduced (if any)._
+- _Mention test counts and opt-out flags._
+
+---
+
 ## v3.70.0 — 2026-10-23
 
 Controlled runs now retain their recorded causal execution history.
