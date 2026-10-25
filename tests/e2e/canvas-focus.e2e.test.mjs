@@ -145,7 +145,17 @@ test('canvas workspace preserves route history, project identity, evidence and u
       assert((await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)) <= 1, `${width}px viewport has no outer horizontal overflow`);
       assert(await page.locator('.execution-graph-canvas').isVisible());
     }
+    await page.setViewportSize({ width: 375, height: 1000 });
+    await page.locator('#menu-btn').click();
+    assert.equal(await page.locator('#sidebar.open').count(), 1, 'mobile navigation drawer opens over Execution');
+    assert.equal(await page.evaluate(() => document.body.style.overflow), 'hidden', 'opened drawer locks background scrolling');
+    await page.locator('#nav-tablist [data-tab="work"]').click();
+    assert.equal(await page.locator('#sidebar.open').count(), 0, 'choosing Work closes the drawer even when Work is already the active panel');
+    assert.equal(await page.locator('#sidebar-scrim.open').count(), 0);
+    assert.equal(await page.evaluate(() => document.body.style.overflow), '', 'choosing Work unlocks background scrolling');
+    assert(await page.locator('.work-list-only').isVisible());
     await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.locator(`[data-work-select="${key}"]`).click(); await page.locator('#work-tab-execution').click();
 
     await switcher.click(); await page.locator('[data-switch-search]').fill(issue.title);
     await page.locator('.work-switcher').locator(`[data-work-select="${issue.key}"]`).click();

@@ -134,7 +134,7 @@
       if (r.workRoute) { window.GctoWork.navigateRoute(r.canonical); const input = panel('search-input'); if(input) input.value = window.GctoWork.parseRoute(r.canonical).search; }
       else { window.GctoWork.leaveView?.(); setWorkView({detail:false}); }
       const old={inbox:'decisions',budgets:'ledger',agents:'fleet','admin-outcomes':'admin-outcomes',knowledge:'knowledge'}[r.panel]||r.panel;
-      if (r.workRoute && typeof currentTab === 'string' && currentTab === 'work') window.GctoWork.refresh();
+      if (r.workRoute && typeof currentTab === 'string' && currentTab === 'work') { closeMenu(false); window.GctoWork.refresh(); }
       else original(old); // Keep established loaders and mutation guards; task inspection adds no view POST.
       document.querySelectorAll('.nav-item[data-tab]').forEach(n=>{const active=n.closest('#nav-tablist')&&n.dataset.tab===r.primary;n.classList.toggle('active',!!active);n.setAttribute('aria-selected',String(!!active));});
       panel('crumb-here').textContent=r.primary[0].toUpperCase()+r.primary.slice(1);
