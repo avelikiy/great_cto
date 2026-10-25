@@ -169,6 +169,45 @@ test('canvas workspace preserves route history, project identity, evidence and u
     await page.waitForFunction(slug => currentProject === slug && new URLSearchParams(location.search).get('project') === slug && document.getElementById('project-name')?.textContent === slug, FIXTURE_NAME);
     await page.locator(`[data-work-select="${key}"]`).waitFor({ state: 'visible' });
     assert(!await page.locator('#work-list').innerText().then(text => text.includes('Secondary workspace sentinel')), 'legacy unqualified history restores default-project data rather than retaining the last project');
+    let holdDefault, defaultCaptured, defaultFulfilled;
+    const heldDefault = new Promise(resolve => { holdDefault = resolve; });
+    const capturedDefault = new Promise(resolve => { defaultCaptured = resolve; });
+    const fulfilledDefault = new Promise(resolve => { defaultFulfilled = resolve; });
+    const unqualifiedWork = url => url.pathname === '/api/work' && !url.searchParams.has('project');
+    await page.evaluate(() => {
+      window.__canvasOriginalAPI = api;
+      api = function(url, options) {
+        const response = window.__canvasOriginalAPI(url, options);
+        if (url === '/api/work') window.__canvasDefaultRead = response;
+        return response;
+      };
+    });
+    await page.route(unqualifiedWork, async route => {
+      const response = await route.fetch();
+      defaultCaptured();
+      await heldDefault;
+      await route.fulfill({ response });
+      defaultFulfilled();
+    });
+    await page.evaluate(slug => {
+      history.pushState({ legacyCanvasRaceFixture: true }, '', '/#/work');
+      history.pushState(null, '', '/?project=' + encodeURIComponent(slug) + '#/work');
+    }, FIXTURE_NAME);
+    await page.goBack();
+    await capturedDefault;
+    await page.evaluate(slug => switchProject(slug), otherSlug);
+    await page.locator(`[data-work-select="${issue.key}"]`).filter({ hasText: 'Secondary workspace sentinel' }).waitFor();
+    const defaultFinished = page.waitForEvent('requestfinished', { predicate: request => unqualifiedWork(new URL(request.url())) });
+    holdDefault();
+    await Promise.all([defaultFinished, fulfilledDefault]);
+    assert(await page.evaluate(() => !!window.__canvasDefaultRead), 'the held request belongs to the actual route API read');
+    const resolvedDefault = await page.evaluate(async () => { const data = await window.__canvasDefaultRead; await new Promise(resolve => requestAnimationFrame(resolve)); return data?.projectName; });
+    assert.equal(resolvedDefault, FIXTURE_NAME, 'the late response carries the original default project');
+    assert.equal(new URL(page.url()).searchParams.get('project'), otherSlug, 'late default-scope response must not overwrite an explicit project choice');
+    assert.equal(await page.locator('#project-name').innerText(), otherSlug);
+    assert(await page.locator(`[data-work-select="${issue.key}"]`).innerText().then(text => text.includes('Secondary workspace sentinel')));
+    await page.unroute(unqualifiedWork);
+    await page.evaluate(() => { api = window.__canvasOriginalAPI; delete window.__canvasOriginalAPI; delete window.__canvasDefaultRead; });
     await page.goto(`${base}/?project=${FIXTURE_NAME}#/work/task/run%3Amissing/execution`);
     await page.getByRole('heading', { name: 'Selected task is unavailable', exact: true }).waitFor();
     assert.equal(await page.locator('#work-list [data-selected-work]').count(), 0, 'an unavailable explicit task is never replaced by another project task');
