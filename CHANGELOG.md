@@ -79,10 +79,6 @@ Opt-in host observations add source-labelled Codex and Claude Code lanes beside 
 
 The implementation tree passed the canonical local gate, including 22 browser scenarios without skips. Live synthetic-project checks exercised Codex, Claude Code through OpenRouter, concurrent controlled workers and native lifecycle observations. Native observations do not attest complete host coverage; resume identities and child deliveries can remain unavailable. Fifteen opt-in/live checks in the canonical suite remain NOT CHECKED. These results do not establish deployment success, general native-session completeness or measured quality uplift. A fresh gate on the versioned release candidate is required before publication. Domain packs and graph collection remain opt-in; the separate Kimi reviewer candidate is not included.
 
-- _Add one bullet per shipped feature._
-- _Cite ADRs introduced (if any)._
-- _Mention test counts and opt-out flags._
-
 ---
 
 ## v3.70.1 — 2026-10-25
