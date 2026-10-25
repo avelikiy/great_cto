@@ -20,6 +20,12 @@ being labelled as loss. Unknown structural content, including unknown blocks nex
 to valid tool blocks, retains a gap diagnostic. Unknown identities,
 unsupported source formats and interrupted delivery remain partial.
 
+For controlled Claude Code 2.1.292 streams, the audited five-field
+`system/ui_invalidate` frame with `event: "ui.render"` and UUID identities is an
+internal UI refresh notification and is excluded. Other versions, additional
+fields (including instance variants), malformed identities and native input
+retain an explicit gap until separately classified.
+
 No old transcript is scanned or imported. Lifecycle hooks without replay-safe
 source IDs retain distinct collector deliveries and a persistent missing-identity
 warning. This permits inspection without claiming exact source replay coverage.

@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const safeId = value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(value) ? value : null;
+const uuid = value => typeof value === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 const version = value => typeof value === 'string' && /^\d{1,5}(?:\.\d{1,5}){0,3}(?:[-+][a-zA-Z0-9.-]{1,32})?$/.test(value) ? value : null;
 const hosts = new Set(['codex', 'claude-code']);
 const modes = new Set(['controlled', 'native']);
@@ -33,7 +34,7 @@ function ignoredClaudeBlock(block) {
     || (block.type === 'thinking' && typeof block.thinking === 'string')
     || (block.type === 'redacted_thinking' && typeof block.data === 'string');
 }
-function ignoredPayload(host, mode, raw) {
+function ignoredPayload(host, mode, raw, sourceVersion) {
   if (host === 'codex' && !(mode === 'native' && raw.hook_event_name)) {
     if (!['item.started', 'item.updated', 'item.completed'].includes(raw.type) || !record(raw.item) || !opaque(raw.item.id)) return false;
     const item = raw.item;
@@ -43,6 +44,12 @@ function ignoredPayload(host, mode, raw) {
       && item.items.every(value => record(value) && typeof value.text === 'string' && typeof value.completed === 'boolean');
   }
   if (host !== 'claude-code') return false;
+  // Audited 2.1.292 schema: this push invalidates rendered UI trees only.
+  // Keep future versions, instance variants and extra structural fields visible
+  // as gaps until independently classified; subtype alone is not evidence.
+  if (mode === 'controlled' && sourceVersion === '2.1.292' && raw.type === 'system' && raw.subtype === 'ui_invalidate'
+    && raw.event === 'ui.render' && uuid(raw.uuid) && uuid(raw.session_id)
+    && Object.keys(raw).every(key => ['type', 'subtype', 'event', 'uuid', 'session_id'].includes(key))) return true;
   if (['assistant', 'user'].includes(raw.type)) {
     const content = raw.message?.content;
     return Array.isArray(content) && content.length > 0 && content.every(ignoredClaudeBlock);
@@ -102,7 +109,7 @@ export function normalizeHostEvent({ host, mode, sourceVersion, event: raw, bind
   if (!binding || !safeId(binding.projectId) || !safeId(binding.runId) || !safeId(binding.sessionId)
     || (binding.attemptId != null && !safeId(binding.attemptId))) return rejected('invalid-trusted-binding');
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return rejected('invalid-event');
-  if (ignoredPayload(host, mode, raw)) return { event: null, diagnostics: [], capabilities };
+  if (ignoredPayload(host, mode, raw, sourceVersion)) return { event: null, diagnostics: [], capabilities };
   const hookShape = mode === 'native' && typeof raw.hook_event_name === 'string';
   const parsed = host === 'codex' && !hookShape ? codexEvent(raw) : claudeEvent(raw);
   if (!parsed) return rejected('unsupported-event-shape');

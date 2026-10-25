@@ -184,3 +184,19 @@ test('only explicit valid advisory frames are excluded, never arbitrary system m
     assert(r.diagnostics.includes('unsupported-event-shape'));
   }
 });
+
+test('only the audited Claude 2.1.292 UI render invalidation is excluded from graph capture', () => {
+  const raw = { type: 'system', subtype: 'ui_invalidate', event: 'ui.render', uuid: '11111111-1111-4111-8111-111111111111', session_id: '22222222-2222-4222-8222-222222222222' };
+  const call = (event = raw, sourceVersion = '2.1.292') => normalize('claude-code', event, { sourceVersion });
+  assert.deepEqual(call().diagnostics, []);
+  assert.equal(call().event, null);
+  for (const event of [
+    { ...raw, event: 'future.render' }, { ...raw, event: null },
+    { ...raw, uuid: null }, { ...raw, session_id: '' }, { ...raw, uuid: 'not-a-uuid' },
+    { ...raw, tool_use_id: 'call-1' }, { ...raw, error: 'unclassified' },
+    { ...raw, parent_ids: ['parent'] }, { ...raw, instances: [] },
+  ]) assert.deepEqual(call(event).diagnostics, ['unsupported-event-shape']);
+  assert.deepEqual(call(raw, '2.1.293').diagnostics, ['unsupported-event-shape']);
+  assert.deepEqual(call(raw, null).diagnostics, ['unsupported-event-shape']);
+  assert.deepEqual(normalize('claude-code', raw, { sourceVersion: '2.1.292', mode: 'native' }).diagnostics, ['unsupported-event-shape']);
+});
