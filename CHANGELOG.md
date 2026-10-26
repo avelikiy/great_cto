@@ -58,6 +58,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.71.1 — 2026-10-26
+
+Exact-byte distribution checks accompany the opt-in Codex and Claude Code execution observations. This candidate supersedes the unused 3.71.0 preparation tag without moving it.
+
+### What's new
+
+- Separate controller-owned graph transitions and source-labelled host observation lanes, with explicit coverage, loss markers and unavailable outcomes. Graph collection remains opt-in.
+- Strict npm and complete plugin archive admission: source/version identity, signed index, sizes, digests, archive membership, file modes and runtime closure are checked before supported activation.
+- Explicit local Ed25519 signing authority for local CI/CD. The consumer requires a separately enrolled public fingerprint; release artifacts cannot select their own trust policy. GitHub OIDC remains a distinct optional profile with no fallback.
+- Local publication tools consume admitted immutable bytes, require exact commit/index approval pins and verify registry and GitHub asset bytes after publication. Enrollment alone authorizes no release.
+
+### Fixed
+
+- Refuse legacy mutable publication and unsupported installer routes before mutation instead of silently selecting unverified bytes.
+- Observe scorer readiness within its actual subprocess window and anchor the test watchdog to observed readiness. The 1000 ms production timeout, 2000 ms fixture watchdog, 10000 ms test cap and ownership/SIGKILL/cleanup checks remain intact. Prior failing runs are retained.
+
+### Validation and limits
+
+The preceding implementation candidate passed the canonical local gate, including 22 browser scenarios without skips, and independent source/security review. Two clean builds produced five byte-identical outputs; real signatures from a temporary fixture key passed archive admission. Those results are source/fixture evidence, not production publication or installed-host acceptance. The versioned release candidate requires its own fresh gate and artifact review before publication.
+
+Fifteen live/opt-in checks remain NOT CHECKED. Native host observations do not prove complete session coverage, live-model quality improvement or deployment success. Native marketplace, companion, pnpm and Volta activation remain unsupported by this admission contract; plain npm is the supported first adapter. Domain packs and graph collection remain opt-in. The separate Kimi reviewer candidate is not included. See ADR-044 and ADR-045.
+
+---
+
 ## v3.71.0 — 2026-10-25
 
 Opt-in host observations add source-labelled Codex and Claude Code lanes beside the controller-owned execution graph, with explicit coverage and loss reporting.
