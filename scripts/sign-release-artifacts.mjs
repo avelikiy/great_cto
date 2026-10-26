@@ -80,6 +80,28 @@ export function validatePreparedRun({run,artifacts,commit,runId}){
   if(matches.length!==1||matches[0].expired!==false||!Number.isSafeInteger(matches[0].id)||matches[0].id<1||!Number.isSafeInteger(matches[0].size_in_bytes)||matches[0].size_in_bytes<1||matches[0].size_in_bytes>512*1024*1024||matches[0].workflow_run?.id!==Number(runId))throw Error('missing, ambiguous or expired signed artifact');
   return matches[0].id;
 }
+/** Publication requires the signed candidate itself on current public main.
+ * SIGN_ONLY intentionally has no such prerequisite: its proof must precede merge.
+ */
+export function assertPublicationSource({source,version,commit,run=execFileSync}){
+  if(!isAbsolute(source||'')||!STABLE.test(version)||!/^[a-f0-9]{40}$/.test(commit))throw Error('invalid publication source identity');
+  const env={...process.env};for(const key of Object.keys(env))if(key.startsWith('GIT_'))delete env[key];
+  Object.assign(env,{GIT_CONFIG_NOSYSTEM:'1',GIT_CONFIG_GLOBAL:'/dev/null',GIT_TERMINAL_PROMPT:'0'});
+  const options={encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:180000,maxBuffer:2*1024*1024,env};
+  const git=args=>String(run('git',['-c','core.fsmonitor=false','-c','core.hooksPath=/dev/null','-C',source,...args],options)).trim();
+  const main='refs/remotes/release-admission/main',tag=`refs/release-admission/tags/v${version}`;
+  try{
+    const shallow=git(['rev-parse','--is-shallow-repository']);
+    if(!['true','false'].includes(shallow))throw Error('unknown history state');
+    git(['fetch','--no-tags','--no-recurse-submodules','--force','--no-write-fetch-head',...(shallow==='true'?['--unshallow']:[]),'https://github.com/avelikiy/great_cto.git',`+refs/heads/main:${main}`,`+refs/tags/v${version}:${tag}`]);
+  }catch{throw Error('current public main and tag fetch unavailable; publication refused');}
+  let mainCommit,tagCommit;
+  try{mainCommit=git(['rev-parse','--verify',`${main}^{commit}`]);tagCommit=git(['rev-parse','--verify',`${tag}^{commit}`]);}catch{throw Error('current main or tag unavailable');}
+  if(!/^[a-f0-9]{40}$/.test(mainCommit)||tagCommit!==commit)throw Error('current tag does not resolve to the exact signed source SHA');
+  try{git(['merge-base','--is-ancestor',commit,main]);}catch{throw Error('exact signed source SHA is not an ancestor of current main');}
+  return {state:'EXACT_SOURCE_ON_MAIN',commit,main:mainCommit,tag:`v${version}`};
+}
+
 export function assertPublishProtection(environment){
   const rule=environment?.protection_rules?.find(r=>r.type==='required_reviewers');
   if(!rule||!Array.isArray(rule.reviewers)||rule.reviewers.length!==1||rule.reviewers[0]?.type!=='User'||rule.reviewers[0]?.reviewer?.login!=='avelikiy')throw Error('preexisting required owner review is missing from publish environment');

@@ -105,6 +105,8 @@ test('tag workflow is sign-only and every JSR path fails closed', () => {
   const jsr=fs.readFileSync(new URL('../../.github/workflows/jsr-publish.yml',import.meta.url),'utf8');
   assert.match(publish,/SIGN_ONLY/);assert.match(publish,/sign-release-artifacts\.mjs/);
   const tagJobs=publish.split('\n  publish_guard:')[0];
+  assert.doesNotMatch(tagJobs,/merge-base|assertPublicationSource/);
+  assert.equal((publish.match(/assertPublicationSource\(\{/g)||[]).length,2);
   assert.doesNotMatch(tagJobs,/npm publish|gh release (?:create|upload)|secrets\.NPM_TOKEN|NODE_AUTH_TOKEN/);
   assert.match(publish,/if: github\.event_name == 'workflow_dispatch' && inputs\.operation == 'publish-verified'/);
   assert.match(publish,/needs: publish_guard/);
@@ -346,4 +348,24 @@ test('plugin delivers only the two approved public source helpers and excludes s
 test('builder refuses a final snapshot whose relative runtime import targets omitted test sources', async t => {
   const f=buildFixture(t);fs.writeFileSync(path.join(f.source,'scripts/runtime.mjs'),"import '../tests/eval/runner.mjs';");f.git(['add','.']);f.git(['commit','--quiet','-m','synthetic missing runtime import']);
   await assert.rejects(buildReleaseArtifacts(f),/runtime import missing/);
+});
+
+test('SIGN_ONLY accepts an off-main candidate while publication requires exact current main and tag', async t => {
+  const {assertPublicationSource}=await import('../../scripts/sign-release-artifacts.mjs');
+  const root=fixture(t),source=path.join(root,'source'),remote=path.join(root,'origin.git');fs.mkdirSync(source);
+  const git=(cwd,args)=>execFileSync('git',['-c','commit.gpgsign=false','-c','tag.gpgsign=false','-C',cwd,...args],{encoding:'utf8',stdio:['ignore','pipe','pipe']});
+  git(source,['init','--quiet','--initial-branch=main']);git(source,['config','user.name','Fixture']);git(source,['config','user.email','fixture@example.invalid']);
+  fs.writeFileSync(path.join(source,'base'),'base');git(source,['add','.']);git(source,['commit','--quiet','-m','base']);
+  git(source,['checkout','--quiet','-b','candidate']);fs.writeFileSync(path.join(source,'candidate'),'candidate');git(source,['add','.']);git(source,['commit','--quiet','-m','candidate']);
+  const candidate=git(source,['rev-parse','HEAD']).trim();git(source,['tag','v1.2.3']);git(root,['clone','--quiet','--bare',source,remote]);
+  const run=(bin,args,opts)=>execFileSync(bin,args.map(arg=>arg==='https://github.com/avelikiy/great_cto.git'?remote:arg),opts);
+  assertSigningContext({env:{...env,GITHUB_SHA:candidate},version,commit:candidate});
+  assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run}),/not.*main|main.*ancestor/);
+  git(source,['checkout','--quiet','main']);git(source,['merge','--quiet','--no-ff','candidate','-m','preserve candidate SHA']);git(source,['push','--quiet',remote,'main']);
+  assert.equal(assertPublicationSource({source,version,commit:candidate,run}).state,'EXACT_SOURCE_ON_MAIN');
+  git(remote,['update-ref','refs/tags/v1.2.3',git(source,['rev-parse','main']).trim()]);
+  assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run}),/tag.*SHA|tag.*source/);
+  git(remote,['update-ref','-d','refs/heads/main']);
+  assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run}),/fetch|main|unavailable/);
+  assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run:()=>{throw Error('network unavailable');}}),/unavailable/);
 });
