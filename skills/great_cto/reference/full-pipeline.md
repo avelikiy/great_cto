@@ -81,6 +81,8 @@ Proceed? [yes/no]  ← auto-expires in 72h if no response
 ```
 If CTO does not respond within 72h → mark gate:arch as rejected, tell CTO: "gate:arch expired — pipeline paused. Say 'approve arch' to resume or 'cancel' to drop." Do NOT auto-proceed past a gate.
 
+**UI-bearing feature:** spawn `great_cto-design-advisor` after the architect and before pm, not alongside it — its next stage is pm, so senior-dev has one way in.
+
 **Step 1b — PM (sonnet):** Spawn `great_cto-pm` after the architect — after gate:arch is approved when gate:arch is active. The graph skips pm on an architect verdict with `depth=small` when gate:plan is not active.
 
 PM reads the ARCH doc and produces `docs/plans/PLAN-<feature>.md`:

@@ -106,7 +106,7 @@ flowchart TD
   db_migration_reviewer["db-migration-reviewer"]
   db_migration_reviewer --> qa_engineer
   design_advisor["design-advisor"]
-  design_advisor --> senior_dev
+  design_advisor --> pm
   smart_contract_auditor["smart-contract-auditor"]
   smart_contract_auditor --> security_officer
   performance_engineer["performance-engineer"]

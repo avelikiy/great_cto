@@ -194,6 +194,10 @@ PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PH
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); TEAM_SIZE=${TEAM_SIZE:-1}
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 
+# Design contract — design-advisor runs before pm on UI features; plan UI tasks against it
+DESIGN_DOC=$(ls -t docs/design/DESIGN-*.md 2>/dev/null | head -1)
+[ -n "$DESIGN_DOC" ] && echo "=== DESIGN CONTRACT: $DESIGN_DOC (components, a11y, responsive — one task per screen/component group) ==="
+
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
   COST_LESSONS=$(grep -B1 -A4 "shape: B" .great_cto/lessons.md 2>/dev/null | head -20)

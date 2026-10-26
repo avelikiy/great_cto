@@ -67,7 +67,7 @@ pipeline gets bypassed.
 | React Native mobile implementation (DESIGN doc targets RN; offline-first, store readiness) | `mobile-app-builder` |
 | E2E golden-path suite (Playwright) + live-URL validation around deploy | `e2e-test-engineer` |
 | Score 2+ ADR/ARCH variants against weighted criteria (after architect proposes alternatives) | `decision-scorer` |
-| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before senior-dev) | `design-advisor` |
+| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before pm — its next stage is pm) | `design-advisor` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
 | Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
 

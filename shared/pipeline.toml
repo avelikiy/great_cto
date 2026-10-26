@@ -303,7 +303,13 @@ next = ["qa-engineer"]
 on = ["DONE", "APPROVED"]
 # DESIGN-{slug}.md — the design + a11y contract
 produces = ["design"]
-next = ["senior-dev"]
+# Into pm, not senior-dev. Both used to lead to senior-dev with no join, and the
+# routing table ran design-advisor alongside pm, so each success opened the edge
+# and senior-dev could start twice. A join cannot fix it: design-advisor runs only
+# for UI features, and pm would wait for a stage that never starts. One path into
+# senior-dev does; pm also plans the UI tasks against the finished contract — the
+# order the Codex controller already runs (design-advisor-prebuild).
+next = ["pm"]
 
 # Audits the Solidity/EVM contracts once they exist (web3, or /review --contracts).
 # PASS hands the audit to security-officer, which reads it before gate:ship; FAIL
