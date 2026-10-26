@@ -139,12 +139,17 @@ recorded until fulfilled or explicitly superseded with preserved acceptance.
 ## Acceptance and rollback
 
 The existing versioned contract is [distribution-trust-v1.json](../../tests/acceptance/distribution-trust-v1.json).
-It remains frozen. The local-authority amendment needs additional versioned
-acceptance coverage; its approval does not rewrite or waive the hosted scenarios.
-It adds hostile-input, actual cryptographic verification, zero-pre-admission
-execution, crash/recovery, rollback and exact-byte publication checks. Existing
-graph gates and frozen assertions/deadlines remain unchanged. Synthetic tests
-have authority NONE and cannot establish release eligibility.
+It remains frozen. [Revision 2](../../tests/acceptance/distribution-trust-v2.json)
+adds local-authority coverage without rewriting the historical hosted scenarios.
+[Revision 3](../../tests/acceptance/distribution-trust-v3.json) records the
+separately approved test-only scorer phase-clock correction: actual readiness
+is checked within the scorer's own 1000 ms window, and the 2000 ms watchdog is
+anchored to observed readiness. The overall test cap stays 10000 ms; live PID/PPID,
+SIGKILL and cleanup checks remain. The original failed runs remain evidence.
+The documentation orphan ratchet also tightens from 47 to 46 after the newly
+connected local-CI document. No production deadline, budget or release-gate
+policy is relaxed. Synthetic tests have authority NONE and cannot establish
+release eligibility.
 
 Rollback restores only owned artifact selection and managed-file changes; it
 never deletes graph journals, project data or historical review evidence.

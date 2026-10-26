@@ -228,9 +228,9 @@ The executable gate must be a new frozen file, not a relaxation of graph or exis
 | Claude | Verified immutable full runtime, compare-and-swap registry and managed-file backup/recovery. No changes to unrelated plugins/registrations. |
 | Codex native | Real isolated host proof with canary/no-network tracing before enabling supported activation. If unsupported, assert zero host upgrade/install calls and truthful status. Normal hooks trust remains a separate runtime step. |
 | Publisher | Exact tag/commit/tree source, all blobs plus index signed under the independently selected local authority, same tarball published without repack and exact npm readback. Legacy cd-local/release paths refuse unadmitted input before external mutation. Hosted certificate binding stays separate; branch/test certificates cannot impersonate it. |
-| Regression | Existing graph gate, frozen checks, independent QA/devtools/CSO and final canonical gate run unchanged against the final combined candidate. |
+| Regression | Existing graph gates, independent QA/devtools/CSO and the final complete canonical inventory run against the final candidate. The explicitly approved test-only scorer clock revision is recorded in acceptance v3; the 1000/2000/10000 ms caps and PID/SIGKILL/cleanup checks remain. |
 
-A generated fixture signature never grants release eligibility. Real production local-key admission, optional hosted proof and installed-version uptake are separate checks. The frozen distribution-trust-v1.json is not rewritten or relaxed by this amendment; new versioned local-profile acceptance must supplement its retained scenarios.
+A generated fixture signature never grants release eligibility. Real production local-key admission, optional hosted proof and installed-version uptake are separate checks. Frozen [v1](../../tests/acceptance/distribution-trust-v1.json) and [v2](../../tests/acceptance/distribution-trust-v2.json) remain retained. [Acceptance v3](../../tests/acceptance/distribution-trust-v3.json) records the operator-approved scorer fixture phase clocks; it does not change production deadlines or conceal earlier failures.
 
 ## Bootstrap and explicit remaining authority
 
@@ -261,7 +261,7 @@ The immutable v3.71.0 tag is not a release and must never be retargeted.
 | Admission builder | packages/cli/src/release-trust.mjs (shared pure contract + bounded verifier broker), policy data under shared/, focused hostile-input tests |
 | Publisher builder | release packaging/signing helpers, publish.yml, cd-local/release refusal of unsigned direct publish; exact archive/index/inventory contract |
 | Activation builder | self-upgrade.ts, installer.ts, codex.ts, codex-auto-update.sh and shared transaction helper; no alternative native fallback |
-| Architect/QA | New ADR/acceptance/architecture source files only after parent adopts this proposal; preserve all existing frozen tests |
+| Architect/QA | Preserve versioned acceptance and existing checks; only the separately approved v3 scorer fixture clock correction changes the test phases, retaining all caps and process assertions |
 | Independent reviewers | Every changed trust boundary, actual crypto fixture, native capability evidence and final signed artifact chain |
 
 Keep these writes sequential when a shared helper or main.ts dispatch overlaps. This architecture amendment owns only the declared design documents; parent owns Beads reconciliation, source/PR operations and any production authority steps.

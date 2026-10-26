@@ -11,6 +11,7 @@ import { runPinnedBenchmarkScorer, scorerProcessDiagnostic, scorerStageDiagnosti
 import { treeReceipt } from '../../scripts/lib/receipt.mjs';
 import { specialistPlan } from '../../scripts/lib/specialist-plan.mjs';
 import { RULES } from '../../scripts/hooks/auto-attach-reviewers.mjs';
+import { createScorerReadyObserver, validateScorerReady, readFixtureProcessIdentity, terminateOwnedScorerFixture } from '../helpers/scorer-ready-observer.mjs';
 
 const sha = value => createHash('sha256').update(value).digest('hex');
 const lifecycleLauncher=fileURLToPath(new URL('../helpers/pinned-scorer-lifecycle.mjs',import.meta.url));
@@ -233,10 +234,13 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
   f.custom("import {writeFileSync} from 'node:fs';\nprocess.on('SIGTERM',()=>{});\nwriteFileSync(JSON.parse(process.argv[3]).signalTestMarker,JSON.stringify({pid:process.pid,handlerReady:true,publishedAt:new Date().toISOString()}));\nsetInterval(()=>{},1000);");
   const launcherInput=JSON.stringify({options:{...f.options,expectedReceipt:treeReceipt(f.root),timeoutMs:1000}});
   const launchAt=new Date().toISOString(),launchStart=performance.now();
-  const child=spawn(process.execPath,[lifecycleLauncher],{env:{LANG:'C',TZ:'UTC'},stdio:['pipe','pipe','pipe']});
-  let output='',pid,identity,timer,readyPublicationAt=null,observedLineCount=0;
+  // Only this trusted fixture gets an owned process group. Production scorer
+  // spawning and its1000ms timeout remain unchanged.
+  const child=spawn(process.execPath,[lifecycleLauncher],{detached:true,env:{LANG:'C',TZ:'UTC'},stdio:['pipe','pipe','pipe']});
+  let output='',observer,launcherIdentity,observedLineCount=0;
   const stageArrivals=[],knownStages=new Set(['launcher-started','runner-invoked','runner-unavailable','prelaunch-refused','runner-refused','unexpected-completion']);
   const closed=new Promise((resolve,reject)=>{child.once('close',(code,signal)=>resolve({code,signal}));child.once('error',reject);});
+  closed.catch(()=>undefined);
   child.stdout.on('data',b=>{output+=b;
     const lines=output.split('\n');
     for(;observedLineCount<lines.length-1;observedLineCount++)try{
@@ -244,49 +248,58 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
       if(knownStages.has(kind)&&stageArrivals.length<6)stageArrivals.push({kind,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart))});
     }catch{}
   });child.stderr.resume();
-  child.stdin.end(launcherInput);
   const pause=ms=>new Promise(resolve=>setTimeout(resolve,ms));
   const processIdentity=p=>{const r=spawnSync('ps',['-p',String(p),'-o','pid=,ppid=,lstart='],{encoding:'utf8',timeout:1000});return r.status===0?r.stdout.trim():null;};
   try{
+    launcherIdentity=readFixtureProcessIdentity(child.pid);
+    assert.equal(launcherIdentity?.ppid,process.pid,'fixture launcher must belong to this test');
+    assert.equal(launcherIdentity?.pgid,child.pid,'fixture launcher must own its observed process group');
+    // Register the watcher before stdin can launch the scorer or create marker.
+    // The observer starts the original2000ms watchdog on observed readiness,
+    // captures live ownership then validates publication against the actual
+    // scorer interval. t.signal abort closes watcher/timers/listeners.
+    observer=createScorerReadyObserver({marker,launcher:child,signal:t.signal});
+    child.stdin.end(launcherInput);
     const pollingStart=performance.now();
-    for(let i=0;i<50&&!pid;i++){try{
-      const markerValue=JSON.parse(readFileSync(marker,'utf8'));
-      if(markerValue.handlerReady===true&&Number.isInteger(markerValue.pid)&&markerValue.pid>1
-        &&typeof markerValue.publishedAt==='string'&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(markerValue.publishedAt)){
-        pid=markerValue.pid;readyPublicationAt=markerValue.publishedAt;
-      }
-    }catch{}if(!pid)await pause(20);}
-    const readyObserved=Number.isInteger(pid)&&pid>1;
+    // Retain the original50x20ms window as diagnostic observation. It includes
+    // fixture startup/preflight and is not the scorer's own1000ms interval.
+    for(let i=0;i<50&&!observer.snapshot().observation&&!t.signal.aborted;i++){
+      observer.inspect();if(!observer.snapshot().observation)await pause(20);
+    }
+    const readyObservedWithinDiagnosticWindow=!!observer.snapshot().observation;
     const readyPollElapsedMs=Math.max(0,Math.round(performance.now()-pollingStart));
-    const parentReadyElapsedMs=readyObserved?Math.max(0,Math.round(performance.now()-launchStart)):null;
-    if(readyObserved){identity=processIdentity(pid);
-      assert.equal(Number(identity?.split(/\s+/)[1]),child.pid,'scorer PID must belong to test-owned launcher');}
-    const exit=await Promise.race([closed,new Promise((_,reject)=>{timer=setTimeout(()=>reject(Error('launcher exceeded watchdog after scorer deadline')),2000);})]);
+    const exit=await observer.completed;
+    const ready=observer.snapshot().observation;
+    const pid=ready?.pid,readyObserved=Number.isInteger(pid)&&pid>1;
+    assert.ok(readyObserved,'trusted scorer readiness must be observed while alive');
+    assert.equal(ready.identity.ppid,child.pid,'scorer PID must belong to test-owned launcher');
     assert.ok(Buffer.byteLength(output)<=4096,'fixed launcher output must remain bounded');
     let records=[];
     try{if(output.trim())records=output.trim().split('\n').map(line=>JSON.parse(line));}
     catch{assert.fail('fixed launcher returned invalid metadata');}
     const last=records.at(-1)??{kind:'no-final-stage'};
     assert.doesNotMatch(output,/PRIVATE_PAYLOAD/);assert.ok(!output.includes(f.root));
-    const observation={readyObserved,launchAt,readyPublicationAt,readyPollElapsedMs,parentReadyElapsedMs,stageArrivals,launcherExit:exit,final:last};
+    validateScorerReady({pid,handlerReady:ready.handlerReady,publishedAt:ready.publishedAt},last.processDiagnostic,pid);
+    const observation={readyObserved,readyObservedWithinDiagnosticWindow,launchAt,readyPublicationAt:ready.publishedAt,
+      readyPollElapsedMs,parentReadyElapsedMs:Date.parse(ready.observedAt)-Date.parse(launchAt),stageArrivals,launcherExit:exit,final:last};
     t.diagnostic('owned launcher observation: '+JSON.stringify(observation));
-    assert.ok(readyObserved,'trusted scorer ready not observed within fixed window; '+JSON.stringify(observation));
     assert.equal(records[0]?.kind,'launcher-started');assert.equal(records[0]?.pid,child.pid);
     assert.equal(exit.code,0);assert.equal(exit.signal,null);assert.equal(last.kind,'runner-unavailable');
     assert.equal(last.processDiagnostic.outcome,'timeout');assert.equal(last.processDiagnostic.timeoutMs,1000);
     assert.equal(last.processDiagnostic.pid,pid);assert.equal(last.processDiagnostic.descendantQuiescenceVerified,false);
     assert.equal(processIdentity(pid),null,'timed-out owned scorer must no longer be a live process');
   }catch(error){
-    // Emit observations even when the watchdog fires: the previous test lost
-    // its only startup/ready evidence on precisely the failing path.
-    t.diagnostic('owned launcher failure observation: '+JSON.stringify({launchAt,readyPublicationAt,
-      readyObserved:Number.isInteger(pid)&&pid>1,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart)),
+    const ready=observer?.snapshot().observation;
+    t.diagnostic('owned launcher failure observation: '+JSON.stringify({launchAt,readyPublicationAt:ready?.publishedAt??null,
+      readyObserved:Number.isInteger(ready?.pid)&&ready.pid>1,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart)),
       stageArrivals,launcher:{pid:child.pid,exitCode:child.exitCode,signal:child.signalCode}}));
     throw error;
   }finally{
-    clearTimeout(timer);
-    if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');
-    if(identity&&processIdentity(pid)===identity)try{process.kill(pid,'SIGKILL');}catch{}
+    terminateOwnedScorerFixture({launcher:child,launcherIdentity,ready:observer?.snapshot().observation});
+    observer?.dispose();
+    // If setup failed before any input, EOF makes the fixed fixture refuse;
+    // it must not leave a launcher waiting for stdin.
+    if(!child.stdin.writableEnded)child.stdin.end();
     await closed;
   }
 });
