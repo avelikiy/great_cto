@@ -28,7 +28,7 @@ flowchart LR
 The arrows define proposed admission order. They do not describe an executed
 release, a new product orchestrator or a completed native-host capability.
 
-## Signals, depth and gates
+## Context, scope and gates
 
 - Input: hostile release indexes, archives, signature bundles, redirects and local installation metadata.
 - Boundary: downloaded code enters global CLI/plugin state used by other projects.
@@ -66,7 +66,7 @@ Plain npm is the first supported CLI activation adapter. pnpm, Volta, unproven n
 - Migrate all installs to managed version slots and a new global shim now: gives a cleaner atomic selection boundary but takes ownership from npm/pnpm/Volta, changes bootstrap and uninstall behavior, and expands this release. Preserve as a future independently reviewed migration.
 - Custom Sigstore verification in zero-dependency JavaScript: substantially enlarges cryptographic parsing/trust-root risk. Prefer an explicit external verifier prerequisite and a typed failure when it is unavailable.
 
-### Attack on the selected design
+### Risks and attack on the selected design
 
 A signed archive can still contain malicious approved code; admission is provenance, not correctness. A malicious publisher workflow or repository compromise can produce a valid signature. Existing code-review/branch/tag protections remain required. A PATH-controlled verifier, environment-controlled trust root, mixed-source dist copy, tag fallback, archive traversal, time-of-check mutation or native-host re-fetch can invalidate the entire chain. The controls below address those mechanisms, not model confidence.
 

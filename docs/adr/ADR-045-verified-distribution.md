@@ -65,6 +65,16 @@ migration; changing source does not change that timer.
 - Migrating every package manager to a managed shim would simplify selection
   but changes ownership and is deferred from this first contract.
 
+## Consequences
+
+Verification becomes an availability prerequisite: absent proof preserves the
+selected version and reports a refusal. The supported adapter surface is
+explicit, so unknown native and package-manager routes cannot inherit a pass
+from plain npm. The first hosted signing run and legacy-client bootstrap need
+separate evidence; source tests alone cannot establish either. Rollback retains
+owned prior bytes without changing graph data or admitting a legacy snapshot
+as a signed release.
+
 ## Bootstrap and authority
 
 The exact production identity is the publisher workflow at an exact release
