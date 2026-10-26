@@ -79,8 +79,9 @@ function freezeSignedFiles(options, ticket) {
  */
 export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchFn=fetch}={}) {
   if((run===execFileSync)!==(fetchFn===fetch))throw Error('test adapters must isolate both Git and HTTP operations');
-  const {directory,version,source,approveCommit,approveIndexDigest,approval,localPublicKeyPath,localKeyFingerprint,githubTokenFile}=options;
+  const {directory,version,source,approveCommit,approveIndexDigest,approval,localPublicKeyPath,localKeyFingerprint,githubTokenFile,resumeReleaseId}=options;
   if(approval!=='local-owner-release' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version||'') || !/^[a-f0-9]{40}$/.test(approveCommit||'') || !/^[a-f0-9]{64}$/.test(approveIndexDigest||''))throw Error('exact stable version, commit/index and explicit owner ship approval required');
+  if(resumeReleaseId!==undefined && !positiveId(resumeReleaseId))throw Error('explicit resume release ID must be a positive safe integer');
   if(typeof githubTokenFile!=='string' || githubTokenFile===directory || githubTokenFile.startsWith(directory+path.sep))throw Error('GitHub token must be independently supplied outside candidate');
   const token=privateFile(githubTokenFile,1024).toString('utf8');
   if(!/^[A-Za-z0-9_-]{10,512}\n?$/.test(token))throw Error('single-line explicit GitHub token file required');
@@ -94,7 +95,8 @@ export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchF
     const u=new URL(url);
     if(u.protocol!=='https:' || u.username || u.password || u.port || u.hash)throw Error('publisher endpoint refused');
     if(auth && ![API, 'https://uploads.github.com'].includes(u.origin))throw Error('credential origin refused');
-    const headers={accept:binary?'application/octet-stream':'application/vnd.github+json','accept-encoding':'identity'};
+    // Upload bodies are binary, but GitHub returns JSON asset metadata.
+    const headers={accept:binary&&method==='GET'?'application/octet-stream':'application/vnd.github+json','accept-encoding':'identity'};
     if(auth){headers.authorization=authorization;headers['X-GitHub-Api-Version']='2022-11-28';}
     if(body!==undefined)headers['content-type']=binary?'application/octet-stream':'application/json';
     try{return await fetchFn(url,{method,redirect:'manual',signal:AbortSignal.timeout(180000),headers,...(body===undefined?{}:{body:binary?body:JSON.stringify(body)})});}
@@ -118,13 +120,20 @@ export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchF
   if(user.login!=='avelikiy')throw Error('explicit GitHub token is not owned by avelikiy');
   const repository=await api('');
   if(repository.full_name!==REPOSITORY || repository.permissions?.push!==true)throw Error('fixed repository write permission unavailable');
-  const existing=await request(ROOT+`/releases/tags/v${version}`,'GET',undefined,true);
   let release;
-  if(existing.status===404){
-    await existing.body?.cancel();
-    getAdmissionInfo(ticket);
-    release=await api('/releases','POST',{tag_name:`v${version}`,target_commitish:approveCommit,name:`v${version}`,body:`Signed local release ${version}. Source: ${approveCommit}. Owner signatures bind the attached index and artifacts; this is not GitHub OIDC provenance.`,draft:true,prerelease:false,generate_release_notes:false,make_latest:'false'},[201]);
-  }else release=await jsonFrom(existing);
+  if(resumeReleaseId!==undefined){
+    // Private drafts may be absent from tag lookup. An explicit ID never falls
+    // back to creating a second release when lookup or identity checks fail.
+    release=await api(`/releases/${resumeReleaseId}`);
+    if(release?.id!==resumeReleaseId)throw Error('resumed release ID differs from explicit request');
+  }else{
+    const existing=await request(ROOT+`/releases/tags/v${version}`,'GET',undefined,true);
+    if(existing.status===404){
+      await existing.body?.cancel();
+      getAdmissionInfo(ticket);
+      release=await api('/releases','POST',{tag_name:`v${version}`,target_commitish:approveCommit,name:`v${version}`,body:`Signed local release ${version}. Source: ${approveCommit}. Owner signatures bind the attached index and artifacts; this is not GitHub OIDC provenance.`,draft:true,prerelease:false,generate_release_notes:false,make_latest:'false'},[201]);
+    }else release=await jsonFrom(existing);
+  }
   verifyReleaseIdentity(release,version,approveCommit);
   const assetRoute=`/releases/${release.id}/assets?per_page=100&page=1`;
   const inspectAssets=async(requireComplete)=>{
@@ -195,9 +204,11 @@ export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchF
 
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
   try{
-    const allowed=new Set(['--directory','--version','--source','--approve-commit','--approve-index-digest','--approval','--public-key','--key-fingerprint','--github-token-file']),flags=new Map();
+    const allowed=new Set(['--directory','--version','--source','--approve-commit','--approve-index-digest','--approval','--public-key','--key-fingerprint','--github-token-file','--resume-release-id']),flags=new Map();
     for(let i=2;i<process.argv.length;i+=2){const name=process.argv[i],value=process.argv[i+1];if(!allowed.has(name)||flags.has(name)||!value||value.startsWith('--'))throw Error('invalid local GitHub publisher option');flags.set(name,value);}
-    const result=await publishLocalGitHubRelease({directory:flags.get('--directory'),version:flags.get('--version'),source:flags.get('--source'),approveCommit:flags.get('--approve-commit'),approveIndexDigest:flags.get('--approve-index-digest'),approval:flags.get('--approval'),localPublicKeyPath:flags.get('--public-key'),localKeyFingerprint:flags.get('--key-fingerprint'),githubTokenFile:flags.get('--github-token-file')});
+    const resumeText=flags.get('--resume-release-id');
+    if(resumeText!==undefined && (!/^[1-9]\d{0,15}$/.test(resumeText)||!positiveId(Number(resumeText))))throw Error('canonical decimal resume release ID required');
+    const result=await publishLocalGitHubRelease({directory:flags.get('--directory'),version:flags.get('--version'),source:flags.get('--source'),approveCommit:flags.get('--approve-commit'),approveIndexDigest:flags.get('--approve-index-digest'),approval:flags.get('--approval'),localPublicKeyPath:flags.get('--public-key'),localKeyFingerprint:flags.get('--key-fingerprint'),githubTokenFile:flags.get('--github-token-file'),resumeReleaseId:resumeText===undefined?undefined:Number(resumeText)});
     process.stdout.write(JSON.stringify(result)+'\n');
   }catch{console.error('verified GitHub publication refused; partial drafts are retained and credential details withheld');process.exitCode=1;}
 }
