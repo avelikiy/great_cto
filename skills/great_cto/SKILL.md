@@ -169,7 +169,6 @@ Moved to `skills/great_cto/reference/findings-format.md` — read it when you ne
 
 **Verdict**: APPROVED | BLOCKED
 **Reason**: <one sentence — what must change for APPROVED>
-```
 
 **Rules**:
 - Issue-first: flag design-level issues early, not buried under implementation detail
@@ -280,7 +279,8 @@ did not name what it produced.
 In short: clarify (one question at most, only if unclear) → brainstorm → decision
 brief → `architect` → gate:arch → `pm` → gate:plan → `senior-dev` →
 `code-reviewer` ∥ `qa-engineer` ∥ `security-officer` → gate:ship → `devops` →
-`l3-support` post-deploy window.
+`l3-support` post-deploy window. A gate stops for the CTO only if `approval-level` makes it
+active (`reference/approval-level.md`).
 
 **Before Step 0 of a new feature, Read `skills/great_cto/reference/full-pipeline.md`**,
 and again before showing any gate: it holds the clarify table, the decision brief,

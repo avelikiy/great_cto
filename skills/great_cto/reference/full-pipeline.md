@@ -71,7 +71,7 @@ Proceed to architecture? → say "yes", describe changes, or "alternatives first
 
 **This is NOT a gate.** Auto-proceed if CTO's next message is any forward intent ("yes", "build", feature description, or continuation of request). Only pause if CTO explicitly says "alternatives first" or "scope down".
 
-**Step 1 — Architect (opus):** Spawn `great_cto-architect`. Arch doc + ADR + Beads epic + gate:arch.
+**Step 1 — Architect (opus):** Spawn `great_cto-architect`. Arch doc + ADR + Beads epic, and gate:arch only when `arch` is in the active gate set.
 
 **GATE:ARCH** — show CTO:
 ```
@@ -81,22 +81,26 @@ Proceed? [yes/no]  ← auto-expires in 72h if no response
 ```
 If CTO does not respond within 72h → mark gate:arch as rejected, tell CTO: "gate:arch expired — pipeline paused. Say 'approve arch' to resume or 'cancel' to drop." Do NOT auto-proceed past a gate.
 
-**Step 1b — PM (sonnet):** Spawn `great_cto-pm` after gate:arch is approved. Skip for `project_size: nano`.
+**Step 1b — PM (sonnet):** Spawn `great_cto-pm` after the architect — after gate:arch is approved when gate:arch is active. The graph skips pm on an architect verdict with `depth=small` when gate:plan is not active.
 
 PM reads the ARCH doc and produces `docs/plans/PLAN-<feature>.md`:
 - Mermaid Gantt + ASCII fallback
 - Dependency graph + parallelism map
 - Agent allocation (how many senior-devs concurrently)
 - Timeline estimates (PoC/MVP/full mode, with buffer)
-- `gate:plan` human checkpoint
+- `gate:plan` human checkpoint — only when `plan` is in the active gate set (below)
 
-**GATE:PLAN** — show CTO:
+**Which gates stop for the CTO** is the set `scripts/lib/approval-level.mjs` returns for the project's
+`approval-level` and archetype (`reference/approval-level.md`) — not this file. Every
+`GATE:X` below applies only when `X` is in that set; otherwise do not create it and do not pause.
+
+**GATE:PLAN** (only if `plan` is active) — show CTO:
 ```
 Plan ready → docs/plans/PLAN-<feature>.md
 Tasks: N  |  Agents: M concurrent  |  Duration: Xh–Xh (excl. gate wait)
 Approve plan? [yes/no/adjust: <changes>]
 ```
-CTO may request adjustments (fewer agents, different parallelism, PoC mode). PM updates plan and re-presents. Do NOT unblock senior-dev until gate:plan is approved.
+CTO may request adjustments (fewer agents, different parallelism, PoC mode). PM updates plan and re-presents. When gate:plan is active, do NOT unblock senior-dev until it is approved.
 
 **Step 2 — Senior Dev(s):** Before spawning, check for active pipeline:
 ```bash
@@ -121,11 +125,12 @@ verdict; the last of them to finish opens the edge to devops under `gate:ship`.
 (This step used to tell you to spawn three `senior-dev` reviewers with focused
 prompts. The graph had replaced that in September; the prose had not.)
 
-**Step 2c — GATE:CODE** (only if `review_mode: strict` in PROJECT.md):
-```bash
-REVIEW_MODE=$(grep "^review_mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-```
-If `review_mode: strict` → create a code review gate and pause for CTO:
+**Step 2c — GATE:CODE** (only if `code` is active — `strict`, `expert`, `step-by-step`, or a
+regulated archetype's floor). `review_mode` is a legacy PROJECT.md key that `approval-level`
+replaced: it no longer opens this gate. If you find `review_mode: strict` at a level without
+gate:code, say so in one line and offer `approval-level: strict` — do not open the gate on it.
+
+When gate:code is active → create a code review gate and pause for CTO:
 ```bash
 bd create "gate:code — PR review before QA" --type task --priority 0 --label gate
 ```
@@ -139,7 +144,7 @@ Approve to continue to QA? [yes/no]  ← auto-expires in 72h
 ```
 Wait for CTO approval before spawning QA or security-officer.
 
-If `review_mode: auto` (default) → skip GATE:CODE, proceed directly to Step 3.
+When gate:code is not active → skip GATE:CODE, proceed directly to Step 3.
 
 **Step 3 — QA + Security in parallel (quorum model):**
 Before spawning, create gate:ship task:
