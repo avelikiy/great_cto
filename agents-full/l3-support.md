@@ -544,7 +544,7 @@ node "$PLUGIN_DIR/scripts/lib/pattern-lookup.mjs" --role incident
 
    # Priority 4: systemd / journalctl
    if [ -z "$LOG_PATH" ] && [ -z "$APP_CONTAINER" ]; then
-     journalctl --since "30 min ago" -p err 2>/dev/null | tail -50 || \
+     { J=$(journalctl --since "30 min ago" -p err 2>/dev/null | tail -50); [ -n "$J" ] && printf '%s\n' "$J"; } || \
      echo "No log source found. Add 'error-log: /path/to/log' to PROJECT.md L3 section."
    fi
 

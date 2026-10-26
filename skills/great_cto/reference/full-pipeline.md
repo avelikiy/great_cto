@@ -167,8 +167,8 @@ If QA=PASS and Security=APPROVED → proceed. Otherwise blocked.
 **GATE:SHIP** — before showing gate, run rollback validation then compute deltas:
 
 **Rollback validation** (block gate if rollback is impossible). Each check tests the
-captured output, not a pipeline's exit code — `grep … | head -1 || echo` takes head's
-status, which is always 0, so the warning could never print:
+captured output, not a pipeline's exit code — an `|| echo` after `| head -1` takes
+head's status, which is always 0, so the warning could never print:
 ```bash
 TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 case "$TYPE" in
@@ -194,7 +194,7 @@ case "$TYPE" in
     ;;
   notification-service)
     # Warn about queue drain risk
-    QUEUE_DEPTH=$(bd list --label queue-depth 2>/dev/null | head -1 || echo "unknown")
+    QUEUE_DEPTH=$(bd list --label queue-depth 2>/dev/null | head -1); QUEUE_DEPTH=${QUEUE_DEPTH:-unknown}
     echo "ROLLBACK_NOTE: queue drain blocks rollback — current depth: $QUEUE_DEPTH"
     ;;
   payment-service)

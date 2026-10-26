@@ -532,9 +532,9 @@ PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{p
 
 ```bash
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
-COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
-QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/qa-extras: //' || echo "[]")
-PERF_SLA=$(grep "^performance-sla:" .great_cto/PROJECT.md 2>/dev/null | sed 's/performance-sla: //' || echo "")
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //'); COMPLIANCE=${COMPLIANCE:-[]}
+QA_EXTRAS=$(grep "^qa-extras:" .great_cto/PROJECT.md 2>/dev/null | sed 's/qa-extras: //'); QA_EXTRAS=${QA_EXTRAS:-[]}
+PERF_SLA=$(grep "^performance-sla:" .great_cto/PROJECT.md 2>/dev/null | sed 's/performance-sla: //')
 ```
 
 Read ARCHETYPES.md → find QA strategy row for `$ARCHETYPE`. This gives base QA plan.
@@ -608,7 +608,7 @@ PII column additions) that functional tests miss by design — the
 specialist agent owns this.
 
 ```bash
-BASE=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | sed 's|.*/||' || echo "main")
+BASE=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null | sed 's|.*/||'); BASE=${BASE:-main}
 MIGRATION_HIT=$(git diff "$BASE"...HEAD --name-only 2>/dev/null | \
   grep -E '(^|/)(migrations|alembic/versions|db/migrate|prisma/migrations|flyway|knex/migrations)/.*\.(sql|py|ts|js|rb)$' | head -5)
 

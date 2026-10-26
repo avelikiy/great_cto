@@ -41,7 +41,7 @@ mkdir -p "$RFC_DIR"
 ```bash
 TITLE="$2"
 # Get next RFC number
-LAST_NUM=$(ls "$RFC_DIR"/RFC-*.md 2>/dev/null | grep -oE 'RFC-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1 || echo "0")
+LAST_NUM=$(ls "$RFC_DIR"/RFC-*.md 2>/dev/null | grep -oE 'RFC-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1); LAST_NUM=${LAST_NUM:-0}
 NUM=$(printf "%03d" $((LAST_NUM + 1)))
 SLUG=$(echo "$TITLE" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-' | cut -c1-40)
 RFC_FILE="$RFC_DIR/RFC-${NUM}-${SLUG}.md"
@@ -228,7 +228,7 @@ Update RFC-INDEX.md: change status column for this RFC.
 # Find next ADR number
 ADR_DIR="docs/decisions"
 mkdir -p "$ADR_DIR"
-LAST_ADR=$(ls "$ADR_DIR"/ADR-*.md 2>/dev/null | grep -oE 'ADR-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1 || echo "0")
+LAST_ADR=$(ls "$ADR_DIR"/ADR-*.md 2>/dev/null | grep -oE 'ADR-[0-9]+' | grep -oE '[0-9]+' | sort -n | tail -1); LAST_ADR=${LAST_ADR:-0}
 ADR_NUM=$(printf "%03d" $((LAST_ADR + 1)))
 
 # Extract Supersedes list from the RFC (comma-separated ADR ids)

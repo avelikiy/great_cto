@@ -221,7 +221,7 @@ FEATURE_SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//' | tr '[:upper:]' '[:
 
 # Goal ancestry (Paperclip pattern) — injected into every bd create call.
 # Built AFTER FEATURE_SLUG is known (it interpolates the slug).
-COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //')
 _COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
 GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 
