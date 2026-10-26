@@ -1,20 +1,19 @@
 # ARCH: Verified distribution and update admission
 
 **Date:** 2026-10-26
-Status: Accepted design on 2026-10-26; no implementation, production signature or release claim.
+Status: Accepted design, amended for local release authority on 2026-10-26; implementation and real artifact admission must be verified separately.
 Design: [ADR-045](../adr/ADR-045-verified-distribution.md).
 
-The operator requested signed artifacts and verification before installation. This document fixes the implementation contract; source, artifact and activation evidence remain separate.
+For release implementers and reviewers, this document selects local CI/CD with an independently enrolled Ed25519 release authority and verification before activation. The operator approved this amendment on 2026-10-26. Source, artifact and installed-runtime evidence remain separate; no key creation, enrollment, publication or activation follows from design approval.
 
 ## Change map
 
 ```mermaid
 flowchart LR
   S[Reviewed source commit] --> SG[Source admission]
-  SG --> T[Candidate tag and SIGN_ONLY]
-  T --> B[Build exact npm and full plugin archives]
-  B --> I[Signed index and runtime inventory]
-  I --> V[Trusted Cosign and exact identity verification]
+  SG --> B[Two clean builds and exact archive comparison]
+  B --> I[Frozen index and artifacts signed by selected authority]
+  I --> V[Pinned local Ed25519 key or explicit hosted OIDC policy]
   V --> AG[Artifact and ship admission]
   AG --> P[Publish same bytes]
   P --> D[Private consumer staging]
@@ -40,7 +39,9 @@ release, a new product orchestrator or a completed native-host capability.
 - Gates: gate:arch fixes publisher identity and supported adapter scope; devtools + security review precede source admission; gate:ship requires exact production artifact proof. User installation/release authority remains a separate input.
 
 
-## Verified current behavior
+## Historical baseline and implementation evidence
+
+These are the pre-implementation baseline observations, not claims about current installed uptake. Source fixes, real signature admission and installed behavior require separate evidence.
 
 1. publish.yml builds then publishes a package directory, asks for npm provenance and supplies optional NPM_TOKEN. It does not yet build one frozen tarball, separately sign it, then publish those same bytes.
 2. self-upgrade.ts invokes npm/pnpm/Volta install at latest before its version check.
@@ -48,14 +49,16 @@ release, a new product orchestrator or a completed native-host capability.
 4. installer.ts can fall back from a missing tag to mutable main, clones directly into an installation path, and supplies builtDist from the running CLI. This can mix two release sources.
 5. install-local-cache.mjs already provides immutable version-directory publication and inventory/regular-file checks. local-install-registry.mjs backs up and compare-and-swaps Claude registration, but its receipt is an identity record, not publisher authentication.
 6. Local Codex help accepts local marketplace paths; Claude help accepts a marketplace source path. These help outputs do NOT prove that the native host cannot execute an unverified helper or fetch a different source during registration. No native install was performed in this run.
-7. Cosign is not installed on this workstation. Official latest release metadata reports cosign v3.1.4 (2026-10-20); cosign-installer v4.1.2. This is a version-selection input, not verification of an installed executable.
-8. Official npm documentation states that provenance attestations are Sigstore-signed and transparency-logged. Do not repeat the old shorthand that provenance is unsigned metadata. Registry signatures, build/publish provenance, standalone artifact signatures and consumer admission are distinct controls.
+7. The optional hosted design selected Cosign v3.1.4 and cosign-installer v4.1.2. A separately verified private toolchain was later prepared; that upstream proof is not a great_cto release signature. The local profile uses trusted Node crypto instead.
+8. Official npm documentation states that provenance attestations are Sigstore-signed and transparency-logged. Registry signatures, build/publish provenance, standalone artifact signatures and consumer admission are distinct controls.
+9. Local CI/CD was introduced by dc90600c on 2026-06-28; 3b281937 deliberately omitted local --provenance because GitHub OIDC was unavailable. ci-local.sh is the executable correctness gate. The historical cd-local --publish path still needs admission enforcement; clean-tree/npm-login checks alone do not meet this amended contract.
+10. Hosted SIGN_ONLY run 40295947201 for immutable candidate v3.71.0 failed before build due to account billing lock and produced no artifacts. Changed source needs a fresh version/tag; never retarget v3.71.0.
 
 ## Decision and alternatives
 
 ### Selected: shared admission core with capability-specific activation
 
-Implement a dependency-free ESM module under packages/cli/src, copied by the existing build/runtime closure into every delivered controller/board context that needs it. It validates policy, discovery/index structure, exact identity, digests, archive membership and transaction state. Delegate cryptographic verification to separately trusted cosign v3.1.4; do not implement X.509/Rekor verification with custom crypto.
+Implement a dependency-free ESM module under packages/cli/src, copied by the existing build/runtime closure into every delivered controller/board context that needs it. It validates policy, discovery/index structure, exact identity, digests, archive membership and transaction state. Verify the selected local profile with standard Node Ed25519 crypto and an independently enrolled public-key fingerprint. Retain separately trusted Cosign v3.1.4 only for the optional hosted profile; never implement X.509/Rekor verification with custom crypto or fall back across authorities.
 
 Plain npm is the first supported CLI activation adapter. pnpm, Volta, unproven native marketplace updates and unknown managers return a typed unsupported/blocked result BEFORE installation. Never fall through to the old install-latest or marketplace-upgrade behavior. This does not fulfill all-manager compatibility, and the release documentation must state the actual supported set.
 
@@ -68,51 +71,101 @@ Plain npm is the first supported CLI activation adapter. pnpm, Volta, unproven n
 
 ### Risks and attack on the selected design
 
-A signed archive can still contain malicious approved code; admission is provenance, not correctness. A malicious publisher workflow or repository compromise can produce a valid signature. Existing code-review/branch/tag protections remain required. A PATH-controlled verifier, environment-controlled trust root, mixed-source dist copy, tag fallback, archive traversal, time-of-check mutation or native-host re-fetch can invalidate the entire chain. The controls below address those mechanisms, not model confidence.
+A signed archive can still contain malicious approved code; admission is provenance, not correctness. Compromise of the dedicated release key can produce a valid local signature; a compromised trusted Node runtime can falsify verification. The optional hosted profile instead trusts its publisher workflow and repository controls. Local key signatures prove release authority, not independent build isolation or hosted provenance. Existing code-review/branch/tag protections remain required. A PATH-controlled verifier, environment-controlled trust root, mixed-source dist copy, tag fallback, archive traversal, time-of-check mutation or native-host re-fetch can invalidate the entire chain. The controls below address those mechanisms, not model confidence.
 
 ## Publisher and artifact policy
 
-The consumer policy is compiled/shipped with trusted installed code, never accepted from the candidate's index:
+The default operational route is local CI/CD, selected through an explicit
+`local-ed25519` trust profile. The candidate never chooses or replaces authority.
 
-- Repository: avelikiy/great_cto.
-- Workflow path: .github/workflows/publish.yml.
-- OIDC issuer: https://token.actions.githubusercontent.com.
-- Release identity: literal https://github.com/avelikiy/great_cto/.github/workflows/publish.yml@refs/tags/v plus a validated exact stable semver.
-- Certificate GitHub repository, trigger=push, workflow-ref=refs/tags/vVERSION and workflow-sha must match policy and the admitted source commit.
-- No issuer regexp, organization wildcard, branch certificate or unsigned fallback.
-- Trusted root: pinned reviewed Sigstore TrustedRoot data shipped as policy. Ignore candidate-supplied trust roots and scrub SIGSTORE/COSIGN/FULCIO/REKOR/TUF overrides before verifier invocation. Root rotation is a trust-policy update, not a download from the release under evaluation.
-- A trusted cosign executable must be preinstalled by the operator, resolved to an absolute path outside the worker project and checked for the expected supported version. No on-demand unverified binary download. Binary ownership/permissions are hygiene, not proof of publisher authenticity; initial toolchain trust is explicit.
+### Local production authority
 
-Use cosign verify-blob with bundle, trusted-root, certificate-identity, certificate-oidc-issuer and the exact certificate GitHub workflow claims. Invoke with argv, bounded output and deadline. Never pass insecure-ignore-tlog, insecure-ignore-sct, broad regexes or custom verification keys supplied by a release. Validate the signed timestamp and transparency proof according to cosign's supported bundle verification.
+- Repository: `avelikiy/great_cto`; exact stable version, commit, tree and tag remain bound in the signed index.
+- Algorithm: Ed25519, verified with the standard `node:crypto` primitive using the trusted installed Node runtime. Reject every other key type or algorithm.
+- Public key: canonical PEM SubjectPublicKeyInfo; fingerprint is lowercase SHA-256 of canonical SPKI DER. An independently enrolled policy/configuration binds the public-key path and fingerprint outside candidate staging. No release-provided key or environment override grants authority.
+- Configuration schema 2 is exactly `{schema:2,profile:'local-ed25519',publicKey:{path,fingerprint},npm:{path,sha256}}`. Enrollment needs explicit independent-trust acknowledgement and private owner-only storage; refuse overwrite or implicit rotation. A candidate cannot supply configuration, verifier commands or private keys.
+- The dedicated release private key remains outside source, archives, staging and logs. Architecture approval does not create, choose, export or enroll one. Never silently repurpose the Git signing key. Signing and public-key enrollment are separate operator actions.
+- Local signatures prove that the enrolled owner authority signed the bytes. They do not prove GitHub OIDC, Rekor transparency, independent builder isolation, a secure workstation or a SLSA level. Trusted Node/OpenSSL and npm closure remain operator toolchain assumptions.
+
+In-place rotate/revoke commands are currently unsupported. Production
+key-lifecycle acceptance remains NOT_RUN; the following is a required future
+contract, not shipped lifecycle support. Trust replacement/removal requires an
+independently authenticated fingerprint and a reviewed explicit operator action,
+without automatic migration. Existing-key possession or a candidate-supplied
+next key cannot authorize that change. Future policy must refuse revoked keys
+for new admissions without lowering the version watermark or replacing installed
+code implicitly. Current retained tickets recheck the trusted key file on use,
+but do not consult a configuration revocation registry: removing configuration
+does not revoke a previously held ticket. Active-code/held-ticket compromise
+remediation needs separate reviewed authority. Recovery remains recovery, never
+new artifact admission.
+
+### Optional hosted authority
+
+The existing schema-1 profile remains explicitly selected and distinct:
+
+- Repository `avelikiy/great_cto`, workflow `.github/workflows/publish.yml`, issuer `https://token.actions.githubusercontent.com`.
+- Literal certificate identity `https://github.com/avelikiy/great_cto/.github/workflows/publish.yml@refs/tags/vVERSION`; certificate repository, trigger=push, workflow-ref and workflow-sha match exact policy and source commit.
+- Fixed reviewed Sigstore root and Cosign v3.1.4 executable/digest outside candidate staging. Scrub candidate SIGSTORE/COSIGN/FULCIO/REKOR/TUF overrides.
+- Verify normal signature, certificate and transparency evidence through Cosign. No issuer wildcard, branch certificate, insecure-ignore-tlog/SCT or artifact-provided roots.
+
+Failure of either selected profile is refusal. An unavailable hosted runner
+cannot switch the consumer to an unconfigured local key, and a local signature
+cannot be relabelled as hosted provenance. Initial authority changes require
+explicit operator action through trusted code.
 
 ## Release outputs and non-circular manifests
 
-Build once in a clean hosted runner with a locked Node/npm/toolchain and explicit umask 022. Normalize archive metadata and modes. Required outputs:
+Build once from reviewed source in a clean local worktree with a locked Node/npm/toolchain and explicit umask 022. The optional hosted profile uses its clean runner with the same artifact contract. Normalize archive metadata and modes. Required outputs:
 
 1. great-cto-VERSION.tgz: existing autonomous npm runtime archive.
 2. great-cto-plugin-VERSION.tgz: public tracked plugin runtime allowlist plus the COMPLETE CLI dist built from the same commit. Never fill dist from a running older CLI. No private overlays, project files, secrets, Beads state, installed registrations, logs, fixtures or operator evidence.
 3. plugin-inventory.json: sorted relative file paths, regular-file size, SHA-256 and permitted mode. Contains all deliverable plugin runtime files, including both host manifests/marketplaces and complete dist. Inventory does not hash itself or signature/index files, avoiding a digest cycle.
-4. release-index.json with schema version, exact stable version, source commit, source tree, workflow path, artifact basenames, byte sizes, SHA-256/SHA-512 and inventory digest. Use a strict schema with no arbitrary download URLs or executable commands.
-5. A separate Sigstore bundle for each blob above. Each blob is signed; the signed index binds names/digests and source identity. No self-referential signature digest.
+4. release-index.json with schema version, exact stable version, source commit/tree/tag, selected publisher profile, artifact basenames, byte sizes and SHA-256/SHA-512. The inventory is one of the indexed artifacts. Use a strict schema with no arbitrary download URLs or executable commands.
+5. A separate detached signature sidecar for each of the four deliverables and the index. Each blob is signed and the signed index binds names/digests and source identity. No self-referential signature digest. Local sidecars use .signature.json; the optional hosted schema-1 route retains .sigstore.json bundles.
 6. Existing SBOM, generated with an exact pinned tool version, signed as its own blob and bound in the index.
 
-Suggested index fields: schema=1, package=great-cto, version, source={repository,commit,tree,tag}, publisher={workflow}, artifacts=[{kind,filename,size,sha256,sha512}], pluginInventoryDigest. Limits and all field types are fixed by policy. Unrecognized schema or ambiguous duplicate artifact kind is a refusal.
+Local index fields are exactly `schema=2`, `package=great-cto`, `version`,
+`source={repository,commit,tree,tag}`,
+`publisher={profile:'local-ed25519',keyFingerprint}`, and
+`artifacts=[{kind,filename,size,sha256,sha512}]`. The same outer/source/artifact
+shape is retained by hosted schema 1, with its existing `publisher={workflow}`.
+Unknown schema/profile, extra fields, duplicate decoded JSON keys, ambiguous
+artifact kinds and profile mismatch refuse admission.
+
+For each local blob the sidecar is `<filename>.signature.json`, with exactly
+`{schema:1,profile:'local-ed25519',keyFingerprint,filename,indexDigest,signature}`.
+The fingerprint is 64 lowercase hex characters, `indexDigest` is SHA-256 of the
+final index bytes, and `signature` is canonical base64 of exactly 64 bytes.
+Ed25519 signs the concatenation of UTF-8 `great-cto-release-v1\n`,
+`JSON.stringify({filename,indexDigest})`, UTF-8 newline, then the unmodified blob
+bytes. The fixed namespace, filename and complete index digest prevent cross-file
+and cross-release substitution. Signing the index uses its already final digest;
+sidecars are not included in the index, so no digest cycle is introduced.
 
 Do not claim SLSA level 3 solely because npm provenance is requested. That needs its own builder/isolation/control assessment. Standalone blob signatures also do not establish reproducible builds.
 
 ## Release workflow order
 
-1. Verify exact tag, clean checkout, source approval pin and source/tag identity. Do not checkout a PR head in a privileged publishing job.
-2. npm ci from lock; build; construct complete plugin runtime; pack the npm directory ONCE.
-3. Deterministically regenerate in an independent clean directory with the same pinned inputs and compare required output content/modes. Do not compare only --version.
-4. Build strict inventory, SBOM and index. Hash final bytes.
-5. Keyless sign each final artifact and the index in GitHub Actions, obtaining normal Fulcio/Rekor evidence. Verify the same bundles immediately with the production consumer policy.
-6. Retain/upload signed prepared assets without overwriting a version asset with different bytes.
-7. Artifact admission/approval checkpoint occurs before npm publish and user-reachable GitHub Release publication.
-8. Publish the existing tarball path with scripts disabled, never repack a directory. Trusted Publisher must be configured for this repository/workflow and a hosted runner. Do not silently fall back to a local long-lived token or local interactive signing identity.
-9. Read back npm dist.integrity/registry tarball and require exact prepared-byte digest. Record publish/provenance evidence separately. Release final public asset set only after the cross-channel checks succeed.
+1. Run unchanged local canonical gates and independent QA/security/devtools review on the exact clean source commit/tree. Freeze source approval before signing; source success alone grants no artifact or ship authority.
+2. Install locked build tools without lifecycle, build complete runtimes and pack the npm directory once. Generate inventory, SBOM and the selected-profile index.
+3. Regenerate in a second clean worktree using the same locked inputs and compare all five outputs byte for byte. Freeze the resulting set; no candidate-provided tools or old installed dist may fill missing runtime.
+4. After separate approved key selection and public-key enrollment, sign each final blob and index under local-ed25519. Immediately verify through the production consumer using the separately pinned public key. Signing-only preparation publishes or activates nothing.
+5. Preserve immutable signed outputs; never overwrite an existing version/asset with different bytes. Artifact admission and final ship approval precede publication.
+6. Require explicit approval pins for the exact commit and index digest. Recheck the exact current public tag and candidate ancestry in main before any registry mutation; missing/unavailable metadata refuses. Publish the existing admitted tarball path with lifecycle disabled. Require an explicitly selected canonical owner-only 0600 npm auth file; copy only its registry-scoped _authToken into private temporary config and strip ambient npm tokens/config and Node preloads. Never log credentials or expose them in argv. No directory repack, rebuild, implicit registry/helper selection or legacy direct-publish route. cd-local --publish and release.sh legacy real-release entrypoints must refuse early before mutation; default local CI remains available.
+7. Read back npm metadata and tarball bytes, require exact prepared-byte equality, and publish immutable signed GitHub assets only under release approval. Record npm authorization/publication and local signature evidence separately. Do not claim OIDC provenance for this route.
+8. Activate only supported installations under separate authority, preserving transaction recovery and checking actual installed-runtime uptake.
 
-Permissions: checkout/build with contents:read; sign with id-token:write only in the job that signs admitted outputs; upload/publish writes scoped to that job. Actions and cosign installer pinned by exact reviewed commit, cosign version fixed. No secrets in bundle/receipts. No automatic announcements added by this change.
+The optional hosted route retains exact-tag source checks, clean runner builds,
+GitHub keyless SIGN_ONLY and protected owner-review resume against the immutable
+successful signing artifact. Its Hosted Actions availability, npm Trusted
+Publisher and protected environment are prerequisites of that route only.
+Explicit local authority is not a fallback taken by an unsuccessful hosted job.
+Tag-triggered parallel workflows cannot publish during signing-only preparation.
+
+The immutable v3.71.0 tag already names the earlier candidate; changed source
+requires a fresh candidate version/tag after its gates. Never move the old tag.
+No automatic announcements, credentials or enrollment are added by this design.
 
 ## Update state machine and local contracts
 
@@ -164,7 +217,7 @@ The executable gate must be a new frozen file, not a relaxation of graph or exis
 
 | Area | Required behavior |
 |---|---|
-| Crypto integration | Real cosign verifies a checked-in non-production fixture; altered blob, identity, issuer, tag, source SHA, missing bundle/root/transparency proof and verifier absence refuse. A fake verifier only tests argv/state routing, never satisfies crypto integration. |
+| Crypto integration | Real Node Ed25519 checks cover local blobs, namespace/filename/index binding, wrong/unenrolled key, malformed SPKI/base64, substituted profile and actual signature corruption. Fixture keys remain authority NONE. Hosted Cosign checks retain altered identity/issuer/tag/source SHA, bundle/root/transparency failures and verifier absence. No fake verifier satisfies production admission. |
 | Hostile environment | Worker PATH/root overrides, malicious SIGSTORE/COSIGN env, alternate registry/download URL, candidate-provided command/key and shell metacharacters cannot alter policy or execute a helper. |
 | Download | Redirect substitution, private address, oversized/truncated bodies, wrong filename/size/digest and index schema ambiguity refuse before extraction or lifecycle. |
 | Archive | Traversal, aliases, hardlink/symlink/FIFO/device, duplicate entries, executable-mode surprises, extra private files and omitted dist/import fail. No outside file changes. |
@@ -174,20 +227,32 @@ The executable gate must be a new frozen file, not a relaxation of graph or exis
 | CLI | Exact local archive + exact prefix + ignore-scripts; no @latest, remote re-resolution or unsupported-manager fallback. Inert installed version/controller smoke and actual rollback in isolated prefix. |
 | Claude | Verified immutable full runtime, compare-and-swap registry and managed-file backup/recovery. No changes to unrelated plugins/registrations. |
 | Codex native | Real isolated host proof with canary/no-network tracing before enabling supported activation. If unsupported, assert zero host upgrade/install calls and truthful status. Normal hooks trust remains a separate runtime step. |
-| Publisher | Exact tag source, signed per-blob outputs + signed index, index/commit/certificate binding, same tarball published, no re-pack, npm read-back equality. Branch/test certificates fail production policy. |
+| Publisher | Exact tag/commit/tree source, all blobs plus index signed under the independently selected local authority, same tarball published without repack and exact npm readback. Legacy cd-local/release paths refuse unadmitted input before external mutation. Hosted certificate binding stays separate; branch/test certificates cannot impersonate it. |
 | Regression | Existing graph gate, frozen checks, independent QA/devtools/CSO and final canonical gate run unchanged against the final combined candidate. |
 
-A synthetic test signature never grants release eligibility. Production keyless job evidence and installed version uptake are separate checks.
+A generated fixture signature never grants release eligibility. Real production local-key admission, optional hosted proof and installed-version uptake are separate checks. The frozen distribution-trust-v1.json is not rewritten or relaxed by this amendment; new versioned local-profile acceptance must supplement its retained scenarios.
 
-## Bootstrap, external prerequisites and the actual remaining decision
+## Bootstrap and explicit remaining authority
 
-The production identity is publish.yml at an exact vVERSION tag. A branch workflowdispatch certificate is therefore not equivalent. No local script, invented OIDC token, personal Google/GitHub interactive cosign identity or self-signed key can satisfy the accepted production policy.
+The operator approved the local pinned-key architecture on 2026-10-26. Selecting
+or generating the dedicated production key, independently verifying its public
+fingerprint and enrolling it remain separate explicit operator steps. Until
+then the local profile refuses production admission; tests cannot auto-enroll a
+fixture key. A valid Git commit signature does not enroll that key for releases.
 
-If publish workflow is disabled_manually, a repository owner must re-enable it. Hosted-runner execution must be available. npm Trusted Publisher must authorize owner avelikiy, repository great_cto, workflow publish.yml, with the approved protected publishing environment. Current remote settings were NOT CHECKED by this child. npm docs require npm >=11.5.1 and Node >=22.14.0 for Trusted Publishing; pin a supported toolchain meeting both, rather than assuming bundled npm is sufficient.
+Local bootstrap is SOURCE_ADMITTED -> two clean builds -> frozen output set ->
+local SIGN_ONLY -> ARTIFACT_ADMITTED -> ship/release approval -> exact-byte
+publication -> separately authorized installation. Local npm authentication
+must be explicitly available; no token is read from a candidate or logged.
+Existing old clients require a declared reviewed first-upgrade bootstrap, and
+cannot retroactively secure the code performing that initial transition.
 
-There is a real ordering constraint: exact-tag keyless proof cannot exist before an actual trusted job runs on that tag. Use SOURCE_ADMITTED -> candidate tag + SIGN_ONLY stage (no npm, JSR, GitHub Release, announcements or installation) -> ARTIFACT_ADMITTED -> protected publishing approval. If existing approval forbids even creating the candidate tag before full ship-gate, primary must obtain narrowly scoped permission for this bootstrap/sign-only phase or keep publication blocked. Do not widen the issuer/identity to avoid that decision. Protected environment approval must be after artifacts are frozen and signed. Every tag-triggered route, including jsr-publish.yml, must be gated or disabled so a sign-only tag cannot publish through a parallel workflow.
-
-Routine implementation decisions already covered by the selected direction: strict manifest schema, local transaction data, download bounds, explicit unsupported manager status, no unsafe fallback, packaging allowlist and normal mock/negative tests. Decisions requiring actual operator authority: changing publisher/issuer/production identity, editing npm publisher settings, enabling paid/unavailable hosted execution, candidate-tag/sign-only bootstrap if not already authorized, production publish and global host activation. Parent retains these actions.
+The optional hosted profile still requires current exact-tag workflow identity,
+Cosign/root trust, an available runner, npm Trusted Publisher for the fixed
+workflow and protected owner-review environment. Its billing failure remains
+recorded; the local amendment does not make that old run pass. No invented OIDC
+tokens, automatic authority fallback, key replacement or implicit ship approval.
+The immutable v3.71.0 tag is not a release and must never be retargeted.
 
 ## Components and ownership proposal
 
@@ -199,11 +264,11 @@ Routine implementation decisions already covered by the selected direction: stri
 | Architect/QA | New ADR/acceptance/architecture source files only after parent adopts this proposal; preserve all existing frozen tests |
 | Independent reviewers | Every changed trust boundary, actual crypto fixture, native capability evidence and final signed artifact chain |
 
-Keep these writes sequential when a shared helper or main.ts dispatch overlaps. This child owns only this private proposal and its summary; parent owns Beads reconciliation and source/PR operations.
+Keep these writes sequential when a shared helper or main.ts dispatch overlaps. This architecture amendment owns only the declared design documents; parent owns Beads reconciliation, source/PR operations and any production authority steps.
 
 ## Cost and observability
 
-No new paid application service, database or storage deployment. GitHub-hosted runner availability/account cost remains an external prerequisite; do not infer that an inaccessible runner is free/healthy. Public Sigstore signing and existing GitHub release assets add external availability dependencies. Exact monthly operating cost is not measured; do not invent an uplift or dollar saving.
+No new paid application service, database or storage deployment. Local CPU/disk/key custody and operator trust are the default route assumptions; exact workstation cost is not measured. npm and GitHub release assets remain publication availability dependencies. Hosted runner/account, Fulcio and Rekor availability are dependencies only of the optional hosted profile. No dollar saving or quality uplift is measured.
 
 Record discover/verification/staging/activation/smoke/recovery states with version, digest, source commit, policy and classified failures. No credentials, private paths or raw candidate helper output in public telemetry. A stale/absent proof is unknown/refused, never zero risk or successful admission.
 
@@ -217,16 +282,19 @@ Record discover/verification/staging/activation/smoke/recovery states with versi
 
 ## Requirements checklist
 
-- REQ-1: Sign exact complete npm/plugin/runtime/index artifacts under the fixed hosted-workflow identity.
+- REQ-1: Sign the exact complete npm/plugin/runtime/index set under an explicitly selected independently pinned local Ed25519 authority; preserve hosted OIDC as a distinct opt-in profile without fallback.
 - REQ-2: Verify publisher, tag/commit, digest and complete inventory before lifecycle/activation.
 - REQ-3: Implement supported plain npm and managed Claude activation with preserved previous state and recovery.
 - REQ-4: Refuse pnpm/Volta/unproven native updates without old unsafe fallback.
 - REQ-5: Prove or explicitly block native marketplace capability using actual isolated host traces.
 - REQ-6: Exercise altered artifact/identity, replay/downgrade, interruption, rollback and concurrent-target drift.
 - REQ-7: Preserve synthetic-vs-production evidence, graph gates and release/install approval boundaries.
+- REQ-8: Require separate key creation/selection and independent fingerprint enrollment; reject implicit trust/rotation. In-place rotation/revocation remains unsupported with production lifecycle acceptance NOT_RUN; do not claim revocation of held tickets by configuration removal.
+- REQ-9: Block every legacy direct-publish path until the immutable signed set passes admission; publish and read back the same tarball bytes.
 
 ## Sources checked 2026-10-26
 
+- Node Ed25519 sign/verify and SPKI formats: https://nodejs.org/docs/latest-v22.x/api/crypto.html
 - Sigstore v3.1.4 verify-blob options: https://raw.githubusercontent.com/sigstore/cosign/v3.1.4/doc/cosign_verify-blob.md
 - Sigstore v3.1.4 sign-blob options: https://raw.githubusercontent.com/sigstore/cosign/v3.1.4/doc/cosign_sign-blob.md
 - CI identity/keyless example: https://docs.sigstore.dev/quickstart/quickstart-ci/
@@ -236,4 +304,4 @@ Record discover/verification/staging/activation/smoke/recovery states with versi
 - Publish an existing tarball/integrity semantics: https://docs.npmjs.com/cli/v11/commands/npm-publish/
 - ignore-scripts contract: https://docs.npmjs.com/cli/using-npm/config/
 
-No source ADR, executable acceptance, gate approval, signing call, provider/model call, installation or release was performed by this architecture child. This proposal must be adopted and independently reviewed before implementation is represented as meeting the distribution contract.
+This amendment records the operator-approved direction. It does not assert completed implementation, production key enrollment, real release-signature admission, ship approval, publication, installation or native-host completeness. Existing failures remain historical evidence. New local-profile acceptance and independent security review must pass before the implementation can claim this contract.

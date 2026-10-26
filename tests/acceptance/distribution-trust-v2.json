@@ -1,0 +1,119 @@
+{
+  "schemaVersion": 1,
+  "contract": "distribution-trust",
+  "revision": 2,
+  "status": "ACCEPTED_DESIGN",
+  "authority": "NONE",
+  "releaseEligibility": "NOT_CHECKED",
+  "sourceDecision": "docs/adr/ADR-045-verified-distribution.md",
+  "productionIdentity": {
+    "profile": "local-ed25519",
+    "keyAlgorithm": "Ed25519",
+    "fingerprintAlgorithm": "SHA256(SPKI DER)",
+    "enrolledFingerprint": null,
+    "keyEnrollment": "REQUIRES_SEPARATE_EXPLICIT_OPERATOR_APPROVAL",
+    "hostedAlternative": "Explicit original schema1 GitHub OIDC profile, never implicit fallback"
+  },
+  "requiredScenarios": [
+    {
+      "id": "crypto_identity",
+      "requirement": "Explicit local-ed25519 profile, independently enrolled Ed25519 SPKI fingerprint, strict signature envelope, filename and actual index digest bound to every blob; reject missing/altered proof, untrusted keys and profile substitution. Original exact issuer/workflow/tag/SHA checks remain for separately selected hosted profile.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "trusted_verifier",
+      "requirement": "Trusted operator Node crypto runtime and independent separately configured public-key pin for local profile; separately authenticated Cosign and root for hosted profile; no candidate/environment trust override.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "bounded_download",
+      "requirement": "Fixed asset origins, bounded bodies, no private redirects or truncation",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "archive_membership",
+      "requirement": "Reject traversal, duplicate/colliding paths, links, special files, private entries and missing runtime",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "zero_pre_admission_execution",
+      "requirement": "Failed admission produces zero lifecycle, import, package-manager or host activation calls",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "dependency_closure",
+      "requirement": "Zero runtime, optional and bundled dependencies or explicit unsupported result",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "npm_activation",
+      "requirement": "Local admitted tgz, exact prefix, sanitized configuration, offline and ignore-scripts",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "transaction_recovery",
+      "requirement": "Exclusive updater lock, durable phases, target-drift refusal and package/bin-only rollback; first legacy snapshot restoration is labelled LEGACY_LOCAL_RECOVERY and cannot grant signed-release admission",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "version_replay",
+      "requirement": "Reject downgrade and changed bytes under the same stable version",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "claude_registration",
+      "requirement": "Immutable complete snapshot, compare-and-swap and managed-file recovery",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "native_capability",
+      "requirement": "Actual isolated host tracing before support; otherwise zero native upgrade/install calls; reject external npx MCP and automatic companion downloads without independently admitted runtime closure",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "legacy_timer",
+      "requirement": "Inventory old owned timer; installed-phase migration only with authority",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "signed_release_outputs",
+      "requirement": "Sign final archives, inventory, SBOM and strict index from one reviewed commit",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "production_bootstrap",
+      "requirement": "Separate explicit approval of dedicated production-key selection/creation and initial fingerprint enrollment; real local signatures from that authority plus production consumer admission before publication. Ephemeral fixtures grant no release approval. Original hosted OIDC profile remains separate, no automatic fallback.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "same_byte_publish",
+      "requirement": "Publish existing verified tarball; registry read-back matches admitted digest",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "regression",
+      "requirement": "Preserve existing graph gates, frozen assertions/deadlines and final independent/canonical review",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "local_publisher_zero_bypass",
+      "requirement": "Legacy cd-local --publish and real release.sh routes refuse before subprocess mutation; explicit local publisher consumes admitted exact tar, independently supplied auth and exact commit/index approval; no rebuild or registry override.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "release_key_lifecycle",
+      "requirement": "Never autogenerate/enroll/reuse Git keys. Reject unselected/changed/revoked key via separately approved operator config; rotation must not overwrite existing trust silently.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "local_scope_honesty",
+      "requirement": "Local owner signature establishes publisher authority, not hosted OIDC provenance or independently hosted build; real ephemeral-key tests remain fixture-only and no ship approval.",
+      "state": "NOT_RUN"
+    }
+  ],
+  "existingGateChanges": false,
+  "syntheticEvidenceCanAuthorizeRelease": false,
+  "approvedAt": "2026-10-26",
+  "supersedes": "distribution-trust-v1.json",
+  "supersessionScope": "Production signing authority only; previous executed evidence and unmet acceptance remain retained. No production-key enrollment implied."
+}

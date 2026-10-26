@@ -18,7 +18,7 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
-  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
   const parts = name.split('/');
   if (parts.some(p => !p || p === '.' || p === '..' || /^(?:node_modules|\.git|\.beads|\.great_cto|\.codex|\.claude|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(p) || /^\.env(?:$|\.)/.test(p))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;

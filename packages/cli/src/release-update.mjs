@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
-import { admitRelease, parseStrictReleaseIndex } from './release-trust.mjs';
+import { admitRelease, parseStrictReleaseIndex, readTrustedLocalPublicKey } from './release-trust.mjs';
 import { activateNpmRelease, resolveNpmInstallation } from './release-activation.mjs';
 
 const REPOSITORY = 'avelikiy/great_cto';
@@ -49,6 +49,15 @@ function exactKeys(value, keys) {
   if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).sort().join(',') !== [...keys].sort().join(',')) throw Error('invalid operator toolchain schema');
 }
 function checkedToolchain(config) {
+  if (config?.schema === 2) {
+    exactKeys(config, ['schema', 'profile', 'publicKey', 'npm']);
+    if (config.profile !== 'local-ed25519') throw Error('unsupported operator trust profile');
+    exactKeys(config.publicKey, ['path', 'fingerprint']);
+    exactKeys(config.npm, ['path', 'sha256']);
+    readTrustedLocalPublicKey(config.publicKey.path, config.publicKey.fingerprint);
+    executable(config.npm.path, config.npm.sha256);
+    return config;
+  }
   exactKeys(config, ['schema', 'cosign', 'trustedRoot', 'npm']);
   if (config.schema !== 1) throw Error('unsupported operator toolchain schema');
   for (const tool of [config.cosign, config.trustedRoot, config.npm]) {
@@ -85,9 +94,8 @@ export function allowedDownloadURL(value, initial) {
   const api = origin.href === API;
   const parts = origin.pathname.match(/^\/avelikiy\/great_cto\/releases\/download\/v([^/]+)\/([^/]+)$/);
   const release = origin.hostname === 'github.com' && !origin.search && parts && VERSION.test(parts[1])
-    && ['release-index.json', 'release-index.json.sigstore.json', 'plugin-inventory.json', 'plugin-inventory.json.sigstore.json',
-      'sbom.cdx.json', 'sbom.cdx.json.sigstore.json', `great-cto-${parts[1]}.tgz`, `great-cto-${parts[1]}.tgz.sigstore.json`,
-      `great-cto-plugin-${parts[1]}.tgz`, `great-cto-plugin-${parts[1]}.tgz.sigstore.json`].includes(parts[2]);
+    && ['release-index.json', 'plugin-inventory.json', 'sbom.cdx.json', `great-cto-${parts[1]}.tgz`, `great-cto-plugin-${parts[1]}.tgz`]
+      .flatMap(name => [name, name + '.sigstore.json', name + '.signature.json']).includes(parts[2]);
   if (!api && !release) throw Error('refused initial release origin or asset');
   if (url.protocol !== 'https:' || url.username || url.password || url.port || url.hash) throw Error('refused release download URL');
   if (url.href === origin.href) return url.href;
@@ -138,8 +146,10 @@ function storeFile(dir, name, bytes) {
   const fd = fs.openSync(path.join(dir, name), fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
   try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
-export async function stageRelease(version, { stateRoot = stateHome(), fetchFn = fetch } = {}) {
+export async function stageRelease(version, { stateRoot = stateHome(), fetchFn = fetch, profile = 'github-oidc' } = {}) {
   stableVersion(version);
+  if (!['github-oidc', 'local-ed25519'].includes(profile)) throw Error('unsupported release trust profile');
+  const suffix = profile === 'local-ed25519' ? '.signature.json' : '.sigstore.json';
   canonicalDirectory(stateRoot, true);
   const parent = canonicalDirectory(path.join(stateRoot, 'staging'), true);
   const directory = fs.realpathSync(fs.mkdtempSync(path.join(parent, 'candidate-')));
@@ -151,7 +161,7 @@ export async function stageRelease(version, { stateRoot = stateHome(), fetchFn =
     const parsed = parseStrictReleaseIndex(index.toString('utf8'));
     if (parsed.version !== version) throw Error('release index version mismatch');
     storeFile(directory, 'release-index.json', index);
-    storeFile(directory, 'release-index.json.sigstore.json', await get('release-index.json.sigstore.json', CAPS.bundle));
+    storeFile(directory, 'release-index.json' + suffix, await get('release-index.json' + suffix, CAPS.bundle));
     // Strict validation fixes all artifact basenames before they reach a URL.
     const names = [
       [`great-cto-${version}.tgz`, CAPS.archive], [`great-cto-plugin-${version}.tgz`, CAPS.archive],
@@ -159,7 +169,7 @@ export async function stageRelease(version, { stateRoot = stateHome(), fetchFn =
     ];
     for (const [name, cap] of names) {
       storeFile(directory, name, await get(name, cap));
-      storeFile(directory, name + '.sigstore.json', await get(name + '.sigstore.json', CAPS.bundle));
+      storeFile(directory, name + suffix, await get(name + suffix, CAPS.bundle));
     }
     return directory;
   } catch (error) {
@@ -177,10 +187,13 @@ export async function runVerifiedSelfUpgrade({ currentVersion, binaryPath, relea
     if (compare(version, currentVersion) < 0) throw Error('release downgrade refused');
     if (version === currentVersion) return { state: 'ALREADY_CURRENT', authority: 'NONE', releaseEligibility: 'NOT_CHECKED', message: 'Selected version already matches; no update or artifact admission was attempted.' };
     const config = readTrustedToolchain({ stateRoot });
-    const directory = await stageRelease(version, { stateRoot });
-    const admission = admitRelease({ directory, version, currentVersion,
-      cosignPath: config.cosign.path, cosignSha256: config.cosign.sha256,
-      trustedRootPath: config.trustedRoot.path, trustedRootSha256: config.trustedRoot.sha256 });
+    const profile = config.schema === 2 ? config.profile : 'github-oidc';
+    const directory = await stageRelease(version, { stateRoot, profile });
+    const trust = profile === 'local-ed25519'
+      ? { profile, localPublicKeyPath: config.publicKey.path, localKeyFingerprint: config.publicKey.fingerprint }
+      : { profile, cosignPath: config.cosign.path, cosignSha256: config.cosign.sha256,
+        trustedRootPath: config.trustedRoot.path, trustedRootSha256: config.trustedRoot.sha256 };
+    const admission = admitRelease({ directory, version, currentVersion, ...trust });
     return activateNpmRelease(admission, { binaryPath, stateRoot: path.join(stateRoot, 'transactions'), npmPath: config.npm.path, npmSha256: config.npm.sha256 });
   } catch (error) {
     return { state: 'REFUSED', authority: 'NONE', releaseEligibility: 'NOT_CHECKED', message: error instanceof Error ? error.message : 'verified update refused' };
@@ -188,24 +201,32 @@ export async function runVerifiedSelfUpgrade({ currentVersion, binaryPath, relea
 }
 
 /** Deliberately narrow CLI: configure trust or inspect it; no candidate controls. */
-export function runDistributionCommand(argv) {
+export function runDistributionCommand(argv, { stateRoot = stateHome() } = {}) {
   try {
     if (argv[0] === 'status') {
-      readTrustedToolchain();
+      readTrustedToolchain({ stateRoot });
       return { state: 'TOOLCHAIN_CONFIGURED', releaseEligibility: 'NOT_CHECKED' };
     }
-    if (argv[0] !== 'configure') throw Error('usage: distribution status | configure --cosign PATH --cosign-sha256 HASH --trusted-root PATH --root-sha256 HASH --npm PATH --npm-sha256 HASH --acknowledge-independent-toolchain');
+    if (argv[0] !== 'configure') throw Error('usage: distribution status | configure --profile local-ed25519 --public-key PATH --key-fingerprint HASH --npm PATH --npm-sha256 HASH --acknowledge-independent-key | configure --cosign PATH --cosign-sha256 HASH --trusted-root PATH --root-sha256 HASH --npm PATH --npm-sha256 HASH --acknowledge-independent-toolchain');
     const flags = new Map();
     for (let i = 1; i < argv.length; i++) {
       const name = argv[i];
-      if (flags.has(name) || !['--cosign', '--cosign-sha256', '--trusted-root', '--root-sha256', '--npm', '--npm-sha256', '--acknowledge-independent-toolchain'].includes(name)) throw Error('unknown or duplicate distribution option');
-      if (name === '--acknowledge-independent-toolchain') flags.set(name, true);
+      if (flags.has(name) || !['--profile', '--public-key', '--key-fingerprint', '--acknowledge-independent-key', '--cosign', '--cosign-sha256', '--trusted-root', '--root-sha256', '--npm', '--npm-sha256', '--acknowledge-independent-toolchain'].includes(name)) throw Error('unknown or duplicate distribution option');
+      if (name === '--acknowledge-independent-toolchain' || name === '--acknowledge-independent-key') flags.set(name, true);
       else { if (!argv[i + 1] || argv[i + 1].startsWith('--')) throw Error('missing distribution option value'); flags.set(name, argv[++i]); }
     }
+    if (flags.get('--profile') === 'local-ed25519') {
+      if ([...flags.keys()].some(name => ['--cosign', '--cosign-sha256', '--trusted-root', '--root-sha256', '--acknowledge-independent-toolchain'].includes(name))) throw Error('mixed release trust profiles refused');
+      return configureTrustedToolchain({ schema: 2, profile: 'local-ed25519',
+        publicKey: { path: flags.get('--public-key'), fingerprint: flags.get('--key-fingerprint') },
+        npm: { path: flags.get('--npm'), sha256: flags.get('--npm-sha256') },
+      }, { stateRoot, acknowledged: flags.get('--acknowledge-independent-key') === true });
+    }
+    if ([...flags.keys()].some(name => ['--profile', '--public-key', '--key-fingerprint', '--acknowledge-independent-key'].includes(name))) throw Error('unsupported or mixed release trust profile');
     return configureTrustedToolchain({ schema: 1,
       cosign: { path: flags.get('--cosign'), sha256: flags.get('--cosign-sha256') },
       trustedRoot: { path: flags.get('--trusted-root'), sha256: flags.get('--root-sha256') },
       npm: { path: flags.get('--npm'), sha256: flags.get('--npm-sha256') },
-    }, { acknowledged: flags.get('--acknowledge-independent-toolchain') === true });
+    }, { stateRoot, acknowledged: flags.get('--acknowledge-independent-toolchain') === true });
   } catch (error) { return { state: 'REFUSED', authority: 'NONE', releaseEligibility: 'NOT_CHECKED', message: error instanceof Error ? error.message : 'toolchain configuration refused' }; }
 }

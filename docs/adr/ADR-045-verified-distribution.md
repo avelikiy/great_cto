@@ -1,7 +1,7 @@
 # ADR-045: Verified release artifacts before activation
 
 **Date:** 2026-10-26
-Status: Accepted design on 2026-10-26; implementation and artifact admission pending
+Status: Accepted design, amended by the operator on 2026-10-26 for local CI/CD and a pinned release key; implementation and artifact admission pending
 Extends: [ADR-044](ADR-044-host-graph-coverage.md)
 Implementation contract: [ARCH-distribution-trust](../architecture/ARCH-distribution-trust.md)
 
@@ -19,19 +19,39 @@ because the application lacks explicit preactivation admission.
 
 ## Decision
 
-Build exact npm and complete compiled plugin archives from one reviewed commit.
-Produce a strict release index and a sorted plugin runtime inventory. Sign the
-index and every deliverable blob with Sigstore in the pinned GitHub Actions
-publisher workflow. Publish the same packed bytes, without repacking or mixing
-runtime files from an older installed CLI.
+Keep local CI/CD as the operational release route. The operator approved this
+amendment after confirming that GitHub Actions has been billing-blocked and
+`scripts/cd-local.sh` has provided local CI/CD since 2026-06-28. The previous
+hosted-only decision created an unavailable prerequisite; this amendment
+changes the production authority explicitly, rather than treating local tests
+as GitHub OIDC evidence.
 
-The consumer fixes repository, workflow, issuer and stable tag identity in
-trusted policy. Verify the certificate workflow SHA against the signed index
-commit, then verify artifact size/digests, archive membership, allowed modes,
-complete runtime and installation identity before any candidate code runs.
-Use a separately trusted Cosign toolchain. Candidate-provided keys, roots,
-commands, broad identity regexes and disabled transparency checks are refused.
-Missing proof leaves the previous selected installation unchanged.
+Build exact npm and complete compiled plugin archives from one reviewed commit.
+Produce a strict release index, sorted plugin runtime inventory and SBOM. Sign
+the index and every deliverable blob with a dedicated Ed25519 release key under
+the explicit `local-ed25519` profile. Publish the same packed bytes without
+repacking or mixing runtime files from an older installed CLI.
+
+The consumer accepts only a separately enrolled public key and its SHA-256
+fingerprint over canonical SPKI DER. The candidate cannot supply authority.
+Enrollment requires an explicit independent-trust acknowledgement and canonical
+public-key path outside candidate staging. Configuration, key creation or
+selection, and initial trust are separate operator actions; approval of this
+architecture authorizes none of them automatically. Never reuse the Git commit
+private key implicitly or write private material into source, artifacts or logs.
+
+Use Ed25519 through the trusted Node crypto runtime. The local profile needs no
+Cosign or online signing service. It proves that the enrolled release authority
+signed the exact bytes, not hosted-build provenance, transparency-log inclusion,
+independent build isolation or a SLSA level. The operator-controlled Node/runtime
+closure is an explicit trust assumption.
+
+Preserve the existing hosted `schema=1` GitHub OIDC route as a separate opt-in
+profile with its fixed repository, workflow, issuer, exact tag and certificate
+workflow-SHA checks through separately trusted Cosign. Never fall back between
+profiles on failure. Either route verifies the signed index, source identity,
+artifact sizes/digests, archive membership, modes and complete runtime before
+candidate code runs. Missing proof leaves the selected installation unchanged.
 
 Keep plain npm ownership in the first supported updater. Install only the
 admitted local zero-runtime-dependency tarball using offline, ignore-scripts
@@ -61,7 +81,12 @@ migration; changing source does not change that timer.
 
 - Origin URL and post-install version checks do not bind installed bytes.
 - Custom JavaScript certificate/transparency verification adds cryptographic
-  implementation risk and is rejected in favor of trusted Cosign.
+  parsing risk. Keep trusted Cosign for the optional hosted profile; local
+  Ed25519 uses the standard Node crypto primitive and no X.509/Rekor parser.
+- Requiring hosted OIDC for every release is rejected as the default because
+  the documented operational CI/CD is local and Actions is billing-blocked.
+- Unsigned local publication or accepting a key from a release is rejected: it
+  removes the independently admitted publisher boundary.
 - Migrating every package manager to a managed shim would simplify selection
   but changes ownership and is deferred from this first contract.
 
@@ -70,31 +95,52 @@ migration; changing source does not change that timer.
 Verification becomes an availability prerequisite: absent proof preserves the
 selected version and reports a refusal. The supported adapter surface is
 explicit, so unknown native and package-manager routes cannot inherit a pass
-from plain npm. The first hosted signing run and legacy-client bootstrap need
-separate evidence; source tests alone cannot establish either. Rollback retains
+from plain npm. Real signatures from the enrolled local release authority and
+legacy-client bootstrap need separate evidence; source tests establish neither.
+The hosted profile retains its own hosted signing prerequisites. Rollback retains
 owned prior bytes without changing graph data or admitting a legacy snapshot
 as a signed release.
 
 ## Bootstrap and authority
 
-The exact production identity is the publisher workflow at an exact release
-tag. A branch certificate or local test signature cannot substitute for it.
-The first proof therefore needs SOURCE_ADMITTED, a candidate tag and SIGN_ONLY
-hosted job, then ARTIFACT_ADMITTED and final publishing approval. SIGN_ONLY
-must not publish npm or JSR, create a public GitHub Release, emit release
-announcements or activate an installation. All tag-triggered publication routes,
-including jsr-publish.yml, must be disabled or gated during this phase.
+The local production identity is the independently enrolled Ed25519 SPKI
+fingerprint, repository and release namespace. Source admission precedes two
+clean build comparison, frozen outputs, signing-only preparation, actual
+production-consumer admission, final ship approval, then publication and
+separately approved activation. Signing-only preparation publishes no registry
+version, GitHub Release or announcement and activates nothing. Local npm
+publication uses explicitly authorized operator authentication; npm Trusted
+Publisher and a GitHub approval environment are prerequisites of the optional
+hosted profile only.
 
-This ordering needs explicit approval: prior permission to publish only after
-full ship checks does not itself authorize a tag before artifact admission.
-Publisher settings, workflow availability and trusted verifier bootstrap remain
-external prerequisites. No exception, automatic trust enrollment or invented
-OIDC token is introduced. Existing failed evidence and blocked tasks remain
+The existing candidate tag `v3.71.0` remains immutable. Its failed hosted run
+produced no signed release artifacts. Changed source needs a fresh candidate
+version/tag after gates; never retarget the old tag or relabel it as released.
+
+Key enrollment and changes require explicit operator authority. Configuration
+refuses overwrite and implicit rotation. In-place rotate/revoke commands are
+currently unsupported; production key-lifecycle acceptance remains NOT_RUN.
+The required future lifecycle contract is an independently verified new
+fingerprint and reviewed operator trust replacement/removal, without automatic
+migration or acceptance of an artifact-supplied key. Existing-key possession
+alone cannot authorize replacement, and no lifecycle operation may lower the
+version watermark. Each retained admission ticket rechecks the trusted key
+file; removing configuration is not a revocation registry and does not revoke
+an already held ticket. Already running code is not remotely removed.
+Compromise remediation, including held tickets and active code, needs a
+separate reviewed and authorized operation.
+
+The optional hosted profile still requires the exact-tag GitHub OIDC job and
+its own publisher protection/settings. A local key, branch certificate or test
+signature cannot masquerade as that identity. Neither profile permits an
+invented OIDC token or automatic trust enrollment. Failed evidence remains
 recorded until fulfilled or explicitly superseded with preserved acceptance.
 
 ## Acceptance and rollback
 
-The proposed versioned contract is [distribution-trust-v1.json](../../tests/acceptance/distribution-trust-v1.json).
+The existing versioned contract is [distribution-trust-v1.json](../../tests/acceptance/distribution-trust-v1.json).
+It remains frozen. The local-authority amendment needs additional versioned
+acceptance coverage; its approval does not rewrite or waive the hosted scenarios.
 It adds hostile-input, actual cryptographic verification, zero-pre-admission
 execution, crash/recovery, rollback and exact-byte publication checks. Existing
 graph gates and frozen assertions/deadlines remain unchanged. Synthetic tests
@@ -111,3 +157,10 @@ runtime success follows from a signed blob alone.
 - [npm Trusted Publishers](https://docs.npmjs.com/trusted-publishers/)
 - [Cosign verify-blob v3.1.4](https://github.com/sigstore/cosign/blob/v3.1.4/doc/cosign_verify-blob.md)
 - [Sigstore blob signing](https://docs.sigstore.dev/cosign/signing/signing_with_blobs/)
+
+## Amendment source
+
+The local path is documented in [LOCAL-CICD.md](../LOCAL-CICD.md), introduced by
+`dc90600c` and amended by `3b281937` to omit unsupported local OIDC provenance.
+The operator explicitly approved the local pinned-key trust amendment on
+2026-10-26. That approval is architectural, not key enrollment or publication.

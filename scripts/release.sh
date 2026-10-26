@@ -72,6 +72,14 @@ if ! echo "$NEW" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
   exit 1
 fi
 
+# ADR-045: this historical helper cannot publish an admitted immutable set.
+# Keep its read-only preview for existing tooling; actual releases must use
+# the explicit verified artifact publisher, before any bump/commit/tag/push.
+if [ "$DRY_RUN" != "1" ]; then
+  echo "FAIL: verified artifact admission required; legacy release mutations are disabled. Use the reviewed local artifact signing/publication route." >&2
+  exit 1
+fi
+
 # --- helpers -----------------------------------------------------------------
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
