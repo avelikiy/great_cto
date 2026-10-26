@@ -73,7 +73,7 @@ Exact-byte distribution checks accompany the opt-in Codex and Claude Code execut
 ### Fixed
 
 - Refuse legacy mutable publication and unsupported installer routes before mutation instead of silently selecting unverified bytes.
-- Observe scorer readiness within its actual subprocess window and anchor the test watchdog to observed readiness. The 1000 ms production timeout, 2000 ms fixture watchdog, 10000 ms test cap and ownership/SIGKILL/cleanup checks remain intact. Prior failing runs are retained.
+- Observe scorer readiness within its actual subprocess window and anchor the test watchdog to observed readiness. The selected scorer deadline in this test remains 1000 ms; production timeout configuration is unchanged. The 2000 ms fixture watchdog, 10000 ms test cap and ownership/SIGKILL/cleanup checks remain intact. Prior failing runs are retained.
 
 ### Validation and limits
 
