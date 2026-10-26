@@ -200,7 +200,7 @@ export function compareReleaseArtifactSets(first,second){
   }
   if(JSON.stringify(left)!==JSON.stringify(right))throw Error('independent release builds differ');
   for(const name of [...left.artifacts.map(x=>x.filename),'release-index.json'])if(!readRegular(join(first,name),MAX_TOTAL).equals(readRegular(join(second,name),MAX_TOTAL)))throw Error('independent release bytes differ');
-  return {state:'BYTE_IDENTICAL',version:left.version,commit:left.source.commit,artifacts:5,scope:'same pinned hosted toolchain; not a SLSA level claim'};
+  return {state:'BYTE_IDENTICAL',version:left.version,commit:left.source.commit,artifacts:5,scope:'byte comparison only; build provenance and SLSA level not attested'};
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

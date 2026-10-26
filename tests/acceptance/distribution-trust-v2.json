@@ -111,9 +111,20 @@
       "state": "NOT_RUN"
     }
   ],
-  "existingGateChanges": false,
+  "existingGateChanges": true,
   "syntheticEvidenceCanAuthorizeRelease": false,
   "approvedAt": "2026-10-26",
   "supersedes": "distribution-trust-v1.json",
-  "supersessionScope": "Production signing authority only; previous executed evidence and unmet acceptance remain retained. No production-key enrollment implied."
+  "supersessionScope": "Production signing authority only; previous executed evidence and unmet acceptance remain retained. No production-key enrollment implied.",
+  "existingGateChangeScope": {
+    "kind": "stricter documentation orphan ratchet only",
+    "file": "tests/lib/doc-links.test.mjs",
+    "previousMaximum": 47,
+    "currentMaximum": 46,
+    "reason": "ADR045 now links previously isolated LOCAL-CICD.md; ratchet explicitly requires lowering its baseline when earned",
+    "sourceInstructions": "tests/lib/doc-links.test.mjs:91",
+    "releaseGatePolicyChanged": false,
+    "deadlineOrBudgetChanged": false,
+    "assertionsRemoved": false
+  }
 }
