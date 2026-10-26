@@ -164,23 +164,30 @@ If QA=PASS and Security=APPROVED → proceed. Otherwise blocked.
 
 **GATE:SHIP** — before showing gate, run rollback validation then compute deltas:
 
-**Rollback validation** (block gate if rollback is impossible):
+**Rollback validation** (block gate if rollback is impossible). Each check tests the
+captured output, not a pipeline's exit code — `grep … | head -1 || echo` takes head's
+status, which is always 0, so the warning could never print:
 ```bash
 TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 case "$TYPE" in
+  "")
+    # No primary: type (hand-written or pre-/start PROJECT.md) — the cases below key on it,
+    # so nothing would match and the gate would read as "no rollback risk". Say it was not checked.
+    echo "ROLLBACK_UNCHECKED: PROJECT.md has no primary: type — rollback was not validated"
+    ;;
   smart-contract|defi-protocol)
     # Verify upgrade proxy is deployed
-    grep -r "UUPS\|TransparentProxy\|upgradeable" contracts/ src/ 2>/dev/null | head -1 \
+    [ -n "$(grep -rl "UUPS\|TransparentProxy\|upgradeable" contracts/ src/ 2>/dev/null | head -1)" ] \
       || echo "ROLLBACK_RISK: no upgrade proxy found — rollback impossible without it"
     ;;
   rag-system)
     # Verify index snapshot exists
-    ls .great_cto/index-snapshots/ 2>/dev/null | head -1 \
+    [ -n "$(ls .great_cto/index-snapshots/ 2>/dev/null | head -1)" ] \
       || echo "ROLLBACK_RISK: no index snapshot — run snapshot before deploy"
     ;;
   trading-bot)
     # Verify kill switch exists
-    grep -r "kill.switch\|killSwitch\|KILL_SWITCH\|halt" src/ 2>/dev/null | head -1 \
+    [ -n "$(grep -rl "kill.switch\|killSwitch\|KILL_SWITCH\|halt" src/ 2>/dev/null | head -1)" ] \
       || echo "ROLLBACK_RISK: no kill switch implementation found"
     ;;
   notification-service)
@@ -195,6 +202,7 @@ case "$TYPE" in
     ;;
 esac
 ```
+If ROLLBACK_UNCHECKED → show it as a line in GATE:SHIP ("Rollback: not checked — no primary: type"), never as "no risk".
 If ROLLBACK_RISK → show to CTO as ⚠ warning in GATE:SHIP **before** asking deploy. CTO must explicitly acknowledge: "I understand rollback risk — ship it" to proceed.
 
 ```bash
