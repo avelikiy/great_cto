@@ -17,21 +17,9 @@
     },
     {
       "ruleId": "SHELL_INJECTION_PATTERN",
-      "filePath": "packages/cli/src/installer.ts",
-      "count": 2,
-      "reason": "a version string precedes spawnSync(\"git\", [...]); argv array, no shell"
-    },
-    {
-      "ruleId": "SHELL_INJECTION_PATTERN",
       "filePath": "packages/cli/src/main.ts",
       "count": 2,
       "reason": "a log line precedes spawnSync(\"git\", [...]); argv array, no shell"
-    },
-    {
-      "ruleId": "SHELL_INJECTION_PATTERN",
-      "filePath": "packages/cli/src/self-upgrade.ts",
-      "count": 2,
-      "reason": "an error message followed by a comment containing \"spawn\""
     },
     {
       "ruleId": "SHELL_INJECTION_PATTERN",

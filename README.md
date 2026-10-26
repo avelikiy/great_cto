@@ -40,6 +40,14 @@ not proof of execution or expertise.
 
 ## Quick start
 
+**Source candidate boundary (ADR-045):** this branch replaces mutable installers
+with verified artifact admission. `init`, native plugin refresh and automatic
+companion installation currently refuse activation. Plain npm self-update needs
+the separately configured verifier and a signed release artifact set. This is
+not yet evidence of an installed or published update. See
+[verified updates](docs/reference/verified-updates.md) for the supported boundary.
+The following quick start describes the published installation flow.
+
 ```bash
 npx great-cto init
 ```
@@ -147,7 +155,7 @@ the same frozen tree concurrently; this is **not two writers editing the same
 worktree**. Both CLIs must be installed and authenticated. See the
 [host guide](docs/HOST-CODEX.md) for routing, recovery and manual-action boundaries.
 
-`npx great-cto init --host codex` gives Codex the skills, the MCP server and six
+In the published installation flow, `npx great-cto init --host codex` gives Codex the skills, the MCP server and six
 safety guards as plugin hooks (approve them once: run `codex` in a terminal and
 choose **Trust all and continue**). An ordinary Codex plugin session does not
 automatically run this project's native Claude command/role lifecycle.
@@ -161,8 +169,11 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Plugin refresh is explicit by default (`great-cto upgrade codex`). On macOS,
-`sh scripts/codex-auto-update.sh enable` opts into a six-hour per-user timer;
+The published plugin refresh is explicit by default (`great-cto upgrade codex`).
+In this source candidate, native refresh and timer enable refuse before mutation
+pending a verified no-fetch activation contract. Previously installed timers
+retain their existing code until an authorized migration.
+In the published macOS flow, `sh scripts/codex-auto-update.sh enable` opts into a six-hour per-user timer;
 `status` inspects it and `disable` removes it. Each tick validates the Git
 marketplace origin before asking Codex to upgrade. It follows the configured
 Git ref, not npm releases, and changed hooks still need host review in a new

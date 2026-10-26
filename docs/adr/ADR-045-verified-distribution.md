@@ -1,7 +1,7 @@
 # ADR-045: Verified release artifacts before activation
 
 **Date:** 2026-10-26
-Status: Proposed; gate:arch pending
+Status: Accepted design on 2026-10-26; implementation and artifact admission pending
 Extends: [ADR-044](ADR-044-host-graph-coverage.md)
 Implementation contract: [ARCH-distribution-trust](../architecture/ARCH-distribution-trust.md)
 

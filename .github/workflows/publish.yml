@@ -1,52 +1,312 @@
-name: Publish to npm
+name: Prepare signed release artifacts (SIGN_ONLY)
 
+# A tag authorizes preparation only. Publication resumes through a separately
+# reviewed artifact-admission route; there is no implicit registry fallback.
 on:
   push:
     tags:
       - 'v*'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Resume only after artifact and ship admission; select the exact stable tag'
+        required: true
+        type: choice
+        options: [publish-verified]
+      prepared_run_id:
+        description: 'Successful exact-tag SIGN_ONLY run containing immutable signed artifacts'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-sign-only-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
-  publish:
+  build:
+    if: github.event_name == 'push'
+    name: Build reviewed source without signing authority
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     permissions:
-      contents: write   # required to attach the SBOM to the GitHub release
-      id-token: write   # required for OIDC Trusted Publisher
-
+      contents: read
+    outputs:
+      prepared-artifact-id: ${{ steps.prepared.outputs.artifact-id }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
+        with:
+          fetch-depth: 0
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: '22'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Install dependencies
-        working-directory: packages/cli
-        run: npm ci
-
-      - name: Build
-        working-directory: packages/cli
-        run: npm run build
-
-      - name: Generate CycloneDX SBOM
-        working-directory: packages/cli
-        run: npx --yes @cyclonedx/cyclonedx-npm@^2 --output-format JSON --output-file sbom.cdx.json
-
-      - name: Upload SBOM artifact
+          node-version: '22.14.0'
+      - name: Require exact source tag and reviewed main ancestry
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          const version = JSON.parse(fs.readFileSync('packages/cli/package.json')).version;
+          if (process.env.GITHUB_REPOSITORY !== 'avelikiy/great_cto' || process.env.GITHUB_EVENT_NAME !== 'push' || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version) || process.env.GITHUB_REF !== `refs/tags/v${version}` || !/^[a-f0-9]{40}$/.test(process.env.GITHUB_SHA || '')) throw Error('not an admitted stable tag context');
+          JS
+          test "$(git rev-parse HEAD)" = "$GITHUB_SHA"
+          test "$(git rev-parse "${GITHUB_REF}^{commit}")" = "$GITHUB_SHA"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          test "$(gh api "repos/avelikiy/great_cto/commits/$GITHUB_SHA" --jq .commit.verification.verified)" = true
+          test -z "$(git status --porcelain)"
+      - name: Install locked build tools without lifecycle
+        shell: bash
+        run: |
+          set -euo pipefail
+          git worktree add --detach "$RUNNER_TEMP/release-source" "$GITHUB_SHA"
+          npm ci --ignore-scripts --prefix "$RUNNER_TEMP/release-source/packages/cli"
+      - name: Build one immutable prepared set
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 022
+          node scripts/build-release-artifacts.mjs --source "$RUNNER_TEMP/release-source" --fresh-checkout --out "$RUNNER_TEMP/release-prepared"
+      - name: Compare a second independent clean build
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 022
+          git worktree add --detach "$RUNNER_TEMP/release-source-compare" "$GITHUB_SHA"
+          npm ci --ignore-scripts --prefix "$RUNNER_TEMP/release-source-compare/packages/cli"
+          node scripts/build-release-artifacts.mjs --source "$RUNNER_TEMP/release-source-compare" --fresh-checkout --out "$RUNNER_TEMP/release-compare"
+          node scripts/build-release-artifacts.mjs --compare "$RUNNER_TEMP/release-prepared" "$RUNNER_TEMP/release-compare"
+      - name: Preserve prepared bytes for this run
+        id: prepared
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: sbom-cyclonedx
-          path: packages/cli/sbom.cdx.json
+          name: release-prepared-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/release-prepared/*.tgz
+            ${{ runner.temp }}/release-prepared/plugin-inventory.json
+            ${{ runner.temp }}/release-prepared/sbom.cdx.json
+            ${{ runner.temp }}/release-prepared/release-index.json
           if-no-files-found: error
+          retention-days: 30
 
-      - name: Attach SBOM to release
-        if: startsWith(github.ref, 'refs/tags/v')
-        run: gh release upload "${GITHUB_REF_NAME}" packages/cli/sbom.cdx.json --clobber
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+  sign_only:
+    if: github.event_name == 'push'
+    name: SIGN_ONLY - exact tag identity, no publication
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22.14.0'
+      - name: Download exact same-run prepared artifact
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          artifact-ids: ${{ needs.build.outputs.prepared-artifact-id }}
+          path: ${{ runner.temp }}/release-prepared
+          merge-multiple: true
+      - name: Install independently authenticated verifier
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.1.4'
+      - name: Sign and verify every prepared blob
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 700 "$RUNNER_TEMP/release-prepared"
+          test -f shared/release-trust-root.json
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/cli/package.json')).version")
+          node scripts/sign-release-artifacts.mjs \
+            --directory "$RUNNER_TEMP/release-prepared" \
+            --version "$VERSION" \
+            --cosign "$(command -v cosign)" \
+            --trusted-root "$GITHUB_WORKSPACE/shared/release-trust-root.json" \
+            --trusted-root-sha256 6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66
+      - name: Preserve signed bytes without creating a release
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-signed-${{ github.sha }}
+          path: |
+            ${{ runner.temp }}/release-prepared/*.tgz
+            ${{ runner.temp }}/release-prepared/plugin-inventory.json
+            ${{ runner.temp }}/release-prepared/sbom.cdx.json
+            ${{ runner.temp }}/release-prepared/release-index.json
+            ${{ runner.temp }}/release-prepared/*.sigstore.json
+          if-no-files-found: error
+          retention-days: 30
 
-      - name: Publish (OIDC — no token needed)
-        working-directory: packages/cli
-        run: npm publish --provenance --access public
+
+  publish_guard:
+    name: Require existing owner approval policy and exact signing run
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'publish-verified'
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    permissions:
+      contents: read
+      actions: read
+      deployments: read
+    outputs:
+      signed-artifact-id: ${{ steps.guard.outputs.artifact-id }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24.14.0'
+      - name: Validate manual resume and preconfigured approval protection
+        id: guard
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
+          PREPARED_RUN_ID: ${{ inputs.prepared_run_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          import { assertSigningContext, validatePreparedRun, assertPublishProtection } from './scripts/sign-release-artifacts.mjs';
+          const version = JSON.parse(fs.readFileSync('packages/cli/package.json')).version;
+          assertSigningContext({env:{...process.env,GITHUB_EVENT_NAME:'push'},version,commit:process.env.GITHUB_SHA});
+          const id = process.env.PREPARED_RUN_ID;
+          if (!/^[1-9][0-9]{0,15}$/.test(id || '')) throw Error('invalid immutable signing run ID');
+          const get = async route => {
+            const response = await fetch(`https://api.github.com/repos/avelikiy/great_cto/${route}`, {redirect:'error',signal:AbortSignal.timeout(30000),headers:{authorization:`Bearer ${process.env.GH_TOKEN}`,accept:'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28'}});
+            if (!response.ok) throw Error(`required publisher metadata unavailable (${response.status})`);
+            return response.json();
+          };
+          const [run, artifacts, protection] = await Promise.all([get(`actions/runs/${id}`),get(`actions/runs/${id}/artifacts?per_page=100`),get('environments/great-cto-publish')]);
+          if (artifacts.total_count > 100) throw Error('ambiguous signing artifact inventory');
+          assertPublishProtection(protection);
+          const artifactId = validatePreparedRun({run,artifacts:artifacts.artifacts,commit:process.env.GITHUB_SHA,runId:id});
+          fs.appendFileSync(process.env.GITHUB_OUTPUT,`artifact-id=${artifactId}\n`);
+          JS
+
+  publish:
+    name: Publish admitted bytes after required owner approval
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'publish-verified'
+    needs: publish_guard
+    environment:
+      name: great-cto-publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+      actions: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          # This official Node release includes npm 11.9.0, meeting OIDC publishing requirements.
+          node-version: '24.14.0'
+      - name: Download the guarded immutable signing output
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
+        with:
+          artifact-ids: ${{ needs.publish_guard.outputs.signed-artifact-id }}
+          run-id: ${{ inputs.prepared_run_id }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/release-admitted
+          merge-multiple: true
+      - name: Install independently authenticated verifier
+        uses: sigstore/cosign-installer@6f9f17788090df1f26f669e9d70d6ae9567deba6 # v4.1.2
+        with:
+          cosign-release: 'v3.1.4'
+      - name: Reverify admitted bytes before registry operation
+        shell: bash
+        run: |
+          set -euo pipefail
+          chmod 700 "$RUNNER_TEMP/release-admitted"
+          VERSION=$(node -p "JSON.parse(require('fs').readFileSync('packages/cli/package.json')).version")
+          node scripts/sign-release-artifacts.mjs --verify-only \
+            --directory "$RUNNER_TEMP/release-admitted" --version "$VERSION" \
+            --cosign "$(command -v cosign)" \
+            --trusted-root "$GITHUB_WORKSPACE/shared/release-trust-root.json" \
+            --trusted-root-sha256 6494e21ea73fa7ee769f85f57d5a3e6a08725eae1e38c755fc3517c9e6bc0b66
+      - name: Publish the existing tarball through Trusted Publisher and read back exact bytes
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import crypto from 'node:crypto';
+          import { execFileSync } from 'node:child_process';
+          const directory = path.join(process.env.RUNNER_TEMP,'release-admitted');
+          const index = JSON.parse(fs.readFileSync(path.join(directory,'release-index.json')));
+          const artifact = index.artifacts.find(x=>x.kind==='npm');
+          const file = path.join(directory,artifact.filename);
+          const hash = bytes => crypto.createHash('sha512').update(bytes).digest('hex');
+          if (hash(fs.readFileSync(file)) !== artifact.sha512) throw Error('admitted tarball changed before publication');
+          const request = async url => fetch(url,{redirect:'error',signal:AbortSignal.timeout(30000)});
+          const metadataUrl = `https://registry.npmjs.org/great-cto/${index.version}`;
+          const existing = await request(metadataUrl);
+          const integrity = 'sha512-'+Buffer.from(artifact.sha512,'hex').toString('base64');
+          if (existing.status===200) {
+            const metadata=await existing.json();
+            if(metadata.dist?.integrity!==integrity)throw Error('immutable registry version has different bytes');
+          } else if(existing.status===404) {
+            const env={...process.env};
+            for(const key of Object.keys(env))if(/^(?:NPM_CONFIG_|npm_config_|NODE_AUTH_TOKEN$|NPM_TOKEN$)/i.test(key))delete env[key];
+            const configs=['.publication-user-config','.publication-global-config'].map(name=>path.join(directory,name));
+            for(const config of configs)fs.writeFileSync(config,'',{flag:'wx',mode:0o600});
+            env.NPM_CONFIG_USERCONFIG=configs[0];env.NPM_CONFIG_GLOBALCONFIG=configs[1];
+            try {
+              execFileSync('npm',['publish',file,'--provenance','--access','public','--ignore-scripts','--registry','https://registry.npmjs.org/'],{cwd:directory,env,stdio:'inherit',timeout:180000});
+            } finally {for(const config of configs)fs.rmSync(config);}
+          } else throw Error(`registry availability unknown (${existing.status})`);
+          const metadataResponse=await request(metadataUrl);if(!metadataResponse.ok)throw Error('registry read-back unavailable');
+          const metadata=await metadataResponse.json();if(metadata.dist?.integrity!==integrity)throw Error('registry integrity differs after publication');
+          const response=await request(`https://registry.npmjs.org/great-cto/-/great-cto-${index.version}.tgz`);
+          if(!response.ok)throw Error('registry tarball read-back unavailable');
+          let total=0;const chunks=[];
+          for await(const chunk of response.body){total+=chunk.length;if(total>artifact.size)throw Error('registry tarball exceeds admitted size');chunks.push(chunk);}
+          const bytes=Buffer.concat(chunks);
+          if(bytes.length!==artifact.size||hash(bytes)!==artifact.sha512)throw Error('registry tarball differs from admitted bytes');
+          fs.writeFileSync(path.join(process.env.RUNNER_TEMP,'registry-readback.json'),JSON.stringify({version:index.version,sha512:artifact.sha512,state:'BYTE_IDENTICAL'})+'\n',{mode:0o600});
+          JS
+      - name: Publish signed release assets without replacing existing bytes
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --input-type=module - <<'JS'
+          import fs from 'node:fs';
+          import path from 'node:path';
+          import {execFileSync} from 'node:child_process';
+          const dir=path.join(process.env.RUNNER_TEMP,'release-admitted');
+          const index=JSON.parse(fs.readFileSync(path.join(dir,'release-index.json')));
+          const tag=`v${index.version}`;
+          const files=[...index.artifacts.map(x=>x.filename),'release-index.json'];
+          const assets=[...files,...files.map(x=>x+'.sigstore.json')];
+          const gh=args=>execFileSync('gh',args,{encoding:'utf8',stdio:['ignore','pipe','pipe'],timeout:30000,maxBuffer:64*1024*1024});
+          let existing;
+          try{existing=JSON.parse(gh(['api',`repos/avelikiy/great_cto/releases/tags/${tag}`]));}
+          catch(error){if(!String(error.stderr).includes('404'))throw error;}
+          if(existing){
+            if(existing.tag_name!==tag||existing.draft||existing.prerelease)throw Error('existing release identity/state mismatch');
+            for(const name of assets){
+              const matches=existing.assets.filter(x=>x.name===name);
+              if(matches.length!==1)throw Error('existing release asset set incomplete or ambiguous');
+              const bytes=execFileSync('gh',['api','-H','Accept: application/octet-stream',`repos/avelikiy/great_cto/releases/assets/${matches[0].id}`],{stdio:['ignore','pipe','pipe'],timeout:30000,maxBuffer:128*1024*1024});
+              if(!bytes.equals(fs.readFileSync(path.join(dir,name))))throw Error('existing release asset bytes differ');
+            }
+          }else{
+            const notes=path.join(process.env.RUNNER_TEMP,'verified-release-notes.md');
+            fs.writeFileSync(notes,`Verified artifact publication for ${tag}. Exact signed runtime, index, inventory and SBOM are attached. Source: ${index.source.commit}. Graph coverage and opt-in limitations remain documented in CHANGELOG.md.\n`,{flag:'wx',mode:0o600});
+            gh(['release','create',tag,...assets.map(x=>path.join(dir,x)),'--repo','avelikiy/great_cto','--verify-tag','--title',tag,'--notes-file',notes,'--latest']);
+          }
+          JS

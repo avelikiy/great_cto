@@ -125,8 +125,9 @@ test("isSuppressed: worker and task commands suppress", () => {
   assert.equal(isSuppressed({ env: {}, command: "task", stderrIsTTY: true }), true);
 });
 
-test("isSuppressed: PROTOCOL_SENSITIVE_COMMANDS contains exactly mcp/worker/task", () => {
-  assert.deepEqual([...PROTOCOL_SENSITIVE_COMMANDS].sort(), ["mcp", "task", "worker"]);
+test("isSuppressed: protocol and distribution commands cannot trigger update prompts", () => {
+  assert.deepEqual([...PROTOCOL_SENSITIVE_COMMANDS].sort(), ["distribution", "mcp", "task", "worker"]);
+  assert.equal(isSuppressed({ env: {}, command: "distribution", stderrIsTTY: true }), true);
 });
 
 test("isSuppressed: normal human command + TTY + no CI/opt-out is NOT suppressed", () => {

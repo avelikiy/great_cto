@@ -2,7 +2,7 @@
   "schemaVersion": 1,
   "contract": "distribution-trust",
   "revision": 1,
-  "status": "PROPOSED",
+  "status": "ACCEPTED_DESIGN",
   "authority": "NONE",
   "releaseEligibility": "NOT_CHECKED",
   "sourceDecision": "docs/adr/ADR-045-verified-distribution.md",
@@ -96,5 +96,6 @@
     }
   ],
   "existingGateChanges": false,
-  "syntheticEvidenceCanAuthorizeRelease": false
+  "syntheticEvidenceCanAuthorizeRelease": false,
+  "approvedAt": "2026-10-26"
 }

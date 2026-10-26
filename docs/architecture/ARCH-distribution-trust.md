@@ -1,7 +1,7 @@
 # ARCH: Verified distribution and update admission
 
 **Date:** 2026-10-26
-Status: Proposed; awaiting gate:arch. No implementation, production signature or release claim.
+Status: Accepted design on 2026-10-26; no implementation, production signature or release claim.
 Design: [ADR-045](../adr/ADR-045-verified-distribution.md).
 
 The operator requested signed artifacts and verification before installation. This document fixes the implementation contract; source, artifact and activation evidence remain separate.

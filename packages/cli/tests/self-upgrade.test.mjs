@@ -129,62 +129,44 @@ test("performSelfUpgrade: npx install never spawns and reports no-op success", (
   assert.match(result.message, /npx/);
 });
 
-// ── performSelfUpgrade: install failure propagates exit code ───────────────
-
-test("performSelfUpgrade: non-zero install exit code propagates and skips verify spawn", () => {
-  let spawnCount = 0;
-  const result = performSelfUpgrade({
-    currentVersion: "2.79.0",
-    binaryPath: "/Users/dev/.nvm/versions/node/v20.11.0/bin/great-cto",
-    spawnFn: () => { spawnCount += 1; return { status: 7 }; },
-  });
-  assert.equal(result.exitCode, 7);
-  assert.equal(spawnCount, 1, "verify spawn must not run after a failed install");
-  assert.match(result.message, /failed/);
-});
-
-test("performSelfUpgrade: spawn error (e.g. ENOENT) propagates as exit code 1 with a clear message", () => {
-  const result = performSelfUpgrade({
-    currentVersion: "2.79.0",
-    binaryPath: "/Users/dev/.volta/bin/great-cto",
-    spawnFn: () => ({ error: new Error("spawn volta ENOENT"), status: null }),
-  });
+// ADR-045 retires registry activation from the synchronous adapter. These
+// cases preserve coverage of every former route with the stronger requirement:
+// no unverified process execution, even when a caller supplies a runner.
+test("legacy npm self-upgrade refuses before invoking a successful supplied runner", () => {
+  let calls = 0;
+  const result = performSelfUpgrade({ currentVersion: "2.79.0", binaryPath: "/opt/node/bin/great-cto", spawnFn: () => { calls++; return { status: 0 }; } });
+  assert.equal(calls, 0);
   assert.equal(result.exitCode, 1);
-  assert.match(result.message, /volta/);
-});
-
-// ── performSelfUpgrade: successful install + verify reports old -> new ─────
-
-test("performSelfUpgrade: successful install verifies new version via --version spawn", () => {
-  let calls = [];
-  const result = performSelfUpgrade({
-    currentVersion: "2.79.0",
-    binaryPath: "/Users/dev/.nvm/versions/node/v20.11.0/bin/great-cto",
-    spawnFn: (cmd, args) => {
-      calls.push({ cmd, args });
-      if (cmd === "npm") return { status: 0 };
-      // verify spawn: node <binaryPath> --version
-      return { status: 0, stdout: "2.80.0\n" };
-    },
-  });
-  assert.equal(result.exitCode, 0);
   assert.equal(result.oldVersion, "2.79.0");
-  assert.equal(result.newVersion, "2.80.0");
-  assert.match(result.message, /2\.79\.0.*2\.80\.0|2\.80\.0/);
-  assert.equal(calls.length, 2, "expected install spawn + verify spawn");
-  assert.deepEqual(calls[0].args, ["install", "-g", "great-cto@latest", "--prefix", "/Users/dev/.nvm/versions/node/v20.11.0"]);
-  assert.ok(calls[1].args.includes("--version"));
+  assert.equal(result.newVersion, null);
+  assert.match(result.message, /verified artifact admission/);
 });
 
-test("performSelfUpgrade: install succeeds but verify fails -> still exitCode 0, newVersion null", () => {
-  const result = performSelfUpgrade({
-    currentVersion: "2.79.0",
-    binaryPath: "/Users/dev/.nvm/versions/node/v20.11.0/bin/great-cto",
-    spawnFn: (cmd) => (cmd === "npm" ? { status: 0 } : { status: 1, stdout: "" }),
-  });
-  assert.equal(result.exitCode, 0);
+test("legacy Volta self-upgrade cannot start an unadmitted executable", () => {
+  let calls = 0;
+  const result = performSelfUpgrade({ currentVersion: "2.79.0", binaryPath: "/opt/.volta/bin/great-cto", spawnFn: () => { calls++; throw new Error("must never execute"); } });
+  assert.equal(calls, 0);
+  assert.equal(result.manager, "volta");
+  assert.equal(result.exitCode, 1);
   assert.equal(result.newVersion, null);
-  assert.match(result.message, /could not verify/);
+});
+
+test("legacy pnpm self-upgrade refuses before install or version smoke", () => {
+  let calls = 0;
+  const result = performSelfUpgrade({ currentVersion: "2.79.0", binaryPath: "/opt/pnpm/bin/great-cto", spawnFn: () => { calls++; return { status: 0, stdout: "2.80.0" }; } });
+  assert.equal(calls, 0);
+  assert.equal(result.manager, "pnpm");
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.newVersion, null);
+});
+
+test("unknown install layouts cannot fall back to npm's global prefix", () => {
+  let calls = 0;
+  const result = performSelfUpgrade({ currentVersion: "2.79.0", binaryPath: "/opt/unknown/great-cto", spawnFn: () => { calls++; return { status: 0 }; } });
+  assert.equal(calls, 0);
+  assert.equal(result.prefix, null);
+  assert.equal(result.exitCode, 1);
+  assert.equal(result.newVersion, null);
 });
 
 // `npm i -g` replaces the CLI. It does not touch
