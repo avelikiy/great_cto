@@ -115,6 +115,10 @@ PHASE=$(grep "^phase:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PH
 TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); TEAM_SIZE=${TEAM_SIZE:-1}
 MONTHLY_BUDGET=$(grep "^monthly-budget-llm-usd:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 
+# Design contract — design-advisor runs before pm on UI features; plan UI tasks against it
+DESIGN_DOC=$(ls -t docs/design/DESIGN-*.md 2>/dev/null | head -1)
+[ -n "$DESIGN_DOC" ] && echo "=== DESIGN CONTRACT: $DESIGN_DOC (components, a11y, responsive — one task per screen/component group) ==="
+
 # Past lessons — calibrate cost/time estimates against actuals
 if [ -f .great_cto/lessons.md ]; then
   COST_LESSONS=$(grep -B1 -A4 "shape: B" .great_cto/lessons.md 2>/dev/null | head -20)
@@ -138,7 +142,7 @@ FEATURE_SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//' | tr '[:upper:]' '[:
 
 # Goal ancestry (Paperclip pattern) — injected into every bd create call.
 # Built AFTER FEATURE_SLUG is known (it interpolates the slug).
-COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "")
+COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //')
 _COMP_CLEAN=$(echo "$COMPLIANCE" | sed 's/^\[none\]$//;s/^\[none, *\]//;s/, *\[none\]//')
 GOAL_ANCESTRY="[archetype:${ARCHETYPE}]$([ -n "$_COMP_CLEAN" ] && echo " [compliance:${_COMP_CLEAN}]") [feature:${FEATURE_SLUG}] [phase:${PHASE}] | Why: see docs/plans/PLAN-${FEATURE_SLUG}.md"
 

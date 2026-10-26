@@ -375,7 +375,7 @@ JSON
 {
   echo "{"
   printf '  "discovered_at": "%s",\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  printf '  "plugin_version": "%s",\n' "$(grep '"version"' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null | head -1 | awk -F'"' '{print $4}' || echo unknown)"
+  printf '  "plugin_version": "%s",\n' "$(v=$(grep '"version"' "$PLUGIN_DIR/.claude-plugin/plugin.json" 2>/dev/null | head -1 | awk -F'"' '{print $4}'); echo "${v:-unknown}")"
   printf '  "tier1_great_cto": [\n'
   if [ "${#T1[@]}" -gt 0 ]; then
     printf '%s' "${T1[0]}"

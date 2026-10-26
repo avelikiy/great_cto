@@ -64,13 +64,15 @@ export const DEFAULT_LEVEL = 'gates-only';
 
 /**
  * Archetypes where a compliance/security sign-off is not the operator's to skip.
- * SKILL.md already states these carry a `strict` minimum; encoding it here means
- * a new level cannot become a bypass by omission.
+ * The floor is gate:security + gate:compliance (with gate:ship) at every level, so
+ * a new level cannot become a bypass by omission. It is not `strict`: it adds no
+ * gate:code. reference/approval-level.md lists this set and a test holds the two equal.
  */
 const REGULATED = new Set([
   'ai-system', 'agent-product', 'commerce', 'web3', 'iot-embedded', 'regulated',
   'fintech', 'healthcare', 'insurance', 'legal', 'gov-public', 'defense-govcon',
 ]);
+export const REGULATED_ARCHETYPES = Object.freeze([...REGULATED]);
 const REGULATED_FLOOR = ['security', 'compliance'];
 
 /**

@@ -145,7 +145,7 @@ ARCH_FILE=$(ls -t docs/architecture/ARCH-*.md 2>/dev/null | head -1)
 SLUG=$(basename "$ARCH_FILE" .md | sed 's/^ARCH-//')
 
 ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-GROWTH_GOAL=$(grep "^growth-goal:" .great_cto/PROJECT.md 2>/dev/null | sed 's/growth-goal: //' || echo "not specified")
+GROWTH_GOAL=$(grep "^growth-goal:" .great_cto/PROJECT.md 2>/dev/null | sed 's/growth-goal: //'); GROWTH_GOAL=${GROWTH_GOAL:-not specified}
 # Is there an analytics/connector layer we can read from?
 CONNECT=$(ls docs/connectors/CONNECT-*.md 2>/dev/null | head -1)
 echo "slug=$SLUG archetype=$ARCHETYPE goal='$GROWTH_GOAL' connector=${CONNECT:-none}"

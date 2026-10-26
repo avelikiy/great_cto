@@ -468,7 +468,7 @@ fi
 **Seed brain.md** (always — even for nano projects):
 ```bash
 if [ ! -f ".great_cto/brain.md" ]; then
-  PROJECT_NAME=$(grep -m1 "^# " .great_cto/PROJECT.md 2>/dev/null | sed 's/^# //' || echo "Untitled")
+  PROJECT_NAME=$(grep -m1 "^# " .great_cto/PROJECT.md 2>/dev/null | sed 's/^# //'); PROJECT_NAME=${PROJECT_NAME:-Untitled}
   cat > .great_cto/brain.md << BRAINEOF
 # Project Brain — ${PROJECT_NAME}
 > Compiled truth. Updated by /digest (dream cycle). Read by architect before designing.
@@ -522,7 +522,7 @@ echo "logs/: initialized → .great_cto/logs/"
 
 **Team size → initialize ownership scaffold** (if team-size ≥ 5):
 ```bash
-TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]' || echo "1")
+TEAM_SIZE=$(grep "^team-size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' | tr -d '[:alpha:]'); TEAM_SIZE=${TEAM_SIZE:-1}
 if [ "${TEAM_SIZE:-1}" -ge 5 ] && [ ! -f ".great_cto/OWNERSHIP.md" ]; then
   # Detect service roots from codebase
   SERVICES=$(find . -maxdepth 3 \( -name "package.json" -o -name "pyproject.toml" -o -name "go.mod" \) \
@@ -808,7 +808,7 @@ If the audit argument is `eval` (i.e. `/start audit eval`, or `/audit eval`):
 
 ```bash
 EVAL_DIR="tests/eval"
-ls "$EVAL_DIR"/EVAL-*.md 2>/dev/null | sort || echo "NO_EVALS"
+E=$(ls "$EVAL_DIR"/EVAL-*.md 2>/dev/null | sort); [ -n "$E" ] && printf '%s\n' "$E" || echo "NO_EVALS"
 ```
 
 If no eval files found:
