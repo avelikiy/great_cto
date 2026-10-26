@@ -288,3 +288,28 @@ else from the file, and only on the machine the board runs on.
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
+
+## Local execution graph observations
+
+The graph observation journal is local-only and separate from anonymous usage
+telemetry. Controlled runs enable supplementary host events explicitly with
+`codex-host start --observe-graph`. Native sessions require explicit enrollment
+for one canonical project, host and session through `task work graph-bind`, or
+project-and-host opt-in through `task work graph-enable` before SessionStart.
+Removing enrollment stops future collection; it does not delete existing history.
+No native transcript discovery, historical transcript import, terminal control,
+provider call or network export is performed by the observer.
+
+The private journal under `~/.great_cto/host-graphs/` keeps allowlisted lifecycle,
+tool class, outcome, opaque event/call identities, explicit parent references and
+observation timestamps. Enrollment is under `~/.great_cto/graph-bindings/`.
+Prompts, messages, commands, tool arguments/results, document contents,
+credentials and file paths are excluded from event records. Enrollment retains
+the canonical root privately to verify exact project membership. Stores require
+owner-only access and reject symlinks. Event and byte quotas are bounded; gaps,
+corruption and unsupported source formats remain incomplete observations.
+
+The journal grants no execution, approval, verification or release authority.
+Native event claims cannot establish a passed gate or accepted task. Users can
+inspect enrollment with `task work graph-read` and revoke it with
+`task work graph-unbind --host HOST --session SESSION`.

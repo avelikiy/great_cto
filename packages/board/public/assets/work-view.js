@@ -69,11 +69,34 @@
   function cockpitEntries(data, category, search) {
     return data.entries.filter(e => inCategory(e, category) && (!search || `${e.title} ${e.key}`.toLowerCase().includes(search.toLowerCase())));
   }
+  function renderDeclaredWorkflow(graph) {
+    if (!graph || graph.source === 'host-observation') return '';
+    const snapshots = Array.isArray(graph.snapshots) ? graph.snapshots.slice(0, 64) : [];
+    return '<details class="work-declared-workflow"><summary>Declared workflow' + (snapshots.length ? ` · ${snapshots.length} snapshots` : '') + '</summary>'
+      + '<p>Declared possibilities only. These rules do not prove that a stage ran, a dependency was satisfied or a gate was approved.</p>'
+      + (snapshots.length ? snapshots.map(snapshot => `<details><summary>Workflow snapshot ${esc(snapshot.digest || 'identity unavailable')}</summary>`
+        + '<table><caption>Declared transition rules</caption><thead><tr><th>Role</th><th>On</th><th>Next</th><th>Join</th><th>Gates</th></tr></thead><tbody>'
+        + (Array.isArray(snapshot.rules) ? snapshot.rules.slice(0, 256) : []).map(rule => '<tr>' + [rule.role, ...['on', 'next', 'join', 'gates'].map(key => Array.isArray(rule[key]) ? rule[key].slice(0, 16).join(', ') : '')].map(value => `<td>${esc(value || 'None declared')}</td>`).join('') + '</tr>').join('') + '</tbody></table></details>').join('')
+        : '<p>No declared workflow snapshot is recorded.</p>') + '</details>';
+  }
+  function renderHostAttempt(graph, attempts, options) {
+    const attemptId = graph.binding?.attemptId || graph.nodes?.find(node => node.attemptId)?.attemptId;
+    const attempt = attempts.find(node => node.attemptId === attemptId);
+    const hostKey = graph.binding?.host || graph.nodes?.[0]?.host;
+    const host = hostKey === 'codex' ? 'Codex' : hostKey === 'claude-code' ? 'Claude Code' : 'Host unknown';
+    const label = attempt ? `${attempt.role || 'Role unknown'} · attempt ${attempt.number || attemptId}` : attemptId ? `attempt ${attemptId}` : 'session observations';
+    const key = JSON.stringify([graph.binding?.host || null, graph.binding?.runId || null, graph.binding?.sessionId || null, attemptId || null]);
+    return `<details class="work-host-attempt" data-host-attempt="${esc(key)}" data-observation-key="${esc(key)}"><summary>Host observations · ${esc(host)} · ${esc(label)}</summary>${renderExecutionGraph(graph, options)}</details>`;
+  }
   function renderExecution(entry, options = {}) {
     const roles = Array.isArray(entry.evidence) ? entry.evidence : [];
     const execution = entry.execution, nodes = Array.isArray(execution?.nodes) ? execution.nodes.slice(0, 200) : [];
     return (options.canvas ? '<section class="work-execution work-execution-flat">' : '<section class="work-execution"><h3>Recorded observations</h3>')
+      + (execution?.observationHealth?.state === 'degraded' ? '<p class="work-warning">Host observation delivery is incomplete.</p>' : '')
+      + (execution?.omittedObservationAttempts ? `<p class="work-warning">${esc(execution.omittedObservationAttempts)} earlier attempt observation journals are outside this bounded view.</p>` : '')
+      + renderDeclaredWorkflow(execution?.graph)
       + renderExecutionGraph(execution?.graph, options)
+      + (Array.isArray(execution?.observations) ? execution.observations.slice(0, 16).map(graph => renderHostAttempt(graph, nodes, options)).join('') : '')
       + (execution?.graph?.state === 'recorded' ? '' : '<p>Dependencies not recorded. This is an observation list, not an inferred execution graph. Event order does not establish dependencies.</p>')
       + `<p>Recorded stage: ${esc(entry.stage || 'not recorded')}</p>`
       + (execution?.reason ? `<p>${esc(execution.reason)}</p>` : '')
@@ -90,25 +113,81 @@
       + (options.canvas ? '</details>' : '')
       + '</section>';
   }
+  function renderHostCoverage(graph) {
+    const dimensions = [['lifecycle', 'Lifecycle'], ['parentChild', 'Parent / child'], ['tools', 'Tools'], ['verification', 'Verification'], ['gates', 'Gates'], ['artifacts', 'Artifacts']];
+    const total = Number.isSafeInteger(graph.total) && graph.total >= 0 ? graph.total : 'unavailable';
+    return `<div class="execution-host-coverage"><p class="work-meta">Source: host observation · Health: ${esc(graph.health || 'unknown')}. Observation metadata does not establish current liveness, controller transitions, gate approval or task acceptance.</p>`
+      + (graph.observedInterval ? `<p>Observed interval · collector receipt times: ${esc(graph.observedInterval.from || 'Unavailable')} to ${esc(graph.observedInterval.to || 'Unavailable')}</p>` : '')
+      + (Array.isArray(graph.diagnostics) && graph.diagnostics.length ? '<details class="work-observation-diagnostics"><summary>Observation diagnostics</summary><ul>' + graph.diagnostics.slice(0, 16).map(code => `<li><code>${esc(code)}</code></li>`).join('') + '</ul></details>' : '')
+      + `<p>Showing ${Array.isArray(graph.nodes) ? graph.nodes.length : 0} of ${esc(total)} recorded observations.${graph.cursor ? ' More observations are available outside this page.' : ''}</p>`
+      + (graph.cursor ? `<details><summary>Observation page cursor · read-only</summary><code>${esc(graph.cursor)}</code></details>` : '')
+      + (graph.cursor && graph.binding?.host && graph.binding?.sessionId ? `<button type="button" data-host-graph-next="${esc(JSON.stringify({ ...graph.binding, cursor: graph.cursor }))}">Next observation page</button>` : '')
+      + '<dl aria-label="Host observation coverage">' + dimensions.map(([key, label]) => {
+        const dimension = graph.coverage?.[key];
+        const support = dimension?.supported === true ? 'Supported' : dimension?.supported === false ? 'Unsupported' : 'Support unknown';
+        const state = dimension?.supported === false ? 'Unavailable' : dimension?.state === 'partial' ? 'Partial'
+          : dimension?.supported === true && dimension?.state === 'complete' ? 'Complete' : 'Unavailable';
+        return `<dt>${label} · ${support} · ${state}</dt><dd>${esc(dimension?.reason || 'Coverage has not been established.')}</dd>`;
+      }).join('') + '</dl></div>';
+  }
+  const controllerOwnedKinds = new Set(['transition', 'context', 'checks', 'gate', 'approval', 'rework', 'recovery', 'wave', 'manual', 'cancel', 'release', 'reuse']);
+  const graphLane = node => ['codex', 'claude-code'].includes(node.host) ? node.host
+    : !node.host && controllerOwnedKinds.has(node.kind) ? 'controller' : 'unknown';
+  const graphHostLabel = node => node.host || (graphLane(node) === 'controller' ? 'controller' : 'Host not recorded');
+  const graphRoleLabel = node => node.role || (graphLane(node) === 'controller' ? 'controller' : node.kind || 'Role not recorded');
   function renderExecutionGraph(graph, options = {}) {
+    const hostObserved = graph?.source === 'host-observation';
+    const coverage = hostObserved ? renderHostCoverage(graph) : '';
     if (graph?.state !== 'recorded' || !Array.isArray(graph.nodes) || !graph.nodes.length)
-      return `<p class="work-meta">${esc(graph?.reason || 'Controller-recorded graph unavailable. Native and legacy observations remain partial.')}</p>`;
-    if (graph.nodes.length > 512 || !Array.isArray(graph.edges) || graph.edges.length > 2048) return '<p>Graph exceeds the display limit.</p>';
+      return (hostObserved ? '<section class="execution-graph" aria-label="Host-observed execution graph"><h3>Host-observed graph</h3>' + coverage : '')
+        + `<p class="work-meta">${esc(graph?.reason || 'Controller-recorded graph unavailable. Native and legacy observations remain partial.')}</p>` + (hostObserved ? '</section>' : '');
+    if (graph.nodes.length > 512 || !Array.isArray(graph.edges) || graph.edges.length > 2048) return coverage + '<p>Graph exceeds the display limit.</p>';
     const horizontal = options.canvas && options.direction !== 'tb';
-    const nodes = graph.nodes, ids = new Map(nodes.map((n, i) => [n.id, i]));
-    if (ids.size !== nodes.length || graph.edges.some(e => !ids.has(e.from) || !ids.has(e.to) || ids.get(e.from) >= ids.get(e.to)))
-      return '<p>Graph dependencies cannot be displayed safely.</p>';
+    let nodes = graph.nodes;
+    const ids = new Map(nodes.map((n, i) => [n.id, i]));
+    if (ids.size !== nodes.length || graph.edges.some(e => !ids.has(e.from) || !ids.has(e.to) || e.from === e.to || (!hostObserved && ids.get(e.from) >= ids.get(e.to))))
+      return coverage + '<p>Graph dependencies cannot be displayed safely.</p>';
+    if (hostObserved) {
+      // Explicit parents may arrive late. Reorder for layout only; never add an edge.
+      const indegree = new Map(nodes.map(n => [n.id, 0])), children = new Map(nodes.map(n => [n.id, []]));
+      for (const edge of graph.edges) { indegree.set(edge.to, indegree.get(edge.to) + 1); children.get(edge.from).push(edge.to); }
+      const pending = nodes.filter(n => indegree.get(n.id) === 0), ordered = [], byId = new Map(nodes.map(n => [n.id, n]));
+      for (let index = 0; index < pending.length; index += 1) {
+        const node = pending[index]; ordered.push(node);
+        for (const child of children.get(node.id)) { indegree.set(child, indegree.get(child) - 1); if (indegree.get(child) === 0) pending.push(byId.get(child)); }
+      }
+      if (ordered.length !== nodes.length) return coverage + '<p>Graph dependencies cannot be displayed safely.</p>';
+      nodes = ordered;
+    }
     const levels = new Map(nodes.map(n => [n.id, 0]));
     const parents = new Map(nodes.map(n => [n.id, []]));
     for (const e of graph.edges) parents.get(e.to).push(e);
-    const rows = new Map(), positions = new Map();
+    const laneFor = graphLane;
+    const lanes = ['controller', 'codex', 'claude-code', 'unknown'].filter(host => nodes.some(node => laneFor(node) === host)), laneLayout = lanes.length > 1;
+    const rows = new Map(), positions = new Map(), nodeRows = new Map(), laneCounts = new Map();
     for (const n of nodes) {
       const level = Math.max(0, ...parents.get(n.id).map(e => levels.get(e.from) + 1));
       levels.set(n.id, level);
-      const row = rows.get(level) || 0; rows.set(level, row + 1);
-      positions.set(n.id, horizontal ? { x: 24 + level * 272, y: 24 + row * 112 } : { x: 24 + row * 236, y: 24 + level * 112 });
+      const key = laneLayout ? `${laneFor(n)}:${level}` : level, row = rows.get(key) || 0;
+      rows.set(key, row + 1); nodeRows.set(n.id, row);
+      laneCounts.set(laneFor(n), Math.max(laneCounts.get(laneFor(n)) || 0, row + 1));
     }
-    const width = horizontal ? (Math.max(...levels.values()) + 1) * 272 : Math.max(500, Math.max(...rows.values()) * 236 + 24), height = horizontal ? Math.max(240, Math.max(...rows.values()) * 112 + 24) : (Math.max(...levels.values()) + 1) * 112 + 24;
+    const offsets = new Map(), extents = new Map(); let extent = 0;
+    if (laneLayout) for (const host of lanes) {
+      const size = (laneCounts.get(host) || 1) * (horizontal ? 112 : 236) + 48;
+      offsets.set(host, extent); extents.set(host, size); extent += size;
+    }
+    for (const n of nodes) {
+      const level = levels.get(n.id), row = nodeRows.get(n.id), offset = laneLayout ? offsets.get(laneFor(n)) : 0;
+      positions.set(n.id, horizontal ? { x: 24 + level * 272, y: (laneLayout ? offset + 48 : 24) + row * 112 }
+        : { x: offset + 24 + row * 236, y: (laneLayout ? 48 : 24) + level * 112 });
+    }
+    const width = horizontal ? (Math.max(...levels.values()) + 1) * 272 : laneLayout ? Math.max(500, extent) : Math.max(500, Math.max(...rows.values()) * 236 + 24);
+    const height = horizontal ? laneLayout ? extent : Math.max(240, Math.max(...rows.values()) * 112 + 24) : (Math.max(...levels.values()) + 1) * 112 + (laneLayout ? 48 : 24);
+    const laneBoxes = laneLayout ? lanes.map(host => {
+      const label = ({ controller: 'Controller', codex: 'Codex', 'claude-code': 'Claude Code', unknown: 'Host not recorded' })[host], offset = offsets.get(host);
+      return `<g class="execution-host-lane" role="group" aria-label="Host lane: ${label}"><rect x="${horizontal ? 0 : offset}" y="${horizontal ? offset : 0}" width="${horizontal ? width : extents.get(host)}" height="${horizontal ? extents.get(host) : height}" fill="var(--bg-page)" stroke="var(--border-strong)"/><text x="${horizontal ? 12 : offset + 12}" y="${horizontal ? offset + 24 : 24}" fill="currentColor">${label}</text></g>`;
+    }).join('') : '';
     const edges = graph.edges.map(e => {
       const a = positions.get(e.from), b = positions.get(e.to);
       if (horizontal) return `<path d="M${a.x + 208} ${a.y + 39} C${a.x + 240} ${a.y + 39},${b.x - 32} ${b.y + 39},${b.x} ${b.y + 39}" marker-end="url(#execution-arrow)"><title>${esc(e.kind)}: ${esc(e.from)} to ${esc(e.to)}</title></path>`;
@@ -117,22 +196,44 @@
     const short = value => String(value || '').length > 27 ? String(value).slice(0, 26) + '…' : String(value || '');
     const boxes = nodes.map(n => {
       const p = positions.get(n.id);
-      return `<g class="execution-node" role="button" tabindex="0" data-graph-node="${esc(n.id)}" aria-label="${esc(n.kind)} ${esc(n.role || '')}: ${esc(n.status)}. Open recorded details." transform="translate(${p.x},${p.y})">${options.canvas ? `<title>${esc(n.kind)} · ${esc(n.role || 'controller')} · ${esc(n.status)}</title>` : ''}<rect width="208" height="78" rx="6"/><text x="12" y="23">${esc(short(n.role || n.kind))}</text><text x="12" y="45">${options.canvas ? esc(short(`${n.kind} · ${n.status}`)) : `${esc(n.kind)} · ${esc(n.status)}`}</text><text x="12" y="64">${esc(n.host || 'controller')}</text></g>`;
+      return `<g class="execution-node" role="button" tabindex="0" data-graph-node="${esc(n.id)}" data-graph-search-text="${esc([n.id, n.role || n.kind, graphHostLabel(n), n.attemptId || ''].join(' '))}" aria-label="${esc(n.kind)} ${esc(n.role || '')}: ${esc(n.status)}. Open recorded details." transform="translate(${p.x},${p.y})">${options.canvas ? `<title>${esc(n.kind)} · ${esc(graphRoleLabel(n))} · ${esc(n.status)}</title>` : ''}<rect width="208" height="78" rx="6"/><text x="12" y="23">${esc(short(n.role || n.kind))}</text><text x="12" y="45">${options.canvas ? esc(short(`${n.kind} · ${n.status}`)) : `${esc(n.kind)} · ${esc(n.status)}`}</text><text x="12" y="64">${esc(graphHostLabel(n))}</text></g>`;
     }).join('');
-    const details = nodes.map(n => `<details class="execution-node-detail" data-graph-detail="${esc(n.id)}"><summary>${esc(n.id)} · ${esc(n.kind)} · ${esc(n.role || 'controller')} · ${esc(n.status)}</summary><dl>`
-      + [['Attempt', n.attemptId], ['Host', n.host], ['Recorded at', n.at], ['Verdict', n.verdict], ['Wave', n.waveId], ['Gates', (n.gates || []).join(', ')],
+    const details = nodes.map(n => `<details class="execution-node-detail" data-graph-detail="${esc(n.id)}"><summary>${esc(n.id)} · ${esc(n.kind)} · ${esc(graphRoleLabel(n))} · ${esc(n.status)}</summary><dl>`
+      + [['Attempt', n.attemptId], ['Host', n.host], ...(hostObserved ? [['Source', n.source || 'host-observation'], ['Source version', n.sourceVersion || 'unverified'], ['Phase', n.phase], ['Outcome', n.outcome]] : []), ['Recorded at', n.at], ['Verdict', n.verdict], ['Wave', n.waveId], ['Gates', (n.gates || []).join(', ')],
         ['Workflow snapshot SHA-256', n.graphDigest], ['Input receipt SHA-256', n.inputDigest], ['Output receipt SHA-256', n.outputDigest],
         [n.kind === 'reuse' ? 'Historical report SHA-256 (worker not invoked)' : 'Stage context SHA-256', n.contextDigest], ['Result SHA-256', n.resultDigest]]
         .map(([key, value]) => `<dt>${esc(key)}</dt><dd><code>${esc(value || 'Not recorded')}</code></dd>`).join('')
       + `<dt>Recorded predecessors</dt><dd>${parents.get(n.id).map(e => `${esc(e.from)} (${esc(e.kind)})`).join(', ') || 'None recorded; not proof of complete external inputs'}</dd></dl></details>`).join('');
-    return `<section class="execution-graph" aria-label="Controller-recorded execution graph"><h3>Controller-recorded graph</h3><p>${nodes.length} nodes · ${graph.edges.length} recorded edges · ${graph.snapshots?.length || 0} workflow snapshots. ${graph.complete ? 'Controller history recorded from run creation.' : 'Partial history: missing edges are not inferred.'}</p>`
-      + `<p class="work-meta">Dispatch, input, verification, gate and join edges describe controller observations. Intent is not proof of a live worker; recorded approval is not deployment or task acceptance. Historical reuse does not invoke a worker. Stage context digests exclude separately admitted domain packets.</p>`
+    const latestAttempts = graph.nodes.filter(node => node.kind === 'attempt'), latestPool = latestAttempts.length ? latestAttempts : graph.nodes;
+    const latest = [...latestPool].sort((a, b) => (Date.parse(a.at) || 0) - (Date.parse(b.at) || 0)).at(-1);
+    const navigation = `<div class="execution-graph-tools" role="group" aria-label="Graph node navigation"><label>Find graph node <input type="search" data-graph-find="query" maxlength="160" placeholder="Role, host or node ID"></label><button type="button" class="gate-btn" data-graph-search="find">Find node</button>${latest ? `<button type="button" class="gate-btn" data-graph-latest="${esc(latest.id)}">Latest recorded ${latestAttempts.length ? 'attempt' : 'observation'}</button>` : ''}<span data-graph-search-feedback role="status" aria-live="polite"></span></div>`;
+    return `<section class="execution-graph" aria-label="${hostObserved ? 'Host-observed' : 'Controller-recorded'} execution graph"><h3>${hostObserved ? 'Host-observed graph' : 'Controller-recorded graph'}</h3><p>${nodes.length} nodes · ${graph.edges.length} recorded edges${hostObserved ? '. Partial history: host delivery completeness is not attested.' : ` · ${graph.snapshots?.length || 0} workflow snapshots. ${graph.complete ? 'Controller history recorded from run creation.' : 'Partial history: missing edges are not inferred.'}`}</p>`
+      + (hostObserved ? coverage : `<p class="work-meta">Dispatch, input, verification, gate and join edges describe controller observations. Intent is not proof of a live worker; recorded approval is not deployment or task acceptance. Historical reuse does not invoke a worker. Stage context digests exclude separately admitted domain packets.</p>`)
       + (graph.reason ? `<p class="work-warning">${esc(graph.reason)}</p>` : '')
+      + (laneLayout ? '<p class="work-meta">Visual grouping only; host lanes do not establish dependency or concurrency.</p>' : '') + navigation
       + `<div class="execution-graph-tools execution-graph-toolbar" role="group" aria-label="Graph zoom"><button type="button" class="gate-btn" data-graph-scale="0.75">Zoom out</button><button type="button" class="gate-btn" data-graph-scale="1.333333">Zoom in</button><button type="button" class="gate-btn" data-graph-scale="reset">Reset zoom</button>${options.canvas ? `<button type="button" class="gate-btn" data-graph-scale="fit">Fit graph</button><button type="button" class="gate-btn" data-graph-direction="lr" aria-pressed="${horizontal}">Left to right</button><button type="button" class="gate-btn" data-graph-direction="tb" aria-pressed="${!horizontal}">Top to bottom</button>` : ''}</div>`
-      + `<div class="execution-graph-canvas" tabindex="0" aria-label="Scrollable graph. Tab to a node and press Enter for details."><svg data-graph-layout="${horizontal ? 'lr' : 'tb'}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Recorded execution dependencies"><defs><marker id="execution-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8"/></marker></defs><g class="execution-edges" fill="none">${edges}</g>${boxes}</svg></div>`
+      + `<div class="execution-graph-canvas" tabindex="0" aria-label="Scrollable graph. Tab to a node and press Enter for details."><svg data-graph-layout="${horizontal ? 'lr' : 'tb'}" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" role="group" aria-label="Recorded execution dependencies"><defs><marker id="execution-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8"/></marker></defs>${laneBoxes}<g class="execution-edges" fill="none">${edges}</g>${boxes}</svg></div>`
       + (options.canvas ? '<details class="execution-node-list"><summary>Recorded node details · keyboard list</summary>' : '<h3>Recorded node details</h3>') + `<p class="work-meta">Use the graph or expand a node below. Digests bind recorded inputs, not correctness.</p>${details}${options.canvas ? '</details>' : ''}</section>`;
   }
+  function focusGraphNode(node) {
+    if (!node) return false;
+    node.focus({ preventScroll: true }); node.scrollIntoView?.({ block: 'nearest', inline: 'nearest' }); return true;
+  }
+  function focusGraphMatch(graph, value) {
+    if (!graph) return;
+    const query = String(value || '').trim().slice(0, 160).toLowerCase();
+    const matches = [...graph.querySelectorAll('[data-graph-node]')].filter(node => String(node.dataset.graphSearchText || '').toLowerCase().includes(query));
+    const feedback = graph.querySelector('[data-graph-search-feedback]');
+    if (!query) { if (feedback) feedback.textContent = 'Enter a role, host or node ID.'; return; }
+    if (feedback) feedback.textContent = matches.length ? `Focused first of ${matches.length} matching nodes. All dependencies remain visible.` : 'No matching node on this page.';
+    if (matches.length) focusGraphNode(matches[0]);
+  }
   function graphInteraction(target) {
+    const search = target.closest('[data-graph-search]');
+    if (search?.dataset.graphSearch === 'find') { const graph = search.closest('.execution-graph'); focusGraphMatch(graph, graph?.querySelector('[data-graph-find]')?.value); return true; }
+    const latest = target.closest('[data-graph-latest]');
+    if (latest?.dataset.graphLatest) { const graph = latest.closest('.execution-graph'); focusGraphNode([...graph?.querySelectorAll('[data-graph-node]') || []].find(node => node.dataset.graphNode === latest.dataset.graphLatest)); return true; }
+
     const direction = target.closest('[data-graph-direction]');
     if (config?.canvas && ['lr', 'tb'].includes(direction?.dataset.graphDirection)) { graphDirection = direction.dataset.graphDirection; closeWorkDialog(false); paint(); document.querySelector?.('[data-graph-direction][aria-pressed="true"]')?.focus(); return true; }
     const node = target.closest('[data-graph-node]');
@@ -218,7 +319,7 @@
       : render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
     const runLabel = selected.title.match(/^Controlled run ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
     const title = runLabel ? `Controlled run <small class="work-meta work-run-identifier">${esc(runLabel[1].slice(0, 8))}</small>` : esc(selected.title);
-    return `<section class="work-workspace work-detail-only" data-selected-work="${esc(selected.key)}"><header class="work-task-header"><div class="work-task-navigation">${back}<span class="work-meta">${esc(selected.kind)} · ${esc(selected.host || 'Host not linked')}</span><button type="button" data-work-switch>Switch task</button><button type="button" data-work-previous${rows.findIndex(e => e.key === selected.key) > 0 ? '' : ' disabled'} aria-label="Previous task in current filter">Previous</button><button type="button" data-work-next${rows.findIndex(e => e.key === selected.key) >= 0 && rows.findIndex(e => e.key === selected.key) < rows.length - 1 ? '' : ' disabled'} aria-label="Next task in current filter">Next</button></div><h2>${title}</h2><p>${esc(phaseLabel(selected))}</p></header>${tabs}${feedback}${tab === 'overview' ? '' : observation}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section>`;
+    return `<section class="work-workspace work-detail-only" data-selected-work="${esc(selected.key)}" data-observation-scope="${esc(JSON.stringify([options.observationProject || data.projectId || null, selected.key]))}"><header class="work-task-header"><div class="work-task-navigation">${back}<span class="work-meta">${esc(selected.kind)} · ${esc(selected.host || 'Host not linked')}</span><button type="button" data-work-switch>Switch task</button><button type="button" data-work-previous${rows.findIndex(e => e.key === selected.key) > 0 ? '' : ' disabled'} aria-label="Previous task in current filter">Previous</button><button type="button" data-work-next${rows.findIndex(e => e.key === selected.key) >= 0 && rows.findIndex(e => e.key === selected.key) < rows.length - 1 ? '' : ' disabled'} aria-label="Next task in current filter">Next</button></div><h2>${title}</h2><p>${esc(phaseLabel(selected))}</p></header>${tabs}${feedback}${tab === 'overview' ? '' : observation}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section>`;
   }
   function renderEvidence(sections) {
     if (!Array.isArray(sections)) return '';
@@ -344,6 +445,25 @@
     const dialog = makeWorkDialog('work-node-inspector', 'Recorded node details', opener, '<p class="work-meta">Recorded inputs, not proof of correctness, current activity or acceptance.</p>' + content, false);
     dialog.querySelector('summary')?.focus();
   }
+  async function nextObservationPage(button) {
+    const project = config.project(), entryKey = selectedKey, oldSnapshot = snapshot;
+    try {
+      const binding = JSON.parse(button.dataset.hostGraphNext), query = new URLSearchParams({ host: binding.host, session: binding.sessionId, run: binding.runId, cursor: binding.cursor });
+      if (project) query.set('project', project);
+      button.disabled = true;
+      const page = await config.read('/api/host-graph?' + query.toString());
+      if (project !== config.project() || entryKey !== selectedKey || snapshot !== oldSnapshot) return;
+      if (!page || page.error || page.source !== 'host-observation') throw Error('unavailable');
+      const entry = snapshot.entries.find(e => e.key === entryKey), graphs = [entry?.execution?.graph, ...(entry?.execution?.observations || [])];
+      const graph = graphs.find(g => g?.binding?.sessionId === binding.sessionId && g?.binding?.host === binding.host && g?.binding?.runId === binding.runId);
+      if (!graph) throw Error('unavailable');
+      Object.assign(graph, page); paint();
+      status(`Observation page loaded: ${page.nodes?.length || 0} recorded nodes.`);
+      const first = page.nodes?.[0]?.id;
+      if (first) [...document.querySelectorAll('[data-graph-node]')].find(node => node.dataset.graphNode === first)?.focus();
+    } catch { status('Observation page is unavailable. Refresh the selected project and retry.'); }
+    finally { if (button.isConnected) button.disabled = false; }
+  }
   async function refresh() {
     const seq = ++generation, project = config.project();
     try {
@@ -362,6 +482,9 @@
   function paint() {
     if (!snapshot || (config?.canvas && snapshotProject !== config.project())) return;
     previews.clear(); // Repaint removes the reviewed diff and its confirmation controls.
+    const oldWorkspace = document.querySelector?.('[data-observation-scope]');
+    const sameObservationScope = oldWorkspace?.dataset.observationScope === JSON.stringify([snapshotProject, selectedKey]);
+    const expandedHosts = sameObservationScope ? [...oldWorkspace.querySelectorAll('[data-observation-key][open]')].slice(0, 16).map(detail => detail.dataset.observationKey).filter(key => typeof key === 'string' && key.length <= 1024) : [];
     const expanded = [...document.querySelectorAll('.work-card details[open]')].map(d => `${d.closest('[data-entry-key]').dataset.entryKey}:${d.dataset.workDetail}`);
     const focused = document.activeElement;
     const focusKey = focused?.dataset?.workKey, focusAction = focused?.dataset?.workAction;
@@ -370,12 +493,13 @@
     const oldCanvas = config.canvas ? document.querySelector?.('.execution-graph-canvas') : null;
     const oldSvg = oldCanvas?.querySelector('svg'), oldZoom = oldSvg ? Number(oldSvg.dataset.zoom || 1) : 1;
     const graphScroll = oldCanvas?.closest('[data-selected-work]')?.dataset.selectedWork === selectedKey && oldSvg?.dataset.graphLayout === graphDirection ? { left: oldCanvas.scrollLeft, top: oldCanvas.scrollTop } : null;
-    document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab, canvas: !!config.canvas, direction: graphDirection });
+    document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab, canvas: !!config.canvas, direction: graphDirection, observationProject: snapshotProject });
     document.getElementById('history-list').innerHTML = render(snapshot, true, filter);
     if (graphScroll) {
       const canvas = document.querySelector?.('.execution-graph-canvas'), svg = canvas?.querySelector('svg');
       if (svg && Number.isFinite(oldZoom) && oldZoom > 0) { const bounds = svg.viewBox.baseVal; svg.dataset.zoom = String(oldZoom); svg.setAttribute('width', String(bounds.width * oldZoom)); svg.setAttribute('height', String(bounds.height * oldZoom)); canvas.scrollLeft = graphScroll.left; canvas.scrollTop = graphScroll.top; }
     }
+    for (const detail of document.querySelectorAll('[data-observation-key]')) if (expandedHosts.includes(detail.dataset.observationKey)) detail.open = true;
     for (const card of document.querySelectorAll('[data-entry-key]')) for (const detail of card.querySelectorAll('details'))
       if (expanded.includes(`${card.dataset.entryKey}:${detail.dataset.workDetail}`)) detail.open = true;
     if (focusKey) [...document.querySelectorAll('[data-work-key]')].find(b => b.dataset.workKey === focusKey && b.dataset.workAction === focusAction)?.focus();
@@ -409,6 +533,8 @@
     });
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
       if (config.canvas && snapshotProject !== config.project()) return;
+      const pageButton = event.target.closest('[data-host-graph-next]');
+      if (pageButton?.dataset.hostGraphNext) { nextObservationPage(pageButton); return; }
       if (graphInteraction(event.target)) return;
       if (!snapshot || (config.canvas && snapshotProject !== config.project())) return;
       if (config.canvas) {
@@ -438,7 +564,9 @@
     });
     document.getElementById('work-list').addEventListener('keydown', event => {
       if (config.canvas && snapshotProject !== config.project()) return;
-      if (['Enter', ' '].includes(event.key) && event.target.closest('[data-graph-node]')) { event.preventDefault(); graphInteraction(event.target); return; }
+      const graphFind = event.target.closest('[data-graph-find]');
+      if (event.key === 'Enter' && graphFind?.dataset.graphFind === 'query') { event.preventDefault(); focusGraphMatch(graphFind.closest('.execution-graph'), graphFind.value); return; }
+      if (['Enter', ' '].includes(event.key) && event.target.closest('[data-graph-node]')?.dataset.graphNode) { event.preventDefault(); graphInteraction(event.target); return; }
       const button = event.target.closest('[data-work-tab]');
       if (!button || !['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       const tabs = ['overview', 'execution', 'evidence'], current = tabs.indexOf(button.dataset.workTab);

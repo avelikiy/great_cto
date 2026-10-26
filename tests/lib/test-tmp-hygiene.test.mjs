@@ -30,7 +30,6 @@ const KNOWN_LEAKERS = new Set([
   'packages/cli/tests/codex-adapt-claims.test.mjs',
   'packages/cli/tests/overlay.test.mjs',
   'packages/cli/tests/telemetry.test.mjs',
-  'packages/cli/tests/upgrade.test.mjs',
   'tests/eval/agent-changelog.test.mjs',
   'tests/eval/eval-gate.test.mjs',
   'tests/eval/guards.test.mjs',

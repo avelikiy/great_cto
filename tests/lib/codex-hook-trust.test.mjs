@@ -34,6 +34,11 @@ test('the keys follow from the hooks file, in the measured format', () => {
   assert.deepEqual(KEYS(), [
     'great-cto@great-cto:.codex-plugin/hooks.json:pre_tool_use:0:0',
     'great-cto@great-cto:.codex-plugin/hooks.json:pre_tool_use:1:0',
+    'great-cto@great-cto:.codex-plugin/hooks.json:pre_tool_use:2:0',
+    'great-cto@great-cto:.codex-plugin/hooks.json:session_start:0:0',
+    'great-cto@great-cto:.codex-plugin/hooks.json:stop:0:0',
+    'great-cto@great-cto:.codex-plugin/hooks.json:post_tool_use:0:0',
+    'great-cto@great-cto:.codex-plugin/hooks.json:user_prompt_submit:0:0',
   ]);
   assert.deepEqual(expectedKeys({ hooks: { PostToolUse: [{ hooks: [{}, {}] }] } }, 'p@m', 'codex/hooks.json'), ['p@m:codex/hooks.json:post_tool_use:0:0', 'p@m:codex/hooks.json:post_tool_use:0:1']);
 });

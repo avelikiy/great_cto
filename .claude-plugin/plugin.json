@@ -1,7 +1,7 @@
 {
   "name": "great-cto",
   "description": "You already have the agent. This is everything around it. great_cto runs Claude Code as a pipeline of 72 specialist agents \u2014 an independent model checks each stage before the next builds on it, spending caps refuse rather than warn, and three decisions stay yours: what gets built, how, and whether it ships.",
-  "version": "3.70.1",
+  "version": "3.71.1",
   "author": {
     "name": "Alexander Velikiy",
     "url": "https://hashnode.com/@Greatcto"
@@ -88,6 +88,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+          }
+        ]
       }
     ],
     "PreCompact": [
@@ -120,6 +130,16 @@
             "statusMessage": "Loading orchestrator contract..."
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+          }
+        ]
       }
     ],
     "SubagentStop": [
@@ -136,6 +156,16 @@
             "type": "command",
             "async": true,
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; node \"${CLAUDE_PLUGIN_ROOT}/scripts/hooks/turn-snapshot.mjs\" 2>/dev/null || true"
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -206,6 +236,16 @@
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/lesson-tripwire.mjs\" 2>/dev/null; exit 0",
             "timeout": 5,
             "statusMessage": "Checking recorded lessons..."
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -293,6 +333,16 @@
             "statusMessage": "Computing next pipeline stage..."
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+          }
+        ]
       }
     ],
     "SessionEnd": [
@@ -309,6 +359,16 @@
             "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -336,6 +396,16 @@
             "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
             "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }
@@ -384,6 +454,16 @@
             "timeout": 5
           }
         ]
+      },
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
+          }
+        ]
       }
     ],
     "Notification": [
@@ -394,6 +474,18 @@
             "type": "command",
             "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,\"/\"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}; node \"${PLUGIN_DIR}/scripts/hooks/session-status.mjs\" 2>/dev/null; true",
             "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUseFailure": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 5,
+            "command": "_gd=\"$PWD\"; while [ -n \"$_gd\" ] && { [ \"$_gd\" = \"$HOME\" ] || [ ! -f \"$_gd/.great_cto/PROJECT.md\" ]; }; do _gd=\"${_gd%/*}\"; done; [ -n \"$_gd\" ] && cd \"$_gd\"; [ -d \"${GREAT_CTO_GRAPH_BINDINGS_DIR:-$HOME/.great_cto/graph-bindings}\" ] || exit 0; _pd=\"${CLAUDE_PLUGIN_ROOT:-${PLUGIN_ROOT:-}}\"; [ -n \"$_pd\" ] || exit 0; GREAT_CTO_HOST=claude-code node \"$_pd/scripts/hooks/host-graph-observer.mjs\""
           }
         ]
       }

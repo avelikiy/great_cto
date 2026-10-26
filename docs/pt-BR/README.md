@@ -30,6 +30,12 @@ npx great-cto init
 
 great_cto coordena fluxos nativos do Claude Code e execuções controladas experimentais do Codex com etapas, revisões e gates explícitos. O painel local conecta tarefas, execução registrada, documentos e consumo. O catálogo público tem **72** agentes; a presença no catálogo não prova execução nem especialização. Evidência ausente continua desconhecida. Merge, release e deploy precisam de evidências e autorizações próprias. Você paga seu provedor; great_cto usa MIT e não cobra.
 
+**Limite da distribuição verificada (ADR-045):** os artefatos assinados são validados antes de qualquer ativação. A autoatualização de uma instalação npm global convencional só é suportada com um verificador autenticado de forma independente e configurado separadamente, além do conjunto completo de artefatos assinados da versão. O pacote local admitido é instalado offline, com os scripts de ciclo de vida desabilitados; um checkout do código ou uma sessão de plugin existente não comprova uma atualização verificada.
+
+Atualmente, `init`, a atualização nativa de plugins e a instalação automática de componentes adicionais recusam a ativação. A adaptação do Codex por `adapt` gera apenas comentários: não baixa arquivos nem ativa hooks ou uma rota de execução MCP. Também não há suporte para habilitar o temporizador de atualização do macOS. Os temporizadores existentes continuam executando o cache anterior até que uma migração explicitamente autorizada os altere.
+
+Os exemplos de instalação, plugins e temporizadores abaixo descrevem **LEGACY 3.70.1**. Eles não prometem uma rota de ativação disponível atualmente. Consulte as [atualizações verificadas](../reference/verified-updates.md).
+
 ## Início rápido
 
 ```bash

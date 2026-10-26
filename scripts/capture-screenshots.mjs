@@ -72,7 +72,9 @@ async function waitForBoard(url, timeoutMs = 60_000) {
 }
 
 async function main() {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-capture-'));
+  // macOS /var is a symlink. Use the real temporary root so the private
+  // enrollment reader can retain its fail-closed ancestor-symlink checks.
+  const tmp = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-capture-')));
   const projectRoot = path.join(tmp, 'acme-storefront');
   const fakeHome = path.join(tmp, 'home');
   fs.mkdirSync(projectRoot, { recursive: true });
@@ -186,6 +188,8 @@ async function main() {
       // this view" from v3.28 to v3.36 because the fixture HOME had no agents.
       const empty = await page.evaluate(() => /No agents match this view|Nothing here yet/.test(document.body.innerText));
       if (empty) throw new Error(`the ${shot.tab} panel is empty in the fixture, so ${shot.file} would ship a blank screen`);
+      const warning = await page.locator('#project-fallback-banner:visible, .degraded-banner:visible, .work-warning:visible').first();
+      if (await warning.count()) throw new Error(`the ${shot.tab} panel reports a source error: ${(await warning.innerText()).replace(/\s+/g, ' ').trim()}`);
       const raw = await page.screenshot({ type: 'png' });
       const stamped = [
         ['great_cto.version', version],

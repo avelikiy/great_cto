@@ -13,6 +13,7 @@
  *   available   version, auth mode and the model it will run, read from disk
  */
 import { spawn, spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -115,6 +116,7 @@ export function runCodexExec({
   sandbox = 'read-only', ephemeral = true, extraArgs = [], onEvent = null,
 }) {
   return new Promise((resolve) => {
+    const deadline = performance.now() + timeoutMs;
     const args = ['exec', '--json', '--skip-git-repo-check'];
     if (sandbox) args.push('-s', sandbox);
     if (ephemeral) args.push('--ephemeral');
@@ -139,24 +141,41 @@ export function runCodexExec({
     };
     const timer = setTimeout(() => { timedOut = true; killGroup(); }, timeoutMs);
 
-    // Each JSON event is handed to onEvent as it arrives, so a watcher sees a tool
-    // call while the run is still going. A listener that throws is its own bug:
-    // it must not fail the run, and the final parse below is unchanged.
-    let pending = '';
-    proc.stdout.on('data', (b) => {
-      const chunk = String(b);
-      out += chunk;
-      if (typeof onEvent !== 'function') return;
-      pending += chunk;
-      let nl;
-      while ((nl = pending.indexOf('\n')) >= 0) {
-        const line = pending.slice(0, nl).trim();
-        pending = pending.slice(nl + 1);
-        if (!line.startsWith('{')) continue;
-        let ev;
-        try { ev = JSON.parse(line); } catch { continue; }
-        try { onEvent(ev); } catch { /* a failing listener must not fail the run */ }
+    // Observation failures remain separate from the final execution parser.
+    const observing = typeof onEvent === 'function';
+    let observationHealth = 'ok', pending = '', dropping = false;
+    const observationLimit = 1024 * 1024;
+    const observeLine = line => {
+      const text = line.trim();
+      if (!text.startsWith('{') && !text.startsWith('[')) return;
+      try {
+        const event = JSON.parse(text);
+        if (!event || typeof event !== 'object' || Array.isArray(event)) { observationHealth = 'degraded'; return; }
+        const result = onEvent(event);
+        if (result && typeof result.then === 'function') {
+          observationHealth = 'degraded'; Promise.resolve(result).catch(() => {});
+        }
+      } catch { observationHealth = 'degraded'; }
+    };
+    const observeChunk = chunk => {
+      let offset = 0;
+      while (offset < chunk.length) {
+        const newline = chunk.indexOf('\n', offset), end = newline < 0 ? chunk.length : newline;
+        if (!dropping) {
+          const part = chunk.slice(offset, end);
+          if (Buffer.byteLength(pending, 'utf8') + Buffer.byteLength(part, 'utf8') > observationLimit) {
+            pending = ''; dropping = true; observationHealth = 'degraded';
+          } else pending += part;
+        }
+        if (newline < 0) break;
+        if (!dropping) observeLine(pending);
+        pending = ''; dropping = false; offset = newline + 1;
       }
+    };
+    proc.stdout.setEncoding('utf8');
+    proc.stdout.on('data', chunk => {
+      out += chunk;
+      if (observing) observeChunk(chunk);
     });
     proc.stderr.on('data', (b) => { err += String(b); });
     const inputFailed = error => {
@@ -174,6 +193,7 @@ export function runCodexExec({
       clearTimeout(timer);
       // Best effort: a child the CLI left behind must not outlive the review.
       if (group && proc.pid) { try { process.kill(-proc.pid, 'SIGKILL'); } catch { /* group already gone */ } }
+      if (observing && pending && !dropping) observeLine(pending);
       const parsed = parseCodexStream(out);
       // stderr is kept even on success: Codex writes warnings there that change
       // how a result should be read.
@@ -188,11 +208,15 @@ export function runCodexExec({
       }
       // A run cut off by the clock may have printed a verdict before it was done.
       // That is a truncated answer, and a truncated answer is not an answer.
+      const returnedAfterDeadline = performance.now() >= deadline;
+      if (returnedAfterDeadline && !timedOut) parsed.text = null;
+      if (returnedAfterDeadline) timedOut = true;
       if (timedOut) {
+        parsed.finalText = null;
         parsed.errors.push(`timed out after ${timeoutMs}ms`);
         if (parsed.state === 'ok') parsed.state = 'unreadable';
       }
-      resolve({ ...parsed, code, model, timedOut });
+      resolve({ ...parsed, code, model, timedOut, ...(observing ? { observationHealth } : {}) });
     });
 
     try { proc.stdin.end(prompt); } catch (error) { inputFailed(error); }
