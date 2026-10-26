@@ -85,7 +85,7 @@ GATES=$(node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCH
 
 ### Overrides
 
-- MANDATORY security archetypes (`ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`): minimum `strict` regardless of setting
+- Regulated archetypes (`ai-system`, `agent-product`, `commerce`, `web3`, `iot-embedded`, `regulated`, `fintech`, `healthcare`, `insurance`, `legal`, `gov-public`, `defense-govcon`) keep gate:security + gate:compliance + gate:ship at every level, `auto` included. The floor adds no gate:code — choose `strict` for that. The set is `REGULATED_ARCHETYPES` in `scripts/lib/approval-level.mjs`; this line is held to it by a test. (The narrower mandatory-security list in ARCHETYPES.md sets the security-officer tier and size floor, not these gates.)
 - `min-size: enterprise` types from TYPE_MAP.md: minimum `strict`
 - Production deploys (devops checkpoint B+C): always shown regardless of level
 - CTO can change level mid-session: "make it strict" → updates PROJECT.md
