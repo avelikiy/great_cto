@@ -76,3 +76,22 @@ test('CLI accepts only canonical decimal safe resume IDs before reading syntheti
   assert.throws(()=>execFileSync(process.execPath,['--require',preload,entry,...flags,'--resume-release-id','77'],{stdio:'pipe',env:{PATH:'/usr/bin:/bin'},timeout:10000}));
   assert.equal(fs.existsSync(marker),true,'canonical ID reaches validation with only synthetic credentials');
 });
+
+test('npm metadata negotiates JSON while tarball remains binary and unauthenticated',async t=>{
+  const f=fixture(t),s=server(f),registryCalls=[];
+  const fetchFn=async(url,opts)=>{
+    if(new URL(url).origin==='https://registry.npmjs.org'){
+      const headers=new Headers(opts.headers),archive=new URL(url).pathname.endsWith('.tgz');
+      registryCalls.push({archive,headers,method:opts.method});
+      assert.equal(headers.has('authorization'),false);
+      if(!archive&&headers.get('accept')!=='application/json')return new Response('Not Acceptable',{status:406});
+      if(archive)assert.equal(headers.get('accept'),'application/octet-stream');
+    }
+    return s.fetchFn(url,opts);
+  };
+  const result=await publishLocalGitHubRelease(f.options,{run:f.run,fetchFn});
+  assert.equal(result.authority,'NONE');
+  assert.ok(registryCalls.some(c=>!c.archive));assert.ok(registryCalls.some(c=>c.archive));
+  for(const c of registryCalls){assert.equal(c.method,'GET');assert.equal(c.headers.get('accept'),c.archive?'application/octet-stream':'application/json');}
+  assert.equal(s.state.assets.size,10);assert.equal(s.state.downloads.size,10);
+});

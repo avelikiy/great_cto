@@ -96,7 +96,7 @@ export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchF
     if(u.protocol!=='https:' || u.username || u.password || u.port || u.hash)throw Error('publisher endpoint refused');
     if(auth && ![API, 'https://uploads.github.com'].includes(u.origin))throw Error('credential origin refused');
     // Upload bodies are binary, but GitHub returns JSON asset metadata.
-    const headers={accept:binary&&method==='GET'?'application/octet-stream':'application/vnd.github+json','accept-encoding':'identity'};
+    const headers={accept:binary&&method==='GET'?'application/octet-stream':u.origin==='https://registry.npmjs.org'?'application/json':'application/vnd.github+json','accept-encoding':'identity'};
     if(auth){headers.authorization=authorization;headers['X-GitHub-Api-Version']='2022-11-28';}
     if(body!==undefined)headers['content-type']=binary?'application/octet-stream':'application/json';
     try{return await fetchFn(url,{method,redirect:'manual',signal:AbortSignal.timeout(180000),headers,...(body===undefined?{}:{body:binary?body:JSON.stringify(body)})});}

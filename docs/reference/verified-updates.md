@@ -159,6 +159,7 @@ decimal safe integer. The returned ID, owner, tag and approved commit must match
 a 404 or mismatch refuses before uploads and never creates a replacement draft.
 Uploads request JSON metadata while sending the original octet-stream body;
 binary downloads continue to request octet-stream responses.
+Public npm metadata requests use `application/json`, not GitHub's vendor media type.
 GitHub REST cannot atomically compare the complete asset set and publish it;
 another authorized writer can race those requests. The client detects observed
 drift and verifies before and after publication, but assumes other authorized
