@@ -670,7 +670,7 @@ Observations (signal < 2 or no direct evidence): record in a separate `## Observ
    the pipeline dispatcher and the board parse this line):
    ```bash
    bash scripts/log-verdict.sh security-officer <APPROVED|BLOCKED> auto \
-     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug> need=<implementer|decision> finding=<id>
+     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug> report=docs/security/CSO-<YYYY-MM-DD>.md need=<implementer|decision> finding=<id>
    ```
    On BLOCKED, `need` mirrors the report's `need` line: `implementer` for
    "senior-dev fix <finding>", `decision` for "CTO waive risk on <finding>".
