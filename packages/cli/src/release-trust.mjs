@@ -196,7 +196,7 @@ export function getAdmittedArtifact(ticket, kind) {
 }
 function artifactBytes(ticket, kind) { const a = getAdmittedArtifact(ticket, kind); const bytes = readRegular(a.path, a.size).bytes; if (sha(bytes) !== a.sha256) throw Error('artifact digest changed'); return bytes; }
 function required(files, names) { const paths = new Set(files.map(f => f.path)); for (const name of names) if (!paths.has(name)) throw Error(`runtime archive missing ${name}`); }
-function relativeImports(files) {
+export function inspectRuntimeImportReferences(files) {
   const paths = new Set(files.map(f => f.path));
   for (const file of files) {
     if (!/\.(?:mjs|js|cjs)$/.test(file.path)) continue;
@@ -224,7 +224,7 @@ export function inspectNpmPayload(ticket) {
   }
   if (files.some(f => /^(?:npm-shrinkwrap\.json|package-lock\.json)$/.test(f.path))) throw Error('npm dependency lockfile closure is unsupported');
   for (const key of ['man', 'workspaces']) if (Object.hasOwn(pkg, key) && (!Array.isArray(pkg[key]) || pkg[key].length)) throw Error('additional npm install targets are unsupported');
-  relativeImports(files);
+  inspectRuntimeImportReferences(files);
   return { version, files };
 }
 
@@ -259,7 +259,7 @@ export function inspectPluginManifestReferences(files) {
 }
 
 export function inspectPluginPayload(ticket) {
-  const { version } = getAdmissionInfo(ticket), files = inspectReleaseArchive(artifactBytes(ticket, 'plugin'));
+  const { version } = getAdmissionInfo(ticket), files = inspectReleaseArchive(artifactBytes(ticket, 'plugin'), { prefix: 'plugin' });
   required(files, ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'packages/cli/dist/main.js', 'packages/cli/index.mjs', 'packages/board/server.mjs']);
   const inventory = parseStrictReleaseIndex(artifactBytes(ticket, 'inventory').toString('utf8'), { maxBytes: RELEASE_TRUST_LIMITS.inventory });
   exact(inventory, ['schema', 'version', 'files'], 'plugin inventory');
@@ -276,6 +276,6 @@ export function inspectPluginPayload(ticket) {
     if (manifest.name !== expected || manifest.version !== version) throw Error('plugin manifest identity mismatch');
   }
   inspectPluginManifestReferences(files);
-  relativeImports(files);
+  inspectRuntimeImportReferences(files);
   return { version, files };
 }

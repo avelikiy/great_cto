@@ -9,7 +9,7 @@ import { validateReleaseIndex, parseStrictReleaseIndex, admitRelease, getAdmissi
 
 const digest = (bytes, kind = 'sha256') => createHash(kind).update(bytes).digest('hex');
 const version = '3.71.0', commit = 'a'.repeat(40), tree = 'b'.repeat(40);
-function fixture(t, { dependencies = {}, pluginExtra = false, packageFields = {}, npmImport = null, npmSource = null, claudeFields = {}, codexFields = {}, pluginMembers = [] } = {}) {
+function fixture(t, { dependencies = {}, pluginExtra = false, packageFields = {}, npmImport = null, npmSource = null, claudeFields = {}, codexFields = {}, pluginMembers = [], pluginPrefix = 'plugin' } = {}) {
   const base = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-admission-')));
   t.after(() => fs.rmSync(base, { recursive: true, force: true }));
   const directory = path.join(base, 'stage'); fs.mkdirSync(directory, { mode: 0o700 });
@@ -25,7 +25,7 @@ function fixture(t, { dependencies = {}, pluginExtra = false, packageFields = {}
   for (const name of pluginMembers) pluginFiles.push({ path: name, bytes: Buffer.from('// public inert fixture'), mode: 0o644 });
   const inventory = { schema: 1, version, files: pluginFiles.map(f => ({ path: f.path, size: f.bytes.length, sha256: digest(f.bytes), mode: f.mode })).sort((a, b) => a.path.localeCompare(b.path)) };
   if (pluginExtra) pluginFiles.push({ path: 'extra.mjs', bytes: Buffer.from('// unexpected'), mode: 0o644 });
-  const blobs = { npm: [`great-cto-${version}.tgz`, encodeReleaseArchive(npmFiles)], plugin: [`great-cto-plugin-${version}.tgz`, encodeReleaseArchive(pluginFiles)], inventory: ['plugin-inventory.json', Buffer.from(JSON.stringify(inventory))], sbom: ['sbom.cdx.json', Buffer.from('{"bomFormat":"CycloneDX"}')] };
+  const blobs = { npm: [`great-cto-${version}.tgz`, encodeReleaseArchive(npmFiles)], plugin: [`great-cto-plugin-${version}.tgz`, encodeReleaseArchive(pluginFiles, { prefix: pluginPrefix })], inventory: ['plugin-inventory.json', Buffer.from(JSON.stringify(inventory))], sbom: ['sbom.cdx.json', Buffer.from('{"bomFormat":"CycloneDX"}')] };
   const index = { schema: 1, package: 'great-cto', version, source: { repository: 'avelikiy/great_cto', commit, tree, tag: `v${version}` }, publisher: { workflow: '.github/workflows/publish.yml' }, artifacts: Object.entries(blobs).map(([kind, [filename, bytes]]) => ({ kind, filename, size: bytes.length, sha256: digest(bytes), sha512: digest(bytes, 'sha512') })) };
   for (const [, [name, bytes]] of Object.entries(blobs)) { fs.writeFileSync(path.join(directory, name), bytes, { mode: 0o600 }); fs.writeFileSync(path.join(directory, name + '.sigstore.json'), '{}', { mode: 0o600 }); }
   fs.writeFileSync(path.join(directory, 'release-index.json'), JSON.stringify(index), { mode: 0o600 });
@@ -38,6 +38,11 @@ function fixture(t, { dependencies = {}, pluginExtra = false, packageFields = {}
 
 test('strict JSON rejects duplicate decoded keys, deep nesting and non-JSON primitives', () => {
   for (const text of ['{"a":1,"a":2}', '{"a":1,"\\u0061":2}', '{"__proto__":{}}', 'NaN', '{"x":1,}', '['.repeat(34) + '0' + ']'.repeat(34)]) assert.throws(() => parseStrictReleaseIndex(text), /JSON|duplicate|key|depth|schema|object/);
+});
+
+test('plugin content uses the producer plugin root and refuses an npm package root', t => {
+  const f = fixture(t, { pluginPrefix: 'package' });
+  assert.throws(() => admitRelease(f.opts, { run: f.run }), /archive path root prefix mismatch/);
 });
 
 test('signed inventory is insufficient when manifest agent, type or Codex runtime references are missing', t => {

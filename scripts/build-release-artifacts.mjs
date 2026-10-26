@@ -18,10 +18,11 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
   const parts = name.split('/');
   if (parts.some(p => !p || p === '.' || p === '..' || /^(?:node_modules|\.git|\.beads|\.great_cto|\.codex|\.claude|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(p) || /^\.env(?:$|\.)/.test(p))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;
-  if (['LICENSE', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', '.codex-plugin/plugin.json', '.codex-plugin/mcp.json', '.codex-plugin/hooks.json', '.agents/plugins/marketplace.json', 'packages/cli/index.mjs', 'packages/cli/package.json'].includes(name)) return true;
+  if (['packages/cli/src/state-home.mjs','packages/cli/src/private-state.mjs','LICENSE', '.claude-plugin/plugin.json', '.claude-plugin/marketplace.json', '.codex-plugin/plugin.json', '.codex-plugin/mcp.json', '.codex-plugin/hooks.json', '.agents/plugins/marketplace.json', 'packages/cli/index.mjs', 'packages/cli/package.json'].includes(name)) return true;
   if (parts.some(p => p.startsWith('.'))) return false;
   return /^(?:agents|agents-full|types|hooks|commands|skills|shared|scripts|assets|mcp-servers)\//.test(name) || /^packages\/board\//.test(name);
 }
@@ -170,6 +171,8 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
     if (!packedDist.find(x=>x.path===name.slice('packages/cli/'.length))?.bytes.equals(bytes)) throw Error('npm and plugin compiled runtime bytes differ');
     snapshot.push({path:name,bytes,mode:0o644});
   }
+  const {inspectRuntimeImportReferences}=await import('../packages/cli/src/release-trust.mjs');
+  inspectRuntimeImportReferences(snapshot);
   snapshot.sort((a,b)=>a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   if (snapshot.length > MAX_FILES || new Set(snapshot.map(x=>x.path)).size !== snapshot.length || snapshot.reduce((n,x)=>n+x.bytes.length,0)>MAX_TOTAL) throw Error('runtime inventory exceeds bounds or duplicates files');
   for (const name of ['LICENSE','.claude-plugin/plugin.json','.codex-plugin/plugin.json','.codex-plugin/mcp.json','.agents/plugins/marketplace.json','skills/great_cto/SKILL.md','mcp-servers/llm-router/server.py','packages/board/server.mjs','packages/cli/index.mjs']) if (!snapshot.some(x=>x.path===name)) throw Error('required plugin runtime missing');

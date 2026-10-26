@@ -141,6 +141,14 @@ function buildFixture(t,{packExtra=[],packVersion=version,sourceDependency=false
     'mcp-servers/llm-router/tests/private.test.py':'not runtime',
     'packages/cli/index.mjs':'#!/usr/bin/env node\n',
     'packages/cli/src/main.ts':'export {};',
+    'packages/cli/src/state-home.mjs':'export const stateHome = () => null;',
+    'packages/cli/src/private-state.mjs':'export const readPrivateState = () => null;',
+    'packages/board/lib/config.mjs':"import {stateHome} from '../../cli/src/state-home.mjs';",
+    'packages/board/push-adapter.mjs':"import {readPrivateState} from '../cli/src/private-state.mjs';",
+    'scripts/build-release-artifacts.mjs':"import '../packages/cli/src/release-archive.mjs';",
+    'scripts/sign-release-artifacts.mjs':'export {};',
+    'scripts/judge-calibrate.mjs':"import '../tests/eval/runner.mjs';",
+    'scripts/lib/prompt-size.mjs':"import '../../tests/eval/runner.mjs';",
     'packages/cli/scripts/bundle-board.mjs':'// trusted build fixture',
     'packages/cli/package.json':JSON.stringify({name:'great-cto',version,...(sourceDependency?{dependencies:{unadmitted:'1.0.0'}}:{})}),
     'docs/private-report.md':'not a runtime artifact',
@@ -325,4 +333,17 @@ test('source-only self-test forwards actual test results without release operati
     const passed=spawnSync(process.execPath,[script,'--self-test'],{encoding:'utf8',timeout:30000});assert.equal(passed.status,0);assert.match(passed.stdout,/# pass 1/);
     assert.doesNotMatch(passed.stdout+passed.stderr,/PREPARED|SIGNED_AND_VERIFIED|release signing refused/);
   }
+});
+
+
+test('plugin delivers only the two approved public source helpers and excludes source-only tooling', async t => {
+  const f=buildFixture(t);await buildReleaseArtifacts(f);
+  const entries=inspectReleaseArchive(fs.readFileSync(path.join(f.directory,`great-cto-plugin-${version}.tgz`)),{prefix:'plugin'});const paths=new Set(entries.map(x=>x.path));
+  for(const name of ['packages/cli/src/state-home.mjs','packages/cli/src/private-state.mjs'])assert(paths.has(name),name);
+  for(const name of ['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs','packages/cli/src/main.ts','tests/eval/runner.mjs'])assert.equal(paths.has(name),false,name);
+});
+
+test('builder refuses a final snapshot whose relative runtime import targets omitted test sources', async t => {
+  const f=buildFixture(t);fs.writeFileSync(path.join(f.source,'scripts/runtime.mjs'),"import '../tests/eval/runner.mjs';");f.git(['add','.']);f.git(['commit','--quiet','-m','synthetic missing runtime import']);
+  await assert.rejects(buildReleaseArtifacts(f),/runtime import missing/);
 });

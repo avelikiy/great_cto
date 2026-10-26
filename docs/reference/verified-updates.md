@@ -22,6 +22,8 @@ Volta, pnpm, native marketplace activation and automatic companion installation
 are unsupported until their own executable-byte and recovery contracts pass.
 The CLI refuses these routes before clone, cache removal, settings changes or
 host execution. Existing plugin sessions are not proof of a verified update.
+Source-only release and eval-development tools require the repository checkout;
+they are excluded from the plugin runtime rather than bundling test fixtures.
 
 ## Operator toolchain
 
