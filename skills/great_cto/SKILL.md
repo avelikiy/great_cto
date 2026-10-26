@@ -157,9 +157,6 @@ The worker must not need to re-read the conversation to understand the task.
 ## Structured Findings Format
 
 Moved to `skills/great_cto/reference/findings-format.md` — read it when you need it.
-It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
-request and this is reference an agent consults while working, not something
-the orchestrator needs to choose one.
 
 ## Review Summary
 
@@ -193,16 +190,10 @@ This ensures `bd` and `ARCHETYPES_MD` are available to all subsequent commands.
 ## Session Start
 
 Moved to `skills/great_cto/reference/session-start.md` — read it when you need it.
-It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
-request and this is reference an agent consults while working, not something
-the orchestrator needs to choose one.
 
 ## Phase task protocol (every pipeline agent)
 
 Moved to `skills/great_cto/reference/phase-task-protocol.md` — read it when you need it.
-It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
-request and this is reference an agent consults while working, not something
-the orchestrator needs to choose one.
 
 ## Approval Level
 
@@ -223,85 +214,7 @@ APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk
 | `expert` | all gates | 2 per agent (plan + result) | Deep review, new team member, complex feature |
 | `step-by-step` | all gates | every substep | Learning mode, critical systems |
 
-**`product-only`** keeps exactly the two gates
-[ADR-009](../../docs/adr/ADR-009-gates-follow-reversibility.md) calls expensive to
-undo — **what to build** (a wrong answer wastes the whole build) and **shipping**
-(it escapes the machine and reaches users) — and drops architecture. Everything
-between them runs without asking.
-
-**`gates-only` gained `gate:product` on 2026-08-19.** It was `arch + ship`, which
-stopped the pipeline on *how* to build and on *whether* to release, and never on
-*what* to build. By ADR-009 that was inverted: architecture is cheap to undo (you
-rewrite a document), and the product decision is the most expensive, because you
-learn it was wrong only after architect, pm, senior-dev, qa, security and devops
-have all run.
-
-It costs one pause per **product**, not per feature. `product-owner` is a pipeline
-entry point — nothing transitions into it — so it runs only from `/start`;
-`/audit` enters at `project-auditor`, and the request classifier routes both
-SIMPLE and COMPLEX CODE straight to `senior-dev` or `architect`. Set `auto` if you
-want the old unattended behaviour.
-
-The gate set for a level is computed by `scripts/lib/approval-level.mjs`, not
-re-derived per agent:
-
-```bash
-node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE"
-# product-only: pauses at gate:product, gate:ship
-```
-
-**Default is `gates-only`** — CTO approves the product brief, the architecture and the deploy. Agents run without mid-stream checkpoints.
-
-### Checkpoint Pattern (expert / step-by-step only)
-
-**Before action (plan):**
-```
-<agent> planning...
-PLAN: <bullet points>
-Approve? [enter] approve | "<text>" comment | "cancel" abort
-```
-
-**After action (result):**
-```
-<agent> done.
-Artifacts: <list>
-Approve? [enter] next agent | "<text>" revise | "cancel" stop
-```
-
-Comment → agent revises → re-checkpoint. Max 3 rounds per checkpoint.
-
-### How agents read approval-level
-
-```bash
-APPROVAL_LEVEL=$(grep "^approval-level:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); APPROVAL_LEVEL=${APPROVAL_LEVEL:-gates-only}
-case "$APPROVAL_LEVEL" in
-  auto)         SHOW_CHECKPOINTS=false; CREATE_GATES=false ;;
-  product-only) SHOW_CHECKPOINTS=false; CREATE_GATES=true ;;
-  gates-only)   SHOW_CHECKPOINTS=false; CREATE_GATES=true ;;
-  strict)       SHOW_CHECKPOINTS=false; CREATE_GATES=true; GATE_CODE=true ;;
-  expert)       SHOW_CHECKPOINTS=true;  CREATE_GATES=true ;;
-  step-by-step) SHOW_CHECKPOINTS=true;  CREATE_GATES=true; SUBSTEPS=true ;;
-esac
-
-# WHICH gates, not just whether. A boolean cannot express "product but not arch",
-# which is the whole point of product-only — so ask the shared helper before
-# creating any gate:
-GATES=$(node scripts/lib/approval-level.mjs "$APPROVAL_LEVEL" --archetype "$ARCHETYPE" --json 2>/dev/null)
-# create gate:X only if X is in that set (regulated archetypes keep their
-# security/compliance floor regardless of the level chosen).
-```
-
-### Overrides
-
-- MANDATORY security archetypes (`ai-system`, `commerce`, `web3`, `iot-embedded`, `regulated`): minimum `strict` regardless of setting
-- `min-size: enterprise` types from TYPE_MAP.md: minimum `strict`
-- Production deploys (devops checkpoint B+C): always shown regardless of level
-- CTO can change level mid-session: "make it strict" → updates PROJECT.md
-
-### Safety
-
-No auto-proceed on timeouts. Human approval is always required when checkpoint is shown.
-
+Why the levels are what they are, the checkpoint pattern, how agents read the level, overrides and the safety floor: **Read `skills/great_cto/reference/approval-level.md`** before changing a level or creating a gate.
 
 ## Pipeline Version Check
 
@@ -344,25 +257,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 
 ## Pipeline Rule Enforcement (Archetype-Based)
 
-At the start of every pipeline, after loading PROJECT.md, read the archetype to derive pipeline rules:
-
-```bash
-ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
-```
-
-All rules come from ARCHETYPES.md by archetype. No type-specific lookup. Agents read:
-- **QA strategy** → ARCHETYPES.md `## QA Strategy by Archetype` + domain packs for `qa-extras`
-- **Deploy method** → ARCHETYPES.md `## Deploy Method by Archetype`
-- **Security gate** → ARCHETYPES.md archetype table (`mandatory` column) + TYPE_MAP.md Overrides
-- **Compliance checklists** → `compliance:` params in PROJECT.md → domain packs
-- **TDD alternative** → senior-dev reads archetype to pick TDD vs Terratest vs evals-first
-- **Browser QA** → `ai-system`, `data-platform`, `infra` archetypes skip browser QA by default
-
-**Composite types** (primary + secondary): merge rules at archetype level. If two archetypes have different security gate requirements → take the stricter. Threshold = strictest across both.
-
-**Multi-region** — if PROJECT.md has `regions:` with 2+ values:
-- architect includes region deploy ordering in ARCH doc
-- devops deploys to canary region first, then others sequentially
+Every rule comes from `archetype:` in PROJECT.md via ARCHETYPES.md and TYPE_MAP.md (composite types take the stricter rule). Which file holds which rule, and multi-region ordering: **Read `skills/great_cto/reference/archetype-rules.md`** at the start of a pipeline.
 
 ## Fast Path (bugfix / patch)
 
@@ -376,216 +271,21 @@ Tell CTO: "Small change — skipping architecture review."
 
 ## Full Pipeline (new feature)
 
-**Step 0 — Clarify (if needed):** Before brainstorming, check if the CTO's request is clear enough to act on.
+**The stages and their order are the graph** — `shared/pipeline.toml`. After every
+verdict the dispatcher injects PIPELINE-NEXT naming the next stage; follow it, and
+the graph guard (ADR-039) records — or, in `graph-guard: enforce`, refuses — a
+dispatch that skips architecture after a brief or takes an edge whose predecessor
+did not name what it produced.
 
-Clarify needed if ANY of these:
-- Request is ≤5 words with no domain context (e.g. "add payments", "build auth")
-- Request contains contradictory signals (e.g. "serverless but with long-running jobs")
-- It's unclear which component of the system is affected
-- **Type conflict detected** — request keywords match 2+ types with conflicting QA/deploy rules (see conflict pairs below)
+In short: clarify (one question at most, only if unclear) → brainstorm → decision
+brief → `architect` → gate:arch → `pm` → gate:plan → `senior-dev` →
+`code-reviewer` ∥ `qa-engineer` ∥ `security-officer` → gate:ship → `devops` →
+`l3-support` post-deploy window.
 
-**Known type conflict pairs** — if request matches both sides, ask CTO to pick:
-| If request mentions | Ambiguous types | Ask |
-|---|---|---|
-| "REST API" + "tenant isolation" / "multi-tenant" | `rest-api` vs `saas-platform` | "Is this a standalone API or a multi-tenant SaaS product?" |
-| "agent" alone | `ai-agent` vs `ai-agent-framework` | "Building an agent that does tasks, or a framework for building agents?" |
-| "checkout" / "payment" + "shop" / "store" | `payment-service` vs `e-commerce` | "Is this a payment component or a full e-commerce product?" |
-| "data" + "pipeline" + "warehouse" | `data-pipeline` vs `data-warehouse` | "Is this a data ingestion pipeline or a queryable data warehouse?" |
-| "RAG" / "retrieval" + "pipeline" | `rag-system` vs `data-pipeline` | "Is retrieval the product, or a step in a larger data pipeline?" |
-| "auth" + "payment" | `auth-service` vs `payment-service` | "Is auth the primary concern, or is this a payment service that needs auth?" |
-| "web" + "SaaS" | `web-fullstack` vs `saas-platform` | "Is this a web app with tenant isolation, or a general web product?" |
-| "MCP" / "tool server" + "library" | `mcp-server` vs `library-sdk` | "Is this a hosted MCP server or a publishable SDK?" |
-
-If clarify needed → ask **ONE question only** (use the question from the table above, or a custom one):
-> "Before I start architecture: [one specific question that unlocks the rest]"
-
-Do NOT ask if the request is reasonably clear. When in doubt — proceed. Architect will surface gaps.
-
-**Step 0b — Brainstorm:** Explore requirements before architecture. Per host:
-- **Claude Code with superpowers:** invoke `superpowers:brainstorming` skill
-- **Claude Code without superpowers / Codex / Cursor / Aider / Continue:**
-  the architect agent runs an inline 5-question discovery (problem, users,
-  success metric, constraints, non-goals) directly — no external skill needed
-- If Skill tool fails with "Unknown skill" → spawn Agent(general-purpose) with prompt: "Brainstorm requirements for: <feature>. Output: goals, user flows, edge cases, open questions."
-- Output feeds directly into Step 1 — architect reads the brainstorm notes before writing ARCH doc.
-
-**Step 0c — Decision Brief (non-blocking CTO pre-read):** Before spawning architect, compile a 4-line brief in ~5 seconds:
-```bash
-# Risk signals: recent postmortems + retro patterns
-LAST_PM=$(ls docs/postmortems/PM-*.md 2>/dev/null | sort -V | tail -1 | xargs grep -m1 "^#" 2>/dev/null | sed 's/# //')
-RETRO=$(ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -m1 "What slowed down:" 2>/dev/null | sed 's/.*: //')
-# Current load
-OPEN_TASKS=$(bd list --status open 2>/dev/null | grep -c "task" || echo "?")
-# Change surface proxy: files touched in last 30 days
-SCOPE=$(git log --oneline --since="30 days ago" --name-only 2>/dev/null | grep -v "^[a-f0-9]" | sort -u | wc -l | tr -d ' ')
-```
-
-Show to CTO **before** any architecture work:
-```
-Decision Brief — <feature>
-Risk signals: [LAST_PM or "no recent incidents"] | Retro pattern: [RETRO or "none"]
-Current load: [OPEN_TASKS or "Beads not initialized"] open tasks | Change surface: ~[SCOPE or "new repo — no history"] files touched/30d
-Alternatives hint: consider scoping down or buying before building if this touches >20 files
-
-Proceed to architecture? → say "yes", describe changes, or "alternatives first"
-```
-
-**Cold start rules** — if this is a new project (no git history, no ARCH docs, no perf baseline):
-- SCOPE=0 → show "new project — no git history yet" (not misleading "0 files touched")
-- OPEN_TASKS=? → show "Beads not initialized yet" (not "?" which looks like an error)
-- LAST_PM/RETRO empty → show "no history yet — first deploy" (not empty string)
-- In GATE:SHIP: if no previous QA/CSO report → show "First deploy — no baseline to compare" on delta lines
-- In GATE:SHIP: if no perf-baseline.log → show "First deploy — baseline will be set after this deploy"
-
-**This is NOT a gate.** Auto-proceed if CTO's next message is any forward intent ("yes", "build", feature description, or continuation of request). Only pause if CTO explicitly says "alternatives first" or "scope down".
-
-**Step 1 — Architect (opus):** Spawn `great_cto-architect`. Arch doc + ADR + Beads epic + gate:arch.
-
-**GATE:ARCH** — show CTO:
-```
-Architecture ready → docs/architecture/ARCH-<feature>.md
-• [decision 1]  • [decision 2]  • [decision 3]
-Proceed? [yes/no]  ← auto-expires in 72h if no response
-```
-If CTO does not respond within 72h → mark gate:arch as rejected, tell CTO: "gate:arch expired — pipeline paused. Say 'approve arch' to resume or 'cancel' to drop." Do NOT auto-proceed past a gate.
-
-**Step 1b — PM (sonnet):** Spawn `great_cto-pm` after gate:arch is approved. Skip for `project_size: nano`.
-
-PM reads the ARCH doc and produces `docs/plans/PLAN-<feature>.md`:
-- Mermaid Gantt + ASCII fallback
-- Dependency graph + parallelism map
-- Agent allocation (how many senior-devs concurrently)
-- Timeline estimates (PoC/MVP/full mode, with buffer)
-- `gate:plan` human checkpoint
-
-**GATE:PLAN** — show CTO:
-```
-Plan ready → docs/plans/PLAN-<feature>.md
-Tasks: N  |  Agents: M concurrent  |  Duration: Xh–Xh (excl. gate wait)
-Approve plan? [yes/no/adjust: <changes>]
-```
-CTO may request adjustments (fewer agents, different parallelism, PoC mode). PM updates plan and re-presents. Do NOT unblock senior-dev until gate:plan is approved.
-
-**Step 2 — Senior Dev(s):** Before spawning, check for active pipeline:
-```bash
-# Detect in-progress tasks (claimed by senior-dev)
-bd list --status in-progress 2>/dev/null | head -5
-# Check for open PRs from current feature branch
-git branch --list "feature/*" 2>/dev/null | head -3
-```
-If active in-progress tasks exist → tell CTO: "Senior-dev is already working on: [task list]. Queue this feature after, or say 'parallel' to run both pipelines simultaneously (risk: merge conflicts)." Wait for CTO decision. Do NOT auto-spawn a second senior-dev unless CTO says "parallel".
-
-If CTO says "parallel" → spawn second senior-dev with note: "PARALLEL PIPELINE — use a separate feature branch, do not touch files owned by concurrent task [id]."
-
-Otherwise → Spawn `great_cto-senior-dev`. Claim task → TDD → PR → close.
-
-**Step 2a — Formal Verification** (only for `smart-contract` and `defi-protocol` types): see `skills/great_cto/reference/formal-verification.md`.
-
-**Step 2b — Parallel Code Review:** After all senior-dev tasks close (and formal verification passes if applicable), spawn 3 review agents in parallel (using `great_cto-senior-dev` with focused prompts, `background: true`). **All reviewers are read-only — must not edit files, apply patches, or commit.**
-- **Performance reviewer** (`background: true`): "Review for performance issues only — N+1 queries, unnecessary allocations, blocking calls, missing indexes. File Beads bugs for P1+. READ ONLY — do not edit files."
-- **Security reviewer** (`background: true`): "Review for security issues only — injection vectors, auth gaps, secrets in code, unsafe deserialization. File Beads bugs for P0/P1. READ ONLY — do not edit files."
-- **Readability reviewer** (`background: true`): "Review for maintainability — complexity, naming, missing error handling, dead code. File Beads bugs for P2. READ ONLY — do not edit files."
-Wait for all 3 to complete. Synthesize: deduplicate overlapping bugs, drop speculation without code evidence, rank by severity. Senior-dev fixes P0/P1 before proceeding.
-
-**Step 2c — GATE:CODE** (only if `review_mode: strict` in PROJECT.md):
-```bash
-REVIEW_MODE=$(grep "^review_mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-```
-If `review_mode: strict` → create a code review gate and pause for CTO:
-```bash
-bd create "gate:code — PR review before QA" --type task --priority 0 --label gate
-```
-Show the CTO:
-```
-Code ready for review → [PR link from senior-dev output]
-  Files changed: N  |  +X insertions  -Y deletions
-  P0 bugs: [N]  P1 bugs: [N]  P2 bugs: [N]  (from code review)
-  Reviewer notes: [top 3 findings from Step 2b synthesis]
-Approve to continue to QA? [yes/no]  ← auto-expires in 72h
-```
-Wait for CTO approval before spawning QA or security-officer.
-
-If `review_mode: auto` (default) → skip GATE:CODE, proceed directly to Step 3.
-
-**Step 3 — QA + Security in parallel (quorum model):**
-Before spawning, create gate:ship task:
-```bash
-bd create "gate:ship — deploy approval" --type task --priority 0 --label gate
-```
-Then spawn simultaneously — QA and Security are both required; treat as quorum (both must complete):
-- Spawn `great_cto-qa-engineer` — code analysis + type-merged QA strategy
-- Spawn `great_cto-security-officer` — OWASP + compliance + gate:ship
-
-Wait for both. Then compute confidence signal:
-- **HIGH**: QA=PASS + Security=APPROVED + no P0 bugs from code review (all agents agree, no caveats)
-- **MEDIUM**: minor divergence — P2-only bugs, or one agent has unresolved caveats
-- **LOW**: conflicting signals — QA gaps on security findings, P1+ outstanding, or coverage dropped >5%
-
-If QA=PASS and Security=APPROVED → proceed. Otherwise blocked.
-
-**GATE:SHIP** — before showing gate, run rollback validation then compute deltas:
-
-**Rollback validation** (block gate if rollback is impossible):
-```bash
-TYPE=$(grep "^primary:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
-case "$TYPE" in
-  smart-contract|defi-protocol)
-    # Verify upgrade proxy is deployed
-    grep -r "UUPS\|TransparentProxy\|upgradeable" contracts/ src/ 2>/dev/null | head -1 \
-      || echo "ROLLBACK_RISK: no upgrade proxy found — rollback impossible without it"
-    ;;
-  rag-system)
-    # Verify index snapshot exists
-    ls .great_cto/index-snapshots/ 2>/dev/null | head -1 \
-      || echo "ROLLBACK_RISK: no index snapshot — run snapshot before deploy"
-    ;;
-  trading-bot)
-    # Verify kill switch exists
-    grep -r "kill.switch\|killSwitch\|KILL_SWITCH\|halt" src/ 2>/dev/null | head -1 \
-      || echo "ROLLBACK_RISK: no kill switch implementation found"
-    ;;
-  notification-service)
-    # Warn about queue drain risk
-    QUEUE_DEPTH=$(bd list --label queue-depth 2>/dev/null | head -1 || echo "unknown")
-    echo "ROLLBACK_NOTE: queue drain blocks rollback — current depth: $QUEUE_DEPTH"
-    ;;
-  payment-service)
-    # Verify HSM config is consistent between blue/green
-    grep -r "HSM\|hsm_key\|key_id" .great_cto/ src/ 2>/dev/null | grep -c "." \
-      | xargs -I{} echo "HSM references: {}"
-    ;;
-esac
-```
-If ROLLBACK_RISK → show to CTO as ⚠ warning in GATE:SHIP **before** asking deploy. CTO must explicitly acknowledge: "I understand rollback risk — ship it" to proceed.
-
-```bash
-# Previous QA report (second-to-last)
-PREV_QA=$(ls docs/qa-reports/QA-*.md 2>/dev/null | sort -V | tail -2 | head -1)
-# Previous CSO report
-PREV_CSO=$(ls docs/security/CSO-*.md 2>/dev/null | sort -V | tail -2 | head -1)
-# Performance baseline trend
-tail -5 .great_cto/perf-baseline.log 2>/dev/null || echo "NO_BASELINE"
-```
-
-Show CTO:
-```
-Ready to deploy.
-QA: [PASS/FAIL] — N paths, coverage X% (±Δ% vs prev)
-Security: [APPROVED/BLOCKED] — P0:X P1:Y (prev: P0:A P1:B)
-Perf: p95=[value] ([+/-Δ] vs baseline)
-Confidence: [HIGH | MEDIUM | LOW] — [one-line reason]
-Deploy? [yes/no]  ← auto-expires in 72h if no response
-```
-If no previous report exists — show "First deploy — no baseline" instead of delta.
-If coverage dropped >5% OR new P0 vs previous → prefix line with ⚠.
-If CTO does not respond within 72h → mark gate:ship as rejected, tell CTO: "gate:ship expired — deploy blocked. Say 'ship it' to re-open or 'cancel' to drop."
-
-**Step 4 — DevOps:** Spawn `great_cto-devops`. staging → validate → prod (canary by default) + observability + changelog.
-
-**Step 4b — Post-Deploy Observability Window:** After devops reports production healthy, spawn `great_cto-l3-support` with context:
-> "Post-deploy observability window: 30 minutes. Monitor error rate, latency, and logs. No triage expected — this is a health check. If all clear, report: 'Post-deploy: OK — no anomalies'. If P1+ detected, triage immediately and alert CTO."
-
-Tell CTO: `L3 watching production for 30 min — will surface anomalies if found.`
+**Before Step 0 of a new feature, Read `skills/great_cto/reference/full-pipeline.md`**,
+and again before showing any gate: it holds the clarify table, the decision brief,
+what each gate shows the CTO, rollback validation and the post-deploy window — the
+parts the graph cannot carry.
 
 ## Stack Migration Pipeline
 
@@ -608,9 +308,6 @@ carried by the other twenty.
 ## File Ownership Matrix
 
 Moved to `skills/great_cto/reference/file-ownership.md` — read it when you need it.
-It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
-request and this is reference an agent consults while working, not something
-the orchestrator needs to choose one.
 
 ## Audit Flow
 
@@ -626,25 +323,7 @@ find ~/.great_cto/catalog/cli-tool/components/agents -name "*.md" 2>/dev/null \
 
 ## Retrospective Accumulation
 
-After every deploy (in devops post-deploy step), append learnings to `.great_cto/retrospectives/RETRO-<YYYY-MM>.md`:
-
-```bash
-mkdir -p .great_cto/retrospectives
-RETRO_FILE=".great_cto/retrospectives/RETRO-$(date +%Y-%m).md"
-```
-
-Format (append, not overwrite):
-```markdown
-## Deploy <date> — <feature>
-- What slowed down: <if any agent was blocked, what caused it>
-- QA findings: <pattern, e.g. "auth boundary tests keep failing">
-- Security findings: <pattern, e.g. "hardcoded tokens found again">
-- Perf delta: <p95 trend>
-- Action taken: <what was changed>
-```
-
-After 3+ entries in a month — surface to CTO at session start if recurring pattern detected (same "What slowed down" 2+ times):
-`"⚠ Recurring pattern: <pattern> appeared 3 times this month → suggest adding to architecture checklist"`
+After every deploy a learning is appended to `.great_cto/retrospectives/RETRO-<YYYY-MM>.md`; a pattern seen 3 times in a month is surfaced at session start. Format and rule: `skills/great_cto/reference/retrospective.md`.
 
 ## Phases
 
@@ -661,14 +340,11 @@ Entry format, append logic, and ADR-vs-Decision-Log routing → [`references/dec
 ## File Layout Invariant (agent-context vs runtime-state)
 
 Moved to `skills/great_cto/reference/file-layout.md` — read it when you need it.
-It is unchanged; it lives outside SKILL.md because SKILL.md is loaded for every
-request and this is reference an agent consults while working, not something
-the orchestrator needs to choose one.
 
 ## Rules
 
 - Max 1 question to CTO at a time
-- 2 gates per feature (arch + deploy)
+- Gates per feature come from the approval level (default: product + arch + ship)
 - Always show artifact links
 - P0 Beads tasks surface first
 - MANDATORY gate from any secondary type applies to whole project

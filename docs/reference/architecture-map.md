@@ -15,14 +15,14 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 790 files in 9 groups.
+Derived from what imports what, across 794 files in 9 groups.
 
 ```mermaid
 flowchart TD
   contracts["Contracts<br/><small>3 files</small>"]
   agents["Agents<br/><small>72 files</small>"]
   commands["Commands<br/><small>21 files</small>"]
-  skills["Skills<br/><small>161 files</small>"]
+  skills["Skills<br/><small>165 files</small>"]
   hooks["Hooks<br/><small>43 files</small>"]
   libs["Libraries<br/><small>239 files</small>"]
   board["Board<br/><small>118 files</small>"]
@@ -40,7 +40,7 @@ flowchart TD
 | `contracts` | 3 | the pipeline map, orchestrator rules |
 | `agents` | 72 | the specialists the pipeline dispatches |
 | `commands` | 21 | what a human can invoke directly |
-| `skills` | 161 | knowledge agents load on demand |
+| `skills` | 165 | knowledge agents load on demand |
 | `hooks` | 43 | what fires on session, tool and stop events |
 | `libs` | 239 | the logic hooks and commands share |
 | `board` | 118 | the admin view, zero runtime dependencies |
