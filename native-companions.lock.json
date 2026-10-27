@@ -1,0 +1,28 @@
+{
+  "schema": 1,
+  "profile": "great-cto-reviewed-companions-v1",
+  "components": [
+    {
+      "id": "beads@local",
+      "name": "beads",
+      "version": "1.3.2",
+      "source": {
+        "repository": "https://github.com/gastownhall/beads",
+        "commit": "43f41374a34d82ecf40903451eea277fbb4f1e75",
+        "tree": "28f79ffc36555222f62fe82410410e69e60d8b79",
+        "subdirectory": "plugins/beads"
+      }
+    },
+    {
+      "id": "superpowers@superpowers-marketplace",
+      "name": "superpowers",
+      "version": "6.2.0",
+      "source": {
+        "repository": "https://github.com/obra/superpowers",
+        "commit": "3dcbd5c4b48e02263fbf4a3c01e3fe4f81d584d9",
+        "tree": "da1e7bb99212a060f90ffd6def69ff606775a79c",
+        "subdirectory": "."
+      }
+    }
+  ]
+}

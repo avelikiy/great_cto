@@ -18,7 +18,7 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
-  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/lib/native-companion-builder.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
   const parts = name.split('/');
   if (parts.some(p => !p || p === '.' || p === '..' || /^(?:node_modules|\.git|\.beads|\.great_cto|\.codex|\.claude|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(p) || /^\.env(?:$|\.)/.test(p))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;
@@ -99,7 +99,7 @@ function walkBuild(source, name) {
   visit(name); return files;
 }
 
-export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLToPath(import.meta.url)), '..'), directory, run = execFileSync, encodeArchive, freshCheckout = false } = {}) {
+export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLToPath(import.meta.url)), '..'), directory, run = execFileSync, encodeArchive, freshCheckout = false, nativeCompanionSources } = {}) {
   source = fs.realpathSync(source);
   if (!isAbsolute(directory || '')) throw Error('release directory must be absolute and outside source');
   if (fs.existsSync(directory) && fs.lstatSync(directory).isSymbolicLink()) throw Error('release directory symlink refused');
@@ -120,6 +120,18 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   const pkg = json(sourceFile(source,'packages/cli/package.json'),'CLI manifest'), version = pkg.version;
   if (pkg.name !== 'great-cto' || !STABLE.test(version)) throw Error('invalid package identity');
   assertZeroDependencies(pkg);
+  let companions = null;
+  if (nativeCompanionSources !== undefined) {
+    const lockEntry = tracked.find(entry => entry.path === 'native-companions.lock.json');
+    if (!lockEntry) throw Error('native companion lock must belong to source commit');
+    const lockBytes = sourceFile(source, lockEntry.path);
+    if (hash('sha1', Buffer.concat([Buffer.from(`blob ${lockBytes.length}\0`), lockBytes])) !== lockEntry.blob) throw Error('native companion lock differs from source commit');
+    const { parseStrictReleaseIndex } = await import('../packages/cli/src/release-trust.mjs');
+    const { prepareNativeCompanionBundle } = await import('./lib/native-companion-builder.mjs');
+    companions = prepareNativeCompanionBundle({ lock: parseStrictReleaseIndex(lockBytes.toString('utf8')), repositories: nativeCompanionSources });
+    const primary = json(sourceFile(source, '.claude-plugin/plugin.json'), 'Claude manifest');
+    if (!Array.isArray(primary.dependencies) || JSON.stringify([...primary.dependencies].sort()) !== JSON.stringify(companions.descriptor.components.map(c => c.id))) throw Error('native bundle must preserve required companion declarations');
+  }
   for (const name of ['.claude-plugin/plugin.json','.codex-plugin/plugin.json']) if (json(sourceFile(source,name),'plugin manifest').version !== version) throw Error('release manifests disagree');
   for (const entry of tracked) {
     const stat=fs.lstatSync(join(source,entry.path));
@@ -171,6 +183,7 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
     if (!packedDist.find(x=>x.path===name.slice('packages/cli/'.length))?.bytes.equals(bytes)) throw Error('npm and plugin compiled runtime bytes differ');
     snapshot.push({path:name,bytes,mode:0o644});
   }
+  if (companions) snapshot.push(...companions.files);
   const {inspectRuntimeImportReferences}=await import('../packages/cli/src/release-trust.mjs');
   inspectRuntimeImportReferences(snapshot);
   snapshot.sort((a,b)=>a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
@@ -184,10 +197,23 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   write('plugin-inventory.json',JSON.stringify(inventory,null,2)+'\n');
   const ref=`pkg:npm/great-cto@${version}`;
   const sbom={bomFormat:'CycloneDX',specVersion:'1.6',version:1,metadata:{tools:{components:[{type:'application',name:'great-cto-release-builder',version:'1'}]},component:{type:'application',name:'great-cto',version,purl:ref,'bom-ref':ref},properties:[{name:'great-cto:inventory-scope',value:'production runtime dependency closure only; development build tools excluded'},{name:'great-cto:source-commit',value:commit}]},components:[],dependencies:[{ref,dependsOn:[]}]};
+  if (companions) {
+    sbom.metadata.properties[0].value = 'runtime bytes and reviewed companion projections; native runtime closure NOT CHECKED; development build tools excluded';
+    for (const component of companions.descriptor.components) {
+      const componentRef = `urn:great-cto:native-companion:${component.name}:${component.source.commit}`;
+      sbom.components.push({ type: 'library', name: component.name, version: component.version, 'bom-ref': componentRef,
+        licenses: [{ license: { id: component.license.id } }],
+        externalReferences: [{ type: 'vcs', url: component.source.repository + '/commit/' + component.source.commit }],
+        properties: [{ name: 'great-cto:dependency-id', value: component.id }, { name: 'great-cto:source-tree', value: component.source.tree },
+          { name: 'great-cto:inventory-sha256', value: hash('sha256', JSON.stringify(component.files)) }, { name: 'great-cto:runtime-closure', value: 'NOT_CHECKED' }] });
+      sbom.dependencies[0].dependsOn.push(componentRef); sbom.dependencies.push({ ref: componentRef, dependsOn: [] });
+    }
+  }
   write('sbom.cdx.json',JSON.stringify(sbom,null,2)+'\n');
   const index=makeReleaseIndex({version,commit,tree,directory});
   write('release-index.json',JSON.stringify(index,null,2)+'\n');
-  return {state:'PREPARED',version,commit,tree,artifacts:index.artifacts,pluginFiles:snapshot.length,signed:false,published:false,installed:false};
+  return {state:'PREPARED',version,commit,tree,artifacts:index.artifacts,pluginFiles:snapshot.length,signed:false,published:false,installed:false,
+    ...(companions ? { nativeCompanions: { profile: companions.descriptor.profile, components: companions.descriptor.components.map(c => c.id), runtimeClosure: 'NOT_CHECKED', securityReview: 'NOT_CHECKED', artifactScan: 'NOT_CHECKED' } } : {})};
 }
 
 /** Compare independent builds before signing; never rebuild during publication. */
@@ -212,10 +238,14 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode=result.status??1;
     }
   }else{
-  const args=process.argv.slice(2), out=args.indexOf('--out'), source=args.indexOf('--source');
+  const args=process.argv.slice(2), out=args.indexOf('--out'), source=args.indexOf('--source'), companionSources=args.indexOf('--native-companion-sources');
   if(args[0]==='--compare'){try{process.stdout.write(JSON.stringify(compareReleaseArtifactSets(args[1],args[2]))+'\n');}catch(error){console.error(`release comparison refused: ${error.message}`);process.exitCode=1;}}
   else
-  if (out < 0 || !args[out+1]) { console.error('usage: build-release-artifacts.mjs --out ABSOLUTE_DIRECTORY [--source GIT_ROOT]'); process.exitCode=2; }
-  else buildReleaseArtifacts({directory:args[out+1],freshCheckout:args.includes('--fresh-checkout'),...(source>=0?{source:args[source+1]}:{})}).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{console.error(`release build refused: ${error.message}`);process.exitCode=1;});
+  if (out < 0 || !args[out+1]) { console.error('usage: build-release-artifacts.mjs --out ABSOLUTE_DIRECTORY [--source GIT_ROOT] [--native-companion-sources ABSOLUTE_JSON]'); process.exitCode=2; }
+  else Promise.resolve().then(() => {
+    const options={directory:args[out+1],freshCheckout:args.includes('--fresh-checkout'),...(source>=0?{source:args[source+1]}:{})};
+    if (companionSources >= 0) options.nativeCompanionSources = json(readRegular(resolve(args[companionSources+1] || ''), 1024 * 1024), 'operator companion source map');
+    return buildReleaseArtifacts(options);
+  }).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{console.error(`release build refused: ${error.message}`);process.exitCode=1;});
   }
 }
