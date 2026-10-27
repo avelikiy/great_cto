@@ -18,7 +18,7 @@ or invoke paid models to prove registration or MCP startup.
 | N03 | Same version with different bytes | Conflict; no replacement of an existing directory |
 | N04 | Network-dependent MCP entry | Refuse during closure admission, before host registration |
 | N05 | Missing or unadmitted companion | Explicit unsupported dependency state; no automatic install |
-| N06 | Real local native registration | Fixed source root, correct installed root and unchanged neighboring plugins |
+| N06 | Real local native registration | One unambiguous selected registration, fixed source/installed roots and unchanged neighboring plugins |
 | N07 | Native command returns zero with incomplete copy | Refuse enablement; report partial state and recovery result |
 | N08 | Fresh host startup with network denied | Local MCP resolves admitted bytes and returns expected bounded response |
 | N09 | Existing hook trust | Existing selection preserved; changed trust requirement reported, never auto-accepted |

@@ -94,8 +94,13 @@ Watermarks cannot be lowered by restoration or same-version replacement.
 
 ## Claude local adapter
 
-Support one existing user-scoped local registration first. Preserve all other
-plugins, scopes, marketplace selections and project settings. Plan the registry
+Support one existing user-scoped local registration first. Detect duplicate
+registrations for the same plugin across local and Git marketplaces. Bind the
+explicitly selected entry instead of choosing the newest cache. If the resulting
+host selection would load conflicting copies, return `SELECTION_CONFLICT`.
+Disabling a second registration must be named in the operator activation plan;
+it is not an implicit cleanup permission. Preserve all unrelated plugins,
+scopes, marketplace selections and project settings. Plan the registry
 entry and any globally managed roles/skills/commands separately. A managed-file
 refresh is not part of the transaction unless its complete before/after inventory
 and the adapter can restore every affected file in executed tests. Otherwise refuse that mode.
