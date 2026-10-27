@@ -21,27 +21,83 @@ const json = file => parseStrictReleaseIndex(file.bytes.toString('utf8'), { maxB
 /** Explicit public Claude runtime projection, never a recursive cache/repository copy. */
 export function isNativeCompanionRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.normalize('NFC') !== name || path.posix.isAbsolute(name) || /[\\\0-\x1f\x7f]/.test(name) || path.posix.normalize(name) !== name) return false;
-  if (name === 'LICENSE' || name === '.claude-plugin/plugin.json') return true;
+  if (name === 'LICENSE' || name === '.claude-plugin/plugin.json' || name === '.mcp.json') return true;
   const parts = name.split('/');
   if (parts.some(part => !part || part === '.' || part === '..' || part.startsWith('.') || /^(?:node_modules|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(part))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;
-  return /^(?:skills|agents|commands|hooks|lib|scripts|assets)\//.test(name);
+  return /^(?:skills|agents|commands|hooks|lib|scripts|assets|types)\//.test(name);
 }
 
 /** Structural reference validation only; grants no artifact or execution authority. */
 export function assertNativeCompanionRuntimeReferences(manifest, files) {
-  const names = new Set(files.map(file => file.path));
+  const actual = new Map(files.map(file => [file.path, file])), names = new Set(actual.keys());
+  const allowedKeys = new Set(['name', 'version', 'description', 'author', 'repository', 'homepage', 'license', 'keywords', 'skills', 'agents', 'commands', 'outputStyles', 'types', 'hooks', 'mcpServers', 'dependencies']);
+  if (!object(manifest) || Object.keys(manifest).some(key => !allowedKeys.has(key))) refusal('native-companion-manifest-extension');
   const reference = (name, directory = false) => {
     if (typeof name !== 'string' || !name.startsWith('./') || /[\\?#\0]/.test(name)) refusal('native-companion-manifest-reference');
     const member = name.slice(2).replace(/\/$/, '');
     if (!member || path.posix.normalize(member) !== member || member === '..' || member.startsWith('../') ||
       (!names.has(member) && !(directory && files.some(file => file.path.startsWith(member + '/'))))) refusal('native-companion-manifest-reference');
+    return member;
   };
   for (const key of ['skills', 'agents', 'commands', 'outputStyles']) {
     if (!Object.hasOwn(manifest, key)) continue;
     for (const value of Array.isArray(manifest[key]) ? manifest[key] : [manifest[key]]) reference(value, true);
   }
-  for (const key of ['hooks', 'mcpServers']) if (typeof manifest[key] === 'string') reference(manifest[key]);
+  if (Object.hasOwn(manifest, 'types')) reference(manifest.types);
+  const read = name => json(actual.get(reference(name)));
+  const mcp = config => {
+    if (!object(config)) refusal('native-companion-mcp-shape');
+    const servers = Object.hasOwn(config, 'mcpServers') ? config.mcpServers : config;
+    if (Object.hasOwn(config, 'mcpServers')) exact(config, ['mcpServers'], 'native-companion-mcp-extension');
+    if (!object(servers) || !Object.keys(servers).length) refusal('native-companion-mcp-shape');
+    for (const server of Object.values(servers)) {
+      if (!object(server) || Object.keys(server).some(key => !['command', 'args', 'env', 'type'].includes(key)) || server.command !== 'node' ||
+        (Object.hasOwn(server, 'type') && server.type !== 'stdio') ||
+        (Object.hasOwn(server, 'env') && (!object(server.env) || Object.keys(server.env).length)) || !Array.isArray(server.args) || server.args.length !== 1) refusal('native-companion-mcp-unsupported');
+      const match = typeof server.args[0] === 'string' && /^\$\{CLAUDE_PLUGIN_ROOT\}\/([A-Za-z0-9_./-]+\.[cm]?js)$/.exec(server.args[0]);
+      if (!match) refusal('native-companion-manifest-reference'); reference('./' + match[1]);
+    }
+  };
+  if (Object.hasOwn(manifest, 'mcpServers')) mcp(typeof manifest.mcpServers === 'string' ? read(manifest.mcpServers) : manifest.mcpServers);
+  if (actual.has('.mcp.json')) {
+    if (Object.hasOwn(manifest, 'mcpServers') && manifest.mcpServers !== './.mcp.json') refusal('native-companion-mcp-ambiguous');
+    mcp(json(actual.get('.mcp.json')));
+  }
+  const hooks = config => {
+    if (!object(config)) refusal('native-companion-hooks-shape');
+    if (Object.hasOwn(config, 'hooks')) { exact(config, ['hooks'], 'native-companion-hooks-extension'); config = config.hooks; }
+    const events = new Set(['SessionStart', 'PreCompact', 'PreToolUse', 'PostToolUse', 'Stop', 'SessionEnd', 'SubagentStart', 'SubagentStop', 'UserPromptSubmit']);
+    if (!object(config)) refusal('native-companion-hooks-shape');
+    for (const [event, groups] of Object.entries(config)) {
+      if (!events.has(event) || !Array.isArray(groups)) refusal('native-companion-hooks-unsupported');
+      for (const group of groups) {
+        if (!object(group) || Object.keys(group).some(key => !['matcher', 'hooks'].includes(key)) ||
+          (Object.hasOwn(group, 'matcher') && typeof group.matcher !== 'string') || !Array.isArray(group.hooks)) refusal('native-companion-hooks-shape');
+        for (const hook of group.hooks) {
+          if (!object(hook) || Object.keys(hook).some(key => !['type', 'command', 'shell', 'async', 'timeout', 'statusMessage'].includes(key)) ||
+            hook.type !== 'command' || typeof hook.command !== 'string' ||
+            (Object.hasOwn(hook, 'shell') && hook.shell !== 'bash') || (Object.hasOwn(hook, 'async') && hook.async !== false) ||
+            (Object.hasOwn(hook, 'timeout') && (!Number.isSafeInteger(hook.timeout) || hook.timeout <= 0 || hook.timeout > 300)) ||
+            (Object.hasOwn(hook, 'statusMessage') && (typeof hook.statusMessage !== 'string' || hook.statusMessage.length > 256))) refusal('native-companion-hooks-unsupported');
+          // Only known bounded forms, not a shell parser or dynamic closure proof.
+          if (hook.command === 'bd prime') continue;
+          const command = /^(node )?"\$\{CLAUDE_PLUGIN_ROOT\}\/([A-Za-z0-9_./-]+)"(?: ([a-z0-9-]+))?$/.exec(hook.command);
+          if (!command) refusal('native-companion-hook-command-unsupported');
+          reference('./' + command[2]);
+          if (command[3]) {
+            if (command[1] || command[2] !== 'hooks/run-hook.cmd' || command[3] !== 'session-start') refusal('native-companion-hook-command-unsupported');
+            reference('./hooks/session-start');
+          }
+        }
+      }
+    }
+  };
+  if (Object.hasOwn(manifest, 'hooks')) hooks(typeof manifest.hooks === 'string' ? read(manifest.hooks) : manifest.hooks);
+  if (actual.has('hooks/hooks.json')) {
+    if (Object.hasOwn(manifest, 'hooks') && manifest.hooks !== './hooks/hooks.json') refusal('native-companion-hooks-ambiguous');
+    hooks(json(actual.get('hooks/hooks.json')));
+  }
   if (Object.hasOwn(manifest, 'dependencies') && (!Array.isArray(manifest.dependencies) || manifest.dependencies.length)) refusal('native-companion-transitive-dependencies-unsupported');
 }
 

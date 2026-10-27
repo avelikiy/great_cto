@@ -27,6 +27,9 @@ Required source/consumer observations:
 | Tracked operational state | Excluded by the runtime projection |
 | Selected symlink/submodule, missing asset reference | Refuse; no following or broadening the allowlist |
 | Missing locked source | Refuse; no download or package-manager fallback |
+| Promisor object store or configured lazy-fetch transport | Refuse before object lookup; helper marker remains absent |
+| Corrupt nested Git tree with unchanged root/commit | Refuse; verify each traversed tree and blob against its object ID |
+| Inline/file MCP, default hooks or type references missing an asset | Refuse or reject the unsupported form, never ignore it |
 | Explicit bundle profile | Both component inventories and SBOM dependency edges inside the plugin archive |
 | Ordinary build | No implicit bundle; existing artifact behavior preserved |
 | Publisher-vouched component bytes | authority NONE, runtime closure NOT CHECKED, activation NOT ESTABLISHED |
@@ -37,6 +40,12 @@ facts as NOT_ATTESTED; preparation reports them as NOT_CHECKED. Independent revi
 and scans of the **materialized component and complete artifact bytes**, not only
 the tracked great_cto tree, are required before any later release approval.
 No component-only preparation is a complete native-installable product artifact.
+
+Source queries deny all Git protocols, disable lazy fetch and candidate hooks,
+and reject promisor metadata before querying objects. This affects only upstream
+object-store reads, never this repository's build or push gates. Each query has a
+10000 ms cap; each component preparation has a monotonic 120000 ms budget. Parse
+raw, individually hashed Git trees rather than trusting a recursive listing.
 
 Keep upstream license bytes and record publisher responsibility for the bundled
 snapshot. A commit/tree pin is not an upstream signature-verification claim.

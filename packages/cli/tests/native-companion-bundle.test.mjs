@@ -36,6 +36,19 @@ function bundle(t, change = () => {}) {
   });
   return { ...fixture, descriptor, get ticket() { return admitRelease(fixture.opts); } };
 }
+function changeComponentManifest(descriptor, files, mutate) {
+  const component = descriptor.components[0], file = files.find(f => f.path === component.root + '/.claude-plugin/plugin.json');
+  const manifest = JSON.parse(file.bytes); mutate(manifest); file.bytes = Buffer.from(JSON.stringify(manifest));
+  Object.assign(component.files.find(f => f.path === '.claude-plugin/plugin.json'), { size: file.bytes.length, sha256: hash(file.bytes),
+    sourceBlob: hash(Buffer.concat([Buffer.from(`blob ${file.bytes.length}\0`), file.bytes]), 'sha1') });
+}
+function addComponentFile(descriptor, files, name, value) {
+  const component = descriptor.components[0], bytes = Buffer.from(JSON.stringify(value));
+  files.push({ path: component.root + '/' + name, bytes, mode: 0o644 });
+  component.files.push({ path: name, size: bytes.length, sha256: hash(bytes), mode: 0o644, sourcePath: 'plugins/beads/' + name,
+    sourceBlob: hash(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`), bytes]), 'sha1') });
+  component.files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
 
 test('independently checks both signed component inventories without installation authority', t => {
   const f = bundle(t), result = inspectBundledNativeCompanions(f.ticket);
@@ -70,6 +83,16 @@ const attacks = [
   ['undeclared component file', (d, files) => { files.push({ path: d.components[0].root + '/skills/extra.md', bytes: Buffer.from('extra'), mode: 0o644 }); }],
   ['unlisted vendor root', (d, files) => { files.push({ path: 'vendor/native/other/extra.md', bytes: Buffer.from('extra'), mode: 0o644 }); }],
   ['required dependency dropped', (d, files) => { const p = files.find(f => f.path === '.claude-plugin/plugin.json'); const m = JSON.parse(p.bytes); m.dependencies = [ids[0]]; p.bytes = Buffer.from(JSON.stringify(m)); }],
+  ['inline MCP missing entry', (d, files) => changeComponentManifest(d, files, m => { m.mcpServers = { local: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/missing.mjs'] } }; })],
+  ['missing type asset', (d, files) => changeComponentManifest(d, files, m => { m.types = './types/missing.d.ts'; })],
+  ['unknown runtime setting', (d, files) => changeComponentManifest(d, files, m => { m.settings = { autoInstall: true }; })],
+  ['unbounded hook command', (d, files) => changeComponentManifest(d, files, m => { m.hooks = { SessionStart: [{ hooks: [{ type: 'command', command: 'npx unadmitted' }] }] }; })],
+  ['missing hook entry', (d, files) => changeComponentManifest(d, files, m => { m.hooks = { SessionStart: [{ hooks: [{ type: 'command', command: '"${CLAUDE_PLUGIN_ROOT}/hooks/missing"' }] }] }; })],
+  ['default MCP missing entry', (d, files) => addComponentFile(d, files, '.mcp.json', { mcpServers: { local: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/missing.mjs'] } } })],
+  ['file MCP missing entry', (d, files) => {
+    addComponentFile(d, files, 'hooks/mcp.json', { mcpServers: { local: { command: 'node', args: ['${CLAUDE_PLUGIN_ROOT}/scripts/missing.mjs'] } } });
+    changeComponentManifest(d, files, m => { m.mcpServers = './hooks/mcp.json'; });
+  }],
 ];
 for (const [name, mutate] of attacks) test('refuses correctly signed incompatible bundle: ' + name, t => {
   const f = bundle(t, mutate);

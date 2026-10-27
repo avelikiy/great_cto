@@ -20,8 +20,9 @@ independently against the actual admitted archive, including bytes and modes.
 Neither a descriptor nor a previous enabled/cache flag grants installation trust.
 
 Only the two named repositories/components are accepted by profile v1. Obtain
-source from exact Git objects, never installed caches, mutable working trees,
-arbitrary URLs, package-manager acquisition or a branch's current contents.
+source from exact Git objects. Never reconstruct a snapshot by copying installed
+caches or mutable working trees, or use their version flags as source authority.
+No arbitrary URLs, package-manager acquisition or branch-head fallback is allowed.
 Exclude operational state, credentials, private overlays, Git internals and test
 fixtures. The projection is an explicit runtime allowlist; any missing manifest
 reference refuses preparation. Keep original license bytes and provenance.
