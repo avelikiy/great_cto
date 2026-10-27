@@ -59,6 +59,32 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.72.0 — 2026-10-26
+
+The orchestrator follows the stage graph with a lighter skill file, and a gate checks the contract of the edge being taken, not only the stage that ran.
+
+### What's new
+
+- Graph guard rule 2: before a stage starts, the guard checks that the stage it follows named what its contract says it produces. A dispatch over an edge whose predecessor named nothing is recorded, or refused under `graph-guard: enforce`.
+- SKILL.md, loaded into every session, is back under its 20 KB budget (37.5 KB → 19.9 KB). Stage order lives only in `shared/pipeline.toml`; the clarify table, decision brief, gate screens, approval levels, archetype rules and retrospective format moved to `skills/great_cto/reference/`, read when they apply.
+- UI-bearing features run design-advisor between the architect and pm, so pm plans the UI tasks against the finished design contract.
+
+### Fixed
+
+- Review after implementation fans out to code-reviewer, qa-engineer and security-officer as the graph says; the skill prose still described three senior-dev review forks.
+- gate:plan, gate:code and gate:arch open only when the project's approval level makes them active. The legacy `review_mode` key no longer opens gate:code; the orchestrator offers `approval-level: strict` instead.
+- The regulated floor documented for the orchestrator is the one the code enforces: twelve archetypes keep gate:security + gate:compliance + gate:ship at every level, and the floor adds no gate:code.
+- The rollback validation shown before gate:ship can report a risk. Every check was `… | head -1 || echo RISK`, which takes head's exit status (always 0), so a missing upgrade proxy, index snapshot or kill switch never surfaced. A project without a `primary:` type is now reported as not checked instead of silently passing.
+- Senior-dev could be dispatched twice when design-advisor and pm ran side by side; design-advisor now hands to pm.
+- About 35 more defaults after `| head`, `| tail`, `| sed` or `| awk` in agents, commands and scripts never applied (agents read an empty string where `NO_AUDIT`, `[]`, `main` or `0` was meant). A scan test keeps the shape out.
+
+### Validation and limits
+
+The merged source (`a0a7dfe6`) passed the canonical local gate, including 22 browser scenarios without skips; 16 live/opt-in checks remain NOT CHECKED. Each new test fails on the previous text: rollback validation, the regulated-set documentation check and the fallback scan. An A/B of the skill file — orchestrator subagents with file access, six pipeline scenarios, criteria written before the runs, one run per case — scored the old file 5/6 and the new one 6/6 after the approval-level fix; that is indicative, not a rate. The versioned candidate needs its own gate and the ADR-045 signing and owner approval before publication. Domain packs and graph collection remain opt-in.
+
+---
+
 ## v3.71.1 — 2026-10-26
 
 Exact-byte distribution checks accompany the opt-in Codex and Claude Code execution observations. This candidate supersedes the unused 3.71.0 preparation tag without moving it.

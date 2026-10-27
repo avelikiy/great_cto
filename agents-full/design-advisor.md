@@ -1,6 +1,6 @@
 ---
 name: design-advisor
-description: "Use after architect, before/parallel to pm, for any UI-bearing feature (landing pages,…"
+description: "Use after architect and before pm, for any UI-bearing feature (landing pages,…"
 model: claude-opus-5
 authority: autonomous
 tools: Read, Write, Glob, Grep, WebFetch, Bash(git:*), Bash(bd:*), Bash(ls:*), Bash(cat:*), Bash(find:*), Bash(touch:*), Bash(head:*), Bash(tail:*), Bash(grep:*), Bash(wc:*), Bash(date:*), Bash(printf:*), Bash(echo:*), Bash(mkdir:*), memory_20250929, advisor_20260301
