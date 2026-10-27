@@ -72,3 +72,39 @@ measured as harmful; changing `pipeline.toml` itself.
 - One more hook on every Agent call; it reads two small logs.
 - Each new rule needs its own measurement — the guard grows by evidence, not by
   listing every edge.
+
+## Rule 2 — the edge being taken carries its contract (2026-10-26, great_cto-1puj.3)
+
+`produces` in `shared/pipeline.toml` names what a stage must hand on. The Codex
+controller checks it before a transition (`scripts/lib/codex-pipeline.mjs`); on
+Claude Code nothing did — `pipeline-dispatcher` named the next stage whether or
+not the stage before it had named its output.
+
+Measured with `scripts/edge-contract-adherence.mjs` over local verdict logs since
+2026-10-01 (3 projects):
+
+| stage | met | unnamed | named a path that does not exist |
+|---|---|---|---|
+| senior-dev (receipt) | 46/46 | 0 | 0 |
+| code-reviewer (receipt) | 14/16 | 2 | 0 |
+| qa-engineer (report) | 7/12 | 5 | 0 |
+| security-officer (report) | 1/30 | 29 | 0 |
+| design-advisor (design) | 0/2 | 0 | 2 |
+| pm (plan, briefs) | 0/1 | 0 | 1 |
+
+security-officer's 29 were the contract's fault, not the agent's: its log-verdict
+line never asked for `report=`. smart-contract-auditor logged `audit=` against a
+contract asking for `report`. Both prompts now name the key, and
+`tests/lib/pipeline-produces-prompts.test.mjs` holds every declared key to the
+stage agent's own log-verdict instruction — a contract the agent was never told
+about is one nobody can meet.
+
+Contract: on dispatch of stage X, of the stages whose `next` holds X the one with
+the newest success verdict is the edge being taken. If it declares `produces`,
+each key must be named in its verdict (`receipt` by the receipt's files), and a
+value containing `/` must exist on disk. Same modes, same exception (`graph`), same
+observe-first default as rule 1; an unreadable predecessor log drops only this rule.
+
+Enforce by default only after its own observation window shows the would-block
+events are real misses — the numbers above are mostly a prompt defect that this
+change fixes, so the window starts now, not from the old logs.

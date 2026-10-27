@@ -35,12 +35,16 @@ function fakeCodex(home, { fail = false } = {}) {
   return { bin, dir };
 }
 
-test("upgrade runs `codex plugin marketplace upgrade great-cto` and reports the version move", () => {
+test("native refresh refuses before invoking the host or replacing any cache", () => {
   const h = codexHome();
   const { bin, dir } = fakeCodex(h);
   const r = upgradeCodexPlugin({ codexHome: h, bin });
-  assert.deepEqual(r, { status: "upgraded", fromVersion: "3.37.0", toVersion: "3.45.0" });
-  assert.equal(readFileSync(join(dir, "argv"), "utf8").trim(), "plugin marketplace upgrade great-cto");
+  assert.equal(r.status, "failed");
+  assert.equal(r.fromVersion, "3.37.0");
+  assert.equal(r.toVersion, "3.37.0");
+  assert.match(r.reason, /unsupported.*preactivation/);
+  assert.throws(() => readFileSync(join(dir, "argv")), "native updater must not run");
+  assert.equal(installedCodexVersion(h), "3.37.0");
 });
 
 test("nothing is touched when great_cto is not installed for Codex", () => {
@@ -51,14 +55,16 @@ test("nothing is touched when great_cto is not installed for Codex", () => {
   assert.throws(() => readFileSync(join(dir, "argv")), "codex was not called");
 });
 
-test("no codex binary: skipped with the command to run by hand; a failing codex is reported", () => {
+test("unproven native activation cannot be enabled by a provided host executable", () => {
   const h = codexHome();
   const none = upgradeCodexPlugin({ codexHome: h, bin: null });
-  assert.equal(none.status, "skipped");
-  assert.match(none.reason, /codex plugin marketplace upgrade great-cto/);
-  const failed = upgradeCodexPlugin({ codexHome: h, bin: fakeCodex(h, { fail: true }).bin });
+  assert.equal(none.status, "failed");
+  assert.match(none.reason, /verified native Codex activation/);
+  const helper = fakeCodex(h, { fail: true });
+  const failed = upgradeCodexPlugin({ codexHome: h, bin: helper.bin });
   assert.equal(failed.status, "failed");
   assert.equal(failed.toVersion, "3.37.0");
+  assert.throws(() => readFileSync(join(helper.dir, "argv")));
 });
 
 test("installedCodexVersion compares versions as numbers; the marketplace check reads config.toml", () => {

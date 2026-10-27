@@ -620,7 +620,7 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
 1b. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, `stack`, and `compliance` params:
    ```bash
    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
-   COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
+   COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //'); COMPLIANCE=${COMPLIANCE:-[]}
    ```
    Read ARCHETYPES.md → find security rules for `$ARCHETYPE`.
    The `compliance:` list in PROJECT.md determines which checklists to run (see Step 5).
@@ -981,7 +981,7 @@ helper.
    the pipeline dispatcher and the board parse this line):
    ```bash
    bash scripts/log-verdict.sh security-officer <APPROVED|BLOCKED> auto \
-     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug> need=<implementer|decision> finding=<id>
+     findings=P0:<n>,P1:<n>,P2:<n> triaged=<n> valid=<n> invalid=<n> feature=<slug> report=docs/security/CSO-<YYYY-MM-DD>.md need=<implementer|decision> finding=<id>
    ```
    On BLOCKED, `need` mirrors the report's `need` line: `implementer` for
    "senior-dev fix <finding>", `decision` for "CTO waive risk on <finding>".

@@ -106,6 +106,7 @@ test("bundle-board.mjs produces a complete, syntax-valid bundle", () => {
   // no tests / worker in the shipped bundle
   assert.ok(!existsSync(join(out, "packages/board/push-adapter.test.mjs")), "tests must not ship");
   assert.ok(!existsSync(join(out, "packages/board/cloudflare-worker")), "cloudflare-worker must not ship");
+  assert.ok(!existsSync(join(out, "packages/board/fixtures")), "board test fixtures must not ship");
   // the bundled server parses (imports resolve is covered by the boot test below)
   execFileSync(process.execPath, ["--check", join(out, "packages/board/server.mjs")]);
 });

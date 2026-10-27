@@ -47,6 +47,7 @@ export const PROMPT_TIMEOUT_MS = 15_000;
 
 /** Commands where stdout/stderr are machine-parsed — never print a hint, never spawn a check. */
 export const PROTOCOL_SENSITIVE_COMMANDS = new Set([
+  "distribution", // trust/admission status is machine-readable and must not prompt
   "mcp",      // stdio JSON-RPC protocol — any stray byte on stdout/stderr breaks the client
   "worker",   // long-running daemon; status is polled programmatically
   "task",     // machine-invoked task runner (spawned by worker)

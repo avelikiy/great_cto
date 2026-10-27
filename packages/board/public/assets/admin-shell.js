@@ -3,6 +3,8 @@
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const aliases = { docs:'knowledge', usage:'insights/consumption', ledger:'insights/ledger', budgets:'insights/ledger', dashboard:'insights/ledger', fleet:'settings/executors', agents:'settings/executors', harness:'settings/runtime', skills:'settings/capabilities', history:'work/completed', inbox:'decisions', notifications:'settings/general', share:'settings/general' };
   function route(input) {
+    const taskRoute = window.GctoWork?.parseRoute?.(input);
+    if (taskRoute) return { canonical:taskRoute.canonical, panel:'work', primary:'work', workRoute:true };
     if (/^(?:agents|fleet)\/[a-z0-9-]+$/i.test(input)) return {canonical:input,panel:'agents',primary:'settings'};
     const canonical = aliases[input] || input;
     const panels = { work:'work','work/completed':'history',decisions:'inbox',knowledge:'knowledge',insights:'admin-outcomes','insights/outcomes':'admin-outcomes','insights/consumption':'usage','insights/ledger':'budgets',settings:'agents','settings/executors':'agents','settings/runtime':'harness','settings/capabilities':'skills','settings/general':'settings' };
@@ -76,10 +78,31 @@
       });
     } catch(error) {if(current(seq,project)&&docTicket===request) panel('knowledge-document').textContent='Document could not be read: '+error.message;}
   }
+  let expandedNavigation = false;
+  function setWorkView(view = {}) {
+    const detail = !!view.detail && selectedRoute.split('/')[0].split('?')[0] === 'work';
+    const execution = detail && view.tab === 'execution';
+    document.body.classList.toggle('canvas-task', detail);
+    document.body.classList.toggle('canvas-execution', execution);
+    document.body.classList.toggle('canvas-navigation-expanded', execution && expandedNavigation);
+    const toggle = panel('canvas-nav-toggle');
+    if (toggle) { toggle.hidden = !execution; toggle.setAttribute('aria-expanded', String(expandedNavigation)); toggle.setAttribute('aria-label', expandedNavigation ? 'Compact navigation' : 'Expand navigation'); toggle.title = expandedNavigation ? 'Compact navigation' : 'Expand navigation'; }
+    const composer = panel('work-compose')?.closest('.admin-compose');
+    if (composer) composer.hidden = detail;
+    const heading = document.querySelector('.work-page > h1');
+    if (heading) heading.hidden = detail;
+  }
+  function navigateWork(canonical) {
+    const parsed = window.GctoWork?.parseRoute?.(canonical);
+    if (!parsed) return;
+    const hash = '#/' + parsed.canonical;
+    if (location.hash !== hash) history.pushState(null, '', hash);
+    window.switchTab(parsed.canonical);
+  }
   function setup() {
     const nav=panel('nav-tablist'), existing={};
     document.querySelectorAll('.nav-item[data-tab]').forEach(n=>existing[n.dataset.tab]=n.querySelector('svg')?.outerHTML||'');
-    nav.innerHTML=['work','decisions','knowledge','insights','settings'].map(key=>`<button type="button" class="nav-item${key==='work'?' active':''}" role="tab" aria-selected="${key==='work'}" data-tab="${key}" tabindex="0" onkeydown="navTabKeydown(event,this)">${existing[key]||existing[key==='knowledge'?'skills':key==='insights'?'usage':'harness']||''}<span class="nav-label">${key[0].toUpperCase()+key.slice(1)}</span>${key==='decisions'?'<span class="count" id="nav-inbox-count">0</span>':''}</button>`).join('');
+    nav.innerHTML=['work','decisions','knowledge','insights','settings'].map(key=>`<button type="button" class="nav-item${key==='work'?' active':''}" role="tab" aria-selected="${key==='work'}" data-tab="${key}" aria-label="${key[0].toUpperCase()+key.slice(1)}" data-nav-label="${key[0].toUpperCase()+key.slice(1)}" tabindex="0" onkeydown="navTabKeydown(event,this)">${existing[key]||existing[key==='knowledge'?'skills':key==='insights'?'usage':'harness']||''}<span class="nav-label">${key[0].toUpperCase()+key.slice(1)}</span>${key==='decisions'?'<span class="count" id="nav-inbox-count">0</span>':''}</button>`).join('');
     nav.querySelectorAll('[data-tab]').forEach(n=>n.addEventListener('click',()=>window.switchTab(n.dataset.tab)));
     const tools=panel('tools-nav');tools.hidden=true;
     const workspace=document.querySelector('.workspace');
@@ -88,6 +111,14 @@
     panel('knowledge-reload').addEventListener('click',()=>{generation++;loadKnowledge();});
     const insights=document.createElement('div');insights.id='panel-admin-outcomes';insights.className='panel';insights.setAttribute('role','tabpanel');insights.innerHTML='<div class="admin-page"><header class="admin-page-heading"><div><h1>Insights</h1><p>Recorded outcomes are separate from token consumption.</p></div><button type="button" class="gate-btn" id="outcomes-reload">Reload</button></header><div id="admin-outcomes-body" aria-live="polite"></div></div>';workspace.append(insights);
     panel('outcomes-reload').addEventListener('click',loadTaskOutcomes);
+    const toggle = document.createElement('button');
+    toggle.id = 'canvas-nav-toggle'; toggle.type = 'button'; toggle.className = 'canvas-nav-toggle'; toggle.hidden = true;
+    toggle.setAttribute('aria-controls', 'nav-tablist'); toggle.innerHTML = '<span aria-hidden="true">☰</span>';
+    workspace.querySelector('.topbar').prepend(toggle);
+    toggle.addEventListener('click', () => { expandedNavigation = !expandedNavigation; setWorkView({detail:true, tab:'execution'}); });
+    const projectSwitch = panel('proj-switch');
+    projectSwitch.setAttribute('role','button'); projectSwitch.tabIndex = 0; projectSwitch.setAttribute('aria-label','Choose project');
+    projectSwitch.addEventListener('keydown', event => { if (event.target === projectSwitch && ['Enter',' '].includes(event.key)) { event.preventDefault(); toggleProjMenu(event); } });
     const original=window.switchTab;
     window.switchTab=function(id,el){
       const agentLink=String(id).match(/^(?:agents|fleet)\/([a-z0-9-]+)$/i);
@@ -98,16 +129,19 @@
         open(0);return;
       }
       const r=route(id);
-      if(!r) {bar.hidden=true;return original(id,el);}
+      if(!r) {window.GctoWork.leaveView?.();setWorkView({detail:false});bar.hidden=true;return original(id,el);}
       selectedRoute=r.canonical;
+      if (r.workRoute) { window.GctoWork.navigateRoute(r.canonical); const input = panel('search-input'); if(input) input.value = window.GctoWork.parseRoute(r.canonical).search; }
+      else { window.GctoWork.leaveView?.(); setWorkView({detail:false}); }
       const old={inbox:'decisions',budgets:'ledger',agents:'fleet','admin-outcomes':'admin-outcomes',knowledge:'knowledge'}[r.panel]||r.panel;
-      original(old); // Keep established loaders and mutation guards.
+      if (r.workRoute && typeof currentTab === 'string' && currentTab === 'work') { closeMenu(false); window.GctoWork.refresh(); }
+      else original(old); // Keep established loaders and mutation guards; task inspection adds no view POST.
       document.querySelectorAll('.nav-item[data-tab]').forEach(n=>{const active=n.closest('#nav-tablist')&&n.dataset.tab===r.primary;n.classList.toggle('active',!!active);n.setAttribute('aria-selected',String(!!active));});
       panel('crumb-here').textContent=r.primary[0].toUpperCase()+r.primary.slice(1);
       const items=r.primary==='settings'?[['settings/executors','Executors'],['settings/runtime','Runtime'],['settings/capabilities','Capabilities'],['settings/general','General']]:r.primary==='insights'?[['insights/outcomes','Outcomes'],['insights/consumption','Consumption'],['insights/ledger','Ledger & budgets']]:[];
       bar.hidden=!items.length;bar.innerHTML=items.map(([key,label])=>`<button type="button" class="admin-subtab" data-route="${key}" aria-pressed="${r.canonical===key||(r.canonical===r.primary&&key===items[0][0])}">${label}</button>`).join('');
       bar.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>window.switchTab(b.dataset.route));
-      history.replaceState(null,'','#/'+r.canonical);
+      history.replaceState(history.state,'','#/'+r.canonical);
       if(r.primary==='knowledge')loadKnowledge();
       if(r.panel==='admin-outcomes')loadTaskOutcomes();
       // Restore a working route after projection errors; an error is not an empty list.
@@ -117,6 +151,6 @@
     composer.querySelector('button[type="submit"]').textContent='Copy launch command';
     window.switchTab((location.hash||'#/work').replace(/^#\/?/,''));
   }
-  window.GctoAdmin={route,outcomes,reset,openDocument};
+  window.GctoAdmin={route,outcomes,reset,openDocument,setWorkView,navigateWork};
   if(typeof document!=='undefined') setup();
 })();

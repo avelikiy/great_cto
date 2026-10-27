@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo." width="900" />
 
-*Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo. 3.70.0.*
+*Proyecto de ejemplo con datos sintéticos, no un benchmark de modelos en vivo. 3.70.1.*
 
 ```bash
 npx great-cto init
@@ -23,12 +23,18 @@ npx great-cto init
 
 </div>
 
-> Traducción del [README](../../README.md) en inglés, versión **v3.70.0** (2026-10-23).
+> Traducción del [README](../../README.md) en inglés, versión **v3.70.1** (2026-10-25).
 > Si hay discrepancias, prevalece la versión en inglés.
 
 ---
 
 great_cto coordina flujos nativos de Claude Code y ejecuciones controladas experimentales de Codex mediante etapas, revisiones y gates explícitos. El panel local conecta tareas, ejecución registrada, documentos y consumo. El catálogo público contiene **72** agentes; figurar en él no demuestra ejecución ni experiencia. La evidencia ausente sigue siendo desconocida. Merge, release y despliegue requieren sus propias pruebas y autorizaciones. Pagas a tu proveedor; great_cto usa MIT y no cobra.
+
+**Límite de distribución verificada (ADR-045):** los artefactos firmados se validan antes de cualquier activación. La actualización automática de una instalación npm global convencional solo se admite con un verificador autenticado de forma independiente y configurado por separado, junto con el conjunto completo de artefactos firmados de la versión. El paquete local admitido se instala sin conexión y con los scripts de ciclo de vida deshabilitados; un checkout del código o una sesión de plugin existente no demuestran una actualización verificada.
+
+Actualmente, `init`, la actualización nativa de plugins y la instalación automática de componentes adicionales rechazan la activación. La adaptación de Codex mediante `adapt` genera únicamente comentarios: no descarga nada ni habilita hooks o una vía de ejecución MCP. Tampoco se admite habilitar el temporizador de actualización de macOS. Los temporizadores existentes siguen usando su caché anterior hasta que una migración expresamente autorizada los modifique.
+
+Los ejemplos de instalación, plugins y temporizadores que aparecen a continuación describen **LEGACY 3.70.1**; no prometen una vía de activación disponible actualmente. Consulta las [actualizaciones verificadas](../reference/verified-updates.md).
 
 ## Inicio rápido
 
@@ -79,6 +85,34 @@ Execution muestra grafos causales registrados por el controlador; las sesiones n
 [Contrato de capturas](../reference/public-showcase.md).
 
 </details>
+
+## Ocho roles centrales, especialistas según la tarea
+
+| Responsabilidad | Rol |
+|---|---|
+| Problema y aceptación | `product-owner` |
+| Diseño del sistema y compromisos | `architect` |
+| Plan y dependencias | `pm` |
+| Implementación | `senior-dev` |
+| Revisión independiente del código | `code-reviewer` |
+| Verificación y regresiones | `qa-engineer` |
+| Riesgos y gate de publicación | `security-officer` |
+| Despliegue autorizado | `devops` |
+
+Son contratos de responsabilidad, no ocho llamadas obligatorias al modelo ni ocho agentes simultáneos. Project focus es una vista de presentación: no elimina especialistas, ni cambia la asignación, ni exime de comprobaciones obligatorias. La política del proyecto sigue determinando los revisores para cada riesgo.
+
+## Contexto de ingeniería enfocado
+
+Cinco candidatos a domain packs, versionados y de activación explícita, cubren cuatro áreas:
+
+| Área | Invariantes de ingeniería | Límite |
+|---|---|---|
+| **Dinero y ejecución cripto** | Idempotencia de pagos, envíos con resultado incierto, autoridad limitada; límites de firma, separación paper/live y finalidad de la cadena | Dos packs técnicos; sin afirmaciones de rentabilidad de inversiones |
+| **Procesos de telemedicina** | Facultades del profesional clínico, transiciones de estado de recetas e integridad de las evidencias | Sin afirmaciones de eficacia clínica ni certificación |
+| **Evidencias de venture** | Procedencia de afirmaciones, trazabilidad de entidades y cuarentena de aseveraciones sin verificar | Sin afirmaciones sobre resultados de inversión |
+| **Seguridad del bienestar mental** | Aislamiento del estado de cada persona, prioridad de escalamiento ante crisis y límites de las afirmaciones clínicas | Separado del diagnóstico, el tratamiento y la validación clínica |
+
+Los packs aportan contexto de ingeniería. No amplían permisos ni cambian el enrutamiento de los revisores obligatorios. Su presencia no prueba invocación, experiencia ni mejores resultados. No se ha demostrado una mejora de calidad en ensayos comparables del núcleo frente al núcleo más pack. Los overlays privados de proyectos no forman parte de la presentación pública.
 
 ## En OpenAI Codex
 

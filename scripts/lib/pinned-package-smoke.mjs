@@ -1,10 +1,10 @@
 /** Actual isolated CLI smoke, not workflow/package-closure/provider attestation. */
-import { mkdtempSync, realpathSync, mkdirSync, lstatSync, readdirSync, openSync, fstatSync, readSync, writeFileSync, closeSync, constants } from 'node:fs';
+import { mkdtempSync, realpathSync, mkdirSync, lstatSync, readdirSync, openSync, fstatSync, readSync, readFileSync, writeFileSync, closeSync, constants } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const extractor = fileURLToPath(new URL('./extract-benchmark-package.py', import.meta.url));
@@ -14,7 +14,7 @@ const controllerProbeEntry = fileURLToPath(new URL('./pinned-controller-probe.mj
 const env = { PATH: '/usr/bin:/bin:/usr/local/bin', LANG: 'C', TZ: 'UTC', PYTHONDONTWRITEBYTECODE: '1' };
 // Retain bounded cause metadata, never error messages (which can contain private
 // argv/output). Direct-child results do not attest descendant quiescence.
-export function smokeProcessDiagnostic(child, { startedAt, elapsedMs }) {
+export function smokeProcessDiagnostic(child, { startedAt, elapsedMs, limits = { timeoutMs: 30000 } }) {
   const errorCode = typeof child.error?.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(child.error.code)
     ? child.error.code : child.error ? 'UNCLASSIFIED' : null;
   const signal = typeof child.signal === 'string' && /^SIG[A-Z0-9]{1,16}$/.test(child.signal) ? child.signal : null;
@@ -23,7 +23,45 @@ export function smokeProcessDiagnostic(child, { startedAt, elapsedMs }) {
     outcome: errorCode === 'ETIMEDOUT' ? 'timeout' : errorCode === 'ENOBUFS' ? 'output-limit'
       : errorCode ? 'process-error' : signal ? 'signalled' : child.status === 0 ? 'exited-zero' : 'nonzero-or-unknown',
     startedAt, finishedAt: new Date().toISOString(), elapsedMs: Math.max(0, Math.round(elapsedMs)),
-    timeoutMs: 30000, descendantQuiescenceVerified: false };
+    ...limits, descendantQuiescenceVerified: false };
+}
+// A wall-clock cap on the controller probe measured machine load, not hangs: it
+// ran 4.6 s on a quiet machine and passed 30 s at load ~45 while still advancing.
+// The probe now fails closed when its progress file stops changing for stallMs;
+// hardMs still bounds a probe that keeps writing progress but never finishes.
+export const PROBE_STALL_MS = 30000, PROBE_HARD_MS = 600000;
+export function runProgressWatchedProcess(command, args, { progressPath, stallMs = PROBE_STALL_MS, hardMs = PROBE_HARD_MS,
+  pollMs = 250, killGraceMs = 5000, maxBuffer = 65536, ...options }) {
+  return new Promise(settle => {
+    const child = spawn(command, args, { ...options, stdio: ['ignore', 'pipe', 'pipe'] });
+    const start = performance.now(), output = { stdout: '', stderr: '' };
+    let lastProgress = start, seen = null, error = null, watchdog = null, done = false, escalation = null;
+    const stop = (code, kind = null) => {
+      if (error) return; error = { code }; watchdog = kind; child.kill('SIGTERM');
+      escalation = setTimeout(() => child.kill('SIGKILL'), killGraceMs);
+    };
+    for (const name of ['stdout', 'stderr']) {
+      child[name].setEncoding('utf8');
+      child[name].on('data', chunk => {
+        output[name] += chunk;
+        if (output[name].length > maxBuffer) { output[name] = output[name].slice(0, maxBuffer); stop('ENOBUFS'); }
+      });
+    }
+    const timer = setInterval(() => {
+      // An unreadable progress file is not progress: the stall clock keeps running.
+      let current = null; try { current = readFileSync(progressPath); } catch { /* not progress */ }
+      const now = performance.now();
+      if (current && (!seen || !current.equals(seen))) { seen = current; lastProgress = now; }
+      if (now - start >= hardMs) stop('ETIMEDOUT', 'wall');
+      else if (now - lastProgress >= stallMs) stop('ETIMEDOUT', 'stall');
+    }, pollMs);
+    const finish = (status, signal) => {
+      if (done) return; done = true; clearInterval(timer); clearTimeout(escalation);
+      settle({ pid: child.pid, status, signal, error, watchdog, ...output });
+    };
+    child.on('error', spawnError => { if (!error) error = spawnError; if (!child.pid) finish(null, null); });
+    child.on('close', finish);
+  });
 }
 function bytes(path, limit = 8 * 1024 * 1024) {
   if (realpathSync(path) !== resolve(path)) throw Error('noncanonical package file');
@@ -56,17 +94,17 @@ function inventory(root) {
   visit(); return { digest: sha(JSON.stringify(entries)), files: entries.filter(e => e[1] !== 'directory').length };
 }
 
-export function runPinnedPackageSmoke({ artifactFile, artifactSha256, pythonBin = 'python3.12', controllerProbe = false }) {
+export async function runPinnedPackageSmoke({ artifactFile, artifactSha256, pythonBin = 'python3.12', controllerProbe = false }) {
   if (typeof controllerProbe !== 'boolean') throw Error('controllerProbe must be boolean');
   if (!/^[a-f0-9]{64}$/.test(artifactSha256 || '')) throw Error('exact package byte pin required');
   if (sha(bytes(resolve(artifactFile), 100 * 1024 * 1024)) !== artifactSha256) throw Error('package byte pin mismatch');
   // Preserve this private diagnostic directory on both success and failure.
   const evidenceRoot = realpathSync(mkdtempSync(join(tmpdir(), 'great-cto-package-smoke-')));
-  try { return smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, evidenceRoot, controllerProbe }); }
+  try { return await smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, evidenceRoot, controllerProbe }); }
   catch (error) { error.evidenceRoot = evidenceRoot; throw error; }
 }
 
-function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, evidenceRoot, controllerProbe }) {
+async function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, evidenceRoot, controllerProbe }) {
   const extracted = join(evidenceRoot, 'extracted'); mkdirSync(extracted, { mode: 0o700 });
   const extractionStartedAt = new Date().toISOString(), extractionStart = performance.now();
   const unpack = spawnSync(pythonBin, ['-I', '-B', extractor, resolve(artifactFile), artifactSha256, extracted], {
@@ -104,10 +142,11 @@ function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, eviden
   if (controllerProbe) {
     const fixtures = join(evidenceRoot, 'fixtures'); mkdirSync(fixtures, { mode: 0o700 });
     const startedAt = new Date().toISOString(), start = performance.now();
-    const child = spawnSync(process.execPath, [controllerProbeEntry, join(root, 'board'), fixtures], {
+    const child = await runProgressWatchedProcess(process.execPath, [controllerProbeEntry, join(root, 'board'), fixtures], {
       cwd: evidenceRoot, env: { ...env, GREAT_CTO_CODEX_RUNS_DIR: runs,
-        GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' }, encoding: 'utf8', timeout: 30000, maxBuffer: 65536 });
-    const diagnostic = smokeProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start });
+        GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' }, progressPath: join(fixtures, 'probe-progress.json') });
+    const diagnostic = smokeProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start,
+      limits: { timeoutMs: null, stallTimeoutMs: PROBE_STALL_MS, hardTimeoutMs: PROBE_HARD_MS, watchdog: child.watchdog } });
     writeFileSync(join(evidenceRoot, 'controller-probe-diagnostics.json'), JSON.stringify({ ...diagnostic,
       stdout: child.stdout ?? '', stderr: child.stderr ?? '' }), { mode: 0o600 });
     if (child.error || child.status !== 0 || child.signal) throw Error(`packaged controller probe failed; evidence directory ${evidenceRoot}`);

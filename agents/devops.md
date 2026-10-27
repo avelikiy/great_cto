@@ -572,7 +572,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
      ESTIMATED=${ESTIMATED_RAW:-0}
      CONSOLE_URL=$(grep "console-url:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
      SERVICE=$(grep "^service:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")
-     FEATURE=$(basename "$ARCH_DOC" .md 2>/dev/null | sed 's/^ARCH-//' || echo "unknown")
+     FEATURE=$(basename "$ARCH_DOC" .md 2>/dev/null | sed 's/^ARCH-//'); FEATURE=${FEATURE:-unknown}
 
      COST_LOG=.great_cto/cost-history.log
      [ ! -f "$COST_LOG" ] && printf '# Cost history — append only. Format: ISO8601 | service | estimated_usd_month | actual_usd_month | source | feature\n' > "$COST_LOG"
