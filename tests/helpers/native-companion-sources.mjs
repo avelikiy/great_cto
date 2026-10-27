@@ -20,7 +20,7 @@ export function nativeCompanionSources(t, alter = () => {}) {
     alter({ expected, root, prefix });
     git(['add', '.']); git(['commit', '--quiet', '-m', 'Inert companion source fixture']);
     const commit = git(['rev-parse', 'HEAD']).trim(), tree = git(['rev-parse', 'HEAD^{tree}']).trim();
-    lock.components.push({ id: expected.id, name: expected.name, version: '1.0.0', source: { repository: expected.repository, subdirectory: expected.subdirectory, commit, tree } });
+    lock.components.push({ id: expected.id, name: expected.name, version: '1.0.0', projection: 'verbatim-runtime-allowlist-v1', source: { repository: expected.repository, subdirectory: expected.subdirectory, commit, tree } });
     repositories[expected.id] = path.join(root, '.git');
     fs.chmodSync(repositories[expected.id], 0o700);
   }

@@ -27,6 +27,13 @@ Exclude operational state, credentials, private overlays, Git internals and test
 fixtures. The projection is an explicit runtime allowlist; any missing manifest
 reference refuses preparation. Keep original license bytes and provenance.
 
+The descriptor and lock bind an explicit projection recipe. Beads' fixed public
+runtime guide uses the reversible [guidance projection](../testing/beads-guidance-projection-v1.md):
+retain its bytes under AGENT_TRACKING.md, update exactly two SKILL links and omit
+the maintenance CLAUDE.md. The archive privacy guard is unchanged. Bind output
+hashes separately from original sourcePath/sourceBlob; do not claim this derived
+projection is verbatim upstream or establishes runtime closure.
+
 The great_cto publisher vouches for these reviewed bundled bytes. This is not an
 upstream signature-verification claim and does not change the enrolled key.
 Component byte admission does not prove startup closure, native registration,

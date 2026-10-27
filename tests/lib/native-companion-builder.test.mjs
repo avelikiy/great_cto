@@ -90,3 +90,23 @@ test('implicit runtime settings refuse instead of silently disappearing from the
   const f = nativeCompanionSources(t, ({ prefix }) => fs.writeFileSync(path.join(prefix, 'settings.json'), '{}'));
   assert.throws(() => prepareNativeCompanionBundle(f), /implicit-runtime-unsupported/);
 });
+
+test('verbatim source projection refuses service documents inside runtime directories', t => {
+  const f = nativeCompanionSources(t, ({ prefix }) => fs.writeFileSync(path.join(prefix, 'skills/example/CLAUDE.md'), 'inert maintenance instructions'));
+  assert.throws(() => prepareNativeCompanionBundle(f), /projection-refused/);
+});
+
+test('raw tree mode bytes cannot be made valid by lossy ASCII decoding', t => {
+  const f = nativeCompanionSources(t), component = f.lock.components[0], repo = f.repositories[component.id];
+  const git = args => execFileSync('/usr/bin/git', ['--git-dir', repo, ...args]);
+  const writeObject = (kind, bytes) => {
+    const packet = Buffer.concat([Buffer.from(`${kind} ${bytes.length}\0`), bytes]), oid = createHash('sha1').update(packet).digest('hex');
+    const file = path.join(repo, 'objects', oid.slice(0, 2), oid.slice(2));
+    fs.mkdirSync(path.dirname(file), { recursive: true }); fs.writeFileSync(file, deflateSync(packet)); return oid;
+  };
+  const raw = git(['cat-file', 'tree', component.source.tree]); raw[0] |= 0x80;
+  const tree = writeObject('tree', raw);
+  const commit = git(['cat-file', 'commit', component.source.commit]).toString().replace('tree ' + component.source.tree + '\n', 'tree ' + tree + '\n');
+  component.source = { ...component.source, tree, commit: writeObject('commit', Buffer.from(commit)) };
+  assert.throws(() => prepareNativeCompanionBundle(f), /tree-shape/);
+});

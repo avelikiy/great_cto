@@ -11,7 +11,8 @@
         "commit": "43f41374a34d82ecf40903451eea277fbb4f1e75",
         "tree": "28f79ffc36555222f62fe82410410e69e60d8b79",
         "subdirectory": "plugins/beads"
-      }
+      },
+      "projection": "beads-runtime-guidance-v1"
     },
     {
       "id": "superpowers@superpowers-marketplace",
@@ -22,7 +23,8 @@
         "commit": "3dcbd5c4b48e02263fbf4a3c01e3fe4f81d584d9",
         "tree": "da1e7bb99212a060f90ffd6def69ff606775a79c",
         "subdirectory": "."
-      }
+      },
+      "projection": "verbatim-runtime-allowlist-v1"
     }
   ]
 }

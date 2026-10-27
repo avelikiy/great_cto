@@ -1,6 +1,6 @@
 import { parseStrictObject } from './release-json.mjs';
 import { inspectRuntimeImportReferences } from './release-runtime-references.mjs';
-import { validateNativeCompanionFiles } from './native-companion-policy.mjs';
+import { validateNativeCompanionFiles, assertNativeCompanionDeclarations } from './native-companion-policy.mjs';
 export { inspectRuntimeImportReferences };
 /** Publisher admission is an in-memory capability, never a serialized approval. */
 import fs from 'node:fs';
@@ -307,7 +307,7 @@ export function inspectPluginPayload(ticket) {
   }
   inspectPluginManifestReferences(files);
   inspectRuntimeImportReferences(files);
-  if (actual.has('native-companions.json')) validateNativeCompanionFiles(files);
+  if (actual.has('native-companions.json')) { assertNativeCompanionDeclarations(parseStrictReleaseIndex(actual.get('.claude-plugin/plugin.json').bytes.toString('utf8')).dependencies); validateNativeCompanionFiles(files); }
   else if (files.some(file => file.path.startsWith('vendor/native/'))) throw Error('native-companion-descriptor-required');
   return { version, files };
 }

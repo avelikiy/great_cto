@@ -33,6 +33,8 @@ Required source/consumer observations:
 | Explicit bundle profile | Both component inventories and SBOM dependency edges inside the plugin archive |
 | Ordinary build | No implicit bundle; existing artifact behavior preserved |
 | Publisher-vouched component bytes | authority NONE, runtime closure NOT CHECKED, activation NOT ESTABLISHED |
+| Unknown projection or mixed verbatim/derived identity | Refuse |
+| Fixed Beads guidance projection | Original source blob binding after exact inverse mapping; archive privacy rules unchanged |
 
 The profile ID describes the required reviewed-release policy. Its presence is
 not evidence that a security review or scanner executed. Inspection reports those
@@ -40,6 +42,8 @@ facts as NOT_ATTESTED; preparation reports them as NOT_CHECKED. Independent revi
 and scans of the **materialized component and complete artifact bytes**, not only
 the tracked great_cto tree, are required before any later release approval.
 No component-only preparation is a complete native-installable product artifact.
+The separate [Beads derivation contract](beads-guidance-projection-v1.md) freezes
+the limited filename/link mapping, counts, source identity and collision refusals.
 
 Source queries deny all Git protocols, disable lazy fetch and candidate hooks,
 and reject promisor metadata before querying objects. This affects only upstream

@@ -22,7 +22,7 @@ function bundle(t, change = () => {}) {
         { path: 'skills/example/SKILL.md', bytes: Buffer.from('Inert public fixture skill'), mode: 0o644 },
       ];
       for (const file of members) files.push({ ...file, path: root + '/' + file.path });
-      return { id, name, version: '1.0.0', root,
+      return { id, name, version: '1.0.0', projection: 'verbatim-runtime-allowlist-v1', root,
         source: { repository: 'https://github.com/' + (name === 'beads' ? 'gastownhall/beads' : 'obra/superpowers'), commit: 'a'.repeat(40), tree: 'b'.repeat(40), subdirectory: name === 'beads' ? 'plugins/beads' : '.' },
         license: { id: 'MIT', path: 'LICENSE', sha256: hash(members[1].bytes) },
         files: members.map(f => ({ path: f.path, size: f.bytes.length, sha256: hash(f.bytes), mode: f.mode,
@@ -48,6 +48,23 @@ function addComponentFile(descriptor, files, name, value) {
   component.files.push({ path: name, size: bytes.length, sha256: hash(bytes), mode: 0o644, sourcePath: 'plugins/beads/' + name,
     sourceBlob: hash(Buffer.concat([Buffer.from(`blob ${bytes.length}\0`), bytes]), 'sha1') });
   component.files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+}
+function derivedBundle(t, mutate = () => {}) {
+  return bundle(t, (descriptor, files) => {
+    const c = descriptor.components[0]; c.version = '1.3.2'; c.projection = 'beads-runtime-guidance-v1';
+    c.source.commit = '43f41374a34d82ecf40903451eea277fbb4f1e75'; c.source.tree = '28f79ffc36555222f62fe82410410e69e60d8b79';
+    changeComponentManifest(descriptor, files, m => { m.version = '1.3.2'; });
+    const add = (name, sourceName, original, output = original) => {
+      files.push({ path: c.root + '/' + name, bytes: output, mode: 0o644 });
+      c.files.push({ path: name, size: output.length, sha256: hash(output), mode: 0o644, sourcePath: 'plugins/beads/' + sourceName,
+        sourceBlob: hash(Buffer.concat([Buffer.from(`blob ${original.length}\0`), original]), 'sha1') });
+    };
+    add('skills/beads/SKILL.md', 'skills/beads/SKILL.md', Buffer.from('Inert synthetic guide: resources/AGENTS.md\r\nresources/AGENTS.md\n'),
+      Buffer.from('Inert synthetic guide: resources/AGENT_TRACKING.md\r\nresources/AGENT_TRACKING.md\n'));
+    add('skills/beads/resources/AGENT_TRACKING.md', 'skills/beads/resources/AGENTS.md', Buffer.from('Inert synthetic runtime guide'));
+    c.files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
+    mutate(descriptor, files);
+  });
 }
 
 test('independently checks both signed component inventories without installation authority', t => {
@@ -80,6 +97,7 @@ const attacks = [
   ['source path changed', d => { d.components[0].files[0].sourcePath = 'private/source'; }],
   ['extra descriptor authority', d => { d.authority = 'ACTIVE_VERIFIED'; }],
   ['component helper', d => { d.components[0].installer = 'npx unadmitted'; }],
+  ['unknown projection', d => { d.components[0].projection = 'arbitrary-transform'; }],
   ['undeclared component file', (d, files) => { files.push({ path: d.components[0].root + '/skills/extra.md', bytes: Buffer.from('extra'), mode: 0o644 }); }],
   ['unlisted vendor root', (d, files) => { files.push({ path: 'vendor/native/other/extra.md', bytes: Buffer.from('extra'), mode: 0o644 }); }],
   ['required dependency dropped', (d, files) => { const p = files.find(f => f.path === '.claude-plugin/plugin.json'); const m = JSON.parse(p.bytes); m.dependencies = [ids[0]]; p.bytes = Buffer.from(JSON.stringify(m)); }],
@@ -122,4 +140,33 @@ test('a present descriptor cannot suppress missing mandatory dependency declarat
     delete m.dependencies; p.bytes = Buffer.from(JSON.stringify(m));
   });
   assert.throws(() => f.ticket, /native-companion-required-dependencies/);
+});
+
+test('synthetic derived-member fixture binds projected bytes to reversible original source blobs', t => {
+  const f = derivedBundle(t), result = inspectBundledNativeCompanions(f.ticket);
+  assert.equal(result.authority, 'NONE'); assert.equal(result.components[0].projection, 'beads-runtime-guidance-v1');
+  assert.equal(result.runtimeClosure, 'NOT_CHECKED');
+});
+
+for (const target of ['skills/beads/SKILL.md', 'skills/beads/resources/AGENT_TRACKING.md']) {
+  test('derived output changes cannot pass original blob binding: ' + target, t => {
+    const f = derivedBundle(t, (d, files) => {
+      const c = d.components[0], file = files.find(file => file.path === c.root + '/' + target);
+      file.bytes = Buffer.concat([file.bytes, Buffer.from('changed')]);
+      Object.assign(c.files.find(file => file.path === target), { size: file.bytes.length, sha256: hash(file.bytes) });
+    });
+    assert.throws(() => f.ticket, /source-blob-mismatch/);
+  });
+}
+
+test('derived recipe cannot omit the runtime guide or change its source binding', t => {
+  const missing = derivedBundle(t, (d, files) => {
+    const c = d.components[0], name = 'skills/beads/resources/AGENT_TRACKING.md';
+    c.files = c.files.filter(file => file.path !== name); files.splice(files.findIndex(file => file.path === c.root + '/' + name), 1);
+  });
+  assert.throws(() => missing.ticket, /derived-members-required/);
+  const wrong = derivedBundle(t, d => { d.components[0].files.find(file => file.path.endsWith('/AGENT_TRACKING.md')).sourcePath = 'plugins/beads/skills/beads/resources/other.md'; });
+  assert.throws(() => wrong.ticket, /source-path/);
+  const mixed = derivedBundle(t, d => { d.components[0].projection = 'verbatim-runtime-allowlist-v1'; });
+  assert.throws(() => mixed.ticket, /projection-refused/);
 });

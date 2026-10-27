@@ -205,7 +205,8 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
         licenses: [{ license: { id: component.license.id } }],
         externalReferences: [{ type: 'vcs', url: component.source.repository + '/commit/' + component.source.commit }],
         properties: [{ name: 'great-cto:dependency-id', value: component.id }, { name: 'great-cto:source-tree', value: component.source.tree },
-          { name: 'great-cto:inventory-sha256', value: hash('sha256', JSON.stringify(component.files)) }, { name: 'great-cto:runtime-closure', value: 'NOT_CHECKED' }] });
+          { name: 'great-cto:inventory-sha256', value: hash('sha256', JSON.stringify(component.files)) }, { name: 'great-cto:runtime-closure', value: 'NOT_CHECKED' },
+          { name: 'great-cto:projection', value: component.projection }, { name: 'great-cto:provenance-kind', value: component.projection === 'beads-runtime-guidance-v1' ? 'DERIVED_PROJECTION' : 'VERBATIM_RUNTIME_PROJECTION' }] });
       sbom.dependencies[0].dependsOn.push(componentRef); sbom.dependencies.push({ ref: componentRef, dependsOn: [] });
     }
   }

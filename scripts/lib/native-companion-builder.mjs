@@ -3,7 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { NATIVE_COMPANIONS, NATIVE_COMPANION_PROFILE, isNativeCompanionRuntimePath, assertNativeCompanionRuntimeReferences } from '../../packages/cli/src/native-companion-policy.mjs';
+import { NATIVE_COMPANIONS, NATIVE_COMPANION_PROFILE, isNativeCompanionRuntimePath, assertNativeCompanionRuntimeReferences, validateNativeCompanionFiles } from '../../packages/cli/src/native-companion-policy.mjs';
+import { assertNativeCompanionProjection, projectNativeCompanionPath, projectNativeCompanionBytes } from '../../packages/cli/src/native-companion-projection.mjs';
+import { releaseArchivePath } from '../../packages/cli/src/release-archive.mjs';
 import { parseStrictReleaseIndex, inspectRuntimeImportReferences } from '../../packages/cli/src/release-trust.mjs';
 
 const sha = (bytes, algorithm = 'sha256') => createHash(algorithm).update(bytes).digest('hex');
@@ -14,7 +16,9 @@ function treeEntries(bytes) {
   while (at < bytes.length) {
     const space = bytes.indexOf(0x20, at), zero = bytes.indexOf(0, space + 1);
     if (space <= at || zero <= space + 1 || zero + 21 > bytes.length || zero - space - 1 > 255) fail('companion-source-tree-shape');
-    const mode = bytes.subarray(at, space).toString('ascii');
+    const rawMode = bytes.subarray(at, space);
+    if (rawMode.some(byte => byte < 0x30 || byte > 0x37)) fail('companion-source-tree-shape');
+    const mode = rawMode.toString('ascii');
     let name;
     try { name = new TextDecoder('utf-8', { fatal: true }).decode(bytes.subarray(space + 1, zero)); }
     catch { fail('companion-source-tree-name'); }
@@ -46,8 +50,9 @@ export function prepareNativeCompanionBundle({ lock, repositories, gitPath = '/u
   const files = [], components = [];
   for (let i = 0; i < NATIVE_COMPANIONS.length; i++) {
     const expected = NATIVE_COMPANIONS[i], entry = lock.components[i];
-    exact(entry, ['id', 'name', 'version', 'source']); exact(entry.source, ['repository', 'commit', 'tree', 'subdirectory']);
+    exact(entry, ['id', 'name', 'version', 'projection', 'source']); exact(entry.source, ['repository', 'commit', 'tree', 'subdirectory']);
     if (entry.id !== expected.id || entry.name !== expected.name || entry.source.repository !== expected.repository || entry.source.subdirectory !== expected.subdirectory || !/^[a-f0-9]{40}$/.test(entry.source.commit) || !/^[a-f0-9]{40}$/.test(entry.source.tree) || typeof entry.version !== 'string' || !/^\d+\.\d+\.\d+$/.test(entry.version)) fail('companion-lock-identity');
+    assertNativeCompanionProjection(entry);
     const repo = directory(repositories?.[entry.id]);
     const deadline = performance.now() + 120000;
     const git = args => {
@@ -86,15 +91,19 @@ export function prepareNativeCompanionBundle({ lock, repositories, gitPath = '/u
         if (sourcePath.length > 4096) fail('companion-source-limit');
         if (mode === '40000') { if (descend(sourcePath)) walk(blob, sourcePath, depth + 1); continue; }
         if (descend(sourcePath) && !['100644', '100755'].includes(mode)) fail('companion-source-link-or-submodule');
-        const relative = relativePath(sourcePath);
+        const sourceRelative = relativePath(sourcePath);
+        if (sourceRelative === null) continue;
+        if (sourceRelative === 'settings.json' || sourceRelative === '.lsp.json') fail('companion-implicit-runtime-unsupported');
+        const relative = projectNativeCompanionPath(entry, sourceRelative);
         if (relative === null) continue;
-        if (relative === 'settings.json' || relative === '.lsp.json') fail('companion-implicit-runtime-unsupported');
         if (!isNativeCompanionRuntimePath(relative)) continue;
+        releaseArchivePath('vendor/native/' + entry.name + '/' + relative);
         if (!['100644', '100755'].includes(mode)) fail('companion-source-link-or-submodule');
         const collision = relative.normalize('NFC').toLowerCase();
         if (names.has(collision)) fail('companion-source-name-collision'); names.add(collision);
-        const bytes = git(['cat-file', 'blob', blob]);
-        if (gitHash('blob', bytes) !== blob) fail('companion-source-blob-identity');
+        const originalBytes = git(['cat-file', 'blob', blob]);
+        if (gitHash('blob', originalBytes) !== blob) fail('companion-source-blob-identity');
+        const bytes = projectNativeCompanionBytes(entry, sourceRelative, originalBytes);
         total += bytes.length;
         if (members.length >= 5000 || bytes.length > 8 * 1024 * 1024 || total > 64 * 1024 * 1024) fail('companion-source-limit');
         members.push({ path: relative, bytes, mode: mode === '100755' ? 0o755 : 0o644, sourcePath, sourceBlob: blob });
@@ -111,13 +120,14 @@ export function prepareNativeCompanionBundle({ lock, repositories, gitPath = '/u
     if (performance.now() >= deadline) fail('companion-source-deadline');
     const root = 'vendor/native/' + entry.name;
     for (const { sourcePath, sourceBlob, ...file } of members) files.push({ ...file, path: root + '/' + file.path });
-    components.push({ id: entry.id, name: entry.name, version: entry.version, root, source: { ...entry.source },
+    components.push({ id: entry.id, name: entry.name, version: entry.version, projection: entry.projection, root, source: { ...entry.source },
       license: { id: 'MIT', path: 'LICENSE', sha256: sha(license.bytes) },
       files: members.map(({ bytes, ...file }) => ({ ...file, size: bytes.length, sha256: sha(bytes) })),
     });
   }
   const descriptor = { schema: 1, profile: NATIVE_COMPANION_PROFILE, components };
   files.push({ path: 'native-companions.json', mode: 0o644, bytes: Buffer.from(JSON.stringify(descriptor, null, 2) + '\n') });
+  validateNativeCompanionFiles(files);
   files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   return { state: 'UNSIGNED_COMPONENT_PREPARATION', authority: 'NONE', runtimeClosure: 'NOT_CHECKED', signed: false, published: false, installed: false, descriptor, files };
 }
