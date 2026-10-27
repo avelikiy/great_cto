@@ -5,6 +5,7 @@ import path from 'node:path';
 import { createHash, randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getAdmissionInfo, getAdmittedArtifact, inspectNpmPayload, inspectPluginPayload } from './release-trust.mjs';
+import { inspectClaudeNativeAdmission } from './native-plugin-admission.mjs';
 
 const MAX_FILES = 10000, MAX_BYTES = 512 * 1024 * 1024;
 const STABLE = /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/;
@@ -370,12 +371,14 @@ export function proposeManagedPluginActivation(admission) {
   try {
     const info = getAdmissionInfo(admission);
     if (!info.isProduction) fail('production-artifact-admission-required');
+    const nativeInspection = inspectClaudeNativeAdmission(admission);
+    if (nativeInspection.state === 'REFUSED') return outcome('REFUSED', {}, nativeInspection.blockers[0]);
     const payload = inspectPluginPayload(admission);
     const manifestFile = payload.files.find(file => file.path === '.claude-plugin/plugin.json');
     const manifest = manifestFile ? JSON.parse(manifestFile.bytes.toString('utf8')) : null;
     if (!manifest || (Array.isArray(manifest.dependencies) && manifest.dependencies.length)) return outcome('UNSUPPORTED', { version: info.version }, 'external-plugin-dependency-admission-required');
     const mcpFile = payload.files.find(file => file.path === '.codex-plugin/mcp.json');
     if (mcpFile && /\b(?:npx|npm|pnpm|bunx|uvx)\b/.test(mcpFile.bytes.toString('utf8'))) return outcome('UNSUPPORTED', { version: info.version }, 'external-mcp-runtime-admission-required');
-    return outcome('UNSUPPORTED', { version: info.version }, 'native-activation-and-recovery-not-established');
+    return { ...outcome('UNSUPPORTED', { version: info.version }, nativeInspection.blockers[0]), nativeInspection };
   } catch (error) { return outcome('REFUSED', {}, error.activationReason || 'artifact-admission-required'); }
 }
