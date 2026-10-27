@@ -374,11 +374,8 @@ export function proposeManagedPluginActivation(admission) {
     const nativeInspection = inspectClaudeNativeAdmission(admission);
     if (nativeInspection.state === 'REFUSED') return outcome('REFUSED', {}, nativeInspection.blockers[0]);
     const payload = inspectPluginPayload(admission);
-    const manifestFile = payload.files.find(file => file.path === '.claude-plugin/plugin.json');
-    const manifest = manifestFile ? JSON.parse(manifestFile.bytes.toString('utf8')) : null;
-    if (!manifest || (Array.isArray(manifest.dependencies) && manifest.dependencies.length)) return outcome('UNSUPPORTED', { version: info.version }, 'external-plugin-dependency-admission-required');
     const mcpFile = payload.files.find(file => file.path === '.codex-plugin/mcp.json');
-    if (mcpFile && /\b(?:npx|npm|pnpm|bunx|uvx)\b/.test(mcpFile.bytes.toString('utf8'))) return outcome('UNSUPPORTED', { version: info.version }, 'external-mcp-runtime-admission-required');
+    if (mcpFile && /\b(?:npx|npm|pnpm|bunx|uvx)\b/.test(mcpFile.bytes.toString('utf8'))) return { ...outcome('UNSUPPORTED', { version: info.version }, 'external-mcp-runtime-admission-required'), nativeInspection };
     return { ...outcome('UNSUPPORTED', { version: info.version }, nativeInspection.blockers[0]), nativeInspection };
   } catch (error) { return outcome('REFUSED', {}, error.activationReason || 'artifact-admission-required'); }
 }

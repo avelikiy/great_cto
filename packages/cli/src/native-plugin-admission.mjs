@@ -1,5 +1,6 @@
 /** ADR-046 compatibility inspection only. No filesystem mutation or host execution. */
 import { getAdmissionInfo, inspectPluginPayload, parseStrictReleaseIndex } from './release-trust.mjs';
+import { inspectBundledNativeCompanions } from './native-companion-bundle.mjs';
 
 const own = (object, key) => Object.hasOwn(object, key);
 const record = value => value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -35,10 +36,21 @@ export function inspectClaudeNativeAdmission(admission) {
     result.indexDigest = info.indexDigest; result.commit = info.commit;
     const manifest = read('.claude-plugin/plugin.json');
     for (const key of Object.keys(manifest)) if (!manifestKeys.has(key)) block('unsupported-native-manifest-extension');
+    if (files.has('native-companions.json')) {
+      try {
+        result.dependencies = inspectBundledNativeCompanions(admission);
+        block('native-companion-runtime-closure-not-established');
+      } catch {
+        result.state = 'REFUSED'; result.artifact = 'REFUSED'; result.payload = 'NOT_CHECKED';
+        result.blockers.push('native-companion-bundle-refused'); return result;
+      }
+    }
     if (own(manifest, 'dependencies')) {
       if (!Array.isArray(manifest.dependencies) || manifest.dependencies.some(value => typeof value !== 'string' || !value)) {
         block('invalid-native-dependency-declaration');
-      } else if (manifest.dependencies.length) block('external-plugin-dependency-admission-required');
+      } else if (manifest.dependencies.length) {
+        if (!files.has('native-companions.json')) block('external-plugin-dependency-admission-required');
+      }
     }
 
     // Host-default files matter even when the manifest does not mention them.

@@ -19,7 +19,7 @@ export function nativeAdmissionFixture(t, mutate = () => {}) {
     ...['index.mjs', 'dist/main.js', 'board/packages/board/server.mjs'].map(name => ({ path: name, bytes: Buffer.from('// inert test fixture'), mode: 0o644 }))];
   const pluginFiles = ['.claude-plugin/plugin.json', '.codex-plugin/plugin.json', 'packages/cli/dist/main.js', 'packages/cli/index.mjs', 'packages/board/server.mjs'].map(name => ({ path: name, bytes: Buffer.from(name.endsWith('plugin.json') ? JSON.stringify({ name: 'great-cto', version }) : '// inert test fixture'), mode: 0o644 }));
   mutate(pluginFiles);
-  const inventory = { schema: 1, version, files: pluginFiles.map(f => ({ path: f.path, size: f.bytes.length, sha256: digest(f.bytes), mode: f.mode })).sort((a, b) => a.path.localeCompare(b.path)) };
+  const inventory = { schema: 1, version, files: pluginFiles.map(f => ({ path: f.path, size: f.bytes.length, sha256: digest(f.bytes), mode: f.mode })).sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0) };
   const blobs = new Map([
     [`great-cto-${version}.tgz`, encodeReleaseArchive(npmFiles)],
     [`great-cto-plugin-${version}.tgz`, encodeReleaseArchive(pluginFiles, { prefix: 'plugin' })],

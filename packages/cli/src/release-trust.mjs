@@ -1,3 +1,7 @@
+import { parseStrictObject } from './release-json.mjs';
+import { inspectRuntimeImportReferences } from './release-runtime-references.mjs';
+import { validateNativeCompanionFiles, assertNativeCompanionDeclarations } from './native-companion-policy.mjs';
+export { inspectRuntimeImportReferences };
 /** Publisher admission is an in-memory capability, never a serialized approval. */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -24,47 +28,9 @@ function exact(value, keys, label) {
 }
 function compare(a, b) { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] - y[i]; return 0; }
 
-/** Reject duplicate decoded keys before JSON.parse can erase their ambiguity. */
+/** Preserve the release-index parser API and its policy-bound default limit. */
 export function parseStrictReleaseIndex(text, { maxBytes = RELEASE_TRUST_LIMITS.index } = {}) {
-  if (typeof text !== 'string' || Buffer.byteLength(text) > maxBytes) throw Error('JSON input size refused');
-  let at = 0, nodes = 0;
-  const white = () => { while (/[ \n\r\t]/.test(text[at] || '#')) at++; };
-  const string = () => {
-    const start = at++;
-    while (at < text.length) {
-      const c = text[at++];
-      if (c === '\\') { at++; continue; }
-      if (c === '"') { try { return JSON.parse(text.slice(start, at)); } catch { throw Error('invalid JSON string'); } }
-    }
-    throw Error('unterminated JSON string');
-  };
-  const value = depth => {
-    if (depth > 32 || ++nodes > 100_000) throw Error('JSON depth or node limit exceeded');
-    white(); const c = text[at];
-    if (c === '"') { string(); return; }
-    if (c === '{') {
-      at++; white(); const seen = new Set();
-      if (text[at] === '}') { at++; return; }
-      while (true) {
-        white(); if (text[at] !== '"') throw Error('invalid JSON object key');
-        const k = string();
-        if (seen.has(k) || ['__proto__', 'constructor', 'prototype'].includes(k)) throw Error('duplicate or unsafe JSON key');
-        seen.add(k); white(); if (text[at++] !== ':') throw Error('invalid JSON object separator');
-        value(depth + 1); white(); const next = text[at++];
-        if (next === '}') return; if (next !== ',') throw Error('invalid JSON object delimiter');
-      }
-    }
-    if (c === '[') {
-      at++; white(); if (text[at] === ']') { at++; return; }
-      while (true) { value(depth + 1); white(); const next = text[at++]; if (next === ']') return; if (next !== ',') throw Error('invalid JSON array delimiter'); }
-    }
-    const match = /^(?:true|false|null|-?(?:0|[1-9][0-9]*)(?:\.[0-9]+)?(?:[eE][+-]?[0-9]+)?)/.exec(text.slice(at));
-    if (!match) throw Error('invalid JSON value'); at += match[0].length;
-  };
-  value(0); white(); if (at !== text.length) throw Error('trailing JSON data');
-  let parsed; try { parsed = JSON.parse(text); } catch { throw Error('invalid JSON'); }
-  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) throw Error('JSON object required');
-  return parsed;
+  return parseStrictObject(text, { maxBytes });
 }
 
 export function validateReleaseIndex(input, { version, expectedCommit, currentVersion, currentIndexDigest, profile = 'github-oidc', localKeyFingerprint } = {}) {
@@ -275,21 +241,6 @@ export function getAdmittedArtifact(ticket, kind) {
 }
 function artifactBytes(ticket, kind) { const a = getAdmittedArtifact(ticket, kind); const bytes = readRegular(a.path, a.size).bytes; if (sha(bytes) !== a.sha256) throw Error('artifact digest changed'); return bytes; }
 function required(files, names) { const paths = new Set(files.map(f => f.path)); for (const name of names) if (!paths.has(name)) throw Error(`runtime archive missing ${name}`); }
-export function inspectRuntimeImportReferences(files) {
-  const paths = new Set(files.map(f => f.path));
-  for (const file of files) {
-    if (!/\.(?:mjs|js|cjs)$/.test(file.path)) continue;
-    const source = file.bytes.toString('utf8');
-    // Match the publisher's literal-import closure. Computed imports still need runtime smoke.
-    const pattern = /(?:\bfrom\s*|\bimport\s*(?:\(\s*)?)["'](\.{1,2}\/[^"'\n\r]+)["']/g;
-    for (const match of source.matchAll(pattern)) {
-      const specifier = match[1];
-      if (/[?#\\]/.test(specifier)) throw Error('unsupported relative runtime import');
-      const target = path.posix.normalize(path.posix.join(path.posix.dirname(file.path), specifier));
-      if (target === '..' || target.startsWith('../') || path.posix.isAbsolute(target) || !paths.has(target)) throw Error(`runtime import missing from archive: ${file.path}`);
-    }
-  }
-}
 
 export function inspectNpmPayload(ticket) {
   const { version } = getAdmissionInfo(ticket), files = inspectReleaseArchive(artifactBytes(ticket, 'npm'));
@@ -356,5 +307,7 @@ export function inspectPluginPayload(ticket) {
   }
   inspectPluginManifestReferences(files);
   inspectRuntimeImportReferences(files);
+  if (actual.has('native-companions.json')) { assertNativeCompanionDeclarations(parseStrictReleaseIndex(actual.get('.claude-plugin/plugin.json').bytes.toString('utf8')).dependencies); validateNativeCompanionFiles(files); }
+  else if (files.some(file => file.path.startsWith('vendor/native/'))) throw Error('native-companion-descriptor-required');
   return { version, files };
 }
