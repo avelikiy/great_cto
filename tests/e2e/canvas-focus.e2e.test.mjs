@@ -230,7 +230,11 @@ test('canvas workspace preserves route history, project identity, evidence and u
     assert.equal(new URL(page.url()).searchParams.get('project'), otherSlug, 'late default-scope response must not overwrite an explicit project choice');
     assert.equal(await page.locator('#project-name').innerText(), otherSlug);
     assert(await page.locator(`[data-work-select="${issue.key}"]`).innerText().then(text => text.includes('Secondary workspace sentinel')));
-    await page.unroute(unqualifiedWork);
+    // Every unqualified read in the window (the 10 s Work poll, an SSE reload)
+    // entered this handler too. Removing the last route makes Playwright continue
+    // routes still in flight, so a plain unroute() let a slow handler's fulfill()
+    // land on an already-continued route. 'wait' drains the handlers first.
+    await page.unrouteAll({ behavior: 'wait' });
     await page.evaluate(() => { api = window.__canvasOriginalAPI; delete window.__canvasOriginalAPI; delete window.__canvasDefaultRead; });
     await page.goto(`${base}/?project=${FIXTURE_NAME}#/work/task/run%3Amissing/execution`);
     await page.getByRole('heading', { name: 'Selected task is unavailable', exact: true }).waitFor();
