@@ -42,7 +42,7 @@ export function inspectClaudeNativeAdmission(admission) {
         block('native-companion-runtime-closure-not-established');
       } catch {
         result.state = 'REFUSED'; result.artifact = 'REFUSED'; result.payload = 'NOT_CHECKED';
-        block('native-companion-bundle-refused'); return result;
+        result.blockers.push('native-companion-bundle-refused'); return result;
       }
     }
     if (own(manifest, 'dependencies')) {

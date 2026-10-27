@@ -1,9 +1,16 @@
 # ADR-047: Release-bound offline native companions
 
-Date: 2026-10-27
+**Date:** 2026-10-27
 Status: Offline-bundle direction accepted by the operator on 2026-10-27;
 implementation and independent review pending, no publication or activation authority.
 Extends: [ADR-046](ADR-046-native-plugin-activation.md).
+
+## Context
+
+The released plugin depends on companion code outside its signed primary archive.
+An installed cache, version listing or dependency declaration does not prove those
+bytes are admitted. The operator selected an offline bundle while preserving
+mandatory dependencies, archive privacy and the separate activation boundary.
 
 ## Decision
 
@@ -59,6 +66,15 @@ entry. Native listings with component errors cannot prove runtime selection.
 Retain the prior payload/cache outside native pruning: restoring three JSON
 files alone can leave native `.orphaned_at` metadata behind. Recovery must restore
 exact owned membership/modes or preserve external drift as RECOVERY_REQUIRED.
+
+## Consequences
+
+The complete plugin payload gains reviewed component projections, provenance and
+dependency inventories. Maintaining these inputs and deterministic derivations is
+the great_cto publisher's responsibility. Materialized component and full-artifact
+review/scans are additional work before a future release, not facts established by
+an unsigned preparation. Existing ordinary builds and installed plugins remain
+unchanged; unsupported native runtime closure continues to refuse activation.
 
 ## Authority and sequencing
 
