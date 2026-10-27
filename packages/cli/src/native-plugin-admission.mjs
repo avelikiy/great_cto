@@ -32,6 +32,7 @@ export function inspectClaudeNativeAdmission(admission) {
     const read = name => parseStrictReleaseIndex(files.get(name).bytes.toString('utf8'));
     const block = code => { if (!result.blockers.includes(code)) result.blockers.push(code); };
     result.artifact = 'ADMITTED'; result.payload = 'ARCHIVE_BYTES_VERIFIED'; result.version = info.version;
+    result.indexDigest = info.indexDigest; result.commit = info.commit;
     const manifest = read('.claude-plugin/plugin.json');
     for (const key of Object.keys(manifest)) if (!manifestKeys.has(key)) block('unsupported-native-manifest-extension');
     if (own(manifest, 'dependencies')) {

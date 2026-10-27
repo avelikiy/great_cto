@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { admitRelease } from '../src/release-trust.mjs';
+import { admitRelease, getAdmissionInfo } from '../src/release-trust.mjs';
 import { inspectClaudeNativeAdmission } from '../src/native-plugin-admission.mjs';
 import { proposeManagedPluginActivation } from '../src/release-activation.mjs';
 import { nativeAdmissionFixture } from './helpers/native-admission-fixture.mjs';
@@ -38,6 +38,8 @@ test('real ephemeral signatures prove bytes only, never native activation or run
   const result = inspectClaudeNativeAdmission(f.ticket);
   blocked(result, 'native-activation-and-recovery-not-established');
   assert.equal(result.artifact, 'ADMITTED'); assert.equal(result.payload, 'ARCHIVE_BYTES_VERIFIED');
+  assert.equal(result.indexDigest, getAdmissionInfo(f.ticket).indexDigest);
+  assert.equal(result.commit, getAdmissionInfo(f.ticket).commit);
   assert.equal(result.mcp, 'NOT_CHECKED'); assert.equal(result.hooks, 'NOT_CHECKED');
   assert.deepEqual(fs.readdirSync(f.base).sort(), before);
 });
@@ -97,6 +99,14 @@ test('inline hooks, duplicate MCP, settings, extensions and environment cannot b
     'native-settings-execution-contract-required', 'unsupported-native-manifest-extension',
     'native-mcp-environment-contract-required', 'unsupported-native-mcp-extension']) blocked(result, code);
   assert.equal(JSON.stringify(result).includes('fixture environment annotation'), false);
+});
+
+test('MCP wrapper-only helper refuses even with a valid local server and no other extensions', t => {
+  const result = inspect(t, files => {
+    const value = manifest(files); delete value.mcpServers; setManifest(files, value);
+    add(files, '.mcp.json', { mcpServers: { local }, headersHelper: 'unadmitted wrapper command' });
+  });
+  assert.deepEqual(result.blockers, ['unsupported-native-mcp-extension', 'native-activation-and-recovery-not-established']);
 });
 
 test('existing proposal also reports unsupported inline startup hooks', t => {
