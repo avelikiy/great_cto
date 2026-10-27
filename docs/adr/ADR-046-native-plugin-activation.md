@@ -65,6 +65,11 @@ binding, native admission and operator rollout remain separate work.
 
 ## Transaction and concurrency model
 
+The [native startup profile contract](../testing/native-startup-profile-v1.md)
+prepares a bounded context loader and complete hook-effect inventory separately
+from manifest migration. Read-only context does not replace mandatory guards or
+admit startup writes, runtime dependencies or native activation.
+
 The adapter owns only its great_cto payload, selections and explicitly inventoried
 managed files. It does not own the whole host home, marketplace or plugin tree.
 
