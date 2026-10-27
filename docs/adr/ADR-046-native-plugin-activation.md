@@ -1,7 +1,7 @@
 # ADR-046: Bounded native plugin activation and recovery
 
 **Date:** 2026-10-27
-Status: Proposed design; no native adapter is approved or implemented by this document
+Status: Accepted design by explicit operator approval on 2026-10-27; implementation in progress, no operator activation authorized
 Extends: [ADR-045](ADR-045-verified-distribution.md)
 Acceptance: [Native activation acceptance](../testing/native-activation-acceptance.md)
 
@@ -102,8 +102,9 @@ Disabling a second registration must be named in the operator activation plan;
 it is not an implicit cleanup permission. Preserve all unrelated plugins,
 scopes, marketplace selections and project settings. Plan the registry
 entry and any globally managed roles/skills/commands separately. A managed-file
-refresh is not part of the transaction unless its complete before/after inventory
-and the adapter can restore every affected file in executed tests. Otherwise refuse that mode.
+refresh is part of the transaction only when the adapter inventories its complete
+before/after state and restores every affected file in executed tests. Otherwise
+refuse that mode.
 
 Use only a proven offline registration route with a complete admitted snapshot.
 If native commands trigger companion acquisition, helper execution or network

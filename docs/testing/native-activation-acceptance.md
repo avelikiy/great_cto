@@ -1,8 +1,8 @@
 # Native plugin activation acceptance
 
-Status: Proposed executable acceptance contract; all scenarios below NOT RUN.
+Status: Accepted scenario contract under ADR-046; executable cases pending, all scenarios below NOT RUN.
 Design: [ADR-046](../adr/ADR-046-native-plugin-activation.md).
-These are future acceptance scenarios, not a test report or permission to activate.
+These are acceptance requirements, not a test report or permission to activate.
 
 Run each host separately in a dedicated owned temporary home. Pin host version,
 operator executables, candidate commit/index and dependency evidence. Use real
