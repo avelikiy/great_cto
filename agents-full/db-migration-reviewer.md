@@ -67,8 +67,9 @@ fi
 echo "Migrations to review:"
 echo "$MIGRATIONS"
 
-DB_ENGINE=$(grep "^db:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || \
-            grep -rn "postgresql\|mysql\|sqlite\|aurora\|cockroach\|planetscale" .great_cto/PROJECT.md 2>/dev/null | head -1 | grep -oE "postgresql|mysql|sqlite|aurora|cockroach|planetscale" | head -1 || echo "unknown")
+DB_ENGINE=$(grep "^db:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
+[ -n "$DB_ENGINE" ] || DB_ENGINE=$(grep -oE "postgresql|mysql|sqlite|aurora|cockroach|planetscale" .great_cto/PROJECT.md 2>/dev/null | head -1)
+DB_ENGINE=${DB_ENGINE:-unknown}
 
 # Slug from latest ARCH doc; date fallback must be an explicit branch —
 # `|| echo` after a pipeline never fires (basename "" exits 0 with empty output)

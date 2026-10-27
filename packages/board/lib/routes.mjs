@@ -45,7 +45,7 @@ import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
-import { getWork } from './work.mjs';
+import { getWork, getHostGraphPage } from './work.mjs';
 let publicationPreviewBusy = false;
 let publicationWriteBusy = false;
 import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
@@ -234,6 +234,19 @@ async function dispatch(req, res, url, cwd) {
       res.writeHead(503, headers);
       res.end(JSON.stringify({ error: 'Skill inventory could not be read' }));
     }
+    return true;
+  }
+
+  if (pathname === '/api/host-graph') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
+    }
+    if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); res.end(); return true; }
+    try {
+      const graph = getHostGraphPage(cwd, { host: url.searchParams.get('host'), sessionId: url.searchParams.get('session'),
+        runId: url.searchParams.get('run'), cursor: url.searchParams.get('cursor') });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(graph));
+    } catch { res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Bound graph page is unavailable' })); }
     return true;
   }
 

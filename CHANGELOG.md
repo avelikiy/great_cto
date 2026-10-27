@@ -56,6 +56,105 @@ All notable changes to great_cto are documented here.
 
 
 
+
+
+
+
+## v3.72.0 — 2026-10-26
+
+The orchestrator follows the stage graph with a lighter skill file, and a gate checks the contract of the edge being taken, not only the stage that ran.
+
+### What's new
+
+- Graph guard rule 2: before a stage starts, the guard checks that the stage it follows named what its contract says it produces. A dispatch over an edge whose predecessor named nothing is recorded, or refused under `graph-guard: enforce`.
+- SKILL.md, loaded into every session, is back under its 20 KB budget (37.5 KB → 19.9 KB). Stage order lives only in `shared/pipeline.toml`; the clarify table, decision brief, gate screens, approval levels, archetype rules and retrospective format moved to `skills/great_cto/reference/`, read when they apply.
+- UI-bearing features run design-advisor between the architect and pm, so pm plans the UI tasks against the finished design contract.
+
+### Fixed
+
+- Review after implementation fans out to code-reviewer, qa-engineer and security-officer as the graph says; the skill prose still described three senior-dev review forks.
+- gate:plan, gate:code and gate:arch open only when the project's approval level makes them active. The legacy `review_mode` key no longer opens gate:code; the orchestrator offers `approval-level: strict` instead.
+- The regulated floor documented for the orchestrator is the one the code enforces: twelve archetypes keep gate:security + gate:compliance + gate:ship at every level, and the floor adds no gate:code.
+- The rollback validation shown before gate:ship can report a risk. Every check was `… | head -1 || echo RISK`, which takes head's exit status (always 0), so a missing upgrade proxy, index snapshot or kill switch never surfaced. A project without a `primary:` type is now reported as not checked instead of silently passing.
+- Senior-dev could be dispatched twice when design-advisor and pm ran side by side; design-advisor now hands to pm.
+- About 35 more defaults after `| head`, `| tail`, `| sed` or `| awk` in agents, commands and scripts never applied (agents read an empty string where `NO_AUDIT`, `[]`, `main` or `0` was meant). A scan test keeps the shape out.
+
+### Validation and limits
+
+The merged source (`a0a7dfe6`) passed the canonical local gate, including 22 browser scenarios without skips; 16 live/opt-in checks remain NOT CHECKED. Each new test fails on the previous text: rollback validation, the regulated-set documentation check and the fallback scan. An A/B of the skill file — orchestrator subagents with file access, six pipeline scenarios, criteria written before the runs, one run per case — scored the old file 5/6 and the new one 6/6 after the approval-level fix; that is indicative, not a rate. The versioned candidate needs its own gate and the ADR-045 signing and owner approval before publication. Domain packs and graph collection remain opt-in.
+
+---
+
+## v3.71.1 — 2026-10-26
+
+Exact-byte distribution checks accompany the opt-in Codex and Claude Code execution observations. This candidate supersedes the unused 3.71.0 preparation tag without moving it.
+
+### What's new
+
+- Separate controller-owned graph transitions and source-labelled host observation lanes, with explicit coverage, loss markers and unavailable outcomes. Graph collection remains opt-in.
+- Strict npm and complete plugin archive admission: source/version identity, signed index, sizes, digests, archive membership, file modes and runtime closure are checked before supported activation.
+- Explicit local Ed25519 signing authority for local CI/CD. The consumer requires a separately enrolled public fingerprint; release artifacts cannot select their own trust policy. GitHub OIDC remains a distinct optional profile with no fallback.
+- Local publication tools consume admitted immutable bytes, require exact commit/index approval pins and verify registry and GitHub asset bytes after publication. Enrollment alone authorizes no release.
+
+### Fixed
+
+- Refuse legacy mutable publication and unsupported installer routes before mutation instead of silently selecting unverified bytes.
+- Observe scorer readiness within its actual subprocess window and anchor the test watchdog to observed readiness. The selected scorer deadline in this test remains 1000 ms; production timeout configuration is unchanged. The 2000 ms fixture watchdog, 10000 ms test cap and ownership/SIGKILL/cleanup checks remain intact. Prior failing runs are retained.
+
+### Validation and limits
+
+The preceding implementation candidate passed the canonical local gate, including 22 browser scenarios without skips, and independent source/security review. Two clean builds produced five byte-identical outputs; real signatures from a temporary fixture key passed archive admission. Those results are source/fixture evidence, not production publication or installed-host acceptance. The versioned release candidate requires its own fresh gate and artifact review before publication.
+
+Fifteen live/opt-in checks remain NOT CHECKED. Native host observations do not prove complete session coverage, live-model quality improvement or deployment success. Native marketplace, companion, pnpm and Volta activation remain unsupported by this admission contract; plain npm is the supported first adapter. Domain packs and graph collection remain opt-in. The separate Kimi reviewer candidate is not included. See ADR-044 and ADR-045.
+
+---
+
+## v3.71.0 — 2026-10-25
+
+Opt-in host observations add source-labelled Codex and Claude Code lanes beside the controller-owned execution graph, with explicit coverage and loss reporting.
+
+### What's new
+
+- Project-, host- and session-bound metadata journals for structured execution and native observer hooks. Collection is off by default; prompts, tool arguments, output and credentials are excluded.
+- Read-only graph lanes, node inspection, coverage dimensions, paging, search and layout controls. Controller transitions remain distinct from supplemental host observations.
+- Bounded private journals, identity validation, deduplication, persistent loss markers and fail-closed file handling. Observers cannot approve gates or change execution authority.
+- CLI controls for auditing sources, enabling collection, binding sessions, reading observations and revoking collection.
+
+### Fixed
+
+- Bind parallel worker observations before prepared attempts appear in controller history, preserving project isolation and verified joins.
+- Treat native Codex tool completion as an unknown outcome when the host payload provides no reliable success signal, including a real nonzero-exit case.
+- Preserve gaps for malformed delivery identities and unrecognised host events instead of inventing causal edges or completeness.
+
+### Validation and limits
+
+The implementation tree passed the canonical local gate, including 22 browser scenarios without skips. Live synthetic-project checks exercised Codex, Claude Code through OpenRouter, concurrent controlled workers and native lifecycle observations. Native observations do not attest complete host coverage; resume identities and child deliveries can remain unavailable. Fifteen opt-in/live checks in the canonical suite remain NOT CHECKED. These results do not establish deployment success, general native-session completeness or measured quality uplift. A fresh gate on the versioned release candidate is required before publication. Domain packs and graph collection remain opt-in; the separate Kimi reviewer candidate is not included.
+
+---
+
+## v3.70.1 — 2026-10-25
+
+Work opens as a full-width list, and each task has its own workspace with a wide execution canvas. The public README and Blueprint landing describe the current controlled-run graphs, focused domains and responsibility contracts without claiming live-model completeness.
+
+### What's new
+
+- Canvas focus: compact 64px navigation in Execution, task switching, previous/next navigation, graph fit/zoom and horizontal or vertical layouts.
+- Read-only node inspector with keyboard focus restoration; recorded graph nodes and edges retain their existing meaning.
+- Project-bound task URLs, history and filter restoration; unavailable tasks never silently select another record.
+- Blueprint README and refreshed synthetic screenshots. No customer records or private project context are included.
+
+### Fixed
+
+- Close the mobile drawer on read-only Work navigation and clear the inspector when leaving Work.
+- Await stdout completion for large codex-pipeline list/status JSON responses instead of truncating them on immediate process exit.
+
+### Validation and limits
+
+The implementation candidate passed the full local gate with no executed failures, including 21 browser scenarios without skips. Independent source and security reviews approved the candidate. A fresh release gate is run on the combined release tree before publication. Fifteen live/opt-in checks remain NOT CHECKED; offline fixtures do not demonstrate live providers, complete native-session graphs, deployment success or a measured quality uplift. Domain packs remain opt-in. The release does not include the separate unreleased Kimi reviewer candidate.
+
+
+---
+
 ## v3.70.0 — 2026-10-23
 
 Controlled runs now retain their recorded causal execution history.

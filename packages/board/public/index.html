@@ -4139,6 +4139,9 @@ let metrics = {};
 let shareState = { enabled: false, url: null };
 let currentTab = 'work';
 window.GctoWork.bind({
+  canvas: true,
+  navigate: canonical => window.GctoAdmin?.navigateWork(canonical),
+  onViewChange: view => window.GctoAdmin?.setWorkView(view),
   project: () => new URLSearchParams(location.search).get('project') || '',
   visible: () => currentTab === 'work' || currentTab === 'history',
   read: url => api(url),
@@ -7815,6 +7818,7 @@ async function switchProject(slug) {
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
   if (currentTab === 'skills') loadSkillsInventory();
+  if (window.GctoWork.parseRoute((location.hash || '').replace(/^#\/?/, ''))?.selectedKey) history.replaceState(history.state, '', '#/work');
   window.GctoWork.reset();
   // Optimistic UI clear
   allTasks = [];
@@ -7882,6 +7886,7 @@ function filterTasks(q) {
 function onSearch(q) {
   window.GctoWork.search(q);
   searchQuery = q;
+  if (currentTab === 'work' || currentTab === 'history') return;
   renderKanban(filterTasks(q));
   document.getElementById('topbar-task-count').textContent =
     `${filterTasks(q).length} ${q ? 'MATCH' : 'ISSUES'}`;
@@ -8025,6 +8030,14 @@ async function init() {
     || fromTaskId
     || 'project';
   serverDefaultProject = !urlProject && !(allProjects || []).some(p => p.slug === proj);
+  // Registered default projects get an explicit scope before history entries
+  // are created. Keep the unregistered server-default fallback unqualified.
+  if (!urlProject && !serverDefaultProject) {
+    const scopedURL = new URL(location.href); scopedURL.searchParams.set('project', proj);
+    history.replaceState(history.state, '', scopedURL.toString());
+    const workRoute = (location.hash || '#/work').replace(/^#\/?/, '');
+    if (window.GctoWork.parseRoute(workRoute)) window.GctoWork.navigateRoute(workRoute);
+  }
   currentProject = proj;
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
@@ -9432,7 +9445,36 @@ function routeFromHash() {
   }
   return ROUTES[h] ? h : (LEGACY_ROUTES[h] || null);
 }
-addEventListener('hashchange', () => { const r = routeFromHash(); if (r) switchTab(r); });
+let routeReplay = 0, lastRouteReplay = '';
+async function replayBoardRoute() {
+  if (location.href === lastRouteReplay) return;
+  lastRouteReplay = location.href;
+  const ticket = ++routeReplay;
+  let project = new URLSearchParams(location.search).get('project') || '';
+  const expectedHash = location.hash, expectedURL = location.href;
+  if (!project && typeof currentProject !== 'undefined' && currentProject) {
+    // A legacy unqualified history entry means the server default, not the
+    // project whose records happen to be in memory. Clear it before resolving.
+    window.GctoWork.navigateRoute('work');
+    const defaults = await api('/api/work');
+    if (ticket !== routeReplay || location.href !== expectedURL) return;
+    project = defaults?.projectName || '';
+    if (!project || !(allProjects || []).some(item => item.slug === project)) { location.reload(); return; }
+    const scopedURL = new URL(location.href); scopedURL.searchParams.set('project', project);
+    history.replaceState(history.state, '', scopedURL.toString());
+  }
+  if (project && typeof currentProject !== 'undefined' && currentProject && project !== currentProject) {
+    const loading = switchProject(project);
+    history.replaceState(history.state, '', expectedHash || '#/work');
+    await loading;
+    if (ticket !== routeReplay || project !== new URLSearchParams(location.search).get('project')) return;
+    history.replaceState(history.state, '', expectedHash || '#/work');
+  }
+  if (ticket !== routeReplay) return;
+  const r = routeFromHash(); if (r) switchTab(r);
+}
+addEventListener('hashchange', replayBoardRoute);
+addEventListener('popstate', replayBoardRoute);
 addEventListener('DOMContentLoaded', () => { const r = routeFromHash(); if (r && r !== 'work') switchTab(r); });
 
 async function refreshLogs() {

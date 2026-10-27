@@ -477,7 +477,7 @@ REPORT=docs/security/AUDIT-{slug}.md
 [ -s "$REPORT" ] || { echo "STOP: no audit report at $REPORT — write it first." >&2; exit 1; }
 
 bash scripts/log-verdict.sh smart-contract-auditor <PASS|FAIL|BLOCKED> auto \
-  feature=<slug> "audit=$REPORT" findings=C:<n>,H:<n>,M:<n> not_checked=<n> need=<implementer|decision> finding=<id>
+  feature=<slug> "report=$REPORT" findings=C:<n>,H:<n>,M:<n> not_checked=<n> need=<implementer|decision> finding=<id>
 ```
 
 In prepare mode add `package=docs/security/audit-package-{slug}` and

@@ -11,7 +11,7 @@
 
 <img src="../screenshots/board.png" alt="Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark." width="900" />
 
-*Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark. 3.70.0.*
+*Beispielprojekt mit synthetischen Daten, kein Live-Modell-Benchmark. 3.70.1.*
 
 ```bash
 npx great-cto init
@@ -23,12 +23,18 @@ npx great-cto init
 
 </div>
 
-> Übersetzung des englischen [README](../../README.md), Version **v3.70.0** (2026-10-23).
+> Übersetzung des englischen [README](../../README.md), Version **v3.70.1** (2026-10-25).
 > Bei Abweichungen gilt die englische Fassung.
 
 ---
 
 great_cto koordiniert native Claude-Code-Workflows und experimentelle kontrollierte Codex-Läufe mit expliziten Stufen, Reviews und Gates. Das lokale Board verbindet Aufgaben, protokollierte Ausführung, Projektdokumente und Verbrauch. Der öffentliche Katalog umfasst **72** Agenten; ein Eintrag beweist weder Ausführung noch Expertise. Fehlende Belege bleiben unbekannt. Merge, Release und Deployment brauchen eigene Nachweise und Freigaben. Du bezahlst deinen Anbieter; great_cto ist MIT und berechnet nichts.
+
+**Grenze der verifizierten Auslieferung (ADR-045):** Vor jeder Aktivierung werden signierte Artefakte geprüft. Die Selbstaktualisierung einer gewöhnlichen globalen npm-Installation wird nur mit einem unabhängig authentifizierten und separat konfigurierten Verifier sowie dem vollständigen signierten Release-Artefaktsatz unterstützt. Das zugelassene lokale Paket wird offline und ohne Lifecycle-Skripte installiert; ein Quellcode-Checkout oder eine vorhandene Plugin-Sitzung ist kein Nachweis einer verifizierten Aktualisierung.
+
+`init`, die native Plugin-Aktualisierung und die automatische Installation zusätzlicher Komponenten verweigern derzeit die Aktivierung. Die Codex-Anpassung durch `adapt` erzeugt ausschließlich Kommentare; sie lädt nichts nach und aktiviert weder Hooks noch eine MCP-Ausführungsroute. Das Einschalten des macOS-Update-Timers wird derzeit nicht unterstützt. Vorhandene Timer verwenden ihren bisherigen Cache weiter, bis eine ausdrücklich genehmigte Migration sie ändert.
+
+Die folgenden Installations-, Plugin- und Timer-Beispiele beschreiben **LEGACY 3.70.1**. Sie versprechen keinen derzeit verfügbaren Aktivierungsweg. Einzelheiten: [verifizierte Aktualisierungen](../reference/verified-updates.md).
 
 ## Schnellstart
 
@@ -80,6 +86,34 @@ Execution zeigt vom Controller aufgezeichnete kausale Graphen; native und älter
 [Aufnahmevertrag](../reference/public-showcase.md).
 
 </details>
+
+## Acht Kernrollen, Spezialisten nach Aufgabenbedarf
+
+| Verantwortung | Rolle |
+|---|---|
+| Problem und Abnahme | `product-owner` |
+| Systementwurf und Abwägungen | `architect` |
+| Plan und Abhängigkeiten | `pm` |
+| Implementierung | `senior-dev` |
+| Unabhängige Codeprüfung | `code-reviewer` |
+| Verifikation und Regressionen | `qa-engineer` |
+| Risiken und Freigabe-Gate | `security-officer` |
+| Autorisierte Bereitstellung | `devops` |
+
+Das sind Verantwortungsverträge, keine acht obligatorischen Modellaufrufe oder acht gleichzeitig arbeitenden Agenten. Project focus ist eine Darstellungsansicht: Sie entfernt keine Spezialisten, ändert kein Dispatching und hebt keine Pflichtprüfungen auf. Risikospezifische Reviewer unterliegen weiterhin der Projektpolicy.
+
+## Fokussierter Engineering-Kontext
+
+Fünf versionierte, ausdrücklich aktivierbare Domain-Pack-Kandidaten decken vier Schwerpunkte ab:
+
+| Bereich | Engineering-Invarianten | Grenze |
+|---|---|---|
+| **Geld und Krypto-Ausführung** | Zahlungsidempotenz, unklarer Versandstatus, begrenzte Befugnisse; Signaturgrenzen, Trennung von Paper-/Live-Betrieb und Blockchain-Finalität | Zwei technische Packs; keine Aussage zur Investmentperformance |
+| **Telemedizinische Abläufe** | Befugnisse von Behandelnden, Zustandsübergänge von Verordnungen und Integrität der Nachweise | Keine Aussage zu klinischer Wirksamkeit oder Zertifizierung |
+| **Venture-Nachweise** | Herkunft von Behauptungen, Identitätshistorie von Entitäten und Quarantäne ungeprüfter Aussagen | Keine Aussage zu Investmentergebnissen |
+| **Sicherheit des psychischen Wohlbefindens** | Isolation des Zustands jeder Person, Vorrang der Kriseneskalation und Grenzen klinischer Aussagen | Getrennt von Diagnose, Behandlung und klinischer Validierung |
+
+Packs ergänzen Engineering-Kontext. Sie erweitern weder Berechtigungen noch ändern sie das Routing vorgeschriebener Reviewer. Ihre Präsenz beweist weder Aufruf noch Expertise oder bessere Ergebnisse. Ein Qualitätsgewinn aus vergleichbaren Versuchen mit Kernsystem versus Kernsystem plus Pack ist nicht belegt. Private Projekt-Overlays gehören nicht zur öffentlichen Präsentation.
 
 ## Auf OpenAI Codex
 

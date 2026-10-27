@@ -41,6 +41,8 @@ test('Work evidence opens with keyboard and keeps unlinked checks and runtime Un
   if (env.skip) return t.skip(env.skip);
   try {
     const { page, errors } = await openBoard(env, '#/work');
+    // Work is now a list; select the same first task explicitly before inspection.
+    await page.locator('#work-list [data-work-select]').first().click();
     const writes = [];
     page.on('request', request => { if (!['GET', 'HEAD'].includes(request.method())) writes.push(request.method()); });
     await page.getByRole('tab', { name: 'Evidence', exact: true }).focus();
@@ -362,7 +364,21 @@ test('every screen paints its own content, and nothing throws on the way', { tim
     const { page, errors } = await openBoard(env);
     for (const [route, title] of SCREENS) {
       await page.goto(`${env.url}/#/${route}`, { waitUntil: 'domcontentloaded' });
-      await page.waitForTimeout(900);
+      // Wait for the screen's data, not for a fixed 900 ms: under a loaded gate
+      // the reads behind a screen take longer than that, and a fixed sleep then
+      // fails a screen that is fine. The condition mirrors the assertions below;
+      // the cap is generous but finite, so a screen stuck on "loading…" still
+      // fails — with the specific assertion message, not a bare timeout.
+      await page.waitForFunction((name) => {
+        const panels = document.querySelectorAll('.panel.active');
+        if (panels.length !== 1) return false;
+        const c = panels[0].cloneNode(true);
+        c.querySelectorAll('#agent-drawer, .drawer-backdrop, #side-panel').forEach((n) => n.remove());
+        const text = c.innerText.trim();
+        const nav = document.querySelector('.nav-item.active')?.innerText || '';
+        return text.length > 40 && (text.includes(name) || nav.includes(name))
+          && !/loading…|connecting…/i.test(text.slice(0, 200));
+      }, title, { timeout: 30_000, polling: 100 }).catch(() => {});
 
       const active = await page.locator('.panel.active').first();
       assert.equal(await active.count(), 1, `${route}: exactly one panel is active`);

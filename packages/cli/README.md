@@ -1,6 +1,14 @@
 # great-cto
 
-> One command install for the [great_cto](https://github.com/avelikiy/great_cto) Claude Code plugin.
+> CLI for the [great_cto](https://github.com/avelikiy/great_cto) engineering workspace, controlled runs and verified release updates.
+
+**Verified distribution boundary:** ADR-045 replaces mutable installation and update
+paths with signed artifact admission. This implementation refuses `init`, native
+plugin refresh and automatic companion installation before mutation. The plain
+npm self-update adapter requires an independently configured verifier and exact
+signed release assets. See [verified updates](../../docs/reference/verified-updates.md).
+The installation walkthrough below describes the legacy 3.70.1 flow; it is not
+an activation route for this implementation.
 
 ```bash
 npx great-cto init

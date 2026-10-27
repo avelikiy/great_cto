@@ -126,6 +126,8 @@ step "mod: validate + plugin test (gate pane)" bash scripts/mods-test.sh
 # A guard that only runs where CI cannot run is a guard nobody has.
 # See docs/plans/PLAN-2026-08-17-guards-that-do-not-run.md (GUARD-R1).
 step "artifact structure (enforced)" node scripts/hooks/artifact-lint.mjs --enforce
+step "release builder contract (no publication)" node scripts/build-release-artifacts.mjs --self-test
+step "release signer contract (no OIDC authority)" node scripts/sign-release-artifacts.mjs --self-test
 step "guards run where CI runs" node scripts/lib/guard-parity.mjs --strict
 # The sibling question. guard-parity asks whether a guard EXECUTES; this asks
 # whether a declaration is CONSUMED. Four agents could write a verdict nothing

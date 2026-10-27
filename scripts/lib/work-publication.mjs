@@ -17,24 +17,25 @@ const ref = value => typeof value === 'string' && /^[A-Za-z0-9][A-Za-z0-9/_-]{0,
 const scopePath = value => typeof value === 'string' && value.length <= 300 && value.length > 0
   && !value.startsWith('/') && !value.startsWith('-') && !value.includes('\\') && !value.includes(':') && !value.includes(',')
   && !/[\x00-\x1f]/.test(value) && !value.split('/').some(p => !p || p === '.' || p === '..');
-function command(bin, args, root, execute = execFileSync) {
+// `env` defaults to the real process env; callers inject one so the transport check sees the same env git runs with.
+function command(bin, args, root, execute = execFileSync, env = process.env) {
   try { return String(execute(bin, args, { cwd: root, encoding: 'utf8', timeout: 20000,
     maxBuffer: 2 * 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_NO_REPLACE_OBJECTS: '1', GH_PROMPT_DISABLED: '1' } })); }
+    env: { ...env, GIT_TERMINAL_PROMPT: '0', GIT_NO_REPLACE_OBJECTS: '1', GH_PROMPT_DISABLED: '1' } })); }
   catch { throw Error(`${bin} ${args[0]} failed; inspect local authentication, hooks or network (output withheld)`); }
 }
-function repository(url, root, execute) {
+function repository(url, root, execute, env = process.env) {
   const https = /^https:\/\/github\.com\/([A-Za-z0-9_-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(url);
   if (https) return `${https[1]}/${https[2]}`;
   const ssh = /^git@([A-Za-z0-9_.-]+):([A-Za-z0-9_-]+)\/([A-Za-z0-9_.-]+?)(?:\.git)?$/.exec(url);
   if (!ssh || ssh[1].startsWith('-')) throw Error('publication requires a credential-free GitHub origin');
   if (ssh[1] !== 'github.com') {
     // Inspect OpenSSH's effective config without connecting; never echo identity paths.
-    const config = command('ssh', ['-G', '-o', 'CanonicalizeHostname=no', '-o', 'BatchMode=yes', `git@${ssh[1]}`], root, execute);
+    const config = command('ssh', ['-G', '-o', 'CanonicalizeHostname=no', '-o', 'BatchMode=yes', `git@${ssh[1]}`], root, execute, env);
     const values = new Map(config.split('\n').map(line => line.trim().split(/\s+/, 2)));
     if (values.get('hostname')?.toLowerCase() !== 'github.com' || values.get('user') !== 'git' || values.get('port') !== '22')
       throw Error('SSH alias does not resolve to git@github.com:22');
-    if (process.env.GIT_SSH || process.env.GIT_SSH_COMMAND || /(?:^|\0)(?:core\.sshcommand|ssh\.variant)\n/i.test(command('git', ['config', '--list', '--null'], root, execute)))
+    if (env.GIT_SSH || env.GIT_SSH_COMMAND || /(?:^|\0)(?:core\.sshcommand|ssh\.variant)\n/i.test(command('git', ['config', '--list', '--null'], root, execute, env)))
       throw Error('custom SSH transport cannot be verified for publication');
   }
   return `${ssh[2]}/${ssh[3]}`;
@@ -49,7 +50,7 @@ function ready(task, root) {
 
 export function previewPublication({ root, taskId, base = 'main', allow = null }, options = {}) {
   const task = readWorkTask(taskId, { ...options, root }); ready(task, root);
-  const git = args => command('git', args, root, options.execute);
+  const git = args => command('git', args, root, options.execute, options.env);
   if (realpathSync(git(['rev-parse', '--show-toplevel']).trim()) !== realpathSync(root)) throw Error('publication task must own the repository root, not a nested directory');
   // Even metadata/log changes excluded from verification cannot accidentally ship.
   if (git(['status', '--porcelain=v1', '--untracked-files=all']).trim()) throw Error('publication requires a fully clean worktree and index');
@@ -59,7 +60,7 @@ export function previewPublication({ root, taskId, base = 'main', allow = null }
   const origins = git(['remote', 'get-url', '--all', 'origin']).trim().split('\n');
   const pushOrigins = git(['remote', 'get-url', '--push', '--all', 'origin']).trim().split('\n');
   if (origins.length !== 1 || pushOrigins.length !== 1 || origins[0] !== pushOrigins[0]) throw Error('origin must have exactly one identical fetch and push URL');
-  const repo = repository(origins[0], root, options.execute);
+  const repo = repository(origins[0], root, options.execute, options.env);
   const head = git(['rev-parse', '--verify', 'HEAD^{commit}']).trim();
   const baseHead = git(['rev-parse', '--verify', `refs/remotes/origin/${base}^{commit}`]).trim();
   git(['merge-base', '--is-ancestor', baseHead, head]);
@@ -120,8 +121,8 @@ export function publishPublication({ root, taskId, base = 'main', allow = null, 
     const current = previewPublication({ root, taskId, base: existing.base, allow: existing.allow }, options);
     if (digest(bindingOf(current, existing.approvedRevision)) !== approval
       || digest(bindingOf(existing, existing.approvedRevision)) !== approval) throw Error('publication inputs changed; refuse external writes');
-    const git = args => command('git', args, root, options.execute);
-    const gh = args => command('gh', args, root, options.execute);
+    const git = args => command('git', args, root, options.execute, options.env);
+    const gh = args => command('gh', args, root, options.execute, options.env);
     const checkpoint = (state, more = {}) => {
       task = mutateWorkTask(taskId, t => {
         if (t.revision !== t.publication.guardRevision) throw Error('task revision changed during publication');

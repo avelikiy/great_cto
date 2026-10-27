@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {
   gatesForApprovalLevel, gateApplies, levelFromProjectMd, describeLevel,
-  isRegulated, APPROVAL_LEVELS, DEFAULT_LEVEL, briefedGatesFor,
+  isRegulated, APPROVAL_LEVELS, DEFAULT_LEVEL, briefedGatesFor, REGULATED_ARCHETYPES,
 } from '../../scripts/lib/approval-level.mjs';
 
 test('product-only pauses at product and ship — and nowhere technical it can skip', () => {
@@ -175,8 +175,8 @@ test('ship-only gates exactly one pipeline decision', () => {
 });
 
 test('ship-only still cannot bypass a regulated archetype', () => {
-  // A new level must not become a bypass by omission. SKILL.md holds regulated
-  // archetypes to a strict minimum and that is encoded, not remembered.
+  // A new level must not become a bypass by omission: the regulated floor is
+  // encoded, not remembered.
   const g = gatesForApprovalLevel('ship-only', { archetype: 'fintech' });
   assert.ok(g.includes('security') || g.includes('compliance') || g.length > 2,
     `a regulated archetype keeps its sign-off; got ${g.join(', ')}`);
@@ -218,4 +218,21 @@ test("product-owner's own contract agrees with the levels that exist", () => {
   const actual = APPROVAL_LEVELS.filter((l) => !gatesForApprovalLevel(l).includes('product'));
   assert.deepEqual(named.sort(), actual.sort(),
     'the levels the contract names must be exactly the levels that drop this gate');
+});
+
+test('the regulated set the orchestrator reads is the set the code enforces', () => {
+  // The doc named 5 archetypes and promised `strict`; the code floored 12 with
+  // security + compliance. An orchestrator reading the doc misjudged both which
+  // projects get the floor and what it is (found by the SKILL.md A/B, 26.10.2026).
+  const doc = fs.readFileSync(new URL('../../skills/great_cto/reference/approval-level.md', import.meta.url), 'utf8');
+  const line = doc.split('\n').find(l => l.startsWith('- Regulated archetypes ('));
+  assert.ok(line, 'approval-level.md keeps its "- Regulated archetypes (" override line');
+  const named = [...line.slice(0, line.indexOf(')')).matchAll(/`([a-z0-9-]+)`/g)].map(m => m[1]);
+  assert.deepEqual([...named].sort(), [...REGULATED_ARCHETYPES].sort());
+  assert.match(line, /gate:security \+ gate:compliance/);
+  assert.doesNotMatch(line, /minimum `strict`/);
+  for (const a of REGULATED_ARCHETYPES) {
+    const g = gatesForApprovalLevel('auto', { archetype: a });
+    assert.ok(g.includes('security') && g.includes('compliance'), `${a} lost its floor`);
+  }
 });

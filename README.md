@@ -2,16 +2,18 @@
 
 <img src="docs/screenshots/logo.svg" alt="great_cto" width="280" />
 
-**Run coding workflows. Inspect the evidence. Decide what ships.**
+**See the work. Trace the decisions.**
 
 [![npm](https://img.shields.io/npm/v/great-cto?label=npx%20great-cto&color=cb3837)](https://www.npmjs.com/package/great-cto)
 [![npm downloads](https://img.shields.io/npm/dm/great-cto?color=cb3837&label=downloads)](https://www.npmjs.com/package/great-cto)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Claude Code](https://img.shields.io/badge/Claude_Code-full_pipeline-blueviolet)](https://claude.com/claude-code) [![Codex](https://img.shields.io/badge/Codex-controlled_host_·_skills_·_MCP-blueviolet)](https://github.com/openai/codex)
 
-<img src="docs/screenshots/board.png" alt="Work: a selected checkout task, its acceptance criteria and pending host decision. Sample project with synthetic records." width="900" />
+<img src="docs/screenshots/execution.png" alt="Controller-recorded execution graph in the actual 3.70 interface. Isolated synthetic project with offline stub responses, not live models." width="900" />
 
-*Sample project, not a live-model benchmark. Captured from the 3.70 interface.*
+*Actual 3.70 interface. The graph uses an offline controller run with stub responses, not live models.*
+
+*Legacy 3.70.1 command. See the verified distribution boundary below for current activation limits.*
 
 ```bash
 npx great-cto init
@@ -25,7 +27,7 @@ npx great-cto init
 
 ---
 
-**Your coding agent writes code. Keep the work, checks and decisions connected.**
+**Keep the task, its checks and your next decision connected.**
 
 great_cto coordinates Claude Code workflows and experimental controlled Codex
 runs through explicit stages, review and gates. The local board brings tasks,
@@ -34,10 +36,20 @@ Missing evidence stays unknown; a successful worker is not proof that a task
 was accepted, merged or deployed. You use your own provider account;
 great_cto is MIT and bills nothing.
 
-The public catalog contains 72 agents grouped by responsibility. Catalog
-availability is not proof of execution or expertise.
+Project focus presents eight core roles plus the selected project's required
+reviewers. The full catalog of 72 agents remains available. Catalog availability is
+not proof of execution or expertise.
 
 ## Quick start
+
+**Verified distribution boundary (ADR-045):** this implementation replaces mutable installers
+with verified artifact admission. `init`, native plugin refresh and automatic
+companion installation currently refuse activation. Plain npm self-update needs
+the separately configured verifier and a signed release artifact set. This is
+not evidence of an installed or published update. See
+[verified updates](docs/reference/verified-updates.md) for the supported boundary.
+The commands below describe the legacy 3.70.1 installation flow; they are not
+an activation route for this implementation.
 
 ```bash
 npx great-cto init
@@ -97,6 +109,40 @@ host quality, acceptance rate or quality uplift. [Capture contract](docs/referen
 
 </details>
 
+## Eight core roles, task-dependent specialists
+
+| Responsibility | Role |
+|---|---|
+| Problem and acceptance | `product-owner` |
+| System design and tradeoffs | `architect` |
+| Plan and dependencies | `pm` |
+| Implementation | `senior-dev` |
+| Independent code review | `code-reviewer` |
+| Verification and regressions | `qa-engineer` |
+| Risk and ship gate | `security-officer` |
+| Authorized deployment | `devops` |
+
+These are responsibility contracts, not eight mandatory model calls or eight
+concurrent agents. Project focus is a presentation view; it does not remove
+specialists, change dispatch or waive required checks. Risk-specific reviewers
+remain governed by project policy.
+
+## Focused engineering context
+
+Five versioned, opt-in domain pack candidates cover four focus areas:
+
+| Area | Engineering invariants | Boundary |
+|---|---|---|
+| **Money & crypto execution** | Payment idempotency, ambiguous sends, scoped authority; signing boundaries, paper/live separation and chain finality | Two technical packs; no investment-performance claim |
+| **Telemedicine workflows** | Clinician authority, prescription state transitions and evidence integrity | No clinical efficacy or certification claim |
+| **Venture evidence** | Claim provenance, entity lineage and quarantine of unverified assertions | No investment-outcome claim |
+| **Mental wellbeing safety** | Subject isolation, crisis escalation precedence and clinical-claim boundaries | Separate from diagnosis, treatment and clinical validation |
+
+Packs add engineering context. They do not broaden permissions or change
+required-reviewer routing. Their presence does not prove invocation, expertise
+or better outcomes. No quality uplift from matched core-versus-pack trials is
+established. Private project overlays are not part of the public showcase.
+
 ## On OpenAI Codex
 
 There are three distinct modes, not identical native integrations:
@@ -112,7 +158,7 @@ the same frozen tree concurrently; this is **not two writers editing the same
 worktree**. Both CLIs must be installed and authenticated. See the
 [host guide](docs/HOST-CODEX.md) for routing, recovery and manual-action boundaries.
 
-`npx great-cto init --host codex` gives Codex the skills, the MCP server and six
+In the legacy 3.70.1 installation flow, `npx great-cto init --host codex` gives Codex the skills, the MCP server and six
 safety guards as plugin hooks (approve them once: run `codex` in a terminal and
 choose **Trust all and continue**). An ordinary Codex plugin session does not
 automatically run this project's native Claude command/role lifecycle.
@@ -126,8 +172,11 @@ great-cto status --host codex
 great-cto resume --host codex
 ```
 
-Plugin refresh is explicit by default (`great-cto upgrade codex`). On macOS,
-`sh scripts/codex-auto-update.sh enable` opts into a six-hour per-user timer;
+The legacy 3.70.1 plugin refresh is explicit by default (`great-cto upgrade codex`).
+In this implementation, native refresh and timer enable refuse before mutation
+pending a verified no-fetch activation contract. Previously installed timers
+retain their existing code until an authorized migration.
+In the legacy 3.70.1 macOS flow, `sh scripts/codex-auto-update.sh enable` opts into a six-hour per-user timer;
 `status` inspects it and `disable` removes it. Each tick validates the Git
 marketplace origin before asking Codex to upgrade. It follows the configured
 Git ref, not npm releases, and changed hooks still need host review in a new

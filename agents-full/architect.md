@@ -480,7 +480,7 @@ constraint in the new ARCH doc — document why this design choice was not taken
      ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
      PROJECT_SIZE=$(grep "^project_size:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); PROJECT_SIZE=${PROJECT_SIZE:-medium}
      SECURITY_GATE=$(grep "^security-gate:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); SECURITY_GATE=${SECURITY_GATE:-conditional}
-     COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //' || echo "[]")
+     COMPLIANCE=$(grep "^compliance:" .great_cto/PROJECT.md 2>/dev/null | sed 's/compliance: //'); COMPLIANCE=${COMPLIANCE:-[]}
      ```
      Read ARCHETYPES.md for QA strategy, deploy method, and thresholds matching `$ARCHETYPE`. Use these as constraints for the architecture design.
    - **Greenfield check** — determines how deep to read existing code:

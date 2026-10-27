@@ -28,7 +28,7 @@ Run in parallel:
 cat .great_cto/lessons.md 2>/dev/null || echo "(no lessons yet)"
 
 # Cross-project decisions (supplement)
-cat ~/.great_cto/decisions.md 2>/dev/null | head -300 || echo "(none)"
+D=$(head -300 ~/.great_cto/decisions.md 2>/dev/null); [ -n "$D" ] && printf '%s\n' "$D" || echo "(none)"
 
 # Session log pattern lines across all sessions
 grep -h "^## pattern:" .great_cto/logs/session-*-end.md 2>/dev/null \
