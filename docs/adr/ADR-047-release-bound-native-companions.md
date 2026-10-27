@@ -41,6 +41,19 @@ the maintenance CLAUDE.md. The archive privacy guard is unchanged. Bind output
 hashes separately from original sourcePath/sourceBlob; do not claim this derived
 projection is verbatim upstream or establishes runtime closure.
 
+The operator subsequently approved the [hardening projection](../testing/native-companion-hardening-v1.md)
+after direct companion skill scans found mutable installation guidance and visual
+helper launcher/network/PID risks. `beads-offline-guidance-v2` preserves the guide
+mapping and replaces two unverified installer pipelines with explicit refusal.
+`superpowers-offline-runtime-v1` enforces loopback bind/URL hosts, removes the
+remote branding image, refuses custom shell launching and refuses existing PID
+files without signalling their processes. Full original/output SHA256 and exact
+inverse source-blob checks bind all four changed members. No arbitrary patch
+input is accepted, no existing signed archive is rewritten, and core skills,
+licenses and dependency identities remain present. External bd/Dolt prerequisites
+are not bundled or implicitly trusted. These changes address named paths only;
+they do not establish complete runtime containment or native acceptance.
+
 The great_cto publisher vouches for these reviewed bundled bytes. This is not an
 upstream signature-verification claim and does not change the enrolled key.
 Component byte admission does not prove startup closure, native registration,
@@ -61,8 +74,10 @@ inventory. Creating a marketplace, disabling an old alias, updating a shared
 companion or changing hook trust requires a separately named operator plan.
 Never take ownership of a general marketplace such as `local`.
 
-The existing-valid-local-marketplace route is distinct from a bare registry
-entry. Native listings with component errors cannot prove runtime selection.
+The [existing-valid-local-marketplace probe](../testing/claude-local-marketplace-probe-v4.md)
+is distinct from a bare registry entry. The
+[exact cache recovery probe](../testing/claude-local-recovery-probe-v5.md) records
+why cache metadata belongs in the owned recovery inventory. Native listings with component errors cannot prove runtime selection.
 Retain the prior payload/cache outside native pruning: restoring three JSON
 files alone can leave native `.orphaned_at` metadata behind. Recovery must restore
 exact owned membership/modes or preserve external drift as RECOVERY_REQUIRED.

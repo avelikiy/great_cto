@@ -12,7 +12,7 @@
         "tree": "28f79ffc36555222f62fe82410410e69e60d8b79",
         "subdirectory": "plugins/beads"
       },
-      "projection": "beads-runtime-guidance-v1"
+      "projection": "beads-offline-guidance-v2"
     },
     {
       "id": "superpowers@superpowers-marketplace",
@@ -24,7 +24,7 @@
         "tree": "da1e7bb99212a060f90ffd6def69ff606775a79c",
         "subdirectory": "."
       },
-      "projection": "verbatim-runtime-allowlist-v1"
+      "projection": "superpowers-offline-runtime-v1"
     }
   ]
 }
