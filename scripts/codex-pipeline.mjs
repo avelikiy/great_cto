@@ -43,19 +43,54 @@ const save = state => {
   renameSync(`${file}.tmp`, file);
   observeWorkRun(state);
 };
+// Keep this local to the entrypoint: source controller and packaged CLI have
+// separate runtime closures, but both must complete queued pipe writes.
+function drainOutput(stream) {
+  if (stream.destroyed || stream.closed || stream.writableFinished) return Promise.resolve(true);
+  return new Promise(resolve => {
+    let settled = false;
+    const finish = complete => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stream.off('error', completed);
+      stream.off('close', completed);
+      stream.off('finish', completed);
+      resolve(complete);
+    };
+    const completed = () => finish(true);
+    const timer = setTimeout(() => finish(false), 1000);
+    timer.unref();
+    stream.once('error', completed);
+    stream.once('close', completed);
+    stream.once('finish', completed);
+    if (!stream.writableEnded) {
+      try {
+        stream.write('', error => {
+          // The error event follows an errored write callback.
+          if (error) queueMicrotask(completed);
+          else completed();
+        });
+      } catch { completed(); }
+    }
+  });
+}
+async function exitAfterOutput(code) {
+  // An unresolved promise and unref timer must not allow an early rc0.
+  process.exitCode = code || 1;
+  const completed = await Promise.all([drainOutput(process.stdout), drainOutput(process.stderr)]);
+  process.exit(completed.every(Boolean) ? code : code || 1);
+}
+
 let locked = null, projectLease = null, work = null, taskForFinish = null;
 try {
   if (command === 'doctor') {
     const result = codexHostDoctor({ pluginRoot: resolve(value('--plugin-root') || join(dirname(fileURLToPath(import.meta.url)), '..')), store });
-    console.log(JSON.stringify(result, null, 2)); process.exit(result.state === 'ready' ? 0 : 2);
+    console.log(JSON.stringify(result, null, 2)); await exitAfterOutput(result.state === 'ready' ? 0 : 2);
   }
   if (command === 'list') {
-    const output = JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2) + '\n';
-    // Piped stdout is asynchronous: exiting before the callback can truncate JSON.
-    await new Promise((resolve, reject) => {
-      process.stdout.write(output, error => error ? reject(error) : resolve());
-    });
-    process.exit(0);
+    console.log(JSON.stringify(listCodexRuns({ root: value('--dir') ? realpathSync(resolve(value('--dir'))) : null, store }), null, 2));
+    await exitAfterOutput(0);
   }
   let state;
   if (command === 'start') {
