@@ -26,6 +26,17 @@ function writePrivate(file, bytes) {
   const fd = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
   try { fs.writeFileSync(fd, bytes); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
 }
+// npm stages a publish until the owner approves it with 2FA. 3.72.0 (27.10.2026):
+// the first run staged the version and printed only "refused"; the rerun hit E409
+// "Cannot publish over previously staged version". npm's error code is a fixed
+// vocabulary (E409, EOTP, E403) — the one part of a failure safe to name. Nothing
+// else of the child's output leaves this function.
+const STAGED_HINT = version => `npm holds great-cto@${version} STAGED, awaiting the owner's 2FA approval (npmjs.com, or npm stage approve with npm >= 11.15); approve it, then rerun to read the bytes back`;
+function npmFailure(error) {
+  const text = String(error?.stderr ?? '');
+  return { code: /npm error code (E[A-Z0-9]{2,15})\b/.exec(text)?.[1] ?? null, staged: /previously staged version/i.test(text) };
+}
+const redact = text => String(text).replace(/_authToken=\S+/g, '_authToken=<withheld>').replace(/\bnpm_[A-Za-z0-9]{16,}/g, '<withheld>');
 async function boundedResponse(response, limit) {
   if (!response.body) throw Error('registry response has no body');
   const chunks=[]; let size=0;
@@ -85,7 +96,11 @@ export async function publishLocalRelease(options, { run = execFileSync, fetchFn
       if (hash(trustedFile(npmPath, 16*1024*1024)) !== npmSha256) throw Error('trusted npm changed');
       getAdmittedArtifact(ticket, 'npm');
       try { run(npmPath, ['publish',tarball,'--ignore-scripts','--access','public','--registry','https://registry.npmjs.org/'], childOptions); }
-      catch { throw Error('npm publication failed; child output withheld to protect authentication material'); }
+      catch (error) {
+        const { code, staged } = npmFailure(error);
+        if (staged) throw Error(STAGED_HINT(info.version));
+        throw Error(`npm publication failed${code ? ` (npm error code ${code})` : ''}; child output withheld to protect authentication material`);
+      }
       if (hash(trustedFile(tarball, admitted.size, true)) !== admitted.sha256) throw Error('published tarball copy changed');
       didPublish=true;
     } finally { fs.rmSync(temporary, { recursive: true, force: true }); }
@@ -94,7 +109,11 @@ export async function publishLocalRelease(options, { run = execFileSync, fetchFn
     throw Error(`registry availability unknown (${existing.status}); publication refused`);
   }
   const after = await request(metadataURL);
-  if (after.status !== 200) { await after.body?.cancel(); throw Error('registry readback unavailable'); }
+  if (after.status !== 200) {
+    await after.body?.cancel();
+    // A publish npm accepted but does not serve is, under staged publishing, a staged one.
+    throw Error(didPublish && after.status === 404 ? STAGED_HINT(info.version) : 'registry readback unavailable');
+  }
   await metadata(after);
   const response = await request(`https://registry.npmjs.org/great-cto/-/great-cto-${info.version}.tgz`);
   if (response.status !== 200) { await response.body?.cancel(); throw Error('registry tarball readback unavailable'); }
@@ -111,5 +130,5 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     for (let i=2;i<process.argv.length;i+=2) { const name=process.argv[i], value=process.argv[i+1]; if (!allowed.has(name) || flags.has(name) || !value || value.startsWith('--')) throw Error('invalid verified publisher option'); flags.set(name,value); }
     const result = await publishLocalRelease({ directory: flags.get('--directory'), version: flags.get('--version'), source: flags.get('--source'), approveCommit: flags.get('--approve-commit'), approveIndexDigest: flags.get('--approve-index-digest'), approval: flags.get('--approval'), localPublicKeyPath: flags.get('--public-key'), localKeyFingerprint: flags.get('--key-fingerprint'), npmPath: flags.get('--npm'), npmSha256: flags.get('--npm-sha256'), npmAuthFile: flags.get('--npm-auth-file') });
     process.stdout.write(JSON.stringify(result)+'\n');
-  } catch { console.error('verified local publication refused; no success is implied; child output is withheld to protect credentials'); process.exitCode=1; }
+  } catch (error) { console.error(`verified local publication refused: ${redact(error?.message ?? 'unknown')}; no success is implied; child output is withheld to protect credentials`); process.exitCode=1; }
 }
