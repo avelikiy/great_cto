@@ -9,6 +9,7 @@ import { buildFixture, FIXTURE_NAME } from '../../scripts/lib/screenshot-fixture
 import { commitFixture } from '../helpers/committed-fixture.mjs';
 import { startServerOnFreePort } from '../helpers/board-start.mjs';
 import { reapAndClean } from '../helpers/reap.mjs';
+import { installDrainedRoute } from '../helpers/drained-route.mjs';
 
 // Acceptance paths use real read APIs and an offline controller. Browser view
 // transitions cannot turn the fixture's observations into an approval action.
@@ -41,7 +42,7 @@ test('canvas workspace preserves route history, project identity, evidence and u
     const scopedReadHeld = new Promise(resolve => { releaseScopedRead = resolve; });
     const scopedReadCaptured = new Promise(resolve => { captureScopedRead = resolve; });
     const initialScopedWork = url => url.pathname === '/api/work' && url.searchParams.get('project') === FIXTURE_NAME;
-    await page.route(initialScopedWork, async route => {
+    const drainInitialScopedRead = await installDrainedRoute(page, initialScopedWork, async route => {
       const response = await route.fetch(); captureScopedRead();
       await scopedReadHeld; await route.fulfill({ response });
     });
@@ -51,7 +52,7 @@ test('canvas workspace preserves route history, project identity, evidence and u
     assert.equal(await page.locator('#work-list [data-work-select]').count(), 0, 'default-scope rows are cleared while the explicit project read is pending');
     assert.match(await page.locator('#work-list').innerText(), /Loading/);
     releaseScopedRead();
-    await page.unrouteAll({ behavior: 'wait' });
+    await drainInitialScopedRead();
     await page.locator(`[data-work-select="${key}"]`).waitFor();
     await page.waitForFunction(slug => new URLSearchParams(location.search).get('project') === slug && currentProject === slug, FIXTURE_NAME);
     assert.equal(await page.locator('#project-name').innerText(), FIXTURE_NAME, 'registered default scope is made explicit before navigation history is created');
@@ -206,7 +207,7 @@ test('canvas workspace preserves route history, project identity, evidence and u
         return response;
       };
     });
-    await page.route(unqualifiedWork, async route => {
+    const drainDefaultRead = await installDrainedRoute(page, unqualifiedWork, async route => {
       const response = await route.fetch();
       defaultCaptured();
       await heldDefault;
@@ -230,11 +231,9 @@ test('canvas workspace preserves route history, project identity, evidence and u
     assert.equal(new URL(page.url()).searchParams.get('project'), otherSlug, 'late default-scope response must not overwrite an explicit project choice');
     assert.equal(await page.locator('#project-name').innerText(), otherSlug);
     assert(await page.locator(`[data-work-select="${issue.key}"]`).innerText().then(text => text.includes('Secondary workspace sentinel')));
-    // Every unqualified read in the window (the 10 s Work poll, an SSE reload)
-    // entered this handler too. Removing the last route makes Playwright continue
-    // routes still in flight, so a plain unroute() let a slow handler's fulfill()
-    // land on an already-continued route. 'wait' drains the handlers first.
-    await page.unrouteAll({ behavior: 'wait' });
+    // Drain callbacks while a passthrough route keeps interception enabled.
+    // Removing the final route before they finish can auto-continue a sibling.
+    await drainDefaultRead();
     await page.evaluate(() => { api = window.__canvasOriginalAPI; delete window.__canvasOriginalAPI; delete window.__canvasDefaultRead; });
     await page.goto(`${base}/?project=${FIXTURE_NAME}#/work/task/run%3Amissing/execution`);
     await page.getByRole('heading', { name: 'Selected task is unavailable', exact: true }).waitFor();
