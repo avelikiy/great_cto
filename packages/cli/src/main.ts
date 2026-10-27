@@ -137,7 +137,6 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "board") args.command = "board";
     else if (a === "console") args.command = "console";
     else if (a === "telemetry") args.command = "telemetry";
-    else if (a === "--no-telemetry") continue;
     else if (a === "distribution") { args.command = "distribution"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "register") args.command = "register";
     else if (a === "ci") args.command = "ci";
@@ -1480,7 +1479,7 @@ async function main(): Promise<void> {
   // widen types at every call site.
   const finish = async (code: number): Promise<never> => {
     try {
-      if (!rawArgv.includes("--no-telemetry")) await sendUsagePing({
+      await sendUsagePing({
         cliVersion: getCliVersion(),
         subcommand: args.command,
         exitCode: code,
