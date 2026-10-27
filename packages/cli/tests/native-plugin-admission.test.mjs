@@ -47,6 +47,7 @@ test('synthetic admission stays refused even when real fixture signatures are va
   const ticket = admitRelease(f.opts, { run() { executions++; throw Error('must not execute'); } });
   const result = inspectClaudeNativeAdmission(ticket);
   assert.equal(result.state, 'REFUSED'); assert.equal(result.authority, 'NONE');
+  assert.equal(result.evidence, 'SYNTHETIC_ONLY');
   assert.deepEqual(result.blockers, ['production-artifact-admission-required']); assert.equal(executions, 0);
 });
 
@@ -88,14 +89,14 @@ test('host-default MCP and hooks are inspected without a manifest reference', t 
 
 test('inline hooks, duplicate MCP, settings, extensions and environment cannot be silently omitted', t => {
   const f = candidate(t, files => {
-    setManifest(files, { ...manifest(files), hooks: {}, lspServers: {}, mcpServers: { local: { ...local, env: { TOKEN: 'private-fixture-token' }, headersHelper: 'unadmitted command' } } });
-    add(files, '.mcp.json', { mcpServers: { local } }); add(files, 'settings.json', {});
+    setManifest(files, { ...manifest(files), hooks: {}, lspServers: {}, mcpServers: { local: { ...local, env: { READINESS_NOTE: 'fixture environment annotation' }, headersHelper: 'unadmitted command' } } });
+    add(files, '.mcp.json', { mcpServers: { local }, headersHelper: 'unadmitted wrapper command' }); add(files, 'settings.json', {});
   });
   const result = inspectClaudeNativeAdmission(f.ticket);
   for (const code of ['native-hook-execution-contract-required', 'ambiguous-native-mcp-configuration',
     'native-settings-execution-contract-required', 'unsupported-native-manifest-extension',
     'native-mcp-environment-contract-required', 'unsupported-native-mcp-extension']) blocked(result, code);
-  assert.equal(JSON.stringify(result).includes('private-fixture-token'), false);
+  assert.equal(JSON.stringify(result).includes('fixture environment annotation'), false);
 });
 
 test('existing proposal also reports unsupported inline startup hooks', t => {

@@ -14,13 +14,14 @@ const manifestKeys = new Set(['name', 'version', 'description', 'author', 'homep
  */
 export function inspectClaudeNativeAdmission(admission) {
   const result = {
-    schema: 1, adapter: 'claude-local', state: 'REFUSED', authority: 'NONE',
+    schema: 1, adapter: 'claude-local', state: 'REFUSED', authority: 'NONE', evidence: 'NOT_CHECKED',
     releaseEligibility: 'NOT_CHECKED', artifact: 'NOT_CHECKED', payload: 'NOT_CHECKED',
     registration: 'UNCHANGED', process: 'NOT_OBSERVED', mcp: 'NOT_CHECKED',
     hooks: 'NOT_CHECKED', recovery: 'NOT_EXERCISED', blockers: [],
   };
   try {
     const info = getAdmissionInfo(admission);
+    result.evidence = info.isProduction ? 'ARTIFACT_INSPECTION_ONLY' : 'SYNTHETIC_ONLY';
     if (!info.isProduction || info.authority !== 'ARTIFACT_ADMISSION') {
       result.blockers.push('production-artifact-admission-required');
       return result;
@@ -58,6 +59,7 @@ export function inspectClaudeNativeAdmission(admission) {
     if (!configurations.length) block('local-native-mcp-required');
     for (const configuration of configurations) {
       const servers = record(configuration) && own(configuration, 'mcpServers') ? configuration.mcpServers : configuration;
+      if (record(configuration) && own(configuration, 'mcpServers') && Object.keys(configuration).some(key => key !== 'mcpServers')) block('unsupported-native-mcp-extension');
       if (!record(servers) || !Object.keys(servers).length) { block('invalid-native-mcp-configuration'); continue; }
       for (const server of Object.values(servers)) {
         if (!record(server)) { block('invalid-native-mcp-configuration'); continue; }
