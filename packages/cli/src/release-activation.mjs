@@ -136,8 +136,9 @@ function safeEnvironment(tx, npmPath) {
   const home = path.join(tx, 'home'), temp = path.join(tx, 'tmp');
   fs.mkdirSync(home, { mode: 0o700 }); fs.mkdirSync(temp, { mode: 0o700 });
   const config = path.join(tx, 'empty.npmrc'); fs.writeFileSync(config, '', { flag: 'wx', mode: 0o600 });
+  const globalConfig = path.join(tx, 'empty-global.npmrc'); fs.writeFileSync(globalConfig, '', { flag: 'wx', mode: 0o600 });
   return { PATH: [path.dirname(process.execPath), path.dirname(npmPath), '/usr/bin', '/bin', '/usr/sbin', '/sbin'].join(path.delimiter),
-    HOME: home, USERPROFILE: home, TMPDIR: temp, NPM_CONFIG_USERCONFIG: config, NPM_CONFIG_GLOBALCONFIG: config,
+    HOME: home, USERPROFILE: home, TMPDIR: temp, NPM_CONFIG_USERCONFIG: config, NPM_CONFIG_GLOBALCONFIG: globalConfig,
     NPM_CONFIG_CACHE: path.join(tx, 'npm-cache'), NPM_CONFIG_IGNORE_SCRIPTS: 'true', NPM_CONFIG_OFFLINE: 'true',
     NPM_CONFIG_AUDIT: 'false', NPM_CONFIG_FUND: 'false', NPM_CONFIG_PACKAGE_LOCK: 'false',
     DO_NOT_TRACK: '1', GREAT_CTO_TELEMETRY: 'off', GREAT_CTO_NO_BOARD: '1', GREAT_CTO_NO_UPDATE_CHECK: '1', CI: '1' };
