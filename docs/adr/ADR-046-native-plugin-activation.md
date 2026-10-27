@@ -50,6 +50,19 @@ activatable by this ADR. A compatible future signed release and independently
 admitted dependencies are prerequisites. A management command exiting zero is
 insufficient if its resulting cache is incomplete or dependency resolution failed.
 
+## Inactive Node router preparation
+
+The [native Node router contract](../testing/native-node-router-v1.md) prepares a
+stdlib-only entrypoint without changing either installed hosts or the existing
+Python manifest. It preserves the two tool names/input schemas and cheap-lane
+defaults. The proposed native profile uses explicit process environment only,
+redacts credential tails and omits implicit filesystem usage logs. This differs
+from legacy dotenv fallback and is not a claim of identical configuration
+semantics. An explicitly supplied accounting callback may finish late; the result
+must then refuse success while retaining known usage. Transport/config bounds
+are not USD spending authorization. Manifest migration, managed budget/config
+binding, native admission and operator rollout remain separate work.
+
 ## Transaction and concurrency model
 
 The adapter owns only its great_cto payload, selections and explicitly inventoried

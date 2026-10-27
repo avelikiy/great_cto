@@ -31,6 +31,23 @@ The board (`great-cto board` → `http://localhost:3141`) exposes a JSON API for
 | `/api/router-key/verify` | POST | `{state, fingerprint, checkedAt, http?, limit?, usage?, reason?}` — asks OpenRouter (`GET /api/v1/key`, free) whether the stored key is live. `state` is `verified` (200), `rejected` (401/403), `unreachable` (no answer, timeout, any other status) or `absent`. 403 from another origin |
 | `/api/healthz` | GET | `{ok: true}` |
 
+## Credential checks and local MCP status
+
+The board's router key check and the MCP configuration report answer different
+questions. `GET /api/router-key` reads stored configuration and previous
+verification evidence without contacting a provider. `POST /api/router-key/verify`
+makes a credential-validation request; its response distinguishes `verified`,
+`rejected`, `unreachable` and `absent`. A timeout or provider failure is not proof
+that the credential was rejected. Neither endpoint demonstrates model execution,
+an accepted task or a loaded native plugin.
+
+The inactive [native Node router profile](testing/native-node-router-v1.md)
+provides `router_status` over MCP. It reports only explicitly supplied process
+configuration, makes no provider request and does not read the board's stored
+credential files. Its configured flag is not the board's verification result.
+The existing Python profile and host manifests remain unchanged; preparing the
+Node entrypoint does not activate it in Claude Code or Codex.
+
 ## Common gotcha — array vs object
 
 Smoke scripts often assume `{projects: [...]}`. The actual shape is just `[...]`. Use:

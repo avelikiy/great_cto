@@ -1,0 +1,42 @@
+{
+  "sourceSha256": "96964398e5d39b65d2c198a7e39ae247ff83d828e39afb68ae961ad61ef6fc1a",
+  "protocolVersion": "2024-11-05",
+  "serverInfo": {
+    "name": "great_cto-llm-router",
+    "version": "1.0.0"
+  },
+  "tools": [
+    {
+      "name": "ask_kimi",
+      "description": "Delegate a non-critical task to Kimi (or configured cheap model) via OpenRouter. Use for log triage, summarization, routine doc drafting, POC-mode smoke test generation, and similar tasks where speed and cost matter more than absolute quality. Do NOT use for: architecture decisions, security analysis, production code generation, threat modeling. If OPENROUTER_API_KEY is unset, returns a fallback signal \u2014 caller must then do the task natively.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "task": {
+            "type": "string",
+            "description": "The task / question to delegate. Be specific."
+          },
+          "context": {
+            "type": "string",
+            "description": "Optional context (logs, code snippet, file content). Keep under ~20k chars."
+          },
+          "system": {
+            "type": "string",
+            "description": "Optional system prompt override. Defaults to a pragmatic engineer persona."
+          }
+        },
+        "required": [
+          "task"
+        ]
+      }
+    },
+    {
+      "name": "router_status",
+      "description": "Check whether the LLM router is configured and healthy. Use in /doctor.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {}
+      }
+    }
+  ]
+}
