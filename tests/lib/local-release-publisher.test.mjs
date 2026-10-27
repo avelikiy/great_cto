@@ -203,6 +203,50 @@ test('npm child errors cannot expose auth contents and cannot be reported as a s
   await assert.rejects(publishLocalRelease(f.options, { run, fetchFn }), error => { assert.equal(error.message.includes('test-only-noncredential'), false); return /output withheld/.test(error.message); });
 });
 
+// 3.72.0 (27.10.2026): npm staged the publish and the publisher said only "refused";
+// the rerun's E409 was invisible until a hand-written run adapter printed it.
+const npmStderr = lines => Object.assign(Error('Command failed'), { stderr: lines.join('\n')+'\n//registry.npmjs.org/:_authToken=test-only-noncredential\n' });
+
+test('a staged version is named as staged, with the approval step, and never leaks the child output', async t => {
+  const f = publishFixture(t);
+  const run = (binary, args, options) => {
+    if (binary === f.options.npmPath) throw npmStderr(['npm error code E409', `npm error 409 Conflict - PUT https://registry.npmjs.org/great-cto - Cannot publish over previously staged version "${version}".`]);
+    return f.run(binary, args, options);
+  };
+  await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }) }), error => {
+    assert.equal(error.message.includes('test-only-noncredential'), false);
+    assert.equal(error.message.includes('Conflict - PUT'), false, 'the child line itself stays withheld');
+    return /STAGED.*2FA.*rerun/.test(error.message);
+  });
+});
+
+test('any other npm failure names its npm error code and nothing else', async t => {
+  for (const [lines, expected] of [[['npm error code EOTP', 'npm error This operation requires a one-time password'], /npm error code EOTP\)/], [['npm error something unrecognised'], /^npm publication failed; child output withheld/]]) {
+    const f = publishFixture(t);
+    const run = (binary, args, options) => { if (binary === f.options.npmPath) throw npmStderr(lines); return f.run(binary, args, options); };
+    await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }) }), error => {
+      assert.equal(error.message.includes('test-only-noncredential'), false);
+      assert.equal(error.message.includes('one-time password'), false);
+      return expected.test(error.message);
+    });
+  }
+});
+
+test('a publish npm accepted but does not serve is reported as staged, not as published', async t => {
+  const f = publishFixture(t);
+  await assert.rejects(publishLocalRelease(f.options, { run: f.run, fetchFn: async () => new Response('absent', { status: 404 }) }), /STAGED/);
+  assert.equal(f.calls.filter(x => x.binary === f.options.npmPath).length, 1);
+});
+
+test('the CLI prints why it refused, with credentials redacted', () => {
+  const cli = new URL('../../scripts/publish-local-release.mjs', import.meta.url).pathname;
+  const result = spawnSync(process.execPath, [cli, '--version', '1.2.3'], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /refused: explicit stable version, full-gate and owner ship approval/);
+  const leaky = spawnSync(process.execPath, [cli, '--npm-auth-file', '//registry.npmjs.org/:_authToken=test-only-noncredential'], { encoding: 'utf8', timeout: 10000 });
+  assert.equal(leaky.stderr.includes('test-only-noncredential'), false);
+});
+
 test('signing write failure retains partial proof evidence and refuses overwrite on retry', t => {
   const f = fixture(t), realOpen = fs.openSync;
   const failingProof = path.join(f.directory, 'sbom.cdx.json.signature.json');
