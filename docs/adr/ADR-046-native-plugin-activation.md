@@ -1,11 +1,11 @@
 # ADR-046: Bounded native plugin activation and recovery
 
-Date: 2026-10-27
+**Date:** 2026-10-27
 Status: Proposed design; no native adapter is approved or implemented by this document
 Extends: [ADR-045](ADR-045-verified-distribution.md)
 Acceptance: [Native activation acceptance](../testing/native-activation-acceptance.md)
 
-## Problem and boundary
+## Context and boundary
 
 Release admission, installation, registration and a new host process loading the
 selected plugin are distinct facts. A version string or an enabled flag proves
@@ -19,7 +19,7 @@ from ADR-045. Existing unsupported paths keep refusing until their adapter passe
 its acceptance. This proposal does not enable companion installers, change hook
 trust, publish a release, or authorize an operator installation.
 
-## Immutable payload and runtime closure
+## Decision: immutable payload and runtime closure
 
 1. Admit the complete plugin archive and inventory using the existing production
    consumer. Never reconstruct it from a Git checkout or fill missing files from
@@ -98,7 +98,7 @@ Support one existing user-scoped local registration first. Preserve all other
 plugins, scopes, marketplace selections and project settings. Plan the registry
 entry and any globally managed roles/skills/commands separately. A managed-file
 refresh is not part of the transaction unless its complete before/after inventory
-and restoration have been implemented and tested. Otherwise refuse that mode.
+and the adapter can restore every affected file in executed tests. Otherwise refuse that mode.
 
 Use only a proven offline registration route with a complete admitted snapshot.
 If native commands trigger companion acquisition, helper execution or network
@@ -158,3 +158,16 @@ Native adapters are not prerequisites for improving the supported npm updater or
 for verifying an already running admin. They must not reintroduce indefinite
 human stops into ordinary reversible development; their authority checks apply
 at the actual installation/selection boundary.
+
+## Consequences and alternatives
+
+The bounded adapters require additional disk space for one prior payload, durable
+journals and isolated native-host acceptance. They delay native activation for
+releases whose manifests still fetch external runtime. This is an explicit
+support boundary; the existing CLI and admin can operate independently.
+
+Reject direct Git marketplace refresh as a trusted update because it can select
+bytes outside the signed complete payload. Reject editing old signed manifests
+because it breaks artifact identity. A universal companion/package-manager
+installer would enlarge the recovery and trust surface before either bounded
+host adapter has demonstrated its contract, so it remains outside this proposal.

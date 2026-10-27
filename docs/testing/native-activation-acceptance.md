@@ -9,7 +9,7 @@ operator executables, candidate commit/index and dependency evidence. Use real
 native management commands and a separately enforced outbound-network deny
 boundary; mocks cannot establish no-fetch behavior. Record attempts, failures,
 actual command exits and unobserved assertions. Do not access provider credentials
-or invoke paid models merely to prove registration or MCP startup.
+or invoke paid models to prove registration or MCP startup.
 
 | ID | Scenario | Required observation |
 |---|---|---|
