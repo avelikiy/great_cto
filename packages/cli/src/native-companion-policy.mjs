@@ -1,10 +1,11 @@
 /** Shared component policy, independent of admission tickets and filesystem access. */
 import path from 'node:path';
+import { requiredHardenedMembers } from './native-companion-hardening.mjs';
 import { createHash } from 'node:crypto';
 import { parseStrictObject as parseStrictReleaseIndex } from './release-json.mjs';
 import { inspectRuntimeImportReferences } from './release-runtime-references.mjs';
 import { releaseArchivePath } from './release-archive.mjs';
-import { assertNativeCompanionProjection, originalNativeCompanionMember, BEADS_GUIDANCE_PROJECTION } from './native-companion-projection.mjs';
+import { assertNativeCompanionProjection, originalNativeCompanionMember, BEADS_GUIDANCE_PROJECTION, BEADS_OFFLINE_PROJECTION } from './native-companion-projection.mjs';
 
 export const NATIVE_COMPANION_PROFILE = 'great-cto-reviewed-companions-v1';
 export const NATIVE_COMPANIONS = Object.freeze([
@@ -145,7 +146,8 @@ export function validateNativeCompanionFiles(files) {
     const licenseFile = members.find(file => file.path === 'LICENSE');
     if (!manifestFile || !licenseFile || !licenseFile.bytes.length || sha(licenseFile.bytes) !== component.license.sha256) refusal('native-companion-license-or-manifest-missing');
     const manifest = json(manifestFile);
-    if (component.projection === BEADS_GUIDANCE_PROJECTION && (!members.some(file => file.path === 'skills/beads/SKILL.md') || !members.some(file => file.path === 'skills/beads/resources/AGENT_TRACKING.md'))) refusal('native-companion-derived-members-required');
+    if ([BEADS_GUIDANCE_PROJECTION, BEADS_OFFLINE_PROJECTION].includes(component.projection) && (!members.some(file => file.path === 'skills/beads/SKILL.md') || !members.some(file => file.path === 'skills/beads/resources/AGENT_TRACKING.md'))) refusal('native-companion-derived-members-required');
+    if (requiredHardenedMembers(component).some(required => !members.some(file => file.path === required))) refusal('native-companion-hardened-members-required');
     if (manifest.name !== component.name || manifest.version !== component.version || manifest.license !== 'MIT') refusal('native-companion-manifest-identity');
     assertNativeCompanionRuntimeReferences(manifest, members); inspectRuntimeImportReferences(members);
     components.push({ id: component.id, name: component.name, version: component.version, projection: component.projection, root: component.root,
