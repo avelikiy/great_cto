@@ -61,7 +61,7 @@ test('real stdio drains output larger than8192bytes and ignores project/home dot
  assert.equal(readFileSync(join(root, '.env.local'), 'utf8'), 'OPENROUTER_API_KEY=fixture-project-key\n'); assert(!reply.out.includes('fixture-home-key'));
 });
 test('config values are validated without blocking startup or leaking values', async () => {
- for (const patch of [{ GREAT_CTO_ROUTER_MAX_TOKENS: '-1' }, { GREAT_CTO_ROUTER_MAX_TOKENS: '1048577' }, { GREAT_CTO_ROUTER_TIMEOUT: '0' }, { GREAT_CTO_ROUTER_TIMEOUT: '181' }, { GREAT_CTO_ROUTER_TEMPERATURE: 'NaN' }, { OPENROUTER_API_KEY: 'short' }, { OPENROUTER_API_KEY: 'non-ascii-🔑-fixture' }]) {
+ for (const patch of [{ GREAT_CTO_ROUTER_MAX_TOKENS: '-1' }, { GREAT_CTO_ROUTER_MAX_TOKENS: '1048577' }, { GREAT_CTO_ROUTER_TIMEOUT: '0' }, { GREAT_CTO_ROUTER_TIMEOUT: '181' }, { GREAT_CTO_ROUTER_TEMPERATURE: 'NaN' }, { OPENROUTER_API_KEY: 'short' }, { OPENROUTER_API_KEY: String.fromCodePoint(0x1f511).repeat(8) }]) {
   const router = createNativeRouter({ environment: { ...env, ...patch } }); assert((await router.handle({ id: 0, method: 'initialize' })).result);
   assert.equal((await router.handle(call('router_status'))).error.message, 'router configuration refused');
  }
