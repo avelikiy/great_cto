@@ -174,3 +174,9 @@ test('deadline aborts an incomplete real HTTP response body', { timeout: 10000 }
  const router = createNativeRouter({ environment: { ...env, GREAT_CTO_ROUTER_TIMEOUT: '1' }, fetchImpl: (url, options) => { signal = options.signal; return fetch(endpoint, options); } });
  const r = await router.handle(call('ask_kimi', { task: 'inert' })); assert(signal.aborted); assert.match(content(r), /deadline exceeded/); assert.equal(r.result._meta.usage, null); await gone;
 });
+test('HTTP redirects cannot forward task content to a different endpoint', { timeout: 10000 }, async t => {
+ let destinationCalls = 0; const destination = await server(t, (req, res) => { destinationCalls++; res.end(JSON.stringify(provider())); });
+ const origin = await server(t, (req, res) => { res.writeHead(307, { Location: destination }); res.end(); });
+ const router = createNativeRouter({ environment: env, fetchImpl: (url, options) => { assert.equal(options.redirect, 'error'); return fetch(origin, options); } });
+ const r = await router.handle(call('ask_kimi', { task: 'private fixture task' })); assert.match(content(r), /fallback/); assert.equal(destinationCalls, 0);
+});

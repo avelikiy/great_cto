@@ -110,7 +110,7 @@ export function createNativeRouter({ environment = {}, fetchImpl = globalThis.fe
       ] });
       if (Buffer.byteLength(body) > MAX_WIRE_BYTES) return refused('router request too large');
       if (late()) return refused(external?.aborted ? 'router request aborted' : 'router deadline exceeded');
-      const response = await abortable(fetchImpl('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', headers: {
+      const response = await abortable(fetchImpl('https://openrouter.ai/api/v1/chat/completions', { method: 'POST', redirect: 'error', headers: {
         Authorization: 'Bearer ' + cfg.key, 'Content-Type': 'application/json', 'HTTP-Referer': 'https://github.com/avelikiy/great_cto', 'X-Title': 'great_cto',
       }, body, signal: control.signal }), control.signal);
       if (late()) return refused('router deadline exceeded');
