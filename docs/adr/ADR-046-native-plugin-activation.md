@@ -69,6 +69,10 @@ The [native startup profile contract](../testing/native-startup-profile-v1.md)
 prepares a bounded context loader and complete hook-effect inventory separately
 from manifest migration. Read-only context does not replace mandatory guards or
 admit startup writes, runtime dependencies or native activation.
+The [primary projection contract](../testing/native-primary-projection-v1.md)
+defines an unsigned fixture transformation and its intentional convenience
+differences. Its descriptor remains non-authoritative; production selection and
+the remaining startup effects require their own executed acceptance.
 
 The adapter owns only its great_cto payload, selections and explicitly inventoried
 managed files. It does not own the whole host home, marketplace or plugin tree.
