@@ -34,6 +34,9 @@ try {
   const mode = guardMode(projectMd);
   if (mode === 'off') process.exit(0);
   const target = stageName(payload.tool_input?.subagent_type);
+  // Read to decide scope only; never written anywhere (events carry `why`, not the prompt).
+  const prompt = String(payload.tool_input?.prompt || payload.tool_input?.description || '');
+  const now = Date.now();
   // An unreadable log removes only the rule that needs it — and is reported once, below.
   const logs = new Map();
   const unreadable = new Map();   // stage → error code, for the one event
@@ -51,7 +54,7 @@ try {
     const archLog = log('architect');
     if (poLog.ok && archLog.ok) {
       violations.push(architectureBeforeBuild({
-        target, po: latestSuccess(poLog.text, PO_ON), arch: latestSuccess(archLog.text, ARCH_ON),
+        target, po: latestSuccess(poLog.text, PO_ON), arch: latestSuccess(archLog.text, ARCH_ON), now, prompt,
       }));
     }
   }
@@ -59,7 +62,7 @@ try {
   try { graph = parsePipelineToml(readFileSync(contractPath('pipeline.toml', { cwd: root }), 'utf8')); } catch { /* no map: rule 2 has nothing to read */ }
   let edgeBlind = false;
   violations.push(edgeContract({
-    target, graph,
+    target, graph, now, prompt,
     latest: (agent, on) => { const l = log(agent); if (!l.ok) { edgeBlind = true; return null; } return latestSuccess(l.text, on); },
     exists: (p) => existsSync(resolve(root, p)),
   }));

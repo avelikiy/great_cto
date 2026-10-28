@@ -14,6 +14,10 @@ import { fileURLToPath } from 'node:url';
 import { latestSuccess, architectureBeforeBuild, decide, guardMode, malformedLog, errorCode, unreadableWhy } from '../../scripts/lib/graph-guard.mjs';
 
 const HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'graph-guard.mjs');
+// Hook-level fixtures are recent: rules only measure a dispatch against a verdict in scope
+// (72 h, or named by the dispatch — great_cto-2u72.4).
+const T0 = new Date(Date.now() - 2 * 3600e3).toISOString();
+const T1 = new Date(Date.now() - 1 * 3600e3).toISOString();
 const TMP = [];
 after(() => { for (const d of TMP) fs.rmSync(d, { recursive: true, force: true }); });
 const SANDBOX_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'graph-guard-home-')); TMP.push(SANDBOX_HOME);
@@ -96,7 +100,7 @@ const run = (dir, subagent, home) => spawnSync(process.execPath, [HOOK], {
   encoding: 'utf8', env: { ...process.env, HOME: home || SANDBOX_HOME },
 });
 const events = (dir) => { try { return fs.readFileSync(path.join(dir, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse); } catch { return []; } };
-const BRIEF = v('product-owner', 'BRIEF_READY', '2026-10-20T10:00:00Z');
+const BRIEF = v('product-owner', 'BRIEF_READY', T0);
 
 test('hook, observe (default): the skip is let through and recorded', () => {
   const dir = project({ poLog: BRIEF });
@@ -151,7 +155,7 @@ test('hook: the recorded why is a fixed-vocabulary reason — no timestamp, no p
 });
 
 test('hook: the graph path is silent', () => {
-  const dir = project({ mode: 'enforce', poLog: BRIEF, archLog: v('architect', 'APPROVED', '2026-10-20T11:00:00Z') });
+  const dir = project({ mode: 'enforce', poLog: BRIEF, archLog: v('architect', 'APPROVED', T1) });
   const r = run(dir, 'senior-dev');
   assert.equal(r.status, 0);
   assert.equal(r.stdout.trim(), '');
@@ -232,7 +236,7 @@ test('hook: a log with nothing parseable is malformed — recorded, allowed, and
 });
 
 test('hook: a log that does not exist is the clean case — no unreadable event', () => {
-  const dir = project({ poLog: BRIEF, archLog: v('architect', 'APPROVED', '2026-10-20T11:00:00Z') });
+  const dir = project({ poLog: BRIEF, archLog: v('architect', 'APPROVED', T1) });
   run(dir, 'senior-dev');
   assert.equal(events(dir).filter((x) => x.hook === 'graph-guard').length, 0);
   const none = project();
@@ -253,4 +257,26 @@ test('hook: outside a great_cto project it does nothing', () => {
   assert.equal(r.status, 0);
   assert.equal(r.stdout.trim(), '');
   assert.equal(fs.existsSync(path.join(dir, '.great_cto')), false);
+});
+
+// great_cto-2u72.4: the first real Claude Code events (2026-10-28) were six false positives —
+// maintenance dispatches measured against a seven-week-old brief of another feature.
+test('scope: an old brief does not hold a dispatch that does not name its feature', () => {
+  const now = Date.parse('2026-10-28T16:00:00Z');
+  const old = po('2026-09-09T07:12:27Z', { feature: 'story-rewrite-2026-09', brief: 'docs/product/BRIEF-story-rewrite-2026-09.md' });
+  assert.equal(architectureBeforeBuild({ target: 'senior-dev', po: old, arch: null, now, prompt: 'Fix the guard event shape' }).violated, false, 'unrelated maintenance');
+  assert.equal(architectureBeforeBuild({ target: 'senior-dev', po: old, arch: null, now, prompt: 'Implement story-rewrite-2026-09 page' }).violated, true, 'names the feature');
+  assert.equal(architectureBeforeBuild({ target: 'senior-dev', po: old, arch: null, now, prompt: 'see docs/product/BRIEF-story-rewrite-2026-09.md' }).violated, true, 'names the brief');
+  const fresh = po('2026-10-28T10:00:00Z', { feature: 'checkout' });
+  assert.equal(architectureBeforeBuild({ target: 'senior-dev', po: fresh, arch: null, now, prompt: 'anything' }).violated, true, 'a brief within 72 h is the route being taken');
+  assert.equal(architectureBeforeBuild({ target: 'senior-dev', po: old, arch: null }).violated, true, 'no clock: every verdict is in scope, as before');
+});
+
+test('hook: an old brief and an unrelated dispatch record nothing', () => {
+  const dir = project({ poLog: v('product-owner', 'APPROVED', '2026-09-09T07:12:27Z', { feature: 'story-rewrite-2026-09' }) });
+  const r = run(dir, 'great-cto:senior-dev', SANDBOX_HOME);
+  assert.equal(r.status, 0);
+  let events = [];
+  try { events = fs.readFileSync(path.join(dir, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').filter(Boolean); } catch {}
+  assert.equal(events.length, 0, events.join('\n'));
 });

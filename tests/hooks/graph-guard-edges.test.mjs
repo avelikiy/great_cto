@@ -15,6 +15,10 @@ import { fileURLToPath } from 'node:url';
 import { edgeContract } from '../../scripts/lib/graph-guard.mjs';
 
 const HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'graph-guard.mjs');
+// Hook-level fixtures are recent: rules only measure a dispatch against a verdict in scope
+// (72 h, or named by the dispatch — great_cto-2u72.4).
+const T0 = new Date(Date.now() - 2 * 3600e3).toISOString();
+const T1 = new Date(Date.now() - 1 * 3600e3).toISOString();
 const TMP = [];
 after(() => { for (const d of TMP) fs.rmSync(d, { recursive: true, force: true }); });
 const SANDBOX_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'graph-edge-home-')); TMP.push(SANDBOX_HOME);
@@ -93,7 +97,7 @@ const run = (dir, subagent) => spawnSync(process.execPath, [HOOK], {
   encoding: 'utf8', env: { ...process.env, HOME: SANDBOX_HOME },
 });
 const events = (dir) => { try { return fs.readFileSync(path.join(dir, '.great_cto', 'events.jsonl'), 'utf8').trim().split('\n').filter(Boolean).map(JSON.parse); } catch { return []; } };
-const QA_NO_REPORT = line('qa-engineer', 'PASS', '2026-10-20T10:00:00Z', { feature: 'x' });
+const QA_NO_REPORT = line('qa-engineer', 'PASS', T0, { feature: 'x' });
 
 test('hook, observe: an unmet contract is let through and recorded', () => {
   const dir = project({ logs: { 'qa-engineer': QA_NO_REPORT } });
@@ -122,7 +126,7 @@ test('hook, enforce: the denied event carries the why too', () => {
 });
 
 test('hook: a named path that is missing is reported without the path', () => {
-  const dir = project({ logs: { 'qa-engineer': line('qa-engineer', 'PASS', '2026-10-20T10:00:00Z', { report: '/srv/someone/private/QA-x.md' }) } });
+  const dir = project({ logs: { 'qa-engineer': line('qa-engineer', 'PASS', T0, { report: '/srv/someone/private/QA-x.md' }) } });
   run(dir, 'devops');
   const e = events(dir).find((x) => x.hook === 'graph-guard');
   assert.equal(e.why, 'edge-contract: qa-engineer report path does not exist');
@@ -130,7 +134,7 @@ test('hook: a named path that is missing is reported without the path', () => {
 });
 
 test('hook: a receipt-less predecessor is reported by key', () => {
-  const dir = project({ logs: { 'senior-dev': line('senior-dev', 'DONE', '2026-10-20T10:00:00Z', { task: 't' }) } });
+  const dir = project({ logs: { 'senior-dev': line('senior-dev', 'DONE', T0, { task: 't' }) } });
   run(dir, 'code-reviewer');
   assert.equal(events(dir).find((x) => x.hook === 'graph-guard').why, 'edge-contract: senior-dev named no receipt');
 });
@@ -158,10 +162,19 @@ test('hook, enforce: an unmet contract is denied with the stage, the key and the
 });
 
 test('hook, enforce: a met contract with the file present is silent', () => {
-  const dir = project({ mode: 'enforce', logs: { 'qa-engineer': line('qa-engineer', 'PASS', '2026-10-20T10:00:00Z', { report: 'docs/qa/QA-x.md' }) } });
+  const dir = project({ mode: 'enforce', logs: { 'qa-engineer': line('qa-engineer', 'PASS', T0, { report: 'docs/qa/QA-x.md' }) } });
   fs.mkdirSync(path.join(dir, 'docs', 'qa'), { recursive: true });
   fs.writeFileSync(path.join(dir, 'docs', 'qa', 'QA-x.md'), 'ok\n');
   const r = run(dir, 'devops');
   assert.equal(r.stdout.trim(), '');
   assert.equal(events(dir).filter((x) => x.hook === 'graph-guard').length, 0);
+});
+
+test('scope: an old predecessor verdict is not the edge an unrelated dispatch takes', () => {
+  const now = Date.parse('2026-10-28T16:00:00Z');
+  const old = latestFrom({ 'qa-engineer': rec('2026-09-01T10:00:00Z', { feature: 'billing' }) });
+  assert.equal(edgeContract({ target: 'devops', graph: GRAPH, latest: old, exists: none, now, prompt: 'deploy the docs fix' }).violated, false);
+  assert.equal(edgeContract({ target: 'devops', graph: GRAPH, latest: old, exists: none, now, prompt: 'ship billing' }).violated, true, 'names the feature');
+  const fresh = latestFrom({ 'qa-engineer': rec('2026-10-28T12:00:00Z') });
+  assert.equal(edgeContract({ target: 'devops', graph: GRAPH, latest: fresh, exists: none, now, prompt: '' }).violated, true, 'recent: in scope');
 });

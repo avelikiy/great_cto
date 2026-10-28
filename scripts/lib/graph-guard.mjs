@@ -58,13 +58,35 @@ export function unreadableWhy(byStage) {
 }
 
 /**
+ * Is a dispatch on the route a verdict opened? The rules compare the dispatch with the
+ * NEWEST brief or predecessor verdict, of any age and any feature. On 2026-10-28 the first
+ * real Claude Code events were six false positives: maintenance dispatches measured against
+ * a seven-week-old brief of another feature (great_cto-2u72.4). A verdict is in scope when it
+ * is recent — a brief is followed by its build within hours (the measured 84-of-93 hole) — or
+ * when the dispatch names its feature or the path it produced. Without a clock (`now` absent)
+ * every verdict is in scope, as before.
+ */
+export const SCOPE_WINDOW_HOURS = 72;
+export function inScope(rec, { now, prompt = '', windowHours = SCOPE_WINDOW_HOURS } = {}) {
+  if (!rec || now == null) return true;
+  const t = Date.parse(rec.ts);
+  if (Number.isFinite(t) && Number(now) - t <= windowHours * 3600e3) return true;
+  const text = String(prompt || '').toLowerCase();
+  if (!text) return false;
+  const meta = rec.meta || {};
+  return [meta.feature, meta.brief, meta.arch, meta.plan, meta.design]
+    .some((v) => typeof v === 'string' && v.length >= 3 && text.includes(v.toLowerCase()));
+}
+
+/**
  * Rule 1 — architecture before build after a brief.
  * A brief exists (product-owner succeeded) and no architect success is newer
  * than it, yet a build or design stage is being dispatched.
  */
-export function architectureBeforeBuild({ target, po, arch }) {
+export function architectureBeforeBuild({ target, po, arch, now, prompt }) {
   const pass = { violated: false };
   if (!BUILD.has(target) || !po) return pass;
+  if (!inScope(po, { now, prompt })) return pass;
   if (String(po.verdict).toUpperCase() === 'NO_BUILD') return pass;
   if (String(po.meta?.depth || '').toLowerCase() === 'small') return pass;
   if (arch && String(arch.ts) >= String(po.ts)) return pass;
@@ -87,7 +109,7 @@ export function architectureBeforeBuild({ target, po, arch }) {
  *
  * `latest(agent, on)` and `exists(path)` are injected: this module reads nothing.
  */
-export function edgeContract({ target, graph, latest, exists }) {
+export function edgeContract({ target, graph, latest, exists, now, prompt }) {
   const pass = { violated: false };
   if (!graph || typeof graph !== 'object') return pass;
   let edge = null;
@@ -98,6 +120,7 @@ export function edgeContract({ target, graph, latest, exists }) {
     if (rec && (!edge || String(rec.ts) > String(edge.rec.ts))) edge = { agent, rule, rec };
   }
   if (!edge || !Array.isArray(edge.rule.produces) || !edge.rule.produces.length) return pass;
+  if (!inScope(edge.rec, { now, prompt })) return pass;
   for (const key of edge.rule.produces) {
     if (key === 'receipt') {
       if (Object.keys(edge.rec.receipt?.files || {}).length) continue;
