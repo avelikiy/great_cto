@@ -10,10 +10,10 @@ const WORKERS = ['senior-dev', 'qa-engineer', 'code-reviewer', 'security-officer
 
 test('every working agent carries work-fast, inlined in the bundle the plugin registers', () => {
   for (const a of WORKERS) {
-    assert.match(readFileSync(resolve(`agents/${a}.md`), 'utf8'), /agents\/_shared\/work-fast\.md/, a);
-    assert.match(readFileSync(resolve(`agents-full/${a}.md`), 'utf8'), /BEGIN agents\/_shared\/work-fast\.md/, `${a} (bundle)`);
+    assert.match(readFileSync(resolve(`agents/${a}.md`), 'utf8'), /shared\/agent-fragments\/work-fast\.md/, a);
+    assert.match(readFileSync(resolve(`agents-full/${a}.md`), 'utf8'), /BEGIN shared\/agent-fragments\/work-fast\.md/, `${a} (bundle)`);
   }
-  const f = readFileSync(resolve('agents/_shared/work-fast.md'), 'utf8');
+  const f = readFileSync(resolve('shared/agent-fragments/work-fast.md'), 'utf8');
   for (const rule of [/one message/, /Never poll/, /affected-tests\.mjs/, /Read a file once/]) assert.match(f, rule);
 });
 

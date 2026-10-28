@@ -712,9 +712,9 @@ test('a split with no cases run says nothing rather than failing on an empty sam
   assert.equal(out.holdout.below, false, 'an unrun split is not a failed one');
 });
 
-// ── _shared expansion ───────────────────────────────────────────────────────
+// ── shared-fragment expansion ───────────────────────────────────────────────
 //
-// Forty of sixty-nine agents point at `agents/_shared/*.md` for their verdict
+// Forty of sixty-nine agents point at `shared/agent-fragments/*.md` for their verdict
 // format, phase task, privacy guardrails and handoff contract. The actor's
 // system prompt was the agent file alone, and the actor has no filesystem —
 // `buildFixture` answers every INSPECT with the scenario text. So every one of
@@ -725,28 +725,28 @@ test('a split with no cases run says nothing rather than failing on an empty sam
 
 test('a pointer is replaced by the file, and the pointer text survives it', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
-  fs.mkdirSync(path.join(root, '_shared'), { recursive: true });
-  fs.writeFileSync(path.join(root, '_shared', 'verdict-format.md'), '# Verdict\nEmit PASS or BLOCK.');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, 'verdict-format.md'), '# Verdict\nEmit PASS or BLOCK.');
   try {
-    const { text, expanded } = expandSharedRefs('See `agents/_shared/verdict-format.md` for the format.', { root });
+    const { text, expanded } = expandSharedRefs('See `shared/agent-fragments/verdict-format.md` for the format.', { fragmentsDir: root });
     assert.match(text, /Emit PASS or BLOCK/, 'the material has to reach the actor');
-    assert.match(text, /agents\/_shared\/verdict-format\.md/, 'the pointer stays, so the prompt still reads as written');
-    assert.match(text, /BEGIN agents\/_shared\/verdict-format\.md/, 'inlined material is delimited, not merged into the prose');
+    assert.match(text, /shared\/agent-fragments\/verdict-format\.md/, 'the pointer stays, so the prompt still reads as written');
+    assert.match(text, /BEGIN shared\/agent-fragments\/verdict-format\.md/, 'inlined material is delimited, not merged into the prose');
     assert.deepEqual(expanded, ['verdict-format.md']);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('a shared file that points at another is expanded too, once', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
-  fs.mkdirSync(path.join(root, '_shared'), { recursive: true });
-  fs.writeFileSync(path.join(root, '_shared', 'a.md'), 'A body, see agents/_shared/b.md');
-  fs.writeFileSync(path.join(root, '_shared', 'b.md'), 'B body, back to agents/_shared/a.md');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, 'a.md'), 'A body, see shared/agent-fragments/b.md');
+  fs.writeFileSync(path.join(root, 'b.md'), 'B body, back to shared/agent-fragments/a.md');
   try {
-    const { text, expanded } = expandSharedRefs('start agents/_shared/a.md', { root });
+    const { text, expanded } = expandSharedRefs('start shared/agent-fragments/a.md', { fragmentsDir: root });
     assert.match(text, /A body/);
     assert.match(text, /B body/, 'a contract reached through another contract is still part of the prompt');
     assert.deepEqual(expanded, ['a.md', 'b.md'], 'a cycle terminates and nothing is inlined twice');
-    assert.equal(text.match(/BEGIN agents\/_shared\/a\.md/g).length, 1);
+    assert.equal(text.match(/BEGIN shared\/agent-fragments\/a\.md/g).length, 1);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -755,8 +755,8 @@ test('a pointer at a file that does not exist stays a pointer', () => {
   // reference or throw in the middle of a paid run.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
   try {
-    const { text, expanded } = expandSharedRefs('see agents/_shared/nope.md', { root });
-    assert.equal(text, 'see agents/_shared/nope.md');
+    const { text, expanded } = expandSharedRefs('see shared/agent-fragments/nope.md', { fragmentsDir: root });
+    assert.equal(text, 'see shared/agent-fragments/nope.md');
     assert.deepEqual(expanded, []);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -773,7 +773,7 @@ test('the run records which contracts were inlined', () => {
   const r = resolveActorSystem({ agentName: 'devops' });
   assert.match(r.source, /^agent:devops$/);
   assert.ok(Array.isArray(r.sharedExpanded));
-  assert.ok(r.sharedExpanded.length > 0, 'devops points at _shared and the run must say so');
+  assert.ok(r.sharedExpanded.length > 0, 'devops points at shared fragments and the run must say so');
 });
 
 test('a generic actor reports an empty expansion, not undefined', () => {
@@ -879,7 +879,7 @@ test('the raise-more-samples advice skips the runs that stopped', () => {
 
 // ── prompt caching ──────────────────────────────────────────────────────────
 //
-// The actor's system prompt is one agent file with its _shared contracts
+// The actor's system prompt is one agent file with its shared contracts
 // inlined — 58k characters for devops, identical for every case in a run and
 // re-sent on every ReAct turn. Measured against the real bill it was ~97% of
 // the cost; the judge, which is what people swap when a run costs too much,

@@ -147,7 +147,7 @@ gets exactly the confidence this bug should not allow.
 
 **Severity**: CRITICAL. Reachable by any agent that writes to its own
 verdict log (i.e. every agent in the pipeline, as a normal part of its job,
-per `agents/_shared/verdict-format.md` and `scripts/log-verdict.sh`), against
+per `shared/agent-fragments/verdict-format.md` and `scripts/log-verdict.sh`), against
 any project old enough to have one previously-closed gate bead of the
 matching name — true of any project past its first release. No `bd` write
 access, no PATH tampering, no privilege beyond what every stage already has.

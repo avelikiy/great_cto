@@ -17,4 +17,4 @@
 6. Before the first edit of a change or a fix, your proposal carries `Done when:` — the
    check you will run yourself on what ships — plus guesses marked [A1] and at most 3
    questions, each with your pick. A bug: reproduce it first; done is that repro passing
-   where the operator saw it. Format: agents/_shared/task-brief.md.
+   where the operator saw it. Format: shared/agent-fragments/task-brief.md.

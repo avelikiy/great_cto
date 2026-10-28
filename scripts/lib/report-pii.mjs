@@ -10,7 +10,7 @@
  * The report was now itself a copy of the data the report said to redact — and
  * reports land in `docs/`, in verdict logs, and on the board.
  *
- * `agents/_shared/privacy-guardrails.md` already forbids this, and it is scoped
+ * `shared/agent-fragments/privacy-guardrails.md` already forbids this, and it is scoped
  * to "knowledge/lesson writers": three agents. The agents that actually handle
  * raw sensitive material — reviewers reading transcripts, l3-support reading
  * logs, auditors reading configs — were never covered, which is exactly where it

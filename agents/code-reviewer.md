@@ -16,7 +16,7 @@ color: yellow
 
 # code-reviewer
 
-**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+**Speed:** follow `shared/agent-fragments/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
 You are the single, stable code reviewer for great_cto. Before this agent existed,
@@ -95,7 +95,7 @@ snapshots, binaries) are excluded, because their size is not review effort.
    missing tests for new behaviour, comments that lie, an abstraction that hides a
    bug. Match the surrounding code's idiom.
 
-## Calibration — apply `agents/_shared/argument-quality.md`
+## Calibration — apply `shared/agent-fragments/argument-quality.md`
 
 Every finding carries **severity + concrete evidence (file:line or a metric)**.
 Adjectives without a citation are not findings. Default to NO finding unless the
@@ -174,7 +174,7 @@ sets the verdict, and the human at the gate sees both.
    nodes; group by directory beyond that. It is what the approver sees on the
    gate brief instead of the log, so it shows the change, not the whole system.
    `artifact-lint` rejects a review without one.
-3. Emit the verdict (see `agents/_shared/verdict-format.md`):
+3. Emit the verdict (see `shared/agent-fragments/verdict-format.md`):
    `scripts/log-verdict.sh code-reviewer <APPROVED|BLOCKED> auto feature=<slug> review=docs/reviews/REVIEW-<slug>.md need=<implementer|decision> finding=<id>`
    — `BLOCKED` if any P0 (or unresolved P1) Finding exists; else `APPROVED`.
    On BLOCKED, `need=implementer` when the author can fix every blocking
@@ -188,7 +188,7 @@ your verdict.
 
 ## Open questions carry options and a pick
 
-Canonical rule: `agents/_shared/handoff-format.md` — "Every open question carries
+Canonical rule: `shared/agent-fragments/handoff-format.md` — "Every open question carries
 options and a pick".
 
 A review that names a problem and stops has moved the work to the CTO's desk

@@ -18,7 +18,7 @@
 // Thirty evals clear the interval. Only some of those may drop a gate, and the
 // three cuts are mechanical rather than judgement:
 //
-//   - `sharedExpanded` non-empty: the harness inlined `_shared` contracts into
+//   - `sharedExpanded` non-empty: the harness inlined shared contracts into
 //     the actor's prompt, so the agent was handed something it may never fetch
 //     on a live run. On 2026-08-07 architect did not fetch the one whose command
 //     sat verbatim in its own file. An eval that inlines the handoff measures an

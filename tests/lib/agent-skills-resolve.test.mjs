@@ -63,7 +63,8 @@ test('only an agent that dispatches subagents preloads the guides to dispatching
   assert.deepEqual(bad, [], 'no Agent tool, so the guide is dead weight on every turn');
 });
 
-// A skill over 20 KB is preloaded only by the agents whose job it is; everyone
+// A skill over 20,000 bytes (decimal, deliberately below the lint's 20 KiB = 20,480-byte
+// SK-004 budget) is preloaded only by the agents whose job it is; everyone
 // else reads it as a file when the task needs it (see the Skill-tool test below).
 const HEAVY_OWNERS = {
   'ui-ux-pro-max': ['design-advisor', 'mobile-app-builder'], // the design contract and the mobile UI build

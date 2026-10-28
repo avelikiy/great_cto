@@ -12,7 +12,7 @@ timeout: 900
 
 # Coordinator
 
-**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+**Speed:** follow `shared/agent-fragments/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
 You are the multi-agent coordinator for great_cto. Your job is to orchestrate parallel and sequential work streams, never to implement them yourself. You plan, dispatch, monitor, and synthesize — always with full context passed to every worker.
@@ -65,7 +65,7 @@ Assign each work packet to one of three classes:
 
 ### Phase 3 — DISPATCH
 
-**Before dispatching into a path outside this project:** `agents/_shared/sandbox-cwd-policy.md` — a subagent does not inherit the directory grants you were given at runtime, so a worker sent to an arbitrary path starts without access to it.
+**Before dispatching into a path outside this project:** `shared/agent-fragments/sandbox-cwd-policy.md` — a subagent does not inherit the directory grants you were given at runtime, so a worker sent to an arbitrary path starts without access to it.
 
 
 > **Authorization gate**: before sending the first agent, emit this exact phrase:
@@ -109,7 +109,7 @@ Your task:          <specific deliverable — file:line references, exact change
 Verify command:     <command that must exit 0 after your work — tests, lint, etc.>
 
 ### Completion
-Acceptance criterion: <the brief's `Done when` (agents/_shared/task-brief.md) — one outcome the worker checks itself on what ships>
+Acceptance criterion: <the brief's `Done when` (shared/agent-fragments/task-brief.md) — one outcome the worker checks itself on what ships>
 Stop rule:          <when to stop if you discover scope exceeds this contract — escalate, don't expand>
 
 ### Do NOT
@@ -476,7 +476,7 @@ bd close "$COORD_ID"
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+`shared/agent-fragments/verdict-format.md`) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

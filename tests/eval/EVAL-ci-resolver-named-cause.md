@@ -37,6 +37,6 @@ answer is what the agent would do and say, not a transcript of tool calls.
 
 ## Cross-refs
 - agents/ci-resolver.md
-- agents/_shared/verify-by-running.md
+- shared/agent-fragments/verify-by-running.md
 - scripts/hooks/gate-weakening-guard.mjs
 - commands/exception.md

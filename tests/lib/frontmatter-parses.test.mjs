@@ -35,18 +35,11 @@ import { fileURLToPath } from 'node:url';
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
-// agents/_shared/ holds prompt fragments that are included by reference, never
-// selected as agents. They have no frontmatter by design. Listing them by name
-// rather than by directory means a real agent that loses its frontmatter cannot
-// hide here — it is not on the list, so it fails.
-const FRAGMENTS = new Set([
-  'argument-quality.md', 'artifact-summary-contract.md', 'compress-prompt.md',
-  'contract-agent-altitude.md', 'deploy-failure-modes.md', 'evidence-discipline.md',
-  'handoff-format.md',
-  'phase-task.md', 'privacy-guardrails.md', 'task-brief.md', 'work-fast.md',
-  'sandbox-cwd-policy.md', 'skill-catalog-browse.md', 'verdict-format.md',
-  'untrusted-content.md', 'verify-by-running.md', 'reviewer-verdict.md',
-]);
+// Prompt fragments (included by reference, never selected as agents) have no
+// frontmatter by design, and live in shared/agent-fragments/ — outside agents/, because
+// `claude plugin validate` treats every .md under agents/ as an agent. So nothing
+// scanned here is allowed to lack frontmatter: a real agent that loses its
+// frontmatter has nowhere to hide.
 
 function walk(dir, out = []) {
   for (const e of readdirSync(dir)) {
@@ -103,17 +96,11 @@ test('every skill and agent frontmatter survives a strict YAML parse', () => {
   );
 });
 
-test('a file without frontmatter is a named fragment, not an agent that lost it', () => {
+test('no agent has lost its frontmatter — fragments live outside agents/', () => {
   const absent = subjects().filter(
     (rel) => inspectFrontmatter(readFileSync(path.join(REPO, rel), 'utf8')).state === 'absent',
   );
-  const unexpected = absent.filter(
-    (rel) => !(rel.startsWith('agents/_shared/') && FRAGMENTS.has(path.basename(rel))),
-  );
-  assert.deepEqual(unexpected, [], 'these have no frontmatter and are not on the fragment list');
-
-  const missing = [...FRAGMENTS].filter((f) => !absent.includes(`agents/_shared/${f}`));
-  assert.deepEqual(missing, [], 'fragment list names files that no longer exist — shrink the list');
+  assert.deepEqual(absent, [], 'a file under agents/ or skills/ without frontmatter: restore it, or if it is a prompt fragment move it to shared/agent-fragments/');
 });
 
 // The guard has to fail on the exact text that got through. These are the three

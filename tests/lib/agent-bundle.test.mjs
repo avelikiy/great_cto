@@ -2,7 +2,7 @@
 //
 // Both registrations of an agent must carry the same contract. The installed copy
 // (~/.claude/agents) has inlined fragments since 2026-09-21; the plugin copy pointed at
-// agents/_shared/*.md, a path that does not exist where an agent runs, and 4% of
+// shared/agent-fragments/*.md, a path that does not exist where an agent runs, and 4% of
 // dispatches use that copy. ADR-027 measured dropping the plugin registration instead
 // and refused it: an agent installed during SessionStart is unavailable until the next
 // session, so a first session would have none.
@@ -32,8 +32,8 @@ test('the bundle keeps the agent frontmatter and marks itself generated', () => 
 
 test('a pointer to a shared fragment is inlined, and the fragment content is there', () => {
   const text = built.get('code-reviewer.md');
-  assert.match(text, /BEGIN agents\/_shared\/verdict-format\.md/);
-  const fragment = readFileSync(join(ROOT, 'agents/_shared/verdict-format.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
+  assert.match(text, /BEGIN shared\/agent-fragments\/verdict-format\.md/);
+  const fragment = readFileSync(join(ROOT, 'shared/agent-fragments/verdict-format.md'), 'utf8').replace(/^---\n[\s\S]*?\n---\n?/, '').trim();
   assert.ok(text.includes(fragment.split('\n')[0]), 'the first line of the fragment is present');
 });
 

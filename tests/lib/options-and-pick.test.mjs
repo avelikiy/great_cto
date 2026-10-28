@@ -32,7 +32,7 @@ const REPORTERS = [
 ];
 
 test('the shared contract states the rule, not just the slot', () => {
-  const c = flat('agents/_shared/handoff-format.md');
+  const c = flat('shared/agent-fragments/handoff-format.md');
   assert.match(c, /Every open question carries options and a pick/,
     'the contract must carry the rule itself — a template slot named "Open questions" '
     + 'is answered by writing a question, which is the behaviour being replaced');

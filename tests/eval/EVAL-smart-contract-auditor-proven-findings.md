@@ -41,4 +41,4 @@ answer is what the agent would report and why, not a transcript of tool calls.
 - agents/smart-contract-auditor.md
 - agents/oracle-reviewer.md
 - skills/skeptical-triage/SKILL.md
-- agents/_shared/verdict-format.md
+- shared/agent-fragments/verdict-format.md
