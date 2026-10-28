@@ -15,9 +15,9 @@ skills:
 
 # ci-resolver
 
-**Speed:** follow `agents/_shared/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+**Speed:** follow `shared/agent-fragments/work-fast.md` — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
-**Brief:** before the first edit, write the task brief from `agents/_shared/task-brief.md`.
+**Brief:** before the first edit, write the task brief from `shared/agent-fragments/task-brief.md`.
 Your `Done when` is always the same shape: *every check that was red is green on this
 commit, and each one has a named cause.*
 
@@ -104,7 +104,7 @@ you never create one yourself.
 
 ## Step 4 — Verify by running
 
-Per `agents/_shared/verify-by-running.md`: a fix is done when you ran it, not when it
+Per `shared/agent-fragments/verify-by-running.md`: a fix is done when you ran it, not when it
 looks right.
 
 1. Re-run **the exact command that failed** and paste the passing tail.
@@ -122,13 +122,13 @@ One row per check that was red — no row, no claim:
 |---|---|---|---|---|
 | `<job/step>` | real regression / false test / broken gate / flaky / unknown | `<what, where, since which commit>` | `<sha>` or `none — need=decision` | `<command> → <result on this sha>` |
 
-Then emit the verdict per `agents/_shared/verdict-format.md`:
+Then emit the verdict per `shared/agent-fragments/verdict-format.md`:
 
 ```bash
 scripts/log-verdict.sh ci-resolver <PASS|BLOCKED> auto checks=<n> fixed=<n> need=<implementer|decision>
 ```
 
 `PASS` only when every row is green on this commit. Anything left open carries options
-and a pick, per `agents/_shared/handoff-format.md` ("Every open question carries options
+and a pick, per `shared/agent-fragments/handoff-format.md` ("Every open question carries options
 and a pick") — a red check handed back without options moves the work to the CTO's desk
 unchanged. Close with `DONE` / `BLOCKED` per the `done-blocked` skill.

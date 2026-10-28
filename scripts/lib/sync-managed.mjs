@@ -28,7 +28,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSy
 import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { fileURLToPath } from 'node:url';
-import { expandSharedRefs } from './shared-fragments.mjs';
+import { expandSharedRefs, fragmentsDirOf } from './shared-fragments.mjs';
 
 export const MARKER = '<!-- great_cto-managed -->';
 
@@ -81,9 +81,11 @@ export function syncManaged({ pluginDir, home = homedir() }) {
       dstName: (f) => `great_cto-${f}`,
       isOurs: (f) => /^great_cto-.+\.md$/.test(f),
       sourceOf: (f) => f.slice('great_cto-'.length),
-      // An agent runs in the user's project, where `agents/_shared/…` does not
+      // An agent runs in the user's project, where `shared/agent-fragments/…` does not
       // exist; the fragments it points at go into the installed copy.
-      transform: (t) => expandSharedRefs(t, { root: join(base, 'agents') }).text,
+      // They are read from the plugin directory being synced, not from this script's own
+      // tree: a SessionStart in one version's cache may sync a sibling directory.
+      transform: (t) => expandSharedRefs(t, { fragmentsDir: fragmentsDirOf(base) }).text,
     }),
     commands: syncOne({
       src: base && join(base, 'commands'),

@@ -17,6 +17,10 @@ const ARCH_ON = ['APPROVED', 'DONE'];
 const BUILD = new Set(['design-advisor', 'senior-dev', 'mobile-app-builder']);
 const MODES = new Set(['observe', 'enforce', 'off']);
 
+// What goes into an event's `why` is built from rule ids, stage names and error codes only —
+// never the violation's own prose, which carries timestamps and whatever path a verdict named.
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9_-]+/g, '-').slice(0, 40);
+
 /** Newest record in a verdict log whose verdict is one of `on`, or null. */
 export function latestSuccess(text, on) {
   const ok = new Set(on);
@@ -29,6 +33,29 @@ export function latestSuccess(text, on) {
 }
 
 export { PO_ON, ARCH_ON };
+
+/** Rule 1 reads the product-owner and architect logs only for a stage it can fire on. */
+export const needsBriefLogs = (target) => BUILD.has(target);
+
+/**
+ * A log with content and not one parseable record: the guard could read the file but not
+ * what it says. Treated like an unreadable file, not like a stage that never ran.
+ */
+export function malformedLog(text) {
+  const t = String(text ?? '');
+  return t.trim() !== '' && parseVerdictLog(t).records.length === 0;
+}
+
+/** A Node error → its code (`EISDIR`), never its message, which names a path. */
+export function errorCode(err) {
+  const c = String(err?.code ?? '').toUpperCase().replace(/[^A-Z0-9_]/g, '').slice(0, 20);
+  return c || 'UNKNOWN';
+}
+
+/** `stage → code` → the `why` of the one `unreadable` event: `product-owner=EISDIR,architect=EACCES`. */
+export function unreadableWhy(byStage) {
+  return [...byStage].map(([stage, code]) => `${slug(stage)}=${slug(code).toUpperCase()}`).join(',').slice(0, 120);
+}
 
 /**
  * Rule 1 — architecture before build after a brief.
@@ -44,6 +71,7 @@ export function architectureBeforeBuild({ target, po, arch }) {
   return {
     violated: true,
     rule: 'architecture-before-build',
+    cause: 'architecture-before-build: architect has not run since the product-owner brief',
     why: `${target} after the product brief of ${po.ts}, but architect has not run since — the graph puts architect and gate:arch before design and build`,
   };
 }
@@ -73,12 +101,12 @@ export function edgeContract({ target, graph, latest, exists }) {
   for (const key of edge.rule.produces) {
     if (key === 'receipt') {
       if (Object.keys(edge.rec.receipt?.files || {}).length) continue;
-      return { violated: true, rule: 'edge-contract', why: `${target} after ${edge.agent} (${edge.rec.ts}), whose verdict carries no receipt — the graph requires one before this edge` };
+      return { violated: true, rule: 'edge-contract', cause: `edge-contract: ${slug(edge.agent)} named no receipt`, why: `${target} after ${edge.agent} (${edge.rec.ts}), whose verdict carries no receipt — the graph requires one before this edge` };
     }
     const val = edge.rec.meta?.[key];
-    if (!val) return { violated: true, rule: 'edge-contract', why: `${target} after ${edge.agent} (${edge.rec.ts}), whose verdict names no \`${key}\` — the graph requires it before this edge` };
+    if (!val) return { violated: true, rule: 'edge-contract', cause: `edge-contract: ${slug(edge.agent)} named no ${slug(key)}`, why: `${target} after ${edge.agent} (${edge.rec.ts}), whose verdict names no \`${key}\` — the graph requires it before this edge` };
     if (typeof val === 'string' && val.includes('/') && !exists(val)) {
-      return { violated: true, rule: 'edge-contract', why: `${target} after ${edge.agent} (${edge.rec.ts}), whose \`${key}=${val}\` does not exist` };
+      return { violated: true, rule: 'edge-contract', cause: `edge-contract: ${slug(edge.agent)} ${slug(key)} path does not exist`, why: `${target} after ${edge.agent} (${edge.rec.ts}), whose \`${key}=${val}\` does not exist` };
     }
   }
   return pass;

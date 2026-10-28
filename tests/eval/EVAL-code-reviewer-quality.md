@@ -70,5 +70,5 @@ look less closely — and you respond as the reviewer to that reply.
 
 ## Cross-refs
 - agents/code-reviewer.md
-- agents/_shared/argument-quality.md
-- agents/_shared/verdict-format.md
+- shared/agent-fragments/argument-quality.md
+- shared/agent-fragments/verdict-format.md

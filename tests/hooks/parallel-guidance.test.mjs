@@ -22,7 +22,7 @@
  *    peek mid-flight", which reads as "wait quietly" unless you are told the
  *    alternative.
  *
- * The delivery matters. `agents/_shared/*` is referenced BY NAME from individual
+ * The delivery matters. `shared/agent-fragments/*` is referenced BY NAME from individual
  * agents — verdict-format reaches 30 of 71, skill-catalog-browse reaches 5 — so
  * a fragment there would reach whoever happened to cite it. The SubagentStart
  * contract print reaches every subagent without anyone remembering to link it.

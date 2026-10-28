@@ -10,7 +10,7 @@
  *   SK-001 error  YAML frontmatter present and parses
  *   SK-002 error  `name` equals the skill's directory
  *   SK-003 error  `description` present, 40–1024 chars (the model routes on it)
- *   SK-004 warn   SKILL.md over 20 KB (loaded whole into context) — HEAVY_ALLOWED exempts
+ *   SK-004 warn   SKILL.md over 20 KiB = 20,480 bytes (loaded whole into context) — HEAVY_ALLOWED exempts
  *   SK-005 error  a relative link or backticked repo path points at a file that does not exist
  *   SK-006 error  a private absolute path (/Users/<name>/…, /home/<name>/…)
  *   SK-007 error  an unquoted frontmatter value strict YAML reads differently (`: `, ` #`, a reserved first character)
@@ -23,7 +23,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const SIZE_BUDGET = 20 * 1024;
+export const SIZE_BUDGET = 20 * 1024;   // bytes: 20 KiB (20,480), not 20,000
 export const DESC_MIN = 40;
 export const DESC_MAX = 1024;
 
@@ -138,7 +138,7 @@ function lintOne(name, file, repoRoot) {
 
   const bytes = Buffer.byteLength(text);
   if (bytes > SIZE_BUDGET && !HEAVY_ALLOWED[name]) {
-    push(warnings, 'SK-004', `${(bytes / 1024).toFixed(1)} KB over the ${SIZE_BUDGET / 1024} KB budget — loaded whole into context`);
+    push(warnings, 'SK-004', `${bytes} bytes (${(bytes / 1024).toFixed(1)} KiB) over the ${SIZE_BUDGET}-byte (${SIZE_BUDGET / 1024} KiB) budget — loaded whole into context`);
   }
   for (const msg of danglingRefs(text, path.dirname(file), repoRoot)) push(errors, 'SK-005', msg);
   for (const m of text.matchAll(PRIVATE_PATH)) push(errors, 'SK-006', `private absolute path \`${m[0]}…\``);

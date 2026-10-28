@@ -424,7 +424,7 @@ function stripFrontmatter(text) {
 }
 
 /**
- * Expand `agents/_shared/*.md` references into the prompt body.
+ * Expand `shared/agent-fragments/*.md` references into the prompt body.
  *
  * An agent file points at shared contracts — verdict format, phase task,
  * privacy guardrails, handoff format — and in production the agent has Read and
@@ -435,7 +435,7 @@ function stripFrontmatter(text) {
  * behind a pointer and appeared in 1 of 40 answers — not because the pointer was
  * weak, but because the file was never reachable. Forty of sixty-nine agents
  * carry at least one such pointer, so every run of those judged an agent without
- * the half of its contract that lives in `_shared`.
+ * the half of its contract that lives in the shared fragments.
  *
  * Inlining is an approximation, and it is the generous one: it measures the
  * agent given the material, not the agent choosing to fetch it. A harness with
@@ -443,10 +443,11 @@ function stripFrontmatter(text) {
  * if it were the strict one is the mistake this comment exists to prevent.
  * Runs record `sharedExpanded` so a result carries which it was.
  */
-export function expandSharedRefs(body, { root = AGENTS_DIR, seen = new Set() } = {}) {
+export function expandSharedRefs(body, { fragmentsDir, seen = new Set() } = {}) {
   // The same inlining sync-managed applies to every agent it installs — one source,
-  // so the prompt measured here is the prompt a user runs.
-  return expandShared(body, { root, seen });
+  // so the prompt measured here is the prompt a user runs. No `fragmentsDir` means
+  // this checkout's shared/agent-fragments/ (the resolver's own default).
+  return expandShared(body, { fragmentsDir, seen });
 }
 
 /** Load an agent's prompt body from agents/<name>.md. Returns null if absent. */
@@ -540,7 +541,7 @@ export const CACHE_MIN_CHARS = 4000;
 /**
  * Mark the system prompt as a cacheable prefix.
  *
- * The actor's system prompt is one agent file with its `_shared` contracts
+ * The actor's system prompt is one agent file with its shared contracts
  * inlined — 58k characters for devops, identical for every case in a run and
  * re-sent on every ReAct turn within a case. That prefix was ~97% of the bill:
  * the judge, which people reach for first when a run costs too much, is 3%.
@@ -1157,7 +1158,7 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
     eval: evalName.replace(/\.md$/, ''),
     agent: agentName,
     actorSource,
-    // Which _shared contracts were inlined into the actor's prompt. A result
+    // Which shared contracts were inlined into the actor's prompt. A result
     // that does not say this cannot be compared with one from before the
     // expansion existed.
     sharedExpanded,

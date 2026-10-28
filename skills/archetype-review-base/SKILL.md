@@ -188,7 +188,7 @@ CTO time. Only block when 3/3 rounds confirm.
 ## Verdict log line
 
 After writing your report, record the canonical verdict via the helper (see
-`agents/_shared/verdict-format.md` — do NOT hand-write the line; the helper
+`shared/agent-fragments/verdict-format.md` — do NOT hand-write the line; the helper
 guarantees the format the board parser and the pipeline dispatcher both read,
 and `auto` records real token cost):
 
@@ -199,7 +199,7 @@ bash scripts/log-verdict.sh {your-name} {APPROVED|BLOCKED} auto \
 ```
 
 `APPROVED` and `BLOCKED` are the only two words, and on `BLOCKED` `need` says who
-acts — the rules, and why no third word, are in `agents/_shared/reviewer-verdict.md`.
+acts — the rules, and why no third word, are in `shared/agent-fragments/reviewer-verdict.md`.
 Every reviewer's own prompt carries this line with its name filled in.
 
 ## Prose rules — apply skill `prose-style`

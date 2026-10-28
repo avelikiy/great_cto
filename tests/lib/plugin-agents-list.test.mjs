@@ -1,10 +1,11 @@
 // The plugin declares its agents one by one.
 //
-// Without an `agents` field Claude Code scans agents/ — including agents/_shared/,
-// whose fragments it registered as fourteen agents (`great-cto:_shared:phase-task`
-// and the like) listed in every session. The `agents` field replaces the scan
-// (code.claude.com/docs/en/plugins-reference), so the list must be exactly the
-// agents: every top-level agents/*.md, and nothing from _shared.
+// Without an `agents` field Claude Code scans agents/ — and when the prompt
+// fragments sat in a `_shared/` subdirectory of it, it registered them as fourteen
+// agents (`great-cto:_shared:phase-task` and the like) listed in every session. The
+// `agents` field replaces the scan (code.claude.com/docs/en/plugins-reference), so
+// the list must be exactly the agents: every top-level agents/*.md, and no fragment
+// (those live in shared/agent-fragments/, outside the scanned directory).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -16,7 +17,7 @@ const manifest = JSON.parse(readFileSync(join(ROOT, '.claude-plugin', 'plugin.js
 const onDisk = readdirSync(join(ROOT, 'agents')).filter((f) => f.endsWith('.md') && !f.startsWith('_')).sort();
 
 test('plugin.json lists its agents instead of letting agents/ be scanned', () => {
-  assert.ok(Array.isArray(manifest.agents), 'an explicit list — a scan registers agents/_shared fragments as agents');
+  assert.ok(Array.isArray(manifest.agents), 'an explicit list — a scan registers any stray markdown under agents/ as an agent');
 });
 
 test('the list is every top-level agent file, once', () => {
@@ -27,8 +28,8 @@ test('the list is every top-level agent file, once', () => {
   assert.equal(new Set(listed).size, listed.length);
 });
 
-test('nothing from agents/_shared is registered', () => {
-  assert.ok(!(manifest.agents || []).some((p) => p.includes('_shared')));
+test('no prompt fragment is registered as an agent', () => {
+  assert.ok(!(manifest.agents || []).some((p) => p.includes('_shared') || p.includes('agent-fragments')));
 });
 
 // marketplace.json shipped at 3.27.3 and nothing moved it: two releases later its

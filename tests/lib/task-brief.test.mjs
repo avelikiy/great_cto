@@ -10,7 +10,7 @@ import { hasDoneWhen } from '../../scripts/lib/request-quality.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
-const BRIEF = read('agents/_shared/task-brief.md');
+const BRIEF = read('shared/agent-fragments/task-brief.md');
 
 test('the brief carries what the costly corrections were missing', () => {
   for (const field of ['Target', 'Done when', 'Gates', 'Invariants', 'Assumed', 'Ask', 'Not doing']) {
@@ -29,6 +29,6 @@ test('the line the brief asks for is the line request-quality counts', () => {
 
 test('the agents that implement, deploy and fix incidents follow it; the coordinator dispatches with it', () => {
   for (const a of ['senior-dev', 'devops', 'l3-support', 'coordinator']) {
-    assert.match(read(`agents/${a}.md`), /agents\/_shared\/task-brief\.md/, a);
+    assert.match(read(`agents/${a}.md`), /shared\/agent-fragments\/task-brief\.md/, a);
   }
 });

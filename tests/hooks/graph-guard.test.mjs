@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { latestSuccess, architectureBeforeBuild, decide, guardMode } from '../../scripts/lib/graph-guard.mjs';
+import { latestSuccess, architectureBeforeBuild, decide, guardMode, malformedLog, errorCode, unreadableWhy } from '../../scripts/lib/graph-guard.mjs';
 
 const HOOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..', 'scripts', 'hooks', 'graph-guard.mjs');
 const TMP = [];
@@ -52,6 +52,28 @@ test('modes: observe records, enforce denies, off and exceptions allow', () => {
   assert.equal(decide({ mode: 'enforce', violation: { violated: false } }).action, 'allow');
 });
 
+test('malformedLog: content with not one parseable record — and nothing else', () => {
+  assert.equal(malformedLog(''), false, 'empty is a stage that never ran');
+  assert.equal(malformedLog('\n  \n'), false, 'blank lines are empty');
+  assert.equal(malformedLog(v('architect', 'APPROVED', '2026-10-20T11:00:00Z')), false);
+  assert.equal(malformedLog('{"v":1,"ts":"2026-10-20T11:00:00Z","agent":"arch'), true, 'cut off mid-record');
+  assert.equal(malformedLog(`{"v":1,"ts"\n${v('architect', 'APPROVED', '2026-10-20T11:00:00Z')}`), false, 'one good record is enough to read');
+});
+
+test('unreadable reasons are codes, never messages or paths', () => {
+  assert.equal(errorCode({ code: 'EISDIR', message: "EISDIR: illegal operation on a directory, read '/home/x/y.log'" }), 'EISDIR');
+  assert.equal(errorCode({ code: 'eacces' }), 'EACCES');
+  assert.equal(errorCode(new Error('no code at all')), 'UNKNOWN');
+  assert.equal(errorCode({ code: '../../etc' }), 'ETC');
+  assert.equal(unreadableWhy(new Map([['product-owner', 'EISDIR'], ['architect', 'MALFORMED']])), 'product-owner=EISDIR,architect=MALFORMED');
+});
+
+test('a violation carries a short cause beside its prose: rule id, predecessor, key', () => {
+  const r = architectureBeforeBuild({ target: 'senior-dev', po: po('2026-10-20T10:00:00Z'), arch: null });
+  assert.equal(r.cause, 'architecture-before-build: architect has not run since the product-owner brief');
+  assert.doesNotMatch(r.cause, /2026/, 'no timestamp');
+});
+
 test('guardMode reads PROJECT.md and defaults to observe', () => {
   assert.equal(guardMode('archetype: web-service\n'), 'observe');
   assert.equal(guardMode('graph-guard: enforce\n'), 'enforce');
@@ -88,6 +110,18 @@ test('hook, observe (default): the skip is let through and recorded', () => {
   assert.match(e.outcome, /would-block/);
 });
 
+// ADR-039 says an observe event carries `why`; the 04.11 enforce decision is made by reading
+// why each call would have been blocked, so an event without it cannot be judged.
+test('hook, observe: the recorded event says why the call would have been blocked', () => {
+  const dir = project({ poLog: BRIEF });
+  run(dir, 'great-cto:senior-dev');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.match(e.why, /^architecture-before-build: /, 'the rule id leads');
+  assert.match(e.why, /architect/, 'names the missing predecessor');
+  assert.equal(e.outcome, 'would-block-architecture-before-build', 'the existing fields stay');
+  assert.equal(e.kind, 'hint');
+});
+
 test('hook, enforce: the skip is denied with the reason and the way out', () => {
   const dir = project({ mode: 'enforce', poLog: BRIEF });
   const r = run(dir, 'design-advisor');
@@ -96,6 +130,24 @@ test('hook, enforce: the skip is denied with the reason and the way out', () => 
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /architect/);
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /exception/);
   assert.equal(events(dir).find((x) => x.hook === 'graph-guard').kind, 'denied');
+});
+
+test('hook, enforce: the denied event carries the same why', () => {
+  const dir = project({ mode: 'enforce', poLog: BRIEF });
+  run(dir, 'design-advisor');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.equal(e.kind, 'denied');
+  assert.equal(e.outcome, 'blocked-architecture-before-build');
+  assert.match(e.why, /^architecture-before-build: .*architect/);
+});
+
+test('hook: the recorded why is a fixed-vocabulary reason — no timestamp, no path, no prose from the log', () => {
+  const dir = project({ poLog: BRIEF });
+  run(dir, 'senior-dev');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.ok(e.why.length <= 120);
+  assert.doesNotMatch(e.why, /2026-10-20/, 'the brief timestamp stays in the verdict log');
+  assert.doesNotMatch(e.why, /[\\/]/, 'no path of any kind');
 });
 
 test('hook: the graph path is silent', () => {
@@ -112,6 +164,87 @@ test('hook: an unreadable verdict log never blocks', () => {
   const r = run(dir, 'senior-dev');
   assert.equal(r.status, 0);
   assert.doesNotMatch(r.stdout, /"deny"/);
+});
+
+// A guard that saw nothing and a guard that could not look must not read the same in
+// events.jsonl (audit 2026-10-28, G7): the first is a clean route, the second is a blind spot.
+const unreadableEvents = (dir) => events(dir).filter((x) => x.hook === 'graph-guard' && x.outcome === 'unreadable');
+
+test('hook: an unreadable verdict log is allowed and recorded once, with the error code', () => {
+  const dir = project({ mode: 'enforce' });
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'product-owner.log'));   // EISDIR
+  const r = run(dir, 'senior-dev');
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /"deny"/);
+  const all = events(dir).filter((x) => x.hook === 'graph-guard');
+  assert.equal(all.length, 1, 'exactly one event');
+  const e = unreadableEvents(dir)[0];
+  assert.ok(e, 'an unreadable event was written');
+  assert.equal(e.kind, 'hint');
+  assert.equal(e.agent, 'senior-dev');
+  assert.match(e.why, /product-owner=EISDIR/);
+  assert.doesNotMatch(JSON.stringify(e), /illegal operation|EISDIR:/, 'the code, not the error message');
+  assert.ok(!JSON.stringify(e).includes(dir), 'no absolute path');
+});
+
+test('hook, observe: an unreadable log is recorded the same way', () => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'architect.log'));
+  const r = run(dir, 'design-advisor');
+  assert.equal(r.status, 0);
+  assert.equal(unreadableEvents(dir).length, 1);
+  assert.match(unreadableEvents(dir)[0].why, /architect=EISDIR/);
+});
+
+test('hook: two unreadable logs are still one event naming both', () => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'product-owner.log'));
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'architect.log'));
+  run(dir, 'senior-dev');
+  assert.equal(events(dir).filter((x) => x.hook === 'graph-guard').length, 1);
+  const { why } = unreadableEvents(dir)[0];
+  assert.match(why, /product-owner=EISDIR/);
+  assert.match(why, /architect=EISDIR/);
+});
+
+test('hook: a log it may not read is recorded as EACCES and allowed', { skip: process.getuid?.() === 0 && 'root reads everything' }, () => {
+  const dir = project({ mode: 'enforce', poLog: BRIEF });
+  const file = path.join(dir, '.great_cto', 'verdicts', 'architect.log');
+  fs.writeFileSync(file, '');
+  fs.chmodSync(file, 0o000);
+  try {
+    const r = run(dir, 'senior-dev');
+    assert.equal(r.status, 0);
+    assert.doesNotMatch(r.stdout, /"deny"/, 'a brief with an unreadable architect log is not a proven skip');
+    assert.match(unreadableEvents(dir)[0].why, /architect=EACCES/);
+  } finally { fs.chmodSync(file, 0o644); }
+});
+
+test('hook: a log with nothing parseable is malformed — recorded, allowed, and does not read as "architect never ran"', () => {
+  // A write cut short: the parser reads loosely (any two tokens are a legacy line), but JSON that stops is rejected.
+  const cut = '{"v":1,"ts":"2026-10-20T11:00:00Z","agent":"architect","verd\n{"v":1,"ts"';
+  const dir = project({ mode: 'enforce', poLog: BRIEF, archLog: cut });
+  const r = run(dir, 'senior-dev');
+  assert.equal(r.status, 0);
+  assert.doesNotMatch(r.stdout, /"deny"/);
+  assert.match(unreadableEvents(dir)[0].why, /architect=MALFORMED/);
+  assert.equal(events(dir).filter((x) => x.outcome?.startsWith('blocked-')).length, 0);
+});
+
+test('hook: a log that does not exist is the clean case — no unreadable event', () => {
+  const dir = project({ poLog: BRIEF, archLog: v('architect', 'APPROVED', '2026-10-20T11:00:00Z') });
+  run(dir, 'senior-dev');
+  assert.equal(events(dir).filter((x) => x.hook === 'graph-guard').length, 0);
+  const none = project();
+  run(none, 'senior-dev');
+  assert.equal(events(none).length, 0, 'no logs at all: nothing to say');
+});
+
+test('hook: an unreadable log the decision does not need is not an event', () => {
+  const dir = project();
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'product-owner.log'));
+  run(dir, 'qa-engineer');   // rule 1 only looks at build and design stages
+  assert.equal(events(dir).length, 0);
 });
 
 test('hook: outside a great_cto project it does nothing', () => {
