@@ -260,6 +260,16 @@ your own key. Each member's draft is written to
 recording who drafted, who failed or was skipped, and what it cost. Nothing is sent
 to great_cto, and nothing is sent when `council:` is absent.
 
+## Cross-model code review (not telemetry — sent only to the provider you declared)
+
+The code reviewer's second opinion (`scripts/lib/cross-model-review.mjs`) sends the
+reviewed diff, and the spec when one is given, to one provider: the one named by
+`--provider`, or by `capabilities: second_opinion:` in `.great_cto/PROJECT.md`.
+`codex` runs through your own `codex` login; `openrouter` uses your own key.
+An exported `OPENROUTER_API_KEY` does not choose the provider: with nothing declared
+the review is skipped (exit 3) and nothing is sent. Each review appends one line to
+`.great_cto/cross-review.log` in your project. Nothing is sent to great_cto.
+
 ## Optional Kimi advisory profile (explicit selected context only)
 
 The `kimi-readonly-v1` profile adds a separately requested OpenRouter/Moonshot
