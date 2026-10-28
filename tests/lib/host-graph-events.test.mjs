@@ -227,3 +227,18 @@ test('native Codex lifecycle uses explicit turn identity for stable source repla
   for (const event_id of [{}, 'bad id', 'x'.repeat(161)]) assert(normalize('codex', { ...raw, event_id, turn_id: {} }, native).diagnostics.includes('missing-source-event-identity'));
   assert(normalize('claude-code', raw, native).diagnostics.includes('missing-source-event-identity'), 'other hosts do not inherit Codex semantics');
 });
+
+// Codex 0.160 knows SessionEnd, SubagentStart and SubagentStop hooks; .codex-plugin/hooks.json
+// now routes them to the observer. A native Codex payload of each shape must land as the same
+// session/child node a Claude Code hook gives, with no raw identifier kept.
+test('native Codex SessionEnd and Subagent hooks normalize to session and child nodes', () => {
+  const native = (event, extra = {}) => normalizeHostEvent({ host: 'codex', mode: 'native', sourceVersion: '0.160.0', binding, event, ...extra });
+  const end = native({ hook_event_name: 'SessionEnd', session_id: 'private-session' }).event;
+  assert.equal(end.kind, 'session'); assert.equal(end.phase, 'stopped');
+  const parent = { binding: { ...binding, parentIds: ['session-1'] } };
+  const start = native({ hook_event_name: 'SubagentStart', agent_id: 'private-agent' }, parent).event;
+  assert.equal(start.kind, 'child'); assert.equal(start.phase, 'started'); assert.equal(start.toolClass, 'agent');
+  const stop = native({ hook_event_name: 'SubagentStop', agent_id: 'private-agent' }, parent).event;
+  assert.equal(stop.kind, 'child'); assert.equal(stop.phase, 'stopped');
+  for (const e of [end, start, stop]) assert(!JSON.stringify(e).includes('private-'));
+});
