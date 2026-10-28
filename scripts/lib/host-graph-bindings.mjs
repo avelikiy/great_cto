@@ -104,12 +104,24 @@ export function nativeGraphObservations(root, { store = nativeGraphStore(), jour
   return rows;
 }
 
-/** Bounded page of exactly one explicitly enrolled session. */
+/**
+ * Bounded page of exactly one session of this project and host.
+ *
+ * An enrolled session is a live read (`enrolled: true, retained: false`). After unbind or
+ * disable the enrollment is gone but the private journal stays (`retainedHistory`), and it
+ * remains readable as `enrolled: false, retained: true`. That read is derived from the
+ * exact project, host and session, creates no enrollment and cannot resume recording; a
+ * session with neither an enrollment nor a journal is refused as before.
+ */
 export function readNativeGraphPage({ root, host, sessionId, cursor = null, limit = 200 }, { store = nativeGraphStore(), journalStore } = {}) {
   if (!hostSet.has(host) || !identity(sessionId)) throw Error('invalid native graph binding');
   const b = load(root, host, sessionId, store);
-  if (!b) throw Error('native session is not enrolled in this project');
-  return projectHostObservations(b, { store: journalStore, cursor, limit });
+  if (b) return { ...projectHostObservations(b, { store: journalStore, cursor, limit }), enrolled: true, retained: false };
+  // Same journal identity that bindNativeGraph gives this session: enrollment adds no secret.
+  const retained = { ...graphBinding({ root: realpathSync(root), runId: sessionId, sessionId }), host };
+  const graph = projectHostObservations(retained, { store: journalStore, cursor, limit });
+  if (graph.health === 'absent') throw Error('native session is not enrolled in this project');
+  return { ...graph, enrolled: false, retained: true };
 }
 
 /** Project opt-in before SessionStart permits observation from the real start event. */

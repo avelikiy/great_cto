@@ -391,4 +391,7 @@ corruption and unsupported source formats remain incomplete observations.
 The journal grants no execution, approval, verification or release authority.
 Native event claims cannot establish a passed gate or accepted task. Users can
 inspect enrollment with `task work graph-read` and revoke it with
-`task work graph-unbind --host HOST --session SESSION`.
+`task work graph-unbind --host HOST --session SESSION`. History kept after
+revocation stays readable to you, read-only and marked retained, with
+`task work graph-read --host HOST --session SESSION`; reading it never resumes
+collection.
