@@ -380,6 +380,56 @@ test('raw selected fields deny quoted assignments before credential and HTTP acc
   }
 });
 
+// CSO SEC-1 (27.10): a GitHub token in a public-labelled diff reached the POST body,
+// because the input filter knew two patterns while scripts/lib/secret-patterns.mjs
+// knew sixteen. Every family the shared scanner names must be denied here too.
+// Shapes are assembled at runtime so no literal token sits in the repository.
+test('every shared secret-pattern family is denied before credential and HTTP access', async t => {
+  const { runKimiReview, buildKimiInputBinding } = requireApi();
+  const { PATTERNS } = await import('../../scripts/lib/secret-patterns.mjs');
+  const r = n => randomBytes(n).toString('hex').slice(0, n);
+  const samples = {
+    'AWS Access Key ID': 'AK' + 'IA' + r(16).toUpperCase(),
+    'AWS Secret Access Key': 'aws_secret_' + 'access_key = ' + r(40),
+    'GitHub PAT (classic)': 'gh' + 'p_' + r(36),
+    'GitHub fine-grained PAT': 'github_' + 'pat_' + r(82),
+    'GitHub OAuth': 'gh' + 'o_' + r(36),
+    'Stripe live key': 'sk_' + 'live_' + r(24),
+    'Stripe restricted': 'rk_' + 'live_' + r(24),
+    'OpenRouter API key': 'sk-' + 'or-v1-' + r(32),
+    'OpenAI API key': 'sk-' + 'proj-' + r(32),
+    'Anthropic API key': 'sk-' + 'ant-' + r(40),
+    'Google API key': 'AI' + 'za' + r(35),
+    'Slack token': 'xo' + 'xb-' + r(12),
+    'Mailgun key': 'key-' + r(32),
+    'PEM private key': '-----BEGIN ' + 'RSA PRIVATE KEY-----',
+    'JWT bearer': 'ey' + 'J' + r(12) + '.ey' + r(12) + '.' + r(12),
+  };
+  assert.deepEqual(PATTERNS.map(p => p.name).sort(), Object.keys(samples).sort(), 'a new shared family needs a sample here');
+  for (const { name, regex } of PATTERNS) assert.match(samples[name], regex, `${name}: sample must match the shared rule`);
+  for (const [name, token] of Object.entries(samples)) {
+    for (const field of ['diff', 'spec', 'brief']) {
+      const { options, calls } = await runtime(t); const e = envelope(); let keyReads = 0;
+      if (field === 'diff') {
+        e.diff = DIFF.replace('+export const sum = (a, b) => a + b;', `+const fixture = "${token}";`);
+        const bytes = `const fixture = "${token}";\nexport const name = "sum";\n`;
+        await writeFile(path.join(options.root, 'src/sum.js'), bytes);
+        e.sourceBinding.manifest[0].sha256 = hash(bytes); e.sourceBinding.dirtyDiffHash = hash(e.diff);
+        e.sourceBinding.manifestHash = hash(JSON.stringify(e.sourceBinding.manifest));
+      } else if (field === 'spec') e.spec = `Context: ${token}`;
+      else { e.mode = 'architecture-alternative'; e.reason = 'architecture-alternative';
+        e.brief = `Context: ${token}`; e.projectContext = 'Explicit synthetic context.'; e.sourceBinding.dirtyDiffHash = null;
+      }
+      options.envelope = e;
+      Object.defineProperty(options, 'apiKey', { get() { keyReads++; return 'example-synthetic-key'; } });
+      const res = await runKimiReview(options);
+      assert.equal(res.reasonCode, 'secret-detected', `${name} in ${field} must be denied`);
+      assert.equal(res.status, 'policy-denied'); assert.equal(keyReads, 0); assert.equal(calls.length, 0);
+      assert.throws(() => buildKimiInputBinding(e), /secret-detected/);
+    }
+  }
+});
+
 function deletedEnvelope(file = 'src/sum.js', start = 1, expectedBytes = 'obsolete();\n') {
   const diff = `diff --git a/${file} b/${file}\ndeleted file mode 100644\nindex abcdef0..0000000\n--- a/${file}\n+++ /dev/null\n@@ -${start} +0,0 @@\n-obsolete();\n`;
   const e = envelope({ diff }); e.sourceBinding.manifest[0].path = file;
