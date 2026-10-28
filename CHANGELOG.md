@@ -60,6 +60,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.73.0 — 2026-10-28
+
+An optional Kimi advisory reviewer, a per-invocation telemetry refusal, and a second opinion that no longer leaves the machine because a key happened to be exported.
+
+### What's new
+
+- Optional Kimi K3.1 Pro read-only advisory review through OpenRouter (`--profile kimi-readonly-v1`). It is off unless selected: no key read, no request and no store write otherwise. It never replaces the native code, QA or security review and cannot satisfy a gate. Input is admitted only from a prepared envelope whose diff and source bytes match; output must pass a strict schema with literal evidence. Spend is reserved conservatively ($0.25 per call; $1 per task, $5 per day, $20 per month per ledger) and unknown charges survive restarts. See `docs/PRIVACY.md`.
+- `--no-telemetry` refuses telemetry for one invocation, even when telemetry is on in the environment or config, without changing the stored choice. Only the root flag counts: the same text as a value of another option is data.
+
+### Fixed
+
+- Cross-model review: with `second_opinion` undeclared, an exported `OPENROUTER_API_KEY` sent the review diff to OpenRouter. Undeclared now stays undeclared: the review is skipped (exit 3), nothing is sent, and the skip line names the declaration that enables it. **A setup that got a second opinion only from the key must now declare `second_opinion: openrouter`.** `docs/PRIVACY.md` describes where the review sends the diff.
+- The Kimi input filter denies every family the shared secret scanner knows (sixteen), not two; a GitHub token in a public-labelled diff had reached the request body.
+- Verified self-update isolates npm's user and global configuration during activation.
+- The local publisher names a publish npm holds STAGED for the owner's 2FA approval, and other npm failures by npm's error code, instead of a bare refusal; token-like text is redacted from the refusal line.
+- Controller `list`/`status` and other forced-exit JSON outputs wait for stdout to drain, so piped JSON over 8 KB is no longer cut.
+- Gate stability: the pinned controller probe is watched by progress instead of a 30 s wall clock, board e2e waits for screens and drains held routes, and the publication SSH and CLI board checks no longer read the caller's environment.
+
+### Validation and limits
+
+Each merged change passed the full local gate on its merge with main; the Kimi merge also passed the browser suite (23 scenarios) and was reviewed by QA (PASS), ci-resolver (PASS), devtools-reviewer (APPROVED, 0 critical, 0 high) and security (APPROVED, P0/P1 none). The Kimi profile's live provider behaviour, billing and quality were not exercised: no paid call was made. Sixteen live/opt-in checks remain NOT CHECKED. Publication follows the ADR-045 signing route with the owner's approval.
+
+---
+
 ## v3.72.0 — 2026-10-26
 
 The orchestrator follows the stage graph with a lighter skill file, and a gate checks the contract of the edge being taken, not only the stage that ran.
