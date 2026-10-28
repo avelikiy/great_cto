@@ -260,6 +260,55 @@ your own key. Each member's draft is written to
 recording who drafted, who failed or was skipped, and what it cost. Nothing is sent
 to great_cto, and nothing is sent when `council:` is absent.
 
+## Optional Kimi advisory profile (explicit selected context only)
+
+The `kimi-readonly-v1` profile adds a separately requested OpenRouter/Moonshot
+opinion. It is off by default. An API key, an existing second-opinion declaration
+or `council: arch` alone does not request it. The caller must provide an explicit
+public/synthetic envelope, task, reason, source manifest and review-rubric hash.
+Only the selected diff/spec or brief/project excerpt is sent. Ambient project
+files, home settings, memory and transcripts are not collected. Classification
+covers the exact submitted bytes; a public repository does not classify local
+dirty changes. Private, unknown or EU-required context is denied.
+
+The strict route requests the standard Moonshot endpoint, ZDR, denied data
+collection and no provider fallback. These requested controls do not establish
+account compatibility, data residency or an independent compliance guarantee.
+The profile has no model tools and its answer has `authority: NONE`,
+`releaseEligibility: NOT_CHECKED` and an advisory label. It cannot satisfy the
+mandatory native review or a human gate.
+
+Reports stay under `.great_cto/kimi-review/<task-hash>/<request-uuid>/`, excluded
+from Git. Directories use mode `0700` and files `0600`. Existing task and operator
+runtime parents must also be caller-owned and private; unsafe permissions are
+rejected without changing those directories. Metadata records ids,
+hashes, status, usage and cost provenance, without prompts, raw provider bodies,
+credentials or reasoning text. Parsed findings and alternatives may quote source
+and therefore remain private in a separate report. Status output omits those
+quotes. The profile does not write to the native cross-review log. Council returns
+extra member metadata separately and keeps the private draft and its absolute
+path out of the tracked `council.json` and ordinary drafts.
+
+An explicit operator runtime directory holds the authoritative budget ledger;
+the task has a secondary local record. Reservations survive process restarts.
+Timeout, cancellation or response loss after possible sending leaves cost Unknown
+and retains the full reserve unless complete usage and accounting are durable.
+If a validated response and known charge are durably settled, the final deadline
+or cancellation check still withholds late advice, but keeps the charge and
+private validated report and releases only the unused reserve. Accounting
+settlement is not proof of advice delivery. No automatic retry, paid
+reconciliation or background cleanup is performed. Missing usage fields do not
+become zero; provider-reported cost is distinct from cost calculated using the
+pinned standard token rates.
+
+Retention is an operator procedure: keep task reports for the task's lifetime,
+and metadata/known accounting records for 30 days after its terminal state.
+Unresolved Unknown reservations have no automatic expiry. Export only explicitly
+selected reports, reconcile uncertain charges before clearing their accounting,
+and record deletion without report contents. This implementation has offline
+fixture coverage only; activation, live billing behavior and quality gains
+require their own evidence and authorization. See [usage details](DETAILS.md#optional-kimi-advisory-review).
+
 ## Local project registry (not telemetry — never sent)
 
 The board's project switcher reads `~/.great_cto/projects.json`. At session start and
