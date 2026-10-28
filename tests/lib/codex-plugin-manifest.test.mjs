@@ -109,7 +109,7 @@ test('the Codex hooks file is in the schema Codex accepts, and every guard it na
   const events = Object.keys(h.hooks);
   assert.ok(events.length > 0);
   for (const ev of events) {
-    assert.match(ev, /^(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop)$/, `event ${ev}`);
+    assert.match(ev, /^(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop|SessionEnd|SubagentStart|SubagentStop)$/, `event ${ev}`);
     for (const entry of h.hooks[ev]) {
       for (const hook of entry.hooks) {
         assert.equal(hook.type, 'command');

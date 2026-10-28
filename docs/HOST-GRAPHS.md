@@ -40,6 +40,12 @@ For native Codex prompt/stop events, a valid explicit `turn_id` can identify sou
 replays; it creates no causal edge and does not replace project/session bindings.
 Absent or malformed source identities retain the gap warning.
 
+The Codex plugin routes SessionStart, UserPromptSubmit, PreToolUse, PostToolUse,
+Stop, SessionEnd, SubagentStart and SubagentStop to the observer. The last three
+are present in the codex-cli 0.160 binary; a Codex build that never fires them
+leaves no session-end or child node, and the session stays incomplete rather than
+being closed by inference.
+
 ## Audit without model calls
 
 ```sh

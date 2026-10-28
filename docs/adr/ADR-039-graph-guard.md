@@ -116,6 +116,30 @@ Enforce by default only after its own observation window shows the would-block
 events are real misses — the numbers above are mostly a prompt defect that this
 change fixes, so the window starts now, not from the old logs.
 
+## Scope — which verdict a dispatch is measured against (2026-10-28, great_cto-2u72.4)
+
+Both rules compared a dispatch with the newest brief or predecessor verdict, of any age
+and any feature. The first real Claude Code events, on 2026-10-28, were six false
+positives: maintenance dispatches in this repository measured against a product brief
+written seven weeks earlier for another feature. Under `enforce` they would have been
+denied. The same review found that the only seven real rule-1 opportunities since 3.68.0
+came from native Codex sessions, which have no `Agent` tool and so no check at all.
+
+A verdict is now in scope for a dispatch when either holds:
+
+- it is at most 72 hours old (`SCOPE_WINDOW_HOURS`) — the measured hole is a brief
+  followed by its build within hours;
+- the dispatch prompt names its `feature`, or a path it produced (`brief`, `arch`,
+  `plan`, `design`).
+
+Out of scope, the rule does not apply and nothing is recorded. The prompt is read to
+decide scope only; it is never written to an event. Without a clock (a caller that
+passes no `now`) every verdict stays in scope, as before.
+
+The enforce decision (great_cto-1puj.5) is not taken on the observe window that ended
+before this change: its events were mostly false positives of the unscoped rules, and
+native Codex sessions were never observed. A new observe window starts with this scope.
+
 ## Event shape
 
 (2026-10-28, great_cto-2u72.1.) This ADR first said an observe event is
