@@ -21,15 +21,24 @@ if (!args.length) { console.error('usage: edge-contract-adherence.mjs [--since Y
 const graph = parsePipelineToml(fs.readFileSync(path.join(ROOT, 'shared', 'pipeline.toml'), 'utf8'));
 
 const rows = {};
-let projects = 0;
-for (const dir of args) {
+let projects = 0, sourcesRead = 0;
+// A log that exists but cannot be read is not a log with no runs. It is reported with its
+// error code (never its path or project name, so the output stays quotable) and left out of
+// every count, instead of being counted as zero or ending the whole report.
+const notRead = [];
+for (const [index, dir] of args.entries()) {
   let counted = false;
   for (const [stage, rule] of Object.entries(graph)) {
     if (!rule.produces?.length) continue;
     const agent = stage.split('.')[0];
     let text;
     try { text = fs.readFileSync(path.join(dir, '.great_cto', 'verdicts', `${agent}.log`), 'utf8'); }
-    catch (e) { if (e.code === 'ENOENT') continue; throw e; }   // an unreadable log is an error, not "no runs"
+    catch (e) {
+      if (e.code === 'ENOENT') continue;   // no log at all really is "no runs"
+      notRead.push({ stage, code: /^E[A-Z0-9_]+$/.test(String(e.code)) ? e.code : 'EUNKNOWN', project: index + 1 });
+      continue;
+    }
+    sourcesRead++;
     for (const v of parseVerdictLog(text).records) {
       if (!(rule.on || []).includes(String(v.verdict).toUpperCase()) || String(v.ts) < since) continue;
       counted = true;
@@ -49,4 +58,10 @@ for (const dir of args) {
 console.log(`projects with matching verdicts: ${projects}${since ? ` · since ${since}` : ''}`);
 for (const [stage, r] of Object.entries(rows).sort()) {
   console.log(`  ${stage.padEnd(24)} ${r.met}/${r.runs} met · ${r.unnamed} unnamed · ${r.missing} named a path that does not exist`);
+}
+if (notRead.length) {
+  console.log(`NOT READ: ${notRead.length} verdict log(s) could not be read; the counts above exclude them (a failed read is not zero runs)`);
+  for (const n of notRead) console.log(`  ${n.stage.padEnd(24)} ${n.code} · project ${n.project} of ${args.length} as given`);
+  // Fail only when the report has nothing to stand on; a partial report is still a report.
+  if (!sourcesRead) { console.error('edge-contract-adherence: no verdict log could be read'); process.exitCode = 1; }
 }
