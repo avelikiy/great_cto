@@ -1,5 +1,6 @@
 /** Host observations are metadata, never controller approval or execution authority. */
 import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
 
 const hash = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 const safeId = value => typeof value === 'string' && /^[a-zA-Z0-9_.:-]{1,160}$/.test(value) ? value : null;
@@ -9,11 +10,29 @@ const hosts = new Set(['codex', 'claude-code']);
 const modes = new Set(['controlled', 'native']);
 const timestamp = value => typeof value === 'string' && value.length <= 40 && Number.isFinite(Date.parse(value)) ? new Date(value).toISOString() : null;
 
+// Live acceptance, by exact host version (shared/host-graph-acceptance.json). Support is never
+// inferred from semver syntax: only a version that passed a live run is `supported`, a dimension
+// that was exercised and not delivered is `unsupported`, everything else stays `unknown`.
+let acceptanceCache;
+export function loadHostGraphAcceptance() {
+  if (acceptanceCache !== undefined) return acceptanceCache;
+  try {
+    const doc = JSON.parse(readFileSync(new URL('../../shared/host-graph-acceptance.json', import.meta.url), 'utf8'));
+    acceptanceCache = doc?.schema === 1 && Array.isArray(doc.accepted) ? doc.accepted : null;
+  } catch { acceptanceCache = null; }   // unreadable: support stays unknown, and the audit says so
+  return acceptanceCache;
+}
+export function acceptedEntry({ host, mode, sourceVersion, acceptance = loadHostGraphAcceptance() } = {}) {
+  if (!Array.isArray(acceptance) || !version(sourceVersion)) return null;
+  return acceptance.find(e => e && e.host === host && e.mode === mode && e.version === sourceVersion) || null;
+}
+
 /** Supported event families do not attest that a particular run was fully observed. */
-export function hostGraphCapabilities({ host, mode, sourceVersion } = {}) {
-  const known = false; // Version compatibility is established by the collector's capability audit, never semver syntax alone.
-  return { lifecycle: known ? 'supported' : 'unknown', tools: known ? 'supported' : 'unknown',
-    parentChild: known ? 'supported' : 'unknown', verification: 'unsupported', gates: 'unsupported', artifacts: 'unsupported' };
+export function hostGraphCapabilities({ host, mode, sourceVersion, acceptance } = {}) {
+  const entry = acceptedEntry({ host, mode, sourceVersion, ...(acceptance !== undefined ? { acceptance } : {}) });
+  const dim = key => entry?.dimensions?.[key] === true ? 'supported' : entry?.dimensions?.[key] === false ? 'unsupported' : 'unknown';
+  return { lifecycle: dim('lifecycle'), tools: dim('tools'), parentChild: dim('parentChild'),
+    verification: 'unsupported', gates: 'unsupported', artifacts: 'unsupported' };
 }
 
 function toolClass(name) {

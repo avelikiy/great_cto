@@ -242,3 +242,16 @@ test('native Codex SessionEnd and Subagent hooks normalize to session and child 
   assert.equal(stop.kind, 'child'); assert.equal(stop.phase, 'stopped');
   for (const e of [end, start, stop]) assert(!JSON.stringify(e).includes('private-'));
 });
+
+// great_cto-2u72.6: support follows live acceptance of the exact host version, never semver.
+test('capabilities follow the live acceptance record of the exact host version', () => {
+  const acceptance = [{ host: 'codex', mode: 'native', version: '0.160.0', dimensions: { lifecycle: true, tools: true, parentChild: false } }];
+  const caps = hostGraphCapabilities({ host: 'codex', mode: 'native', sourceVersion: '0.160.0', acceptance });
+  assert.equal(caps.lifecycle, 'supported'); assert.equal(caps.tools, 'supported'); assert.equal(caps.parentChild, 'unsupported');
+  assert.equal(caps.verification, 'unsupported');
+  for (const other of [{ sourceVersion: '0.160.1' }, { mode: 'controlled' }, { host: 'claude-code' }]) {
+    const c = hostGraphCapabilities({ host: 'codex', mode: 'native', sourceVersion: '0.160.0', acceptance, ...other });
+    assert.equal(c.lifecycle, 'unknown', JSON.stringify(other));
+  }
+  assert.equal(hostGraphCapabilities({ host: 'codex', mode: 'native', sourceVersion: '0.160.0', acceptance: null }).lifecycle, 'unknown', 'unreadable record');
+});

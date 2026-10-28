@@ -1,0 +1,5 @@
+{
+  "schema": 1,
+  "note": "Host versions whose graph observation passed live acceptance (great_cto-2u72.5). Public: versions and per-dimension results only; evidence stays private. A dimension marked false was exercised and not delivered.",
+  "accepted": []
+}
