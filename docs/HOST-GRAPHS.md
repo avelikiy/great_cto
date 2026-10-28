@@ -112,7 +112,8 @@ host lanes do not add dependencies. Supplementary observations collapse by
 attempt/session, and expansion is scoped to the current project and task. Local
 node search and latest-recorded focus controls never filter causal edges or
 issue mutation requests. Missing worker provenance stays Host not recorded. Next observation page is a read-only GET.
-Unknown projects and unbound sessions cannot fall back to another graph.
+Unknown projects and sessions with neither an enrollment nor a retained journal
+cannot fall back to another graph.
 
 Revoke collection:
 
@@ -123,6 +124,21 @@ great-cto task work graph-disable --dir "$PWD" --host claude-code
 
 Project disable revokes its enrolled sessions for that host too. Recorded
 journals remain private history; revocation does not delete them.
+
+A revoked session stays readable. Name its host and session, as for a live one:
+
+```sh
+great-cto task work graph-read --dir "$PWD" --host claude-code --session SESSION_ID
+```
+
+The page comes back marked `retained: true, enrolled: false` (a live session is
+`enrolled: true, retained: false`). Reading retained history is read-only: it creates
+no enrollment, never resumes recording, and later events for that session stay
+`not-enrolled`. The listing without `--session` shows enrolled sessions only, so keep
+the session ID if you will want the history after revocation. A session that was
+never recorded in this project, or is named with the wrong host, is still refused
+with "not enrolled". The board page endpoint (`/api/host-graph`) serves the same
+pages, with the same project, host and session checks.
 
 ## Storage and failure
 
