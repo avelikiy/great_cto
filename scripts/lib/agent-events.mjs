@@ -32,7 +32,7 @@ export const EVENTS_FILE = 'events.jsonl';
 // `hint`: a context hook (edit-impact, lesson-tripwire) put text in front of the model.
 // Recorded so its noise can be measured — how often, on what, how long — not what it said.
 export const EVENT_KINDS = Object.freeze(['agent-start', 'agent-stop', 'tool', 'denied', 'stop', 'pipeline', 'hint']);
-export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict', 'hook', 'chars', 'host', 'invocation_id']);
+export const EVENT_FIELDS = Object.freeze(['v', 'ts', 'kind', 'session', 'agent', 'tool', 'paths', 'ok', 'duration_ms', 'outcome', 'verdict', 'hook', 'chars', 'host', 'invocation_id', 'why']);
 export const MAX_BYTES = 5 * 1024 * 1024;
 
 const MAX_PATHS = 10;
@@ -61,6 +61,10 @@ export function makeEvent(input, { now = Date.now() } = {}) {
   if (typeof input.verdict === 'string' && /^[A-Z][A-Z_-]{0,39}$/.test(input.verdict)) e.verdict = input.verdict;
   if (typeof input.hook === 'string' && /^[a-z][a-z-]{0,39}$/.test(input.hook)) e.hook = input.hook;
   if (Number.isInteger(input.chars) && input.chars >= 0) e.chars = input.chars;
+  // `why`: the reason a guard decided, built by the caller from rule ids, stage names and error
+  // codes (graph-guard, ADR-039). The charset has no `/`, quote or newline, so a path, a command or
+  // a sentence of prompt text does not fit; one that does not match is dropped, not trimmed.
+  if (typeof input.why === 'string' && /^[A-Za-z0-9][A-Za-z0-9 :=,._-]{0,119}$/.test(input.why)) e.why = input.why;
   if (input.host === 'claude' || input.host === 'codex') e.host = input.host;
   return e;
 }

@@ -105,6 +105,50 @@ test('hook, observe: an unmet contract is let through and recorded', () => {
   assert.equal(e.outcome, 'would-block-edge-contract');
 });
 
+test('hook, observe: the event names the rule, the predecessor and the key it did not name', () => {
+  const dir = project({ logs: { 'qa-engineer': QA_NO_REPORT } });
+  run(dir, 'devops');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.equal(e.why, 'edge-contract: qa-engineer named no report');
+  assert.equal(e.outcome, 'would-block-edge-contract', 'the existing fields stay');
+});
+
+test('hook, enforce: the denied event carries the why too', () => {
+  const dir = project({ mode: 'enforce', logs: { 'qa-engineer': QA_NO_REPORT } });
+  run(dir, 'devops');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.equal(e.kind, 'denied');
+  assert.equal(e.why, 'edge-contract: qa-engineer named no report');
+});
+
+test('hook: a named path that is missing is reported without the path', () => {
+  const dir = project({ logs: { 'qa-engineer': line('qa-engineer', 'PASS', '2026-10-20T10:00:00Z', { report: '/srv/someone/private/QA-x.md' }) } });
+  run(dir, 'devops');
+  const e = events(dir).find((x) => x.hook === 'graph-guard');
+  assert.equal(e.why, 'edge-contract: qa-engineer report path does not exist');
+  assert.ok(!JSON.stringify(e).includes('someone'), 'the path stays in the verdict log');
+});
+
+test('hook: a receipt-less predecessor is reported by key', () => {
+  const dir = project({ logs: { 'senior-dev': line('senior-dev', 'DONE', '2026-10-20T10:00:00Z', { task: 't' }) } });
+  run(dir, 'code-reviewer');
+  assert.equal(events(dir).find((x) => x.hook === 'graph-guard').why, 'edge-contract: senior-dev named no receipt');
+});
+
+test('hook: an unreadable predecessor log is allowed and recorded once, naming the stage and the code', () => {
+  const dir = project({ mode: 'enforce' });
+  fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'qa-engineer.log'));   // EISDIR
+  const r = run(dir, 'devops');
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /"deny"/);
+  const all = events(dir).filter((x) => x.hook === 'graph-guard');
+  assert.equal(all.length, 1);
+  assert.equal(all[0].outcome, 'unreadable');
+  assert.equal(all[0].kind, 'hint');
+  assert.equal(all[0].agent, 'devops');
+  assert.match(all[0].why, /qa-engineer=EISDIR/);
+});
+
 test('hook, enforce: an unmet contract is denied with the stage, the key and the way out', () => {
   const dir = project({ mode: 'enforce', logs: { 'qa-engineer': QA_NO_REPORT } });
   const out = JSON.parse(run(dir, 'great-cto:devops').stdout);

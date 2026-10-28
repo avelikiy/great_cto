@@ -195,7 +195,10 @@ running on your machine.
 An event records facts, and only these fields: `ts`, `kind` (`agent-start`,
 `agent-stop`, `tool`, `denied`, `stop`, `pipeline`), `session`, `agent`, `tool`,
 up to ten `paths` a tool touched, `ok`, `duration_ms`, and for pipeline events an
-`outcome` and a verdict token.
+`outcome` and a verdict token. A guard hook (graph guard, ADR-039) also records a
+`why`: a reason of at most 120 characters built from rule ids, stage names and
+error codes (`edge-contract: qa-engineer named no report`) — never a path, a
+timestamp taken from a verdict, or text from a prompt or a file.
 
 It **never** records command text, file contents, prompts, tool output or
 environment variables — those can hold secrets. The allowlist is enforced in code

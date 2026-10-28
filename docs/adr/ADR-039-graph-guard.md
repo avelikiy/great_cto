@@ -44,13 +44,17 @@ per measured hole. Rule 1, **architecture before build after a brief**:
 
 Modes, read from `.great_cto/PROJECT.md` `graph-guard:` (default `observe`):
 
-- `observe` — never blocks. Appends `{ts, rule, agent, would_block: true, why}` to
-  `.great_cto/events.jsonl` (kind `graph-guard`) and lets the call through.
-- `enforce` — denies with the reason and the command that lifts it.
+- `observe` — never blocks. Appends a `hint` event (hook `graph-guard`, outcome
+  `would-block-<rule>`, with a `why`) to `.great_cto/events.jsonl` and lets the
+  call through. Shape: [Event shape](#event-shape).
+- `enforce` — denies with the reason and the command that lifts it, and appends a
+  `denied` event (outcome `blocked-<rule>`, same `why`).
 - `off` — nothing.
 
-Failure to read a verdict log is not a reason to block: the guard records
-`unreadable` and allows (it guards a route, not data integrity).
+Failure to read a verdict log is not a reason to block: the guard allows, and
+appends one `unreadable` event per call naming the log and the error code (it
+guards a route, not data integrity — but a guard that could not look must not read
+the same as a guard that saw a clean route). See [Event shape](#event-shape).
 
 ## Delivery
 
@@ -59,8 +63,10 @@ Failure to read a verdict log is not a reason to block: the guard records
    hooks where applicable.
 2. The graph-1 measurement script committed (`scripts/graph-adherence.mjs`) so the
    number can be re-taken.
-3. After 14 days in `observe`: read the `would_block` events. Enforce by default
-   only if every sampled one was a real skip; otherwise fix the rule first.
+3. After 14 days in `observe`: read the `would-block-*` events and their `why`.
+   Enforce by default only if every sampled one was a real skip; otherwise fix the
+   rule first. Count the `unreadable` events beside them: they are the calls the
+   guard could not judge.
 
 Not in scope: an executing controller on Claude Code; rules for pairs not yet
 measured as harmful; changing `pipeline.toml` itself.
@@ -103,8 +109,66 @@ Contract: on dispatch of stage X, of the stages whose `next` holds X the one wit
 the newest success verdict is the edge being taken. If it declares `produces`,
 each key must be named in its verdict (`receipt` by the receipt's files), and a
 value containing `/` must exist on disk. Same modes, same exception (`graph`), same
-observe-first default as rule 1; an unreadable predecessor log drops only this rule.
+observe-first default as rule 1; an unreadable predecessor log drops only this rule,
+and is recorded (below).
 
 Enforce by default only after its own observation window shows the would-block
 events are real misses — the numbers above are mostly a prompt defect that this
 change fixes, so the window starts now, not from the old logs.
+
+## Event shape
+
+(2026-10-28, great_cto-2u72.1.) This ADR first said an observe event is
+`{ts, rule, agent, would_block: true, why}` of kind `graph-guard`, and that an
+unreadable log "records `unreadable`". The code wrote neither: it wrote `kind: hint`
+with an `outcome` and no reason, and nothing at all for an unreadable log — so the
+enforce decision (great_cto-1puj.5) could not read why a call would have been
+blocked, and a silent guard looked the same as a guard that saw nothing. What the
+hook writes is below; the older shape is retired (`kind: graph-guard` is not in
+`EVENT_KINDS`, and `rule` and `would_block` live in `outcome`).
+
+Every event goes to `.great_cto/events.jsonl` through `appendEvent`, with the
+fields its allowlist permits (`scripts/lib/agent-events.mjs`):
+
+| Field | Observe | Enforce | Unreadable |
+|---|---|---|---|
+| `v`, `ts` | 1, UTC | 1, UTC | 1, UTC |
+| `kind` | `hint` | `denied` | `hint` |
+| `hook` | `graph-guard` | `graph-guard` | `graph-guard` |
+| `agent` | the stage being dispatched | same | same |
+| `session` | session id | same | same |
+| `outcome` | `would-block-<rule>` | `blocked-<rule>` | `unreadable` |
+| `why` | the reason, see below | same | the logs and their error codes |
+
+`<rule>` is `architecture-before-build` or `edge-contract`. One event per
+violation; a call that violates both writes two. A rule that passes, or a
+violation an approved `graph` exception covers, writes nothing.
+
+**`why`** is a short reason built from rule ids, stage names and error codes, at
+most 120 characters of `[A-Za-z0-9 :=,._-]`. It is not the sentence the deny
+message shows: that one carries the predecessor's timestamp and whatever path its
+verdict named, and `events.jsonl` records facts, never content (ADR-021,
+`docs/PRIVACY.md`). A `why` that does not fit the charset is dropped, not trimmed.
+
+| Rule / case | `why` |
+|---|---|
+| `architecture-before-build` | `architecture-before-build: architect has not run since the product-owner brief` |
+| `edge-contract`, `receipt` | `edge-contract: <stage> named no receipt` |
+| `edge-contract`, any other key | `edge-contract: <stage> named no <key>` |
+| `edge-contract`, a named path that is missing | `edge-contract: <stage> <key> path does not exist` |
+| unreadable | `<stage>=<CODE>[,<stage>=<CODE>…]`, e.g. `product-owner=EISDIR,architect=EACCES` |
+
+**Unreadable.** A verdict log is unreadable when reading it fails with anything but
+"does not exist" (`EISDIR`, `EACCES`, …; the code is recorded, never the message,
+which names a path), or when it has content and not one parseable record
+(`MALFORMED`: a write cut short, binary noise). The call is allowed, the rule that
+needed the log is dropped, and **one** event per call lists every such log. A log
+that does not exist is not unreadable: it is a stage that never ran. A log is read
+only when the decision needs it — rule 1 reads `product-owner` and `architect` only
+for a build or design stage, rule 2 only the predecessors of the stage dispatched —
+so a broken log nothing asked about is not an event.
+
+Reading it: `jq 'select(.hook=="graph-guard")' .great_cto/events.jsonl`. `would-block-*`
+and `blocked-*` are calls the guard judged and found wrong; `unreadable` are calls it
+could not judge; a call with no event was judged and found fine — or never reached
+the hook (`graph-guard: off`, no `.great_cto/PROJECT.md`, a host without the hook).
