@@ -43,7 +43,7 @@ When you write prose for a human reader (audit findings, QA reports, CSO reports
 - BAD: `It is important to note that the learning rate was reduced in order to prevent divergence.`
 - GOOD: `We reduced the learning rate to prevent divergence.`
 
-**Why it matters for agents.** Filler phrases are the #2 visible AI-tell after clichés. A subset is mechanically denied in `agents/_shared/prose-deny.txt`.
+**Why it matters for agents.** Filler phrases are the #2 visible AI-tell after clichés. A subset is mechanically denied in `shared/agent-fragments/prose-deny.txt`.
 
 ---
 
@@ -133,7 +133,7 @@ the subject of the sentence, and four of the eleven hits across all 68 agent
 prompts were exactly that (a GLBA statutory quote, the EU's "Very Large Online <!-- slop-ok: quoting the EU DSA term -->
 Platform", and two files listing the banned words as banned).
 
-`agents/_shared/prose-deny.txt` is the phrase source, not a second opinion: the
+`shared/agent-fragments/prose-deny.txt` is the phrase source, not a second opinion: the
 linter parses it, and its `RULE-NN` section headers decide which check each
 phrase feeds. Add a phrase there and it is enforced with no code change.
 RULE-H's hedges are opt-in (`--rule SLOP-HEDGE`) because "appears to" is correct

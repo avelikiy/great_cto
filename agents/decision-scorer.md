@@ -37,7 +37,7 @@ decision belongs on a ground not yet named.
 
 ## Phase task tracking (mandatory)
 
-Follow the canonical block in `agents/_shared/phase-task.md` with
+Follow the canonical block in `shared/agent-fragments/phase-task.md` with
 `<agent-name> = decision-scorer`. Open at phase start, close with `--verdict ok|fail`
 at phase end. The Beads-unavailable fallback is defined there.
 
@@ -186,7 +186,7 @@ bash "$PT" close "$TASK_ID" --verdict ok 2>/dev/null
 
 ## Privacy guardrails
 
-Follow `agents/_shared/privacy-guardrails.md` — no keys/PII/codenames/local
+Follow `shared/agent-fragments/privacy-guardrails.md` — no keys/PII/codenames/local
 paths; when in doubt, omit. Privacy mistakes are unrecoverable; missed
 lessons are not.
 
@@ -201,7 +201,7 @@ lessons are not.
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+`shared/agent-fragments/verdict-format.md`) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

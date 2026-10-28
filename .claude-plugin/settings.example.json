@@ -5,7 +5,7 @@
     "grant the local Claude Code session additional directory access.",
     "",
     "NOTE: additionalDirectories does NOT propagate to sub-agents spawned",
-    "via the Agent tool — see agents/_shared/sandbox-cwd-policy.md.",
+    "via the Agent tool — see shared/agent-fragments/sandbox-cwd-policy.md.",
     "Run 'claude' from INSIDE the project root for the most reliable flow."
   ],
   "permissions": {

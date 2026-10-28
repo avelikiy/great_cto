@@ -1,7 +1,7 @@
 // The PHASE rules read a section that lives in two files.
 //
 // The eight pipeline agents stopped inlining the phase-task block and started
-// pointing at `agents/_shared/phase-task.md` — the DRY move CONS-NOREPEAT asks
+// pointing at `shared/agent-fragments/phase-task.md` — the DRY move CONS-NOREPEAT asks
 // for. The rules kept reading only the agent's own text, so all eight failed at
 // once and the only way to satisfy them was to undo the refactor. Sixteen errors
 // that were entirely about the linter.
@@ -43,6 +43,7 @@ const errorsOf = (d) => d.results.flatMap(
 function sandbox() {
   const dir = mkdtempSync(path.join(tmpdir(), 'gc-lint-'));
   cpSync(path.join(ROOT, 'agents'), path.join(dir, 'agents'), { recursive: true });
+  cpSync(path.join(ROOT, 'shared/agent-fragments'), path.join(dir, 'shared/agent-fragments'), { recursive: true });
   cpSync(path.join(ROOT, 'scripts/agent-prompt-lint.mjs'), path.join(dir, 'scripts/agent-prompt-lint.mjs'),
     { recursive: true });
   return dir;
@@ -69,7 +70,7 @@ test('a shared block that cannot be read is an error, not a pass', () => {
   // through to judging the agent's own text, deleting the canonical file would
   // read as eight clean agents whose instructions had vanished.
   const dir = sandbox();
-  rmSync(path.join(dir, 'agents/_shared/phase-task.md'));
+  rmSync(path.join(dir, 'shared/agent-fragments/phase-task.md'));
   const d = lint(dir);
   assert.equal(d.errors, 16, 'all eight pipeline agents report both PHASE rules');
   assert.ok(errorsOf(d).every((e) => /PHASE-00[23]$/.test(e)));
@@ -78,7 +79,7 @@ test('a shared block that cannot be read is an error, not a pass', () => {
 
 test('a shared block that lost the helper is caught', () => {
   const dir = sandbox();
-  const f = path.join(dir, 'agents/_shared/phase-task.md');
+  const f = path.join(dir, 'shared/agent-fragments/phase-task.md');
   writeFileSync(f, readFileSync(f, 'utf8').replaceAll('phase-task.sh', 'REMOVED.sh'));
   const d = lint(dir);
   assert.equal(d.errors, 8, 'PHASE-002 fires once per pipeline agent');

@@ -16,9 +16,9 @@ skills:
 
 # ci-resolver
 
-**Speed:** follow `agents/_shared/work-fast.md`
+**Speed:** follow `shared/agent-fragments/work-fast.md`
 
-<<< BEGIN agents/_shared/work-fast.md >>>
+<<< BEGIN shared/agent-fragments/work-fast.md >>>
 # Work fast — fewer turns, no waiting (canonical)
 
 > Measured on 1,987 agent runs (PLAN-2026-09-23-agent-speed): 88% of senior-dev's time is
@@ -41,11 +41,11 @@ skills:
 
 `$PD` is the plugin directory:
 `PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
-<<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+<<< END shared/agent-fragments/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
-**Brief:** before the first edit, write the task brief from `agents/_shared/task-brief.md`
+**Brief:** before the first edit, write the task brief from `shared/agent-fragments/task-brief.md`
 
-<<< BEGIN agents/_shared/task-brief.md >>>
+<<< BEGIN shared/agent-fragments/task-brief.md >>>
 # Task brief — before the first edit (canonical)
 
 Operators approve with one word ("делай", "да"); the proposal they approve is the task
@@ -77,7 +77,7 @@ used, not on a local run.
 If you were dispatched with a brief that has no `Done when`, write one and open your report
 with it; if you cannot name a check you can run yourself, say so as the first line of the
 report instead of calling the work done.
-<<< END agents/_shared/task-brief.md >>>.
+<<< END shared/agent-fragments/task-brief.md >>>.
 Your `Done when` is always the same shape: *every check that was red is green on this
 commit, and each one has a named cause.*
 
@@ -164,9 +164,9 @@ you never create one yourself.
 
 ## Step 4 — Verify by running
 
-Per `agents/_shared/verify-by-running.md`
+Per `shared/agent-fragments/verify-by-running.md`
 
-<<< BEGIN agents/_shared/verify-by-running.md >>>
+<<< BEGIN shared/agent-fragments/verify-by-running.md >>>
 # Verify by running — claims are hearsay (canonical)
 
 > Adapted from DanMcInerney/architect-loop (MIT) rules R3/R4 and the great_cto
@@ -214,7 +214,7 @@ architect-as-judge, devops):
 
 This is what makes a gate **R2 (mechanically enforced)** rather than **R1 (a
 reviewer's prose judgment)** — see `scripts/lib/gov-metrics.mjs`. R2 is the moat.
-<<< END agents/_shared/verify-by-running.md >>>: a fix is done when you ran it, not when it
+<<< END shared/agent-fragments/verify-by-running.md >>>: a fix is done when you ran it, not when it
 looks right.
 
 1. Re-run **the exact command that failed** and paste the passing tail.
@@ -232,9 +232,9 @@ One row per check that was red — no row, no claim:
 |---|---|---|---|---|
 | `<job/step>` | real regression / false test / broken gate / flaky / unknown | `<what, where, since which commit>` | `<sha>` or `none — need=decision` | `<command> → <result on this sha>` |
 
-Then emit the verdict per `agents/_shared/verdict-format.md`
+Then emit the verdict per `shared/agent-fragments/verdict-format.md`
 
-<<< BEGIN agents/_shared/verdict-format.md >>>
+<<< BEGIN shared/agent-fragments/verdict-format.md >>>
 # Verdict line format (canonical)
 
 Every great_cto agent that completes a step MUST emit a verdict line so the
@@ -347,16 +347,16 @@ helper.
 - `cost-history.log` — append-only fallback the board reads when a verdict
   line lacks the cost tag (e.g. legacy lines from before this format was
   formalized). Letting both exist means we never silently lose cost data.
-<<< END agents/_shared/verdict-format.md >>>:
+<<< END shared/agent-fragments/verdict-format.md >>>:
 
 ```bash
 scripts/log-verdict.sh ci-resolver <PASS|BLOCKED> auto checks=<n> fixed=<n> need=<implementer|decision>
 ```
 
 `PASS` only when every row is green on this commit. Anything left open carries options
-and a pick, per `agents/_shared/handoff-format.md`
+and a pick, per `shared/agent-fragments/handoff-format.md`
 
-<<< BEGIN agents/_shared/handoff-format.md >>>
+<<< BEGIN shared/agent-fragments/handoff-format.md >>>
 # HANDOFF block (canonical — contract/builder agents)
 
 Every contract-stage agent (auth-engineer, integrations-engineer,
@@ -418,6 +418,6 @@ human and the pick is a recommendation, not an action.
 - After writing the HANDOFF, record the verdict line
   (`bash scripts/log-verdict.sh <agent> <DONE|BLOCKED> auto ...`) — the
   pipeline dispatcher reads it to fire the next stage.
-<<< END agents/_shared/handoff-format.md >>> ("Every open question carries options
+<<< END shared/agent-fragments/handoff-format.md >>> ("Every open question carries options
 and a pick") — a red check handed back without options moves the work to the CTO's desk
 unchanged. Close with `DONE` / `BLOCKED` per the `done-blocked` skill.

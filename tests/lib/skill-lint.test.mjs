@@ -80,7 +80,7 @@ test('placeholders, URLs, anchors and globs are not dangling references', () => 
   assert.deepEqual(r.errors, []);
 });
 
-test('body over 20 KB warns; an allow-listed heavy skill does not', () => {
+test('body over 20 KiB (20,480 bytes) warns; an allow-listed heavy skill does not', () => {
   const big = 'x'.repeat(21 * 1024);
   const root = repo({ heavy: skill('heavy', big), 'ui-ux-pro-max': skill('ui-ux-pro-max', big) });
   const r = lintSkills({ repoRoot: root });
