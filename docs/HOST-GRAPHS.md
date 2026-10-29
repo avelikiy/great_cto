@@ -56,6 +56,12 @@ The audit executes version/help commands only. Stream support is CLI surface
 evidence; native hook delivery and live execution remain not checked until an
 actual admitted run provides evidence. No key is read or uploaded by the audit.
 
+Coverage support and `liveAcceptance` come from `shared/host-graph-acceptance.json`: a
+host version that passed a live run is listed with each dimension it delivered
+(`true`) or was exercised and did not deliver (`false`). Only an exact listed version
+is `supported`; any other version keeps `unknown`, and an unreadable record is reported
+as `unreadable`, never as "none".
+
 ## Controlled runs
 
 Add `--observe-graph` to `great-cto codex-host start` to collect supplemental
