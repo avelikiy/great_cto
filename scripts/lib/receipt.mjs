@@ -34,7 +34,17 @@ import { fileURLToPath } from 'node:url';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
+// Hooks read evidence under host deadlines of 5-15 s and must give up in time to
+// fail closed themselves, so 5 s is the default. A long-lived caller on a loaded
+// machine (the packaged controller probe) widens it with
+// GREAT_CTO_GIT_READ_TIMEOUT_MS; it never narrows below 5 s nor passes 120 s.
+export const GIT_READ_TIMEOUT_MS = 5000;
+export function gitReadTimeoutMs(raw = process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS) {
+  return /^\d{1,9}$/.test(raw ?? '') ? Math.min(Math.max(Number(raw), GIT_READ_TIMEOUT_MS), 120000) : GIT_READ_TIMEOUT_MS;
+}
+
 function git(args, cwd, { maxBuffer = 32 * 1024 * 1024 } = {}) {
+  const timeout = gitReadTimeoutMs();
   try {
     // Reading evidence must not execute project-configured diff/filter/monitor helpers.
     const command = args[0] === 'diff' ? ['diff', '--no-ext-diff', '--no-textconv', ...args.slice(1)] : args;
@@ -45,14 +55,14 @@ function git(args, cwd, { maxBuffer = 32 * 1024 * 1024 } = {}) {
       let keys = '';
       try {
         keys = execFileSync('git', [...config, 'config', '--null', '--name-only', '--get-regexp', '^filter\\..*\\.(clean|process|required)$'],
-          { cwd, encoding: 'utf8', maxBuffer: 65536, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+          { cwd, encoding: 'utf8', maxBuffer: 65536, timeout, stdio: ['ignore', 'pipe', 'ignore'] });
       } catch (error) { if (error.status !== 1) return null; }
       const filters = [...new Set(keys.split('\0').filter(Boolean).map(key => key.match(/^filter\.([\s\S]+)\.(?:clean|process|required)$/)?.[1]))];
       if (filters.length > 128 || filters.some(name => !name)) return null;
       for (const name of filters) config.push('-c', `filter.${name}.clean=`, '-c', `filter.${name}.process=`, '-c', `filter.${name}.required=false`);
     }
     return execFileSync('git', [...config, ...command],
-      { cwd, encoding: 'utf8', maxBuffer, timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] });
+      { cwd, encoding: 'utf8', maxBuffer, timeout, stdio: ['ignore', 'pipe', 'ignore'] });
   } catch { return null; }
 }
 
