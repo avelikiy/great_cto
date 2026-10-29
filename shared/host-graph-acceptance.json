@@ -1,5 +1,58 @@
 {
   "schema": 1,
   "note": "Host versions whose graph observation passed live acceptance (great_cto-2u72.5). Public: versions and per-dimension results only; evidence stays private. A dimension marked false was exercised and not delivered.",
-  "accepted": []
+  "accepted": [
+    {
+      "host": "codex",
+      "mode": "controlled",
+      "version": "0.160.0",
+      "dimensions": {
+        "lifecycle": true,
+        "tools": true
+      },
+      "date": "2026-10-28"
+    },
+    {
+      "host": "claude-code",
+      "mode": "native",
+      "version": "2.1.292",
+      "dimensions": {
+        "lifecycle": true,
+        "tools": true,
+        "parentChild": true
+      },
+      "date": "2026-10-29"
+    },
+    {
+      "host": "claude-code",
+      "mode": "controlled",
+      "version": "2.1.292",
+      "dimensions": {
+        "lifecycle": true,
+        "tools": true
+      },
+      "date": "2026-10-29"
+    },
+    {
+      "host": "claude-code",
+      "mode": "native",
+      "version": "2.1.312",
+      "dimensions": {
+        "lifecycle": true,
+        "tools": true,
+        "parentChild": true
+      },
+      "date": "2026-10-29"
+    },
+    {
+      "host": "claude-code",
+      "mode": "controlled",
+      "version": "2.1.312",
+      "dimensions": {
+        "lifecycle": true,
+        "tools": true
+      },
+      "date": "2026-10-29"
+    }
+  ]
 }
