@@ -61,6 +61,31 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.74.0 — 2026-10-29
+
+Graph observation is now backed by live runs, the graph guard measures a dispatch only against the route it is on, and the plugin ships without the validator warnings.
+
+### What's new
+
+- Coverage support comes from live acceptance: `shared/host-graph-acceptance.json` lists each host version that passed a live run and the dimensions it delivered. `graph-audit` reports `liveAcceptance` from it instead of a fixed `not-checked`; any unlisted version stays `unknown`, and an unreadable record reads `unreadable`. Accepted on 28–29.10: Claude Code 2.1.292 and 2.1.312 native (lifecycle, tools, parent/child) and controlled (lifecycle, tools); Codex 0.160.0 controlled (lifecycle, tools).
+- The Codex plugin routes `SessionEnd`, `SubagentStart` and `SubagentStop` to the graph observer (codex-cli 0.160 ships these hooks). Codex asks you to review new hooks once before they run.
+- A revoked native session stays readable as retained history (`retained: true, enrolled: false`); recording does not resume.
+
+### Fixed
+
+- Graph guard scope (ADR-039): both rules compared a dispatch with the newest brief or predecessor verdict of any age and feature. Its first real events were false positives on unrelated maintenance work. A verdict now counts only when it is at most 72 hours old or the dispatch names its feature or a path it produced. The enforce decision waits for a new observe window.
+- Graph guard events carry `why` (rule, stage, key), and an unreadable verdict log records an `unreadable` event instead of nothing, so a silent guard is distinguishable from one that saw a clean route.
+- `edge-contract-adherence.mjs` reports an unreadable source as NOT READ with its error code instead of crashing, and never counts it as zero.
+- Prompt fragments moved from `agents/_shared/` to `shared/agent-fragments/`; `claude plugin validate` no longer reports 17 fragments as agents without frontmatter.
+- `ARCH-host-graph-coverage` matches the code (limits, kinds, phases, outcomes; artifact, verification and gate unsupported).
+
+### Validation and limits
+
+Each change passed the full local gate with browser e2e on its merge with main. Live runs used synthetic projects and cost about $0.19. Codex native hook delivery, including the three new events, is NOT CHECKED: it needs a one-time hook trust review in Codex. Sixteen live/opt-in checks remain NOT CHECKED. Publication follows the ADR-045 signing route with the owner's approval.
+
+---
+
 ## v3.73.0 — 2026-10-28
 
 An optional Kimi advisory reviewer, a per-invocation telemetry refusal, and a second opinion that no longer leaves the machine because a key happened to be exported.
