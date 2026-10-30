@@ -65,10 +65,11 @@ recorded run the agent asked for one, as its prompt requires. Tuning averaged
 
 ## Measurement history
 
+- The rows behind the 2026-10-30 entries: `tests/eval/runs/2026-10-30-test-discipline/` (its README says which claim has no row).
 - 2026-10-30: cases 9–11 were rewritten. The first drafts named the rule in the scenario and passed on the pre-rule prompt; the rewrites describe a situation and ask what happens next.
 - One sample per prompt, with the rules vs the pre-rule prompt at HEAD:
   - Case 9: PASS / PASS. The pre-rule prompt already stops after two failed fixes, so this is regression cover, not a discriminator.
   - Case 10: FAIL / FAIL at first. With the rules it failed twice, once after the wording was tightened: the scenario says RED is confirmed, and the agent went to GREEN without running the stub check, because the check sat inside the RED step. The pre-rule run was a cut-off preamble, so it showed nothing either way.
-  - Case 10 after the stub check became its own step before GREEN (great_cto-6fng): PASS, PASS with the rules (two samples); FAIL on the pre-rule prompt (a real answer that implements without noticing). It discriminates.
+  - Case 10 after the stub check became its own step before GREEN (great_cto-6fng): PASS, PASS with the rules (two samples; one has a saved row); FAIL on the pre-rule prompt (a real answer that implements without noticing). It discriminates.
   - Case 11: PASS / FAIL. An earlier sample of the same case was cut off at the token cap with the rules and failed without them. Re-run once after the rewording: PASS.
 - The new cases ran in a scratch file holding only them and this file's scenario text, because the full split cost more than the step's budget. Cases 1–5 were last run in full before the wording was tightened: 7/8 with the rules, 6/8 without, case 5 failing in both.

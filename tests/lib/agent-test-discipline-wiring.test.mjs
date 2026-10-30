@@ -68,6 +68,9 @@ test('qa-engineer points small tasks at the cheap check without changing the mut
   const step = t.slice(t.indexOf('### Step 3b-3'), t.indexOf('### Step 3c'));
   assert.match(step, /\[SKIP for small\]/, 'the mutation step is still skipped for small');
   assert.match(step, /empty-implementation\s+check/i);
+  // It names where senior-dev runs the check; that moved from RED to its own step before GREEN (6fng).
+  assert.match(step, /senior-dev runs it before GREEN/);
+  assert.doesNotMatch(step, /runs it at RED/);
 });
 
 test('project-auditor marks untested hotspots as needing a characterization test', () => {

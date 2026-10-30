@@ -225,7 +225,7 @@ bash scripts/auditor-architectural-debt-scan.sh
 
 Runs all of Phase 4 (sections labeled in stdout):
 - **4A.0** intersects the top-20 largest source files with the top-20 most-git-churned files
-  (last 6 months), writing scratch files to `/tmp/audit-{largest,churn,hotspots}.txt`. Every
+  (last 6 months), writing scratch files to ``$AUDIT_TMP/audit-{largest,churn,hotspots}.txt` (default `/tmp`). Every
   file in the intersection MUST receive concrete file:line citations in the findings table —
   these are the most expensive places to leave debt unaddressed. A hotspot with no test
   beside it gets "characterize before change" in its Recommendation: the first edit there

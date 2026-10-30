@@ -613,7 +613,7 @@ suite **catches**. A surviving mutant is a fault your tests would have shipped.
 
 Small tasks skip the run, not the question: the cheap form is the empty-implementation
 check — stub the function under test to do nothing; a test that still passes asserts
-nothing. senior-dev runs it at RED and code-reviewer flags it; if you see such a test
+nothing. senior-dev runs it before GREEN and code-reviewer flags it; if you see such a test
 in a small task, report it.
 
 Run it on the **changed files only** — a full-repo mutation run is minutes-to-hours
