@@ -62,6 +62,27 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.0 — 2026-10-30
+
+Three test-discipline rules for the implementing and reviewing agents, each with an eval case that fails on the previous prompt.
+
+### What's new
+
+- senior-dev, stub check before GREEN: once the function under test exists as an empty stub, the new tests run against it, and any that still pass are strengthened. A RED that failed only because the function did not exist proves nothing about the assertions. code-reviewer flags a test an empty body would satisfy (rubric item 4); qa-engineer runs this cheap check on small tasks that skip mutation testing.
+- senior-dev, characterize before changing: code with no covering test gets a test pinning its current behaviour first, run green on the unchanged code; then the change. project-auditor marks untested hotspots as characterize-before-change.
+- senior-dev, attack the premise: after two fixes resting on one assumption fail the same check, the agent writes the assumption down and tests it instead of making a third edit.
+
+### Fixed
+
+- `git` reads in the packaged controller probe wait longer under load (test only).
+
+### Validation and limits
+
+Eval cases describe a situation without naming the rule; a wiring test rejects scenarios that use the rule's words. Measured at one or two samples per prompt, rules vs the previous prompt: senior-dev stub check PASS, PASS vs FAIL; characterization PASS vs FAIL; code-reviewer empty-body PASS vs FAIL, but noisy across samples (token-cap skips), so no rate is claimed; the premise case passes on both prompts. These are indications, not rates.
+
+---
+
 ## v3.74.0 — 2026-10-29
 
 Graph observation is now backed by live runs, the graph guard measures a dispatch only against the route it is on, and the plugin ships without the validator warnings.
