@@ -44,5 +44,17 @@ file points at a row here, not at a sentence.
   (`s4-sd10-new`) against FAIL on the pre-rule prompt (`s4-sd10-base`). The EVAL file's
   second PASS has no row here.
 - code-reviewer case 10 with the rule: PASS, PASS, FAIL, PASS and two skips
-  (`s1`, `s2`, `s5`, `s7`; `s4`, `s6`). The rerun at a raised cap, ≥3 samples per prompt,
-  is still owed: on 2026-10-30 the provider account was out of credits.
+  (`s1`, `s2`, `s5`, `s7`; `s4`, `s6`) — single samples, read as noise.
+
+## code-reviewer case 10, three samples per prompt (evening, actor cap 10000)
+
+| file | prompt | mode | samples passed |
+|---|---|---|---|
+| `r3-cr10-new.jsonl` | 3.75.0 rule (one clause in rubric item 4) | agent | **0/3** |
+| `r3-cr10-base.jsonl` | pre-rule prompt | `--prompt-file` | 1/3 |
+| `r3-cr10-stubpass-agent.jsonl` | 3.75.1 stub pass as its own step | agent | **2/3** |
+| `r3-cr10-stubpass.jsonl` | 3.75.1 stub pass as its own step | `--prompt-file` | 3/3 |
+
+The 3.75.0 clause did not work: the reviewer filed the gap as an Observation and
+reasoned about the implementation instead of the test. The 3.75.1 step works in 2 of 3
+agent-mode samples; the miss flagged only one of the two vacuous tests.

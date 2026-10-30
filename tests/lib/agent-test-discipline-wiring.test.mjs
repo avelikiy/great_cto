@@ -60,6 +60,11 @@ test('code-reviewer flags a test an empty implementation would satisfy', () => {
     const t = read(file);
     const item4 = t.slice(t.indexOf('4. **Readability'), t.indexOf('## Calibration'));
     assert.match(item4, /empty (body|implementation)/i, `${file}: rubric item 4`);
+    // 30.10 rerun, 3 samples: the one-clause rubric item scored 0/3 — the reviewer filed the
+    // gap as an Observation and reasoned about the implementation. The stub pass is a step.
+    assert.match(item4, /Stub pass over new tests/, `${file}: the stub pass is its own step`);
+    assert.match(item4, /\*\*Finding \(P2\)\*\*, not an Observation/, `${file}: severity is fixed`);
+    assert.match(item4, /not\.toHaveBeenCalled/, `${file}: names the assertions that survive a stub`);
   }
 });
 

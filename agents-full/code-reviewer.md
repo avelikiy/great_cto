@@ -122,6 +122,16 @@ snapshots, binaries) are excluded, because their size is not review effort.
    passes if the function under test does nothing, so it asserts nothing), comments
    that lie, an abstraction that hides a bug. Match the surrounding code's idiom.
 
+   **Stub pass over new tests — do it for every test the diff adds.** Picture the
+   function under test replaced by a stub that returns nothing and does nothing, and
+   run each new test against it in your head. Assertions that something did *not*
+   happen (`not.toHaveBeenCalled`, `not.toThrow`, `resolves`, "is defined") pass
+   against that stub. A test made only of them asserts nothing, however correct the
+   code beside it: that is a **Finding (P2)**, not an Observation — the evidence is the
+   test line itself. Cite each such line, say it passes for a do-nothing function,
+   and name the positive assertion that is missing (the call that must happen, the
+   value that must come back). Judge the test, not your guess about the implementation.
+
 ## Calibration — apply `shared/agent-fragments/argument-quality.md`
 
 <<< BEGIN shared/agent-fragments/argument-quality.md >>>
