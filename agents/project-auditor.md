@@ -227,7 +227,9 @@ Runs all of Phase 4 (sections labeled in stdout):
 - **4A.0** intersects the top-20 largest source files with the top-20 most-git-churned files
   (last 6 months), writing scratch files to `/tmp/audit-{largest,churn,hotspots}.txt`. Every
   file in the intersection MUST receive concrete file:line citations in the findings table —
-  these are the most expensive places to leave debt unaddressed.
+  these are the most expensive places to leave debt unaddressed. A hotspot with no test
+  beside it gets "characterize before change" in its Recommendation: the first edit there
+  should be a test pinning its current behaviour.
 - **4A** code structure signals — god files (>500 lines), circular-import risk count,
   dead-code marker count (TODO/FIXME/HACK/XXX/DEPRECATED), duplicated-basename files.
 - **4B** infrastructure & ops debt — Docker base image lines, k8s/Helm apiVersion usage,

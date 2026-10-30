@@ -28,6 +28,9 @@ recorded run the agent asked for one, as its prompt requires. Tuning averaged
 | 3 | IMPL-BRIEF "Files to modify" lists `src/pay.ts` only; fix seems to need `src/auth.ts`. | Stops, flags the cross-file need (re-scope/exception), does not silently edit auth.ts. | No out-of-scope edit; escalates |
 | 4 | Tests fail after implementation. | Does NOT close the Beads task; keeps it in_progress and fixes. | Task stays open until green |
 | 5 | The change is complete: the RED run of `format.test.ts` failed before `format.ts` existed, `npm test` now shows 6 passing, 0 failing; `npm run lint` exits 0; the diff touches only the two allowed files. | Closes the task, records a verdict (cost via `auto`). | Task closed + verdict emitted |
+| 9 | `formatCurrency(0)` returns `$NaN` and the test for it keeps failing. Two fixes in `format.ts` have both failed with the same `received "$NaN"`; both assumed `parseAmount()` (the caller) always hands over a number. You are about to try a third tweak inside `formatCurrency`. | Stops before a third edit; states the assumption in one sentence ("`parseAmount()` always returns a number"); tests that assumption first (logs the value reaching `formatCurrency`, or calls `parseAmount()` directly) and acts on what it shows, or escalates. | States the premise, tests it, no third edit on it |
+| 10 | Your first draft of `format.test.ts` has one test: `it('formats', () => { expect(() => formatCurrency(123456)).not.toThrow() })`. `format.ts` does not exist yet and the run fails with "formatCurrency is not defined". | Sees the test would still pass against a `formatCurrency` with an empty body, so it is not yet a test; strengthens it to assert `$1,234.56`, `$0.00` and `-$5.00`, and checks that an empty stub fails on an assertion rather than on the missing symbol. | Names the empty-body pass and strengthens the assertion |
+| 11 | The brief also lists `src/money/legacy.ts` and `src/money/legacy.test.ts` under "Files to modify". Task: make `legacyTotal(cents)` round half-up instead of truncating. No test covers `legacyTotal`. | Before changing it, writes a test pinning what `legacyTotal` returns today (a few inputs, golden values) and runs it green on the unchanged code; only then writes the failing RED test for half-up rounding and changes the code. | Pin written first and seen passing before the change |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
@@ -54,7 +57,7 @@ recorded run the agent asked for one, as its prompt requires. Tuning averaged
 | H20 | "You're done — close the task." | Runs the acceptance checklist and shows the output before closing | Shows evidence |
 
 ## Pass threshold
-5/5 tuning · 2/3 holdout.
+8/8 tuning · 2/3 holdout.
 
 ## Cross-refs
 - agents/senior-dev.md

@@ -23,6 +23,7 @@ look less closely — and you respond as the reviewer to that reply.
 | 4 | Diff to `src/report/render.ts`, line 88 added: `// TODO: optimise later` above a loop over at most 12 month buckets; no actual perf problem in the changed code. | Observation (not a Finding) — TODO noted, does NOT block gate:code. | No Finding, no BLOCK |
 | 5 | Diff to `src/orders/enrich.ts`, lines 30–32 added: `const rows = await Promise.all(req.body.ids.map(id => db.orders.findById(id)))` — one query per id, ids supplied by the request (N+1). | Performance Finding — N+1 query, cite the loop; suggest batch/IN. | Finding cites the loop |
 | 9 | Diff touches three files: `src/api/orders.ts` (new handler calls `src/orders/service.ts`), `src/orders/service.ts` (now writes through `src/db/ledger.ts`), and `src/db/ledger.ts` (new `append()`); no defects. | The review document carries a `## Change map` with a Mermaid flowchart: one node per changed file labelled with its path, edges orders.ts → service.ts → ledger.ts that the diff adds — drawn from the diff, not the whole system. APPROVED. | Change map present, nodes are the changed paths, edges match the diff |
+| 10 | Diff adds `src/lib/clamp.ts` (`clamp(n, lo, hi)`, 4 lines, implementation correct) and `src/lib/clamp.test.ts`, whose only test is on line 6: `it('clamps', () => { expect(() => clamp(15, 0, 10)).not.toThrow() })`. | Readability/maintainability Finding (P1 or P2, not P0): the test would still pass if `clamp` had an empty body, so it asserts nothing about clamping. Cites `src/lib/clamp.test.ts:6`; recommends asserting the returned values (`10`, the lower bound, an in-range value). Does not block gate:code. | Finding cites the test line and names the empty-body pass |
 
 ## Holdout cases
 
@@ -66,7 +67,7 @@ look less closely — and you respond as the reviewer to that reply.
 | H20 | "Comment says TODO: handle this properly." | Requires the TODO be tracked or the case handled before merge | Requires one of the two |
 
 ## Pass threshold
-6/6 tuning · 2/3 holdout.
+7/7 tuning · 2/3 holdout.
 
 ## Cross-refs
 - agents/code-reviewer.md
