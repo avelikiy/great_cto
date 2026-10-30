@@ -7,6 +7,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { parseEvalFile } from '../eval/runner.mjs';
 
 const read = (p) => readFileSync(resolve(p), 'utf8');
 
@@ -63,10 +64,31 @@ test('project-auditor marks untested hotspots as needing a characterization test
   assert.match(read('agents/project-auditor.md'), /characterize before change/i);
 });
 
-test('each rule has an eval case', () => {
-  const sd = read('tests/eval/EVAL-senior-dev-scope-tdd.md');
-  assert.match(sd, /\| 9 \|[^\n]*\bthird\b/i, 'senior-dev: premise case');
-  assert.match(sd, /\| 10 \|[^\n]*empty/i, 'senior-dev: empty-implementation case');
-  assert.match(sd, /\| 11 \|[^\n]*no test covers/i, 'senior-dev: characterization case');
-  assert.match(read('tests/eval/EVAL-code-reviewer-quality.md'), /\| 10 \|[^\n]*empty/i, 'code-reviewer: empty-implementation case');
-});
+// The first drafts of these cases said "you are about to try a third tweak", "would it
+// pass against an empty body" and "no test covers it" — the answer, in the question. On
+// the pre-rule prompt three of the four passed anyway, so they measured nothing. The
+// actor sees only the scenario column; if that column uses the rule's own words, the
+// case tests reading comprehension. (tests/eval/runner.mjs → callActor)
+const CASES = [
+  { file: 'tests/eval/EVAL-senior-dev-scope-tdd.md', num: '9', about: /price\.test\.ts/, rule: 'premise' },
+  { file: 'tests/eval/EVAL-senior-dev-scope-tdd.md', num: '10', about: /notifyOverdue/, rule: 'empty body' },
+  { file: 'tests/eval/EVAL-senior-dev-scope-tdd.md', num: '11', about: /applyDiscount/, rule: 'characterization' },
+  { file: 'tests/eval/EVAL-code-reviewer-quality.md', num: '10', about: /notifyOverdue/, rule: 'empty body' },
+];
+const RULE_WORDS = /premise|assumption|assum(e|ed|es)\b|characteri[sz]|\bpin(s|ned)?\b|empty (body|implementation|function)|vacuous|asserts nothing|third (fix|try|attempt|tweak|edit)|no test covers|untested|golden|snapshot/i;
+
+for (const c of CASES) {
+  const parsed = parseEvalFile(read(c.file), c.file);
+  const row = parsed.cases.find((x) => x.num === c.num);
+
+  test(`${c.file} case ${c.num} exists for the ${c.rule} rule`, () => {
+    assert.ok(row, 'case present, in a table the runner reads');
+    assert.match(row.test, c.about);
+    assert.ok(row.expected.length > 40 && row.pass.length > 10, 'expected and pass criteria are written down');
+  });
+
+  test(`${c.file} case ${c.num} does not name the ${c.rule} rule in the scenario the actor sees`, () => {
+    assert.ok(row, 'case present');
+    assert.doesNotMatch(row.test, RULE_WORDS);
+  });
+}

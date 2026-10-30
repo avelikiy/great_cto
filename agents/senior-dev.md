@@ -495,10 +495,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        sleep 2; tail -f /tmp/test-out.log   # then Ctrl-C when done
        ```
        If test PASSES before implementation → the test is wrong. Fix it first.
-       Then ask the converse: would it still pass against an empty body (function returns
-       nothing, does nothing)? Stub that and run it. A test that survives the stub asserts
-       nothing — strengthen it until the stub fails on an assertion about the behaviour, not
-       on a missing symbol. Mutation testing is skipped for small tasks; this check is not.
+       Before GREEN, ask the converse: would these tests still pass against an empty body
+       (function returns nothing, does nothing)? Stub that and run them. "Not called", "does
+       not throw" and "is defined" assertions all survive the stub, so a suite made of them
+       asserts nothing: say so, and add the test for the positive effect (the call made, the
+       value returned) until the stub fails on an assertion, not on a missing symbol.
+       Mutation testing is skipped for small tasks; this check is not.
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
      - **Two fixes, one premise → stop.** When two fixes resting on the same assumption have
