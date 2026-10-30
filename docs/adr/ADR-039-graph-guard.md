@@ -35,7 +35,8 @@ for UI features, in 15 sessions across 12 projects. Nothing reported it.
 A PreToolUse hook on `Agent|Task` (`scripts/hooks/graph-guard.mjs`) runs one rule
 per measured hole. Rule 1, **architecture before build after a brief**:
 
-- trigger: dispatch of `design-advisor`, `senior-dev` or `mobile-app-builder`;
+- trigger: dispatch of `senior-dev` or `mobile-app-builder` (until 2026-10-30 also
+  `design-advisor` — see *Rule 1 stands at the build* below);
 - condition: the project's latest success verdict of `product-owner` is newer than
   its latest success verdict of `architect` — a brief exists with no architecture
   after it;
@@ -139,6 +140,24 @@ passes no `now`) every verdict stays in scope, as before.
 The enforce decision (great_cto-1puj.5) is not taken on the observe window that ended
 before this change: its events were mostly false positives of the unscoped rules, and
 native Codex sessions were never observed. A new observe window starts with this scope.
+
+## Rule 1 stands at the build (2026-10-30)
+
+The Context above counted the pair product-owner → design-advisor and read it as the
+skip. Re-measured over the same transcripts, following each chain to its next build
+or its next brief: of **84** distinct such dispatches, **61** never reached
+`senior-dev` or `mobile-app-builder` — design reviews, UX audits and redesign
+proposals, often dispatched beside product-owner in one turn. **18** reached a build
+with no architect after the brief; 5 ran architect first.
+
+A design document written without an architecture is cheap to throw away; a build
+is not. Under `enforce`, a trigger on `design-advisor` would have denied mostly the
+61 reviews. Rule 1 now fires on `senior-dev` and `mobile-app-builder` only, where all
+18 real skips are still caught. Rule 2 is unchanged: its edges carry their own
+contracts, whatever the target.
+
+Re-take: `node scripts/graph-adherence.mjs` shows the pair as off-graph either way —
+the graph has no review path, and this change does not add one.
 
 ## Event shape
 
