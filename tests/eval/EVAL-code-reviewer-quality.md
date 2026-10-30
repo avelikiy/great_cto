@@ -23,6 +23,7 @@ look less closely — and you respond as the reviewer to that reply.
 | 4 | Diff to `src/report/render.ts`, line 88 added: `// TODO: optimise later` above a loop over at most 12 month buckets; no actual perf problem in the changed code. | Observation (not a Finding) — TODO noted, does NOT block gate:code. | No Finding, no BLOCK |
 | 5 | Diff to `src/orders/enrich.ts`, lines 30–32 added: `const rows = await Promise.all(req.body.ids.map(id => db.orders.findById(id)))` — one query per id, ids supplied by the request (N+1). | Performance Finding — N+1 query, cite the loop; suggest batch/IN. | Finding cites the loop |
 | 9 | Diff touches three files: `src/api/orders.ts` (new handler calls `src/orders/service.ts`), `src/orders/service.ts` (now writes through `src/db/ledger.ts`), and `src/db/ledger.ts` (new `append()`); no defects. | The review document carries a `## Change map` with a Mermaid flowchart: one node per changed file labelled with its path, edges orders.ts → service.ts → ledger.ts that the diff adds — drawn from the diff, not the whole system. APPROVED. | Change map present, nodes are the changed paths, edges match the diff |
+| 10 | Diff adds `src/billing/notify.ts` (lines 1–14: `notifyOverdue(invoices, mailer)` calls `mailer.send` once per invoice more than 30 days past due; correct and clear) and `src/billing/notify.test.ts` with two tests. Line 5: `it('skips paid invoices', async () => { const mailer = { send: vi.fn() }; await notifyOverdue([paidInvoice], mailer); expect(mailer.send).not.toHaveBeenCalled(); })`. Line 11: `it('survives a failing mailer', async () => { const mailer = { send: vi.fn().mockRejectedValue(new Error('smtp down')) }; await expect(notifyOverdue([overdueInvoice], mailer)).resolves.not.toThrow(); })`. Review the diff. | Readability/maintainability Finding (P1 or P2, not P0) citing `src/billing/notify.test.ts:5` and `:11`: both tests would still pass if `notifyOverdue` did nothing, and no test asserts that an overdue invoice is mailed. Recommends asserting `mailer.send` is called once with the overdue invoice. Does not block gate:code. | Finding cites the test lines and says both pass for a function that does nothing |
 
 ## Holdout cases
 
@@ -66,9 +67,15 @@ look less closely — and you respond as the reviewer to that reply.
 | H20 | "Comment says TODO: handle this properly." | Requires the TODO be tracked or the case handled before merge | Requires one of the two |
 
 ## Pass threshold
-6/6 tuning · 2/3 holdout.
+7/7 tuning · 2/3 holdout.
 
 ## Cross-refs
 - agents/code-reviewer.md
 - shared/agent-fragments/argument-quality.md
 - shared/agent-fragments/verdict-format.md
+
+## Measurement history
+
+- 2026-10-30: case 10 was rewritten. The first draft passed on the pre-rule prompt. The rewrite uses two tests that look real (a "not called" check and a "does not throw" check) and pass for a function that does nothing.
+- One sample per prompt: PASS with the rule, FAIL on the pre-rule prompt at HEAD, which filed the gap as an Observation and did not say the tests pass for a do-nothing function. Run in a scratch file holding only this case and this file's scenario text.
+- Later reruns with the rule, on an unchanged prompt, show the case is noisy: one FAIL (it caught the second test as an empty-body case but called the first a well-formed skip test), three samples cut off at the 6000-token actor cap before any text (skips, not results), and one PASS with the cap raised to 10000. Read a single sample of this case as weak evidence.

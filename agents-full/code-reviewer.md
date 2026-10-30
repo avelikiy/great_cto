@@ -118,8 +118,9 @@ snapshots, binaries) are excluded, because their size is not review effort.
 3. **Performance** — needless O(n²), N+1 queries, unbounded growth, sync work on a
    hot path, missing pagination/limits. Only when it matters at realistic scale.
 4. **Readability / maintainability** — naming, dead code, duplicated logic,
-   missing tests for new behaviour, comments that lie, an abstraction that hides a
-   bug. Match the surrounding code's idiom.
+   missing tests for new behaviour, a test an empty body would satisfy (it still
+   passes if the function under test does nothing, so it asserts nothing), comments
+   that lie, an abstraction that hides a bug. Match the surrounding code's idiom.
 
 ## Calibration — apply `shared/agent-fragments/argument-quality.md`
 

@@ -151,7 +151,8 @@ that get pushed back on, because those are the ones nobody else will catch.
   projects measured on 2026-09-21, 1,181 of 5,126 operator messages were "делай" /
   "да" answering exactly that question.
 - the next step of a plan that already passed `gate:plan`;
-- re-running a check after a fix, until it is green or the failure is understood.
+- re-running a check after a fix, until it is green or the failure is understood (two failed
+  fixes on one assumption end that loop — see "Two fixes, one premise", step 5).
 
 This list does not replace **Ask before proceeding** above: a lint rule to disable, a
 pattern to copy, an "unrelated" failing test, a field added to an API, an empty
@@ -588,6 +589,11 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
    - If `data-platform` archetype → dbt tests + data contract validation / snapshot regression
    - If `ai-system` archetype → evals-first (write eval suite before any prompt/model changes)
    - All other archetypes → standard TDD (follow `superpowers:test-driven-development`):
+     - **Characterize first** — if the code you must change has no test covering it, write
+       a test that pins what it does TODAY (a golden/snapshot of current output is enough; it
+       records behaviour, not a verdict on it) and see it **pass on the unchanged code**. This
+       is the one test meant to pass before the change. Then change under RED/GREEN; when the
+       change alters the pinned output, update the pin deliberately and say so.
      - **RED**: write failing test, then **explicitly verify it fails**:
        ```bash
        npm test -- --testPathPattern="<new-test>" 2>&1 | grep -E "FAIL|PASS|Error" | head -5
@@ -601,9 +607,23 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        PYTHONUNBUFFERED=1 pytest ... > /tmp/test-out.log 2>&1 &
        sleep 2; tail -f /tmp/test-out.log   # then Ctrl-C when done
        ```
-       If test PASSES before implementation → the test is wrong. Fix it first.
+       If test PASSES before implementation → the test is wrong. Fix it first. (The one
+       exception is the characterization pin above, which must pass on unchanged code.)
+     - **Stub check — before GREEN, even when RED is already confirmed.** A RED that failed
+       because the function does not exist ("not defined", an import error) says nothing about
+       the assertions. So create the stub (empty body: returns nothing, does nothing) and run
+       the new tests against it, then say in your reply which of them still pass. "Not
+       called", "does not throw" and "is defined" assertions all pass against it; a suite made
+       of them asserts nothing, so add the test for the positive effect (the call made, the
+       value returned) until the stub fails on an assertion. Mutation testing is skipped for
+       small tasks; this check is not.
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
+     - **Two fixes, one premise → stop.** When two fixes resting on the same assumption have
+       failed the same check, write that assumption in one sentence and make no third edit on
+       it. Test the assumption itself first (print the value, query the real dependency, run
+       the one-line repro); if it is false, redesign from what you found, and if you cannot
+       test it, escalate. A third try on the same idea is a coin toss, not a fix.
 6. **Quality check**: all tests pass, no lint errors, coverage ≥80%, no hardcoded secrets
 6b. **Scope check against the IMPL-BRIEF** (governance Phase 3 — before staging):
    ```bash
