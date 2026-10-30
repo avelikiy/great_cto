@@ -607,7 +607,8 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        PYTHONUNBUFFERED=1 pytest ... > /tmp/test-out.log 2>&1 &
        sleep 2; tail -f /tmp/test-out.log   # then Ctrl-C when done
        ```
-       If test PASSES before implementation → the test is wrong. Fix it first.
+       If test PASSES before implementation → the test is wrong. Fix it first. (The one
+       exception is the characterization pin above, which must pass on unchanged code.)
      - **Stub check — before GREEN, even when RED is already confirmed.** A RED that failed
        because the function does not exist ("not defined", an import error) says nothing about
        the assertions. So create the stub (empty body: returns nothing, does nothing) and run
