@@ -63,6 +63,26 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.1 — 2026-10-30
+
+The graph guard's first rule now fires at the build step, where skipping the architecture costs something. The auditor's hotspot list works again, and code-reviewer's empty-implementation check, which did not work in 3.75.0, now does in 2 of 3 samples.
+
+### Fixed
+
+- Graph guard, rule 1 (ADR-039): it fires when `senior-dev` or `mobile-app-builder` is dispatched after a product brief with no architecture, not on `design-advisor`. Re-measured over local transcripts: of 84 product-owner → design-advisor dispatches, 61 never reached a build (design reviews, UX audits), 18 reached one without architect. Under `enforce` the old trigger would have denied mostly the reviews; the new one still catches all 18. The enforce decision moves to a clean observe window that starts with this release.
+- project-auditor Phase 4A.0: the size × churn intersection compared `./src/x.ts` with `src/x.ts` and was always empty. Paths are normalised, and each hotspot is now marked `TESTED` (with the test file) or `NO TEST → characterize before change`. Scratch files honour `AUDIT_TMP`; a section that finds nothing no longer makes the scan exit 1.
+- qa-engineer said senior-dev runs the empty-implementation check at RED; it runs before GREEN since 3.75.0.
+- code-reviewer, empty-implementation check: the 3.75.0 one-clause rule did not work — 0 of 3 samples on its eval case, the reviewer filed vacuous tests as an Observation. Rubric item 4 now has a stub pass as its own step: run each new test in your head against a do-nothing stub; a test made only of negative assertions is a P2 Finding citing the line. 2 of 3 samples in agent mode.
+
+### Tests and evals
+
+- The eval-scenario leak check catches paraphrases ("no tests", "stub", "could still pass against") and lets a PIN-code scenario through, with a self-test.
+- The eval rows behind the 3.75.0 measurement history are committed under `tests/eval/runs/2026-10-30-test-discipline/`; its README names the two claims that have no saved row.
+- A process-cleanup test waited 0 ms for a killed worker to leave `ps` and failed 2 of 5 runs; it now waits up to 2 s.
+
+---
+
 ## v3.75.0 — 2026-10-30
 
 Three test-discipline rules for the implementing and reviewing agents, each with an eval case that fails on the previous prompt.

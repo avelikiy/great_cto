@@ -1,9 +1,10 @@
 // ADR-039: the graph guards a dispatch it can prove wrong — observed first.
 //
 // Measured 2026-10-20 (great_cto-1puj.1): after product-owner, sessions went
-// straight to design-advisor and on to senior-dev; in 84 of 93 cases architect
-// never ran — the architecture stage and gate:arch skipped for UI features, in
-// 12 projects, reported by nothing. Rule 1 catches exactly that.
+// straight to design-advisor, and architect did not run — reported by nothing.
+// Re-measured 2026-10-30: 61 of those 84 chains never reached a build (a design
+// review is not a build); 18 reached senior-dev with no architect. Rule 1 guards
+// the build, where the skip costs something.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -35,7 +36,13 @@ test('a build after a brief with no architecture after it violates rule 1', () =
   const r = architectureBeforeBuild({ target: 'senior-dev', po: po('2026-10-20T10:00:00Z'), arch: null });
   assert.equal(r.violated, true);
   assert.match(r.why, /architect/);
-  assert.equal(architectureBeforeBuild({ target: 'design-advisor', po: po('2026-10-20T10:00:00Z'), arch: { ts: '2026-10-19T10:00:00Z' } }).violated, true, 'architecture older than the brief');
+  assert.equal(architectureBeforeBuild({ target: 'mobile-app-builder', po: po('2026-10-20T10:00:00Z'), arch: { ts: '2026-10-19T10:00:00Z' } }).violated, true, 'architecture older than the brief');
+});
+
+test('rule 1: a design pass after a brief is not a build', () => {
+  // 61 of 84 measured product-owner → design-advisor chains were reviews that never built anything.
+  const r = architectureBeforeBuild({ target: 'design-advisor', po: po('2026-10-20T10:00:00Z'), arch: null });
+  assert.equal(r.violated, false);
 });
 
 test('rule 1 holds its exemptions and its scope', () => {
@@ -128,7 +135,7 @@ test('hook, observe: the recorded event says why the call would have been blocke
 
 test('hook, enforce: the skip is denied with the reason and the way out', () => {
   const dir = project({ mode: 'enforce', poLog: BRIEF });
-  const r = run(dir, 'design-advisor');
+  const r = run(dir, 'senior-dev');
   const out = JSON.parse(r.stdout);
   assert.equal(out.hookSpecificOutput.permissionDecision, 'deny');
   assert.match(out.hookSpecificOutput.permissionDecisionReason, /architect/);
@@ -138,7 +145,7 @@ test('hook, enforce: the skip is denied with the reason and the way out', () => 
 
 test('hook, enforce: the denied event carries the same why', () => {
   const dir = project({ mode: 'enforce', poLog: BRIEF });
-  run(dir, 'design-advisor');
+  run(dir, 'senior-dev');
   const e = events(dir).find((x) => x.hook === 'graph-guard');
   assert.equal(e.kind, 'denied');
   assert.equal(e.outcome, 'blocked-architecture-before-build');
@@ -152,6 +159,14 @@ test('hook: the recorded why is a fixed-vocabulary reason — no timestamp, no p
   assert.ok(e.why.length <= 120);
   assert.doesNotMatch(e.why, /2026-10-20/, 'the brief timestamp stays in the verdict log');
   assert.doesNotMatch(e.why, /[\\/]/, 'no path of any kind');
+});
+
+test('hook, enforce: a design review after a brief is allowed and records nothing for rule 1', () => {
+  const dir = project({ mode: 'enforce', poLog: BRIEF });
+  const r = run(dir, 'great-cto:design-advisor');
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /"deny"/);
+  assert.equal(events(dir).filter((x) => x.hook === 'graph-guard' && /architecture-before-build/.test(x.why || '')).length, 0);
 });
 
 test('hook: the graph path is silent', () => {
@@ -194,7 +209,7 @@ test('hook: an unreadable verdict log is allowed and recorded once, with the err
 test('hook, observe: an unreadable log is recorded the same way', () => {
   const dir = project();
   fs.mkdirSync(path.join(dir, '.great_cto', 'verdicts', 'architect.log'));
-  const r = run(dir, 'design-advisor');
+  const r = run(dir, 'senior-dev');
   assert.equal(r.status, 0);
   assert.equal(unreadableEvents(dir).length, 1);
   assert.match(unreadableEvents(dir)[0].why, /architect=EISDIR/);
