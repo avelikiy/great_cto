@@ -7,6 +7,11 @@
 // architect never ran — the architecture stage and gate:arch skipped for UI
 // features in 12 projects, reported by nothing.
 //
+// Re-measured 2026-10-30: 61 of 84 such chains never reached a build at all —
+// design reviews and UX audits, a document and nothing more. 18 went on to
+// senior-dev with no architect. So rule 1 stands at the build, where the skip
+// costs something; a design pass after a brief is allowed (ADR-039, Revision).
+//
 // One rule per measured hole, observed before it is enforced. This module is
 // pure; scripts/hooks/graph-guard.mjs does the reading and writing.
 import { parseVerdictLog } from './verdict-record.mjs';
@@ -14,7 +19,7 @@ import { parseVerdictLog } from './verdict-record.mjs';
 // The success tokens of the two stages, as shared/pipeline.toml declares them.
 const PO_ON = ['APPROVED', 'DONE', 'BRIEF_READY', 'NO_BUILD'];
 const ARCH_ON = ['APPROVED', 'DONE'];
-const BUILD = new Set(['design-advisor', 'senior-dev', 'mobile-app-builder']);
+const BUILD = new Set(['senior-dev', 'mobile-app-builder']);
 const MODES = new Set(['observe', 'enforce', 'off']);
 
 // What goes into an event's `why` is built from rule ids, stage names and error codes only —

@@ -88,7 +88,26 @@ const CASES = [
   { file: 'tests/eval/EVAL-senior-dev-scope-tdd.md', num: '11', about: /applyDiscount/, rule: 'characterization' },
   { file: 'tests/eval/EVAL-code-reviewer-quality.md', num: '10', about: /notifyOverdue/, rule: 'empty body' },
 ];
-const RULE_WORDS = /premise|assumption|assum(e|ed|es)\b|characteri[sz]|\bpin(s|ned)?\b|empty (body|implementation|function)|vacuous|asserts nothing|third (fix|try|attempt|tweak|edit)|no test covers|untested|golden|snapshot/i;
+// The rule's own words and their paraphrases. Bare "pin" is not one: a PIN-code
+// scenario is innocent; "pin the current behaviour" is the rule (review F3).
+const RULE_WORDS = new RegExp([
+  'premise', 'assumption', 'assum(e|ed|es)\\b', 'root cause', 'step back', 'rethink',
+  'third (fix|try|attempt|tweak|edit)',
+  'characteri[sz]', '\\bpin(ned|ning)?\\s+(down\\s+)?(the\\s+|its\\s+)?(current|existing)\\s+behaviou?r', 'pinning test',
+  'golden', 'snapshot', 'untested', 'no test covers', '(no|without|lacks?)\\s+(a\\s+|any\\s+)?tests?\\b', 'not covered',
+  'empty (body|implementation|function)', '\\bstub(bed|s)?\\b', '\\bno-op\\b', 'vacuous', 'asserts nothing',
+  '(would|could) (still )?pass (on|against|with)',
+].join('|'), 'i');
+
+test('the leak check catches paraphrases and lets innocent words through', () => {
+  for (const leak of ['the code has no tests yet', 'it could still pass against a stub', 'a no-op would do',
+    'pin the current behaviour first', 'find the root cause', 'step back and rethink']) {
+    assert.match(leak, RULE_WORDS, leak);
+  }
+  for (const fine of ['the user enters a PIN', 'pins the version in package.json', 'tests pass locally', '`legacy.test.ts`']) {
+    assert.doesNotMatch(fine, RULE_WORDS, fine);
+  }
+});
 
 for (const c of CASES) {
   const parsed = parseEvalFile(read(c.file), c.file);
