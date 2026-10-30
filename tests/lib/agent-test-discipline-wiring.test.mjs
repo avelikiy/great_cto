@@ -30,12 +30,22 @@ test('the premise rule sits where fixes are retried, not in the shared brief eve
     'it follows the RED/GREEN/REFACTOR steps it bounds');
 });
 
-test('the empty-body check is part of the RED step, after "a test that passes first is wrong"', () => {
-  const t = read('agents/senior-dev.md');
-  const red = t.indexOf('**RED**');
-  const green = t.indexOf('**GREEN**');
-  const empty = t.search(/empty body/i);
-  assert.ok(red > 0 && empty > red && empty < green, 'inside the RED bullet');
+// great_cto-6fng: the check lived inside the RED bullet, so a scenario that said "RED is
+// confirmed, proceed to GREEN" skipped it — the agent read RED as finished. It is its own
+// step between RED and GREEN, and says why a confirmed RED does not discharge it.
+test('the stub check is its own step between RED and GREEN, and a confirmed RED does not skip it', () => {
+  for (const file of ['agents/senior-dev.md', 'agents-full/senior-dev.md']) {
+    const t = read(file);
+    const red = t.indexOf('**RED**');
+    const green = t.indexOf('**GREEN**');
+    const check = t.indexOf('**Stub check');
+    assert.ok(red > 0 && check > red && check < green, `${file}: a bullet of its own between RED and GREEN`);
+    const bullet = t.slice(check, green);
+    assert.match(bullet, /even when RED is already confirmed/i, `${file}: applies after RED as well`);
+    assert.match(bullet, /does not exist/i, `${file}: says why a missing-function RED proves nothing`);
+    assert.match(bullet, /empty body/i, `${file}: names the stub`);
+    assert.match(bullet, /does\s+not throw/i, `${file}: names the assertions that survive it`);
+  }
 });
 
 test('the characterization pin comes before RED', () => {

@@ -78,3 +78,4 @@ look less closely — and you respond as the reviewer to that reply.
 
 - 2026-10-30: case 10 was rewritten. The first draft passed on the pre-rule prompt. The rewrite uses two tests that look real (a "not called" check and a "does not throw" check) and pass for a function that does nothing.
 - One sample per prompt: PASS with the rule, FAIL on the pre-rule prompt at HEAD, which filed the gap as an Observation and did not say the tests pass for a do-nothing function. Run in a scratch file holding only this case and this file's scenario text.
+- Later reruns with the rule, on an unchanged prompt, show the case is noisy: one FAIL (it caught the second test as an empty-body case but called the first a well-formed skip test), three samples cut off at the 6000-token actor cap before any text (skips, not results), and one PASS with the cap raised to 10000. Read a single sample of this case as weak evidence.
