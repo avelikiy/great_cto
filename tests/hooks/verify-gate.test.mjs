@@ -93,6 +93,30 @@ test('rework is not a pass: the stage goes back to its agent with the findings, 
   assert.doesNotMatch(r.text, /PIPELINE-NEXT|spawn Agent\(subagent_type: pm\)/);
 });
 
+// great_cto-1zu7: the grade and what would bring it to 100 travel with the stage,
+// on a send-back and on a pass alike. A score written before the grade existed
+// carries none, and must read as it always did — not as quality 0.
+test('the 0–100 quality grade and its recommendations travel with rework and with a pass', () => {
+  const root = project();
+  writeScore(root, {
+    agent: 'architect', runTs: TS, name: 'independent-verify', state: 'rework', scorer: 'mechanical+judge',
+    comment: 'judgement: 1 not met',
+    meta: { quality: 66, checks: '2/3', recommendations: ['Implement “The ARCH doc names a data model” — the judge found no implementation in what it read.'] },
+  });
+  const r = decide(root, verdict());
+  assert.equal(r.kind, 'rework');
+  assert.match(r.text, /Quality 66\/100 — to reach 100: Implement “The ARCH doc names a data model”/);
+
+  const ok = project();
+  writeScore(ok, { agent: 'architect', runTs: TS, name: 'independent-verify', state: 'verified', scorer: 'mechanical+judge',
+                   meta: { quality: 100, checks: '3/3' } });
+  assert.match(decide(ok, verdict()).text, /VERIFIED: .*Quality 100\/100\./);
+
+  const old = project();
+  score(old, TS, 'verified');
+  assert.doesNotMatch(decide(old, verdict()).text, /Quality/, 'a pre-grade score is not a zero');
+});
+
 test('rework past the ceiling becomes a decision for the CTO', () => {
   const root = project();
   score(root, '2026-08-26T18:00:00Z', 'rework');

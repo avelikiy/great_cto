@@ -436,3 +436,156 @@ test('with no receipt there are no changed files to settle a test count against'
   const v = withFiles([]); delete v.receipt;
   assert.ok(!asksAboutTests(claimsAsRequirements(v)));
 });
+
+// ── quality 0–100 and the recommendations that close the gap (great_cto-1zu7) ──
+//
+// The owner's ask: the judge of task implementation gives a 0–100 score and,
+// below 100, says what to improve. The score is counted from checks, never asked
+// of a model — so each case below has its number known before the run.
+
+import { assessQuality } from '../../scripts/lib/independent-verify.mjs';
+
+const TWO = ['# B', '## ACCEPTANCE',
+  '- [ ] The endpoint rate-limits by IP',
+  '- [ ] Rejections are written to the audit log'].join('\n');
+
+test('quality: work that meets every requirement scores 100 and carries no recommendation', async () => {
+  const root = project({ brief: TWO });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => 'yes' });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 100);
+  assert.deepEqual(r.recommendations, []);
+  assert.match(r.conclusion, /quality: 100\/100 — 3 of 3 check\(s\) passed/);
+  assert.doesNotMatch(r.conclusion, /To reach 100/);
+});
+
+test('quality: one unmet requirement of two costs its share, and the recommendation names it', async () => {
+  const root = project({ brief: TWO });
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: stubJudge({ 'audit log': 'no', 'rate-limits': 'yes' }),
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.equal(r.quality, 66, 'artefact + one requirement of three checks: floor(200/3)');
+  assert.equal(r.recommendations.length, 1);
+  assert.match(r.recommendations[0], /^Address “Rejections are written to the audit log”/);
+  assert.match(r.conclusion, /To reach 100\/100:\n  - Address/);
+});
+
+test('quality: a short-circuit does not raise the score — what it left unrun counts against it', async () => {
+  const root = project({ brief: TWO });
+  let asked = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md', design: 'docs/impl-briefs/MISSING.md' }), root,
+    ask: async () => { asked += 1; return 'yes'; },
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.equal(asked, 0, 'still no model call after a missing file');
+  // 1 of 2 artefacts present, 2 requirements never asked: 1 of 4, not 1 of 2.
+  assert.equal(r.quality, 25);
+  assert.equal(r.counted, 4);
+  assert.match(r.recommendations.join(' '), /MISSING\.md/);
+  assert.match(r.recommendations.at(-1), /verify again — 2 check\(s\) did not run/);
+});
+
+test('quality: unverifiable is not scored at all — null, never 0 — and says how to become checkable', async () => {
+  const root = project();
+  const r = await verifyAgentOutput({ verdict: verdictFor({ task: 'great_cto-1' }), root });
+  assert.equal(r.state, STATE.UNVERIFIABLE);
+  assert.equal(r.quality, null);
+  assert.match(r.recommendations.join(' '), /Name what the stage produced/);
+  assert.match(r.conclusion, /quality: not assessed/);
+  assert.match(r.conclusion, /To make this stage checkable:/);
+});
+
+test('quality: a pass the judge split on is 99, not 100 — there is still something to show', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  let n = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: async () => (n++ % 3 === 2 ? 'no' : 'yes'),
+  });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 99);
+  assert.match(r.recommendations[0], /passed it only 2 yes \/ 1 no/);
+});
+
+test('quality: without a judge, the requirements nobody asked keep the score from 100', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root });
+  assert.equal(r.state, STATE.VERIFIED, 'the file exists — layers 1–2 pass');
+  assert.equal(r.quality, 50, 'but only the file was checked, not the requirement');
+  assert.match(r.recommendations[0], /Run verification with a judge — 1 requirement/);
+});
+
+test('quality: floor, not round — 199 of 200 is 99', () => {
+  const q = assessQuality({
+    state: STATE.REWORK,
+    checks: [{ layer: 'artefacts', status: 'fail', checked: 200, missing: ['x=a.md (absent)'] }],
+  });
+  assert.equal(q.quality, 99);
+  assert.equal(q.counted, 200);
+});
+
+test('quality: 100 exactly when there is nothing to recommend', () => {
+  const cases = [
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 2, missing: [] }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 1, missing: [] },
+      { layer: 'judgement', status: 'pass', answers: [{ requirement: 'R', answer: 'yes', split: '2 yes / 1 no' }],
+        abstained: 0, skipped: 0, excerpt: { truncated: false } }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 1, missing: [] },
+      { layer: 'judgement', status: 'pass', answers: [{ requirement: 'R', answer: 'yes' }], abstained: 0, skipped: 0,
+        excerpt: { truncated: true, shownBytes: 10, totalBytes: 20, path: 'a.md', files: null, totalFiles: null } }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'acceptance', status: 'pass', passed: 3, failed: [] }], pending: { judgement: 1 } },
+  ];
+  for (const c of cases) {
+    const q = assessQuality(c);
+    assert.equal(q.quality === 100, q.recommendations.length === 0, JSON.stringify({ c, q }));
+  }
+});
+
+// Review findings on great_cto-1zu7, each pinned with the input that showed it.
+
+test('quality F1: a yes that two of three samples could not answer is not 100', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const said = ['yes', 'maybe', 'hmm'];
+  let n = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => said[n++ % 3],
+  });
+  assert.equal(r.state, STATE.VERIFIED, 'the gate outcome is unchanged — only the grade');
+  assert.ok(r.quality < 100, `got ${r.quality}`);
+  assert.match(r.recommendations.join(' '), /said yes on 1 of 3 samples/);
+});
+
+test('quality F2: files present but no criterion at all is 99, with the criterion to add', async () => {
+  const root = project({ brief: '# A\n\nprose, no acceptance section\n' });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ arch: 'docs/impl-briefs/B.md' }), root, ask: async () => 'yes' });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 99);
+  assert.match(r.recommendations[0], /Freeze `## ACCEPTANCE`/);
+});
+
+test('quality F3/F4: a deleted file is not a cut, a receipt the writer cut is', async () => {
+  const root = project();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/a.mjs'), 'export const a = 1;\n');
+  const files = { 'src/a.mjs': 'h1', 'src/gone.mjs': 'h2' };
+  const deleted = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files } }, root, ask: async () => 'yes',
+  });
+  assert.equal(deleted.quality, 100, 'the judge read every file there was to read');
+  const cut = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files, truncated: true } }, root, ask: async () => 'yes',
+  });
+  assert.equal(cut.quality, 99);
+  assert.match(cut.recommendations.join(' '), /receipt itself was cut/);
+});
+
+test('quality F5: the invariant holds the other way — a recommendation means below 100', () => {
+  const q = assessQuality({ state: STATE.REWORK,
+    checks: [{ layer: 'artefacts', status: 'fail', checked: 2, missing: ['x=a.md (absent)'] }] });
+  assert.equal(q.quality, 50);
+  assert.equal(q.recommendations.length, 1);
+  assert.notEqual(q.quality === 100, q.recommendations.length > 0);
+});

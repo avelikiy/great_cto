@@ -258,13 +258,14 @@ export function checkClaimedArtifacts(verdict, { root = process.cwd() } = {}) {
     return {
       status: 'fail',
       detail: explainArtifacts(r) || 'claimed artefacts do not back the verdict',
+      checked: r.checked.length,
       missing: [
         ...r.missing.map((m) => `${m.key}=${m.path} (absent)`),
         ...r.thin.map((t) => `${t.key}=${t.path} (${t.size}B — under ${THIN_BYTES})`),
       ],
     };
   }
-  return { status: 'pass', detail: `${r.checked.length} claimed artefact(s) exist with content`, missing: [] };
+  return { status: 'pass', detail: `${r.checked.length} claimed artefact(s) exist with content`, checked: r.checked.length, missing: [] };
 }
 
 // ── layer 2: frozen acceptance criteria ──────────────────────────────────────
@@ -311,6 +312,7 @@ export function checkAcceptance(verdict, { root = process.cwd(), timeoutMs = 120
       status: 'fail',
       detail: `${s.failed} of ${s.total} acceptance criteria failed in ${path.relative(root, doc)}`,
       failed,
+      passed: s.verified,
       unverifiable: s.unverifiable,
     };
   }
@@ -327,6 +329,7 @@ export function checkAcceptance(verdict, { root = process.cwd(), timeoutMs = 120
     detail: `${s.verified} of ${s.total} acceptance criteria verified in ${path.relative(root, doc)}` +
       (s.unverifiable ? ` (${s.unverifiable} manual)` : ''),
     failed: [],
+    passed: s.verified,
     unverifiable: s.unverifiable,
   };
 }
@@ -396,7 +399,11 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
   return {
     path: `${shown.length} changed file(s)`,
     text,
-    truncated: truncated || paths.length > shown.length,
+    // A cut, not an absence: a file the change deleted is not on disk and there
+    // is nothing of it to read. What counts is what the cap or the receipt's own
+    // writer (receipt.mjs MAX_FILES) left out.
+    truncated: truncated || paths.length > maxFiles || verdict.receipt.truncated === true,
+    receiptTruncated: verdict.receipt.truncated === true,
     shownBytes: text.length,
     totalBytes: text.length,
     files: shown,
@@ -670,6 +677,9 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (skipped ? `, ${skipped} NOT judged (over the ${max} cap)` : '') +
       (excerpt.truncated ? ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''),
     answers, unmet, unresolved, abstained, skipped,
+    excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes,
+               totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null,
+               receiptTruncated: !!excerpt.receiptTruncated },
   };
 }
 
@@ -686,29 +696,38 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
   const checks = [];
   const findings = [];
 
+  // What a short-circuit left unchecked, counted without running it — the quality
+  // score must not rise because a failure stopped the run before the rest was read.
+  const pending = (fromAcceptance) => ({
+    acceptance: fromAcceptance ? runnableAcceptanceCount(verdict, { root }) : 0,
+    judgement: pendingJudgeCount(verdict, { root }),
+  });
+
   const art = checkClaimedArtifacts(verdict, { root });
   checks.push({ layer: 'artefacts', ...art });
   if (art.status === 'fail') {
     findings.push(...art.missing.map((m) => `claimed artefact is missing or empty: ${m}`));
-    return conclude(STATE.REWORK, checks, findings, verdict);
+    return conclude(STATE.REWORK, checks, findings, verdict, pending(true));
   }
 
   const req = checkRequiredClaim(verdict, { root });
   checks.push({ layer: 'required artefact', ...req });
   if (req.status === 'fail') {
     findings.push(req.detail);
-    return conclude(STATE.REWORK, checks, findings, verdict);
+    return conclude(STATE.REWORK, checks, findings, verdict, pending(true));
   }
 
   const acc = checkAcceptance(verdict, { root });
   checks.push({ layer: 'acceptance', ...acc });
   if (acc.status === 'fail') {
     findings.push(...acc.failed.map((f) => `acceptance criterion failed: ${f}`));
-    return conclude(STATE.REWORK, checks, findings, verdict);
+    return conclude(STATE.REWORK, checks, findings, verdict, pending(false));
   }
 
+  let unjudged = { acceptance: 0, judgement: 0 };
   if (!ask) {
     checks.push({ layer: 'judgement', status: 'none', detail: 'no judge configured — layers 1–2 only' });
+    unjudged = pending(false);
   } else {
     const j = await judge(verdict, ask, { root, second });
     checks.push({ layer: 'judgement', ...j });
@@ -741,29 +760,182 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
   if (judgement && judgement.answers?.length && judgement.abstained === judgement.answers.length) {
     findings.push(`the judge could not answer any of the ${judgement.answers.length} requirement(s) — ` +
                   'nothing about the substance of this stage has been checked');
-    return conclude(STATE.UNVERIFIABLE, checks, findings, verdict);
+    return conclude(STATE.UNVERIFIABLE, checks, findings, verdict, unjudged);
   }
 
   const ran = checks.filter((c) => c.status === 'pass');
   if (!ran.length) {
     findings.push('nothing about this stage could be checked: no artefact claims, ' +
                   'no runnable acceptance criteria, and no requirement a judge could read');
-    return conclude(STATE.UNVERIFIABLE, checks, findings, verdict);
+    return conclude(STATE.UNVERIFIABLE, checks, findings, verdict, unjudged);
   }
-  return conclude(STATE.VERIFIED, checks, findings, verdict);
+  return conclude(STATE.VERIFIED, checks, findings, verdict, unjudged);
 }
 
-function conclude(state, checks, findings, verdict) {
+// ── quality, 0–100 ───────────────────────────────────────────────────────────
+
+/** Acceptance criteria with a `verify:` command, counted without running them. */
+export function runnableAcceptanceCount(verdict, { root = process.cwd() } = {}) {
+  const doc = findAcceptanceDoc(verdict, { root });
+  if (!doc) return 0;
+  try { return parseAcceptance(readFileSync(doc, 'utf8')).filter((i) => i.verify).length; } catch { return 0; }
+}
+
+/** Requirements a judge would be asked, counted without asking — zero when there
+ *  is nothing for it to read, because then the judge would not run either. */
+export function pendingJudgeCount(verdict, { root = process.cwd() } = {}) {
+  const { requirements } = judgeableRequirements(verdict, { root });
+  if (!requirements.length) return 0;
+  return (artefactExcerpt(verdict, { root }) || changedFilesExcerpt(verdict, { root })) ? requirements.length : 0;
+}
+
+/**
+ * How well the task was done, 0–100, and what would bring it to 100.
+ *
+ * The owner asked for a number and for "what to improve when it is not 100". The
+ * number is NOT a model's overall impression. A judge asked "how good is this,
+ * 0–100" grades how plausible the work reads, which is the failure this module
+ * was built to avoid, and the same work would score differently on every run.
+ *
+ * So the score is counted: every check this verification ran, or would have run,
+ * is one unit of equal weight —
+ *
+ *   artefacts    each claimed file present with content
+ *   contract     the stage's required output declared
+ *   acceptance   each frozen criterion whose `verify:` command passed
+ *   judgement    each requirement the judge answered `yes` (by majority)
+ *
+ * and quality = floor(100 × passed / counted). An abstention counts and does not
+ * pass. A check a short-circuit or a missing judge left unrun counts and does not
+ * pass: a failure that stops the run early must not RAISE the score by hiding the
+ * rest. Floor, not round — 199 of 200 is 99, never 100.
+ *
+ * 100 means one thing: nothing left to improve or to check. So the invariant is
+ * `quality === 100` exactly when `recommendations` is empty, and a verified run
+ * that still carries one (a judge split on a passed requirement, evidence the
+ * judge saw only in part) is capped at 99.
+ *
+ * `unverifiable` scores null, not 0, for the reason scores.mjs gives: zero means
+ * "assessed, and badly", and nothing was assessed. Its recommendations say what
+ * would make the stage checkable.
+ *
+ * @returns {{quality:number|null, passed:number, counted:number, recommendations:string[]}}
+ */
+export function assessQuality({ state, checks = [], pending = {} }) {
+  const recs = [];
+  let passed = 0, counted = 0;
+  const by = (layer) => checks.find((c) => c.layer === layer);
+
+  const art = by('artefacts');
+  if (art && art.status !== 'none') {
+    const bad = art.missing?.length || 0;
+    const n = Math.max(art.checked ?? 0, bad);
+    passed += n - bad; counted += n;
+    for (const m of art.missing || []) recs.push(`Produce the artefact the verdict claims: ${m}.`);
+  }
+
+  const req = by('required artefact');
+  if (req && req.status !== 'none') {
+    counted += 1;
+    if (req.status === 'pass') passed += 1;
+    else recs.push(`Record the output the stage contract requires — ${req.detail}.`);
+  }
+
+  const acc = by('acceptance');
+  if (acc && acc.status !== 'none') {
+    const failed = acc.failed?.length || 0;
+    passed += acc.passed || 0; counted += (acc.passed || 0) + failed;
+    for (const f of acc.failed || []) recs.push(`Make this acceptance criterion pass: ${f}.`);
+  }
+
+  const j = by('judgement');
+  for (const a of j?.answers || []) {
+    counted += 1;
+    if (a.answer === 'yes') {
+      passed += 1;
+      const t = a.tally || {};
+      const silent = Object.entries(t).filter(([k]) => k !== 'yes' && k !== 'no').reduce((n, [, v]) => n + v, 0);
+      if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
+      else if (silent) {
+        recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge said yes on ${t.yes || 0} ` +
+                  `of ${(t.yes || 0) + (t.no || 0) + silent} samples and could not answer on the rest.`);
+      }
+    } else if (a.unresolvedSplit) {
+      recs.push(`Make “${a.requirement}” decidable — the judge split ${a.split} and a second model did not settle it; ` +
+                'show the implementation plainly or reword the criterion.');
+    } else if (a.answer === 'no') {
+      recs.push(`Address “${a.requirement}” — the judge found nothing that implements it in what it read` +
+                (a.diverged ? ' (a second model disagreed: worth a human look before rework).' : '.'));
+    } else {
+      recs.push(`State concretely how “${a.requirement}” is met — the judge could not answer either way.`);
+    }
+  }
+  if (j?.skipped) {
+    counted += j.skipped;
+    recs.push(`Split the stage or trim its criteria — ${j.skipped} requirement(s) were not judged (over the ${MAX_JUDGED} cap).`);
+  }
+  if (j?.excerpt?.truncated) {
+    const seen = j.excerpt.totalFiles != null
+      ? `${j.excerpt.files} of ${j.excerpt.totalFiles} changed file(s), ${j.excerpt.shownBytes} bytes`
+      : `${j.excerpt.shownBytes} of ${j.excerpt.totalBytes} bytes of ${j.excerpt.path}`;
+    recs.push(`Split the change so the judge reads all of it — it saw ${seen}` +
+              (j.excerpt.receiptTruncated ? ', and the receipt itself was cut before the change ended.' : '.'));
+  }
+
+  const unrun = (pending.acceptance || 0) + (pending.judgement || 0);
+  if (unrun && state !== STATE.UNVERIFIABLE) {
+    counted += unrun;
+    recs.push(state === STATE.REWORK
+      ? `After the fixes above, verify again — ${unrun} check(s) did not run because an earlier one failed.`
+      : `Run verification with a judge — ${unrun} requirement(s) were never asked (layers 1–2 only).`);
+  }
+
+  if (state === STATE.UNVERIFIABLE) {
+    if (art?.status === 'none') recs.push('Name what the stage produced in its verdict (`key=<path>`), so there is something to check.');
+    if (acc?.status === 'none') recs.push('Freeze `## ACCEPTANCE` criteria in the document the verdict names — with `verify:` commands where a command can settle them.');
+    if (j?.answers?.length && j.abstained === j.answers.length) {
+      recs.push('Write the artefact so each requirement can be answered from it — the judge could not answer any of them.');
+    } else if (!j?.answers?.length && unrun) {
+      recs.push(`Run verification with a judge — ${unrun} requirement(s) were never asked.`);
+    }
+    return { quality: null, passed, counted, recommendations: recs };
+  }
+
+  // Files on disk and a contract met, but no criterion at all: nothing said what
+  // the work was FOR, so nothing confirmed it does it. Not a failure — not 100.
+  if (state === STATE.VERIFIED && acc?.status === 'none' && !j?.answers?.length && !unrun) {
+    recs.push('Freeze `## ACCEPTANCE` criteria for this stage — the files exist, but nothing states what they must do, so nothing checked it.');
+  }
+
+  let quality = counted ? Math.floor((100 * passed) / counted) : null;
+  if (quality === 100 && recs.length) quality = 99;
+  if (quality !== null && quality < 100 && !recs.length) {
+    // Unreachable by construction; said rather than shipped as a silent 9x.
+    recs.push('Quality is below 100 with no named cause — report this as a verifier bug.');
+  }
+  return { quality, passed, counted, recommendations: recs };
+}
+
+function conclude(state, checks, findings, verdict, pending = {}) {
+  const q = assessQuality({ state, checks, pending });
   const lines = [
     `independent-verify: ${state.toUpperCase()} for ${verdict?.agent || '(unknown agent)'}` +
       (verdict?.verdict ? ` (self-reported ${verdict.verdict})` : ''),
+    q.quality === null
+      ? '  quality: not assessed — nothing could be checked, so there is no number to give'
+      : `  quality: ${q.quality}/100 — ${q.passed} of ${q.counted} check(s) passed`,
   ];
   for (const c of checks) lines.push(`  ${symbol(c.status)} ${c.layer}: ${c.detail}`);
   if (findings.length) {
     lines.push('', 'Send back to the agent:');
     for (const f of findings) lines.push(`  - ${f}`);
   }
-  return { state, checks, findings, conclusion: lines.join('\n') };
+  if (q.recommendations.length) {
+    lines.push('', q.quality === null ? 'To make this stage checkable:' : 'To reach 100/100:');
+    for (const r of q.recommendations) lines.push(`  - ${r}`);
+  }
+  return { state, checks, findings, quality: q.quality, passed: q.passed, counted: q.counted,
+           recommendations: q.recommendations, conclusion: lines.join('\n') };
 }
 
 const symbol = (s) => (s === 'pass' ? '✓' : s === 'fail' ? '✗' : '·');
@@ -853,6 +1025,10 @@ if (import.meta.url === `file://${process.argv[1]}`) {
         scorer: ask ? 'mechanical+judge' : 'mechanical',
         findings: r.findings,
         comment: (r.checks || []).map((c) => `${c.layer}: ${c.detail}`).join(' | ').slice(0, 500),
+        // Beside `value`, not instead of it: `value` stays the 1/0/null state that
+        // summarizeScores averages, and a 0–100 grade must not change that rate.
+        meta: { quality: r.quality, checks: `${r.passed}/${r.counted}`,
+                ...(r.recommendations.length ? { recommendations: r.recommendations } : {}) },
       });
     } catch (e) {
       // Recording must not change the outcome. A store that cannot be written

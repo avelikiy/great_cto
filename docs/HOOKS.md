@@ -11,6 +11,7 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `PreToolUse` | `Bash` | `destructive-guard.mjs` | Refuses what cannot be undone: `rm -r` of `/`, system dirs, home, the project or above, `.git`; force push (lease allowed on feature branches), any force/delete on main/release; DROP/TRUNCATE to a DB client; `dd of=/dev/…`, `mkfs`; `curl \| sh` |
 | `PreToolUse` | `Bash` | `shared-tree-guard.mjs` | Refuses `git stash`, `checkout -- <path>`, `restore <path>`, `reset --hard`, `clean -f` — they destroy other sessions' uncommitted work in a shared tree |
 | `PreToolUse` | `Bash` | `gate-bypass-guard.mjs` | Refuses skipping the git hooks: `--no-verify`, `commit -n`, `-c core.hooksPath=`, setting `core.hooksPath`, `HUSKY=0`, `SKIP=` |
+| `PreToolUse` | `Read\|Grep`, `Bash` | `secret-read-guard.mjs` | Refuses printing a secret file into the transcript: `Read .env`, `cat ~/.great_cto/secrets.env`, `head id_ed25519`, a Grep glob of `.env*`; `source .env` and `grep -q KEY .env` pass |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `gate-weakening-guard.mjs` | Refuses an edit that adds a test skip, a CI allow-failure, a lint/type suppression (`@ts-ignore`, `eslint-disable`, `noqa`, `#[allow(`…) or a weakened tsconfig/ESLint/Python-lint config |
 | `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` + `docs-reference-sync.mjs` + `typecheck-accumulate.mjs` | Logs writes to `.great_cto/agent-writes.log` + auto-formats by extension + regenerates `docs/reference/` + notes edited TS/Python files for the Stop typecheck |
@@ -71,6 +72,22 @@ const TOK = "ghp_realToken...";  // intentional, e.g. tutorial code
 ```
 
 See **ADR-014** for the full pattern catalogue.
+
+### `secret-read-guard.mjs`
+
+secret-scan stops a key being written into a file; nothing stopped one being read. What a
+tool prints is the transcript — stored, sent to the model provider, carried into later
+sessions — so a secret printed once is spent, and revoking it is the only fix.
+
+| Refused | Passes |
+|---|---|
+| `Read` of `.env`, `.env.*`, `.envrc`, `secrets.env`, `*.pem`, `*.key`, `id_rsa`/`id_ed25519`/… | `.env.example` / `.sample` / `.template`, `*.pub` |
+| `Grep` whose `path` is such a file, or whose `glob` selects one (`.env*`, `*.pem`) | `Grep` over a directory |
+| `cat`, `head`, `tail`, `less`, `sed`, `awk`, `grep`, `base64`, `xxd`, `diff`, … given one, also `< file` and inside `bash -c`/`$(…)` | `source .env`, `set -a; . .env; set +a`, `grep -q`/`-c`/`-l`, `cp`, `sed -i`, `cat .env.example > .env` |
+
+Runs for Bash inside `bash-guards.mjs`, so Codex shell calls get it too. Bypass: a signed
+`secret-read` exception, or `GREAT_CTO_DISABLE_SECRET_READ_GUARD=1`. Not covered: a Grep over
+a directory (ripgrep skips hidden files, so `.env` is not searched, but a `.pem` in the tree can be).
 
 ### `destructive-guard.mjs`
 
