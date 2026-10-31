@@ -114,6 +114,19 @@ export const MAX_REWORK = 3;
  * refusal to dispatch. A broken checker halting every transition is a worse
  * outage than the defect it looks for.
  */
+/**
+ * The verifier's 0–100 grade and what would bring it to 100, as directive text.
+ * Empty for a score written before the grade existed, so an old record reads as
+ * it did rather than as a zero.
+ */
+export function qualityNote(score) {
+  const q = score?.meta?.quality;
+  if (typeof q !== 'number') return '';
+  const recs = Array.isArray(score.meta.recommendations) ? score.meta.recommendations : [];
+  if (q === 100 || !recs.length) return ` Quality ${q}/100.`;
+  return ` Quality ${q}/100 — to reach 100: ${recs.join(' ').slice(0, 600)}`;
+}
+
 function latestScoreFor(cwd, agent, runTs) {
   try {
     const latestScore = _latestScore;
@@ -744,13 +757,14 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       ? score.findings.map((f) => (typeof f === 'string' ? f : (f?.text || f?.detail || f?.why || ''))).filter(Boolean)
       : [];
     const findings = [...listed, score.comment].filter(Boolean).join(' | ').slice(0, 800);
+    const graded = qualityNote(score);
     const downstream = (skip.nexts || []).join(', ') || 'the next stage';
     if (passes >= MAX_REWORK) {
       return {
         kind: 'blocked',
         text: `PIPELINE-STOP: independent verification has recorded rework for ${agent} ${passes} times. `
           + `That is the ceiling — this is now a decision, not another pass. `
-          + `Show the CTO the verifier's findings${findings ? `: ${findings}` : ''}. `
+          + `Show the CTO the verifier's findings${findings ? `: ${findings}` : ''}.${graded} `
           + `Also check that the judged change named the files ${agent} actually changed: a receipt measured from the wrong base shows the judge none of the code.`,
       };
     }
@@ -758,7 +772,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
       kind: 'rework',
       text: `PIPELINE-REWORK: independent verification recorded rework for ${agent} (pass ${passes} of ${MAX_REWORK}). `
         + `Re-spawn ${agent} with the verifier's findings quoted verbatim and require it to address each one`
-        + `${findings ? `: ${findings}` : '.'} `
+        + `${findings ? `: ${findings}` : '.'}${graded} `
         + `Do NOT spawn ${downstream} — that work would rest on a stage that did not pass verification.`,
     };
   }
@@ -773,7 +787,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   // directive that reports the wrong cause is worse than one that reports none,
   // because it sends the reader somewhere confidently.
   const verifyNote = score
-    ? ` VERIFIED: independent-verify recorded \`${score.state}\` for this run (${score.scorer}).`
+    ? ` VERIFIED: independent-verify recorded \`${score.state}\` for this run (${score.scorer}).${qualityNote(score)}`
     : !requireVerify
       ? ` NOT VERIFIED: the check is switched off (GREAT_CTO_REQUIRE_VERIFY=0); nothing has judged this stage.`
       : ` NOT VERIFIED: the check could not run — no project directory was resolved, so there was nowhere to look for a score. This is not a pass.`;
