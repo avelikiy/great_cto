@@ -397,17 +397,24 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
   const paths = Object.keys(files);
   if (!paths.length) return null;
   const base = verdict.receipt.base || null;
+  // `base:path` is relative to the repository's top, receipt keys to the project
+  // root. When the root is a subdirectory the two disagree and a diff would pair
+  // a new file with an unrelated one of the same name — so no base diff there.
+  const prefix = base ? (git(['rev-parse', '--show-prefix'], root)?.trim() ?? null) : null;
 
   const pieces = [];
   for (const rel of paths.slice(0, maxFiles)) {
-    const piece = changeOf(rel, files[rel], base, { root, git });
+    if (!insideRoot(root, rel)) continue; // receipt keys are agent-written; the judge is a remote model
+    const piece = changeOf(rel, files[rel], prefix === '' ? base : null, { root, git });
     if (piece) pieces.push(piece);
   }
   if (!pieces.length) return null;
 
+  const header = (p) => `\n----- ${p.rel} (${p.kind}) -----\n`;
   // Equal shares of what is left, smallest first: a short file takes only what
-  // it needs and leaves the rest to the files after it.
-  let left = bytes, cut = false;
+  // it needs and leaves the rest to the files after it. Headers come off the top.
+  const CUT_NOTE = 48; // room for "[… cut: N of M bytes shown]" on any file that needs it
+  let left = Math.max(0, bytes - pieces.reduce((n, p) => n + header(p).length + 1 + CUT_NOTE, 0)), cut = false;
   const order = pieces.map((p, i) => i).sort((a, b) => pieces[a].body.length - pieces[b].body.length);
   order.forEach((i, k) => {
     const share = Math.floor(left / (order.length - k));
@@ -417,7 +424,7 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
     left -= pieces[i].shown.length;
   });
 
-  const text = pieces.map((p) => `\n----- ${p.rel} (${p.kind}${p.shown.length < p.body.length ? `, first ${p.shown.length} of ${p.body.length} bytes` : ''}) -----\n${p.shown}\n`).join('');
+  const text = pieces.map((p) => `${header(p)}${p.shown}${p.shown.length < p.body.length ? `\n[… cut: ${p.shown.length} of ${p.body.length} bytes shown]` : ''}\n`).join('');
   return {
     path: `${pieces.length} changed file(s)`,
     change: true,
@@ -427,6 +434,8 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
     // writer (receipt.mjs MAX_FILES) left out.
     truncated: cut || paths.length > maxFiles || verdict.receipt.truncated === true,
     receiptTruncated: verdict.receipt.truncated === true,
+    // Files left out by count, as opposed to files that were shown cut short.
+    droppedByCount: paths.length > maxFiles,
     shownBytes: pieces.reduce((n, p) => n + p.shown.length, 0),
     totalBytes: pieces.reduce((n, p) => n + p.body.length, 0),
     files: pieces.map((p) => p.rel),
@@ -442,12 +451,18 @@ function gitText(args, cwd) {
 
 const OID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
+/** A relative path that stays under root — what a receipt key must be. */
+function insideRoot(root, rel) {
+  if (path.isAbsolute(rel)) return false;
+  const r = path.relative(root, path.resolve(root, rel));
+  return r !== '' && !r.startsWith('..') && !path.isAbsolute(r);
+}
+
 /** One file's part of the evidence: what changed, and which source said so. */
 function changeOf(rel, blob, base, { root, git }) {
   const recorded = OID.test(String(blob)) && git(['cat-file', '-e', `${blob}^{blob}`], root) !== null ? blob : null;
   const before = base ? git(['rev-parse', '--verify', '--quiet', `${base}:${rel}`], root)?.trim() || null : null;
-  if (recorded && before) {
-    if (before === recorded) return null; // unchanged against base — nothing to judge in it
+  if (recorded && before && before !== recorded) {
     const diff = git(['diff', '--no-color', '--no-ext-diff', '-U8', before, recorded], root);
     if (diff !== null) return { rel, kind: 'diff against base', body: diff };
   }
@@ -513,10 +528,15 @@ export function claimsAsRequirements(verdict) {
   return out;
 }
 
+const within = (abs, dir) => { const r = path.relative(path.resolve(dir), path.resolve(abs)); return r !== '' && !r.startsWith('..') && !path.isAbsolute(r); };
+
 /** The artefact text the judge reads, and whether it was cut. */
 export function artefactExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES } = {}) {
   for (const { path: v } of pathClaims(verdict?.meta || {})) {
     const abs = resolveClaimPath(root, v);
+    // The judge is a remote model. A claim is agent-written, so what it may hand
+    // over is bounded: the project, or great_cto's own state under the home.
+    if (!within(abs, root) && !within(abs, path.join(process.env.HOME || '', '.great_cto'))) continue;
     if (!existsSync(abs)) continue;
     let text;
     try { text = readFileSync(abs, 'utf8'); } catch { continue; }
@@ -547,7 +567,7 @@ function questionFor(req, excerpt) {
   return `Judge one requirement against one artefact. Answer only about what the artefact contains.\n\n` +
       `REQUIREMENT:\n${req}\n\n` +
       `ARTEFACT (${excerpt.path}${excerpt.truncated ? `, first ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''}):\n` +
-      (excerpt.change ? `The artefact is the change itself: a unified diff per file (lines starting with + were added, - removed), or the whole file where it is new.\n` : '') +
+      (excerpt.change ? `The artefact is the change itself, one section per file, each marked: "diff against base" is a unified diff (+ added, - removed); "new file" and "as recorded" are the file as the run left it; "current tree" is today's file, which may have moved on since the run.\n` : '') +
       `---\n${excerpt.text}\n---\n\n` +
       `Does the artefact ADDRESS this requirement — is there concrete content ` +
       `(code, configuration, or a specific written commitment) that implements it?\n` +
@@ -728,14 +748,14 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (abstained ? `, ${abstained} abstained` : '') +
       (skipped ? `, ${skipped} NOT judged (over the ${max} cap)` : '') +
       (excerpt.truncated
-        ? (excerpt.totalFiles != null && excerpt.files?.length < excerpt.totalFiles
+        ? (excerpt.droppedByCount
           ? ` — judge saw ${excerpt.files.length} of ${excerpt.totalFiles} changed file(s)`
           : ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes`)
         : ''),
     answers, unmet, unresolved, abstained, skipped,
     excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes,
                totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null,
-               receiptTruncated: !!excerpt.receiptTruncated },
+               receiptTruncated: !!excerpt.receiptTruncated, droppedByCount: !!excerpt.droppedByCount },
   };
 }
 
@@ -932,7 +952,9 @@ export function assessQuality({ state, checks = [], pending = {} }) {
   }
   if (j?.excerpt?.truncated) {
     const seen = j.excerpt.totalFiles != null
-      ? `${j.excerpt.files} of ${j.excerpt.totalFiles} changed file(s), ${j.excerpt.shownBytes} bytes`
+      ? (j.excerpt.droppedByCount
+        ? `${j.excerpt.files} of ${j.excerpt.totalFiles} changed file(s), ${j.excerpt.shownBytes} bytes`
+        : `${j.excerpt.shownBytes} of ${j.excerpt.totalBytes} bytes of the change`)
       : `${j.excerpt.shownBytes} of ${j.excerpt.totalBytes} bytes of ${j.excerpt.path}`;
     recs.push(`Split the change so the judge reads all of it — it saw ${seen}` +
               (j.excerpt.receiptTruncated ? ', and the receipt itself was cut before the change ended.' : '.'));

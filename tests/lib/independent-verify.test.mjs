@@ -596,7 +596,7 @@ test('quality F5: the invariant holds the other way — a recommendation means b
 // files whole, in receipt order, and three 40–70 KB prompts that sort first used
 // the 128 KB budget — the eight files where the change lived, its test among
 // them, were never shown. It read today's disk, too, not what the run recorded.
-import { changedFilesExcerpt } from '../../scripts/lib/independent-verify.mjs';
+import { changedFilesExcerpt, artefactExcerpt } from '../../scripts/lib/independent-verify.mjs';
 import { checkArtifacts, resolveClaimPath } from '../../scripts/lib/artifact-claims.mjs';
 import { spawnSync } from 'node:child_process';
 
@@ -667,7 +667,7 @@ test('a claimed path under ~/ is the home directory, not a folder called ~', () 
     const r = checkArtifacts({ report: '~/evidence/CSO.md' }, { root });
     assert.equal(r.ok, true, `reported absent: ${JSON.stringify(r.missing)}`);
   } finally {
-    process.env.HOME = saved;
+    if (saved === undefined) delete process.env.HOME; else process.env.HOME = saved;
     rmSync(home, { recursive: true, force: true });
     rmSync(root, { recursive: true, force: true });
   }
@@ -681,4 +681,95 @@ test('evidence: a change cut by file count says files, not "N of N bytes"', asyn
   const j = r.checks.find((c) => c.layer === 'judgement');
   assert.match(j.detail, /judge saw 40 of 45 changed file\(s\)/);
   assert.doesNotMatch(j.detail, /(\d+) of \1 bytes/);
+});
+
+// Review of the first version (BLOCKED): receipts recorded digests only, so an
+// uncommitted change — the normal senior-dev case — had no object in git, and
+// the judge fell back to today's disk. The emitted receipt now persists them.
+import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+
+const repo = (prefix) => {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  sh(root, 'init', '-q'); sh(root, 'config', 'user.email', 't@t'); sh(root, 'config', 'user.name', 't');
+  return root;
+};
+
+test('evidence: an uncommitted change is judged as the receipt recorded it, not as the disk is later', () => {
+  const root = repo('iv-persist-');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = 0;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = 0;\nexport const discount = 0.9;\n');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const code = "SAVE10";\n');
+  const receipt = treeReceipt(root, { base: 'HEAD', persist: true });
+  writeFileSync(join(root, 'cart.mjs'), 'export const later = 1;\n');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const later = 2;\n');
+
+  const e = changedFilesExcerpt({ receipt }, { root });
+  assert.match(e.text, /cart\.mjs \(diff against base\)[\s\S]*^\+export const discount/m);
+  assert.match(e.text, /coupon\.mjs \(new file\)[\s\S]*SAVE10/);
+  assert.doesNotMatch(e.text, /later/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('a receipt built for a check, not for a verdict, writes nothing into git', () => {
+  const root = repo('iv-nopersist-');
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'b.mjs'), 'export const b = "only-on-disk";\n');
+  const receipt = treeReceipt(root, { base: 'HEAD' });
+  const r = spawnSync('git', ['cat-file', '-e', receipt.files['b.mjs']], { cwd: root });
+  assert.notEqual(r.status, 0, 'the board polls receipts; it must not leave objects behind');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a project in a subdirectory gets no diff against a same-named file at the top', () => {
+  const root = repo('iv-subdir-');
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/index.mjs'), 'export const repoLevel = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  const app = join(root, 'app');
+  mkdirSync(join(app, 'src'), { recursive: true });
+  writeFileSync(join(app, 'src/index.mjs'), 'export const appLevel = 1;\n');
+  const blob = sh(app, 'hash-object', '-w', 'src/index.mjs');
+  const e = changedFilesExcerpt({ receipt: { base: sh(root, 'rev-parse', 'HEAD'), files: { 'src/index.mjs': blob } } }, { root: app });
+  assert.doesNotMatch(e.text, /repoLevel/);
+  assert.match(e.text, /appLevel/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a receipt key or a claim outside the project is not handed to the judge', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'iv-outside-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-inside-'));
+  writeFileSync(join(outside, 'private.md'), '# private\n' + 'secret notes '.repeat(20));
+  writeFileSync(join(root, 'ok.mjs'), 'export const ok = 1;\n');
+  const rel = join('..', outside.split('/').pop(), 'private.md');
+  const e = changedFilesExcerpt({ receipt: { files: { [rel]: 'h', [join(outside, 'private.md')]: 'h', 'ok.mjs': 'h' } } }, { root });
+  assert.deepEqual(e.files, ['ok.mjs']);
+  assert.doesNotMatch(e.text, /secret notes/);
+  assert.equal(artefactExcerpt({ meta: { report: join(outside, 'private.md') } }, { root }), null);
+  rmSync(outside, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: headers count against the budget, and an unchanged file is shown, not dropped', () => {
+  const root = repo('iv-budget-');
+  const files = {};
+  for (let i = 0; i < 30; i++) { writeFileSync(join(root, `f${i}.mjs`), `export const v${i} = "${'y'.repeat(60)}";\n`); }
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  for (let i = 0; i < 30; i++) files[`f${i}.mjs`] = sh(root, 'rev-parse', `HEAD:f${i}.mjs`);
+  const e = changedFilesExcerpt({ receipt: { base: 'HEAD', files } }, { root, bytes: 2000 });
+  assert.ok(e.text.length <= 2000, `text ${e.text.length} over a 2000-byte budget`);
+  assert.equal(e.files.length, 30, 'unchanged-against-base files are still shown');
+  assert.match(e.text, /f0\.mjs \(as recorded\)/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a byte cut with a file missing on disk says bytes, not "files"', async () => {
+  const root = project();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/big.mjs'), 'x'.repeat(200000));
+  const r = await verifyAgentOutput({ verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' },
+    receipt: { files: { 'src/big.mjs': 'h', 'src/gone.mjs': 'h' } } }, root, ask: async () => 'no' });
+  const j = r.checks.find((c) => c.layer === 'judgement');
+  assert.match(j.detail, /judge saw \d+ of 200000 bytes/);
+  assert.doesNotMatch(r.recommendations.join(' '), /of 2 changed file/);
 });
