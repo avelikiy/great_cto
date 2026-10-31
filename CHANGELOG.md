@@ -77,6 +77,8 @@ The verifier's judge now reads what a stage changed — every file of it, as the
 - **A claimed path under `~/` is the home directory.** A security report that existed at `~/.great_cto/evidence/…` was reported absent and graded 0/100; now 100.
 - **What reaches the remote judge is bounded.** Receipt keys outside the project, and artefact claims outside the project or `~/.great_cto`, are not sent — after symlinks are resolved on both sides — and the refusals are counted in the judgement line. A project in a repository subdirectory gets no base diff (receipt keys and `base:path` name different trees there; great_cto-74rv).
 - "judge saw N of N bytes" when files were dropped by count now says "N of M changed files".
+- **`second_opinion: openrouter` finds the key where the router does.** It looked in the environment only, so a key kept in `~/.great_cto/secrets.env` left the OpenRouter second opinion — reviewer and verifier's second judge — `unavailable`.
+- **Eight cross-model-review tests no longer follow the machine's Codex login.** They point at a fake Codex but read the real `~/.codex/auth.json`; with Codex logged out they went red on every branch. They now run under a temporary home.
 
 ### Tests
 
