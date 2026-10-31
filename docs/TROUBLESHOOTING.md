@@ -43,6 +43,7 @@ Three guards refuse things that cannot be undone or that switch a gate off:
 | Refusal says | Guard | What to do instead |
 |---|---|---|
 | destructive-command | `destructive-guard` | the message names a safe alternative (a specific path, `--force-with-lease`, a migration) |
+| secret-read | `secret-read-guard` | load the file without printing it: `set -a; source .env; set +a`, or check a key with `grep -q '^NAME=' .env` |
 | shared-tree | `shared-tree-guard` | save a patch (`git diff > /tmp/x.patch`) or test in `git worktree add` |
 | gate-bypass / gate-weakening | `gate-bypass-guard`, `gate-weakening-guard` | fix what the check reports |
 

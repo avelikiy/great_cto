@@ -10,7 +10,7 @@
  * One process starts once and runs the checks back to back.
  *
  * Order: the refusals first (inline subagent, shared tree, gate bypass,
- * destructive command, frozen gates); the first that refuses decides, exactly as
+ * destructive command, frozen gates, secret read); the first that refuses decides, exactly as
  * a deny from any one of the six did. Then the reminder (lesson-tripwire), which
  * never blocks. A check that throws is reported and passed over — a crashing
  * guard script was a pass before, and stays one; only its name is now known.
@@ -23,6 +23,7 @@ import { run as sharedTree } from './shared-tree-guard.mjs';
 import { run as gateBypass } from './gate-bypass-guard.mjs';
 import { run as destructive } from './destructive-guard.mjs';
 import { run as frozenGates } from './frozen-gates-guard.mjs';
+import { run as secretRead } from './secret-read-guard.mjs';
 import { run as lessonTripwire } from './lesson-tripwire.mjs';
 
 export const BASH_CHECKS = Object.freeze([
@@ -32,6 +33,7 @@ export const BASH_CHECKS = Object.freeze([
   ['gate-bypass', gateBypass],
   ['destructive', destructive],
   ['frozen-gates', frozenGates],
+  ['secret-read', secretRead],
 ]);
 export const BASH_REMINDERS = Object.freeze([['lesson-tripwire', lessonTripwire]]);
 
