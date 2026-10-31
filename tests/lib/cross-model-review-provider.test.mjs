@@ -65,9 +65,17 @@ function fakeCodex(dir, lines) {
   chmodSync(bin, 0o755);
   return bin;
 }
+// A home of its own, with a Codex login in it. detectCodex reads ~/.codex/auth.json,
+// so these tests passed or failed with the machine's Codex login: on 2026-10-31 the
+// operator's Codex was logged out and eight of them went red on every branch, main
+// included, while the fake binary they point at had nothing to do with it.
+const HOME = mkdtempSync(path.join(tmpdir(), 'gc-xr-home-'));
+projectRoots.add(HOME);
+mkdirSync(path.join(HOME, '.codex'));
+writeFileSync(path.join(HOME, '.codex', 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt' }));
 function run(dir, extra = [], env = {}, diffText = '--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n') {
   const diff = path.join(dir, 'd.diff'); writeFileSync(diff, diffText);
-  return spawnSync('node', [SCRIPT, '--diff', diff, '--root', dir, ...extra], { encoding: 'utf8', env: { ...process.env, OPENROUTER_API_KEY: '', ...env } });
+  return spawnSync('node', [SCRIPT, '--diff', diff, '--root', dir, ...extra], { encoding: 'utf8', env: { ...process.env, HOME, OPENROUTER_API_KEY: '', ...env } });
 }
 
 test('codex declared: the review runs through the fake codex and a P0 blocks', () => {
