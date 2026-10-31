@@ -51,7 +51,7 @@
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
-import { checkArtifacts, explainArtifacts, pathClaims, THIN_BYTES } from './artifact-claims.mjs';
+import { checkArtifacts, explainArtifacts, pathClaims, resolveClaimPath, THIN_BYTES } from './artifact-claims.mjs';
 import { parseAcceptance, summarize } from './acceptance-verify.mjs';
 import { spawnSync } from 'node:child_process';
 import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
@@ -281,7 +281,7 @@ export function checkClaimedArtifacts(verdict, { root = process.cwd() } = {}) {
 export function findAcceptanceDoc(verdict, { root = process.cwd() } = {}) {
   const claims = pathClaims(verdict?.meta || {}).filter((c) => /\.md$/i.test(c.path));
   for (const { path: rel } of claims) {
-    const abs = path.resolve(root, rel);
+    const abs = resolveClaimPath(root, rel);
     if (!existsSync(abs)) continue;
     try {
       if (parseAcceptance(readFileSync(abs, 'utf8')).length) return abs;
@@ -372,43 +372,94 @@ export function judgeableRequirements(verdict, { root = process.cwd() } = {}) {
  * says the rung below — whether the change is any good — is somebody else's.
  * This is that rung: the files the receipt names, read as the artefact.
  *
+ * What the judge reads per file is the CHANGE, not the file: the diff from the
+ * receipt's base to the blob the receipt recorded. Whole files, in receipt order,
+ * was the first version, and on a live run it judged a senior-dev stage 33/100:
+ * three 40–70 KB agent prompts that sort first used the whole budget, and the
+ * eight files where the change lived — the test among them — were never shown.
+ * The judge then said, correctly about what it read, that nothing implemented the
+ * feature. It also read today's disk, which had moved on since the run.
+ *
+ * So, per file, the first source that exists:
+ *   1. diff base:path → recorded blob — exactly what this run changed;
+ *   2. the recorded blob, whole — a file the run created;
+ *   3. the file on disk, whole — the run's blob never reached the object store
+ *      (it is a digest, not a write), marked so the judge knows.
+ * And the budget is shared: each file gets an equal part of what is left, the
+ * smallest first, so no file is starved because an earlier one was large.
+ *
  * Bounded by count and by bytes, and both bounds are reported. A judge shown 3
  * of 11 changed files answered about 3 of 11.
  */
-export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES, maxFiles = 40 } = {}) {
+export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES, maxFiles = 40, git = gitText } = {}) {
   const files = verdict?.receipt?.files;
   if (!files || typeof files !== 'object') return null;
   const paths = Object.keys(files);
   if (!paths.length) return null;
+  const base = verdict.receipt.base || null;
 
-  const shown = [];
-  let text = '', truncated = false;
+  const pieces = [];
   for (const rel of paths.slice(0, maxFiles)) {
-    const abs = path.resolve(root, rel);
-    if (!existsSync(abs)) continue;
-    let body;
-    try { body = readFileSync(abs, 'utf8'); } catch { continue; }
-    const room = bytes - text.length;
-    if (room <= 0) { truncated = true; break; }
-    const slice = body.slice(0, room);
-    if (slice.length < body.length) truncated = true;
-    text += `\n----- ${rel} -----\n${slice}\n`;
-    shown.push(rel);
+    const piece = changeOf(rel, files[rel], base, { root, git });
+    if (piece) pieces.push(piece);
   }
-  if (!shown.length) return null;
+  if (!pieces.length) return null;
+
+  // Equal shares of what is left, smallest first: a short file takes only what
+  // it needs and leaves the rest to the files after it.
+  let left = bytes, cut = false;
+  const order = pieces.map((p, i) => i).sort((a, b) => pieces[a].body.length - pieces[b].body.length);
+  order.forEach((i, k) => {
+    const share = Math.floor(left / (order.length - k));
+    const body = pieces[i].body;
+    pieces[i].shown = body.length > share ? body.slice(0, share) : body;
+    if (pieces[i].shown.length < body.length) cut = true;
+    left -= pieces[i].shown.length;
+  });
+
+  const text = pieces.map((p) => `\n----- ${p.rel} (${p.kind}${p.shown.length < p.body.length ? `, first ${p.shown.length} of ${p.body.length} bytes` : ''}) -----\n${p.shown}\n`).join('');
   return {
-    path: `${shown.length} changed file(s)`,
+    path: `${pieces.length} changed file(s)`,
+    change: true,
     text,
     // A cut, not an absence: a file the change deleted is not on disk and there
     // is nothing of it to read. What counts is what the cap or the receipt's own
     // writer (receipt.mjs MAX_FILES) left out.
-    truncated: truncated || paths.length > maxFiles || verdict.receipt.truncated === true,
+    truncated: cut || paths.length > maxFiles || verdict.receipt.truncated === true,
     receiptTruncated: verdict.receipt.truncated === true,
-    shownBytes: text.length,
-    totalBytes: text.length,
-    files: shown,
+    shownBytes: pieces.reduce((n, p) => n + p.shown.length, 0),
+    totalBytes: pieces.reduce((n, p) => n + p.body.length, 0),
+    files: pieces.map((p) => p.rel),
     totalFiles: paths.length,
   };
+}
+
+/** git's stdout, or null when git says no — a missing object is an answer here, not an error. */
+function gitText(args, cwd) {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8', maxBuffer: 32 * 1024 * 1024 });
+  return r.status === 0 ? r.stdout : null;
+}
+
+const OID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
+
+/** One file's part of the evidence: what changed, and which source said so. */
+function changeOf(rel, blob, base, { root, git }) {
+  const recorded = OID.test(String(blob)) && git(['cat-file', '-e', `${blob}^{blob}`], root) !== null ? blob : null;
+  const before = base ? git(['rev-parse', '--verify', '--quiet', `${base}:${rel}`], root)?.trim() || null : null;
+  if (recorded && before) {
+    if (before === recorded) return null; // unchanged against base — nothing to judge in it
+    const diff = git(['diff', '--no-color', '--no-ext-diff', '-U8', before, recorded], root);
+    if (diff !== null) return { rel, kind: 'diff against base', body: diff };
+  }
+  if (recorded) {
+    const body = git(['cat-file', 'blob', recorded], root);
+    if (body !== null) return { rel, kind: before ? 'as recorded' : 'new file', body };
+  }
+  const abs = path.resolve(root, rel);
+  if (!existsSync(abs)) return null;
+  try {
+    return { rel, kind: 'current tree — the run\'s version is not in git', body: readFileSync(abs, 'utf8') };
+  } catch { return null; }
 }
 
 /**
@@ -465,7 +516,7 @@ export function claimsAsRequirements(verdict) {
 /** The artefact text the judge reads, and whether it was cut. */
 export function artefactExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES } = {}) {
   for (const { path: v } of pathClaims(verdict?.meta || {})) {
-    const abs = path.resolve(root, v);
+    const abs = resolveClaimPath(root, v);
     if (!existsSync(abs)) continue;
     let text;
     try { text = readFileSync(abs, 'utf8'); } catch { continue; }
@@ -496,6 +547,7 @@ function questionFor(req, excerpt) {
   return `Judge one requirement against one artefact. Answer only about what the artefact contains.\n\n` +
       `REQUIREMENT:\n${req}\n\n` +
       `ARTEFACT (${excerpt.path}${excerpt.truncated ? `, first ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''}):\n` +
+      (excerpt.change ? `The artefact is the change itself: a unified diff per file (lines starting with + were added, - removed), or the whole file where it is new.\n` : '') +
       `---\n${excerpt.text}\n---\n\n` +
       `Does the artefact ADDRESS this requirement — is there concrete content ` +
       `(code, configuration, or a specific written commitment) that implements it?\n` +
@@ -675,7 +727,11 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
       (abstained ? `, ${abstained} abstained` : '') +
       (skipped ? `, ${skipped} NOT judged (over the ${max} cap)` : '') +
-      (excerpt.truncated ? ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''),
+      (excerpt.truncated
+        ? (excerpt.totalFiles != null && excerpt.files?.length < excerpt.totalFiles
+          ? ` — judge saw ${excerpt.files.length} of ${excerpt.totalFiles} changed file(s)`
+          : ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes`)
+        : ''),
     answers, unmet, unresolved, abstained, skipped,
     excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes,
                totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null,

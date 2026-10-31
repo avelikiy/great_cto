@@ -589,3 +589,96 @@ test('quality F5: the invariant holds the other way — a recommendation means b
   assert.equal(q.recommendations.length, 1);
   assert.notEqual(q.quality === 100, q.recommendations.length > 0);
 });
+
+// ── the judge reads the change, and every file of it ─────────────────────────
+//
+// A live run on 2026-10-31 graded a senior-dev stage 33/100: the excerpt took
+// files whole, in receipt order, and three 40–70 KB prompts that sort first used
+// the 128 KB budget — the eight files where the change lived, its test among
+// them, were never shown. It read today's disk, too, not what the run recorded.
+import { changedFilesExcerpt } from '../../scripts/lib/independent-verify.mjs';
+import { checkArtifacts, resolveClaimPath } from '../../scripts/lib/artifact-claims.mjs';
+import { spawnSync } from 'node:child_process';
+
+const sh = (cwd, ...args) => {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+
+test('evidence: large files first do not starve the small ones after them', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-share-'));
+  const files = {};
+  for (const f of ['a-big1.md', 'a-big2.md', 'a-big3.md']) { writeFileSync(join(root, f), 'x'.repeat(5000)); files[f] = 'h'; }
+  writeFileSync(join(root, 'z-impl.mjs'), 'export const feature = true;\n'); files['z-impl.mjs'] = 'h';
+  writeFileSync(join(root, 'z-impl.test.mjs'), 'test("feature", () => {});\n'); files['z-impl.test.mjs'] = 'h';
+  const e = changedFilesExcerpt({ receipt: { files } }, { root, bytes: 4000 });
+  assert.deepEqual(e.files, Object.keys(files), 'every file is shown, in receipt order');
+  assert.match(e.text, /export const feature = true/);
+  assert.match(e.text, /test\("feature"/);
+  assert.equal(e.truncated, true);
+  assert.ok(e.shownBytes <= 4000, `budget kept: ${e.shownBytes}`);
+  assert.equal(e.totalBytes, 15000 + 29 + 27, 'the total is the whole of it, not what was shown');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: the judge reads the diff the run recorded, not today\'s disk', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-diff-'));
+  sh(root, 'init', '-q');
+  sh(root, 'config', 'user.email', 't@t'); sh(root, 'config', 'user.name', 't');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = (xs) => xs.reduce((a, b) => a + b, 0);\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  const base = sh(root, 'rev-parse', 'HEAD');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = (xs) => xs.reduce((a, b) => a + b, 0);\nexport const discount = (t) => t * 0.9;\n');
+  const changed = sh(root, 'hash-object', '-w', 'cart.mjs');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const code = "SAVE10";\n');
+  const created = sh(root, 'hash-object', '-w', 'coupon.mjs');
+  // The tree moves on after the run; the judge must not read the later version.
+  writeFileSync(join(root, 'cart.mjs'), 'export const unrelated = 1;\n');
+
+  const e = changedFilesExcerpt({ receipt: { base, files: { 'cart.mjs': changed, 'coupon.mjs': created } } }, { root });
+  assert.equal(e.change, true);
+  assert.match(e.text, /cart\.mjs \(diff against base\)/);
+  assert.match(e.text, /^\+export const discount/m, 'the added line is shown as added');
+  assert.doesNotMatch(e.text, /unrelated/, 'today\'s disk is not what the run did');
+  assert.match(e.text, /coupon\.mjs \(new file\)[\s\S]*SAVE10/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a recorded blob missing from git falls back to the disk, and says so', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-disk-'));
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  const e = changedFilesExcerpt({ receipt: { files: { 'a.mjs': 'f'.repeat(40) } } }, { root });
+  assert.match(e.text, /a\.mjs \(current tree — the run's version is not in git\)/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('a claimed path under ~/ is the home directory, not a folder called ~', () => {
+  const home = mkdtempSync(join(tmpdir(), 'iv-home-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-root-'));
+  const saved = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    mkdirSync(join(home, 'evidence'), { recursive: true });
+    writeFileSync(join(home, 'evidence', 'CSO.md'), '# Security report\n\n' + 'finding '.repeat(40));
+    assert.equal(resolveClaimPath(root, '~/evidence/CSO.md'), join(home, 'evidence', 'CSO.md'));
+    assert.equal(resolveClaimPath(root, 'docs/A.md'), join(root, 'docs/A.md'));
+    assert.equal(resolveClaimPath(root, '/abs/A.md'), '/abs/A.md');
+    const r = checkArtifacts({ report: '~/evidence/CSO.md' }, { root });
+    assert.equal(r.ok, true, `reported absent: ${JSON.stringify(r.missing)}`);
+  } finally {
+    process.env.HOME = saved;
+    rmSync(home, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('evidence: a change cut by file count says files, not "N of N bytes"', async () => {
+  const root = project();
+  const files = {};
+  for (let i = 0; i < 45; i++) { const f = `src/f${i}.mjs`; mkdirSync(join(root, 'src'), { recursive: true }); writeFileSync(join(root, f), `export const v${i} = ${i};\n`); files[f] = 'h'; }
+  const r = await verifyAgentOutput({ verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files } }, root, ask: async () => 'no' });
+  const j = r.checks.find((c) => c.layer === 'judgement');
+  assert.match(j.detail, /judge saw 40 of 45 changed file\(s\)/);
+  assert.doesNotMatch(j.detail, /(\d+) of \1 bytes/);
+});
