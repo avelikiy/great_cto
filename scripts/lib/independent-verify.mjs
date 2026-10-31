@@ -399,7 +399,11 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
   return {
     path: `${shown.length} changed file(s)`,
     text,
-    truncated: truncated || paths.length > shown.length,
+    // A cut, not an absence: a file the change deleted is not on disk and there
+    // is nothing of it to read. What counts is what the cap or the receipt's own
+    // writer (receipt.mjs MAX_FILES) left out.
+    truncated: truncated || paths.length > maxFiles || verdict.receipt.truncated === true,
+    receiptTruncated: verdict.receipt.truncated === true,
     shownBytes: text.length,
     totalBytes: text.length,
     files: shown,
@@ -674,7 +678,8 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (excerpt.truncated ? ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes` : ''),
     answers, unmet, unresolved, abstained, skipped,
     excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes,
-               totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null },
+               totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null,
+               receiptTruncated: !!excerpt.receiptTruncated },
   };
 }
 
@@ -848,7 +853,13 @@ export function assessQuality({ state, checks = [], pending = {} }) {
     counted += 1;
     if (a.answer === 'yes') {
       passed += 1;
+      const t = a.tally || {};
+      const silent = Object.entries(t).filter(([k]) => k !== 'yes' && k !== 'no').reduce((n, [, v]) => n + v, 0);
       if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
+      else if (silent) {
+        recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge said yes on ${t.yes || 0} ` +
+                  `of ${(t.yes || 0) + (t.no || 0) + silent} samples and could not answer on the rest.`);
+      }
     } else if (a.unresolvedSplit) {
       recs.push(`Make “${a.requirement}” decidable — the judge split ${a.split} and a second model did not settle it; ` +
                 'show the implementation plainly or reword the criterion.');
@@ -867,7 +878,8 @@ export function assessQuality({ state, checks = [], pending = {} }) {
     const seen = j.excerpt.totalFiles != null
       ? `${j.excerpt.files} of ${j.excerpt.totalFiles} changed file(s), ${j.excerpt.shownBytes} bytes`
       : `${j.excerpt.shownBytes} of ${j.excerpt.totalBytes} bytes of ${j.excerpt.path}`;
-    recs.push(`Split the change so the judge reads all of it — it saw ${seen}.`);
+    recs.push(`Split the change so the judge reads all of it — it saw ${seen}` +
+              (j.excerpt.receiptTruncated ? ', and the receipt itself was cut before the change ended.' : '.'));
   }
 
   const unrun = (pending.acceptance || 0) + (pending.judgement || 0);
@@ -887,6 +899,12 @@ export function assessQuality({ state, checks = [], pending = {} }) {
       recs.push(`Run verification with a judge — ${unrun} requirement(s) were never asked.`);
     }
     return { quality: null, passed, counted, recommendations: recs };
+  }
+
+  // Files on disk and a contract met, but no criterion at all: nothing said what
+  // the work was FOR, so nothing confirmed it does it. Not a failure — not 100.
+  if (state === STATE.VERIFIED && acc?.status === 'none' && !j?.answers?.length && !unrun) {
+    recs.push('Freeze `## ACCEPTANCE` criteria for this stage — the files exist, but nothing states what they must do, so nothing checked it.');
   }
 
   let quality = counted ? Math.floor((100 * passed) / counted) : null;

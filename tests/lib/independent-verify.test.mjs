@@ -543,3 +543,49 @@ test('quality: 100 exactly when there is nothing to recommend', () => {
     assert.equal(q.quality === 100, q.recommendations.length === 0, JSON.stringify({ c, q }));
   }
 });
+
+// Review findings on great_cto-1zu7, each pinned with the input that showed it.
+
+test('quality F1: a yes that two of three samples could not answer is not 100', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const said = ['yes', 'maybe', 'hmm'];
+  let n = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => said[n++ % 3],
+  });
+  assert.equal(r.state, STATE.VERIFIED, 'the gate outcome is unchanged — only the grade');
+  assert.ok(r.quality < 100, `got ${r.quality}`);
+  assert.match(r.recommendations.join(' '), /said yes on 1 of 3 samples/);
+});
+
+test('quality F2: files present but no criterion at all is 99, with the criterion to add', async () => {
+  const root = project({ brief: '# A\n\nprose, no acceptance section\n' });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ arch: 'docs/impl-briefs/B.md' }), root, ask: async () => 'yes' });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 99);
+  assert.match(r.recommendations[0], /Freeze `## ACCEPTANCE`/);
+});
+
+test('quality F3/F4: a deleted file is not a cut, a receipt the writer cut is', async () => {
+  const root = project();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/a.mjs'), 'export const a = 1;\n');
+  const files = { 'src/a.mjs': 'h1', 'src/gone.mjs': 'h2' };
+  const deleted = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files } }, root, ask: async () => 'yes',
+  });
+  assert.equal(deleted.quality, 100, 'the judge read every file there was to read');
+  const cut = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files, truncated: true } }, root, ask: async () => 'yes',
+  });
+  assert.equal(cut.quality, 99);
+  assert.match(cut.recommendations.join(' '), /receipt itself was cut/);
+});
+
+test('quality F5: the invariant holds the other way — a recommendation means below 100', () => {
+  const q = assessQuality({ state: STATE.REWORK,
+    checks: [{ layer: 'artefacts', status: 'fail', checked: 2, missing: ['x=a.md (absent)'] }] });
+  assert.equal(q.quality, 50);
+  assert.equal(q.recommendations.length, 1);
+  assert.notEqual(q.quality === 100, q.recommendations.length > 0);
+});
