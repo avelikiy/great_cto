@@ -99,7 +99,7 @@ const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false, persist = false } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
   // Off-loop board readers avoid one process per untracked file. Preserve Git's
@@ -107,7 +107,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   const algorithm = hashFilesInProcess ? git(['rev-parse', '--show-object-format'], cwd)?.trim() : null;
   if (hashFilesInProcess && !['sha1', 'sha256'].includes(algorithm)) return null;
   const digest = p => {
-    if (!hashFilesInProcess) return fileDigest(cwd, p);
+    if (!hashFilesInProcess) return fileDigest(cwd, p, { write: persist });
     try {
       const fd = fsModule.openSync(join(cwd, p), 'r');
       try {
@@ -223,8 +223,8 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
  * what an agent read. `hash-object` on the working file is the thing the
  * reviewer actually saw.
  */
-export function fileDigest(cwd, path) {
-  const out = git(['hash-object', '--no-filters', '--', path], cwd);
+export function fileDigest(cwd, path, { write = false } = {}) {
+  const out = git(['hash-object', ...(write ? ['-w'] : []), '--no-filters', '--', path], cwd);
   return out ? out.trim() : null;
 }
 
@@ -500,7 +500,13 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     // `--verdicts <dir>`: measure the change from where the previous stage stood.
     const vi = argv.indexOf('--verdicts');
     const verdictsDir = vi >= 0 && argv[vi + 1] ? argv[vi + 1] : null;
-    const r = treeReceipt(process.cwd(), { verdictsDir });
+    // `persist`: the bytes go into git's object store, not only their digest. The
+    // judge reads the change from those objects later; a digest alone is a
+    // promise about content nobody kept, and an uncommitted change — senior-dev's
+    // normal case — would otherwise be judged from whatever the disk holds by then.
+    // Only here, where a verdict is recorded: the board's frequent readers must
+    // not leave objects behind.
+    const r = treeReceipt(process.cwd(), { verdictsDir, persist: true });
     process.stdout.write(r ? JSON.stringify(r) : '');
     process.exit(r ? 0 : 1);
   }

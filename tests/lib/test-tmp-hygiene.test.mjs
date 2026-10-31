@@ -50,7 +50,6 @@ const KNOWN_LEAKERS = new Set([
   'tests/lib/pattern-lookup.test.mjs',
   'tests/lib/pipeline-contract.test.mjs',
   'tests/lib/postinstall.test.mjs',
-  'tests/lib/second-opinion-provider.test.mjs',
   'tests/lib/subagent-cost.test.mjs',
   'tests/lib/sync-managed.test.mjs',
   'tests/memory-filter.test.mjs',

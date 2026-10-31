@@ -65,6 +65,28 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.3 — 2026-10-31
+
+The verifier's judge now reads what a stage changed — every file of it, as the run left it. On this repository's own verdicts, three stages graded low for the verifier's reasons, not theirs.
+
+### Fixed
+
+- **independent-verify: the judge reads the change, not whole files in order.** Per changed file it gets the diff from the receipt's base to the recorded blob, the blob whole for a new file, or today's file only when the run's version is not in git (marked so). The 128 KB budget is shared — equal parts of what is left, smallest first, headers counted — so large files no longer starve the rest. Before: a senior-dev stage was graded 33/100 because three large prompts used the budget and the eight files holding the change, its test among them, were never shown. Same verdicts after: senior-dev 33 → 100, code-reviewer 99 → 100.
+- **receipt: a verdict's receipt keeps the bytes, not only their digest.** `receipt.mjs --emit` (the path `log-verdict.sh` uses) writes the blobs into git's object store, so an uncommitted change — senior-dev's normal case — is judged as recorded rather than from a disk that moved on. Other receipt callers (the board polls them) stay digest-only.
+- **A claimed path under `~/` is the home directory.** A security report that existed at `~/.great_cto/evidence/…` was reported absent and graded 0/100; now 100.
+- **What reaches the remote judge is bounded.** Receipt keys outside the project, and artefact claims outside the project or `~/.great_cto`, are not sent — after symlinks are resolved on both sides — and the refusals are counted in the judgement line. A project in a repository subdirectory gets no base diff (receipt keys and `base:path` name different trees there; great_cto-74rv).
+- "judge saw N of N bytes" when files were dropped by count now says "N of M changed files".
+- **`second_opinion: openrouter` finds the key where the router does.** It looked in the environment only, so a key kept in `~/.great_cto/secrets.env` left the OpenRouter second opinion — reviewer and verifier's second judge — `unavailable`.
+- **Eight cross-model-review tests no longer follow the machine's Codex login.** They point at a fake Codex but read the real `~/.codex/auth.json`; with Codex logged out they went red on every branch. They now run under a temporary home.
+
+### Tests
+
+- 13 new tests (evidence source, fair share, persisted receipts through the real `--emit` CLI, subdirectory root, containment incl. symlinks, home paths); each fix checked against a deliberately broken implementation (12 mutations, each caught). A code review blocked the first version twice — receipts that kept no bytes, then a symlink bypass — both fixed and pinned.
+- Measured for the open gate decision great_cto-s6n0: in 44 judged requirements so far, one `yes` with two unanswerable samples never occurred; 2–1 splits did, and one flipped the verdict on unchanged input.
+
+---
+
 ## v3.75.2 — 2026-10-31
 
 The verifier now grades each stage 0–100 and says what would bring it to 100. Agents can no longer print a secret file into their own transcript.

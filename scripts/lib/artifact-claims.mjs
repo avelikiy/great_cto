@@ -36,6 +36,7 @@
 
 import { statSync, readdirSync } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
+import { homedir } from 'node:os';
 
 /**
  * Below this a file exists but says nothing — a touched placeholder, a header
@@ -88,6 +89,19 @@ export function pathClaims(meta) {
 }
 
 /**
+ * Where a claimed path lives on disk.
+ *
+ * `~/` is the operator's home, not a directory called `~` under the project.
+ * Joined onto the root as written, `report=~/.great_cto/evidence/…/CSO.md` named
+ * a file that existed and was reported absent — a security review sent back as
+ * rework, 0/100, for a path the agent wrote the way every human would.
+ */
+export function resolveClaimPath(root, p) {
+  if (p === '~' || p.startsWith('~/')) return join(process.env.HOME || homedir(), p.slice(1));
+  return isAbsolute(p) ? p : join(root, p);
+}
+
+/**
  * @returns {{ok, checked, missing, thin, notes}}
  *   missing — named and absent, or not a regular file
  *   thin    — present but under THIN_BYTES
@@ -98,7 +112,7 @@ export function checkArtifacts(meta, { root = process.cwd(), thinBytes = THIN_BY
   const thin = [];
 
   for (const c of claims) {
-    const full = isAbsolute(c.path) ? c.path : join(root, c.path);
+    const full = resolveClaimPath(root, c.path);
     let st;
     try { st = stat(full); } catch {
       missing.push(c);
