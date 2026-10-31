@@ -402,9 +402,11 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
   // a new file with an unrelated one of the same name — so no base diff there.
   const prefix = base ? (git(['rev-parse', '--show-prefix'], root)?.trim() ?? null) : null;
 
-  const pieces = [];
+  const pieces = [], refused = [];
   for (const rel of paths.slice(0, maxFiles)) {
-    if (!insideRoot(root, rel)) continue; // receipt keys are agent-written; the judge is a remote model
+    // Receipt keys are agent-written and the judge is a remote model. Refused,
+    // and said so: "not shown" must not read the same as "not there".
+    if (!insideRoot(root, rel)) { refused.push(rel); continue; }
     const piece = changeOf(rel, files[rel], prefix === '' ? base : null, { root, git });
     if (piece) pieces.push(piece);
   }
@@ -436,6 +438,7 @@ export function changedFilesExcerpt(verdict, { root = process.cwd(), bytes = EXC
     receiptTruncated: verdict.receipt.truncated === true,
     // Files left out by count, as opposed to files that were shown cut short.
     droppedByCount: paths.length > maxFiles,
+    refused,
     shownBytes: pieces.reduce((n, p) => n + p.shown.length, 0),
     totalBytes: pieces.reduce((n, p) => n + p.body.length, 0),
     files: pieces.map((p) => p.rel),
@@ -466,7 +469,7 @@ function changeOf(rel, blob, base, { root, git }) {
   }
   if (recorded) {
     const body = git(['cat-file', 'blob', recorded], root);
-    if (body !== null) return { rel, kind: before ? 'as recorded' : 'new file', body };
+    if (body !== null) return { rel, kind: before || !base ? 'as recorded' : 'new file', body }; // no base: new or not is unknown
   }
   const abs = path.resolve(root, rel);
   if (!existsSync(abs)) return null;
@@ -758,9 +761,10 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
         ? (excerpt.droppedByCount
           ? ` — judge saw ${excerpt.files.length} of ${excerpt.totalFiles} changed file(s)`
           : ` — judge saw ${excerpt.shownBytes} of ${excerpt.totalBytes} bytes`)
-        : ''),
+        : '') +
+      (excerpt.refused?.length ? ` — ${excerpt.refused.length} receipt path(s) outside the project not shown` : ''),
     answers, unmet, unresolved, abstained, skipped,
-    excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes,
+    excerpt: { path: excerpt.path, truncated: !!excerpt.truncated, shownBytes: excerpt.shownBytes, refused: excerpt.refused?.length || 0,
                totalBytes: excerpt.totalBytes, files: excerpt.files?.length ?? null, totalFiles: excerpt.totalFiles ?? null,
                receiptTruncated: !!excerpt.receiptTruncated, droppedByCount: !!excerpt.droppedByCount },
   };

@@ -599,6 +599,7 @@ test('quality F5: the invariant holds the other way — a recommendation means b
 import { changedFilesExcerpt, artefactExcerpt } from '../../scripts/lib/independent-verify.mjs';
 import { checkArtifacts, resolveClaimPath } from '../../scripts/lib/artifact-claims.mjs';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const sh = (cwd, ...args) => {
   const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
@@ -734,6 +735,7 @@ test('evidence: a project in a subdirectory gets no diff against a same-named fi
   const e = changedFilesExcerpt({ receipt: { base: sh(root, 'rev-parse', 'HEAD'), files: { 'src/index.mjs': blob } } }, { root: app });
   assert.doesNotMatch(e.text, /repoLevel/);
   assert.match(e.text, /appLevel/);
+  assert.match(e.text, /src\/index\.mjs \(as recorded\)/, 'without a base it is not called new');
   rmSync(root, { recursive: true, force: true });
 });
 
@@ -745,6 +747,7 @@ test('evidence: a receipt key or a claim outside the project is not handed to th
   const rel = join('..', outside.split('/').pop(), 'private.md');
   const e = changedFilesExcerpt({ receipt: { files: { [rel]: 'h', [join(outside, 'private.md')]: 'h', 'ok.mjs': 'h' } } }, { root });
   assert.deepEqual(e.files, ['ok.mjs']);
+  assert.equal(e.refused.length, 2, 'refusals are counted, not silent');
   assert.doesNotMatch(e.text, /secret notes/);
   assert.equal(artefactExcerpt({ meta: { report: join(outside, 'private.md') } }, { root }), null);
   rmSync(outside, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
@@ -756,8 +759,9 @@ test('evidence: headers count against the budget, and an unchanged file is shown
   for (let i = 0; i < 30; i++) { writeFileSync(join(root, `f${i}.mjs`), `export const v${i} = "${'y'.repeat(60)}";\n`); }
   sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
   for (let i = 0; i < 30; i++) files[`f${i}.mjs`] = sh(root, 'rev-parse', `HEAD:f${i}.mjs`);
-  const e = changedFilesExcerpt({ receipt: { base: 'HEAD', files } }, { root, bytes: 2000 });
-  assert.ok(e.text.length <= 2000, `text ${e.text.length} over a 2000-byte budget`);
+  const e = changedFilesExcerpt({ receipt: { base: 'HEAD', files } }, { root, bytes: 4000 });
+  assert.ok(e.text.length <= 4000, `text ${e.text.length} over a 4000-byte budget`);
+  assert.ok(e.shownBytes > 0, 'the reserve for headers must leave room for content');
   assert.equal(e.files.length, 30, 'unchanged-against-base files are still shown');
   assert.match(e.text, /f0\.mjs \(as recorded\)/);
   rmSync(root, { recursive: true, force: true });
@@ -791,7 +795,7 @@ test('receipt.mjs --emit — the path log-verdict.sh uses — writes the change 
   writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
   sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
   writeFileSync(join(root, 'b.mjs'), 'export const b = "emitted";\n');
-  const cli = new URL('../../scripts/lib/receipt.mjs', import.meta.url).pathname;
+  const cli = fileURLToPath(new URL('../../scripts/lib/receipt.mjs', import.meta.url));
   const r = spawnSync(process.execPath, [cli, '--emit'], { cwd: root, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   const receipt = JSON.parse(r.stdout);
