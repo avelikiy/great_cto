@@ -256,6 +256,24 @@ if (import.meta.url === `file://${process.argv[1]}`) {
 
 import { capabilitiesFromProjectMd } from './stack-capabilities.mjs';
 import { runCodexExec, detectCodex } from './codex-exec.mjs';
+import { parseEnv, KEY_NAME } from './router-key.mjs';
+import { readFileSync as readKeyFile } from 'node:fs';
+import { join as joinPath } from 'node:path';
+
+/**
+ * Is an OpenRouter key reachable — in the environment, or in the secrets file the
+ * router itself reads? Checking the environment alone called `openrouter`
+ * unavailable on every machine that keeps the key where great_cto tells people to
+ * keep it (~/.great_cto/secrets.env): the router would have answered, and the
+ * second judge was never asked. The home comes from `env`, so a caller that
+ * injects `env` (every test) never reads the real machine.
+ */
+function openrouterKeyPresent(env) {
+  if (env.OPENROUTER_API_KEY) return true;
+  if (!env.HOME) return false;
+  try { return Boolean(parseEnv(readKeyFile(joinPath(env.HOME, '.great_cto', 'secrets.env'), 'utf8')).get(KEY_NAME)); }
+  catch { return false; }
+}
 
 export const SECOND_OPINION_PROVIDERS = Object.freeze(['codex', 'openrouter', 'none']);
 
@@ -291,7 +309,7 @@ export function resolveSecondOpinion({ projectMd = '', codex = null, env = proce
     return { state: 'declared', provider, why: '', codex: c };
   }
   if (provider === 'openrouter') {
-    if (!env.OPENROUTER_API_KEY) return { state: 'unavailable', provider, why: 'second_opinion: openrouter needs OPENROUTER_API_KEY' };
+    if (!openrouterKeyPresent(env)) return { state: 'unavailable', provider, why: 'second_opinion: openrouter needs OPENROUTER_API_KEY (environment or ~/.great_cto/secrets.env)' };
     return { state: 'declared', provider, why: '' };
   }
   return { state: 'none', provider: 'none', why: '' };
