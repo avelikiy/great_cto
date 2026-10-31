@@ -64,6 +64,23 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.2 — 2026-10-31
+
+The verifier now grades each stage 0–100 and says what would bring it to 100. Agents can no longer print a secret file into their own transcript.
+
+### Added
+
+- **independent-verify: quality 0–100 and recommendations.** The score is counted, not asked of a model: every check the verification ran or would have run is one unit (a claimed artefact, the stage contract, an acceptance `verify:` command, a judged requirement), and quality = floor(100 × passed / counted). Abstentions, requirements over the judge cap, and checks a short-circuit or a missing judge left unrun count and do not pass, so failing early never scores higher. 100 holds exactly when there is nothing to recommend: a judge split or silent on a passed requirement, evidence it read only in part, or a stage with no criterion at all caps the grade at 99 with the reason. `unverifiable` scores null, not 0. The grade and recommendations go to `scores.jsonl` `meta` beside `value`, which is unchanged, and into the pipeline's rework, blocked and verified directives. On this repository's own verdicts: architect 75/100, senior-dev 33/100 — the judge read 3 of the 11 changed files, which the recommendation now says.
+- **secret-read guard.** `secret-scan` stopped a key being written; nothing stopped one being read. PreToolUse on `Read|Grep`, and inside `bash-guards` for Bash (so Codex shell calls get it): refuses `Read` of `.env`, `.env.*`, `.envrc`, `secrets.env`, `*.pem`, `*.key`, SSH private keys; a Grep path or glob that selects one; and readers (`cat`, `head`, `less`, `sed`, `awk`, `grep`, `base64`, `xxd`, `diff`, …) given one, including `< file`, `bash -c` and `$(…)`. `source .env`, `grep -q`/`-c`/`-l`, `cp`, `sed -i`, a redirect target, `.env.example` and `*.pub` pass, and the refusal names them. Bypass: a signed `secret-read` exception or `GREAT_CTO_DISABLE_SECRET_READ_GUARD=1`. Not covered: a Grep over a directory. Docs: `docs/HOOKS.md`.
+
+### Tests
+
+- 12 new verifier tests, 1 directive test, 7 guard tests; checked against deliberately broken implementations (15 mutations, each caught by at least one test). A code review of the grading found four ways to 100 with something unchecked; all four are fixed and pinned.
+- Open decision, not changed here: a requirement with one `yes` and two unanswerable samples still counts as met by the gate (great_cto-s6n0); the grade already caps it at 99.
+
+---
+
 ## v3.75.1 — 2026-10-30
 
 The graph guard's first rule now fires at the build step, where skipping the architecture costs something. The auditor's hotspot list works again, and code-reviewer's empty-implementation check, which did not work in 3.75.0, now does in 2 of 3 samples.
