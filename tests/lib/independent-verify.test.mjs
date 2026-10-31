@@ -19,7 +19,7 @@ const tmpDir = (d) => (TMP_DIRS.push(d), d);
 after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -772,4 +772,30 @@ test('evidence: a byte cut with a file missing on disk says bytes, not "files"',
   const j = r.checks.find((c) => c.layer === 'judgement');
   assert.match(j.detail, /judge saw \d+ of 200000 bytes/);
   assert.doesNotMatch(r.recommendations.join(' '), /of 2 changed file/);
+});
+
+test('evidence: a symlink inside the project does not carry an outside file to the judge', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'iv-linked-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-linkroot-'));
+  writeFileSync(join(outside, 'private.md'), '# private\n' + 'linked secret '.repeat(20));
+  writeFileSync(join(root, 'ok.mjs'), 'export const ok = 1;\n');
+  symlinkSync(join(outside, 'private.md'), join(root, 'notes.md'));
+  const e = changedFilesExcerpt({ receipt: { files: { 'notes.md': 'h', 'ok.mjs': 'h' } } }, { root });
+  assert.deepEqual(e.files, ['ok.mjs']);
+  assert.equal(artefactExcerpt({ meta: { report: 'notes.md' } }, { root }), null);
+  rmSync(outside, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+});
+
+test('receipt.mjs --emit — the path log-verdict.sh uses — writes the change into git', () => {
+  const root = repo('iv-emit-');
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'b.mjs'), 'export const b = "emitted";\n');
+  const cli = new URL('../../scripts/lib/receipt.mjs', import.meta.url).pathname;
+  const r = spawnSync(process.execPath, [cli, '--emit'], { cwd: root, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const receipt = JSON.parse(r.stdout);
+  assert.ok(receipt.files['b.mjs'], `no b.mjs in ${r.stdout}`);
+  assert.equal(sh(root, 'cat-file', 'blob', receipt.files['b.mjs']), 'export const b = "emitted";');
+  rmSync(root, { recursive: true, force: true });
 });

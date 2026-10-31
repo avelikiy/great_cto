@@ -49,7 +49,7 @@
  * confirm anything.
  */
 
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, realpathSync } from 'node:fs';
 import path from 'node:path';
 import { checkArtifacts, explainArtifacts, pathClaims, resolveClaimPath, THIN_BYTES } from './artifact-claims.mjs';
 import { parseAcceptance, summarize } from './acceptance-verify.mjs';
@@ -451,11 +451,9 @@ function gitText(args, cwd) {
 
 const OID = /^[0-9a-f]{40}([0-9a-f]{24})?$/;
 
-/** A relative path that stays under root — what a receipt key must be. */
+/** A relative path that stays under root, links resolved — what a receipt key must be. */
 function insideRoot(root, rel) {
-  if (path.isAbsolute(rel)) return false;
-  const r = path.relative(root, path.resolve(root, rel));
-  return r !== '' && !r.startsWith('..') && !path.isAbsolute(r);
+  return !path.isAbsolute(rel) && within(path.resolve(root, rel), root);
 }
 
 /** One file's part of the evidence: what changed, and which source said so. */
@@ -528,7 +526,16 @@ export function claimsAsRequirements(verdict) {
   return out;
 }
 
-const within = (abs, dir) => { const r = path.relative(path.resolve(dir), path.resolve(abs)); return r !== '' && !r.startsWith('..') && !path.isAbsolute(r); };
+/** The path with every symlink resolved, or the lexical path when it does not exist. */
+const real = (p) => { try { return realpathSync(p); } catch { return path.resolve(p); } };
+
+/**
+ * Is `abs` under `dir` — after symlinks, on both sides. Lexical containment was
+ * the first version, and a link inside the project pointing out of it passed:
+ * the judge would have been handed whatever the link named. Both sides, because
+ * on macOS the temp and home trees themselves sit behind links (/var → /private/var).
+ */
+const within = (abs, dir) => { const r = path.relative(real(dir), real(abs)); return r !== '' && !r.startsWith('..') && !path.isAbsolute(r); };
 
 /** The artefact text the judge reads, and whether it was cut. */
 export function artefactExcerpt(verdict, { root = process.cwd(), bytes = EXCERPT_BYTES } = {}) {
