@@ -196,6 +196,12 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   }
   const changedOutput = git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...pathspecExclude], cwd);
   if (changedOutput === null) return null;
+  // Deletions, kept apart: a file deleted after an approval changes what ships, and
+  // the file map — which holds content digests — cannot hold a file that is gone.
+  const deletedOutput = git(['diff', '--name-only', '--diff-filter=D', ref, '--', ':/', ...pathspecExclude], cwd);
+  if (deletedOutput === null) return null;
+  const allDeleted = deletedOutput.split('\n').map((x) => x.trim()).filter(Boolean).sort();
+  const deleted = allDeleted.slice(0, maxFiles);
   const names = [
     ...changedOutput
       .split('\n').map((s) => s.trim()).filter(Boolean),
@@ -213,7 +219,9 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     files[p] = blob;
   }
 
-  return { head, dirty, base: ref, base_from: baseFrom, files, ...(truncated ? { truncated: true } : {}) };
+  // A cut deletion list is a partial receipt like a cut file map: say so.
+  if (allDeleted.length > maxFiles) truncated = true;
+  return { head, dirty, base: ref, base_from: baseFrom, files, deleted, ...(truncated ? { truncated: true } : {}) };
 }
 
 /**
@@ -289,6 +297,33 @@ export function mergeBase(cwd) {
  * whose receipt matched, and collapsing them is the defect this whole ladder
  * exists to remove.
  */
+// Inside .great_cto/, only what DECIDES behaviour is compared: PROJECT.md (project_size
+// and the tier, which decide the stages a deploy checks), exceptions/ (signed
+// overrides), configuration files (*.toml, *.yml — security-allowlist.yml is one),
+// security-signals.log (it raises the tier from baseline), slo-budget-current.md
+// (an exhausted budget blocks a deploy) and env.sh (sourced into the deploy shell).
+// Deleting or editing any of them after an approval is drift.
+// Everything else there is what the pipeline writes while it runs — verdicts, logs,
+// lessons, the review marker, handoffs, an acceptance — and in a project that does
+// not gitignore .great_cto/ (init does not) each of those, written AFTER an approval,
+// made the approval drift from itself, so a deploy could never pass.
+//
+// A list of what counts, not of what to ignore. The first fix listed the writers and
+// missed three (review-marker.json, .last-auto-learn, the learner's file); the writers grow
+// with every hook, the configuration does not.
+const COUNTED_STATE = /^(PROJECT\.md|exceptions(\/|$)|security-signals\.log$|slo-budget-current\.md$|env\.sh$|[^/]+\.(toml|ya?ml)$)/;
+export function isPipelineOutput(p) {
+  if (!p.startsWith('.great_cto/')) return false;
+  return !COUNTED_STATE.test(p.slice('.great_cto/'.length));
+}
+/** The top-level entries of .great_cto/ that are pipeline output, as paths to exclude. */
+export function pipelineOutputPaths(cwd) {
+  let names;
+  try { names = requireFs().readdirSync(join(cwd, '.great_cto')); } catch { return []; }
+  return names.filter((n) => !n.includes(':') && isPipelineOutput(`.great_cto/${n}`)).map((n) => `.great_cto/${n}`);
+}
+const codeOnly = (files) => Object.fromEntries(Object.entries(files || {}).filter(([p]) => !isPipelineOutput(p)));
+
 export function compareReceipts(recorded, current, { digest = null, cwd = process.cwd() } = {}) {
   if (!recorded) return { state: 'no-receipt', why: 'the approving verdict carries no receipt — nothing to compare against' };
   if (!current) return { state: 'unreadable', why: 'the current tree state could not be read' };
@@ -297,8 +332,8 @@ export function compareReceipts(recorded, current, { digest = null, cwd = proces
   const added = [];
   const removed = [];
   const landed = [];
-  const before = recorded.files || {};
-  const now = current.files || {};
+  const before = codeOnly(recorded.files);
+  const now = codeOnly(current.files);
   // Falling out of the CHANGE SET is not the same as being deleted.
   //
   // The file map is the diff against the merge-base, so the moment a reviewed
@@ -321,6 +356,12 @@ export function compareReceipts(recorded, current, { digest = null, cwd = proces
     else changed.push(p);                        // still here, and edited
   }
   for (const p of Object.keys(now)) if (!(p in before)) added.push(p);
+  // Deleted since the approval. Only when the recorded receipt says what was deleted
+  // then; one from before this field cannot tell a new deletion from the change's own.
+  if (Array.isArray(recorded.deleted)) {
+    const was = new Set(recorded.deleted);
+    for (const p of current.deleted || []) if (!was.has(p) && !isPipelineOutput(p) && !removed.includes(p)) removed.push(p);
+  }
 
   // A file the review covered, edited since. This is the finding; the rest is
   // context. `added` in particular is usually ordinary work continuing, not a
@@ -426,11 +467,11 @@ export function receiptHash(receipt) {
  * Single-use by design: an acceptance authorises ONE push. An acceptance that
  * outlives its push is a standing permission, and nobody asked for one.
  */
-export function writeAcceptance(cwd, { hash, why = '', at = Date.now() } = {}) {
+export function writeAcceptance(cwd, { hash, why = '', at = Date.now(), agent = null } = {}) {
   const { writeFileSync, mkdirSync } = requireFs();
   mkdirSync(join(cwd, '.great_cto'), { recursive: true });
-  writeFileSync(join(cwd, ACCEPT_PATH), JSON.stringify({ hash, why, at }) + '\n');
-  return { hash, why, at };
+  writeFileSync(join(cwd, ACCEPT_PATH), JSON.stringify({ hash, why, at, ...(agent ? { agent } : {}) }) + '\n');
+  return { hash, why, at, agent };
 }
 
 /**
@@ -440,7 +481,7 @@ export function writeAcceptance(cwd, { hash, why = '', at = Date.now() } = {}) {
  * state" and "valid" are different situations, and the third is the one worth
  * naming out loud: it means the tree moved after a human looked at it.
  */
-export function readAcceptance(cwd, currentHash) {
+export function readAcceptance(cwd, currentHash, { agent = null } = {}) {
   const { readFileSync } = requireFs();
   let raw;
   try { raw = readFileSync(join(cwd, ACCEPT_PATH), 'utf8'); }
@@ -454,6 +495,12 @@ export function readAcceptance(cwd, currentHash) {
   if (rec.hash !== currentHash) {
     return { valid: false, stale: true, rec,
       why: 'the acceptance names a different state — the tree changed after it was accepted' };
+  }
+  // An acceptance given while looking at one stage's drift does not cover another's:
+  // the operator saw code-reviewer's files, not qa-engineer's.
+  if (agent && rec.agent !== agent) {
+    return { valid: false, stale: true, rec,
+      why: `the acceptance was given for ${rec.agent || 'the whole tree'}, not for ${agent} — accept ${agent}'s drift separately` };
   }
   return { valid: true, rec, why: `accepted at ${new Date(rec.at).toISOString()}` };
 }
@@ -475,6 +522,12 @@ function requireFs() {
 // `--emit`   prints a receipt for the current tree (used by log-verdict.sh).
 // `--check <file>`  compares a recorded receipt held in a file.
 // `--verify` compares the newest approving verdict's receipt against now.
+//    `--agent <name>` narrows it to one approving stage. The newest approval of
+//    any stage is the wrong question before a deploy: a review of today's tree
+//    must not stand in for a QA pass on yesterday's.
+//    `--require` is the deploy question: "no approval carries a receipt" exits 3,
+//    not 0, and files ADDED since the approval count as drift. Before a push they
+//    are work continuing; before a deploy they are code nobody reviewed, shipping.
 
 function currentForReceipt(cwd, receipt) {
   // Persisted evidence is data, not Git options or a new revision expression.
@@ -487,7 +540,10 @@ function currentForReceipt(cwd, receipt) {
     base = receipt.head;
   }
   if (base != null && (typeof base !== 'string' || !/^[0-9a-f]{7,64}$/i.test(base))) return null;
-  return treeReceipt(cwd, { base: base || null });
+  // Without the pipeline's own state: an approval, an acceptance and a verdict all
+  // write under .great_cto/, and in a project that does not ignore it each write
+  // would change the state it is about (an acceptance voiding itself on write).
+  return treeReceipt(cwd, { base: base || null, exclude: pipelineOutputPaths(cwd) });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
@@ -510,27 +566,48 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     process.stdout.write(r ? JSON.stringify(r) : '');
     process.exit(r ? 0 : 1);
   }
+  const agentsArg = () => {
+    const i = argv.indexOf('--agent');
+    if (i < 0) return APPROVING_AGENTS;
+    const name = argv[i + 1];
+    if (!APPROVING_AGENTS.includes(name)) {
+      console.error(`receipt: --agent must be one of ${APPROVING_AGENTS.join(', ')}, got ${name}`);
+      process.exit(2);
+    }
+    return [name];
+  };
   if (argv.includes('--verify')) {
     const cwd = process.cwd();
-    const approval = latestApproval(cwd);
+    const agents = agentsArg();
+    const approval = latestApproval(cwd, { agents });
     const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'no-receipt') {
       // Not silence. A push with no approval to compare against and a push whose
       // receipt matched are different facts, and only one of them is evidence.
-      console.log('receipt: no approving verdict carries a receipt — nothing was verified');
-      process.exit(0);
+      const whom = agents.length === 1 ? `${agents[0]} verdict` : 'verdict';
+      console.log(`receipt: no approving ${whom} carries a receipt — nothing was verified`);
+      process.exit(argv.includes('--require') ? 3 : 0);
     }
     const who = approval ? `${approval.agent} ${approval.verdict} at ${approval.ts}` : 'an approval';
     console.log(`receipt: against ${who}`);
     console.log(describeDrift(cmp).split('\n').map((l) => `  ${l}`).join('\n'));
 
     if (cmp.state === 'unreadable') process.exit(2);
-    if (cmp.state !== 'differs') process.exit(0);
+    const requireMode = argv.includes('--require');
+    // A receipt capped at MAX_FILES lists only part of the change, so a file past
+    // the cap could change unseen. For the deploy question that is not a match.
+    if (requireMode && (approval?.receipt?.truncated || current?.truncated)) {
+      console.log(`  the receipt lists only the first ${MAX_FILES} files of this change — a match cannot be shown; re-run the stage on a smaller change`);
+      process.exit(2);
+    }
+    const drifted = cmp.state === 'differs' || (cmp.state === 'extended' && requireMode);
+    if (!drifted) process.exit(0);
 
     // Drift, but a human may already have looked at exactly this state.
     const hash = receiptHash(current);
-    const acc = readAcceptance(cwd, hash);
+    const narrowed = agents.length === 1 ? agents[0] : null;
+    const acc = readAcceptance(cwd, hash, { agent: narrowed });
     if (acc.valid) {
       console.log(`  accepted by the operator for this exact state (${acc.why})`);
       // Consumed here rather than by the caller: whoever asked the question is
@@ -540,7 +617,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
       process.exit(0);
     }
     if (acc.stale) console.log(`  ${acc.why} — accept again if this state is fine`);
-    console.log(`  to accept this state: node scripts/lib/receipt.mjs --accept`);
+    console.log(`  to accept this state: node scripts/lib/receipt.mjs --accept${narrowed ? ` --agent ${narrowed}` : ''}${requireMode ? ' --require' : ''}`);
     process.exit(1);
   }
 
@@ -553,14 +630,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   // behaviour — an agent asked to approve its own work will comply.
   if (argv.includes('--accept')) {
     const cwd = process.cwd();
-    const approval = latestApproval(cwd);
+    const approval = latestApproval(cwd, { agents: agentsArg() });
     const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'unreadable') {
       console.error(`receipt: cannot accept — ${cmp.why}`);
       process.exit(2);
     }
-    if (cmp.state !== 'differs') {
+    const requireMode = argv.includes('--require');
+    if (requireMode && (approval?.receipt?.truncated || current?.truncated)) {
+      console.error(`receipt: cannot accept — the receipt lists only the first ${MAX_FILES} files; what you would accept is not all on screen`);
+      process.exit(2);
+    }
+    // Under --require an added file is drift, so it must be acceptable too —
+    // otherwise verify says "accept it" and accept says "nothing to accept".
+    if (!(cmp.state === 'differs' || (cmp.state === 'extended' && requireMode))) {
       console.log(`receipt: nothing to accept — ${cmp.why}`);
       process.exit(0);
     }
@@ -578,7 +662,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const answer = await new Promise((res) => rl.question('\nShip this state anyway? [y/N] ', (a) => { rl.close(); res(a); }));
     if (!/^y(es)?$/i.test(answer.trim())) { console.log('not accepted — nothing recorded.'); process.exit(1); }
 
-    writeAcceptance(cwd, { hash, why: `drift accepted over ${cmp.changed.length} changed file(s)` });
+    const stage = argv.includes('--agent') ? argv[argv.indexOf('--agent') + 1] : null;
+    writeAcceptance(cwd, { hash, agent: stage,
+      why: `drift accepted over ${cmp.changed.length} changed and ${cmp.added.length} added file(s)${stage ? ` for ${stage}` : ''}` });
     console.log('accepted. This authorises ONE push of this exact state; any further edit voids it.');
     process.exit(0);
   }

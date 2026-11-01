@@ -134,6 +134,18 @@
       "filePath": "skills/great_cto/packs/agent-pack.md",
       "count": 1,
       "reason": "a defensive document quotes the jailbreak string it teaches agents to detect"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "scripts/lib/history-secret-scan.mjs",
+      "count": 2,
+      "reason": "`--max-count=${maxCommits}` is one element of the argv array passed to spawn('git', args) with no shell; maxCommits is a number"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "tests/lib/history-secret-scan.test.mjs",
+      "count": 2,
+      "reason": "templates build fixture file contents and commit messages; the next statement is spawnSync(process.execPath, [CLI, ...]) with an argv array, no shell"
     }
   ]
 }
