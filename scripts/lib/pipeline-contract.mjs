@@ -30,6 +30,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
 import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * @returns {{declared: Array, undeclared: Array, broken: Array, total: number}}
@@ -60,7 +61,7 @@ export function contractCoverage(text) {
 // Exit 1 = a `produces` exists and cannot be read.
 // Exit 2 = no map to read.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const file = process.argv.find((a, i) => i > 1 && !a.startsWith('--'))
     || path.join(process.cwd(), 'shared', 'pipeline.toml');
   if (!existsSync(file)) {

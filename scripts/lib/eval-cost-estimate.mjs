@@ -35,6 +35,7 @@
  * @returns {{usd:number|null, perEval:number|null, evals:number, basis:number,
  *            confidence:'none'|'weak'|'fair'|'good', why:string}}
  */
+import { isMainModule } from './is-main.mjs';
 export function estimateRun({ rows = [], split = null, samples = 1, evals = null } = {}) {
   const shaped = rows.filter((r) =>
     (split === null || r.split === split) &&
@@ -73,7 +74,7 @@ export function costLine(est) {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync, existsSync } = await import('node:fs');
   const { join, dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');

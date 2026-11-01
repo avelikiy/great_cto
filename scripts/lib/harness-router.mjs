@@ -13,13 +13,13 @@
 //   node scripts/lib/harness-router.mjs detect      # current harness + capabilities
 //   node scripts/lib/harness-router.mjs harnesses   # list the registry
 
-import { fileURLToPath } from 'node:url';
 
 /**
  * Capability flags are best-effort (mark unknowns conservatively false). The value
  * is a single source of truth great_cto code can branch on instead of scattered
  * env sniffing. Override detection with GREAT_CTO_HARNESS=<id>.
  */
+import { isMainModule } from './is-main.mjs';
 export const HARNESSES = Object.freeze({
   'claude-code': {
     name: 'Claude Code', cli: 'claude',
@@ -104,5 +104,5 @@ function main(argv) {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

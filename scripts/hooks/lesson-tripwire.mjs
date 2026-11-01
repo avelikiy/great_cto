@@ -21,9 +21,9 @@ import { PASS, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { simpleCommands, base } from '../lib/shell-commands.mjs';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const MAX_LESSONS = 2;
 const MAX_CHARS = 700;
@@ -189,6 +189,6 @@ function remind(raw, env) {
   return { code: 0, stdout: JSON.stringify({ hookSpecificOutput: { hookEventName: 'PreToolUse', additionalContext: out } }), stderr: '' };
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   emit({ ...run(readStdinOnce()), code: 0 });
 }

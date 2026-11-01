@@ -21,6 +21,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -129,4 +130,4 @@ export function additionalContextOf(stdout) {
   } catch { return null; }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();
+if (isMainModule(import.meta.url)) main();

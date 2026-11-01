@@ -49,6 +49,7 @@
 
 import { PROOF, PROOF_VALUES, isProofStatus } from './proof-status.mjs';
 import { verifyQuotesInText, isVerified, QUOTE_STATUS } from './quote-verify.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /** A heading that opens a finding: `### [Severity] Title`. */
 const FINDING_HEAD = /^#{2,4}\s*\[([^\]]+)\]\s*(.+?)\s*$/;
@@ -294,6 +295,6 @@ async function main(argv) {
   return argv.includes('--strict') && total ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

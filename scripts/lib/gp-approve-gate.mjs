@@ -22,6 +22,7 @@
 // Usage:
 //   node scripts/lib/gp-approve-gate.mjs <GP-file> [--no-eval "reason"] [--json]
 import { readFileSync, existsSync } from 'node:fs';
+import { isMainModule } from './is-main.mjs';
 
 /** Pull the eval trace fields a stamp leaves in the GP frontmatter. */
 export function readEvidence(text = '') {
@@ -94,7 +95,7 @@ export function decideApproval(evidence = {}, { bypassReason = null } = {}) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const file = argv.find((a) => !a.startsWith('--'));

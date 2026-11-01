@@ -27,9 +27,9 @@
 import { readFileSync, existsSync, mkdirSync, appendFileSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { evaluateGate, parseResultsJsonl } from './eval-gate.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 export const LEDGER_ROOT = join(process.env.GREAT_CTO_HOME || join(homedir(), '.great_cto'), 'prompt-evolution');
 
@@ -164,5 +164,5 @@ function main() {
   process.exit(2);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

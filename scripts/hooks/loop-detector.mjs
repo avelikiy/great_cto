@@ -37,8 +37,8 @@ import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { tick as learnWindowTick } from '../lib/learn-window.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 export const MAX_ENTRIES = 30;
 export const NOTICE_MAX = 200;
@@ -229,7 +229,7 @@ function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
   try { main(); } catch { /* fail open */ }
   process.exitCode = 0;
 }

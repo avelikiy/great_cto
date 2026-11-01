@@ -12,6 +12,7 @@
 //
 // Plan: docs/plans/PLAN-2026-06-18-gate-tiering-reviewer-consolidation.md
 
+import { isMainModule } from './is-main.mjs';
 export const TIER_RANK = { T0: 0, T1: 1, T2: 2 };
 
 // Files that, on their own, never change external behavior. A change touching ONLY
@@ -113,7 +114,7 @@ export function classify(signals = {}) {
 
 // CLI: node scripts/lib/change-tier.mjs file1 file2 …  → prints the tier + reasons
 // (a thin probe; the orchestrator imports classify() directly with richer signals).
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const r = classify({ changedFiles: process.argv.slice(2) });
   process.stdout.write(`${r.tier}  ${r.reasons.join(', ')}\n`);
 }

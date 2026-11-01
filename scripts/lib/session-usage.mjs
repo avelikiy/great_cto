@@ -39,6 +39,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { priceUsage, effectivePrices } from './cost-meter.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const INDEX_VERSION = 3;          // 2: hourly buckets, limit kinds, Codex limit series · 3: hook blocks, errors, timeouts
 const RING = 256;                 // recent response ids remembered across reads
@@ -1067,7 +1068,7 @@ export function usageIndexSnapshot({ scan = () => scanUsage(), ttlMs = 60 * 1000
 }
 
 // CLI: node scripts/lib/session-usage.mjs [--days N] [--json]
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const i = process.argv.indexOf('--days');
   const days = i > -1 ? Number(process.argv[i + 1]) : 30;

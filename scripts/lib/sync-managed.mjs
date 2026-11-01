@@ -24,11 +24,11 @@
  *   Silent when both halves sync; one line per half that was skipped, and why.
  *   Advisory by default; --strict makes installation fail on skipped/error.
  */
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync, realpathSync } from 'node:fs';
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, unlinkSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { expandSharedRefs, fragmentsDirOf } from './shared-fragments.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const MARKER = '<!-- great_cto-managed -->';
 
@@ -98,10 +98,7 @@ export function syncManaged({ pluginDir, home = homedir() }) {
   };
 }
 
-const invokedDirectly = (() => {
-  try { return Boolean(process.argv[1]) && fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
-  catch { return false; }
-})();
+const invokedDirectly = isMainModule(import.meta.url);
 
 if (invokedDirectly) {
   const at = process.argv.indexOf('--plugin-dir');

@@ -32,9 +32,9 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync, mkdtempSync, rmSync, existsSync, statSync, openSync, readSync, closeSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { PATTERNS } from './secret-patterns.mjs';
 import { parseLessons } from './lessons-write.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULT_BUDGET_USD = 0.5;
 export const MIN_OPERATOR_MESSAGES = 2;
@@ -266,7 +266,7 @@ export function runLearner({ cwd, transcript, reason, fromOffset = 0, claude = '
   return { state: 'done', exit: 0, added };
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   let opts = {};
   try { opts = JSON.parse(process.argv[2] || '{}'); } catch { /* defaults */ }

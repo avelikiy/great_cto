@@ -45,6 +45,7 @@ import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level
 import { readGateBeads, gateStates as readGateStates } from '../lib/gate-state.mjs';
 import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const VERDICT_DIR = join(PROJ_DIR, 'verdicts');
@@ -218,6 +219,6 @@ function main() {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main();
 }

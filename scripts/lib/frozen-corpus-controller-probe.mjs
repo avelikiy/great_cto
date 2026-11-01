@@ -1,11 +1,12 @@
 /** Trusted operator probe: frozen-input graph construction, never stage execution. */
 import assert from 'node:assert/strict';
 import {readFileSync,writeFileSync,mkdirSync,readdirSync,lstatSync,realpathSync} from 'node:fs';
-import {join,dirname,resolve} from 'node:path';
-import {pathToFileURL,fileURLToPath} from 'node:url';
+import { join, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {verifyCorpusRegistration} from './benchmark-corpus-registration.mjs';
+import { isMainModule } from './is-main.mjs';
 const sha=x=>createHash('sha256').update(x).digest('hex');
 const mandatory=['code-reviewer','qa-engineer','security-officer'];
 // Explicit expectations, not derived from the candidate's selected list.
@@ -104,7 +105,7 @@ export async function probeFrozenCorpusContexts({pluginRoot,corpusRoot,registrat
   graphSha256,deliveredInventoryDigest:before,cases,dispatchAttempts:0,approvalsRecorded:0,providerCalls:null,
   graphFloorCoverageVerified:false,executionArtifactProvenanceVerified:false,independentAdmissionVerified:false,benchmarkEligible:false};
 }
-if(process.argv[1]&&resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+if(isMainModule(import.meta.url)){
  try{const [pluginRoot,corpusRoot,registrationSha256,fixtureRoot]=process.argv.slice(2);
   console.log(JSON.stringify(await probeFrozenCorpusContexts({pluginRoot,corpusRoot,registrationSha256,fixtureRoot})));
  }catch{console.error('frozen corpus controller probe failed; inspect trusted fixtures locally');process.exitCode=1;}

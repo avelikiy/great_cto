@@ -17,6 +17,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Pure core. lanes: [{lane, files:[...]}]. Returns conflicts: for each file
@@ -172,4 +173,4 @@ function main() {
   if (!json) console.log(`✓ ${lanes.length} lane(s) are file-disjoint — safe to dispatch in parallel worktrees.`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

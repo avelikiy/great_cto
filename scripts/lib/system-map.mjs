@@ -26,6 +26,7 @@
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * The groups a great_cto project is built from, and what each one is.
@@ -191,7 +192,7 @@ export function pipelineMermaid(tomlText) {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const map = systemMap(process.cwd());
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(map, null, 2));

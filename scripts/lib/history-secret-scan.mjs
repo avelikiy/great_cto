@@ -28,7 +28,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import path from 'node:path';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 import { scan } from './secret-patterns.mjs';
 
 // High enough that an ordinary repository is read whole; a cut is reported, not hidden.
@@ -106,7 +106,7 @@ export function scanHistory({ cwd = process.cwd(), maxCommits = DEFAULT_MAX_COMM
   });
 }
 
-const isMain = (() => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+const isMain = isMainModule(import.meta.url);
 if (process.argv[1] && isMain) {
   // A reader that closed early (`| head`) is not an error of the scan.
   process.stdout.on('error', (e) => { if (e.code === 'EPIPE') process.exit(process.exitCode ?? 0); throw e; });

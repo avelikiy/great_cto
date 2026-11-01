@@ -21,6 +21,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import os from 'node:os';
+import { isMainModule } from './is-main.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -105,7 +106,7 @@ export function auditPipelineHealth({ registry = join(os.homedir(), '.great_cto'
 //
 //   node scripts/lib/pipeline-health.mjs [--strict] [--json]
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const r = auditPipelineHealth();
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(r, null, 2));

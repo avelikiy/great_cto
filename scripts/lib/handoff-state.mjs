@@ -42,7 +42,7 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const DIRTY_CAP = 30;
 export const COMMITS_CAP = 10;
@@ -459,6 +459,6 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), out = 
   return 2;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main();
 }

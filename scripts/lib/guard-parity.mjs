@@ -28,6 +28,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Commands that genuinely belong on a remote runner, each with the reason.
@@ -260,7 +261,7 @@ export function describeParity(p) {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   // Every remote CI definition, not just GitHub's.
   //
   // This read `.github/workflows` and nothing else, which was correct while

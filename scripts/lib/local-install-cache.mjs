@@ -4,9 +4,9 @@
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { dirname, join, relative, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { dirname, join, relative, sep } from 'node:path';
 import { validateInstallTarget } from './local-install-target.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const RECEIPT = '.great-cto-local-install.json';
 const REQUIRED = ['.claude-plugin/plugin.json', 'skills/great_cto/ARCHETYPES.md',
@@ -147,7 +147,7 @@ export function installLocalCache({ source, cacheRoot }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     const [source, cacheRoot] = process.argv.slice(2);
     process.stdout.write(JSON.stringify(installLocalCache({ source, cacheRoot })) + '\n');

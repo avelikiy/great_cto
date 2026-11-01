@@ -22,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './lib/is-main.mjs';
 
 export const SIZE_BUDGET = 20 * 1024;   // bytes: 20 KiB (20,480), not 20,000
 export const DESC_MIN = 40;
@@ -162,7 +163,7 @@ export function lintSkills({ repoRoot }) {
   return { skills: names.length, errors, warnings };
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1]);
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const i = a.indexOf('--root');

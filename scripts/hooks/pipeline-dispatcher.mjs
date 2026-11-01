@@ -30,7 +30,6 @@
 import { readFileSync, existsSync, statSync, readdirSync, writeFileSync } from 'node:fs';
 import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { gatesForApprovalLevel, levelFromProjectMd } from '../lib/approval-level.mjs';
 import { nativeRuntimePolicy } from '../lib/runtime-gate-policy.mjs';
 import { recordStandDown } from '../lib/stand-down.mjs';
@@ -47,6 +46,7 @@ import { latestScore as _latestScore, readScores as _readScores } from '../lib/s
 import { appendEvent } from '../lib/agent-events.mjs';
 import { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 import { contractPath, PLUGIN_SHARED } from '../lib/contract-path.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 export { parsePipelineToml } from '../lib/pipeline-toml.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
@@ -1214,5 +1214,5 @@ async function main() {
   return process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

@@ -26,7 +26,7 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync, readdirSync } from "node:fs";
 import { join, dirname, basename } from "node:path";
-import { fileURLToPath } from "node:url";
+import { isMainModule } from "./lib/is-main.mjs";
 
 // Provider order: ANTHROPIC_API_KEY (Haiku) → OPENROUTER_API_KEY (configurable model)
 // → heuristic.
@@ -442,7 +442,7 @@ async function main() {
 }
 
 // Only run if invoked directly (not imported)
-const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   main().catch((e) => {
     process.stderr.write(`✗ fatal: ${e?.message ?? e}\n`);

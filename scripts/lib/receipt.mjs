@@ -30,7 +30,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import * as fsModule from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance } from './verdict-seal.mjs';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
@@ -558,7 +558,7 @@ function currentForReceipt(cwd, receipt) {
   return treeReceipt(cwd, { base: base || null, exclude: pipelineOutputPaths(cwd) });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   if (argv.includes('--state-dir')) {
     console.log(verdictStateDir());

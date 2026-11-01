@@ -5,10 +5,10 @@ import os from 'node:os';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { admitRelease, getAdmissionInfo, getAdmittedArtifact } from '../packages/cli/src/release-trust.mjs';
 import { assertPublicationSource } from './sign-release-artifacts.mjs';
 import { check as checkLease } from './lib/release-lease.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const hash = (bytes, algorithm = 'sha256') => createHash(algorithm).update(bytes).digest('hex');
 const OWNER_APPROVAL = 'local-owner-release';
@@ -129,7 +129,7 @@ export async function publishLocalRelease(options, { run = execFileSync, fetchFn
   return { state: production ? (didPublish ? 'PUBLISHED_AND_READ_BACK' : 'ALREADY_PUBLISHED_BYTE_IDENTICAL') : 'SIMULATED_PUBLICATION_READBACK', version: info.version, commit: info.commit, indexDigest: info.indexDigest, authority: production ? 'REGISTRY_BYTES_VERIFIED' : 'NONE', evidence: production ? 'LOCAL_OWNER_SIGNATURE_AND_REGISTRY_READBACK' : 'SYNTHETIC_ONLY', releaseEligibility: 'NOT_CHECKED', published: production && didPublish, installed: false, githubRelease: 'NOT_PUBLISHED' };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     const allowed = new Set(['--directory','--version','--source','--approve-commit','--approve-index-digest','--public-key','--key-fingerprint','--npm','--npm-sha256','--npm-auth-file','--approval']), flags = new Map();
     for (let i=2;i<process.argv.length;i+=2) { const name=process.argv[i], value=process.argv[i+1]; if (!allowed.has(name) || flags.has(name) || !value || value.startsWith('--')) throw Error('invalid verified publisher option'); flags.set(name,value); }

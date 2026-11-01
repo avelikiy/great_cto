@@ -51,6 +51,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { secondOpinionForTree } from '../lib/second-opinion-for-tree.mjs';
 import { ensureStateDir } from '../lib/great-cto-scope.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.cross-review-gate');
@@ -174,6 +175,6 @@ export function main() {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main();
 }

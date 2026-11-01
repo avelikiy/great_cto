@@ -36,6 +36,8 @@
  * built-ins below, which add a per-phrase replacement the flat file cannot carry.
  */
 
+import { isMainModule } from './is-main.mjs';
+
 /** Words that carry no information in our writing. value = the plain word. */
 const DEAD_WORDS = Object.freeze({
   delve: 'dig into / look at',
@@ -395,6 +397,6 @@ async function main(argv) {
   return strict ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

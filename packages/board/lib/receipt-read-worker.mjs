@@ -5,6 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { treeReceipt, latestApproval, compareReceipts, mergeBase } from '../../../scripts/lib/receipt.mjs';
 import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
 import { affectedTests } from '../../../scripts/lib/affected-tests.mjs';
+import { isMainModule } from '../../../scripts/lib/is-main.mjs';
 const entry = fileURLToPath(import.meta.url);
 export const receiptReadEntry = entry;
 
@@ -20,7 +21,7 @@ function bindingTree() {
   if (!receipt && gitMetadata) throw Error('Repository receipt unavailable');
   return receipt;
 }
-if (process.argv[1] === entry) {
+if (isMainModule(import.meta.url)) {
   try {
     const mode = process.argv[2] || 'binding';
     if (!['binding', 'approval', 'second-opinion', 'touches'].includes(mode) || process.argv.length > 3) throw Error('Invalid evidence operation');

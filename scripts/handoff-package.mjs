@@ -17,6 +17,7 @@ import { readFileSync, existsSync, mkdirSync, writeFileSync, readdirSync } from 
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { sumCostHistory } from './lib/cost-history.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 /**
  * Assemble the handoff markdown from already-gathered, structured inputs.
@@ -172,4 +173,4 @@ function main() {
   else { process.stdout.write(md + '\n'); console.error(`\n[handoff] written → ${outPath}`); }
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

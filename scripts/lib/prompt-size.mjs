@@ -39,6 +39,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandSharedRefs } from '../../tests/eval/runner.mjs';
 import { priceForModel } from './cost-meter.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const AGENTS_DIR = join(ROOT, 'agents');
@@ -230,6 +231,6 @@ function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main(process.argv.slice(2));
 }

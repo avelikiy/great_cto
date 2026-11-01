@@ -18,6 +18,7 @@
 //
 // Zero tokens, zero network: reads `git diff --numstat`.
 import { spawnSync } from 'node:child_process';
+import { isMainModule } from './is-main.mjs';
 
 /** Files whose size says nothing about review effort. */
 const GENERATED = [
@@ -122,7 +123,7 @@ export function renderAssessment(a) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const range = argv.find((a) => !a.startsWith('--')) || 'HEAD';

@@ -55,6 +55,7 @@ import { checkArtifacts, explainArtifacts, pathClaims, resolveClaimPath, THIN_BY
 import { parseAcceptance, summarize } from './acceptance-verify.mjs';
 import { spawnSync } from 'node:child_process';
 import { parsePipelineToml } from '../hooks/pipeline-dispatcher.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const STATE = Object.freeze({
   VERIFIED: 'verified',
@@ -1086,7 +1087,7 @@ const symbol = (s) => (s === 'pass' ? '✓' : s === 'fail' ? '✗' : '·');
 // 1 = rework, 2 = unverifiable or bad input. Three exit codes for three states,
 // because collapsing unverifiable into either of the others is the bug.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const agent = argv.find((a) => !a.startsWith('--'));
   const rootIdx = argv.indexOf('--root');
