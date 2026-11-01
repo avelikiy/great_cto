@@ -38,19 +38,34 @@ export function loadSealKey({ create = false, env = process.env } = {}) {
   const p = sealKeyPath(env);
   try {
     const hex = fs.readFileSync(p, 'utf8').trim();
-    return /^[0-9a-f]{64}$/.test(hex) ? Buffer.from(hex, 'hex') : null;
+    if (/^[0-9a-f]{64}$/.test(hex)) return Buffer.from(hex, 'hex');
+    // A damaged key is not "no key": say so, every time, rather than unseal quietly.
+    process.stderr.write(`verdict-seal: ${p} is not a valid key — verdicts go unsealed until it is removed and recreated\n`);
+    return null;
   } catch (e) {
     if (e.code !== 'ENOENT' || !create) return null;
   }
   fs.mkdirSync(path.dirname(p), { recursive: true, mode: 0o700 });
-  try { fs.writeFileSync(p, randomBytes(32).toString('hex') + '\n', { flag: 'wx', mode: 0o600 }); }
+  // Written whole to a temporary name and linked into place: two first-time writers,
+  // or a crash mid-write, must never leave an empty key that silently unseals
+  // every later verdict.
+  const tmp = `${p}.tmp-${process.pid}-${randomBytes(4).toString('hex')}`;
+  fs.writeFileSync(tmp, randomBytes(32).toString('hex') + '\n', { flag: 'wx', mode: 0o600 });
+  try { fs.linkSync(tmp, p); }
   catch (e) { if (e.code !== 'EEXIST') throw e; }   // another writer made it first: use theirs
+  finally { fs.rmSync(tmp, { force: true }); }
   return loadSealKey({ create: false, env });
 }
 
-/** The fields a seal covers, in a fixed order — what a forger would want to change. */
-const VERDICT_FIELDS = (r) => ['verdict', r.agent, r.verdict, r.ts, r.receipt ? JSON.stringify(r.receipt) : ''];
-const ACCEPT_FIELDS = (a) => ['accept', a.hash, a.agent || '', String(a.at)];
+/** Every field but the seal, keys sorted at every depth — so editing any of them
+ *  (meta.need routes the pipeline, cost_usd feeds the spend view) breaks it. */
+function canonical(v) {
+  if (Array.isArray(v)) return v.map(canonical);
+  if (v && typeof v === 'object') return Object.fromEntries(Object.keys(v).sort().filter((k) => k !== 'seal').map((k) => [k, canonical(v[k])]));
+  return v;
+}
+const VERDICT_FIELDS = (r) => ['verdict', canonical(r)];
+const ACCEPT_FIELDS = (a) => ['accept', canonical(a)];
 
 function mac(key, fields) {
   return `${VERSION}:${createHmac('sha256', key).update(JSON.stringify(fields)).digest('hex')}`;

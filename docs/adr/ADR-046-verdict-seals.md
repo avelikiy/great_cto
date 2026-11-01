@@ -25,8 +25,11 @@ The terminal check guarded only the `--accept` command. Nothing guarded the file
 
 Every verdict line and every acceptance carries an HMAC-SHA256 seal.
 
-- **What it covers.** For a verdict: agent, verdict, timestamp and receipt. For an
-  acceptance: hash, stage and time.
+- **What it covers.** Every field of the record but the seal itself, keys sorted
+  at every depth. That includes `meta` (the `need=` routing), cost and project
+  for a verdict, and the reason for an acceptance. A verdict also counts only in
+  the log of the stage it names: a sealed code-reviewer line copied into
+  `qa-engineer.log` is skipped.
 - **The key.** `~/.great_cto/keys/verdict-seal.key`, 32 random bytes, mode 0600 in
   a 0700 directory, created on first use (`scripts/lib/verdict-seal.mjs`).
 - **The writers seal.** `log-verdict.sh` seals through `verdict-record.mjs --emit`;
@@ -38,9 +41,13 @@ Every verdict line and every acceptance carries an HMAC-SHA256 seal.
     freshness not verified, said and never passed as verified;
   - an acceptance without a valid seal is not an acceptance.
 - **The gate does not touch the operator's key.** `ci-local.sh` points
-  `GREAT_CTO_SEAL_KEY` at a throwaway key.
-- **Pre-push is unchanged.** Plain `--verify` does not read seals, so lines written
-  before this change keep working there.
+  `GREAT_CTO_SEAL_KEY` at a throwaway key. A bare `node --test` run outside the
+  gate uses the operator's key, as any real verdict does.
+- **Pre-push reads seals in one place.** Plain `--verify` does not check verdict
+  seals, so lines written before this change keep working. But an acceptance it
+  honours must be sealed, the same as for a deploy. An acceptance made on a
+  machine without the key, or before 3.75.6, is not honoured, and the operator
+  accepts again.
 
 ## What this does not do
 

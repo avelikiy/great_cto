@@ -75,7 +75,7 @@ A deploy can now tell a PASS written by its writer from one written by hand. The
 
 ### Added
 
-- **Seals on verdict lines and receipt acceptances** (ADR-046, great_cto-dv3b). Each one carries an HMAC-SHA256 seal keyed by `~/.great_cto/keys/verdict-seal.key` (0600, created on first use; the secret-read guard refuses a direct read of a `*.key` file). `log-verdict.sh` and `receipt.mjs --accept` seal what they write. Under `--require`, a newest approval whose seal does not match exits 4, and devops blocks: the line was written or edited outside `log-verdict.sh`. One with no seal exits 3 (not verified). An acceptance without a valid seal is not one. **Limit, stated in the ADR:** agents run as the same OS user, so code that runs the writer can still make a valid line. The seal makes forgery deliberate rather than accidental. It is not a lock.
+- **Seals on verdict lines and receipt acceptances** (ADR-046, great_cto-dv3b). Each one carries an HMAC-SHA256 seal over every field but the seal, keyed by `~/.great_cto/keys/verdict-seal.key` (0600, created on first use; the secret-read guard refuses a direct read of a `*.key` file). `log-verdict.sh` and `receipt.mjs --accept` seal what they write. Under `--require`, a newest approval whose seal does not match exits 4, and devops blocks: the line was written or edited outside `log-verdict.sh`. One with no seal exits 3 (not verified). An acceptance without a valid seal is not one, for a deploy or for pre-push. A verdict counts only in the log of the stage it names. **Limit, stated in the ADR:** agents run as the same OS user, so code that runs the writer can still make a valid line. The seal makes forgery deliberate rather than accidental. It is not a lock.
 
 ### Fixed
 

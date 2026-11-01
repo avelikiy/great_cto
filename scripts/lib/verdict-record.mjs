@@ -283,6 +283,7 @@ async function main(argv) {
         const { sealVerdict } = await import('./verdict-seal.mjs');
         const seal = sealVerdict(rec);
         if (seal) rec.seal = seal;
+        else console.error('verdict-record: verdict not sealed (no usable seal key) — a deploy will read it as not verified');
       } catch (e) { console.error(`verdict-record: verdict not sealed (${e.message})`); }
       process.stdout.write(formatVerdict(rec) + '\n');
       return 0;

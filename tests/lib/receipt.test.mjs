@@ -4,12 +4,16 @@
 // that was reviewed is the code that shipped — `code-reviewer` approves a tree,
 // senior-dev keeps editing, and every rung still reads green because every rung
 // is answering a question about the past.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+
+// Acceptances are sealed (ADR-046): a throwaway key, never the operator's.
+const SEAL_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-receipt-seal-'));
+process.env.GREAT_CTO_SEAL_KEY = path.join(SEAL_DIR, 'verdict-seal.key');
 import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance, taskBase, readOnlyGit, gitReadTimeoutMs, GIT_READ_TIMEOUT_MS } from '../../scripts/lib/receipt.mjs';
 
 function repo() {
@@ -446,3 +450,5 @@ test('a Git read slower than the default is unavailable by default and answered 
     clean(fake);
   }
 });
+
+after(() => fs.rmSync(SEAL_DIR, { recursive: true, force: true }));

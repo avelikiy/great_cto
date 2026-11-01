@@ -68,3 +68,20 @@ test('log-verdict.sh writes a sealed line that checks valid', (t) => {
   assert.match(line.seal, /^v1:/);
   assert.equal(checkVerdictSeal(line, { key: loadSealKey({ env }) }), 'valid');
 });
+
+test('m1: a damaged key is said on stderr, not silently "no key"', (t) => {
+  const env = keyEnv(t);
+  fs.mkdirSync(path.dirname(env.GREAT_CTO_SEAL_KEY), { recursive: true });
+  fs.writeFileSync(env.GREAT_CTO_SEAL_KEY, '');
+  const r = spawnSync(process.execPath, ['--input-type=module', '-e',
+    `import('${path.join(ROOT, 'scripts/lib/verdict-seal.mjs')}').then(m => process.stdout.write(String(m.loadSealKey())))`],
+    { encoding: 'utf8', env: { ...process.env, ...env } });
+  assert.equal(r.stdout, 'null');
+  assert.match(r.stderr, /is not a valid key/);
+});
+
+test('m1: the key is linked into place whole — no temporary file is left', (t) => {
+  const env = keyEnv(t);
+  loadSealKey({ create: true, env });
+  assert.deepEqual(fs.readdirSync(path.dirname(env.GREAT_CTO_SEAL_KEY)), ['verdict-seal.key']);
+});

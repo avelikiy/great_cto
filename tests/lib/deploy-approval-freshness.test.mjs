@@ -354,3 +354,38 @@ test('dv3b: a hand-written acceptance with the right hash is not an acceptance',
   writeAcceptance(f.d, { hash: receiptHash(treeReceipt(f.d, { exclude: pipelineOutputPaths(f.d) })), why: 'operator', agent: 'qa-engineer' });
   assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 0, 'the writer\'s sealed acceptance is honoured');
 });
+
+// Review of 3.75.6.
+
+test('M1: a sealed line copied from another stage\'s log is not that stage\'s approval', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('code-reviewer');
+  fs.copyFileSync(path.join(f.d, '.great_cto/verdicts/code-reviewer.log'), path.join(f.d, '.great_cto/verdicts/qa-engineer.log'));
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 3, r.stdout);
+  assert.match(r.stdout, /no approving qa-engineer verdict carries a receipt/);
+});
+
+test('m3: the seal covers meta, cost and project too — editing meta.need breaks it', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  const rec = { v: 1, ts: new Date().toISOString(), agent: 'qa-engineer', verdict: 'APPROVED', receipt: treeReceipt(f.d), meta: { need: 'implementer', feature: 'x' } };
+  const log = path.join(f.d, '.great_cto/verdicts/qa-engineer.log');
+  fs.writeFileSync(log, JSON.stringify({ ...rec, seal: sealVerdict(rec) }) + '\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 0);
+  fs.writeFileSync(log, JSON.stringify({ ...rec, meta: { need: 'decision', feature: 'x' }, seal: sealVerdict(rec) }) + '\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 4);
+});
+
+test('m4: --accept refuses before asking when no seal key can be made', (t) => {
+  const f = fixture(t);
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'drift\n');
+  const blocker = path.join(f.d, 'not-a-dir');
+  fs.writeFileSync(blocker, 'a file where the key directory would go\n');
+  const r = spawnSync(process.execPath, [SCRIPT, '--accept', '--agent', 'qa-engineer', '--require'], { cwd: f.d, encoding: 'utf8',
+    env: { ...process.env, GREAT_CTO_DIR: '', GREAT_CTO_SEAL_KEY: path.join(blocker, 'keys', 'verdict-seal.key') } });
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /cannot record an acceptance/);
+});

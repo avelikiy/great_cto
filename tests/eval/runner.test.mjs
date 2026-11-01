@@ -1468,3 +1468,11 @@ test('a complete answer, an empty one, or a refusal is not asked again', async (
     assert.equal(r.lengthRetried, undefined);
   }
 });
+
+test('a retry that throws leaves the first, cut answer — judged as cut', async () => {
+  let n = 0;
+  const r = await withLengthRetry(async () => { n += 1; if (n === 2) throw new Error('provider down'); return { text: 'half', stopReason: 'length' }; }, { first: 6000 });
+  assert.equal(r.text, 'half');
+  assert.equal(r.retryFailed, true);
+  assert.equal(r.stillCut, true);
+});

@@ -31,7 +31,7 @@ import { readFileSync } from 'node:fs';
 import * as fsModule from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isMainModule } from './is-main.mjs';
-import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance } from './verdict-seal.mjs';
+import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance, loadSealKey } from './verdict-seal.mjs';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
@@ -428,6 +428,9 @@ export function latestApproval(cwd = process.cwd(), { agents = APPROVING_AGENTS,
       try { rec = JSON.parse(line); } catch { continue; }
       if (!APPROVING_VERDICTS.has(String(rec.verdict || '').toUpperCase())) continue;
       if (!rec.receipt?.head) continue;
+      // A line belongs to the log it sits in. A code-reviewer line copied into
+      // qa-engineer.log carries a valid seal, for the wrong stage (review of 3.75.6).
+      if (rec.agent !== agent) continue;
       if (!best || String(rec.ts) > String(best.ts)) best = rec;
     }
   }
@@ -679,6 +682,9 @@ if (isMainModule(import.meta.url)) {
     const hash = receiptHash(current);
     console.log(`\nstate: ${hash.slice(0, 16)}…`);
 
+    // The acceptance must be sealable before a human is asked to confirm it.
+    try { if (!loadSealKey({ create: true })) throw new Error('no usable seal key'); }
+    catch (e) { console.error(`\nreceipt: cannot record an acceptance — ${e.message}`); process.exit(2); }
     if (!process.stdin.isTTY) {
       console.error('\nreceipt: --accept needs a terminal. Run it yourself, in your own shell —');
       console.error('an acceptance from inside an agent session is the agent approving its own work.');

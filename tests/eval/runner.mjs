@@ -756,7 +756,9 @@ const cutByCap = (r) => /^(length|max_tokens)$/i.test(String(r?.stopReason ?? ''
 export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = ACTOR_RETRY_MAX_TOKENS } = {}) {
   const a = await ask(first);
   if (!cutByCap(a) || retry <= first) return a;
-  const b = await ask(retry);
+  let b;
+  // A retry that fails leaves the first, cut answer — judged as cut, and still paid for.
+  try { b = await ask(retry); } catch { return { ...a, lengthRetried: true, retryFailed: true, stillCut: true }; }
   // Both calls cost; the caller adds `usage` of both.
   return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b) };
 }
