@@ -49,12 +49,17 @@ that get pushed back on, because those are the ones nobody else will catch.
 - committing secrets, `.env`, or machine-local config
 - a sleep to make a test pass — the sleep is a symptom; find the condition
 - `.skip` on a failing test, which is deletion with a comment
+- production code that branches on running under test (`NODE_ENV === 'test'`, `CI`) —
+  it makes the test check a path production never takes
+- loosening an assertion or raising a timeout or threshold until a test passes —
+  the test then no longer pins what it was written to pin
 - speculative structure for a need nobody has yet
 - widening the brief's file scope without the brief being reissued
 
 **Ask before proceeding**, and do not start until answered:
 
 - a lint or type rule you are being told to disable — what is it protecting?
+  (`gate-integrity.mjs` asks this of every suppression in your diff; answer each by ID under `## Gate integrity` in the hand-off)
 - a pattern you are told to copy — is the repo moving toward it or away?
 - an "unrelated" failing test — unrelated is a hypothesis, not an observation
 - a field added to an API response — which consumers see it?
@@ -504,6 +509,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        of them asserts nothing, so add the test for the positive effect (the call made, the
        value returned) until the stub fails on an assertion. Mutation testing is skipped for
        small tasks; this check is not.
+     - **Say what green does not prove.** For each new test, one line in your reply:
+       `no_claim: <what passing does NOT show>` — which dependency is mocked and what it
+       stands in for, which path the test never reaches. A mock that accepts any arguments
+       standing in for a real function is how a signature mismatch shipped on 22.09: name
+       it, and when the real contract matters, add one test that calls the real function on
+       the same path. *(Adapted from gstack's test value card, MIT.)*
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
      - **Two fixes, one premise → stop.** When two fixes resting on the same assumption have

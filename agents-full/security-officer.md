@@ -676,14 +676,17 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    **4b. Secrets in git history** (secrets deleted from code but still in git):
    ```bash
    # .env files ever committed
-   git log --all --full-history -- "*.env" "**/.env" 2>/dev/null | head -10
-   # Private keys in history
-   git log --all -S "BEGIN RSA PRIVATE\|BEGIN EC PRIVATE\|PRIVATE KEY" --oneline 2>/dev/null | head -10
-   # High-entropy strings in recent commits (last 50)
-   git log --oneline -50 --all 2>/dev/null | awk '{print $1}' | \
-     xargs -I{} git show {}:. 2>/dev/null | \
-     grep -oE '[A-Za-z0-9+/]{40,}' | sort -u | head -20
+   git log --all --full-history --oneline -- "*.env" "**/.env" | head -10
+   # Every added line of the history, against the same patterns as the write hook.
+   # Reports commit · file · kind — never the value, so the scan does not leak what it finds.
+   HS="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/history-secret-scan.mjs"
+   [ -f "$HS" ] || HS="$(pwd)/scripts/lib/history-secret-scan.mjs"
+   node "$HS" --cwd .
    ```
+   Read the exit code: `0` clean, `1` findings, `2` **NOT SCANNED** ("history not
+   scanned: <reason>"), `3` **PARTIAL** — a capped walk or a shallow clone; report
+   "history scanned in part: <what it printed>". Neither 2 nor 3 is clean. With `gitleaks` installed, `gitleaks git --redact`
+   adds generic high-entropy detection. Never print a matched value yourself.
    If any history findings: flag as P0 — secret must be rotated even if removed from code.
 
    **4b′. CI workflows:** run the checker, don't read the YAML by eye —

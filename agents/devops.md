@@ -436,6 +436,37 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    ```
    If any required check fails → **stop**. Do not deploy. Tell CTO which artifact is missing.
 
+   **2b. The approvals are of THIS tree.** A `PASS` in the newest QA file says what QA
+   saw, not what you are about to ship: a commit after gate:ship, or a fix after the
+   review, ships unreviewed bytes under an old approval. Check each approving stage
+   against the working tree you deploy (the build uploads the directory, not HEAD):
+   ```bash
+   RC="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/lib/receipt.mjs"
+   [ -f "$RC" ] || RC="$(pwd)/scripts/lib/receipt.mjs"
+   STAGES=""
+   [ "$PROJECT_SIZE" != "nano" ] && STAGES="qa-engineer"
+   [ "$TIER_EFFECTIVE" != "baseline" ] && STAGES="$STAGES security-officer"
+   # The verdict logs live in the main checkout's .great_cto, also from a worktree.
+   VSTATE="$(node "$RC" --state-dir)"
+   [ -s "$VSTATE/verdicts/code-reviewer.log" ] && STAGES="$STAGES code-reviewer"
+   for S in $STAGES; do
+     node "$RC" --verify --agent "$S" --require; RC_EXIT=$?
+     case $RC_EXIT in
+       0) ;;
+       1) echo "BLOCKED: files changed or added after $S approved — re-run $S on this tree, or the operator accepts this exact state in a terminal: node $RC --accept --agent $S --require"; exit 1 ;;
+       3) echo "FRESHNESS NOT VERIFIED: no $S approval carries a receipt — say so in the deploy report; do not write 'verified'" ;;
+       *) echo "BLOCKED: could not compare $S's receipt with this tree (exit $RC_EXIT) — an unread comparison is not a match"; exit 1 ;;
+     esac
+   done
+   ```
+   An acceptance is the operator's, from a controlling terminal; never run `--accept`
+   yourself. **What this step does not prove:** verdict logs and the acceptance file
+   are plain files under `.great_cto/`. The check catches an approval that went stale
+   in the normal flow; it cannot tell a real PASS from a line someone wrote. Never
+   write either yourself, and say so in the deploy report if you find one you did
+   not expect. *(Freshness on the deployed tree adapted from gstack's land-and-deploy
+   readiness gate, MIT.)*
+
 3. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, and deploy params:
    ```bash
    ARCHETYPE=$(grep "^archetype:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}'); ARCHETYPE=${ARCHETYPE:-web-service}
