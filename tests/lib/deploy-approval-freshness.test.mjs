@@ -11,7 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { treeReceipt, writeAcceptance, receiptHash, MAX_FILES } from '../../scripts/lib/receipt.mjs';
+import { treeReceipt, writeAcceptance, receiptHash, MAX_FILES, pipelineOutputPaths } from '../../scripts/lib/receipt.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRIPT = path.join(ROOT, 'scripts/lib/receipt.mjs');
@@ -181,7 +181,7 @@ test('M1/m5: an acceptance binds to the stage it was given for', (t) => {
   const f = fixture(t, { ignoreState: false });
   f.approve('qa-engineer'); f.approve('code-reviewer');
   fs.writeFileSync(path.join(f.d, 'app.js'), 'changed after both\n');
-  const current = treeReceipt(f.d, { withoutPipelineOutput: true });
+  const current = treeReceipt(f.d, { exclude: pipelineOutputPaths(f.d) });
   writeAcceptance(f.d, { hash: receiptHash(current), why: 'test', agent: 'code-reviewer' });
   const qa = f.verify('--agent', 'qa-engineer', '--require');
   assert.equal(qa.status, 1, 'code-reviewer\'s acceptance does not cover qa-engineer');
@@ -244,4 +244,25 @@ test('N1: what the pipeline writes — logs, handoffs, evidence, scores — is n
   }
   const r = f.verify('--agent', 'qa-engineer', '--require');
   assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('N7: what hooks and agents write after an approval — any name, now or later — is not drift', (t) => {
+  // The review marker is written right AFTER code-reviewer's verdict, every time.
+  const f = fixture(t, { ignoreState: false });
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('code-reviewer');
+  for (const p of ['.great_cto/review-marker.json', '.great_cto/.last-auto-learn', '.great_cto/lessons.md',
+    '.great_cto/decisions.md', '.great_cto/a-file-no-hook-writes-yet.md']) fs.writeFileSync(path.join(f.d, p), 'x\n');
+  const r = f.verify('--agent', 'code-reviewer', '--require');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('N7: configuration under .great_cto/ still counts — a security allowlist change is drift', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('security-officer');
+  fs.writeFileSync(path.join(f.d, '.great_cto/security-allowlist.yml'), 'allow: [everything]\n');
+  const r = f.verify('--agent', 'security-officer', '--require');
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /security-allowlist\.yml/);
 });

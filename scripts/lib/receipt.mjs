@@ -99,7 +99,7 @@ const excludeLogs = ACTIVITY_LOGS.map((p) => `:(exclude)${p}`);
  * Returns `null` outside a git repository rather than a fabricated receipt: a
  * receipt that cannot be built must not look like one that matched.
  */
-export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false, persist = false, withoutPipelineOutput = false } = {}) {
+export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_FILES, verdictsDir = null, exclude = [], hashFilesInProcess = false, persist = false } = {}) {
   const head = git(['rev-parse', 'HEAD'], cwd)?.trim();
   if (!head) return null;
   // Off-loop board readers avoid one process per untracked file. Preserve Git's
@@ -136,7 +136,6 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // includes rather than excludes must not reach a receipt others compare against.
   const pathspecExclude = [
     ...excludeLogs,
-    ...(withoutPipelineOutput ? PIPELINE_OUTPUT_PATHSPECS : []),
     ...(Array.isArray(exclude) ? exclude : [])
       .filter((d) => typeof d === 'string' && d.trim() && !d.includes(':'))
       .map((d) => `:(exclude)${d.trim().replace(/\/+$/, '')}`),
@@ -290,30 +289,28 @@ export function mergeBase(cwd) {
  * whose receipt matched, and collapsing them is the defect this whole ladder
  * exists to remove.
  */
-// What the pipeline WRITES while it runs — verdicts, logs, handoffs, evidence, an
-// acceptance. In a project that does not gitignore .great_cto/ (init does not),
-// the verdict log an approval appends is itself a changed file, so every approval
-// read as drift from itself, and a deploy that treats an added file as drift could
-// never pass. These are ignored on BOTH sides, so a receipt recorded before this
-// rule compares cleanly too.
+// Inside .great_cto/, only what DECIDES behaviour is compared: PROJECT.md (project_size
+// and the tier, which decide the stages a deploy checks), exceptions/ (signed
+// overrides) and configuration files (*.toml, *.yml — security-allowlist.yml is one).
+// Everything else there is what the pipeline writes while it runs — verdicts, logs,
+// lessons, the review marker, handoffs, an acceptance — and in a project that does
+// not gitignore .great_cto/ (init does not) each of those, written AFTER an approval,
+// made the approval drift from itself, so a deploy could never pass.
 //
-// Not the whole directory. PROJECT.md decides project_size and the security tier,
-// which decide which stages a deploy checks; exceptions/ holds signed overrides.
-// A change to either after an approval is exactly what must not pass unseen.
-export const PIPELINE_OUTPUT = Object.freeze([
-  '.great_cto/verdicts/', '.great_cto/handoffs/', '.great_cto/evidence/', '.great_cto/cache/',
-  '.great_cto/logs/', '.great_cto/status/', '.great_cto/nightly/', '.great_cto/qa/',
-  '.great_cto/.receipt-accept', '.great_cto/gate-tokens.json',
-  '.great_cto/*.log', '.great_cto/*.jsonl',
-]);
+// A list of what counts, not of what to ignore. The first fix listed the writers and
+// missed three (review-marker.json, .last-auto-learn, lessons.md); the writers grow
+// with every hook, the configuration does not.
+const COUNTED_STATE = /^(PROJECT\.md|exceptions(\/|$)|[^/]+\.(toml|ya?ml)$)/;
 export function isPipelineOutput(p) {
-  return PIPELINE_OUTPUT.some((pat) => pat.endsWith('/') ? p.startsWith(pat)
-    : pat.includes('*') ? (p.startsWith('.great_cto/') && !p.slice(11).includes('/') && p.endsWith(pat.slice(pat.indexOf('*') + 1)))
-    : p === pat);
+  if (!p.startsWith('.great_cto/')) return false;
+  return !COUNTED_STATE.test(p.slice('.great_cto/'.length));
 }
-/** Git pathspecs that leave the pipeline's output out of a receipt. */
-export const PIPELINE_OUTPUT_PATHSPECS = Object.freeze(PIPELINE_OUTPUT.map((pat) =>
-  pat.endsWith('/') ? `:(exclude)${pat.slice(0, -1)}` : pat.includes('*') ? `:(exclude,glob)${pat}` : `:(exclude)${pat}`));
+/** The top-level entries of .great_cto/ that are pipeline output, as paths to exclude. */
+export function pipelineOutputPaths(cwd) {
+  let names;
+  try { names = requireFs().readdirSync(join(cwd, '.great_cto')); } catch { return []; }
+  return names.filter((n) => !n.includes(':') && isPipelineOutput(`.great_cto/${n}`)).map((n) => `.great_cto/${n}`);
+}
 const codeOnly = (files) => Object.fromEntries(Object.entries(files || {}).filter(([p]) => !isPipelineOutput(p)));
 
 export function compareReceipts(recorded, current, { digest = null, cwd = process.cwd() } = {}) {
@@ -529,7 +526,7 @@ function currentForReceipt(cwd, receipt) {
   // Without the pipeline's own state: an approval, an acceptance and a verdict all
   // write under .great_cto/, and in a project that does not ignore it each write
   // would change the state it is about (an acceptance voiding itself on write).
-  return treeReceipt(cwd, { base: base || null, withoutPipelineOutput: true });
+  return treeReceipt(cwd, { base: base || null, exclude: pipelineOutputPaths(cwd) });
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
