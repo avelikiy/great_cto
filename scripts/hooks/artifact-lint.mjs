@@ -68,6 +68,43 @@ export function changeMapErrors(text) {
   return [];
 }
 
+// An architecture doc walks its error paths (01.11.2026, from a review of public
+// agent repositories — gstack's error and rescue map): which path fails how, whether
+// it is handled, whether a test proves it, what the user sees, whether it is logged.
+// The row nobody wants to write — unhandled, untested — must say CRITICAL, so the
+// gate sees it instead of the design implying every failure is handled. Required
+// from this date; earlier documents are not judged by it.
+const ERROR_PATHS_SINCE = '2026-11-01';
+
+/** Errors for a document's `## Error paths` table. */
+export function errorPathErrors(text) {
+  const lines = String(text).split('\n');
+  const start = lines.findIndex((l) => /^##\s+error paths\b/i.test(l));
+  if (start < 0) return [{ kind: 'error-paths-missing', msg: 'no "## Error paths" section — list each path that can fail: failure · handled? · test? · user sees · logged?' }];
+  let end = lines.length;
+  for (let i = start + 1; i < lines.length; i++) if (/^##\s/.test(lines[i])) { end = i; break; }
+  const body = lines.slice(start + 1, end);
+  // A design with nothing that can fail says so, with the reason.
+  if (body.some((l) => /^\s*no error paths\b.{8,}/i.test(l))) return [];
+  const rows = body.filter((l) => /^\s*\|/.test(l));
+  const header = rows[0] || '';
+  const cols = header.split('|').slice(1, -1).map((c) => c.trim().toLowerCase());
+  const at = (re) => cols.findIndex((c) => re.test(c));
+  const handled = at(/handled/), tested = at(/test/);
+  if (handled < 0 || tested < 0) return [{ kind: 'error-paths-not-a-table', msg: '"## Error paths" needs a table with at least "handled?" and "test?" columns — or a line "No error paths: <reason>"' }];
+  const data = rows.slice(1).filter((l) => !/^\s*\|[\s:|-]+\|\s*$/.test(l));
+  if (!data.length) return [{ kind: 'error-paths-empty', msg: '"## Error paths" table has no rows' }];
+  const errs = [];
+  for (const row of data) {
+    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
+    const no = (i) => /^(no|none|—|-|✗|❌)$/i.test(cells[i] || '');
+    if (no(handled) && no(tested) && !/critical/i.test(row)) {
+      errs.push({ kind: 'error-path-unmarked', msg: `error path "${(cells[0] || '').slice(0, 60)}" is unhandled and untested but not marked CRITICAL` });
+    }
+  }
+  return errs;
+}
+
 const TYPES = [
   {
     name: 'ADR',
@@ -108,6 +145,7 @@ const TYPES = [
     date: 'any',
     cites: false,
     changeMap: CHANGE_MAP_SINCE,
+    errorPaths: ERROR_PATHS_SINCE,
   },
   {
     // A code-reviewer verdict points at this file (review=docs/reviews/...). It
@@ -466,6 +504,13 @@ for (const abs of walk(REPO)) {
     const d = extractDate(text);
     if (d && d >= type.changeMap) {
       for (const e of changeMapErrors(text)) errors.push({ file: rel, type: type.name, ...e });
+    }
+  }
+
+  if (type.errorPaths && !isTemplate) {
+    const d = extractDate(text);
+    if (d && d >= type.errorPaths) {
+      for (const e of errorPathErrors(text)) errors.push({ file: rel, type: type.name, ...e });
     }
   }
 

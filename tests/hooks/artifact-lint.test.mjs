@@ -343,3 +343,40 @@ test('REVIEW docs need a findings section', () => {
   const r = lint({ 'docs/reviews/REVIEW-a.md': '# Review\n\n**Date:** 2026-10-20\n\n' + MAP });
   assert.ok(errKinds(r).includes('missing-section'));
 });
+
+// ─── error paths (01.11.2026) ────────────────────────────────────────────────
+// An ARCH walks its error paths; the unhandled, untested row must say CRITICAL.
+// Required from 2026-11-01; documents dated before it are not judged by it.
+const EP = '## Error paths\n\n| Path | Failure | Handled? | Test? | User sees | Logged? |\n|---|---|---|---|---|---|\n| sync.read | provider 500 | retry ×3, then raise | yes | "sync failed, retry" | yes |\n';
+const archEP = (date, ep = EP) => arch(date, MAP + '\n' + ep);
+const epKinds = (r) => errKinds(r).filter((k) => /error-path/.test(k));
+
+test('error paths: a dated ARCH with the table passes', () => {
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01') })), []);
+});
+
+test('error paths: missing on a new ARCH is an error; an older ARCH is not judged', () => {
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', '') })), ['error-paths-missing']);
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-10-31', '') })), []);
+});
+
+test('error paths: unhandled and untested must say CRITICAL', () => {
+  const silent = EP + '| cursor.advance | read failed | no | no | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', silent) })), ['error-path-unmarked']);
+  const marked = EP + '| cursor.advance | read failed | no | no | nothing — CRITICAL gap | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', marked) })), []);
+});
+
+test('error paths: a table without handled/test columns, or with no rows, is an error', () => {
+  const noCols = '## Error paths\n\n| Path | Failure |\n|---|---|\n| a | b |\n';
+  const noRows = '## Error paths\n\n| Path | Failure | Handled? | Test? |\n|---|---|---|---|\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', noCols) })), ['error-paths-not-a-table']);
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', noRows) })), ['error-paths-empty']);
+});
+
+test('error paths: a design with nothing that can fail says so, with a reason', () => {
+  const none = '## Error paths\n\nNo error paths: a static docs page with no I/O or input.\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', none) })), []);
+  const bare = '## Error paths\n\nNo error paths.\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', bare) })), ['error-paths-not-a-table'], 'the reason is required');
+});

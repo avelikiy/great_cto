@@ -641,6 +641,8 @@ Rules:
   a number. If none is configured, say so in the report (`mutation: not
   configured`) and move on — an unmeasured signal reported honestly beats a <!-- slop-ok: "reported honestly" — honestly carries the meaning -->
   fabricated one, and adding a heavyweight dev dependency is not QA's call.
+  "Not configured" ends the mutation run, not the question — do the
+  **verification-gap pass** below instead.
 - **Report surviving mutants, not the score alone.** "73%" tells the developer
   nothing; "the null-branch in `applyDiscount` survives — no test asserts what
   happens at quantity 0" tells them exactly what to write.
@@ -648,6 +650,23 @@ Rules:
   code**, not the tests — flag it as dead code rather than demanding a test.
 - **Timebox it.** If the run exceeds the step budget, report the partial result
   with what was covered; do not let it eat the QA window.
+
+**Verification-gap pass** — when no mutation framework is configured, and for small
+tasks. Read the diff against the tests and name, with `file:line`, each of four gaps:
+
+1. **A regression no test would catch** — a changed branch, boundary or error path
+   that no assertion pins. Name the input that would break it unnoticed.
+2. **A call site left on the old behaviour** — the change is made in one place, a
+   sibling path still does the old thing, and no test reaches the sibling.
+3. **A test that is skipped, flaky or too weak** to fail if the change were reverted.
+4. **A test now wrong or pointless** — it pins behaviour the change removed, or passes
+   either way.
+
+These do **not** count as verification: a snapshot alone, a check that a mock was
+called, a check of the source text, an end-to-end test whose path passes through the
+change without asserting its result. Each gap is a finding (P2; P1 when it sits on a
+`CRITICAL` error path). None found → write `verification gaps: none found` and the
+tests you read. *(Adapted from BMAD-METHOD's verification-gap review, MIT.)*
 
 ### Step 3c: Requirements Traceability
 
@@ -685,6 +704,20 @@ FEATURE_SLUG=$(ls docs/architecture/ARCH-*.md 2>/dev/null | sort -V | tail -1 | 
 After wiring, audit the chain: `/trace feature-$FEATURE_SLUG` — any remaining gap (a REQ that
 never reaches a test, a UC with no task) is either a missing test to add or a hole to flag in
 the QA report. **If bd unavailable**: skip silently — the QA report markdown already lists REQ → Evidence inline.
+
+### Step 3c-2: Error paths — the architect's `Test?` column is a claim
+
+Read `## Error paths` in `docs/architecture/ARCH-<feature>.md`. For each row:
+
+- `Test?` names a test → open it. It must make that failure happen and assert what the
+  row says the user sees. A named test that does not exercise the failure → P2.
+- `Test?` is `no` → a test gap: P2, or **P1 on a `CRITICAL` row**.
+- A `CRITICAL` row still unhandled in the code → a blocking defect (P1); QA does not
+  PASS over it.
+- A failing read handled as an empty result where the row says it raises → P1.
+
+No table in a pre-2026-11-01 ARCH → `error paths: not in ARCH`. Missing in a newer
+ARCH → `artifact-lint` should have stopped it; report it.
 
 ### Step 3d: Proof Loop — verify QA plan was fully executed
 

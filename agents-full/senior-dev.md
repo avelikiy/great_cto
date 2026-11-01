@@ -622,6 +622,12 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        of them asserts nothing, so add the test for the positive effect (the call made, the
        value returned) until the stub fails on an assertion. Mutation testing is skipped for
        small tasks; this check is not.
+     - **Say what green does not prove.** For each new test, one line in your reply:
+       `no_claim: <what passing does NOT show>` — which dependency is mocked and what it
+       stands in for, which path the test never reaches. A mock that accepts any arguments
+       standing in for a real function is how a signature mismatch shipped on 22.09: name
+       it, and when the real contract matters, add one test that calls the real function on
+       the same path. *(Adapted from gstack's test value card, MIT.)*
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
      - **Two fixes, one premise → stop.** When two fixes resting on the same assumption have
