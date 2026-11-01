@@ -128,13 +128,19 @@ lease files records every claim, renewal, rebind, takeover and release.
 
 The holder is the host session: `CLAUDE_CODE_SESSION_ID`, or Codex's
 `CODEX_THREAD_ID` / `CODEX_SESSION_ID`. A human running the chain from a plain
-terminal sets `GREAT_CTO_RELEASE_HOLDER` to a name unique to this release.
+terminal sets `GREAT_CTO_RELEASE_HOLDER` to a name unique to this release, for
+that release only. Never export it in a shell profile: every session would then
+share one name.
 Without one, every command refuses, because a shared fallback would let a second
 session "renew" the first session's claim. Run every step of one release under
 the same holder. A lease expires after 12 hours. The holder renews it by running
-`acquire` again, even after its own tag is pushed: a 2FA rerun the next morning
-works that way. Another session may take over an expired lease only after
-checking that the tag and npm version are still free:
+`acquire` again. A lapsed lease is renewed only if nobody took the version in
+the meantime: the remote tag is either absent or points at the lease's bound
+commit. That is how a 2FA rerun the next morning works. Another session may take
+over an expired lease only after checking that the tag and npm version are still
+free. Every write takes a per-version lock, and the lock is never taken over
+automatically. A process that died inside it leaves the version refused, and the
+refusal names the lock to remove once no release of that version is running:
 
 ```bash
 node scripts/lib/release-lease.mjs bind --version EXACT_VERSION --commit REVIEWED_COMMIT

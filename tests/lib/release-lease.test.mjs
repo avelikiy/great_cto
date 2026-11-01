@@ -91,27 +91,27 @@ test('check: a live claim, ours, bound to the approved commit — and nothing le
   assert.match(check({ version: v, commit: C1, holder: 'claude:A', ...at }).why, /no release lease/);
   await acquire({ version: v, holder: 'claude:A', now: T0, dir, checks: free() });
   assert.match(check({ version: v, commit: C1, holder: 'claude:A', ...at }).why, /names no commit/);
-  assert.equal(bind({ version: v, commit: C1, holder: 'claude:A', ...at }).state, 'BOUND');
+  assert.equal((await bind({ version: v, commit: C1, holder: 'claude:A', ...at })).state, 'BOUND');
   assert.equal(check({ version: v, commit: C1, holder: 'claude:A', ...at }).ok, true);
   assert.match(check({ version: v, commit: C2, holder: 'claude:A', ...at }).why, /bound to a{12}, not b{12}/);
   assert.match(check({ version: v, commit: C1, holder: 'codex:B', ...at }).why, /being released by claude:A/);
   assert.match(check({ version: v, commit: C1, holder: 'claude:A', now: later(13), dir }).why, /expired/);
-  assert.equal(bind({ version: v, commit: C1, holder: 'codex:B', ...at }).state, 'REFUSED', 'only the holder binds');
+  assert.equal((await bind({ version: v, commit: C1, holder: 'codex:B', ...at })).state, 'REFUSED', 'only the holder binds');
 });
 
 test('a rebind to a new candidate is allowed and journaled', async (t) => {
   const dir = tmp(t);
   await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
-  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
-  bind({ version: '9.9.9', commit: C2, holder: 'claude:A', now: T0, dir });
+  await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  await bind({ version: '9.9.9', commit: C2, holder: 'claude:A', now: T0, dir });
   assert.deepEqual(journal(dir).find((e) => e.op === 'rebind'), { at: T0.toISOString(), op: 'rebind', version: '9.9.9', holder: 'claude:A', from: C1, to: C2 });
 });
 
 test('release frees the version and keeps the record', async (t) => {
   const dir = tmp(t);
   await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
-  assert.equal(release({ version: '9.9.9', holder: 'codex:B', now: T0, dir }).state, 'REFUSED');
-  assert.equal(release({ version: '9.9.9', holder: 'claude:A', now: T0, dir }).state, 'RELEASED');
+  assert.equal((await release({ version: '9.9.9', holder: 'codex:B', now: T0, dir })).state, 'REFUSED');
+  assert.equal((await release({ version: '9.9.9', holder: 'claude:A', now: T0, dir })).state, 'RELEASED');
   assert.equal(status({ version: '9.9.9', dir }).state, 'FREE');
   assert.equal(fs.readdirSync(dir).filter((f) => f.includes('.done-')).length, 1);
 });
@@ -189,15 +189,73 @@ test('L2: a takeover cannot interleave — the second session is told to retry, 
   assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.lock')).length, 0, 'the lock is gone afterwards');
 });
 
-test('L2: a lock left by a dead process is taken over after it goes stale, and journaled', async (t) => {
+test('N1: a lock is never taken over automatically — an old one is named for the operator instead', async (t) => {
+  // Re-review of 3.75.4: an automatic stale takeover let a slow, live holder (a
+  // laptop that slept) remove its successor's lock on the way out, and a third
+  // session walked in. An old lock now stays refused and names its path.
   const dir = tmp(t);
   const lock = path.join(dir, 'great-cto@9.9.9.lock');
   fs.mkdirSync(lock);
-  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() })).state, 'BUSY');
-  const old = new Date(Date.now() - 10 * 60 * 1000);
+  const old = new Date(Date.now() - 60 * 60 * 1000);
   fs.utimesSync(lock, old, old);
+  const r = await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  assert.equal(r.state, 'BUSY');
+  assert.match(r.why, /3600 s old/);
+  assert.ok(r.why.includes(lock), 'the refusal names the lock to remove');
+  assert.ok(fs.existsSync(lock), 'and leaves it where it is');
+  fs.rmSync(lock, { recursive: true });
   assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() })).state, 'ACQUIRED');
-  assert.ok(journal(dir).some((e) => e.op === 'stale-lock'));
+});
+
+test('N8: bind and release wait for the lock like acquire does', async (t) => {
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  const lock = path.join(dir, 'great-cto@9.9.9.lock');
+  fs.mkdirSync(lock);
+  assert.equal((await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir })).state, 'BUSY');
+  assert.equal((await release({ version: '9.9.9', holder: 'claude:A', now: T0, dir })).state, 'BUSY');
+  fs.rmSync(lock, { recursive: true });
+  assert.equal((await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir })).state, 'BOUND');
+});
+
+test('N4: a failure inside the lock is the error reported, and the lock is gone', async (t) => {
+  const dir = tmp(t);
+  const boom = { tag: () => 'free', async npm() { throw Error('registry exploded'); } };
+  await assert.rejects(acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: boom }), /registry exploded/);
+  assert.equal(fs.existsSync(path.join(dir, 'great-cto@9.9.9.lock')), false);
+});
+
+test('N6: temporary files a crashed write left are swept on the next acquire', async (t) => {
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'great-cto@9.9.9.json.tmp-1-dead'), '{');
+  fs.writeFileSync(path.join(dir, 'great-cto@9.9.10.json.tmp-1-dead'), '{');
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp-')), ['great-cto@9.9.10.json.tmp-1-dead'], 'only this version is swept');
+});
+
+test('N7: a lapsed claim of ours is not renewed onto a version someone else took meanwhile', async (t) => {
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  const theirs = { tag: () => 'taken', tagCommit: () => C2, npm: async () => 'taken' };
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: later(20), dir, checks: theirs })).state, 'CLAIMED_REMOTELY');
+  const unread = { tag: () => 'unknown', tagCommit: () => 'unknown', npm: async () => 'free' };
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: later(20), dir, checks: unread })).state, 'REMOTE_UNKNOWN');
+  const nothing = { tag: () => 'free', tagCommit: () => null, npm: async () => 'free' };
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: later(20), dir, checks: nothing })).state, 'RENEWED');
+});
+
+test('N9: a uid without a passwd entry still finds the store', (t) => {
+  const real = os.userInfo;
+  os.userInfo = () => { throw Object.assign(Error('no passwd entry'), { code: 'ENOENT' }); };
+  t.after(() => { os.userInfo = real; });
+  assert.equal(leaseDir({}), path.join(os.homedir(), '.great_cto/release-lease'));
+});
+
+test('L5 residual: a lease file that parses to null is unreadable, not free', async (t) => {
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'great-cto@9.9.9.json'), 'null');
+  await assert.rejects(acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() }), /unreadable/);
 });
 
 test('L3: an expiry that cannot be read counts as live — nobody takes the version on a guess', async (t) => {
@@ -211,14 +269,14 @@ test('L3: an expiry that cannot be read counts as live — nobody takes the vers
 test('L4: check needs the commit being published', async (t) => {
   const dir = tmp(t);
   await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
-  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
   assert.throws(() => check({ version: '9.9.9', holder: 'claude:A', now: T0, dir }), /needs the full 40-hex commit/);
 });
 
 test('L5: writes go through a temporary file — nothing half-written is left behind', async (t) => {
   const dir = tmp(t);
   await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
-  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
   await acquire({ version: '9.9.9', holder: 'claude:A', now: later(1), dir, checks: free() });
   assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp-')), []);
   assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'great-cto@9.9.9.json'), 'utf8')).commit, C1);
@@ -240,10 +298,11 @@ test('L9: the holder renews its own lapsed claim without the remote it already t
   // The 2FA rerun the next morning: tag pushed, npm staged, lease expired overnight.
   const dir = tmp(t);
   await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
-  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
   assert.match(check({ version: '9.9.9', commit: C1, holder: 'claude:A', now: later(20), dir }).why, /expired .* renew it/);
-  const taken = { tag: () => 'taken', npm: async () => 'taken' };
+  // Our tag, on our bound commit: ours. npm may hold it staged.
+  const taken = { tag: () => 'taken', tagCommit: () => C1, npm: async () => 'taken' };
   assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: later(20), dir, checks: taken })).state, 'RENEWED');
   assert.equal(check({ version: '9.9.9', commit: C1, holder: 'claude:A', now: later(21), dir }).ok, true, 'still bound to its commit');
-  assert.equal(release({ version: '9.9.9', holder: 'claude:A', now: later(40), dir }).state, 'RELEASED', 'an expired claim of ours can still be released');
+  assert.equal((await release({ version: '9.9.9', holder: 'claude:A', now: later(40), dir })).state, 'RELEASED', 'an expired claim of ours can still be released');
 });

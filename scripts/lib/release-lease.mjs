@@ -22,11 +22,16 @@
 //              held by this holder, bound to the approved commit.
 //   release  — after the GitHub release; the file is kept as <...>.done-<ts>.json.
 //
-// Every decision about a version is taken under a per-version lock directory
-// (mkdir is atomic), so reading a lease, checking the remote and taking it over
-// cannot interleave with another session doing the same. Files are written to a
-// temporary name and linked or renamed into place, so a crash leaves either the
-// old lease or the new one, never an empty file.
+// Every write about a version — acquire, renew, bind, release — is taken under a
+// per-version lock directory (mkdir is atomic), so reading a lease, checking the
+// remote and taking it over cannot interleave with another session doing the
+// same. The lock is never taken over automatically: a holder that is slow, not
+// dead (a laptop that slept), would on waking remove the lock of whoever took it
+// over and let a third session in. A process that died inside the lock — the
+// window is the two remote checks, about a minute at most — leaves the version
+// refused until the operator removes the lock, which the refusal names. Files are
+// written to a temporary name and linked or renamed into place, so a crash leaves
+// either the old lease or the new one, never an empty file.
 //
 // A lease expires (12 h by default) so a crashed chain does not block the
 // version for ever. An expired lease is moved aside, not deleted, and every
@@ -47,8 +52,6 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
 export const DEFAULT_TTL_HOURS = 12;
-// Longer than the two remote checks taken under the lock (30 s each), with room.
-export const LOCK_STALE_MS = 5 * 60 * 1000;
 const STABLE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
 const PACKAGE = 'great-cto';
 const NO_HOLDER = 'no session id to hold the lease with — set GREAT_CTO_RELEASE_HOLDER to a name unique to this release ' +
@@ -58,7 +61,11 @@ const NO_HOLDER = 'no session id to hold the lease with — set GREAT_CTO_RELEAS
  *  that runs commands under another HOME must still meet the same leases.
  *  GREAT_CTO_HOME moves it, for tests. */
 export function leaseDir(env = process.env) {
-  return path.join(env.GREAT_CTO_HOME || path.join(os.userInfo().homedir, '.great_cto'), 'release-lease');
+  if (env.GREAT_CTO_HOME) return path.join(env.GREAT_CTO_HOME, 'release-lease');
+  let home;
+  // A uid with no passwd entry (some sandboxes) has no userInfo; os.homedir() is the next best answer.
+  try { home = os.userInfo().homedir; } catch { home = os.homedir(); }
+  return path.join(home, '.great_cto', 'release-lease');
 }
 
 /** Who is releasing: stable across the commands of one session, distinct between sessions, or null. */
@@ -90,8 +97,14 @@ function writeLease(file, lease, { exclusive = false } = {}) {
 function readLease(file) {
   let text;
   try { text = fs.readFileSync(file, 'utf8'); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
-  // A lease that does not parse is not "no lease": someone wrote it.
-  try { return JSON.parse(text); } catch { throw Error(`release lease ${file} is unreadable — inspect it before releasing`); }
+  // A lease that does not parse, or parses to something that is not a lease, is
+  // not "no lease": someone wrote it.
+  let lease;
+  try { lease = JSON.parse(text); } catch { lease = undefined; }
+  if (!lease || typeof lease !== 'object' || typeof lease.holder !== 'string') {
+    throw Error(`release lease ${file} is unreadable — inspect it before releasing`);
+  }
+  return lease;
 }
 
 const live = (lease, now) => {
@@ -100,23 +113,30 @@ const live = (lease, now) => {
   return Number.isNaN(until) ? true : until > now.getTime();
 };
 
-/** One decision about one version at a time. BUSY when another session is mid-decision. */
+/** One write about one version at a time. BUSY when another session is mid-write. */
 async function withLock(dir, version, fn) {
   const lock = fileFor(dir, version).replace(/\.json$/, '.lock');
   try { fs.mkdirSync(lock, { mode: 0o700 }); }
   catch (e) {
     if (e.code !== 'EEXIST') throw e;
-    const age = Date.now() - fs.statSync(lock).mtimeMs;
-    if (age < LOCK_STALE_MS) return { state: 'BUSY', version, why: `another session is claiming ${version} right now — retry in a minute` };
-    // Left by a process that died mid-decision. Taken over, and said so.
-    fs.rmSync(lock, { recursive: true, force: true });
-    journal(dir, { at: new Date().toISOString(), op: 'stale-lock', version, ageMs: Math.round(age) });
-    try { fs.mkdirSync(lock, { mode: 0o700 }); } catch (e2) {
-      if (e2.code === 'EEXIST') return { state: 'BUSY', version, why: `another session is claiming ${version} right now — retry in a minute` };
-      throw e2;
-    }
+    let age = null;
+    try { age = Math.round((Date.now() - fs.statSync(lock).mtimeMs) / 1000); } catch { /* released meanwhile: the retry will tell */ }
+    return { state: 'BUSY', version, lock,
+      why: `another session is writing the ${version} lease (lock ${age === null ? 'just released' : `${age} s old`}) — retry in a minute. ` +
+           `A lock older than a few minutes was left by a process that died inside it: remove ${lock} once no release of ${version} is running` };
   }
-  try { return await fn(); } finally { fs.rmSync(lock, { recursive: true, force: true }); }
+  let result, failure = null;
+  try { result = await fn(); } catch (e) { failure = e; }
+  try { fs.rmSync(lock, { recursive: true, force: true }); }
+  catch (e) { if (!failure) throw e; process.stderr.write(`✗ release lease: could not remove ${lock}: ${e.message}\n`); }
+  if (failure) throw failure;
+  return result;
+}
+
+/** Temporary files a crashed write left. Swept under the lock, where no write of this version is running. */
+function sweep(dir, version) {
+  const prefix = path.basename(fileFor(dir, version)) + '.tmp-';
+  for (const f of fs.readdirSync(dir)) if (f.startsWith(prefix)) fs.rmSync(path.join(dir, f), { force: true });
 }
 
 /** Default remote checks. Each answers free | taken | unknown. */
@@ -126,6 +146,17 @@ export const remote = {
       const out = execFileSync('git', ['-C', root, 'ls-remote', '--tags', 'origin', `refs/tags/v${version}`],
         { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30000 });
       return out.trim() ? 'taken' : 'free';
+    } catch { return 'unknown'; }
+  },
+  /** The commit the remote tag points at (peeled), null when there is no tag, 'unknown' when unread. */
+  tagCommit(version, { root = process.cwd() } = {}) {
+    try {
+      const out = execFileSync('git', ['-C', root, 'ls-remote', '--tags', 'origin', `refs/tags/v${version}`, `refs/tags/v${version}^{}`],
+        { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 30000 });
+      const lines = out.trim().split('\n').filter(Boolean).map((l) => l.split('\t'));
+      if (!lines.length) return null;
+      const peeled = lines.find(([, ref]) => ref.endsWith('^{}')) || lines[0];
+      return peeled[0];
     } catch { return 'unknown'; }
   },
   async npm(version, { fetchFn = fetch } = {}) {
@@ -147,11 +178,26 @@ export async function acquire({ version, holder = holderFrom(), ttlHours = DEFAU
   const expiresAt = new Date(now.getTime() + ttlHours * 3600000).toISOString();
 
   return withLock(dir, version, async () => {
+    sweep(dir, version);
     const current = readLease(file);
 
-    // Ours, live or lapsed: renew. The remote is not re-checked — after our own
-    // tag it is "taken" by us, and a 2FA rerun the next morning must still work.
+    // Ours and live: renew. The remote is not re-checked — after our own tag it
+    // is "taken" by us.
+    // Ours and lapsed: renew only if nobody else took the version meanwhile. The
+    // 2FA rerun next morning is the case to keep: our tag on our bound commit
+    // counts as ours. Anything else on the remote is someone else's.
     if (current && current.holder === holder) {
+      if (!live(current, now)) {
+        const at = checks.tagCommit ? checks.tagCommit(version, { root }) : 'unknown';
+        const ours = current.commit && at === current.commit;
+        if (!ours) {
+          const tag = at === null ? 'free' : at === 'unknown' ? 'unknown' : 'taken';
+          const npm = await checks.npm(version, {});
+          if (tag !== 'free' || npm !== 'free') {
+            return { state: tag === 'taken' || npm === 'taken' ? 'CLAIMED_REMOTELY' : 'REMOTE_UNKNOWN', version, tag, npm };
+          }
+        }
+      }
       writeLease(file, { ...current, expiresAt, renewedAt: now.toISOString() });
       journal(dir, { at: now.toISOString(), op: 'renew', version, holder });
       return { state: 'RENEWED', version, holder, expiresAt, file };
@@ -179,7 +225,7 @@ export async function acquire({ version, holder = holderFrom(), ttlHours = DEFAU
       if (e.code !== 'EEXIST') throw e;
       // Written by something outside the lock (a release tool older than it).
       const winner = readLease(file);
-      return { state: 'HELD', version, by: winner?.holder, since: winner?.acquiredAt, expiresAt: winner?.expiresAt, file };
+      return { state: 'HELD', version, by: winner.holder, since: winner.acquiredAt, expiresAt: winner.expiresAt, file };
     }
     journal(dir, { at: now.toISOString(), op: 'acquire', version, holder });
     return { state: 'ACQUIRED', version, holder, expiresAt, file };
@@ -196,16 +242,20 @@ function mine(version, holder, now, dir) {
   return { ok: true, lease, file };
 }
 
-export function bind({ version, commit, holder = holderFrom(), now = new Date(), dir = leaseDir() } = {}) {
+export async function bind({ version, commit, holder = holderFrom(), now = new Date(), dir = leaseDir() } = {}) {
   if (!/^[a-f0-9]{40}$/.test(commit || '')) throw Error('release lease binds a full 40-hex commit');
-  const m = mine(version, holder, now, dir);
-  if (!m.ok) return { state: 'REFUSED', why: m.why };
-  if (m.lease.commit && m.lease.commit !== commit) {
-    // Rebinding is allowed — a red gate means a new candidate — and it is journaled.
-    journal(dir, { at: now.toISOString(), op: 'rebind', version, holder, from: m.lease.commit, to: commit });
-  } else journal(dir, { at: now.toISOString(), op: 'bind', version, holder, commit });
-  writeLease(m.file, { ...m.lease, commit });
-  return { state: 'BOUND', version, commit };
+  if (!holder) return { state: 'REFUSED', why: NO_HOLDER };
+  if (!fs.existsSync(dir)) return { state: 'REFUSED', why: mine(version, holder, now, dir).why };
+  return withLock(dir, version, async () => {
+    const m = mine(version, holder, now, dir);
+    if (!m.ok) return { state: 'REFUSED', why: m.why };
+    if (m.lease.commit && m.lease.commit !== commit) {
+      // Rebinding is allowed — a red gate means a new candidate — and it is journaled.
+      journal(dir, { at: now.toISOString(), op: 'rebind', version, holder, from: m.lease.commit, to: commit });
+    } else journal(dir, { at: now.toISOString(), op: 'bind', version, holder, commit });
+    writeLease(m.file, { ...m.lease, commit });
+    return { state: 'BOUND', version, commit };
+  });
 }
 
 /** The publisher's question. The commit is required: "some commit is bound" is not an answer to it. */
@@ -218,13 +268,17 @@ export function check({ version, commit, holder = holderFrom(), now = new Date()
   return { ok: true, lease: m.lease };
 }
 
-export function release({ version, holder = holderFrom(), now = new Date(), dir = leaseDir() } = {}) {
-  const m = mine(version, holder, now, dir);
-  // An expired lease of ours may still be released; one of someone else's may not.
-  if (!m.ok && !(m.lease && m.lease.holder === holder)) return { state: 'REFUSED', why: m.why };
-  fs.renameSync(m.file, m.file.replace(/\.json$/, `.done-${stamp(now)}.json`));
-  journal(dir, { at: now.toISOString(), op: 'release', version, holder, commit: m.lease.commit });
-  return { state: 'RELEASED', version };
+export async function release({ version, holder = holderFrom(), now = new Date(), dir = leaseDir() } = {}) {
+  if (!holder) return { state: 'REFUSED', why: NO_HOLDER };
+  if (!fs.existsSync(dir)) return { state: 'REFUSED', why: mine(version, holder, now, dir).why };
+  return withLock(dir, version, async () => {
+    const m = mine(version, holder, now, dir);
+    // An expired lease of ours may still be released; one of someone else's may not.
+    if (!m.ok && !(m.lease && m.lease.holder === holder)) return { state: 'REFUSED', why: m.why };
+    fs.renameSync(m.file, m.file.replace(/\.json$/, `.done-${stamp(now)}.json`));
+    journal(dir, { at: now.toISOString(), op: 'release', version, holder, commit: m.lease.commit });
+    return { state: 'RELEASED', version };
+  });
 }
 
 export function status({ version, now = new Date(), dir = leaseDir() } = {}) {
@@ -252,9 +306,9 @@ if (process.argv[1] && isMain) {
       if (r.state === 'CLAIMED_REMOTELY') process.stderr.write(`✗ ${r.version} is already taken remotely (tag: ${r.tag}, npm: ${r.npm}) — pick the next version\n`);
       if (r.state === 'REMOTE_UNKNOWN') process.stderr.write(`✗ could not confirm ${r.version} is free (tag: ${r.tag}, npm: ${r.npm}) — not claiming on an unread remote\n`);
       why(r);
-    } else if (cmd === 'bind') { const r = bind({ version: flags.version, commit: flags.commit }); out(r, r.state === 'BOUND'); why(r); }
+    } else if (cmd === 'bind') { const r = await bind({ version: flags.version, commit: flags.commit }); out(r, r.state === 'BOUND'); why(r); }
     else if (cmd === 'check') { const r = check({ version: flags.version, commit: flags.commit }); out(r, r.ok); why(r); }
-    else if (cmd === 'release') { const r = release({ version: flags.version }); out(r, r.state === 'RELEASED'); why(r); }
+    else if (cmd === 'release') { const r = await release({ version: flags.version }); out(r, r.state === 'RELEASED'); why(r); }
     else if (cmd === 'status') { out(status({ version: flags.version }), true); }
     else { process.stderr.write('usage: release-lease.mjs acquire|bind|check|release|status --version X.Y.Z [--commit SHA] [--root DIR] [--ttl-hours N]\n'); process.exitCode = 2; }
   } catch (e) { process.stderr.write(`✗ release lease: ${e.message}\n`); process.exitCode = 1; }
