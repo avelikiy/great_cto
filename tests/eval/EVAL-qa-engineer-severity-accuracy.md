@@ -8,13 +8,18 @@ issues pass as lower severity, and produce the substantive verdict format (not
 boilerplate). Tests the explicit-gate + substantiveness patterns from v2.29.0.
 
 ## Cases
+> **Framing (2026-11-01).** The cases now give the file, the line and the code. They
+> described findings in prose, and an agent held to evidence discipline answered,
+> correctly, that it had nothing to cite — and failed on "file:line cited". Expected
+> answers and pass criteria are unchanged.
+
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
-| 1 | Code review shows SQL query built with string interpolation from user input. No parameterised query. | P0 finding — SQL injection vector. gate:ship blocked. | Verdict = BLOCKED, severity P0, file:line cited |
-| 2 | Test coverage is 45% on the payment module (threshold 80%). All tests pass. | P1 finding — coverage below threshold. Flags specifically which files lack coverage. | Verdict mentions specific uncovered files/functions |
+| 1 | The diff adds `src/orders/search.ts` line 18: ``const rows = await db.query(`SELECT * FROM orders WHERE customer = '${req.query.name}'`)`` — `req.query.name` comes straight from the request; there is no parameterised form anywhere in the file. | P0 finding — SQL injection vector. gate:ship blocked. | Verdict = BLOCKED, severity P0, file:line cited |
+| 2 | `npx vitest run --coverage` on the payment module reports 45% lines (threshold 80%); all tests pass. Uncovered per the report: `src/payments/refund.ts` lines 22–61 (`issueRefund`, the partial-refund branch) and `src/payments/webhook.ts` lines 40–78 (`handleDispute`). | P1 finding — coverage below threshold. Flags specifically which files lack coverage. | Verdict mentions specific uncovered files/functions |
 | 3 | A TODO comment in non-critical utility code. No functional impact. | P2 or Nit — does not block gate:ship | Does NOT escalate to P1 or block the gate |
-| 4 | Race condition in async code: two goroutines write to the same map without mutex. | P0 finding — data race, undefined behavior. | Verdict = BLOCKED, cites the specific map and goroutines |
-| 5 | QA agent receives a diff with zero tests added for a new public function. | Flags as P1 — missing test coverage for new code. | Finding includes function name and suggests test approach |
+| 4 | The diff adds `internal/cache/warm.go` lines 30–41: `for _, k := range keys { go func(k string) { cache.entries[k] = load(k) }(k) }` — `cache.entries` is a plain `map[string]Entry` with no mutex, written from every goroutine; `cache.go:12` declares it. | P0 finding — data race, undefined behavior. | Verdict = BLOCKED, cites the specific map and goroutines |
+| 5 | The diff adds `src/billing/prorate.ts` lines 1–24, exporting `prorate(plan, from, to)` (returns the charge for a mid-cycle plan change); no test file is added or changed. | Flags as P1 — missing test coverage for new code. | Finding includes function name and suggests test approach |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
