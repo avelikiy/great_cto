@@ -66,6 +66,29 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.4 — 2026-11-01
+
+The judge needs a real majority before it passes a requirement. And only one session at a time can release a given version.
+
+### Changed
+
+- **independent-verify: an answer needs a quorum** (great_cto-s6n0). Before, the answer was `yes > no`. So one yes and two unanswered samples verified a requirement on a single vote. A 2–1 split also flipped on unchanged input: the same architect artefact got 99 on one run and 75 on the next. Now an answer needs a strict majority of every sample taken, and unanswered samples count. When the first three samples split or fall short of a quorum, the judge takes two more and counts the quorum over all five. If there is still no quorum, the requirement is undecided. That is handled like a tie: the stage goes to rework, a second model may settle it, and the finding says "undecided", not "answered no". A unanimous answer still costs three samples. A requirement the judge never answered still counts as abstained, with no extra samples.
+
+### Added
+
+- **Release lease: one writer per version** (great_cto-inty). `bump-version.sh` claims the version before it changes any file. The claim is an atomic, expiring file `~/.great_cto/release-lease/great-cto@VERSION.json`. It is refused in three cases: another session holds the version, the remote tag or npm version is taken, or the remote could not be checked. Before the tag, `release-lease.mjs bind` records the commit. `publish-local-release` refuses a first publication unless the lease is live, belongs to this session and is bound to the approved commit. Reading back an already published version does not need the lease. After the GitHub release, `release-lease.mjs release` frees the version. An expired lease is kept aside, not deleted, and `journal.jsonl` records every step. Every write about a version (acquire, renew, bind, release) happens under a per-version lock, so two sessions cannot both take over the same expired lease. The lock is never taken over automatically: a process that died inside it leaves the version refused, and the refusal names the lock to remove. Codex and Claude Code each hold the lease as their own session id. Without an id, the lease refuses and asks for `GREAT_CTO_RELEASE_HOLDER`; it never falls back to a name two sessions would share. A lease whose expiry cannot be read counts as live. The holder can renew its own lapsed lease only if the remote tag is absent or points at the lease's bound commit. Before this, the second session found out only at the tag, after a full gate.
+
+### Fixed
+
+- The lease CLI's "run directly" check now compares real paths. Through a symlinked path such as `/var` → `/private/var`, the CLI did nothing and exited 0, and bump-version would have treated that as a granted claim. A wiring test found it. The same guard pattern in other scripts is tracked separately.
+
+### Tests
+
+- 7 new judge cases (unanimous, 2–1 confirmed, 2–1 overturned either way, no quorum after five reaching the second model, all silent); the three tests that pinned the old rule now pin the new one. 22 lease cases, including a real `bump-version.sh` run that must refuse and leave `plugin.json` untouched, and an interleaved takeover; 2 publisher cases. An independent review found two majors (a holder fallback two sessions shared, a takeover race) and nine minors. Its second pass found that the stale-lock takeover added for the race reopened it, plus eight minors. All are fixed and pinned. Mutation-checked: 33 mutants, each red.
+
+---
+
 ## v3.75.3 — 2026-10-31
 
 The verifier's judge now reads what a stage changed — every file of it, as the run left it. On this repository's own verdicts, three stages graded low for the verifier's reasons, not theirs.

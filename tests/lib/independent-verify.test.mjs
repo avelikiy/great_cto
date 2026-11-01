@@ -345,7 +345,8 @@ test('a tie nothing settles still comes back — but as undecided, not as a find
   });
   assert.equal(r.state, STATE.REWORK, 'falling toward rework is right when verifying');
   const f = r.findings.join(' ');
-  assert.match(f, /split 1 yes \/ 1 no/);
+  // Split after three, so two more were taken: yes, no, unclear, yes, no.
+  assert.match(f, /split 2 yes \/ 2 no/);
   assert.match(f, /did not settle it/);
   assert.doesNotMatch(f, /answered no/, 'a coin flip must not borrow the sentence for a rejection');
 });
@@ -358,7 +359,9 @@ test('with no second model at all a tie is unresolved, never silently decided', 
     second: null,
   });
   assert.equal(r.state, STATE.REWORK);
-  assert.match(r.findings.join(' '), /did not settle it/);
+  // Review of 3.75.4: nothing was asked, so nothing "did not settle it".
+  assert.match(r.findings.join(' '), /no second model was asked/);
+  assert.doesNotMatch(r.findings.join(' '), /did not settle it/);
 });
 
 test('a decided no is untouched by the tie-break — a second model never overrules', async () => {
@@ -505,9 +508,11 @@ test('quality: a pass the judge split on is 99, not 100 — there is still somet
     verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
     ask: async () => (n++ % 3 === 2 ? 'no' : 'yes'),
   });
+  // 2–1 after three, so two more: 4 yes / 1 no over five, a quorum.
+  assert.equal(n, 5);
   assert.equal(r.state, STATE.VERIFIED);
   assert.equal(r.quality, 99);
-  assert.match(r.recommendations[0], /passed it only 2 yes \/ 1 no/);
+  assert.match(r.recommendations[0], /passed it only 4 yes \/ 1 no/);
 });
 
 test('quality: without a judge, the requirements nobody asked keep the score from 100', async () => {
@@ -546,16 +551,77 @@ test('quality: 100 exactly when there is nothing to recommend', () => {
 
 // Review findings on great_cto-1zu7, each pinned with the input that showed it.
 
-test('quality F1: a yes that two of three samples could not answer is not 100', async () => {
+test('s6n0: one yes and two unanswered is not a pass — the gate needs a quorum', async () => {
+  // Was F1 of great_cto-1zu7: yes > no verified this on a single vote, and only
+  // the grade said so. The owner's decision (01.11): the gate needs a majority of
+  // every sample taken, unanswered ones counted.
   const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
   const said = ['yes', 'maybe', 'hmm'];
   let n = 0;
   const r = await verifyAgentOutput({
     verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => said[n++ % 3],
   });
-  assert.equal(r.state, STATE.VERIFIED, 'the gate outcome is unchanged — only the grade');
-  assert.ok(r.quality < 100, `got ${r.quality}`);
-  assert.match(r.recommendations.join(' '), /said yes on 1 of 3 samples/);
+  assert.equal(n, 5, 'no quorum after three, so two more were taken');
+  assert.equal(r.state, STATE.REWORK);
+  const f = r.findings.join(' ');
+  assert.match(f, /reached no quorum \(2 yes \/ 0 no \/ 3 unanswered of 5\)/, 'no split, so not called one');
+  assert.doesNotMatch(f, /judge split/);
+  assert.match(f, /undecided, not rejected/);
+  assert.doesNotMatch(f, /answered no/);
+});
+
+const judgeOnce = (said, second = null) => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const calls = { n: 0 };
+  const run = verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: async () => said[calls.n++] ?? 'unclear', second,
+  });
+  return run.then((r) => ({ r, calls: calls.n }));
+};
+
+test('s6n0: a unanimous answer costs three samples, not five', async () => {
+  const { r, calls } = await judgeOnce(['yes', 'yes', 'yes', 'no', 'no']);
+  assert.equal(calls, 3);
+  assert.equal(r.state, STATE.VERIFIED);
+  const { r: r2, calls: c2 } = await judgeOnce(['no', 'no', 'no', 'yes', 'yes']);
+  assert.equal(c2, 3);
+  assert.equal(r2.state, STATE.REWORK);
+});
+
+test('s6n0: a 2–1 that the next two samples confirm passes', async () => {
+  const { r, calls } = await judgeOnce(['yes', 'no', 'yes', 'yes', 'no']);
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.VERIFIED, '3 yes of 5 is a quorum');
+});
+
+test('s6n0: a 2–1 yes that the next two samples overturn is not a pass', async () => {
+  // The architect case: the same input gave 2 yes / 1 no, then 1 yes / 2 no.
+  const { r, calls } = await judgeOnce(['yes', 'yes', 'no', 'no', 'no'], async () => 'no');
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.REWORK, '3 no of 5 is a quorum for no');
+  assert.match(r.findings.join(' '), /answered no/, 'a quorum for no is a real finding');
+});
+
+test('s6n0: a 2–1 no that the next two samples overturn is a pass', async () => {
+  const { r, calls } = await judgeOnce(['no', 'no', 'yes', 'yes', 'yes'], async () => { throw new Error('a quorum for yes needs no second model'); });
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.VERIFIED);
+});
+
+test('s6n0: still no quorum after five goes to the second model, which may settle it', async () => {
+  // 2 yes / 1 no / 2 unanswered: neither side reaches 3.
+  let asked = 0;
+  const { r, calls } = await judgeOnce(['yes', 'no', 'yes', 'unclear', 'unclear'], async () => { asked += 1; return 'yes'; });
+  assert.equal(calls, 5);
+  assert.equal(asked, 1);
+  assert.equal(r.state, STATE.VERIFIED, 'the second model settled an undecided requirement');
+});
+
+test('s6n0: silent on every sample stays an abstention and costs no extra samples', async () => {
+  const { r, calls } = await judgeOnce(['unclear', 'unclear', 'unclear', 'yes', 'yes']);
+  assert.equal(calls, 3);
+  assert.notEqual(r.state, STATE.VERIFIED);
 });
 
 test('quality F2: files present but no criterion at all is 99, with the criterion to add', async () => {
@@ -802,4 +868,12 @@ test('receipt.mjs --emit — the path log-verdict.sh uses — writes the change 
   assert.ok(receipt.files['b.mjs'], `no b.mjs in ${r.stdout}`);
   assert.equal(sh(root, 'cat-file', 'blob', receipt.files['b.mjs']), 'export const b = "emitted";');
   rmSync(root, { recursive: true, force: true });
+});
+
+test('s6n0 review: a requirement a second model settled as yes says so in its recommendation', async () => {
+  const { r } = await judgeOnce(['yes', 'no', 'yes', 'no', 'unclear'], async () => 'yes');
+  assert.equal(r.state, STATE.VERIFIED);
+  const rec = r.recommendations.join(' ');
+  assert.match(rec, /no majority \(2 yes \/ 2 no\) and a second model settled it as yes/);
+  assert.doesNotMatch(rec, /passed it only/);
 });

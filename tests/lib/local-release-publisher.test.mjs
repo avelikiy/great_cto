@@ -11,6 +11,10 @@ import { admitRelease, getAdmissionInfo } from '../../packages/cli/src/release-t
 import { signLocalReleaseArtifacts } from '../../scripts/sign-local-release-artifacts.mjs';
 import { publishLocalRelease } from '../../scripts/publish-local-release.mjs';
 
+// The release lease (great_cto-inty) lives in ~/.great_cto; these tests are about
+// the npm step, so the claim is handed in. Its own refusals are pinned below.
+const HELD_BY_US = () => ({ ok: true });
+
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const version = '1.2.3', commit = 'a'.repeat(40), tree = 'b'.repeat(40);
 function fixture(t, { runtime = false } = {}) {
@@ -154,7 +158,7 @@ test('real local signer output passes strict artifact admission before simulated
     if (url.endsWith('.tgz')) return new Response(f.bytes);
     return requests === 1 ? new Response('not found', { status: 404 }) : Response.json(f.metadata);
   };
-  const result = await publishLocalRelease(f.options, { run: f.run, fetchFn });
+  const result = await publishLocalRelease(f.options, { run: f.run, fetchFn, lease: HELD_BY_US });
   assert.equal(requests, 3); assert.equal(f.calls.filter(x => x.binary === f.options.npmPath).length, 1);
   assert.equal(result.state, 'SIMULATED_PUBLICATION_READBACK'); assert.equal(result.authority, 'NONE');
   assert.equal(result.published, false); assert.equal(result.releaseEligibility, 'NOT_CHECKED');
@@ -200,7 +204,7 @@ test('npm child errors cannot expose auth contents and cannot be reported as a s
     return f.run(binary,args,options);
   };
   const fetchFn = async () => new Response('absent', { status: 404 });
-  await assert.rejects(publishLocalRelease(f.options, { run, fetchFn }), error => { assert.equal(error.message.includes('test-only-noncredential'), false); return /output withheld/.test(error.message); });
+  await assert.rejects(publishLocalRelease(f.options, { run, fetchFn, lease: HELD_BY_US }), error => { assert.equal(error.message.includes('test-only-noncredential'), false); return /output withheld/.test(error.message); });
 });
 
 // 3.72.0 (27.10.2026): npm staged the publish and the publisher said only "refused";
@@ -213,7 +217,7 @@ test('a staged version is named as staged, with the approval step, and never lea
     if (binary === f.options.npmPath) throw npmStderr(['npm error code E409', `npm error 409 Conflict - PUT https://registry.npmjs.org/great-cto - Cannot publish over previously staged version "${version}".`]);
     return f.run(binary, args, options);
   };
-  await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }) }), error => {
+  await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }), lease: HELD_BY_US }), error => {
     assert.equal(error.message.includes('test-only-noncredential'), false);
     assert.equal(error.message.includes('Conflict - PUT'), false, 'the child line itself stays withheld');
     return /STAGED.*2FA.*rerun/.test(error.message);
@@ -224,7 +228,7 @@ test('any other npm failure names its npm error code and nothing else', async t 
   for (const [lines, expected] of [[['npm error code EOTP', 'npm error This operation requires a one-time password'], /npm error code EOTP\)/], [['npm error something unrecognised'], /^npm publication failed; child output withheld/]]) {
     const f = publishFixture(t);
     const run = (binary, args, options) => { if (binary === f.options.npmPath) throw npmStderr(lines); return f.run(binary, args, options); };
-    await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }) }), error => {
+    await assert.rejects(publishLocalRelease(f.options, { run, fetchFn: async () => new Response('absent', { status: 404 }), lease: HELD_BY_US }), error => {
       assert.equal(error.message.includes('test-only-noncredential'), false);
       assert.equal(error.message.includes('one-time password'), false);
       return expected.test(error.message);
@@ -234,7 +238,7 @@ test('any other npm failure names its npm error code and nothing else', async t 
 
 test('a publish npm accepted but does not serve is reported as staged, not as published', async t => {
   const f = publishFixture(t);
-  await assert.rejects(publishLocalRelease(f.options, { run: f.run, fetchFn: async () => new Response('absent', { status: 404 }) }), /STAGED/);
+  await assert.rejects(publishLocalRelease(f.options, { run: f.run, fetchFn: async () => new Response('absent', { status: 404 }), lease: HELD_BY_US }), /STAGED/);
   assert.equal(f.calls.filter(x => x.binary === f.options.npmPath).length, 1);
 });
 
@@ -261,4 +265,23 @@ test('signing write failure retains partial proof evidence and refuses overwrite
 test('test-only registry adapter cannot be combined with a real executing process runner', async t => {
   const f = publishFixture(t);
   await assert.rejects(publishLocalRelease(f.options, { fetchFn: async () => new Response('absent', { status: 404 }) }), /non-executing process adapter/);
+});
+
+test('inty: a first publication without our release lease never runs npm', async t => {
+  const f = publishFixture(t);
+  let asked;
+  const lease = (q) => { asked = q; return { ok: false, why: `${q.version} is being released by codex:other (since earlier)` }; };
+  await assert.rejects(publishLocalRelease(f.options, { run: f.run, fetchFn: async () => new Response('absent', { status: 404 }), lease }),
+    /release lease: .* is being released by codex:other/);
+  assert.equal(f.calls.filter(x => x.binary === f.options.npmPath).length, 0, 'npm must not run');
+  assert.equal(asked.version, version);
+  assert.equal(asked.commit, f.options.approveCommit, 'the claim is checked against the approved commit');
+});
+
+test('inty: reading back a version already published does not need the lease', async t => {
+  // The rerun after 2FA comes after the chain may have released its claim.
+  const f = publishFixture(t);
+  const fetchFn = async url => url.endsWith('.tgz') ? new Response(f.bytes) : Response.json(f.metadata);
+  const lease = () => { throw Error('a readback must not consult the lease'); };
+  assert.equal((await publishLocalRelease(f.options, { run: f.run, fetchFn, lease })).authority, 'NONE');
 });

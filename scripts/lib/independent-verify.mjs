@@ -103,7 +103,8 @@ export const MAX_JUDGED = 12;
  * requests, and a single sample is therefore a coin with a heavy bias, not a
  * reading.
  *
- * So each requirement is asked three times and the majority answer is taken.
+ * So each requirement is asked three times and the majority answer is taken,
+ * with two more samples where three do not settle it (EXTRA_SAMPLES, below).
  * A split is not hidden: it is reported, because "the judge was unsure" is
  * information about the requirement — usually that it is worded so that a
  * careful reader cannot tell.
@@ -112,6 +113,32 @@ export const MAX_JUDGED = 12;
  * short-circuit. A missing file costs nothing to find.
  */
 export const SAMPLES = 3;
+
+/**
+ * More samples, taken only where the first three did not settle it.
+ *
+ * Two shapes passed or failed on less than they looked like (great_cto-s6n0).
+ * "One yes and two unanswered" took yes > no as the answer and verified the
+ * requirement on a single vote. And a 2–1 split flipped on unchanged input: the
+ * same architect artefact gave 2 yes / 1 no (verified, 99) and then 1 yes / 2 no
+ * (rework, 75). Three samples cannot tell a narrow majority from noise.
+ *
+ * So an answer needs a QUORUM: a strict majority of every sample taken, with
+ * unanswered samples counted, not set aside. Where the first round is split or
+ * short of a quorum, two more are taken and the quorum is counted over all
+ * five. What still has none is undecided. It is handled like a tie: it falls
+ * toward rework, and a second model may settle it.
+ */
+export const EXTRA_SAMPLES = 2;
+
+/** A strict majority of `n` samples. */
+const quorumOf = (n) => Math.floor(n / 2) + 1;
+
+/** How an undecided requirement stood, in words: a split is not "no quorum",
+ *  and a second model that was never asked did not "fail to settle" anything. */
+const undecidedWords = (a) =>
+  (a.split ? `the judge split ${a.split}` : `the judge reached no quorum (${a.undecided})`) +
+  (a.second === undefined ? ' and no second model was asked' : ' and a second model did not settle it');
 
 /** The second judge. A different FAMILY on purpose: correlated failure modes are
  *  the thing a second opinion is supposed to escape. */
@@ -618,7 +645,7 @@ export function chooseSecondJudge({ so, routerAvailable }) {
   return routerAvailable ? { kind: 'router', note: '' } : { kind: 'none', note: 'llm-router server not found — no second judge' };
 }
 
-export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES, second = null } = {}) {
+export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDGED, samples = SAMPLES, extra = EXTRA_SAMPLES, second = null } = {}) {
   // Gated on REQUIREMENTS, not on a document. This read `if (!doc || …)`, which
   // was right while criteria could only come from an ACCEPTANCE section — and
   // silently discarded every requirement built from the verdict's own claims the
@@ -654,12 +681,23 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
     const q = questionFor(req, excerpt);
 
     const votes = [];
-    for (let i = 0; i < samples; i += 1) {
-      const raw = String((await ask(q, JUDGE_ANSWERS)) || '').trim().toLowerCase();
-      const m = raw.match(/\b(yes|no|unclear)\b/);
-      votes.push({ answer: m ? m[1] : null, raw: raw.slice(0, 200) });
-    }
-    const tally = votes.reduce((acc, v) => { const k = v.answer || 'unparsed'; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+    const sample = async (n) => {
+      for (let i = 0; i < n; i += 1) {
+        const raw = String((await ask(q, JUDGE_ANSWERS)) || '').trim().toLowerCase();
+        const m = raw.match(/\b(yes|no|unclear)\b/);
+        votes.push({ answer: m ? m[1] : null, raw: raw.slice(0, 200) });
+      }
+    };
+    const count = () => votes.reduce((acc, v) => { const k = v.answer || 'unparsed'; acc[k] = (acc[k] || 0) + 1; return acc; }, {});
+    await sample(samples);
+    let tally = count();
+    // Unsettled: split, or some answer but no quorum. Silent on every sample is
+    // left alone; that is an abstention, and more samples of it cost money for
+    // nothing measured so far.
+    const unsettled = (t) => (t.yes || 0) + (t.no || 0) > 0 &&
+      (((t.yes || 0) && (t.no || 0)) || Math.max(t.yes || 0, t.no || 0) < quorumOf(votes.length));
+    const extended = unsettled(tally) && extra > 0;
+    if (extended) { await sample(extra); tally = count(); }
 
     // Majority. A TIE is not a majority and is not treated as one.
     //
@@ -677,14 +715,22 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
     // verification layer, since a wrong pass defeats the point of verifying — and
     // is MARKED, so the tie-break below can settle it and the report can say
     // which of the two happened.
-    const yes = tally.yes || 0, no = tally.no || 0;
-    const tied = yes > 0 && yes === no;
-    const answer = yes > no ? 'yes' : no > yes ? 'no' : (yes === 0 && no === 0 ? null : 'no');
+    //
+    // A tie is now one case of a wider one: no quorum. Undecided falls the same
+    // way and is marked the same way, so the tie-break below reaches it too.
+    const yes = tally.yes || 0, no = tally.no || 0, n = votes.length;
+    const q2 = quorumOf(n);
+    const silent = yes === 0 && no === 0;
+    const undecided = !silent && yes < q2 && no < q2;
+    const answer = silent ? null : yes >= q2 ? 'yes' : 'no';
     answers.push({
       requirement: req,
       answer,
-      tied,
+      tied: undecided,
       split: yes && no ? `${yes} yes / ${no} no` : null,
+      // How it stood, in words, wherever a split string would be empty.
+      ...(undecided ? { undecided: `${yes} yes / ${no} no / ${n - yes - no} unanswered of ${n}` } : {}),
+      ...(extended ? { samples: n } : {}),
       tally,
       raw: votes[0]?.raw || '',
     });
@@ -740,6 +786,7 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
   const diverged = answers.filter((a) => a.diverged);
   const abstained = answers.filter((a) => a.answer !== 'yes' && a.answer !== 'no').length;
   const split = answers.filter((a) => a.split);
+  const extendedN = answers.filter((a) => a.samples).length;
 
   return {
     // An unresolved split still fails. It is separated from `unmet` for the
@@ -751,7 +798,8 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
       (source === 'verdict-claims'
         ? ' (from the verdict\u2019s own claims — no document freezes criteria for this stage)' : '') +
       (unmet.length ? `, ${unmet.length} not met` : '') +
-      (unresolved.length ? `, ${unresolved.length} SPLIT AND UNRESOLVED (${unresolved.map((a) => a.split).join('; ')})` : '') +
+      (unresolved.length ? `, ${unresolved.length} SPLIT AND UNRESOLVED (${unresolved.map((a) => a.split || a.undecided).join('; ')})` : '') +
+      (extendedN ? `, ${extendedN} given ${extra} more sample(s) to try for a quorum` : '') +
       (tieBroken.length ? `, ${tieBroken.length} tie settled by a second model` : '') +
       (diverged.length ? `, ${diverged.length} where a second model DISAGREED` : '') +
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
@@ -830,7 +878,7 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
       // The work still comes back — but as "nobody could decide", which is what
       // the evidence supports, rather than as a finding nobody actually made.
       findings.push(...(j.unresolved || []).map((a) =>
-        `the judge split ${a.split} and a second model did not settle it — sent back undecided, not rejected: “${a.requirement}”`));
+        `${undecidedWords(a)} — sent back undecided, not rejected: “${a.requirement}”`));
       return conclude(STATE.REWORK, checks, findings, verdict);
     }
   }
@@ -942,13 +990,14 @@ export function assessQuality({ state, checks = [], pending = {} }) {
       passed += 1;
       const t = a.tally || {};
       const silent = Object.entries(t).filter(([k]) => k !== 'yes' && k !== 'no').reduce((n, [, v]) => n + v, 0);
-      if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
+      if (a.tieBroken) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge had no majority (${a.split || a.undecided}) and a second model settled it as yes.`);
+      else if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
       else if (silent) {
         recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge said yes on ${t.yes || 0} ` +
                   `of ${(t.yes || 0) + (t.no || 0) + silent} samples and could not answer on the rest.`);
       }
     } else if (a.unresolvedSplit) {
-      recs.push(`Make “${a.requirement}” decidable — the judge split ${a.split} and a second model did not settle it; ` +
+      recs.push(`Make “${a.requirement}” decidable — ${undecidedWords(a)}; ` +
                 'show the implementation plainly or reword the criterion.');
     } else if (a.answer === 'no') {
       recs.push(`Address “${a.requirement}” — the judge found nothing that implements it in what it read` +
