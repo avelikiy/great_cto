@@ -87,8 +87,10 @@ export function errorPathErrors(text) {
   // A design with nothing that can fail says so, with the reason.
   if (body.some((l) => /^\s*no error paths\b.{8,}/i.test(l))) return [];
   const rows = body.filter((l) => /^\s*\|/.test(l));
+  // Cells split on unescaped pipes: `retry \| timeout` is one cell, not two.
+  const cellsOf = (l) => l.split(/(?<!\\)\|/).slice(1, -1).map((c) => c.trim());
   const header = rows[0] || '';
-  const cols = header.split('|').slice(1, -1).map((c) => c.trim().toLowerCase());
+  const cols = cellsOf(header).map((c) => c.toLowerCase());
   const at = (re) => cols.findIndex((c) => re.test(c));
   const handled = at(/handled/), tested = at(/test/);
   if (handled < 0 || tested < 0) return [{ kind: 'error-paths-not-a-table', msg: '"## Error paths" needs a table with at least "handled?" and "test?" columns — or a line "No error paths: <reason>"' }];
@@ -96,8 +98,9 @@ export function errorPathErrors(text) {
   if (!data.length) return [{ kind: 'error-paths-empty', msg: '"## Error paths" table has no rows' }];
   const errs = [];
   for (const row of data) {
-    const cells = row.split('|').slice(1, -1).map((c) => c.trim());
-    const no = (i) => /^(no|none|—|-|✗|❌)$/i.test(cells[i] || '');
+    const cells = cellsOf(row);
+    // "No test yet", "not handled", "n/a", "—": anything that opens as a no is a no.
+    const no = (i) => /^(no\b|none\b|not\b|n\/a\b|missing\b|todo\b|tbd\b|[—–✗❌-]+$|$)/i.test((cells[i] || '').replace(/^[*_`\s]+/, ''));
     if (no(handled) && no(tested) && !/critical/i.test(row)) {
       errs.push({ kind: 'error-path-unmarked', msg: `error path "${(cells[0] || '').slice(0, 60)}" is unhandled and untested but not marked CRITICAL` });
     }
@@ -135,8 +138,12 @@ const TYPES = [
         kind: 'token-conflict',
         section: /brand tokens|tokens/i,
         check: (body) => {
-          const seen = new Map(), out = [];
+          let seen = new Map();
+          const out = [];
           for (const l of body.split('\n')) {
+            // A sub-heading starts a new scope: light and dark themes define the same
+            // tokens with different values, and that is the point of them.
+            if (/^#{3,6}\s/.test(l)) { seen = new Map(); continue; }
             if (!/^\s*\|/.test(l) || /^\s*\|[\s:|-]+\|\s*$/.test(l)) continue;
             const cells = l.split('|').slice(1, -1).map((c) => c.trim().replace(/`/g, ''));
             const [name, value] = cells;

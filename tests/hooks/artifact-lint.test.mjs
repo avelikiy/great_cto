@@ -398,3 +398,20 @@ test('token conflict: a stated override, a repeated equal value, or distinct tok
     '| --radius-card | 8px | |\n| --radius | 0 | |',
   ]) assert.deepEqual(conflicts(lint({ 'docs/design/DESIGN-x.md': designWith(rows) })), [], rows);
 });
+
+// Review of 3.75.5 (m1, m2).
+
+test('m1: light and dark themes may give a token two values under their own sub-headings', () => {
+  const themed = designWith('| --space | 8px | |').replace('## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n| --space | 8px | |',
+    '## Brand tokens\n\n### Light\n\n| Token | Value |\n|---|---|\n| --bg | #fff |\n\n### Dark\n\n| Token | Value |\n|---|---|\n| --bg | #000 |');
+  assert.deepEqual(conflicts(lint({ 'docs/design/DESIGN-x.md': themed })), []);
+});
+
+test('m2: "No test yet" and "not handled" are noes; an escaped pipe does not shift the columns', () => {
+  for (const row of ['| cursor.advance | read failed | not handled | No test yet | nothing | no |',
+                     '| cursor.advance | retry \\| timeout | no | — | nothing | no |']) {
+    assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row + '\n') })), ['error-path-unmarked'], row);
+  }
+  const named = EP + '| cursor.advance | read failed | raise ReadFailed | cursor.test#readFailed | "retry" | yes |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', named) })), []);
+});

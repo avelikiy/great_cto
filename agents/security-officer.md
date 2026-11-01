@@ -487,9 +487,9 @@ Continues from the original Workflow below — produces `CSO-{slug}-{date}.md`, 
    [ -f "$HS" ] || HS="$(pwd)/scripts/lib/history-secret-scan.mjs"
    node "$HS" --cwd .
    ```
-   Read the exit code: `0` clean, `1` findings, `2` **NOT SCANNED**, which you
-   report as "history not scanned: <reason>", never as clean. A capped walk prints
-   "N of M commits"; say so. With `gitleaks` installed, `gitleaks git --redact`
+   Read the exit code: `0` clean, `1` findings, `2` **NOT SCANNED** ("history not
+   scanned: <reason>"), `3` **PARTIAL** — a capped walk or a shallow clone; report
+   "history scanned in part: <what it printed>". Neither 2 nor 3 is clean. With `gitleaks` installed, `gitleaks git --redact`
    adds generic high-entropy detection. Never print a matched value yourself.
    If any history findings: flag as P0 — secret must be rotated even if removed from code.
 

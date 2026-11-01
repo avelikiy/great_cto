@@ -11,17 +11,17 @@ import os from 'node:os';
 import path from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+import { treeReceipt, writeAcceptance, receiptHash, MAX_FILES } from '../../scripts/lib/receipt.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRIPT = path.join(ROOT, 'scripts/lib/receipt.mjs');
 
-function fixture(t) {
+function fixture(t, { ignoreState = true } = {}) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gc-fresh-')));
   t.after(() => fs.rmSync(d, { recursive: true, force: true }));
   const git = (...a) => execFileSync('git', ['-c', 'commit.gpgsign=false', '-c', 'user.name=f', '-c', 'user.email=f@f.invalid', ...a], { cwd: d, encoding: 'utf8' });
   git('init', '-q', '-b', 'main');
-  fs.writeFileSync(path.join(d, '.gitignore'), '.great_cto/\n');
+  fs.writeFileSync(path.join(d, '.gitignore'), ignoreState ? '.great_cto/\n' : 'node_modules/\n');
   fs.writeFileSync(path.join(d, 'app.js'), 'v1\n');
   git('add', '.'); git('commit', '-qm', 'base');
   fs.mkdirSync(path.join(d, '.great_cto/verdicts'), { recursive: true });
@@ -141,4 +141,78 @@ test('devops step 2b: a receipt that cannot be compared blocks — unread is not
   const r = runStep(f, { TIER_EFFECTIVE: 'standard', PROJECT_SIZE: 'medium' });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /BLOCKED: could not compare qa-engineer's receipt/);
+});
+
+// Review of 3.75.5 (B1, M1, M2, m5).
+
+test('B1: in a project that does not ignore .great_cto/, an approval is not drift from itself', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('qa-engineer');            // the receipt is taken, then the log line written
+  f.approve('security-officer');       // and another stage writes its own log
+  // This qa receipt RECORDS security-officer.log, which the next approval changes.
+  f.approve('qa-engineer');            // this receipt records security-officer.log
+  f.approve('security-officer');       // which then changes
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /\.great_cto\//);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v3\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 1, 'a code change is still drift');
+});
+
+test('B1: the devops step passes on a fresh tree in such a project', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  f.approve('qa-engineer'); f.approve('security-officer');
+  const r = runStep(f, { TIER_EFFECTIVE: 'standard', PROJECT_SIZE: 'medium' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+});
+
+test('M1: an added file under --require can be accepted — accept does not say "nothing to accept"', (t) => {
+  const f = fixture(t);
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, 'new.js'), 'added after QA\n');
+  const acc = spawnSync(process.execPath, [SCRIPT, '--accept', '--agent', 'qa-engineer', '--require'], { cwd: f.d, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '' } });
+  assert.doesNotMatch(acc.stdout, /nothing to accept/);
+  assert.match(acc.stderr, /--accept needs a terminal/, 'it reaches the human step');
+  assert.match(acc.stdout, /added/);
+});
+
+test('M1/m5: an acceptance binds to the stage it was given for', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  f.approve('qa-engineer'); f.approve('code-reviewer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'changed after both\n');
+  const current = treeReceipt(f.d, { exclude: ['.great_cto/'] });
+  writeAcceptance(f.d, { hash: receiptHash(current), why: 'test', agent: 'code-reviewer' });
+  const qa = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(qa.status, 1, 'code-reviewer\'s acceptance does not cover qa-engineer');
+  assert.match(qa.stdout, /given for code-reviewer, not for qa-engineer/);
+  assert.equal(f.verify('--agent', 'code-reviewer', '--require').status, 0, 'the stage it was given for passes');
+});
+
+test('M2: a receipt capped at MAX_FILES is not a match for the deploy question', (t) => {
+  const f = fixture(t);
+  for (let i = 0; i <= MAX_FILES + 4; i += 1) fs.writeFileSync(path.join(f.d, `f${String(i).padStart(3, '0')}.txt`), `${i}\n`);
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, `f${MAX_FILES + 3}.txt`), 'edited past the cap\n');
+  assert.equal(f.verify('--agent', 'qa-engineer').status, 0, 'pre-push keeps its behaviour');
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 2, r.stdout);
+  assert.match(r.stdout, /lists only the first 200 files/);
+});
+
+test('M3: from a linked worktree, the code-reviewer stage is still checked', (t) => {
+  const f = fixture(t);
+  const wt = path.join(f.d, '..', path.basename(f.d) + '-wt');
+  f.git('worktree', 'add', '-q', wt, 'HEAD');
+  t.after(() => fs.rmSync(wt, { recursive: true, force: true }));
+  // Verdicts are written to the MAIN checkout's .great_cto, as log-verdict.sh does from a worktree.
+  fs.writeFileSync(path.join(wt, 'app.js'), 'reviewed in the worktree\n');
+  const rec = treeReceipt(wt);
+  for (const agent of ['qa-engineer', 'security-officer', 'code-reviewer']) {
+    fs.appendFileSync(path.join(f.d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ v: 1, ts: `2026-11-01T01:00:0${agent.length % 9}Z`, agent, verdict: 'APPROVED', receipt: rec }) + '\n');
+  }
+  fs.writeFileSync(path.join(wt, 'app.js'), 'changed after every approval\n');
+  const r = spawnSync('bash', ['-c', devopsStep()], { cwd: wt, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '', CLAUDE_PLUGIN_ROOT: ROOT, TIER_EFFECTIVE: 'baseline', PROJECT_SIZE: 'nano' } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /BLOCKED: files changed or added after code-reviewer approved/);
 });

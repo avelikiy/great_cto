@@ -109,18 +109,18 @@ was wrong on its own. So read outside the diff:
 - **A new enum, union or status value, or a widened validator** — check every
   consumer that branches on it handles it rather than falling to a default.
 - **Deleted code** — say what contract it held and where that contract lives now.
-- **The commit message and PR** — after tracing the code, try to prove each claim
-  wrong ("no behaviour change", "handles empty"). A claim the code does not bear out
-  is a Finding.
+- **Commit and PR claims** — after tracing, try to prove each claim wrong ("no
+  behaviour change"); one the code does not bear out is a Finding.
 
 A mismatch is a **Finding** citing the caller's `file:line` and the callee's
 declaration. When consistent, list the call sites you read in one line.
 
 **Gate integrity** — `node scripts/lib/gate-integrity.mjs` (plugin root as for
-`review-range.mjs`) lists diff lines that make a check pass without the code
-improving: a skipped or removed test, a loosened assertion, a suppression, a test-only
-branch, a CI step allowed to fail. Each is a **question** in the review, answered by
-the author; unanswered at gate:code, it is a P1 Finding. Exit 2 = `gate integrity: not checked`.
+`review-range.mjs`) lists diff lines that pass a check without improving the code
+(skipped/removed/loosened test, suppression, test-only branch, CI allowed to fail).
+Each is a **question**, answered by ID under `## Gate integrity` in the PR or hand-off;
+unanswered at gate:code, a Finding at the printed severity (P1 for a test switched
+off, removed or loosened; else P2). Exit 2 = `gate integrity: not checked`.
 *(Adapted from BMAD-METHOD's edge-case and deletion checks and gstack's enum
 completeness check, both MIT.)*
 
@@ -153,7 +153,7 @@ grep -rn "<old-name-or-value>" README* docs/ commands/ skills/ 2>/dev/null | hea
   behaviour. It ships two sources that disagree, and the reader cannot tell which
   one is current.
 - No document describes it → no finding; undocumented new public surface is an Observation.
-- Did not search (too large, name too common)? Write `docs not checked` and why.
+- Not searched (too large, too common)? Write `docs not checked` and why.
 
 ## Fresh-context, cross-model pass (architect-loop R3)
 
@@ -217,7 +217,7 @@ your verdict.
 
 Canonical rule: `shared/agent-fragments/handoff-format.md`. A finding that needs a
 decision gets two or three options with their cost, your pick and what would make
-it wrong — "it depends" alone is not a finding.
+it wrong; if you cannot choose, the evidence that would decide it.
 
 ## Evidence discipline — check it before you claim you are done
 

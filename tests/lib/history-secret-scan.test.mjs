@@ -96,3 +96,75 @@ test('security-officer runs the scanner instead of the two lines that could not 
     assert.match(t, /NOT SCANNED/, `${file}: an unread history is said so`);
   }
 });
+
+// Review of 3.75.5 (M4, M5, m8): each of these read as clean.
+
+test('M4a: a file with a non-ASCII name is scanned', async (t) => {
+  const r = repo(t);
+  r.commit('café.txt', `k = "${FAKE_AWS}"\n`, 'accented name');
+  const out = await scanHistory({ cwd: r.d });
+  assert.deepEqual(out.findings.map((f) => f.file), ['café.txt']);
+});
+
+test('M4b: an added line starting with "++" is content, not a header that hides the rest', async (t) => {
+  const r = repo(t);
+  r.commit('notes.md', `++ heading\nk = "${FAKE_AWS}"\n`, 'plus-plus line');
+  const out = await scanHistory({ cwd: r.d });
+  assert.deepEqual(out.findings.map((f) => [f.file, f.kind]), [['notes.md', 'AWS Access Key ID']]);
+});
+
+test('M4c: a secret only a merge resolution introduced is found', async (t) => {
+  const r = repo(t);
+  r.commit('a.txt', 'base\n', 'base');
+  const trunk = r.git('rev-parse', '--abbrev-ref', 'HEAD');
+  r.git('checkout', '-q', '-b', 'side');
+  r.commit('a.txt', 'side\n', 'side');
+  r.git('checkout', '-q', trunk);
+  r.commit('a.txt', 'main\n', 'main');
+  spawnSync('git', ['-C', r.d, 'merge', '-q', 'side'], { encoding: 'utf8' });   // conflicts
+  fs.writeFileSync(path.join(r.d, 'a.txt'), `resolved with ${FAKE_AWS}\n`);
+  r.git('add', 'a.txt'); r.git('commit', '-q', '--no-edit');
+  const merge = r.git('rev-parse', 'HEAD');
+  const out = await scanHistory({ cwd: r.d });
+  assert.deepEqual(out.findings.map((f) => [f.commit, f.file]), [[merge.slice(0, 12), 'a.txt']]);
+});
+
+test('M5: a capped walk with nothing found exits 3 PARTIAL, not 0', (t) => {
+  const r = repo(t);
+  r.commit('old.js', `k = "${FAKE_AWS}"\n`, 'old secret');
+  for (let i = 0; i < 3; i += 1) r.commit('a.js', `x = ${i}\n`, `c${i}`);
+  const cli = spawnSync(process.execPath, [CLI, '--cwd', r.d, '--max-commits', '2'], { encoding: 'utf8' });
+  assert.equal(cli.status, 3, cli.stdout);
+  assert.match(cli.stdout, /^PARTIAL — history scanned: 2 of 4 commits/);
+});
+
+test('m8: a shallow clone is PARTIAL, not "all N commits"', (t) => {
+  const r = repo(t);
+  // The secret is added and then removed, so it lives only in the history a depth-1 clone lacks.
+  r.commit('old.js', `k = "${FAKE_AWS}"\n`, 'old secret');
+  r.git('rm', '-q', 'old.js'); r.git('commit', '-q', '-m', 'removed');
+  r.commit('a.js', 'x = 1\n', 'later');
+  const clone = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-shallow-'));
+  t.after(() => fs.rmSync(clone, { recursive: true, force: true }));
+  spawnSync('git', ['clone', '-q', '--depth', '1', `file://${r.d}`, clone], { encoding: 'utf8' });
+  const cli = spawnSync(process.execPath, [CLI, '--cwd', clone], { encoding: 'utf8' });
+  assert.equal(cli.status, 3, cli.stdout);
+  assert.match(cli.stdout, /SHALLOW clone/);
+});
+
+test('M4c: a secret a merge only carried over from one side stays with the commit that added it', async (t) => {
+  const r = repo(t);
+  r.commit('a.txt', 'one\ntwo\n', 'base');
+  const trunk = r.git('rev-parse', '--abbrev-ref', 'HEAD');
+  r.git('checkout', '-q', '-b', 'side');
+  const side = r.commit('a.txt', `k = "${FAKE_AWS}"\nside two\n`, 'side adds it');
+  r.git('checkout', '-q', trunk);
+  r.commit('a.txt', 'main one\nmain two\n', 'main');
+  spawnSync('git', ['-C', r.d, 'merge', '-q', 'side'], { encoding: 'utf8' });
+  // Keeps the side's line and adds one of its own, so the hunk differs from both
+  // parents and --cc shows it: the kept line is '+ ', the new one '++'.
+  fs.writeFileSync(path.join(r.d, 'a.txt'), `k = "${FAKE_AWS}"\nresolved\n`);
+  r.git('add', 'a.txt'); r.git('commit', '-q', '--no-edit');
+  const out = await scanHistory({ cwd: r.d });
+  assert.deepEqual(out.findings.map((f) => f.commit), [side.slice(0, 12)]);
+});

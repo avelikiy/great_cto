@@ -876,12 +876,14 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    STAGES=""
    [ "$PROJECT_SIZE" != "nano" ] && STAGES="qa-engineer"
    [ "$TIER_EFFECTIVE" != "baseline" ] && STAGES="$STAGES security-officer"
-   [ -s .great_cto/verdicts/code-reviewer.log ] && STAGES="$STAGES code-reviewer"
+   # The verdict logs live in the main checkout's .great_cto, also from a worktree.
+   VSTATE="$(node "$RC" --state-dir)"
+   [ -s "$VSTATE/verdicts/code-reviewer.log" ] && STAGES="$STAGES code-reviewer"
    for S in $STAGES; do
      node "$RC" --verify --agent "$S" --require; RC_EXIT=$?
      case $RC_EXIT in
        0) ;;
-       1) echo "BLOCKED: files changed or added after $S approved — re-run $S on this tree, or the operator accepts this exact state in a terminal: node $RC --accept --agent $S"; exit 1 ;;
+       1) echo "BLOCKED: files changed or added after $S approved — re-run $S on this tree, or the operator accepts this exact state in a terminal: node $RC --accept --agent $S --require"; exit 1 ;;
        3) echo "FRESHNESS NOT VERIFIED: no $S approval carries a receipt — say so in the deploy report; do not write 'verified'" ;;
        *) echo "BLOCKED: could not compare $S's receipt with this tree (exit $RC_EXIT) — an unread comparison is not a match"; exit 1 ;;
      esac

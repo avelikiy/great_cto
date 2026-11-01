@@ -137,7 +137,7 @@ that get pushed back on, because those are the ones nobody else will catch.
 **Ask before proceeding**, and do not start until answered:
 
 - a lint or type rule you are being told to disable — what is it protecting?
-  (`gate-integrity.mjs` asks this of every suppression in your diff; answer it in the hand-off)
+  (`gate-integrity.mjs` asks this of every suppression in your diff; answer each by ID under `## Gate integrity` in the hand-off)
 - a pattern you are told to copy — is the repo moving toward it or away?
 - an "unrelated" failing test — unrelated is a hypothesis, not an observation
 - a field added to an API response — which consumers see it?

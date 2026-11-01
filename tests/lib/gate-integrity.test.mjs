@@ -125,10 +125,40 @@ test('code-reviewer and senior-dev carry the gate-integrity rules, in both regis
   for (const dir of ['agents', 'agents-full']) {
     const cr = fs.readFileSync(path.join(ROOT, dir, 'code-reviewer.md'), 'utf8');
     assert.match(cr, /gate-integrity\.mjs/, `${dir}/code-reviewer runs the scanner`);
-    assert.match(cr, /unanswered at gate:code, it is a P1 Finding/, `${dir}/code-reviewer: a question cannot be left open`);
+    assert.match(cr, /unanswered at gate:code, a Finding at the printed severity \(P1 for a test switched\s+off, removed or loosened; else P2\)/, `${dir}/code-reviewer: a question cannot be left open`);
     assert.match(cr, /gate integrity: not checked/, `${dir}/code-reviewer: an unread diff is said so`);
     const sd = fs.readFileSync(path.join(ROOT, dir, 'senior-dev.md'), 'utf8');
     assert.match(sd, /branches on running under test/, `${dir}/senior-dev refuses test-only branches`);
     assert.match(sd, /loosening an assertion or raising a timeout or threshold/, `${dir}/senior-dev refuses loosened checks`);
   }
+});
+
+// Review of 3.75.5 (M7, m6, m7).
+
+test('M7: a question about a test weighs P1; one about ordinary code weighs P2', () => {
+  const [skip] = analyse(diff('src/cart.test.ts', [SKIP_IT]));
+  assert.equal(skip.severity, 'P1');
+  const [allow] = analyse(diff('src/lib.rs', ['#[allow(dead_code)]']));
+  assert.equal(allow.severity, 'P2');
+  const [opt] = analyse(diff('app/opt.py', ['except ImportError: pass']));
+  assert.equal(opt.severity, 'P2');
+});
+
+test('m7: "\\ No newline at end of file" does not shift the cited line', () => {
+  const d = ['diff --git a/src/a.ts b/src/a.ts', '--- a/src/a.ts', '+++ b/src/a.ts', '@@ -1,2 +1,3 @@', ' one', '-two', '\\ No newline at end of file', '+two', '+' + TS_IGNORE].join('\n');
+  const [q] = analyse(d);
+  assert.equal(q.line, 3);
+});
+
+test('m6: a new file not yet added to git is part of the change', async (t) => {
+  const fs = await import('node:fs'); const os = await import('node:os');
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-gi-'));
+  t.after(() => fs.rmSync(d, { recursive: true, force: true }));
+  const g = (...a) => spawnSync('git', ['-C', d, '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'commit.gpgsign=false', ...a], { encoding: 'utf8' });
+  g('init', '-q'); fs.writeFileSync(path.join(d, 'a.txt'), 'x\n'); g('add', '.'); g('commit', '-qm', 'base');
+  const trunk = g('rev-parse', '--abbrev-ref', 'HEAD').stdout.trim();
+  fs.mkdirSync(path.join(d, 'src')); fs.writeFileSync(path.join(d, 'src/new.test.ts'), SKIP_IT + '\n');
+  const r = spawnSync(process.execPath, [CLI, '--base', trunk], { cwd: d, encoding: 'utf8' });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /P1  GI-SKIP  src\/new\.test\.ts:1/);
 });
