@@ -168,3 +168,13 @@ test('M4c: a secret a merge only carried over from one side stays with the commi
   const out = await scanHistory({ cwd: r.d });
   assert.deepEqual(out.findings.map((f) => f.commit), [side.slice(0, 12)]);
 });
+
+test('N4/N5: a secret in a binary file is found; a path with a space has no trailing tab', async (t) => {
+  const r = repo(t);
+  fs.writeFileSync(path.join(r.d, 'blob.bin'), Buffer.concat([Buffer.from([0, 1, 2, 0]), Buffer.from(`\n${FAKE_AWS}\n`)]));
+  r.git('add', 'blob.bin'); r.git('commit', '-q', '-m', 'binary');
+  fs.mkdirSync(path.join(r.d, 'dir with space'));
+  r.commit('dir with space/my file.txt', `k = "${FAKE_AWS}"\n`, 'spaced');
+  const out = await scanHistory({ cwd: r.d });
+  assert.deepEqual(out.findings.map((f) => f.file).sort(), ['blob.bin', 'dir with space/my file.txt']);
+});

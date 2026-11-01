@@ -424,3 +424,11 @@ test('m2: a test whose name starts with not-, none_ or no. is a test, not a "no"
   const row = '| cursor.advance | read failed | no | Not yet. | nothing | no |\n';
   assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row) })), ['error-path-unmarked']);
 });
+
+test('N2/N3: bold **no** is a no; a non-theme sub-heading does not hide a conflict', () => {
+  const bold = EP + '| read | 5xx | **no** | **no** | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', bold) })), ['error-path-unmarked']);
+  const cards = designWith('| --space | 8px | |').replace('## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n| --space | 8px | |',
+    '## Brand tokens\n\n### Global\n\n| Token | Value |\n|---|---|\n| --radius | 0px |\n\n### Cards\n\n| Token | Value |\n|---|---|\n| --radius | 8px |');
+  assert.equal(conflicts(lint({ 'docs/design/DESIGN-x.md': cards })).length, 1);
+});

@@ -56,7 +56,7 @@ export function scanHistory({ cwd = process.cwd(), maxCommits = DEFAULT_MAX_COMM
   if (total === 0) return Promise.resolve({ state: 'scanned', commits: 0, total: 0, partial: false, findings: [] });
   const shallow = spawnSync('git', ['-C', cwd, 'rev-parse', '--is-shallow-repository'], { encoding: 'utf8' }).stdout.trim() === 'true';
   return new Promise((resolve) => {
-    const args = ['-C', cwd, '-c', 'core.quotePath=false', 'log', '--all', '-p', '--cc', '--no-color', '--no-ext-diff', '--no-renames', '-U0',
+    const args = ['-C', cwd, '-c', 'core.quotePath=false', 'log', '--all', '-p', '--cc', '--text', '--no-color', '--no-ext-diff', '--no-renames', '-U0',
       '--format=%x00commit %H', `--max-count=${maxCommits}`];
     const child = spawn('git', args, { stdio: ['ignore', 'pipe', 'pipe'] });
     const seen = new Set();
@@ -73,7 +73,8 @@ export function scanHistory({ cwd = process.cwd(), maxCommits = DEFAULT_MAX_COMM
       if (afterMinus && line.startsWith('+++ ')) {
         afterMinus = false;
         const p = line.slice(4);
-        file = p === '/dev/null' ? null : p.replace(/^"?b\//, '').replace(/"$/, '');
+        // git appends a tab to a header path that holds a space.
+        file = p === '/dev/null' ? null : p.replace(/\t$/, '').replace(/^"?b\//, '').replace(/"$/, '');
         return;
       }
       afterMinus = false;

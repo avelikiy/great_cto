@@ -181,7 +181,7 @@ test('M1/m5: an acceptance binds to the stage it was given for', (t) => {
   const f = fixture(t, { ignoreState: false });
   f.approve('qa-engineer'); f.approve('code-reviewer');
   fs.writeFileSync(path.join(f.d, 'app.js'), 'changed after both\n');
-  const current = treeReceipt(f.d, { exclude: ['.great_cto/'] });
+  const current = treeReceipt(f.d, { withoutPipelineOutput: true });
   writeAcceptance(f.d, { hash: receiptHash(current), why: 'test', agent: 'code-reviewer' });
   const qa = f.verify('--agent', 'qa-engineer', '--require');
   assert.equal(qa.status, 1, 'code-reviewer\'s acceptance does not cover qa-engineer');
@@ -215,4 +215,33 @@ test('M3: from a linked worktree, the code-reviewer stage is still checked', (t)
   const r = spawnSync('bash', ['-c', devopsStep()], { cwd: wt, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '', CLAUDE_PLUGIN_ROOT: ROOT, TIER_EFFECTIVE: 'baseline', PROJECT_SIZE: 'nano' } });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /BLOCKED: files changed or added after code-reviewer approved/);
+});
+
+test('N1: a change to PROJECT.md or a signed exception after the approval is drift', (t) => {
+  // PROJECT.md decides project_size and the tier, which decide what devops checks.
+  for (const file of ['.great_cto/PROJECT.md', '.great_cto/exceptions/EXC-x.json']) {
+    const f = fixture(t, { ignoreState: false });
+    fs.mkdirSync(path.join(f.d, '.great_cto/exceptions'), { recursive: true });
+    fs.writeFileSync(path.join(f.d, file), 'project_size: medium\n');
+    f.git('add', '.'); f.git('commit', '-qm', 'config');
+    fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+    f.approve('qa-engineer');
+    fs.writeFileSync(path.join(f.d, file), 'project_size: nano\n');
+    const r = f.verify('--agent', 'qa-engineer', '--require');
+    assert.equal(r.status, 1, `${file}: ${r.stdout}`);
+    assert.ok(r.stdout.includes(file), file);
+  }
+});
+
+test('N1: what the pipeline writes — logs, handoffs, evidence, scores — is not drift', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('qa-engineer');
+  for (const [p, body] of [['.great_cto/scores.jsonl', '{}\n'], ['.great_cto/cross-review.log', 'x\n'],
+    ['.great_cto/handoffs/h.md', 'x\n'], ['.great_cto/evidence/e.json', '{}\n']]) {
+    fs.mkdirSync(path.dirname(path.join(f.d, p)), { recursive: true });
+    fs.writeFileSync(path.join(f.d, p), body);
+  }
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 0, r.stdout + r.stderr);
 });

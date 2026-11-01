@@ -101,7 +101,7 @@ export function errorPathErrors(text) {
     const cells = cellsOf(row);
     // "No test yet", "not handled", "n/a", "—": anything that opens as a no is a no.
     // The word must stand alone: "not-found.spec" or "none_path.test" is a test name.
-    const no = (i) => /^((no|none|not|n\/a|missing|todo|tbd)(?=$|[\s,;:!?()]|\.\s|\.$)|[—–✗❌-]+$|$)/i.test((cells[i] || '').replace(/^[*_`\s]+/, ''));
+    const no = (i) => /^((no|none|not|n\/a|missing|todo|tbd)(?=$|[\s,;:!?()]|\.\s|\.$)|[—–✗❌-]+$|$)/i.test((cells[i] || '').replace(/^[*_`\s]+|[*_`\s]+$/g, ''));
     if (no(handled) && no(tested) && !/critical/i.test(row)) {
       errs.push({ kind: 'error-path-unmarked', msg: `error path "${(cells[0] || '').slice(0, 60)}" is unhandled and untested but not marked CRITICAL` });
     }
@@ -144,7 +144,9 @@ const TYPES = [
           for (const l of body.split('\n')) {
             // A sub-heading starts a new scope: light and dark themes define the same
             // tokens with different values, and that is the point of them.
-            if (/^#{3,6}\s/.test(l)) { seen = new Map(); continue; }
+            // Only a THEME sub-heading: "### Cards" under a global radius is the
+            // contradiction this rule exists for, not a new scope.
+            if (/^#{3,6}\s+.*\b(light|dark|theme|mode|high[- ]contrast|dim)\b/i.test(l)) { seen = new Map(); continue; }
             if (!/^\s*\|/.test(l) || /^\s*\|[\s:|-]+\|\s*$/.test(l)) continue;
             const cells = l.split('|').slice(1, -1).map((c) => c.trim().replace(/`/g, ''));
             const [name, value] = cells;

@@ -128,7 +128,7 @@ function readDiff(base) {
   if (u.status !== 0) return null;
   let extra = '';
   for (const p of u.stdout.split('\0').filter(Boolean)) {
-    const d = spawnSync('git', ['diff', '--no-index', '--no-color', '-U3', '/dev/null', p], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
+    const d = spawnSync('git', ['diff', '--no-index', '--no-color', '--no-ext-diff', '--no-textconv', '-U3', '/dev/null', p], { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 });
     if (d.status === 1) extra += '\n' + d.stdout;   // --no-index exits 1 when the files differ
   }
   return r.stdout + extra;
