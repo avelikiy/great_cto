@@ -196,6 +196,11 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   }
   const changedOutput = git(['diff', '--name-only', '--diff-filter=d', ref, '--', ':/', ...pathspecExclude], cwd);
   if (changedOutput === null) return null;
+  // Deletions, kept apart: a file deleted after an approval changes what ships, and
+  // the file map — which holds content digests — cannot hold a file that is gone.
+  const deletedOutput = git(['diff', '--name-only', '--diff-filter=D', ref, '--', ':/', ...pathspecExclude], cwd);
+  if (deletedOutput === null) return null;
+  const deleted = deletedOutput.split('\n').map((x) => x.trim()).filter(Boolean).sort().slice(0, maxFiles);
   const names = [
     ...changedOutput
       .split('\n').map((s) => s.trim()).filter(Boolean),
@@ -213,7 +218,7 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     files[p] = blob;
   }
 
-  return { head, dirty, base: ref, base_from: baseFrom, files, ...(truncated ? { truncated: true } : {}) };
+  return { head, dirty, base: ref, base_from: baseFrom, files, deleted, ...(truncated ? { truncated: true } : {}) };
 }
 
 /**
@@ -291,7 +296,10 @@ export function mergeBase(cwd) {
  */
 // Inside .great_cto/, only what DECIDES behaviour is compared: PROJECT.md (project_size
 // and the tier, which decide the stages a deploy checks), exceptions/ (signed
-// overrides) and configuration files (*.toml, *.yml — security-allowlist.yml is one).
+// overrides), configuration files (*.toml, *.yml — security-allowlist.yml is one),
+// security-signals.log (it raises the tier from baseline), slo-budget-current.md
+// (an exhausted budget blocks a deploy) and env.sh (sourced into the deploy shell).
+// Deleting or editing any of them after an approval is drift.
 // Everything else there is what the pipeline writes while it runs — verdicts, logs,
 // lessons, the review marker, handoffs, an acceptance — and in a project that does
 // not gitignore .great_cto/ (init does not) each of those, written AFTER an approval,
@@ -300,7 +308,7 @@ export function mergeBase(cwd) {
 // A list of what counts, not of what to ignore. The first fix listed the writers and
 // missed three (review-marker.json, .last-auto-learn, lessons.md); the writers grow
 // with every hook, the configuration does not.
-const COUNTED_STATE = /^(PROJECT\.md|exceptions(\/|$)|[^/]+\.(toml|ya?ml)$)/;
+const COUNTED_STATE = /^(PROJECT\.md|exceptions(\/|$)|security-signals\.log$|slo-budget-current\.md$|env\.sh$|[^/]+\.(toml|ya?ml)$)/;
 export function isPipelineOutput(p) {
   if (!p.startsWith('.great_cto/')) return false;
   return !COUNTED_STATE.test(p.slice('.great_cto/'.length));
@@ -345,6 +353,12 @@ export function compareReceipts(recorded, current, { digest = null, cwd = proces
     else changed.push(p);                        // still here, and edited
   }
   for (const p of Object.keys(now)) if (!(p in before)) added.push(p);
+  // Deleted since the approval. Only when the recorded receipt says what was deleted
+  // then; one from before this field cannot tell a new deletion from the change's own.
+  if (Array.isArray(recorded.deleted)) {
+    const was = new Set(recorded.deleted);
+    for (const p of current.deleted || []) if (!was.has(p) && !isPipelineOutput(p) && !removed.includes(p)) removed.push(p);
+  }
 
   // A file the review covered, edited since. This is the finding; the rest is
   // context. `added` in particular is usually ordinary work continuing, not a

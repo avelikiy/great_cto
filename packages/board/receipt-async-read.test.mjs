@@ -301,7 +301,9 @@ for (const endpoint of ['inbox', 'receipt', 'inbox-head', 'inbox-race']) test(`h
       const store = readTokens(cwd); assert.ok(store.tokens['FIXTURE-GATE'].receipt.head);
     } else {
       assert.equal(inbox.agent, 'code-reviewer');
-      assert.equal(inbox.state, 'extended');
+      // The only file "added after the approval" here is the approval's own verdict
+      // log. Since 3.75.5 the pipeline's own output is not drift (it read 'extended').
+      assert.equal(inbox.state, 'matches');
     }
   } catch (error) {
     t.diagnostic(JSON.stringify({ ...observation, requestedPort: port,

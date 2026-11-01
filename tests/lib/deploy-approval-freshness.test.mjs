@@ -266,3 +266,25 @@ test('N7: configuration under .great_cto/ still counts — a security allowlist 
   assert.equal(r.status, 1, r.stdout);
   assert.match(r.stdout, /security-allowlist\.yml/);
 });
+
+test('review pass 4: deleting the security signals, editing the SLO budget or env.sh is drift', (t) => {
+  for (const [file, before, after] of [
+    ['.great_cto/security-signals.log', 'SECURITY_SIGNAL: auth-path-changed x\n', null],
+    ['.great_cto/slo-budget-current.md', 'status: EXHAUSTED\n', 'status: OK\n'],
+    ['.great_cto/env.sh', 'export PATH=/usr/bin:$PATH\n', 'export PATH=/tmp/evil:$PATH\n'],
+  ]) {
+    const f = fixture(t, { ignoreState: false });
+    fs.writeFileSync(path.join(f.d, file), before);
+    f.git('add', '.'); f.git('commit', '-qm', 'state');
+    fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+    f.approve('qa-engineer');
+    if (after === null) fs.rmSync(path.join(f.d, file)); else fs.writeFileSync(path.join(f.d, file), after);
+    assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 1, file);
+  }
+});
+
+test('devops says what the freshness step cannot prove', () => {
+  for (const file of ['agents/devops.md', 'agents-full/devops.md']) {
+    assert.match(fs.readFileSync(path.join(ROOT, file), 'utf8'), /cannot tell a real PASS from a line someone wrote/, file);
+  }
+});

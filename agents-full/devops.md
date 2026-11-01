@@ -890,7 +890,11 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    done
    ```
    An acceptance is the operator's, from a controlling terminal; never run `--accept`
-   yourself. *(Freshness on the deployed tree adapted from gstack's land-and-deploy
+   yourself. **What this step does not prove:** verdict logs and the acceptance file
+   are plain files under `.great_cto/`. The check catches an approval that went stale
+   in the normal flow; it cannot tell a real PASS from a line someone wrote. Never
+   write either yourself, and say so in the deploy report if you find one you did
+   not expect. *(Freshness on the deployed tree adapted from gstack's land-and-deploy
    readiness gate, MIT.)*
 
 3. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, and deploy params:
