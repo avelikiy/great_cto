@@ -124,7 +124,9 @@ bind the lease to the exact commit. The npm publisher refuses a first
 publication unless the lease is live, belongs to this session and is bound to
 `--approve-commit`. A readback of a version npm already serves does not need the
 lease. After the GitHub release, release the lease. `journal.jsonl` beside the
-lease files records every claim, renewal, rebind, takeover and release.
+lease files records every claim, renewal, rebind, takeover and release. Before a
+deploy, devops checks each approving stage against the shipped tree; the verdict
+lines it trusts are sealed by their writer ([ADR-046](../adr/ADR-046-verdict-seals.md)).
 
 The holder is the host session: `CLAUDE_CODE_SESSION_ID`, or Codex's
 `CODEX_THREAD_ID` / `CODEX_SESSION_ID`. A human running the chain from a plain

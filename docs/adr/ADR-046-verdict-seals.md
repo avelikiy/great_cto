@@ -3,6 +3,7 @@
 **Date:** 2026-11-01
 **Status:** Accepted
 **Issue:** great_cto-dv3b
+**Related:** [ADR-045 verified distribution](ADR-045-verified-distribution.md) · [verified updates](../reference/verified-updates.md)
 
 ## Context
 
