@@ -309,7 +309,7 @@ export function mergeBase(cwd) {
 // made the approval drift from itself, so a deploy could never pass.
 //
 // A list of what counts, not of what to ignore. The first fix listed the writers and
-// missed three (review-marker.json, .last-auto-learn, lessons.md); the writers grow
+// missed three (review-marker.json, .last-auto-learn, the learner's file); the writers grow
 // with every hook, the configuration does not.
 const COUNTED_STATE = /^(PROJECT\.md|exceptions(\/|$)|security-signals\.log$|slo-budget-current\.md$|env\.sh$|[^/]+\.(toml|ya?ml)$)/;
 export function isPipelineOutput(p) {

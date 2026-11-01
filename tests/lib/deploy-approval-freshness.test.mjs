@@ -15,6 +15,9 @@ import { treeReceipt, writeAcceptance, receiptHash, MAX_FILES, pipelineOutputPat
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRIPT = path.join(ROOT, 'scripts/lib/receipt.mjs');
+// Verdict timestamps only ORDER approvals (the newest wins); nothing here compares
+// them against an age. Anchored to the clock so no date in this file can expire.
+const T0 = Date.now() - 24 * 3600000;
 
 function fixture(t, { ignoreState = true } = {}) {
   const d = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gc-fresh-')));
@@ -29,7 +32,7 @@ function fixture(t, { ignoreState = true } = {}) {
   const approve = (agent) => {
     n += 1;
     fs.appendFileSync(path.join(d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({
-      v: 1, ts: `2026-11-01T00:00:${String(n).padStart(2, '0')}Z`, agent, verdict: 'APPROVED', receipt: treeReceipt(d),
+      v: 1, ts: new Date(T0 + n * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: treeReceipt(d),
     }) + '\n');
   };
   const verify = (...extra) => spawnSync(process.execPath, [SCRIPT, '--verify', ...extra], { cwd: d, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '' } });
@@ -137,7 +140,7 @@ test('devops step 2b: a receipt that cannot be compared blocks — unread is not
   // A QA verdict whose receipt names a base no git revision can be: the comparison cannot run.
   const rec = { ...treeReceipt(f.d), base: 'not-a-revision!' };
   fs.appendFileSync(path.join(f.d, '.great_cto/verdicts/qa-engineer.log'),
-    JSON.stringify({ v: 1, ts: '2026-11-01T00:01:00Z', agent: 'qa-engineer', verdict: 'APPROVED', receipt: rec }) + '\n');
+    JSON.stringify({ v: 1, ts: new Date(T0 + 60000).toISOString(), agent: 'qa-engineer', verdict: 'APPROVED', receipt: rec }) + '\n');
   const r = runStep(f, { TIER_EFFECTIVE: 'standard', PROJECT_SIZE: 'medium' });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /BLOCKED: could not compare qa-engineer's receipt/);
@@ -209,7 +212,7 @@ test('M3: from a linked worktree, the code-reviewer stage is still checked', (t)
   fs.writeFileSync(path.join(wt, 'app.js'), 'reviewed in the worktree\n');
   const rec = treeReceipt(wt);
   for (const agent of ['qa-engineer', 'security-officer', 'code-reviewer']) {
-    fs.appendFileSync(path.join(f.d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ v: 1, ts: `2026-11-01T01:00:0${agent.length % 9}Z`, agent, verdict: 'APPROVED', receipt: rec }) + '\n');
+    fs.appendFileSync(path.join(f.d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ v: 1, ts: new Date(T0 + 3600000 + agent.length * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: rec }) + '\n');
   }
   fs.writeFileSync(path.join(wt, 'app.js'), 'changed after every approval\n');
   const r = spawnSync('bash', ['-c', devopsStep()], { cwd: wt, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '', CLAUDE_PLUGIN_ROOT: ROOT, TIER_EFFECTIVE: 'baseline', PROJECT_SIZE: 'nano' } });
