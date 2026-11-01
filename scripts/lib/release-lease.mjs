@@ -118,6 +118,7 @@ async function withLock(dir, version, fn) {
   const lock = fileFor(dir, version).replace(/\.json$/, '.lock');
   try { fs.mkdirSync(lock, { mode: 0o700 }); }
   catch (e) {
+    if (e.code === 'ENOENT') return { state: 'REFUSED', version, why: `the lease store ${dir} disappeared — nothing was written` };
     if (e.code !== 'EEXIST') throw e;
     let age = null;
     try { age = Math.round((Date.now() - fs.statSync(lock).mtimeMs) / 1000); } catch { /* released meanwhile: the retry will tell */ }
@@ -127,8 +128,13 @@ async function withLock(dir, version, fn) {
   }
   let result, failure = null;
   try { result = await fn(); } catch (e) { failure = e; }
+  // The write already happened. A lock that will not go away is reported, not
+  // turned into a failure of a write that succeeded.
   try { fs.rmSync(lock, { recursive: true, force: true }); }
-  catch (e) { if (!failure) throw e; process.stderr.write(`✗ release lease: could not remove ${lock}: ${e.message}\n`); }
+  catch (e) {
+    process.stderr.write(`✗ release lease: could not remove ${lock} (${e.message}) — remove it by hand, or every later write of ${version} is refused\n`);
+    if (!failure && result && typeof result === 'object') result.lockLeft = lock;
+  }
   if (failure) throw failure;
   return result;
 }
@@ -282,9 +288,12 @@ export async function release({ version, holder = holderFrom(), now = new Date()
 }
 
 export function status({ version, now = new Date(), dir = leaseDir() } = {}) {
+  const lockPath = fileFor(dir, version).replace(/\.json$/, '.lock');
+  let lock = null;
+  try { lock = { path: lockPath, ageSeconds: Math.round((Date.now() - fs.statSync(lockPath).mtimeMs) / 1000) }; } catch { /* no lock */ }
   const lease = readLease(fileFor(dir, version));
-  if (!lease) return { state: 'FREE', version };
-  return { state: live(lease, now) ? 'HELD' : 'EXPIRED', version, by: lease.holder, commit: lease.commit, expiresAt: lease.expiresAt };
+  if (!lease) return { state: 'FREE', version, ...(lock ? { lock } : {}) };
+  return { state: live(lease, now) ? 'HELD' : 'EXPIRED', version, by: lease.holder, commit: lease.commit, expiresAt: lease.expiresAt, ...(lock ? { lock } : {}) };
 }
 
 // Compared by real path. Run through a symlinked path (/var → /private/var, a

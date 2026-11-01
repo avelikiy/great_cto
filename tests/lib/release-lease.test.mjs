@@ -306,3 +306,33 @@ test('L9: the holder renews its own lapsed claim without the remote it already t
   assert.equal(check({ version: '9.9.9', commit: C1, holder: 'claude:A', now: later(21), dir }).ok, true, 'still bound to its commit');
   assert.equal((await release({ version: '9.9.9', holder: 'claude:A', now: later(40), dir })).state, 'RELEASED', 'an expired claim of ours can still be released');
 });
+
+test('N11: status shows a lock that is in the way', async (t) => {
+  const dir = tmp(t);
+  fs.mkdirSync(path.join(dir, 'great-cto@9.9.9.lock'));
+  const st = status({ version: '9.9.9', dir });
+  assert.equal(st.state, 'FREE');
+  assert.ok(st.lock.path.endsWith('great-cto@9.9.9.lock'));
+});
+
+test('N13: a store that disappears is refused with a reason, not an ENOENT', async (t) => {
+  const dir = path.join(tmp(t), 'gone');
+  fs.mkdirSync(dir);
+  const real = fs.mkdirSync;
+  fs.mkdirSync = (p, o) => { if (String(p).endsWith('.lock')) { fs.rmSync(dir, { recursive: true, force: true }); } return real(p, o); };
+  t.after(() => { fs.mkdirSync = real; });
+  const r = await bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  assert.equal(r.state, 'REFUSED');
+  assert.match(r.why, /disappeared/);
+});
+
+test('N12: a write that succeeded is reported as such when its lock will not go away', async (t) => {
+  const dir = tmp(t);
+  const real = fs.rmSync;
+  fs.rmSync = (p, o) => { if (String(p).endsWith('.lock')) throw Object.assign(Error('EACCES'), { code: 'EACCES' }); return real(p, o); };
+  t.after(() => { fs.rmSync = real; });
+  const r = await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  fs.rmSync = real;
+  assert.equal(r.state, 'ACQUIRED');
+  assert.ok(r.lockLeft.endsWith('great-cto@9.9.9.lock'));
+});
