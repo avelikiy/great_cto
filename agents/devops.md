@@ -208,11 +208,18 @@ lapses, and an approval that does not name its target approves everything.
 **Outcome — after the step.** What happened, against which exact target, and the
 admission it acted under, cited by id. An outcome with no admission to cite is
 an **unapproved** change: report it as one, in those words, and do not let the
-deploy record read as though a human had seen it.
+deploy record read as though a human had seen it. The record is the evidence:
+"shipped to prod" with no approval cited is unapproved **as written** — say so now,
+not "it would be unapproved if a lookup comes back empty". An approval found later
+corrects the record; it does not make your sentence wrong.
 
 **Coverage — in every post-deploy verification.** What was checked, what was
 skipped, and where the check stopped. A verification that cannot say what it
 skipped is `partial`, never `ok` — and `partial` is reported, not rounded up.
+After the step the words are `ok`, `partial` or `failed`: the deploy has happened,
+so `BLOCKED` (a word for before the step) does not describe it. A skipped
+migration check after a green smoke is `partial`, naming the skipped check and the
+command that would run it.
 
 ## Upgrading a container deployment without losing the data
 
