@@ -134,6 +134,12 @@ export const EXTRA_SAMPLES = 2;
 /** A strict majority of `n` samples. */
 const quorumOf = (n) => Math.floor(n / 2) + 1;
 
+/** How an undecided requirement stood, in words: a split is not "no quorum",
+ *  and a second model that was never asked did not "fail to settle" anything. */
+const undecidedWords = (a) =>
+  (a.split ? `the judge split ${a.split}` : `the judge reached no quorum (${a.undecided})`) +
+  (a.second === undefined ? ' and no second model was asked' : ' and a second model did not settle it');
+
 /** The second judge. A different FAMILY on purpose: correlated failure modes are
  *  the thing a second opinion is supposed to escape. */
 /**
@@ -793,7 +799,7 @@ export async function judge(verdict, ask, { root = process.cwd(), max = MAX_JUDG
         ? ' (from the verdict\u2019s own claims — no document freezes criteria for this stage)' : '') +
       (unmet.length ? `, ${unmet.length} not met` : '') +
       (unresolved.length ? `, ${unresolved.length} SPLIT AND UNRESOLVED (${unresolved.map((a) => a.split || a.undecided).join('; ')})` : '') +
-      (extendedN ? `, ${extendedN} given ${extra} more sample(s) to reach a quorum` : '') +
+      (extendedN ? `, ${extendedN} given ${extra} more sample(s) to try for a quorum` : '') +
       (tieBroken.length ? `, ${tieBroken.length} tie settled by a second model` : '') +
       (diverged.length ? `, ${diverged.length} where a second model DISAGREED` : '') +
       (split.length ? `, ${split.length} where the judge was split (${split.map((a) => a.split).join('; ')})` : '') +
@@ -872,7 +878,7 @@ export async function verifyAgentOutput({ verdict, root = process.cwd(), ask = n
       // The work still comes back — but as "nobody could decide", which is what
       // the evidence supports, rather than as a finding nobody actually made.
       findings.push(...(j.unresolved || []).map((a) =>
-        `the judge split ${a.split || a.undecided} and a second model did not settle it — sent back undecided, not rejected: “${a.requirement}”`));
+        `${undecidedWords(a)} — sent back undecided, not rejected: “${a.requirement}”`));
       return conclude(STATE.REWORK, checks, findings, verdict);
     }
   }
@@ -984,13 +990,14 @@ export function assessQuality({ state, checks = [], pending = {} }) {
       passed += 1;
       const t = a.tally || {};
       const silent = Object.entries(t).filter(([k]) => k !== 'yes' && k !== 'no').reduce((n, [, v]) => n + v, 0);
-      if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
+      if (a.tieBroken) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge had no majority (${a.split || a.undecided}) and a second model settled it as yes.`);
+      else if (a.split) recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge passed it only ${a.split}.`);
       else if (silent) {
         recs.push(`Show the implementation of “${a.requirement}” explicitly — the judge said yes on ${t.yes || 0} ` +
                   `of ${(t.yes || 0) + (t.no || 0) + silent} samples and could not answer on the rest.`);
       }
     } else if (a.unresolvedSplit) {
-      recs.push(`Make “${a.requirement}” decidable — the judge split ${a.split || a.undecided} and a second model did not settle it; ` +
+      recs.push(`Make “${a.requirement}” decidable — ${undecidedWords(a)}; ` +
                 'show the implementation plainly or reword the criterion.');
     } else if (a.answer === 'no') {
       recs.push(`Address “${a.requirement}” — the judge found nothing that implements it in what it read` +

@@ -359,7 +359,9 @@ test('with no second model at all a tie is unresolved, never silently decided', 
     second: null,
   });
   assert.equal(r.state, STATE.REWORK);
-  assert.match(r.findings.join(' '), /did not settle it/);
+  // Review of 3.75.4: nothing was asked, so nothing "did not settle it".
+  assert.match(r.findings.join(' '), /no second model was asked/);
+  assert.doesNotMatch(r.findings.join(' '), /did not settle it/);
 });
 
 test('a decided no is untouched by the tie-break — a second model never overrules', async () => {
@@ -562,8 +564,9 @@ test('s6n0: one yes and two unanswered is not a pass — the gate needs a quorum
   assert.equal(n, 5, 'no quorum after three, so two more were taken');
   assert.equal(r.state, STATE.REWORK);
   const f = r.findings.join(' ');
-  assert.match(f, /2 yes \/ 0 no \/ 3 unanswered of 5/);
-  assert.match(f, /did not settle it/, 'undecided, not rejected');
+  assert.match(f, /reached no quorum \(2 yes \/ 0 no \/ 3 unanswered of 5\)/, 'no split, so not called one');
+  assert.doesNotMatch(f, /judge split/);
+  assert.match(f, /undecided, not rejected/);
   assert.doesNotMatch(f, /answered no/);
 });
 
@@ -865,4 +868,12 @@ test('receipt.mjs --emit — the path log-verdict.sh uses — writes the change 
   assert.ok(receipt.files['b.mjs'], `no b.mjs in ${r.stdout}`);
   assert.equal(sh(root, 'cat-file', 'blob', receipt.files['b.mjs']), 'export const b = "emitted";');
   rmSync(root, { recursive: true, force: true });
+});
+
+test('s6n0 review: a requirement a second model settled as yes says so in its recommendation', async () => {
+  const { r } = await judgeOnce(['yes', 'no', 'yes', 'no', 'unclear'], async () => 'yes');
+  assert.equal(r.state, STATE.VERIFIED);
+  const rec = r.recommendations.join(' ');
+  assert.match(rec, /no majority \(2 yes \/ 2 no\) and a second model settled it as yes/);
+  assert.doesNotMatch(rec, /passed it only/);
 });
