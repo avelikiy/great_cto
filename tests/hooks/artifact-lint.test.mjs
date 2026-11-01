@@ -415,3 +415,12 @@ test('m2: "No test yet" and "not handled" are noes; an escaped pipe does not shi
   const named = EP + '| cursor.advance | read failed | raise ReadFailed | cursor.test#readFailed | "retry" | yes |\n';
   assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', named) })), []);
 });
+
+test('m2: a test whose name starts with not-, none_ or no. is a test, not a "no"', () => {
+  for (const t of ['not-found.spec#readFailed', 'none_path.test', 'no.empty.test#cursor']) {
+    const row = `| cursor.advance | read failed | no | ${t} | nothing | no |\n`;
+    assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row) })), [], t);
+  }
+  const row = '| cursor.advance | read failed | no | Not yet. | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row) })), ['error-path-unmarked']);
+});

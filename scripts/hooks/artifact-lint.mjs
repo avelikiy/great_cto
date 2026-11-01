@@ -100,7 +100,8 @@ export function errorPathErrors(text) {
   for (const row of data) {
     const cells = cellsOf(row);
     // "No test yet", "not handled", "n/a", "—": anything that opens as a no is a no.
-    const no = (i) => /^(no\b|none\b|not\b|n\/a\b|missing\b|todo\b|tbd\b|[—–✗❌-]+$|$)/i.test((cells[i] || '').replace(/^[*_`\s]+/, ''));
+    // The word must stand alone: "not-found.spec" or "none_path.test" is a test name.
+    const no = (i) => /^((no|none|not|n\/a|missing|todo|tbd)(?=$|[\s,;:!?()]|\.\s|\.$)|[—–✗❌-]+$|$)/i.test((cells[i] || '').replace(/^[*_`\s]+/, ''));
     if (no(handled) && no(tested) && !/critical/i.test(row)) {
       errs.push({ kind: 'error-path-unmarked', msg: `error path "${(cells[0] || '').slice(0, 60)}" is unhandled and untested but not marked CRITICAL` });
     }
