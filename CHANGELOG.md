@@ -67,6 +67,33 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.5 — 2026-11-01
+
+A review of public agent repositories (gstack, BMAD-METHOD, Anthropic's plugins, with ideas credited in each agent) turned up eight concrete improvements and two broken checks in the security-officer.
+
+### Fixed
+
+- **security-officer: the git-history secret scan never found anything.** Its first check, `git show <sha>:.`, does not print a commit; the command failed and `2>/dev/null` hid the failure. Its second check, `git log -S "A\|B"`, searches for that literal string. Both printed nothing on every repository, which read as "no secrets in history". Had either worked, the scan would have printed the secret it found into the agent's transcript. The new `scripts/lib/history-secret-scan.mjs` scans the lines each commit added, using the write hook's own patterns. It reports commit, file and kind, never the value. When it cannot read the history it says **NOT SCANNED** rather than clean, and a capped walk says how much it read. On this repository it read all 3957 commits and found 90 hits, all in tests and fixtures. The two OpenRouter-shaped strings in history are refused by the provider (HTTP 401).
+- **code-reviewer ran on haiku**; ADR-002 sets sonnet for reviewers. The linter had flagged it since June.
+
+### Added
+
+- **code-reviewer reads the contracts outside the diff.** This is the defect class of the 22.09 outage, which none of our agents covered. The reviewer now checks each changed call against the callee's real declaration and checks every caller of a changed signature. It finds every consumer of a new enum value and names the contract deleted code held. It also tries to prove each claim in the commit or PR wrong.
+- **Gate integrity** (`scripts/lib/gate-integrity.mjs`) lists the diff lines that make a check pass without the code getting better. These are: a skipped or removed test, an exact assertion made loose, a suppression pragma, production code that branches on running under test, a CI step allowed to fail, a swallowed error, a moved timeout or threshold, and a snapshot rewritten with no test beside it. Each line is a question for the author, never an automatic fix. An unanswered question at gate:code is a P1. senior-dev refuses test-only branches and loosened checks.
+- **devops deploys only what was approved.** Before, it deployed when the newest QA file said PASS. Now each approving stage (QA, security, review) is checked against the working tree being shipped. A change made after an approval blocks the deploy, and so does a comparison that cannot run. A stage with no receipt is reported as FRESHNESS NOT VERIFIED. `receipt.mjs --verify` gains `--agent` (one stage) and `--require` (the deploy question, where files added since the approval count as drift).
+- **architect walks the error paths.** A new section `## Error paths` gives each place the feature can fail its own row: Path · Failure · Handled? · Test? · User sees · Logged?. An unhandled, untested row must say CRITICAL. `artifact-lint` requires the section in an ARCH dated 2026-11-01 or later. **qa-engineer** treats the Test? column as a claim, and a CRITICAL row still unhandled blocks the PASS.
+- **qa-engineer: a verification-gap pass** runs where mutation testing is not configured. It names four kinds of gap and says what does not count as proof: a snapshot alone, a mock-call check, a source-text check, or an end-to-end test that passes through the change. **senior-dev** writes `no_claim:` for each new test, saying what passing does not show.
+- **design-advisor states motion and tokens as numbers.** Every motion gets a duration and a cubic-bezier curve, with defaults. Brand tokens hold one value per token, and a component that departs from a global token says `override` and why. `artifact-lint` rejects a token defined twice with two values and no override.
+
+### Tests
+
+- New suites: `history-secret-scan` (7 tests), `gate-integrity` (13, with fixtures built at runtime because the gate-weakening guard rejects them written literally), `deploy-approval-freshness` (10, which cut the devops bash step from the prompt and run it against throwaway repositories), artifact-lint error paths and token conflicts (7), and wiring tests across both agent registrations.
+- New eval tuning cases for code-reviewer, devops, architect, qa-engineer and design-advisor.
+- Every new check was mutation-tested: 34 mutants, and 33 turn a test red. The one that survives removes a guard whose case the next guard also catches.
+
+---
+
 ## v3.75.4 — 2026-11-01
 
 The judge needs a real majority before it passes a requirement. And only one session at a time can release a given version.
