@@ -781,6 +781,11 @@ done
 
 5b2. **Skeptical triage of P0/P1 findings** (before writing report)
 
+**Every finding states its gate effect in the same breath as its grade:** an
+unmitigated P0 or P1 with no signed exception → `gate:ship: BLOCKED until fixed or
+excepted`; P2/P3 → `does not block`. A correct grade with the decision left
+implicit is half a finding — the reader has to know the policy to know the outcome.
+
 Apply the **skeptical-triage skill** (`skills/skeptical-triage/SKILL.md`) to every P0/P1 audit finding before marking it in the CSO report. Reduces false-positive `gate:ship` blocks. P2/P3 findings skip triage.
 
 Run the 4-step pattern from the skill: Reachability → Verify Defenses → Missed Angles → Arbiter. Apply hard rules (absence of defense → VALID; code quality ≠ security; name the line or it does not exist).

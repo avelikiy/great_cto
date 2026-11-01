@@ -68,6 +68,39 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.6 — 2026-11-01
+
+A deploy can now tell a PASS written by its writer from one written by hand. The 01.11 re-measure failures are sorted into agent gaps (fixed in the agents) and eval defects (fixed in the cases). And every script recognises itself through a symlink.
+
+### Added
+
+- **Seals on verdict lines and receipt acceptances** (ADR-046, great_cto-dv3b). Each one carries an HMAC-SHA256 seal over every field but the seal, keyed by `~/.great_cto/keys/verdict-seal.key` (0600, created on first use; the secret-read guard refuses a direct read of a `*.key` file). `log-verdict.sh` and `receipt.mjs --accept` seal what they write. Under `--require`, a newest approval whose seal does not match exits 4, and devops blocks: the line was written or edited outside `log-verdict.sh`. One with no seal exits 3 (not verified). An acceptance without a valid seal is not one, for a deploy or for pre-push. A verdict counts only in the log of the stage it names. **Limit, stated in the ADR:** agents run as the same OS user, so code that runs the writer can still make a valid line. The seal makes forgery deliberate rather than accidental. It is not a lock.
+
+### Fixed
+
+- **Agents, from the re-measure:**
+  - devops calls a record that cites no approval *unapproved* outright, and reports `partial` (not BLOCKED) after a deploy whose migration check was skipped.
+  - senior-dev treats a red test as a defect until a clean rerun shows otherwise.
+  - security-officer states each finding's gate effect with its grade.
+- **Evals, from the re-measure:**
+  - The QA cases now carry their file:line. The agent rightly refused to invent one, and those cases had measured the eval instead of QA.
+  - architect scope-creep 5 and pm 4 name what they ask about.
+  - product-owner T1 and T2 now follow the agent's own rules, which they had contradicted.
+- **Eval runner:** an answer cut by the 6000-token cap is asked once more with 16000 tokens. Only an answer cut at both budgets is judged as cut, and it is marked `stillCut`.
+- **Main-module guards** (great_cto-hu2l, from a parallel session). About 120 scripts compared `process.argv[1]` with `import.meta.url` as strings. Through a symlink (`/var` → `/private/var`, the plugin cache) the two differ, so the CLI did nothing and exited 0. All of them now use `scripts/lib/is-main.mjs`, and `tests/main-guard-scan.test.mjs` refuses a new string comparison. pre-push treats a receipt check that did not run as unverifiable, not a pass.
+
+### Tests
+
+- New suites:
+  - `verdict-seal`: key creation and mode, each covered field, a foreign key, a missing key, acceptances, and `log-verdict.sh` writing a valid seal;
+  - deploy cases: an appended PASS reads not-verified, a forged seal blocks, an edited field breaks the seal, and a hand-written acceptance is refused;
+  - runner length-retry;
+  - `is-main` and `main-guard-scan`.
+- The gate runs with a throwaway seal key, so it never touches the operator's.
+- The seal wiring is mutation-checked: 5 mutants, each red.
+---
+
 ## v3.75.5 — 2026-11-01
 
 A review of public agent repositories (gstack, BMAD-METHOD, Anthropic's plugins, with ideas credited in each agent) turned up eight concrete improvements and two broken checks in the security-officer.

@@ -33,6 +33,7 @@ import { humanCost } from './lib/human-cost.mjs';
 import { homedir } from 'node:os';
 import https from 'node:https';
 import http from 'node:http';
+import { isMainModule } from './lib/is-main.mjs';
 
 const ISO_TS = /\b(\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z)\b/;
 const URL_RE = /https?:\/\/[^\s|)\]'"`>]+/g;
@@ -447,5 +448,5 @@ async function main(argv) {
   if (!out || argv.includes('--pretty')) console.log(json);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1]);
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

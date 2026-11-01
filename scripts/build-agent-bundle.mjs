@@ -27,6 +27,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandSharedRefs } from './lib/shared-fragments.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'agents');
@@ -95,5 +96,5 @@ function main() {
   process.stdout.write(`agents-full: wrote ${built.size} agent(s) with their shared fragments inlined\n`);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

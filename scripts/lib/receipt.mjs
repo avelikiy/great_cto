@@ -30,7 +30,8 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import * as fsModule from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
+import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance, loadSealKey } from './verdict-seal.mjs';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
@@ -427,6 +428,9 @@ export function latestApproval(cwd = process.cwd(), { agents = APPROVING_AGENTS,
       try { rec = JSON.parse(line); } catch { continue; }
       if (!APPROVING_VERDICTS.has(String(rec.verdict || '').toUpperCase())) continue;
       if (!rec.receipt?.head) continue;
+      // A line belongs to the log it sits in. A code-reviewer line copied into
+      // qa-engineer.log carries a valid seal, for the wrong stage (review of 3.75.6).
+      if (rec.agent !== agent) continue;
       if (!best || String(rec.ts) > String(best.ts)) best = rec;
     }
   }
@@ -467,10 +471,12 @@ export function receiptHash(receipt) {
  * Single-use by design: an acceptance authorises ONE push. An acceptance that
  * outlives its push is a standing permission, and nobody asked for one.
  */
-export function writeAcceptance(cwd, { hash, why = '', at = Date.now(), agent = null } = {}) {
+export function writeAcceptance(cwd, { hash, why = '', at = Date.now(), agent = null, seal = sealAcceptance } = {}) {
   const { writeFileSync, mkdirSync } = requireFs();
   mkdirSync(join(cwd, '.great_cto'), { recursive: true });
-  writeFileSync(join(cwd, ACCEPT_PATH), JSON.stringify({ hash, why, at, ...(agent ? { agent } : {}) }) + '\n');
+  const rec = { hash, why, at, ...(agent ? { agent } : {}) };
+  const s = seal ? seal(rec) : null;
+  writeFileSync(join(cwd, ACCEPT_PATH), JSON.stringify({ ...rec, ...(s ? { seal: s } : {}) }) + '\n');
   return { hash, why, at, agent };
 }
 
@@ -492,6 +498,15 @@ export function readAcceptance(cwd, currentHash, { agent = null } = {}) {
   catch { return { valid: false, unreadable: true, why: 'the acceptance record could not be parsed' }; }
 
   if (!rec?.hash) return { valid: false, unreadable: true, why: 'the acceptance record names no state' };
+  // great_cto-dv3b: an acceptance not written by `--accept` is not one. A hand-
+  // written file carrying the right hash read as "accepted by the operator".
+  const sealed = checkAcceptanceSeal(rec);
+  if (sealed !== 'valid') {
+    return { valid: false, stale: true, rec,
+      why: sealed === 'unsealed' ? 'the acceptance carries no seal — it was not written by receipt.mjs --accept'
+        : sealed === 'invalid' ? 'the acceptance seal does not match — the file was written or edited outside receipt.mjs --accept'
+        : 'the acceptance cannot be checked on this machine (no seal key)' };
+  }
   if (rec.hash !== currentHash) {
     return { valid: false, stale: true, rec,
       why: 'the acceptance names a different state — the tree changed after it was accepted' };
@@ -546,7 +561,7 @@ function currentForReceipt(cwd, receipt) {
   return treeReceipt(cwd, { base: base || null, exclude: pipelineOutputPaths(cwd) });
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   if (argv.includes('--state-dir')) {
     console.log(verdictStateDir());
@@ -595,6 +610,21 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
 
     if (cmp.state === 'unreadable') process.exit(2);
     const requireMode = argv.includes('--require');
+    // great_cto-dv3b: the deploy question trusts only a sealed approval. A newest
+    // line whose seal does not match was written or edited outside log-verdict.sh:
+    // exit 4, a block. One with no seal (older than 3.75.6, or a machine without the
+    // key) is not verified: exit 3, said, never passed as verified.
+    if (requireMode) {
+      const sealed = checkVerdictSeal(approval);
+      if (sealed === 'invalid') {
+        console.log(`  the ${approval.agent} approval's seal does not match — the line was written or edited outside log-verdict.sh`);
+        process.exit(4);
+      }
+      if (sealed !== 'valid') {
+        console.log(`  the ${approval.agent} approval is ${sealed === 'unsealed' ? 'not sealed (written before 3.75.6, or not by log-verdict.sh)' : 'not checkable here (no seal key on this machine)'} — freshness not verified`);
+        process.exit(3);
+      }
+    }
     // A receipt capped at MAX_FILES lists only part of the change, so a file past
     // the cap could change unseen. For the deploy question that is not a match.
     if (requireMode && (approval?.receipt?.truncated || current?.truncated)) {
@@ -652,6 +682,9 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     const hash = receiptHash(current);
     console.log(`\nstate: ${hash.slice(0, 16)}…`);
 
+    // The acceptance must be sealable before a human is asked to confirm it.
+    try { if (!loadSealKey({ create: true })) throw new Error('no usable seal key'); }
+    catch (e) { console.error(`\nreceipt: cannot record an acceptance — ${e.message}`); process.exit(2); }
     if (!process.stdin.isTTY) {
       console.error('\nreceipt: --accept needs a terminal. Run it yourself, in your own shell —');
       console.error('an acceptance from inside an agent session is the agent approving its own work.');

@@ -14,11 +14,11 @@
 import { fromLegacy } from './proof-status.mjs';
 import { existsSync, statSync, appendFileSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { scoreProduct, inspect, detectArchetype } from './product-score.mjs';
 import { runEvaluation, scoreExecution } from './product-eval.mjs';
 import { checkContracts, readTestText } from './archetype-contracts.mjs';
 import { parseHistory } from './metrics-trend.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /** Blend the three lenses → overall 0-100. ceiling weighted most (execution > shape);
  *  contracts dropped+renormalized when the archetype has none. */
@@ -218,5 +218,5 @@ function main(argv) {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

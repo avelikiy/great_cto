@@ -517,6 +517,11 @@ Schema: `skills/great_cto/references/knowledge-extraction.md`
        the same path. *(Adapted from gstack's test value card, MIT.)*
      - **GREEN**: write minimal code to make test pass → re-run → confirm PASS
      - **REFACTOR**: clean up → confirm still PASS, no coverage regression
+     - **A red test is a defect until shown otherwise.** "Stale file", "cache", "flaky"
+       are hypotheses: clean (remove the build output, clear the cache), rerun the
+       same command, and paste both runs. Green only after the clean rerun counts;
+       until then the task stays `in_progress` and nothing is committed or closed on
+       the explanation.
      - **Two fixes, one premise → stop.** When two fixes resting on the same assumption have
        failed the same check, write that assumption in one sentence and make no third edit on
        it. Test the assumption itself first (print the value, query the real dependency, run

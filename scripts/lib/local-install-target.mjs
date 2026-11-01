@@ -2,7 +2,7 @@
 // Read-only preflight. Never mkdir or follow a cache/destination symlink.
 import { lstatSync, readFileSync, realpathSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const numeric = '(?:0|[1-9][0-9]*)';
 const prerelease = '(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)';
@@ -39,7 +39,7 @@ export function validateInstallTarget(manifest, cacheRoot) {
   return { version, root, dest };
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     process.stdout.write(validateInstallTarget(...process.argv.slice(2)).version);
   } catch (error) {

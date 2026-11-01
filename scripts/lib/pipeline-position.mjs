@@ -47,13 +47,13 @@
 
 import { readFileSync, existsSync, statSync, readdirSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import {
   parsePipelineToml, parseVerdictLine, normalizeAgent, decideNext, FRESH_MS,
 } from '../hooks/pipeline-dispatcher.mjs';
 import { gatesForApprovalLevel, levelFromProjectMd } from './approval-level.mjs';
 import { nativeRuntimePolicy } from './runtime-gate-policy.mjs';
 import { readGateBeads, gateStates as readGateStates } from './gate-state.mjs';
+import { isMainModule } from './is-main.mjs';
 
 // Any verdict of BLOCKED / FAIL / REJECTED halts the chain at that stage —
 // documented in shared/pipeline.toml's own header comment and pinned by
@@ -511,5 +511,5 @@ function main() {
   process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

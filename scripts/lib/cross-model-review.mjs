@@ -14,7 +14,6 @@
 //   GREAT_CTO_CROSS_REVIEW_MODEL=google/gemini-2.5-pro node ... --diff -
 
 import { readFileSync, lstatSync, openSync, closeSync, fstatSync, readSync, constants } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
@@ -22,6 +21,7 @@ import { principalError } from './provider-exhaustion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, parse, sep } from 'node:path';
 import { reviewInputBinding, parseLegacyReview } from './review-contract.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Exit codes. The first version had two: 0 for PASS and 1 for everything else —
@@ -333,5 +333,5 @@ async function main(argv) {
   process.exit(verdict === 'BLOCK' ? EXIT.BLOCK : EXIT.PASS);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2)).catch(e => { console.error('FATAL:', e.message); process.exit(EXIT.SKIPPED); });

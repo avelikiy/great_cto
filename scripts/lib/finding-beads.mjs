@@ -37,6 +37,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { isMainModule } from './is-main.mjs';
 
 /** `Repro:` through to the next `Key:` line or the end. */
 export function parseRepro(description) {
@@ -151,6 +152,6 @@ async function main(argv) {
   return argv.includes('--strict') && out ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

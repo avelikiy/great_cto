@@ -11,6 +11,7 @@
 //
 // Pairs with change-tier.mjs (the tier) + gate-plan.mjs (per-change plan) + ADR-004.
 
+import { isMainModule } from './is-main.mjs';
 export const DEFAULT_FRONTIER_JUDGE = 'claude-opus-5';
 export const DEFAULT_CHEAP_JUDGE = 'claude-haiku-4-5';
 
@@ -36,7 +37,7 @@ export function selectJudgeModel(changeTier, opts = {}) {
 }
 
 // CLI: node scripts/lib/judge-model.mjs T1  → prints the model + reason
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const r = selectJudgeModel(process.argv[2]);
   process.stdout.write(`${r.tier}  model=${r.model}  human=${r.human}\n  ${r.reason}\n`);
 }

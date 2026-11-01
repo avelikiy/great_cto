@@ -17,7 +17,7 @@
 //     exit 0 = every deferred gap is covered · 1 = an uncovered deferred gap would block a gate
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const SEVERITY_RANK = { critical: 0, high: 1, medium: 2, low: 3 };
 
@@ -171,6 +171,6 @@ function main(argv) {
   process.exit(0);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2));
 }

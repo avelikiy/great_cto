@@ -8,10 +8,10 @@
 //   (reads stdin if no file). Prints compressed output; --stats prints a JSON summary to stderr.
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { minifyJson } from './json-minify.mjs';
 import { compressLog } from './log-template.mjs';
 import { trimByImportance } from './line-importance.mjs';
+import { isMainModule } from '../is-main.mjs';
 
 /** Detect content type: 'json' | 'log' | 'diff' | 'text'. */
 export function detectType(text) {
@@ -103,5 +103,5 @@ function main() {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

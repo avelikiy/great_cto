@@ -16,7 +16,7 @@
 // Exit 0 = promote (no regression). Exit 1 = block. Exit 2 = bad input.
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './lib/is-main.mjs';
 
 /** Parse a results.jsonl string into an array of result objects (skips blank/bad lines). */
 export function parseResultsJsonl(text) {
@@ -213,5 +213,5 @@ function mismatchDetail(m) {
   return `dagHash base=${m.baseDagHash} cand=${m.candDagHash}`;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

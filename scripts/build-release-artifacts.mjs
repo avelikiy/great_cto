@@ -203,7 +203,10 @@ export function compareReleaseArtifactSets(first,second){
   return {state:'BYTE_IDENTICAL',version:left.version,commit:left.source.commit,artifacts:5,scope:'byte comparison only; build provenance and SLSA level not attested'};
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Real paths on both sides, the rule of scripts/lib/is-main.mjs — inlined so the
+// builder still runs as a single copied file with no repository imports.
+const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (process.argv[1] && isMain()) {
   if(process.argv.includes('--self-test')){
     if(process.argv.length!==3){console.error('--self-test accepts no release arguments');process.exitCode=2;}else{
     // A nested Node test runner would silently skip files under this marker.

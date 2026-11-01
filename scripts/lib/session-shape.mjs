@@ -41,11 +41,11 @@ import { createReadStream, readdirSync, statSync } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
 import { priceUsage, resolvePrice, effectivePrices, cacheWriteUsd } from './cost-meter.mjs';
 // Sessions started in a temp directory are scripted (benchmarks, eval sandboxes,
 // `claude -p` probes) — the same exclusion request-quality applies.
 import { SCRIPTED } from './request-quality.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULT_ROOT = join(homedir(), '.claude', 'projects');
 
@@ -492,7 +492,7 @@ export function formatReport(report, { since = null, until = null, showProjects 
 
 // ── CLI ────────────────────────────────────────────────────────────────────
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const opt = (k) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : null; };

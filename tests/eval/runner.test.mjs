@@ -1361,11 +1361,24 @@ test('runEvalFileOnce: a refused actor reply is recorded as refused, not failed'
   assert.equal(result.judged, 0);
 });
 
-test('runEvalFileOnce: a cut answer that has text is still judged', async () => {
-  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' }, { text: 'FAIL - stops before the finding' }]);
-  assert.equal(calls, 2);
+test('runEvalFileOnce: a cut answer is asked once more; cut again, it is still judged and marked', async () => {
+  // Since 2026-11-01 the cap's cut gets a second, larger budget before the judge.
+  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' },
+    { text: 'still half a review', stop: 'max_tokens' }, { text: 'FAIL - stops before the finding' }]);
+  assert.equal(calls, 3);
   assert.equal(result.judged, 1);
   assert.equal(result.caseResults[0].verdict, 'FAIL');
+  assert.equal(result.caseResults[0].lengthRetried, true);
+  assert.equal(result.caseResults[0].stillCut, true);
+});
+
+test('runEvalFileOnce: a cut answer that the larger budget completes is judged on the whole answer', async () => {
+  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' },
+    { text: 'the whole review' }, { text: 'PASS - names the finding' }]);
+  assert.equal(calls, 3);
+  assert.equal(result.caseResults[0].verdict, 'PASS');
+  assert.equal(result.caseResults[0].stillCut, false);
+  assert.match(result.caseResults[0].answer, /the whole review/);
 });
 
 test('runActorLoop: an empty FINAL carries the stop reason, so the runner can classify it', async () => {
@@ -1424,4 +1437,42 @@ test('splitPower: a split that never ran leaves the run inconclusive, not passed
   const p = splitPower({ tuning: 1, holdout: 2 / 3 }, [{ caseResults: [{ num: '1', verdict: 'PASS' }, { num: '2', verdict: 'PASS' }] }], new Set(['H1']));
   assert.equal(p.splits.holdout.status, 'not_run');
   assert.notEqual(p.status, 'passed');
+});
+
+// 2026-11-01: architect cases 9 and 10 were failed for an answer this runner's cap cut.
+import { withLengthRetry, ACTOR_RETRY_MAX_TOKENS } from './runner.mjs';
+
+test('a non-empty answer cut by the cap is asked again with the larger budget', async () => {
+  const asked = [];
+  const ask = async (n) => { asked.push(n); return n < ACTOR_RETRY_MAX_TOKENS
+    ? { text: 'ARCH doc, cut mid-', stopReason: 'length', usage: { output_tokens: n }, model: 'm' }
+    : { text: 'ARCH doc, whole', stopReason: 'end_turn', usage: { output_tokens: 9000 }, model: 'm' }; };
+  const r = await withLengthRetry(ask, { first: 6000 });
+  assert.deepEqual(asked, [6000, ACTOR_RETRY_MAX_TOKENS]);
+  assert.equal(r.text, 'ARCH doc, whole');
+  assert.equal(r.lengthRetried, true);
+  assert.equal(r.stillCut, false);
+  assert.deepEqual(r.firstUsage, { output_tokens: 6000 }, 'the first call is still paid for');
+});
+
+test('an answer cut at both budgets is judged as cut, and says so', async () => {
+  const r = await withLengthRetry(async () => ({ text: 'endless', stopReason: 'max_tokens' }), { first: 6000 });
+  assert.equal(r.stillCut, true);
+});
+
+test('a complete answer, an empty one, or a refusal is not asked again', async () => {
+  for (const first of [{ text: 'done', stopReason: 'end_turn' }, { text: '', stopReason: 'length' }, { text: '', stopReason: 'content_filter' }]) {
+    let n = 0;
+    const r = await withLengthRetry(async () => { n += 1; return first; }, { first: 6000 });
+    assert.equal(n, 1, JSON.stringify(first));
+    assert.equal(r.lengthRetried, undefined);
+  }
+});
+
+test('a retry that throws leaves the first, cut answer — judged as cut', async () => {
+  let n = 0;
+  const r = await withLengthRetry(async () => { n += 1; if (n === 2) throw new Error('provider down'); return { text: 'half', stopReason: 'length' }; }, { first: 6000 });
+  assert.equal(r.text, 'half');
+  assert.equal(r.retryFailed, true);
+  assert.equal(r.stillCut, true);
 });

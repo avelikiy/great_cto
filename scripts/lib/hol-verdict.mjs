@@ -8,6 +8,7 @@
  *
  * CLI: node hol-verdict.mjs <report.json> [baseline.json]  → one line; exit 0 pass, 1 fail.
  */
+import { isMainModule } from './is-main.mjs';
 export const MIN_SCORE = 80;
 
 /**
@@ -57,7 +58,7 @@ export function judge(report, baseline = { entries: [] }) {
   return { pass: reasons.length === 0, line, reasons, stale };
 }
 
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   let report;
   try { report = JSON.parse(readFileSync(process.argv[2], 'utf8')); } catch (e) {

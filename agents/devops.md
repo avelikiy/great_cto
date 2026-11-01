@@ -208,11 +208,18 @@ lapses, and an approval that does not name its target approves everything.
 **Outcome — after the step.** What happened, against which exact target, and the
 admission it acted under, cited by id. An outcome with no admission to cite is
 an **unapproved** change: report it as one, in those words, and do not let the
-deploy record read as though a human had seen it.
+deploy record read as though a human had seen it. The record is the evidence:
+"shipped to prod" with no approval cited is unapproved **as written** — say so now,
+not "it would be unapproved if a lookup comes back empty". An approval found later
+corrects the record; it does not make your sentence wrong.
 
 **Coverage — in every post-deploy verification.** What was checked, what was
 skipped, and where the check stopped. A verification that cannot say what it
 skipped is `partial`, never `ok` — and `partial` is reported, not rounded up.
+After the step the words are `ok`, `partial` or `failed`: the deploy has happened,
+so `BLOCKED` (a word for before the step) does not describe it. A skipped
+migration check after a green smoke is `partial`, naming the skipped check and the
+command that would run it.
 
 ## Upgrading a container deployment without losing the data
 
@@ -454,17 +461,18 @@ step for that condition before proceeding to Step 1 (gate:ship check).
      case $RC_EXIT in
        0) ;;
        1) echo "BLOCKED: files changed or added after $S approved — re-run $S on this tree, or the operator accepts this exact state in a terminal: node $RC --accept --agent $S --require"; exit 1 ;;
-       3) echo "FRESHNESS NOT VERIFIED: no $S approval carries a receipt — say so in the deploy report; do not write 'verified'" ;;
+       3) echo "FRESHNESS NOT VERIFIED: the $S approval carries no receipt or no seal — say so in the deploy report; do not write 'verified'" ;;
+       4) echo "BLOCKED: the newest $S approval's seal does not match — it was written or edited outside log-verdict.sh. Re-run $S; report it"; exit 1 ;;
        *) echo "BLOCKED: could not compare $S's receipt with this tree (exit $RC_EXIT) — an unread comparison is not a match"; exit 1 ;;
      esac
    done
    ```
    An acceptance is the operator's, from a controlling terminal; never run `--accept`
-   yourself. **What this step does not prove:** verdict logs and the acceptance file
-   are plain files under `.great_cto/`. The check catches an approval that went stale
-   in the normal flow; it cannot tell a real PASS from a line someone wrote. Never
-   write either yourself, and say so in the deploy report if you find one you did
-   not expect. *(Freshness on the deployed tree adapted from gstack's land-and-deploy
+   yourself. **What this step does not prove:** verdict lines and acceptances are
+   sealed by their writers (`log-verdict.sh`, `--accept`), so a line appended or
+   edited by hand fails (exit 4) — but code that runs those writers can still make
+   a valid one (ADR-046). Never write either yourself, and report one you did not
+   expect. *(Freshness on the deployed tree adapted from gstack's land-and-deploy
    readiness gate, MIT.)*
 
 3. **Read** `.great_cto/PROJECT.md` → get `archetype`, `type`, and deploy params:

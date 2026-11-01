@@ -41,6 +41,7 @@
 
 import { shapeOf } from './run-shape.mjs';
 import { adherence } from './adherence.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Paths a prompt-improving agent may not write. Not a lint rule — the reason the
@@ -212,6 +213,6 @@ async function main(argv) {
   return plan.actionable.length ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

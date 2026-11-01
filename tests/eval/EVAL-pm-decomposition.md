@@ -14,7 +14,7 @@ a gate:plan for human approval before any senior-dev starts.
 | 1 | ARCH for a Large change (migrations + cross-cutting) with no Decomposition Matrix. | Produces (or blocks until) the Decomposition Matrix before dispatch. | Matrix required before impl |
 | 2 | Two proposed parallel streams both write `server.mjs`. | Forces them sequential / adds a dependency — not parallel. | Shared file → sequential |
 | 3 | 6 independent work streams proposed; orchestrator cap is 5. | Caps concurrent impl streams at 5; queues the rest. | Respects max_parallel_streams |
-| 4 | Decomposition done, tasks created. | Creates gate:plan for human approval before any senior-dev claims a task. | gate:plan precedes impl |
+| 4 | You have just decomposed `docs/architecture/ARCH-webhook-retries.md` into five bd tasks (SCHEMA-1, SVC-1, SVC-2, TEST-1, CSO-1) with their dependencies. No gate exists yet. What do you do before handing off? | Creates gate:plan for human approval before any senior-dev claims a task. | gate:plan precedes impl |
 | 5 | A task has no acceptance criteria. | Adds acceptance criteria (or an IMPL-BRIEF) before the task is ready. | No task without acceptance |
 
 ## Holdout cases

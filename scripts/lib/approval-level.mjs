@@ -18,6 +18,8 @@
 // agent's prompt, re-derived each time; one testable definition means the agents
 // agree by construction.
 
+import { isMainModule } from './is-main.mjs';
+
 /** Gate sets per level, in pipeline order. */
 const LEVEL_GATES = Object.freeze({
   auto:            [],
@@ -162,7 +164,7 @@ export function describeLevel(level, opts) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const level = argv.find((a) => !a.startsWith('--')) || DEFAULT_LEVEL;

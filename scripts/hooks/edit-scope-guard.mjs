@@ -29,9 +29,10 @@
  * stdout: silent on allow; on deny, hookSpecificOutput JSON. Exit 2 = block.
  */
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from 'node:fs';
-import { isAbsolute, resolve, join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { parseBrief, checkScope, toRepoRelative } from '../lib/impl-brief.mjs';
 import { ensureStateDir } from '../lib/great-cto-scope.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 function readStdin() {
   try { return readFileSync(0, 'utf8'); } catch { return ''; }
@@ -207,4 +208,4 @@ function main() {
   return process.exit(0);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

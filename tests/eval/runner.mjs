@@ -57,6 +57,7 @@ import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib
 import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
 import { expandSharedRefs as expandShared } from '../../scripts/lib/shared-fragments.mjs';
+import { isMainModule } from '../../scripts/lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -738,17 +739,44 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
 let ACTOR_MAX_TOKENS = 6000;
 
 /**
+ * A second, larger budget for an answer the cap cut.
+ *
+ * 2026-11-01: architect's cases 9 and 10 came back cut mid-sentence and the judge
+ * failed them for not containing the ARCH document they were writing. The cut
+ * was this runner's 6000-token cap — in use the architect writes that document
+ * to a file, at any length. So a cut answer is asked once more with this budget.
+ * Only an answer cut at BOTH is judged as cut: that one is too long for any
+ * reasonable reply, which is a property of the agent and the judge may say so.
+ */
+export const ACTOR_RETRY_MAX_TOKENS = 16000;
+
+const cutByCap = (r) => /^(length|max_tokens)$/i.test(String(r?.stopReason ?? '')) && String(r?.text ?? '').trim() !== '';
+
+/** Call `ask(maxTokens)`; if the cap cut a non-empty answer, ask once more with the larger budget. */
+export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = ACTOR_RETRY_MAX_TOKENS } = {}) {
+  const a = await ask(first);
+  if (!cutByCap(a) || retry <= first) return a;
+  let b;
+  // A retry that fails leaves the first, cut answer — judged as cut, and still paid for.
+  try { b = await ask(retry); } catch { return { ...a, lengthRetried: true, retryFailed: true, stillCut: true }; }
+  // Both calls cost; the caller adds `usage` of both.
+  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b) };
+}
+
+/**
  * Step 1 — Actor: responds AS the agent under test.
  * `actorSystem` is the real agent body (or candidate prompt). One-shot by default;
  * with useTools, runs the ReAct inspection loop. Returns the raw call result.
  */
 async function callActor({ actorModel, scenario, test, actorSystem, useTools = false, actorTurns = 4 }) {
-  if (useTools) {
-    const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens: ACTOR_MAX_TOKENS });
-    return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
-  }
-  const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
-  return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: ACTOR_MAX_TOKENS });
+  return withLengthRetry((maxTokens) => {
+    if (useTools) {
+      const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens });
+      return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
+    }
+    const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
+    return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens });
+  });
 }
 
 /**
@@ -1015,6 +1043,7 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
     try {
       const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem, useTools, actorTurns });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
+      if (actor.lengthRetried) costUsd += costForUsage({ model: actor.firstModel, usage: actor.firstUsage });
 
       const heard = classifyActorOutcome(actor);
       if (heard.kind) {
@@ -1050,6 +1079,9 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
         // Bounded: a tool-using actor can emit tens of KB per case, and this
         // file accumulates across every run.
         answer: truncateAnswer(actor.text),
+        // Asked again with the larger budget because the cap cut the first answer;
+        // `stillCut` means the judged answer was cut at that budget too.
+        ...(actor.lengthRetried ? { lengthRetried: true, stillCut: !!actor.stillCut } : {}),
         ...(dag ? { score: judge.score, dagPath: judge.dagPath, judge: 'dag' } : { judge: 'rubric' }),
       });
     } catch (err) {
@@ -1575,7 +1607,7 @@ async function main() {
 }
 
 // Only run main() when this file is executed directly (not when imported by tests).
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   main().catch(err => {
     console.error('\nFATAL:', err.message);

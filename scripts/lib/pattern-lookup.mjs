@@ -24,7 +24,7 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const field = (text, name) => {
   const m = text.match(new RegExp(`^${name}:\\s*(.+)$`, 'm'));
@@ -121,10 +121,7 @@ export function renderPatterns(result, { role = 'implement' } = {}) {
   return `${lines.join('\n')}\n`;
 }
 
-const invokedDirectly = (() => {
-  try { return Boolean(process.argv[1]) && fileURLToPath(import.meta.url).endsWith(process.argv[1].split('/').pop()); }
-  catch { return false; }
-})();
+const invokedDirectly = isMainModule(import.meta.url);
 
 if (invokedDirectly) {
   const arg = (name, fallback = null) => {

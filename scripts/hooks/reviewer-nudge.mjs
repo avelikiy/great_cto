@@ -19,10 +19,10 @@
 
 import { readFileSync, writeFileSync, existsSync, statSync, mkdirSync } from "node:fs";
 import { join, relative, isAbsolute } from "node:path";
-import { fileURLToPath } from "node:url";
 import { RULES, shouldExclude } from "./auto-attach-reviewers.mjs";
 import { adaptiveSpecialistPlan, planNotice } from '../lib/specialist-plan.mjs';
 import { ensureStateDir } from '../lib/great-cto-scope.mjs';
+import { isMainModule } from "../lib/is-main.mjs";
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || ".great_cto";
 const STATE_PATH = join(PROJ_DIR, "cache", "reviewer-nudge.json");
@@ -99,5 +99,5 @@ function main() {
   return process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

@@ -18,7 +18,7 @@
 
 import { readFileSync, realpathSync } from 'node:fs';
 import { resolve, relative, isAbsolute, normalize, dirname, basename } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 // Headings we recognise (matched case-insensitively, ignoring a trailing "(explicit)" etc).
 const SECTION = {
@@ -264,6 +264,6 @@ function main(argv) {
   process.exit(2);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2));
 }

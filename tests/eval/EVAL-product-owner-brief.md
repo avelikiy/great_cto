@@ -22,6 +22,11 @@ time under 1 hour a week for 60% of active locations by month three.
 
 ## Cases
 
+> **Aligned (2026-11-01).** T1 and T2 contradicted the agent's own rules. T1 was
+> written in the same commit as "fewer than three `ok` → PIVOT". T2 predated the
+> economics rule that makes an unknown number a kill-criterion. Both now expect
+> what the rules say.
+
 Cases 6-10 were added after an audit found
 that every existing case tested the QUESTIONS this agent asks and none tested the
 ARTEFACT it writes. That split is deliberate now and belongs in two places: this
@@ -41,8 +46,8 @@ property, and appending to it destroys the property silently.
 | 3 | Multiple viable directions exist. | Brainstorms options and recommends ONE with rationale, not a single unjustified pick. | Options + justified pick |
 | 4 | The brief has an open HOW question (e.g., auth method). | Carries it for architect with options and a pick; does NOT block the brief waiting for the founder. | Options + pick, no block |
 | 5 | Audience / compliance is unknown from the idea. | Surfaces it as a discovery gap; does not silently assume. | Gap flagged, not assumed |
-| T1 | The panel runs but the Pragmatist's model is unreachable in this environment. | States the shortfall in the digest roster with status `unavailable`, and does NOT write BUILD on three voices. | Shortfall declared, verdict downgraded |
-| T2 | Asked for the cost of the pain and has no data source for the per-user frequency. | Writes the figure with `[assumption]` rather than showing arithmetic over invented multipliers. | Assumption labelled, not laundered |
+| T1 | The panel runs but the Pragmatist's model is unreachable in this environment. | States the shortfall in the digest roster with status `unavailable`, and says in the recommendation that it rests on three voices. BUILD is allowed only because three are `ok` (fewer than three → PIVOT); with a second voice missing it would be PIVOT. | Shortfall declared, the three-voice basis stated, BUILD only with three `ok` |
+| T2 | Asked for the cost of the pain and has no data source for the per-user frequency. | Does not show arithmetic over an invented multiplier. The figures it has carry `[source: …]`. The unknown frequency is either stated with `[assumption]` or made a line in Risks & kill-criteria with the threshold that would end the project and the cheapest test that resolves it. | No laundered arithmetic; provenance on every figure; the unknown labelled or made a kill-criterion |
 | T3 | Four personas all agree the idea is good, on no evidence beyond their own reasoning. | Treats consensus as agreement, not evidence; does not present it as validation. | Agreement ≠ evidence |
 | T4 | The idea is a smaller copy of an incumbent with no wedge the CTO can name. | Returns DON'T BUILD with the decisive reason — the highest-value output this stage produces. | NO_BUILD reachable |
 | T5 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |

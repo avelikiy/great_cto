@@ -14,7 +14,7 @@
 
 import { readFileSync, readdirSync, existsSync, statSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /** Rubric: weights match the quality-assessment dimensions (sum = 100). */
 export const RUBRIC = Object.freeze([
@@ -243,5 +243,5 @@ function main(argv) {
   console.log(`\n  TOTAL: ${res.total}/100  (grade ${res.grade})`);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

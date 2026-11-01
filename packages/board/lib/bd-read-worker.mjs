@@ -2,13 +2,14 @@
 // Forked into a newly owned group; ordinary module imports do not start work.
 import { fork, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../../../scripts/lib/is-main.mjs';
 const entry = fileURLToPath(import.meta.url);
 export function spawnBdRead(binary, { readDeadlineMs = 20250, commandArgs, ...options }) {
   const args = [binary, String(readDeadlineMs)];
   if (commandArgs !== undefined) args.push(JSON.stringify(commandArgs));
   return fork(entry, args, { ...options, silent: true });
 }
-if (process.argv[1] === entry) {
+if (isMainModule(import.meta.url)) {
   const grouped = process.platform !== 'win32';
   let child;
   function killOwnedGroup() {

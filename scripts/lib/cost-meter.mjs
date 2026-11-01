@@ -17,6 +17,7 @@
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Default list prices, USD per 1M tokens.
@@ -281,6 +282,5 @@ function main(argv) {
   process.stdout.write(String(round4(cost)));
 }
 
-import { fileURLToPath } from 'node:url';
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

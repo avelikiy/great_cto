@@ -19,7 +19,7 @@
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const TEST_FILE = /(^|\/)(tests?|__tests__|spec|e2e)\/|\.(test|spec)\.[cm]?[jt]sx?$|_test\.(go|py|rb)$|(^|\/)test_[^/]+\.py$|Tests?\.(cs|java|kt|swift)$/;
 const CI_FILE = /(^|\/)(\.github\/workflows\/|\.gitlab-ci\.yml$|Jenkinsfile$|\.circleci\/|azure-pipelines\.yml$|\.buildkite\/|\.husky\/|lefthook\.yml$|\.pre-commit-config\.yaml$)|(^|\/)(package\.json|Makefile|justfile|Taskfile\.ya?ml)$/;
@@ -134,7 +134,7 @@ function readDiff(base) {
   return r.stdout + extra;
 }
 
-const isMain = (() => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+const isMain = isMainModule(import.meta.url);
 if (process.argv[1] && isMain) {
   const argv = process.argv.slice(2);
   const opt = (n, d) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : d; };

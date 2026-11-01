@@ -20,6 +20,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
+import { isMainModule } from './is-main.mjs';
 
 /** Per-agent estimates, mirrored from cost-guard.mjs ROUGH_COST_USD. */
 export const AGENT_ESTIMATES = {
@@ -134,7 +135,7 @@ export function renderDrift(d) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const i = argv.indexOf('--cwd');

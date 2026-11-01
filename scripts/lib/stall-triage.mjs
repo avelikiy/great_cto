@@ -13,7 +13,7 @@
 //   (lanes.json: [{"id":"lane-a","lastOutputMs":1700000000000,"filesChanged":1}])
 
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /** A lane is stalled if it produced no output within thresholdMs of `now`. */
 export function isStalled(lastOutputMs, now, thresholdMs) {
@@ -58,5 +58,5 @@ function main(argv) {
   process.exit(1);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

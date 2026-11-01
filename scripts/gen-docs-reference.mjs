@@ -24,6 +24,7 @@ import { systemMap, toMermaid, pipelineMermaid } from './lib/system-map.mjs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ROLES, ROLE_ORDER, roleForAgent } from '../shared/lifecycle-map.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 /**
  * The tree to read and write — the working directory, not this script's home.
@@ -323,5 +324,5 @@ function main() {
   if (!check) console.log('Done.');
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

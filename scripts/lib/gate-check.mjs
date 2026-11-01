@@ -9,10 +9,10 @@
 //   (loads tasks from `bd list --json` and exceptions from the registry)
 
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { verify, list as listExceptions } from './exceptions.mjs';
 import { reviewerStatus } from './required-reviewers.mjs';
 import { latestVerdicts, lastCodeChange, shipBlockers } from './ship-evidence.mjs';
+import { isMainModule } from './is-main.mjs';
 
 // Terminal-fail states that block a gate (normalized, lowercase).
 export const BLOCKING_STATES = new Set(['blocked', 'failed', 'unverified', 'not_run', 'not-run']);
@@ -169,5 +169,5 @@ function main() {
   process.exit(1);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

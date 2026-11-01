@@ -32,6 +32,7 @@
  * These rules read text, not an AST: an AST parser that fails on a half-written
  * file would make the hook noisy exactly when the agent is mid-edit.
  */
+import { isMainModule } from './is-main.mjs';
 function lines(text) {
   return String(text ?? '').split('\n');
 }
@@ -361,7 +362,7 @@ export function brief(findings, file) {
 // already exists, read every finding, and either fix the code or fix the rule.
 // A rule shipped without this pass is a guess about its own precision.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const { execFileSync } = await import('node:child_process');
 

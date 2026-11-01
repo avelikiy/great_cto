@@ -44,6 +44,7 @@ import { homedir, tmpdir } from 'node:os';
 import { posix } from 'node:path';
 import { simpleCommands, gitParts, base } from '../lib/shell-commands.mjs';
 import { isCovered } from '../lib/exceptions.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const GATE = 'destructive-command';
 
@@ -362,4 +363,4 @@ export function run(raw, env = process.env) {
   return deny({ guard: 'destructive-command', tag: 'destructive', reason: blockReason(hit) });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdinOnce()));
+if (isMainModule(import.meta.url)) emit(run(readStdinOnce()));

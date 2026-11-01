@@ -24,6 +24,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { callJudge, parseJudgeVerdict, majorityVerdict, pickProvider, modelFor } from '../tests/eval/runner.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_GOLD = join(__dirname, '..', 'tests', 'eval', 'judge-gold.jsonl');
@@ -129,5 +130,5 @@ async function main() {
   process.exit(exit);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main().catch(err => { console.error('FATAL:', err.message); process.exit(2); });

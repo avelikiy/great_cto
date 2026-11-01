@@ -17,6 +17,7 @@
  */
 import { readFileSync, statSync } from 'node:fs';
 import { costForUsage, priceUsage, round4 } from './cost-meter.mjs';
+import { isMainModule } from './is-main.mjs';
 
 // Guard against pathological transcripts — a few MB is normal; cap the read.
 const MAX_BYTES = 64 * 1024 * 1024;
@@ -82,7 +83,7 @@ export function usageFromTranscript(input) {
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const json = args.includes('--json');
   const path = args.find(a => !a.startsWith('--'));

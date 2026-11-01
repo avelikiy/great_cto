@@ -15,6 +15,12 @@ import { treeReceipt, writeAcceptance, receiptHash, MAX_FILES, pipelineOutputPat
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const SCRIPT = path.join(ROOT, 'scripts/lib/receipt.mjs');
+// The seal key lives in a throwaway file, never the operator's home; spawned
+// processes inherit it through the environment.
+const SEAL_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-seal-'));
+process.env.GREAT_CTO_SEAL_KEY = path.join(SEAL_DIR, 'verdict-seal.key');
+test.after(() => fs.rmSync(SEAL_DIR, { recursive: true, force: true }));
+const { sealVerdict } = await import('../../scripts/lib/verdict-seal.mjs');
 // Verdict timestamps only ORDER approvals (the newest wins); nothing here compares
 // them against an age. Anchored to the clock so no date in this file can expire.
 const T0 = Date.now() - 24 * 3600000;
@@ -31,9 +37,9 @@ function fixture(t, { ignoreState = true } = {}) {
   let n = 0;
   const approve = (agent) => {
     n += 1;
-    fs.appendFileSync(path.join(d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({
-      v: 1, ts: new Date(T0 + n * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: treeReceipt(d),
-    }) + '\n');
+    // Sealed, as log-verdict.sh writes it.
+    const rec = { v: 1, ts: new Date(T0 + n * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: treeReceipt(d) };
+    fs.appendFileSync(path.join(d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ ...rec, seal: sealVerdict(rec) }) + '\n');
   };
   const verify = (...extra) => spawnSync(process.execPath, [SCRIPT, '--verify', ...extra], { cwd: d, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '' } });
   return { d, git, approve, verify };
@@ -103,7 +109,7 @@ test('devops step 2b: a stage with no receipt is said, not passed as verified', 
   f.approve('qa-engineer');
   const r = runStep(f, { TIER_EFFECTIVE: 'standard', PROJECT_SIZE: 'medium' });
   assert.equal(r.status, 0);
-  assert.match(r.stdout, /FRESHNESS NOT VERIFIED: no security-officer approval carries a receipt/);
+  assert.match(r.stdout, /FRESHNESS NOT VERIFIED: the security-officer approval carries no receipt or no seal/);
 });
 
 test('devops step 2b: a nano project skips QA, baseline tier skips security', (t) => {
@@ -139,8 +145,8 @@ test('devops step 2b: a receipt that cannot be compared blocks — unread is not
   f.approve('security-officer');
   // A QA verdict whose receipt names a base no git revision can be: the comparison cannot run.
   const rec = { ...treeReceipt(f.d), base: 'not-a-revision!' };
-  fs.appendFileSync(path.join(f.d, '.great_cto/verdicts/qa-engineer.log'),
-    JSON.stringify({ v: 1, ts: new Date(T0 + 60000).toISOString(), agent: 'qa-engineer', verdict: 'APPROVED', receipt: rec }) + '\n');
+  const line = { v: 1, ts: new Date(T0 + 60000).toISOString(), agent: 'qa-engineer', verdict: 'APPROVED', receipt: rec };
+  fs.appendFileSync(path.join(f.d, '.great_cto/verdicts/qa-engineer.log'), JSON.stringify({ ...line, seal: sealVerdict(line) }) + '\n');
   const r = runStep(f, { TIER_EFFECTIVE: 'standard', PROJECT_SIZE: 'medium' });
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /BLOCKED: could not compare qa-engineer's receipt/);
@@ -212,7 +218,8 @@ test('M3: from a linked worktree, the code-reviewer stage is still checked', (t)
   fs.writeFileSync(path.join(wt, 'app.js'), 'reviewed in the worktree\n');
   const rec = treeReceipt(wt);
   for (const agent of ['qa-engineer', 'security-officer', 'code-reviewer']) {
-    fs.appendFileSync(path.join(f.d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ v: 1, ts: new Date(T0 + 3600000 + agent.length * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: rec }) + '\n');
+    const line = { v: 1, ts: new Date(T0 + 3600000 + agent.length * 1000).toISOString(), agent, verdict: 'APPROVED', receipt: rec };
+    fs.appendFileSync(path.join(f.d, '.great_cto/verdicts', `${agent}.log`), JSON.stringify({ ...line, seal: sealVerdict(line) }) + '\n');
   }
   fs.writeFileSync(path.join(wt, 'app.js'), 'changed after every approval\n');
   const r = spawnSync('bash', ['-c', devopsStep()], { cwd: wt, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '', CLAUDE_PLUGIN_ROOT: ROOT, TIER_EFFECTIVE: 'baseline', PROJECT_SIZE: 'nano' } });
@@ -288,7 +295,7 @@ test('review pass 4: deleting the security signals, editing the SLO budget or en
 
 test('devops says what the freshness step cannot prove', () => {
   for (const file of ['agents/devops.md', 'agents-full/devops.md']) {
-    assert.match(fs.readFileSync(path.join(ROOT, file), 'utf8'), /cannot tell a real PASS from a line someone wrote/, file);
+    assert.match(fs.readFileSync(path.join(ROOT, file), 'utf8'), /code that runs those writers can still make\s+a valid one \(ADR-046\)/, file);
   }
 });
 
@@ -300,4 +307,85 @@ test('review pass 5: more deletions than the cap mark the receipt truncated — 
   f.git('rm', '-q', ...Array.from({ length: MAX_FILES + 1 }, (_, i) => `d${String(i).padStart(3, '0')}.txt`));
   f.git('commit', '-qm', 'delete many');
   assert.equal(treeReceipt(f.d, { base: f.git('rev-parse', 'main').trim() }).truncated, true);
+});
+
+// great_cto-dv3b: a verdict line or an acceptance written outside its writer.
+
+test('dv3b: a PASS line appended by hand, newest, is not verified; one with a forged seal blocks', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'changed, then a PASS written by hand\n');
+  const forged = { v: 1, ts: new Date().toISOString(), agent: 'qa-engineer', verdict: 'PASS', receipt: treeReceipt(f.d) };
+  const log = path.join(f.d, '.great_cto/verdicts/qa-engineer.log');
+  fs.appendFileSync(log, JSON.stringify(forged) + '\n');
+  const unsealed = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(unsealed.status, 3, unsealed.stdout);
+  assert.match(unsealed.stdout, /not sealed/);
+  fs.appendFileSync(log, JSON.stringify({ ...forged, ts: new Date(Date.now() + 1000).toISOString(), seal: 'v1:' + '0'.repeat(64) }) + '\n');
+  const bad = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(bad.status, 4, bad.stdout);
+  assert.match(bad.stdout, /seal does not match/);
+  const r = runStep(f, { TIER_EFFECTIVE: 'baseline', PROJECT_SIZE: 'medium' });
+  assert.equal(r.status, 1);
+  assert.match(r.stdout, /BLOCKED: the newest qa-engineer approval's seal does not match/);
+  assert.equal(f.verify('--agent', 'qa-engineer').status !== undefined, true, 'plain verify (pre-push) does not read seals');
+});
+
+test('dv3b: an edited verdict field breaks its seal', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('qa-engineer');
+  const log = path.join(f.d, '.great_cto/verdicts/qa-engineer.log');
+  const rec = JSON.parse(fs.readFileSync(log, 'utf8').trim());
+  fs.writeFileSync(log, JSON.stringify({ ...rec, verdict: 'PASS', agent: 'qa-engineer', ts: new Date().toISOString() }) + '\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 4);
+});
+
+test('dv3b: a hand-written acceptance with the right hash is not an acceptance', (t) => {
+  const f = fixture(t, { ignoreState: false });
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'drift\n');
+  const current = treeReceipt(f.d, { exclude: pipelineOutputPaths(f.d) });
+  writeAcceptance(f.d, { hash: receiptHash(current), why: 'hand', agent: 'qa-engineer', seal: null });   // no seal
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 1, r.stdout);
+  assert.match(r.stdout, /carries no seal/);
+  writeAcceptance(f.d, { hash: receiptHash(treeReceipt(f.d, { exclude: pipelineOutputPaths(f.d) })), why: 'operator', agent: 'qa-engineer' });
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 0, 'the writer\'s sealed acceptance is honoured');
+});
+
+// Review of 3.75.6.
+
+test('M1: a sealed line copied from another stage\'s log is not that stage\'s approval', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  f.approve('code-reviewer');
+  fs.copyFileSync(path.join(f.d, '.great_cto/verdicts/code-reviewer.log'), path.join(f.d, '.great_cto/verdicts/qa-engineer.log'));
+  const r = f.verify('--agent', 'qa-engineer', '--require');
+  assert.equal(r.status, 3, r.stdout);
+  assert.match(r.stdout, /no approving qa-engineer verdict carries a receipt/);
+});
+
+test('m3: the seal covers meta, cost and project too — editing meta.need breaks it', (t) => {
+  const f = fixture(t);
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  const rec = { v: 1, ts: new Date().toISOString(), agent: 'qa-engineer', verdict: 'APPROVED', receipt: treeReceipt(f.d), meta: { need: 'implementer', feature: 'x' } };
+  const log = path.join(f.d, '.great_cto/verdicts/qa-engineer.log');
+  fs.writeFileSync(log, JSON.stringify({ ...rec, seal: sealVerdict(rec) }) + '\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 0);
+  fs.writeFileSync(log, JSON.stringify({ ...rec, meta: { need: 'decision', feature: 'x' }, seal: sealVerdict(rec) }) + '\n');
+  assert.equal(f.verify('--agent', 'qa-engineer', '--require').status, 4);
+});
+
+test('m4: --accept refuses before asking when no seal key can be made', (t) => {
+  const f = fixture(t);
+  f.approve('qa-engineer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'drift\n');
+  const blocker = path.join(f.d, 'not-a-dir');
+  fs.writeFileSync(blocker, 'a file where the key directory would go\n');
+  const r = spawnSync(process.execPath, [SCRIPT, '--accept', '--agent', 'qa-engineer', '--require'], { cwd: f.d, encoding: 'utf8',
+    env: { ...process.env, GREAT_CTO_DIR: '', GREAT_CTO_SEAL_KEY: path.join(blocker, 'keys', 'verdict-seal.key') } });
+  assert.equal(r.status, 2, r.stdout + r.stderr);
+  assert.match(r.stderr, /cannot record an acceptance/);
 });
