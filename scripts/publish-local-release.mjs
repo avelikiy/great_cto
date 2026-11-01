@@ -8,6 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { admitRelease, getAdmissionInfo, getAdmittedArtifact } from '../packages/cli/src/release-trust.mjs';
 import { assertPublicationSource } from './sign-release-artifacts.mjs';
+import { check as checkLease } from './lib/release-lease.mjs';
 
 const hash = (bytes, algorithm = 'sha256') => createHash(algorithm).update(bytes).digest('hex');
 const OWNER_APPROVAL = 'local-owner-release';
@@ -53,7 +54,7 @@ async function boundedResponse(response, limit) {
  * cannot manufacture or infer it from a valid signature. Injectable I/O is only
  * a test adapter and never returns production publication authority.
  */
-export async function publishLocalRelease(options, { run = execFileSync, fetchFn = fetch } = {}) {
+export async function publishLocalRelease(options, { run = execFileSync, fetchFn = fetch, lease = checkLease } = {}) {
   if (fetchFn !== fetch && run === execFileSync) throw Error('test registry adapter requires a non-executing process adapter');
   const { directory, version, source, approveCommit, approveIndexDigest, approval, localPublicKeyPath, localKeyFingerprint, npmPath, npmSha256, npmAuthFile } = options;
   if (approval !== OWNER_APPROVAL || !/^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/.test(version || '') || !/^[a-f0-9]{40}$/.test(approveCommit || '') || !/^[a-f0-9]{64}$/.test(approveIndexDigest || '')) throw Error('explicit stable version, full-gate and owner ship approval for exact commit/index required');
@@ -82,6 +83,10 @@ export async function publishLocalRelease(options, { run = execFileSync, fetchFn
   if (existing.status === 200) await metadata(existing);
   else if (existing.status === 404) {
     await existing.body?.cancel();
+    // Only a first publication needs the claim; reading back a version already
+    // published (the rerun after 2FA) does not, and must keep working after release.
+    const claim = lease({ version: info.version, commit: approveCommit });
+    if (!claim.ok) throw Error(`release lease: ${claim.why}`);
     const temporary = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-local-publish-')));
     fs.chmodSync(temporary, 0o700);
     try {

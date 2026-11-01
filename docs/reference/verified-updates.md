@@ -112,7 +112,25 @@ external mutation; historical clean-tree/npm-login checks alone are insufficient
 The hosted route instead signs in its exact-tag SIGN_ONLY run and publishes
 through its separately configured protected owner-review environment.
 
-The local source commands deliberately separate signing from publication:
+The local source commands deliberately separate signing from publication.
+
+One version has one writer on the machine: Codex and Claude Code both release
+from it. `bump-version.sh` claims the version first, before it changes any file.
+It writes an atomic, expiring lease file at
+`~/.great_cto/release-lease/great-cto@VERSION.json`. The claim is refused in
+three cases: another session holds the version, the remote tag or the npm
+version is already taken, or the remote could not be checked. Before the tag,
+bind the lease to the exact commit. The npm publisher refuses a first
+publication unless the lease is live, belongs to this session and is bound to
+`--approve-commit`. A readback of a version npm already serves does not need the
+lease. After the GitHub release, release the lease. `journal.jsonl` beside the
+lease files records every claim, renewal, rebind, takeover and release:
+
+```bash
+node scripts/lib/release-lease.mjs bind --version EXACT_VERSION --commit REVIEWED_COMMIT
+# … sign, publish npm, publish the GitHub release …
+node scripts/lib/release-lease.mjs release --version EXACT_VERSION
+```
 
 ```bash
 node scripts/sign-local-release-artifacts.mjs \
