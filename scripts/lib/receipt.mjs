@@ -200,7 +200,8 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
   // the file map — which holds content digests — cannot hold a file that is gone.
   const deletedOutput = git(['diff', '--name-only', '--diff-filter=D', ref, '--', ':/', ...pathspecExclude], cwd);
   if (deletedOutput === null) return null;
-  const deleted = deletedOutput.split('\n').map((x) => x.trim()).filter(Boolean).sort().slice(0, maxFiles);
+  const allDeleted = deletedOutput.split('\n').map((x) => x.trim()).filter(Boolean).sort();
+  const deleted = allDeleted.slice(0, maxFiles);
   const names = [
     ...changedOutput
       .split('\n').map((s) => s.trim()).filter(Boolean),
@@ -218,6 +219,8 @@ export function treeReceipt(cwd = process.cwd(), { base = null, maxFiles = MAX_F
     files[p] = blob;
   }
 
+  // A cut deletion list is a partial receipt like a cut file map: say so.
+  if (allDeleted.length > maxFiles) truncated = true;
   return { head, dirty, base: ref, base_from: baseFrom, files, deleted, ...(truncated ? { truncated: true } : {}) };
 }
 

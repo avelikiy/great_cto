@@ -288,3 +288,13 @@ test('devops says what the freshness step cannot prove', () => {
     assert.match(fs.readFileSync(path.join(ROOT, file), 'utf8'), /cannot tell a real PASS from a line someone wrote/, file);
   }
 });
+
+test('review pass 5: more deletions than the cap mark the receipt truncated — not a match', (t) => {
+  const f = fixture(t);
+  for (let i = 0; i <= MAX_FILES + 4; i += 1) fs.writeFileSync(path.join(f.d, `d${String(i).padStart(3, '0')}.txt`), `${i}\n`);
+  f.git('add', '.'); f.git('commit', '-qm', 'many');
+  f.git('checkout', '-q', '-b', 'work');
+  f.git('rm', '-q', ...Array.from({ length: MAX_FILES + 1 }, (_, i) => `d${String(i).padStart(3, '0')}.txt`));
+  f.git('commit', '-qm', 'delete many');
+  assert.equal(treeReceipt(f.d, { base: f.git('rev-parse', 'main').trim() }).truncated, true);
+});
