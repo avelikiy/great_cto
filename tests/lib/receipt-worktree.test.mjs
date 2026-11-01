@@ -162,6 +162,7 @@ test('pre-push retains shared receipt-gate enforcement from the main project', t
   // The hook invokes relative scripts from the fixture checkout.
   mkdirSync(join(f.wt, 'scripts/lib'), { recursive: true });
   cpSync(join(ROOT, 'scripts/lib/receipt.mjs'), join(f.wt, 'scripts/lib/receipt.mjs'));
+  cpSync(join(ROOT, 'scripts/lib/verdict-seal.mjs'), join(f.wt, 'scripts/lib/verdict-seal.mjs'));   // receipt.mjs imports it
   const r = spawnSync('bash', [join(ROOT, 'scripts/hooks/pre-push.sh')], {
     cwd: f.wt, encoding: 'utf8', input: '',
     env: { ...f.env, GREAT_CTO_SKIP_RECEIPT_CHECK: '', GREAT_CTO_ENFORCE_RECEIPT: '', GREAT_CTO_WORKSPACE: join(f.temp, 'no-workspace'),

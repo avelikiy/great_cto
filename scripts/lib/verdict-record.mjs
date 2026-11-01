@@ -93,6 +93,7 @@ export function validateVerdict(rec) {
   if ('meta' in rec && (typeof rec.meta !== 'object' || rec.meta === null || Array.isArray(rec.meta))) {
     errors.push('meta must be an object');
   }
+  if ('seal' in rec && (typeof rec.seal !== 'string' || !/^v1:[0-9a-f]{64}$/.test(rec.seal))) errors.push('seal must be v1:<64 hex>');
   return { valid: errors.length === 0, errors };
 }
 
@@ -265,7 +266,7 @@ async function main(argv) {
       if (i > 0) meta[kv.slice(0, i)] = kv.slice(i + 1);
     }
     try {
-      process.stdout.write(formatVerdict(makeVerdict({
+      const rec = makeVerdict({
         ts: process.env.TS,
         agent: process.env.AGENT,
         verdict: process.env.VERDICT,
@@ -273,7 +274,16 @@ async function main(argv) {
         cost_usd: process.env.COST === '' || process.env.COST === undefined ? undefined : Number(process.env.COST),
         meta,
         receipt: parseReceiptEnv(process.env.RECEIPT),
-      })) + '\n');
+      });
+      // great_cto-dv3b: the writer seals what it writes; a line written any other
+      // way reads as unsealed or invalid to a deploy. A seal that cannot be made
+      // (no writable home) leaves the line unsealed, said on stderr — not unwritten.
+      try {
+        const { sealVerdict } = await import('./verdict-seal.mjs');
+        const seal = sealVerdict(rec);
+        if (seal) rec.seal = seal;
+      } catch (e) { console.error(`verdict-record: verdict not sealed (${e.message})`); }
+      process.stdout.write(formatVerdict(rec) + '\n');
       return 0;
     } catch (e) {
       console.error(`verdict-record: ${e.message}`);

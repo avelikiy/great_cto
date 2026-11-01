@@ -32,6 +32,13 @@ export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
 # A subsequent security scan must inspect shipped source, not local caches.
 export PYTHONDONTWRITEBYTECODE=1
 
+# Verdict seals (ADR-046): tests run the real log-verdict.sh, which seals with
+# ~/.great_cto/keys/verdict-seal.key. The gate gives them a throwaway key so a run
+# never creates or uses the operator's.
+SEAL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/gcto-seal-XXXXXX")"
+export GREAT_CTO_SEAL_KEY="$SEAL_TMP/verdict-seal.key"
+trap 'rm -rf "$SEAL_TMP"' EXIT
+
 E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2
 for a in "$@"; do
   case "$a" in
