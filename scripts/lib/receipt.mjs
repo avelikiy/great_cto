@@ -475,6 +475,12 @@ function requireFs() {
 // `--emit`   prints a receipt for the current tree (used by log-verdict.sh).
 // `--check <file>`  compares a recorded receipt held in a file.
 // `--verify` compares the newest approving verdict's receipt against now.
+//    `--agent <name>` narrows it to one approving stage. The newest approval of
+//    any stage is the wrong question before a deploy: a review of today's tree
+//    must not stand in for a QA pass on yesterday's.
+//    `--require` is the deploy question: "no approval carries a receipt" exits 3,
+//    not 0, and files ADDED since the approval count as drift. Before a push they
+//    are work continuing; before a deploy they are code nobody reviewed, shipping.
 
 function currentForReceipt(cwd, receipt) {
   // Persisted evidence is data, not Git options or a new revision expression.
@@ -510,23 +516,36 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
     process.stdout.write(r ? JSON.stringify(r) : '');
     process.exit(r ? 0 : 1);
   }
+  const agentsArg = () => {
+    const i = argv.indexOf('--agent');
+    if (i < 0) return APPROVING_AGENTS;
+    const name = argv[i + 1];
+    if (!APPROVING_AGENTS.includes(name)) {
+      console.error(`receipt: --agent must be one of ${APPROVING_AGENTS.join(', ')}, got ${name}`);
+      process.exit(2);
+    }
+    return [name];
+  };
   if (argv.includes('--verify')) {
     const cwd = process.cwd();
-    const approval = latestApproval(cwd);
+    const agents = agentsArg();
+    const approval = latestApproval(cwd, { agents });
     const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'no-receipt') {
       // Not silence. A push with no approval to compare against and a push whose
       // receipt matched are different facts, and only one of them is evidence.
-      console.log('receipt: no approving verdict carries a receipt — nothing was verified');
-      process.exit(0);
+      const whom = agents.length === 1 ? `${agents[0]} verdict` : 'verdict';
+      console.log(`receipt: no approving ${whom} carries a receipt — nothing was verified`);
+      process.exit(argv.includes('--require') ? 3 : 0);
     }
     const who = approval ? `${approval.agent} ${approval.verdict} at ${approval.ts}` : 'an approval';
     console.log(`receipt: against ${who}`);
     console.log(describeDrift(cmp).split('\n').map((l) => `  ${l}`).join('\n'));
 
     if (cmp.state === 'unreadable') process.exit(2);
-    if (cmp.state !== 'differs') process.exit(0);
+    const drifted = cmp.state === 'differs' || (cmp.state === 'extended' && argv.includes('--require'));
+    if (!drifted) process.exit(0);
 
     // Drift, but a human may already have looked at exactly this state.
     const hash = receiptHash(current);
@@ -553,7 +572,7 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
   // behaviour — an agent asked to approve its own work will comply.
   if (argv.includes('--accept')) {
     const cwd = process.cwd();
-    const approval = latestApproval(cwd);
+    const approval = latestApproval(cwd, { agents: agentsArg() });
     const current = currentForReceipt(cwd, approval?.receipt);
     const cmp = compareReceipts(approval?.receipt ?? null, current);
     if (cmp.state === 'unreadable') {
