@@ -27,6 +27,7 @@
 import { isGlobalLayer, isProjectState } from './great-cto-scope.mjs';
 import { appendFileSync, closeSync, fstatSync, mkdirSync, openSync, readFileSync, readSync, renameSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 export const EVENTS_FILE = 'events.jsonl';
 // `hint`: a context hook (edit-impact, lesson-tripwire) put text in front of the model.
@@ -195,7 +196,7 @@ export function readEventsSince(dir, cursor, { limit = 50, maxDelta = MAX_DELTA 
   return { state: 'live', mode: 'delta', events, cursor: next, bad };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   try {
     const argv = process.argv.slice(2);
     const arg = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };

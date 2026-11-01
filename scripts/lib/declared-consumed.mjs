@@ -31,6 +31,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -213,7 +214,7 @@ export async function auditDeclarations({ repo = REPO } = {}) {
 //
 //   node scripts/lib/declared-consumed.mjs [--strict] [--json]
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const r = await auditDeclarations();
   if (process.argv.includes('--json')) { console.log(JSON.stringify(r, null, 2)); process.exit(r.state === 'findings' ? 1 : 0); }
 

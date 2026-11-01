@@ -25,6 +25,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const snake = (ev) => ev.replace(/([a-z])([A-Z])/g, '$1_$2').toLowerCase();
 
@@ -131,7 +132,7 @@ export function formatStatus(s) {
   return lines.join('\n');
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   const a = process.argv.slice(2);
   const codexHome = a.includes('--codex-home') ? a[a.indexOf('--codex-home') + 1] : join(homedir(), '.codex');
   const repo = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');

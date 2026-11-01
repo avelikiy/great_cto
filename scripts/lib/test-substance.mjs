@@ -27,6 +27,7 @@
  */
 
 import { readFileSync } from 'node:fs';
+import { isMainModule } from './is-main.mjs';
 
 /** Answers the judge may give about one test. Anything else is an abstention. */
 export const SUBSTANCE_ANSWERS = Object.freeze(['asserts', 'vacuous', 'unclear']);
@@ -254,7 +255,7 @@ export function explain(scan, judged = null) {
 // 2 = bad input. Without --judge only the mechanical layer runs, which costs
 // nothing and needs no key.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const files = argv.filter((a) => !a.startsWith('--'));
   if (!files.length) {

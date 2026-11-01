@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdirSync, writeFileSync, readFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { createOwnedPhaseFixture } from './owned-phase-fixture.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export async function runMcpSmoke({ cliPath }) {
   const cli = realpathSync(resolve(cliPath));
@@ -117,7 +118,7 @@ export async function runMcpSmoke({ cliPath }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(await runMcpSmoke({ cliPath: process.argv[2] }))); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

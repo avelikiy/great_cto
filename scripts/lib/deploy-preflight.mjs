@@ -26,6 +26,8 @@
  *   exit 0 = every required variable is set   ·   exit 1 = refuse to deploy
  */
 
+import { isMainModule } from './is-main.mjs';
+
 /** Values that are syntactically present and semantically absent. */
 const PLACEHOLDER = /^(changeme|change_me|todo|tbd|xxx+|placeholder|your[-_].+|example|dummy|fixme|none|null|undefined|<.*>|\.\.\.)$/i;
 
@@ -128,6 +130,6 @@ async function main(argv) {
   return result.ok ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

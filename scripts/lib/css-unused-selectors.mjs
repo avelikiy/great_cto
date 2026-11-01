@@ -37,6 +37,7 @@
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Directories whose HTML is not this site's own markup, so a class found there
@@ -152,7 +153,7 @@ export function audit(cssPath, root) {
   };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   const cssPath = args.find((a) => !a.startsWith('--'));
   const rootFlag = args.indexOf('--root');

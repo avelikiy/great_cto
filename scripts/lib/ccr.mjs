@@ -16,7 +16,7 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export function ccrRoot(opts = {}) {
   return opts.root || process.env.GREAT_CTO_CCR_ROOT || join(process.cwd(), '.great_cto', 'ccr');
@@ -164,5 +164,5 @@ function main() {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

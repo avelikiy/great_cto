@@ -39,6 +39,7 @@ import { appendEvent } from '../lib/agent-events.mjs';
 import { contractPath } from '../lib/contract-path.mjs';
 import { logVerdictCommand } from '../lib/log-verdict-path.mjs';
 import { readdirSync as _readdir, unlinkSync } from 'node:fs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const ORCH_PATH = contractPath('orchestrator.toml');
@@ -538,5 +539,5 @@ async function main() {
   return leave(2, 'asked');
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

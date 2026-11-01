@@ -18,6 +18,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const HISTORY = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'tests', 'eval', 'results-history.jsonl');
 
@@ -136,7 +137,7 @@ export function describeFailures(d, { maxAnswer = 600 } = {}) {
 // "What is this agent getting wrong, in its own words" — the question
 // /agent evolve should be answering before it asks for a new prompt.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const agent = argv.find((a) => !a.startsWith('--'));
   if (!agent) {

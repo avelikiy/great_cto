@@ -142,6 +142,7 @@ test('bump-version.sh refuses before touching a file when another session holds 
   fs.mkdirSync(path.join(tree, '.claude-plugin'));
   fs.copyFileSync(path.join(ROOT, 'scripts/bump-version.sh'), path.join(tree, 'scripts/bump-version.sh'));
   fs.copyFileSync(path.join(ROOT, 'scripts/lib/release-lease.mjs'), path.join(tree, 'scripts/lib/release-lease.mjs'));
+  fs.copyFileSync(path.join(ROOT, 'scripts/lib/is-main.mjs'), path.join(tree, 'scripts/lib/is-main.mjs'));
   const plugin = path.join(tree, '.claude-plugin/plugin.json');
   fs.writeFileSync(plugin, JSON.stringify({ version: '9.9.8' }) + '\n');
   const dir = path.join(home, 'release-lease');

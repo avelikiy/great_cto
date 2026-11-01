@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, verify } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { admitRelease, getAdmissionInfo, getAdmittedArtifact, readTrustedLocalPublicKey, localReleaseSignatureMessage, parseStrictReleaseIndex } from '../packages/cli/src/release-trust.mjs';
 import { assertPublicationSource } from './sign-release-artifacts.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const REPOSITORY = 'avelikiy/great_cto';
 const API = 'https://api.github.com';
@@ -202,7 +202,7 @@ export async function publishLocalGitHubRelease(options,{run=execFileSync,fetchF
   return{state:production?(wasPublic?'ALREADY_PUBLISHED_BYTE_IDENTICAL':'GITHUB_RELEASE_PUBLISHED_AND_READ_BACK'):'SIMULATED_GITHUB_PUBLICATION_READBACK',version,commit:info.commit,indexDigest:info.indexDigest,releaseId:release.id,url:`https://github.com/${REPOSITORY}/releases/tag/v${version}`,assets:present.size,authority:production?'GITHUB_RELEASE_BYTES_VERIFIED':'NONE',evidence:production?'LOCAL_OWNER_SIGNATURE_NPM_AND_GITHUB_READBACK':'SYNTHETIC_ONLY',releaseEligibility:'NOT_CHECKED',published:production&&!wasPublic,installed:false};
 }
 
-if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
+if(isMainModule(import.meta.url)){
   try{
     const allowed=new Set(['--directory','--version','--source','--approve-commit','--approve-index-digest','--approval','--public-key','--key-fingerprint','--github-token-file','--resume-release-id']),flags=new Map();
     for(let i=2;i<process.argv.length;i+=2){const name=process.argv[i],value=process.argv[i+1];if(!allowed.has(name)||flags.has(name)||!value||value.startsWith('--'))throw Error('invalid local GitHub publisher option');flags.set(name,value);}

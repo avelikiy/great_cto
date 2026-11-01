@@ -19,6 +19,8 @@
 // Reported, never inferred: each finding names the losing declaration, the rule
 // that beats it, and both line numbers.
 
+import { isMainModule } from './is-main.mjs';
+
 /** Blank out comments while preserving every byte offset. */
 function blankComments(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, (m) => ' '.repeat(m.length));
@@ -147,7 +149,7 @@ export function losingDeclarations(css) {
 //
 //   node scripts/lib/css-cascade.mjs <file.html|file.css> [--json]
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const file = process.argv[2];
   if (!file) { console.error('usage: css-cascade.mjs <file> [--json]'); process.exit(2); }

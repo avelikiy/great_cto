@@ -24,6 +24,7 @@ import { join } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const DEFAULT_TIMEOUT_MS = 15000;
 
@@ -191,5 +192,5 @@ async function main(argv) {
   if (r.reason) console.log(`  (na reason: ${r.reason})`);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

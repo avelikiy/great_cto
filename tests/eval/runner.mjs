@@ -57,6 +57,7 @@ import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib
 import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
 import { expandSharedRefs as expandShared } from '../../scripts/lib/shared-fragments.mjs';
+import { isMainModule } from '../../scripts/lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -1575,7 +1576,7 @@ async function main() {
 }
 
 // Only run main() when this file is executed directly (not when imported by tests).
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   main().catch(err => {
     console.error('\nFATAL:', err.message);

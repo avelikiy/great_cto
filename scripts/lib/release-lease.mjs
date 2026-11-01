@@ -49,7 +49,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULT_TTL_HOURS = 12;
 const STABLE = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/;
@@ -296,10 +296,11 @@ export function status({ version, now = new Date(), dir = leaseDir() } = {}) {
   return { state: live(lease, now) ? 'HELD' : 'EXPIRED', version, by: lease.holder, commit: lease.commit, expiresAt: lease.expiresAt, ...(lock ? { lock } : {}) };
 }
 
-// Compared by real path. Run through a symlinked path (/var → /private/var, a
-// plugin cache link), a plain comparison is false, the CLI does nothing and exits
-// 0 — and bump-version.sh would take a lease that was never checked as granted.
-const isMain = (() => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } })();
+// Compared by real path (is-main.mjs). Run through a symlinked path (/var →
+// /private/var, a plugin cache link), a plain comparison is false, the CLI does
+// nothing and exits 0 — and bump-version.sh would take a lease that was never
+// checked as granted.
+const isMain = isMainModule(import.meta.url);
 if (process.argv[1] && isMain) {
   const [cmd, ...rest] = process.argv.slice(2);
   const flags = {};

@@ -33,6 +33,7 @@
  */
 
 import { pendingQuestion, evaluateDag, parseAnswer } from './dag-metric.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const DIVERGENCE = Object.freeze({
   AGREE: 'agree',
@@ -240,7 +241,7 @@ async function main(argv) {
   return cmp.diverged.length ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }
 

@@ -30,6 +30,7 @@
  */
 
 import { PROOF } from './proof-status.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Wilson score interval for a binomial proportion.
@@ -228,6 +229,6 @@ async function main(argv) {
   return v.status === PROOF.FAILED ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

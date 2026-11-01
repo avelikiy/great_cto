@@ -18,8 +18,8 @@
  */
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { projectRoot } from './project-root.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const BEGIN = '# >>> great_cto managed — machine-local state, not project history >>>';
 export const END = '# <<< great_cto managed <<<';
@@ -66,5 +66,5 @@ export function ensureStateGitignore(dir = process.cwd()) {
   return 'written';
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) { try { ensureStateGitignore(process.argv[2] || process.cwd()); } catch { /* never block a session */ } }

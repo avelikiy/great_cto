@@ -39,6 +39,7 @@
 import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { simpleCommands, base } from '../lib/shell-commands.mjs';
 import { isCovered } from '../lib/exceptions.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const GATE = 'secret-read';
 
@@ -139,4 +140,4 @@ export function run(raw, env = process.env) {
                 what: hit.command === 'Read' || hit.command === 'Grep' ? 'read' : 'command' });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdinOnce()));
+if (isMainModule(import.meta.url)) emit(run(readStdinOnce()));

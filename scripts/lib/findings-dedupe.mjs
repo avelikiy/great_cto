@@ -47,6 +47,7 @@
 
 import { createHash } from 'node:crypto';
 import { evidenceBlock } from './finding-evidence.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULTS = Object.freeze({ window: 3, jaccard: 0.6 });
 
@@ -281,6 +282,6 @@ async function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

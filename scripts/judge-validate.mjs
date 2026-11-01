@@ -14,6 +14,7 @@
 
 import { readFileSync } from 'node:fs';
 import { parseResultsJsonl, evaluateGate } from './eval-gate.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 /**
  * Qualify a candidate judge vs the current judge on the holdout split.
@@ -28,7 +29,7 @@ export function qualifyJudge(currentRows, candidateRows, opts = {}) {
 }
 
 // ── CLI ───────────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const arg = (n) => { const i = process.argv.indexOf(n); return i > -1 ? process.argv[i + 1] : null; };
   const cur = arg('--current'), cand = arg('--candidate');
   if (!cur || !cand) {

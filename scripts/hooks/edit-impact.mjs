@@ -21,8 +21,8 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, extname, join, relative, resolve, isAbsolute } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { appendEvent } from '../lib/agent-events.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const JS = new Set(['.js', '.mjs', '.cjs', '.jsx', '.ts', '.mts', '.cts', '.tsx']);
 const PY = new Set(['.py']);
@@ -162,7 +162,7 @@ function main() {
   }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   try { main(); } catch { /* never block an edit on this hook's own failure */ }
   process.exit(0);
 }

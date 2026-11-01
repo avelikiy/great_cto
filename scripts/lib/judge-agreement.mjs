@@ -23,6 +23,8 @@
  *   node scripts/lib/judge-agreement.mjs tests/eval/judge-alignment/disputed.jsonl
  */
 
+import { isMainModule } from './is-main.mjs';
+
 /** Cohen's kappa for two binary raters. Chance agreement is the point. */
 export function kappa(pairs) {
   const n = pairs.length;
@@ -90,6 +92,6 @@ async function main(argv) {
   return argv.includes('--strict') && (!s.labelled || s.falseFail) ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

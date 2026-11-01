@@ -41,6 +41,7 @@
  * half the point, since "PII found" without a replacement is an instruction to
  * delete the sentence rather than to fix it.
  */
+import { isMainModule } from './is-main.mjs';
 export const PII_PATTERNS = Object.freeze([
   { name: 'US SSN', re: /\b(?!000|666|9\d\d)\d{3}-(?!00)\d{2}-(?!0000)\d{4}\b/g,
     redact: 'say "an unredacted SSN at <location>" and give the file:line' },
@@ -145,6 +146,6 @@ async function main(argv) {
   return argv.includes('--strict') && total ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

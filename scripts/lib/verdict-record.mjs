@@ -28,6 +28,7 @@
  * Writing is strict: everything new is v1 NDJSON.
  */
 
+import { isMainModule } from './is-main.mjs';
 export const VERDICT_FORMAT_VERSION = 1;
 
 /** Verdict values with a defined meaning. Anything else is kept but flagged. */
@@ -304,6 +305,6 @@ async function main(argv) {
   return argv.includes('--strict') && bad ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

@@ -20,7 +20,7 @@
 //   node scripts/lib/trace.mjs <bd-id> --json       → machine-readable
 
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const LAYER_RANK = { req: 0, uc: 1, task: 2, test: 3, other: 9 };
 
@@ -240,6 +240,6 @@ function main(argv) {
   process.exit(0);
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2));
 }
