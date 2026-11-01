@@ -43,3 +43,12 @@ test('senior-dev says, per new test, what green does not prove', () => {
     assert.ok(at > t.indexOf('**Stub check') && at < t.indexOf('**GREEN**'), `${f}: between the stub check and GREEN`);
   }
 });
+
+test('design-advisor states motion and tokens as numbers, one value per token', () => {
+  for (const [f, t] of both('design-advisor')) {
+    assert.match(t, /cubic-bezier\(0\.23, 1, 0\.32, 1\)/, `${f}: an ease-out curve as numbers`);
+    assert.match(t, /"Smooth" or "subtle" without a number is not a\s+contract/, f);
+    assert.match(t, /\*\*One value per token\.\*\*/, f);
+    assert.match(t, /says\s+`override` and why/, `${f}: a departure from a global is stated`);
+  }
+});

@@ -245,11 +245,22 @@ component the implementer touches), `status: draft`, `author: design-advisor v2.
    For React Native pull the Critical/High rules from `app-interface.csv`.
 5. **Responsive contract** — breakpoints and what reflows. For RN: device classes,
    safe-area, orientation.
-6. **Motion contract** — transitions, durations, reduced-motion fallback.
+6. **Motion contract** — transitions, durations, reduced-motion fallback. Every
+   motion names its duration and curve as numbers. Defaults, changed only with a reason:
+   feedback (hover, press, toggle) 120–180 ms; a panel, sheet or dialog 200–300 ms;
+   entering uses ease-out `cubic-bezier(0.23, 1, 0.32, 1)`, moving on screen uses
+   ease-in-out `cubic-bezier(0.77, 0, 0.175, 1)`, a drawer `cubic-bezier(0.32, 0.72, 0, 1)`;
+   nothing user-facing over 400 ms. "Smooth" or "subtle" without a number is not a
+   contract.
 7. **6.5 Platform integration contract** — for mobile/extension: native APIs,
    permissions, deep links, RN-specific component substitutions.
 8. **Brand tokens** — the actual token table (CSS custom properties for web; a token
-   module for RN).
+   module for RN). **One value per token.** A component that departs from a global
+   token (a card at 8 px radius under a 0 px corner rule) gets its own row that says
+   `override` and why; `artifact-lint` rejects a token named twice with two values and
+   no `override`. Every style word the design uses ("editorial", "soft shadow",
+   "comfortable") resolves here to numbers — spacing scale, radius, shadow, row height —
+   because the implementer builds the numbers, not the word.
 9. **Out of scope** — what this design deliberately does not cover.
 10. **Open questions** — capped at 10; each with your recommended default so the
    pipeline never blocks on you.

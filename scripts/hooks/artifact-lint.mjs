@@ -126,6 +126,30 @@ const TYPES = [
       /(numeric contract|figure style|tabular)/i, /(destructive|cost of recovery)/i],
     date: 'any',
     cites: false,
+    rules: [
+      {
+        // A token named twice with two values is a design that contradicts itself;
+        // the implementer then picks one, and nobody chose which. (A generated
+        // style prompt seen on 01.11 set corners to 0 globally and a card to 8px.)
+        // An override is fine when it is said: a later row reading "override" wins.
+        kind: 'token-conflict',
+        section: /brand tokens|tokens/i,
+        check: (body) => {
+          const seen = new Map(), out = [];
+          for (const l of body.split('\n')) {
+            if (!/^\s*\|/.test(l) || /^\s*\|[\s:|-]+\|\s*$/.test(l)) continue;
+            const cells = l.split('|').slice(1, -1).map((c) => c.trim().replace(/`/g, ''));
+            const [name, value] = cells;
+            if (!name || !value || /^(token|name|property)$/i.test(name)) continue;
+            const prev = seen.get(name);
+            if (prev !== undefined && prev !== value && !/override/i.test(l)) out.push(`${name} is ${prev} and ${value}`);
+            seen.set(name, value);
+          }
+          return out;
+        },
+        why: 'one value per token, or the row that changes it says "override" and why',
+      },
+    ],
   },
   {
     name: 'TM',

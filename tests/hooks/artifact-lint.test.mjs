@@ -380,3 +380,21 @@ test('error paths: a design with nothing that can fail says so, with a reason', 
   const bare = '## Error paths\n\nNo error paths.\n';
   assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', bare) })), ['error-paths-not-a-table'], 'the reason is required');
 });
+
+// ─── DESIGN token conflicts (01.11.2026) ─────────────────────────────────────
+// One value per token; a component that departs from a global says "override".
+const designWith = (tokens) => `---\ndate: ${today}\n---\n# DESIGN\n## Design system\nx\n## Component inventory\nx\n## A11y\nx\n## Responsive\nx\n## Numeric contract\nx\n## Destructive actions — cost of recovery\nx\n## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n${tokens}\n`;
+const conflicts = (r) => errKinds(r).filter((k) => k === 'token-conflict');
+
+test('token conflict: a token named twice with two values is an error', () => {
+  const r = lint({ 'docs/design/DESIGN-x.md': designWith('| --radius | 0 | sharp corners |\n| --space-4 | 16px | |\n| --radius | 8px | cards |') });
+  assert.equal(conflicts(r).length, 1);
+});
+
+test('token conflict: a stated override, a repeated equal value, or distinct tokens pass', () => {
+  for (const rows of [
+    '| --radius | 0 | sharp corners |\n| --radius | 8px | override for cards: touch targets read as buttons |',
+    '| --radius | 0 | |\n| --radius | 0 | repeated in the card section |',
+    '| --radius-card | 8px | |\n| --radius | 0 | |',
+  ]) assert.deepEqual(conflicts(lint({ 'docs/design/DESIGN-x.md': designWith(rows) })), [], rows);
+});
