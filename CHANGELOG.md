@@ -77,7 +77,7 @@ The judge needs a real majority before it passes a requirement. And only one ses
 
 ### Added
 
-- **Release lease: one writer per version** (great_cto-inty). `bump-version.sh` claims the version before it changes any file. The claim is an atomic, expiring file `~/.great_cto/release-lease/great-cto@VERSION.json`. It is refused in three cases: another session holds the version, the remote tag or npm version is taken, or the remote could not be checked. Before the tag, `release-lease.mjs bind` records the commit. `publish-local-release` refuses a first publication unless the lease is live, belongs to this session and is bound to the approved commit. Reading back an already published version does not need the lease. After the GitHub release, `release-lease.mjs release` frees the version. An expired lease is kept aside, not deleted, and `journal.jsonl` records every step. Codex and Claude Code each hold the lease as their own session. Before this, the second session found out only at the tag, after a full gate.
+- **Release lease: one writer per version** (great_cto-inty). `bump-version.sh` claims the version before it changes any file. The claim is an atomic, expiring file `~/.great_cto/release-lease/great-cto@VERSION.json`. It is refused in three cases: another session holds the version, the remote tag or npm version is taken, or the remote could not be checked. Before the tag, `release-lease.mjs bind` records the commit. `publish-local-release` refuses a first publication unless the lease is live, belongs to this session and is bound to the approved commit. Reading back an already published version does not need the lease. After the GitHub release, `release-lease.mjs release` frees the version. An expired lease is kept aside, not deleted, and `journal.jsonl` records every step. Each decision about a version happens under a per-version lock, so two sessions cannot both take over the same expired lease. Codex and Claude Code each hold the lease as their own session id. Without an id, the lease refuses and asks for `GREAT_CTO_RELEASE_HOLDER`; it never falls back to a name two sessions would share. A lease whose expiry cannot be read counts as live. The holder can renew its own lapsed lease after its tag is pushed. Before this, the second session found out only at the tag, after a full gate.
 
 ### Fixed
 
@@ -85,7 +85,7 @@ The judge needs a real majority before it passes a requirement. And only one ses
 
 ### Tests
 
-- 7 new judge cases (unanimous, 2–1 confirmed, 2–1 overturned either way, no quorum after five reaching the second model, all silent); the three tests that pinned the old rule now pin the new one. 13 lease cases, including a real `bump-version.sh` run that must refuse and leave `plugin.json` untouched; 2 publisher cases. Mutation-checked: 15 mutants, each red.
+- 7 new judge cases (unanimous, 2–1 confirmed, 2–1 overturned either way, no quorum after five reaching the second model, all silent); the three tests that pinned the old rule now pin the new one. 22 lease cases, including a real `bump-version.sh` run that must refuse and leave `plugin.json` untouched, and an interleaved takeover; 2 publisher cases. An independent review found two majors (a holder fallback two sessions shared, a takeover race) and nine minors; all are fixed and pinned. Mutation-checked: 26 mutants, each red.
 
 ---
 

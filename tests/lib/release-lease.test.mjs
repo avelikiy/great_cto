@@ -128,9 +128,11 @@ test('the holder is the host session, stable across calls, distinct between host
   assert.equal(holderFrom({ CLAUDE_CODE_SESSION_ID: 'x', CODEX_THREAD_ID: 'y' }), 'claude:x');
   assert.equal(holderFrom({ CODEX_THREAD_ID: 'y' }), 'codex:y');
   assert.equal(holderFrom({ CODEX_SESSION_ID: 'z' }), 'codex:z');
-  assert.equal(holderFrom({ USER: 'u' }), 'operator:u');
+  // Review L1: no shared fallback — two sessions without an id must not be one holder.
+  assert.equal(holderFrom({ USER: 'u' }), null);
   assert.equal(leaseDir({ GREAT_CTO_HOME: '/g' }), '/g/release-lease');
-  assert.equal(leaseDir({ HOME: '/h' }), '/h/.great_cto/release-lease');
+  // Review L7: the account's home, not $HOME, so a host with another HOME meets the same leases.
+  assert.equal(leaseDir({ HOME: '/elsewhere' }), path.join(os.userInfo().homedir, '.great_cto/release-lease'));
 });
 
 test('bump-version.sh refuses before touching a file when another session holds the version', (t) => {
@@ -153,4 +155,95 @@ test('bump-version.sh refuses before touching a file when another session holds 
   assert.match(r.stderr, /being released by codex:B/);
   assert.match(r.stderr, /could not claim the release lease for 9\.9\.9/);
   assert.equal(JSON.parse(fs.readFileSync(plugin, 'utf8')).version, '9.9.8', 'nothing was bumped');
+});
+
+// Review of 3.75.4 (L1–L9), each pinned with the input that showed it.
+
+test('L1: without a session id there is no holder, and nothing is claimed', async (t) => {
+  const dir = tmp(t);
+  const r = await acquire({ version: '9.9.9', holder: null, now: T0, dir, checks: free() });
+  assert.equal(r.state, 'HOLDER_UNKNOWN');
+  assert.match(r.why, /GREAT_CTO_RELEASE_HOLDER/);
+  assert.equal(status({ version: '9.9.9', dir }).state, 'FREE');
+  assert.equal(check({ version: '9.9.9', commit: C1, holder: null, dir }).ok, false);
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !/^(CLAUDE_CODE_SESSION_ID|CODEX_THREAD_ID|CODEX_SESSION_ID|GREAT_CTO_RELEASE_HOLDER)$/.test(k)));
+  const cli = spawnSync(process.execPath, [path.join(ROOT, 'scripts/lib/release-lease.mjs'), 'acquire', '--version', '9.9.9'],
+    { encoding: 'utf8', env: { ...env, GREAT_CTO_HOME: path.dirname(dir) } });
+  assert.equal(cli.status, 1);
+  assert.match(cli.stderr, /no session id/);
+});
+
+test('L2: a takeover cannot interleave — the second session is told to retry, not handed the version', async (t) => {
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:Old', now: T0, dir, checks: free() });
+  let inner;
+  // While B checks the remote under the lock, A tries to take the same expired lease.
+  const racing = { tag: () => 'free', async npm() {
+    inner = await acquire({ version: '9.9.9', holder: 'codex:A', now: later(13), dir, checks: free() });
+    return 'free';
+  } };
+  const b = await acquire({ version: '9.9.9', holder: 'claude:B', now: later(13), dir, checks: racing });
+  assert.equal(inner.state, 'BUSY');
+  assert.equal(b.state, 'ACQUIRED');
+  assert.deepEqual(journal(dir).filter((e) => e.op === 'acquire').map((e) => e.holder), ['claude:Old', 'claude:B']);
+  assert.equal(fs.readdirSync(dir).filter((f) => f.endsWith('.lock')).length, 0, 'the lock is gone afterwards');
+});
+
+test('L2: a lock left by a dead process is taken over after it goes stale, and journaled', async (t) => {
+  const dir = tmp(t);
+  const lock = path.join(dir, 'great-cto@9.9.9.lock');
+  fs.mkdirSync(lock);
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() })).state, 'BUSY');
+  const old = new Date(Date.now() - 10 * 60 * 1000);
+  fs.utimesSync(lock, old, old);
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() })).state, 'ACQUIRED');
+  assert.ok(journal(dir).some((e) => e.op === 'stale-lock'));
+});
+
+test('L3: an expiry that cannot be read counts as live — nobody takes the version on a guess', async (t) => {
+  const dir = tmp(t);
+  fs.writeFileSync(path.join(dir, 'great-cto@9.9.9.json'), JSON.stringify({ holder: 'codex:B' }));
+  const r = await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  assert.equal(r.state, 'HELD');
+  assert.equal(r.by, 'codex:B');
+});
+
+test('L4: check needs the commit being published', async (t) => {
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  assert.throws(() => check({ version: '9.9.9', holder: 'claude:A', now: T0, dir }), /needs the full 40-hex commit/);
+});
+
+test('L5: writes go through a temporary file — nothing half-written is left behind', async (t) => {
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: later(1), dir, checks: free() });
+  assert.deepEqual(fs.readdirSync(dir).filter((f) => f.includes('.tmp-')), []);
+  assert.equal(JSON.parse(fs.readFileSync(path.join(dir, 'great-cto@9.9.9.json'), 'utf8')).commit, C1);
+});
+
+test('L6: the remote tag is checked in the repository bump-version names, not the caller cwd', () => {
+  const bump = fs.readFileSync(path.join(ROOT, 'scripts/bump-version.sh'), 'utf8');
+  assert.match(bump, /release-lease\.mjs" acquire --version "\$NEW" --root "\$ROOT"/);
+});
+
+test('L8: a ttl that is not positive is refused', async (t) => {
+  const dir = tmp(t);
+  for (const ttlHours of [0, -1, NaN]) {
+    await assert.rejects(acquire({ version: '9.9.9', holder: 'claude:A', ttlHours, now: T0, dir, checks: free() }), /positive ttl/);
+  }
+});
+
+test('L9: the holder renews its own lapsed claim without the remote it already tagged, and may release it', async (t) => {
+  // The 2FA rerun the next morning: tag pushed, npm staged, lease expired overnight.
+  const dir = tmp(t);
+  await acquire({ version: '9.9.9', holder: 'claude:A', now: T0, dir, checks: free() });
+  bind({ version: '9.9.9', commit: C1, holder: 'claude:A', now: T0, dir });
+  assert.match(check({ version: '9.9.9', commit: C1, holder: 'claude:A', now: later(20), dir }).why, /expired .* renew it/);
+  const taken = { tag: () => 'taken', npm: async () => 'taken' };
+  assert.equal((await acquire({ version: '9.9.9', holder: 'claude:A', now: later(20), dir, checks: taken })).state, 'RENEWED');
+  assert.equal(check({ version: '9.9.9', commit: C1, holder: 'claude:A', now: later(21), dir }).ok, true, 'still bound to its commit');
+  assert.equal(release({ version: '9.9.9', holder: 'claude:A', now: later(40), dir }).state, 'RELEASED', 'an expired claim of ours can still be released');
 });

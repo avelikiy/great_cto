@@ -124,7 +124,17 @@ bind the lease to the exact commit. The npm publisher refuses a first
 publication unless the lease is live, belongs to this session and is bound to
 `--approve-commit`. A readback of a version npm already serves does not need the
 lease. After the GitHub release, release the lease. `journal.jsonl` beside the
-lease files records every claim, renewal, rebind, takeover and release:
+lease files records every claim, renewal, rebind, takeover and release.
+
+The holder is the host session: `CLAUDE_CODE_SESSION_ID`, or Codex's
+`CODEX_THREAD_ID` / `CODEX_SESSION_ID`. A human running the chain from a plain
+terminal sets `GREAT_CTO_RELEASE_HOLDER` to a name unique to this release.
+Without one, every command refuses, because a shared fallback would let a second
+session "renew" the first session's claim. Run every step of one release under
+the same holder. A lease expires after 12 hours. The holder renews it by running
+`acquire` again, even after its own tag is pushed: a 2FA rerun the next morning
+works that way. Another session may take over an expired lease only after
+checking that the tag and npm version are still free:
 
 ```bash
 node scripts/lib/release-lease.mjs bind --version EXACT_VERSION --commit REVIEWED_COMMIT
