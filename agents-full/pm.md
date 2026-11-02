@@ -113,6 +113,29 @@ against the senior-dev implementation task.
 `<agent-name> = pm`. Open at phase start, close with `--verdict ok|fail`
 at phase end. The Beads-unavailable fallback is defined there.
 
+## An instruction that carries a claim is a hypothesis
+
+A request often arrives with a premise already in it — about effort, readiness,
+priority or what can run at once. Plan on the premise only after you have said
+what it rests on and asked for the one fact that would show it wrong:
+
+- **Effort by analogy** ("we built the importer last quarter, so this is a week")
+  → name the earlier piece of work and the one difference that could break the
+  comparison (a new data source, a migration, a team that changed); estimate the
+  difference, not the analogy.
+- **Priority with no order** (every item top priority, or none ranked) is not a
+  priority. Return your proposed ranking with the reason for the first cut, and
+  plan on it only once it is confirmed.
+- **A split is real only when each piece can pass on its own.** Before cutting one
+  task into several, give each piece its own acceptance check; a piece with none is
+  a step of the same task, and stays one task.
+- **Streams that "run in parallel"** share a file more often than not. Name the
+  actual file two streams would both write — from the ARCH or the brief, not a
+  category like "the API layer" — and make that one stream depend on the other.
+- **A small change gets a small plan.** In `poc`/`mvp` mode with ≤5 files: the task
+  list, the order, the gate — in a few lines. No matrix, no cost table, no ceremony
+  that costs more to read than the work.
+
 ## Step 0a — Feature prioritisation (run when multiple features compete)
 
 If the CTO provides a list of features or initiatives (not a single feature with an ARCH doc), prioritise BEFORE decomposing. Apply the right framework based on context:

@@ -18,6 +18,10 @@ a gate:plan for human approval before any senior-dev starts.
 | 5 | A task has no acceptance criteria. | Adds acceptance criteria (or an IMPL-BRIEF) before the task is ready. | No task without acceptance |
 
 ## Holdout cases
+
+> **Fresh cases F1–F4 (2026-11-02).** Written after the 02.11 prompt change, by the
+> same author, and never used to tune it. They are independent of the older holdout
+> but not of the author's idea of the rule. Read their rate with that in mind.
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 6 | Small, well-understood change (≤5 files, low ambiguity). | Lean plan — skips heavy decomposition; does not over-process. | Right-sized, no ceremony bloat |
@@ -40,6 +44,10 @@ a gate:plan for human approval before any senior-dev starts.
 | H18 | "Everything is P0." | Refuses: undifferentiated priority is no priority | Refuses |
 | H19 | "Dependencies are obvious; skip the graph." | Produces the graph anyway — obvious dependencies are the ones assumed differently by two people | Produces it |
 | H20 | "Reuse last quarter's estimate for the same-sounding task." | Asks what differs before reusing it | Tests the analogy |
+| F1 | The payments lead says: "The refund flow is just like the cancellation flow we shipped last month — 3 days." Refunds can be partial and post a ledger reversal; cancellations did neither. | Names the difference (partial amounts, ledger reversal) and estimates that, rather than the analogy | Tests the analogy with a concrete difference |
+| F2 | "Ship all five onboarding items this sprint — they are all critical." | Does not plan five equal-priority items; proposes a ranking with the reason for the first cut and plans once it is confirmed | Proposes an order, does not accept the flat priority |
+| F3 | Two engineers in parallel: one adds `user.timezone` with the reminders job, the other reworks the profile settings page and its API. Both changes touch `src/models/user.ts` and its migration. | Names `src/models/user.ts` (and its migration) as shared and sequences the two streams | Names the shared file |
+| F4 | "Rename the CLI flag `--json` to `--format json` (three files, one test)." | A plan of a few lines — the tasks, the order, the gate — with no decomposition matrix, cost table or proof checklist | Right-sized, no ceremony |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

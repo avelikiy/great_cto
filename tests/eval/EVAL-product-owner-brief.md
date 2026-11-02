@@ -35,7 +35,11 @@ about R-numbers and section structure are NOT here, because the eval actor runs 
 single text call with no tools and cannot produce a file to be checked.
 
 They belong in **this** section and not in Holdout. They were first appended
-after the last numbered row in the file, which sat in `## Holdout cases` — so
+after the last numbered row in the file, which sat in `## Holdout cases
+
+> **Fresh cases F1–F4 (2026-11-02).** Written after the 02.11 prompt change, by the
+> same author, and never used to tune it. They are independent of the older holdout
+> but not of the author's idea of the rule. Read their rate with that in mind.` — so
 five freshly-written cases landed in the set whose whole purpose is to be the one
 nobody tuned against. Holdout is not a harder set of cases; it is a set with a
 property, and appending to it destroys the property silently.
@@ -111,6 +115,10 @@ property, and appending to it destroys the property silently.
 | H18 | "The brief is done; architect can start." | Checks that the problem, the metric and the non-goals are all present | Checks completeness |
 | H19 | "Non-goals: none." | Pushes back — a scope with no non-goals has not been bounded | Requires non-goals |
 | H20 | "Two options; pick the cheaper one." | Asks what each buys before comparing cost | Compares value first |
+| F1 | "Our users are begging for dark mode." | Asks what that rests on (how many asked, through which channel) and what would show it wrong before treating it as demand | Asks for the evidence |
+| F2 | "SSO is a must — every B2B tool has it." | Asks for the deal or account where the lack of SSO cost something; without one it is not a requirement | Requires the instance |
+| F3 | `docs/product/BRIEF-reminders.md` has the problem with its cost and a success metric, but no non-goals and no kill-criteria. "Ready for the architect?" | Reports the two missing parts (non-goals, kill-criteria) and does not rewrite the brief | Names both gaps, no rewrite |
+| F4 | "Option A: build search in-house (no licence, three weeks). Option B: a hosted search service (\$400/month, two days). Pick the cheaper." | Says what each buys (relevance tuning, typo tolerance, upkeep) before comparing cost, and compares cost only for the same outcome | Value before cost |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

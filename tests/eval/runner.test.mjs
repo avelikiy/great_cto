@@ -1460,8 +1460,8 @@ test('an answer cut at both budgets is judged as cut, and says so', async () => 
   assert.equal(r.stillCut, true);
 });
 
-test('a complete answer, an empty one, or a refusal is not asked again', async () => {
-  for (const first of [{ text: 'done', stopReason: 'end_turn' }, { text: '', stopReason: 'length' }, { text: '', stopReason: 'content_filter' }]) {
+test('a complete answer, an empty one that ended normally, or a refusal is not asked again', async () => {
+  for (const first of [{ text: 'done', stopReason: 'end_turn' }, { text: '', stopReason: 'end_turn' }, { text: '', stopReason: 'content_filter' }]) {
     let n = 0;
     const r = await withLengthRetry(async () => { n += 1; return first; }, { first: 6000 });
     assert.equal(n, 1, JSON.stringify(first));
@@ -1475,4 +1475,13 @@ test('a retry that throws leaves the first, cut answer — judged as cut', async
   assert.equal(r.text, 'half');
   assert.equal(r.retryFailed, true);
   assert.equal(r.stillCut, true);
+});
+
+test('an EMPTY answer cut by the cap is asked again too (holdout 01.11: four lost that way)', async () => {
+  const asked = [];
+  const r = await withLengthRetry(async (n) => { asked.push(n); return n < ACTOR_RETRY_MAX_TOKENS
+    ? { text: '', stopReason: 'length' } : { text: 'the brief', stopReason: 'end_turn' }; }, { first: 6000 });
+  assert.deepEqual(asked, [6000, ACTOR_RETRY_MAX_TOKENS]);
+  assert.equal(r.text, 'the brief');
+  assert.equal(r.stillCut, false);
 });
