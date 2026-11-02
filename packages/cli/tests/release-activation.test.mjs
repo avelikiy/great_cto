@@ -211,6 +211,50 @@ test('successful installer exit without admitted bytes is rolled back without ex
   assert.equal(r.state, 'SIMULATED_ROLLED_BACK'); assert.equal(f.calls.length, 1); assert.equal(fs.readFileSync(path.join(f.pkg, 'index.mjs'), 'utf8'), 'previous runtime');
 });
 
+const journalOf = f => {
+  const dir = fs.readdirSync(f.stateRoot).find(name => /^[a-f0-9]{64}$/.test(name));
+  return JSON.parse(fs.readFileSync(path.join(f.stateRoot, dir, 'transaction.json'), 'utf8'));
+};
+
+test('a private umask of the caller does not fail an activation of identical bytes', t => {
+  const f = fixture(t), previous = process.umask(0o077); t.after(() => process.umask(previous));
+  const r = activateNpmRelease(f.admission, f.options);
+  assert.equal(r.state, 'SIMULATED_SMOKE_PASSED', JSON.stringify(r));
+  assert.equal(fs.statSync(path.join(f.pkg, 'index.mjs')).mode & 0o777, 0o755);
+  assert.equal(process.umask(0o077), 0o077, 'the caller keeps its own umask');
+});
+
+test('modes that differ from the admitted ones roll back and name the file and both modes', t => {
+  const f = fixture(t); f.testing.run = (...args) => { f.calls.push(args); f.installFiles(); fs.chmodSync(path.join(f.pkg, 'index.mjs'), 0o700); return { status: 0 }; };
+  const r = activateNpmRelease(f.admission, f.options);
+  assert.equal(r.state, 'SIMULATED_ROLLED_BACK'); assert.equal(r.reason, 'installed-files-differ-from-admitted'); assert.equal(f.calls.length, 1);
+  const journal = journalOf(f);
+  assert.equal(journal.failure, r.reason);
+  assert.deepEqual(journal.failureDetail, { differing: 1, unexpected: 0, path: 'index.mjs', expectedMode: '755', actualMode: '700', sameBytes: true });
+});
+
+test('a failed npm install records its status and the tail of its stderr', t => {
+  const f = fixture(t); f.testing.run = () => { f.installFiles(); return { status: 7, stderr: 'x'.repeat(5000) + 'npm ERR! tarball' }; };
+  const r = activateNpmRelease(f.admission, f.options);
+  assert.equal(r.reason, 'npm-install-failed');
+  const detail = journalOf(f).failureDetail;
+  assert.equal(detail.step, 'npm-install'); assert.equal(detail.status, 7); assert.ok(detail.stderr.endsWith('npm ERR! tarball')); assert.equal(detail.stderr.length, 2000);
+});
+
+test('each smoke step reports itself: failed version, wrong version, failed codex-host', t => {
+  for (const [answer, reason, step] of [
+    [args => args.includes('--version') ? { status: 1, stderr: 'boom' } : { status: 0 }, 'smoke-version-failed', 'smoke-version'],
+    [args => args.includes('--version') ? { status: 0, stdout: '0.0.1\n' } : { status: 0 }, 'smoke-version-mismatch', 'smoke-version'],
+    [args => args.includes('--version') ? { status: 0, stdout: '3.71.0\n' } : { status: null, signal: 'SIGTERM' }, 'smoke-codex-host-list-failed', 'smoke-codex-host-list'],
+  ]) {
+    const f = fixture(t), install = f.testing.run;
+    f.testing.run = (command, args, options) => args.includes('install') ? install(command, args, options) : answer(args);
+    const r = activateNpmRelease(f.admission, f.options);
+    assert.equal(r.state, 'SIMULATED_ROLLED_BACK'); assert.equal(r.reason, reason);
+    assert.equal(journalOf(f).failureDetail.step, step);
+  }
+});
+
 test('unobserved partial removal is recovery-required and never replaces neighbouring state', t => {
   const f = fixture(t); f.testing.run = () => { fs.rmSync(f.pkg, { recursive: true }); return { status: 2 }; };
   const r = activateNpmRelease(f.admission, f.options);
