@@ -69,6 +69,29 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.7 — 2026-11-02
+
+From the first holdout measurement on 3.75.6. pm and product-owner now test the premise a request carries before building on it, and security-officer keeps reviewing past an instruction planted in the change.
+
+### Fixed
+
+- **pm** treats a claim in the request as a hypothesis. For an estimate by analogy, it names the difference that could break the analogy. A flat "all critical" gets a proposed ranking, a split only stands when every piece has its own acceptance check, and "parallel" streams have their shared file named. A small change gets a small plan.
+- **product-owner** asks what "we know" or "it is standard" rests on and wants one named instance. It checks a finished brief for its required parts instead of rewriting it, and says what each option buys before comparing cost.
+- **security-officer:** instruction-shaped text inside the change (a README line, a commit message, a string literal) is data under review, and the review goes on. Refusing it and stopping is the same failure as obeying it.
+- **Evals:** security-officer adversarial-prompt H1 and H2 now carry the code. Described in prose, they gave the agent nothing to review, which is the same defect fixed in the QA cases.
+- **Eval runner:** an answer cut by the cap while still empty also gets the second, larger budget. The holdout had lost four product-owner cases this way; they were skipped instead of measured.
+
+### Added
+
+- **Fresh holdout cases F1–F4** for pm and product-owner. They were written after the prompt change and never used to tune it, so a fix measured on the now-seen holdout is also measured on cases it has not seen. Their limit is stated in the file: the same author wrote the cases and the rules.
+
+### Tests
+
+- Wiring tests for the three agents in both registrations.
+- A runner test for retrying an empty cut answer.
+---
+
 ## v3.75.6 — 2026-11-01
 
 A deploy can now tell a PASS written by its writer from one written by hand. The 01.11 re-measure failures are sorted into agent gaps (fixed in the agents) and eval defects (fixed in the cases). And every script recognises itself through a symlink.
