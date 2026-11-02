@@ -72,6 +72,21 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.10 — 2026-11-02
+
+`great-cto upgrade --self` no longer rolls back under a private umask, and a rollback now says why.
+
+### Fixed
+
+- **`upgrade --self` under `umask 077`.** npm applied the caller's umask to the files it unpacked, and the admitted inventory includes modes, so identical bytes at 600/700 failed the check before any smoke step ran. npm now installs under umask 022, and the caller's umask is restored afterwards. Anyone whose shell uses `umask 077` could not upgrade this way at all. The same fault looked intermittent in the 3.75.6–3.75.9 releases because only the first attempt ran under that umask.
+
+### Added
+
+- **A rollback carries its reason.** The outcome returns `reason`, for example `installed-files-differ-from-admitted`, `npm-install-failed` or `smoke-version-mismatch`. The transaction journal keeps `failure` and `failureDetail`: the failing step with its status, signal and output tail, or the first differing file with both modes.
+
+---
+
 ## v3.75.9 — 2026-11-02
 
 security-officer now treats a stated fact as evidence, and this release corrects a number published with 3.75.8.
