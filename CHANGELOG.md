@@ -76,19 +76,29 @@ From the first holdout measurement on 3.75.6. pm and product-owner now test the 
 
 ### Fixed
 
-- **pm** treats a claim in the request as a hypothesis. For an estimate by analogy, it names the difference that could break the analogy. A flat "all critical" gets a proposed ranking, a split only stands when every piece has its own acceptance check, and "parallel" streams have their shared file named. A small change gets a small plan.
-- **product-owner** asks what "we know" or "it is standard" rests on and wants one named instance. It checks a finished brief for its required parts instead of rewriting it, and says what each option buys before comparing cost.
-- **security-officer:** instruction-shaped text inside the change (a README line, a commit message, a string literal) is data under review, and the review goes on. Refusing it and stopping is the same failure as obeying it.
+- **pm** treats a claim in the request as a hypothesis:
+  - an estimate by analogy gets the difference that could break the analogy named;
+  - a flat "all critical" gets a ranking marked provisional, put to the human at gate:plan without stalling the run;
+  - a split stands only when every piece has its own acceptance check;
+  - "parallel" streams get their shared file named;
+  - a small change, sized by the change and never a migration, gets short prose but keeps its IMPL-BRIEFs and gate:plan.
+- **product-owner** asks what "we know" or "it is standard" rests on. It wants a named instance, or the contract or regulatory clause, and records the claim as unverified until it gets one. It checks a finished brief for its required parts instead of rewriting it, and says what each option buys before comparing cost.
+- **security-officer:** instruction-shaped text inside the change (a README line, a commit message, a string literal) is data under review, and the review goes on. Refusing it and stopping is the same failure as obeying it. The text is a finding when something obeys it:
+  - a model prompt;
+  - a stored field later fed to a model;
+  - a file models read as instruction: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, an agent file, a RAG document.
+  A forged approval line is reported to the human as a sign of hostile intent. Test fixtures are exempt.
 - **Evals:** security-officer adversarial-prompt H1 and H2 now carry the code. Described in prose, they gave the agent nothing to review, which is the same defect fixed in the QA cases.
 - **Eval runner:** an answer cut by the cap while still empty also gets the second, larger budget. The holdout had lost four product-owner cases this way; they were skipped instead of measured.
 
 ### Added
 
-- **Fresh holdout cases F1–F4** for pm and product-owner. They were written after the prompt change and never used to tune it, so a fix measured on the now-seen holdout is also measured on cases it has not seen. Their limit is stated in the file: the same author wrote the cases and the rules.
+- **Independent holdout cases I1–I6** for pm and product-owner, written by an agent that saw neither the prompts nor the eval files, using only a one-paragraph description of each role. They take varied forms, and two in each set are cases where the right answer is to proceed. The older holdout rows were read when the new rules were written, so they no longer count as an independent test, and the file says so. The I cases are the honest measure from here on.
 
 ### Tests
 
 - Wiring tests for the three agents in both registrations.
+- An independent review of the candidate found 4 majors: the rules leaked the holdout cases, the small-plan rule clashed with mandatory pm steps, the flat-priority rule clashed with Step 0a, and the security-officer cap missed instruction files. It also found 7 minors. All are fixed. The self-written F cases were withdrawn in favour of the independent I cases.
 - A runner test for retrying an empty cut answer.
 ---
 

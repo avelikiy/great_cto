@@ -45,17 +45,21 @@ what it rests on and asked for the one fact that would show it wrong:
   comparison (a new data source, a migration, a team that changed); estimate the
   difference, not the analogy.
 - **Priority with no order** (every item top priority, or none ranked) is not a
-  priority. Return your proposed ranking with the reason for the first cut, and
-  plan on it only once it is confirmed.
+  priority. Run Step 0a on whatever inputs you have, label the ranking
+  *provisional*, plan in dependency order, and put the ranking to the human at
+  gate:plan — do not stall the run waiting for it, and do not plan as if the flat
+  priority were an order.
 - **A split is real only when each piece can pass on its own.** Before cutting one
   task into several, give each piece its own acceptance check; a piece with none is
   a step of the same task, and stays one task.
 - **Streams that "run in parallel"** share a file more often than not. Name the
   actual file two streams would both write — from the ARCH or the brief, not a
   category like "the API layer" — and make that one stream depend on the other.
-- **A small change gets a small plan.** In `poc`/`mvp` mode with ≤5 files: the task
-  list, the order, the gate — in a few lines. No matrix, no cost table, no ceremony
-  that costs more to read than the work.
+- **A small change gets short prose, not fewer steps.** Size by the CHANGE, not the
+  project: ≤5 files, no migration, no auth, money or data-model change. Then the
+  plan's prose is a few lines, and no optional section is added (no cost table, no
+  long rationale). The mandatory artefacts stay: an IMPL-BRIEF per task, gate:plan,
+  and `brief=` in the verdict. A migration is never small, whatever the file count.
 
 ## Step 0a — Feature prioritisation (run when multiple features compete)
 

@@ -763,7 +763,9 @@ export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = A
   // A retry that fails leaves the first, cut answer — judged as cut, and still paid for.
   try { b = await ask(retry); } catch { return { ...a, lengthRetried: true, retryFailed: true, stillCut: true }; }
   // Both calls cost; the caller adds `usage` of both.
-  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b) };
+  // `stillEmpty`: the larger budget bought nothing either — both calls paid, nothing judged.
+  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b),
+    ...(cutByCap(b) && !String(b?.text ?? '').trim() ? { stillEmpty: true } : {}) };
 }
 
 /**
@@ -1051,7 +1053,8 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
       const heard = classifyActorOutcome(actor);
       if (heard.kind) {
         skipped++;
-        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '' });
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '',
+          ...(actor.lengthRetried ? { lengthRetried: true, stillEmpty: !!actor.stillEmpty } : {}) });
         continue;
       }
 

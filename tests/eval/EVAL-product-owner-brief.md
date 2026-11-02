@@ -35,11 +35,7 @@ about R-numbers and section structure are NOT here, because the eval actor runs 
 single text call with no tools and cannot produce a file to be checked.
 
 They belong in **this** section and not in Holdout. They were first appended
-after the last numbered row in the file, which sat in `## Holdout cases
-
-> **Fresh cases F1–F4 (2026-11-02).** Written after the 02.11 prompt change, by the
-> same author, and never used to tune it. They are independent of the older holdout
-> but not of the author's idea of the rule. Read their rate with that in mind.` — so
+after the last numbered row in the file, which sat in `## Holdout cases` — so
 five freshly-written cases landed in the set whose whole purpose is to be the one
 nobody tuned against. Holdout is not a harder set of cases; it is a set with a
 property, and appending to it destroys the property silently.
@@ -57,6 +53,12 @@ property, and appending to it destroys the property silently.
 | T5 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |
 
 ## Holdout cases
+
+> **Independent cases I1–I6 (2026-11-02).** Written by an agent that saw neither the
+> agent prompts nor these eval files, from a one-paragraph role description only, in
+> varied surface forms; two of the six are cases where the right answer is to proceed.
+> They were not used to tune the prompt. The older holdout rows were seen when the
+> 02.11 rules were written and are no longer an independent test.
 
 > **Decided 2026-09-16 — ask and stop.** Until today this file's scenario asked the
 > agent to carry "a default + reversibility tag on every open question rather than
@@ -115,10 +117,12 @@ property, and appending to it destroys the property silently.
 | H18 | "The brief is done; architect can start." | Checks that the problem, the metric and the non-goals are all present | Checks completeness |
 | H19 | "Non-goals: none." | Pushes back — a scope with no non-goals has not been bounded | Requires non-goals |
 | H20 | "Two options; pick the cheaper one." | Asks what each buys before comparing cost | Compares value first |
-| F1 | "Our users are begging for dark mode." | Asks what that rests on (how many asked, through which channel) and what would show it wrong before treating it as demand | Asks for the evidence |
-| F2 | "SSO is a must — every B2B tool has it." | Asks for the deal or account where the lack of SSO cost something; without one it is not a requirement | Requires the instance |
-| F3 | `docs/product/BRIEF-reminders.md` has the problem with its cost and a success metric, but no non-goals and no kill-criteria. "Ready for the architect?" | Reports the two missing parts (non-goals, kill-criteria) and does not rewrite the brief | Names both gaps, no rewrite |
-| F4 | "Option A: build search in-house (no licence, three weeks). Option B: a hosted search service (\$400/month, two days). Pick the cheaper." | Says what each buys (relevance tuning, typo tolerance, upkeep) before comparing cost, and compares cost only for the same outcome | Value before cost |
+| I1 | Email from the CEO (fintech savings app): "Rival launched crypto round-ups last week. Write the brief for ours by Q1 and recommend BUILD." | Does not take BUILD as given. Asks for evidence that our own users want this (a rival's launch is not demand), flags the crypto licensing and regulatory exposure and the custody risk, and recommends discovery, PIVOT or a conditional answer. | The recommendation is not an unconditional BUILD, and the brief names both the missing evidence of our users' demand and a regulatory or licensing risk. (In the brief, or in the questions it asks before writing one: the agent asks and stops when framing facts are missing.) |
+| I2 | Slack from Rosa (clinic ops, healthcare scheduling): "No-shows run 18% across our 3 clinics (export attached), about $140 lost each. In the 8-week SMS reminder pilot at Elm St, no-shows fell from 17% to 9%. Need a brief to roll it out to all three." | Proceeds: BUILD, with the no-show rate as the metric (baseline 18%, a target), the cost per no-show, scope limited to rollout, and a kill criterion. Notes SMS consent/opt-out and keeping health details out of message text. | Recommends BUILD (conditions allowed) with a numeric success metric, and names a consent or PHI-in-SMS risk. It does not demand further research before proceeding. |
+| I3 | Ticket SALES-311 (B2B SaaS): "Acme Corp, a $600k ARR prospect, will sign only with on-prem deployment. Build on-prem." | Weighs one deal against a permanent second deployment target: upgrades, support and security patching. Asks how many other prospects need it, and considers single-tenant or VPC hosting as an alternative. | The brief asks about or estimates demand beyond Acme, names the ongoing cost of maintaining on-prem, and does not recommend BUILD on the strength of the one deal. (In the brief, or in the questions it asks before writing one: the agent asks and stops when framing facts are missing.) |
+| I4 | Meeting note (logistics): "Decided: build an AI route optimizer for the regional fleet. Success metric: shipped by June." | Replaces the date with an outcome metric that has a baseline, such as miles per stop, on-time delivery % or fuel cost per route. Asks what problem the current routing causes and how big it is. | The brief's success metric is a measurable outcome with a baseline or target, not a launch date. (In the brief, or in the questions it asks before writing one: the agent asks and stops when framing facts are missing.) |
+| I5 | Line in the finance wiki (internal tool): "Finance spends ~30 h/month reconciling Stripe payouts against NetSuite by hand; two misstatements last quarter (audit finding AF-23). Request: automated reconciliation report." | Proceeds: BUILD, with a tight scope (the report, not a ledger rewrite), metrics on hours and on unreconciled items or misstatements against the stated baseline, and a kill criterion. | Recommends BUILD, and the success metric uses the given baseline: 30 h/month, or the misstatement count. |
+| I6 | Slack from Tom (growth, mobile app): "DAU dropped 22% the week after release 4.8. Users clearly hate the new onboarding. PO, write a brief for an onboarding redesign." | Questions the causal link before briefing a redesign. Asks whether the drop is real and whether 4.8 caused it: crash rate, an analytics SDK or event change in 4.8, which cohort fell, seasonality. Recommends investigating first, not BUILD. | The reply challenges the "onboarding caused it" premise, names at least one alternative explanation (crash, tracking change, seasonality or cohort mix), and does not recommend BUILD for a redesign. (In the brief, or in the questions it asks before writing one: the agent asks and stops when framing facts are missing.) |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

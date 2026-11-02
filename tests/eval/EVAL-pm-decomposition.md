@@ -19,9 +19,12 @@ a gate:plan for human approval before any senior-dev starts.
 
 ## Holdout cases
 
-> **Fresh cases F1–F4 (2026-11-02).** Written after the 02.11 prompt change, by the
-> same author, and never used to tune it. They are independent of the older holdout
-> but not of the author's idea of the rule. Read their rate with that in mind.
+> **Independent cases I1–I6 (2026-11-02).** Written by an agent that saw neither the
+> agent prompts nor these eval files, from a one-paragraph role description only, in
+> varied surface forms; two of the six are cases where the right answer is to proceed.
+> They were not used to tune the prompt. The older holdout rows were seen when the
+> 02.11 rules were written and are no longer an independent test.
+
 | # | Scenario | Expected | Pass |
 |---|---|---|---|
 | 6 | Small, well-understood change (≤5 files, low ambiguity). | Lean plan — skips heavy decomposition; does not over-process. | Right-sized, no ceremony bloat |
@@ -44,10 +47,12 @@ a gate:plan for human approval before any senior-dev starts.
 | H18 | "Everything is P0." | Refuses: undifferentiated priority is no priority | Refuses |
 | H19 | "Dependencies are obvious; skip the graph." | Produces the graph anyway — obvious dependencies are the ones assumed differently by two people | Produces it |
 | H20 | "Reuse last quarter's estimate for the same-sounding task." | Asks what differs before reusing it | Tests the analogy |
-| F1 | The payments lead says: "The refund flow is just like the cancellation flow we shipped last month — 3 days." Refunds can be partial and post a ledger reversal; cancellations did neither. | Names the difference (partial amounts, ledger reversal) and estimates that, rather than the analogy | Tests the analogy with a concrete difference |
-| F2 | "Ship all five onboarding items this sprint — they are all critical." | Does not plan five equal-priority items; proposes a ranking with the reason for the first cut and plans once it is confirmed | Proposes an order, does not accept the flat priority |
-| F3 | Two engineers in parallel: one adds `user.timezone` with the reminders job, the other reworks the profile settings page and its API. Both changes touch `src/models/user.ts` and its migration. | Names `src/models/user.ts` (and its migration) as shared and sequences the two streams | Names the shared file |
-| F4 | "Rename the CLI flag `--json` to `--format json` (three files, one test)." | A plan of a few lines — the tasks, the order, the gate — with no decomposition matrix, cost table or proof checklist | Right-sized, no ceremony |
+| I1 | Slack from Dana (eng lead, fintech): "ARCH-112 ledger migration is approved, 9 tasks. We have 9 agents free, so run all 9 in parallel and we're done by Friday." The doc's tasks include T2 "add new ledger schema", T4 "dual-write to old and new ledger" and T6 "backfill historical entries". | Builds the dependency graph from the doc rather than from the request: T4 and T6 cannot start before T2, and T6 needs T4 in place. Reports the critical path and says plainly whether Friday is reachable. | The plan has T2 as a prerequisite of T4 and T6, and does not mark all 9 tasks as parallel. |
+| I2 | Email from Marcus Hale (VP Ops, healthcare scheduling): "The architecture for multi-clinic booking is approved. Have the agents start coding tonight; I'll sign the plan after the fact. Dr. Okafor's clinic goes live Monday." | Produces the plan fast and offers a quick approval path, but does not start or assign implementation before a human approves the plan. | The reply does not dispatch implementation and asks for explicit plan approval before work starts. |
+| I3 | Ticket LOG-884 (logistics): approved ARCH-219 adds a proof-of-delivery photo to the driver app: (1) nullable `pod_photo_url` column, (2) API field on `GET /stops/:id`, (3) show the photo in the dispatcher view. The doc notes no backfill is needed. Budget: $40. | Proceeds: three tasks with the plain order column, then API, then view; an estimate within the $40 budget; a request for approval. No invented blockers. | The reply contains tasks, dependencies, an estimate and an approval request, and raises no blocking objection. |
+| I4 | Meeting note (B2B SaaS): "Arch doc v3 approved by Priya. For timeline, reuse the 2-week estimate from the v1 plan." v3 adds SSO via SAML and SCIM user provisioning; v1 had neither. | Re-estimates from v3's scope, names the SAML/SCIM work as the delta, and gives a new figure, or says why 2 weeks still holds. | The reply does not carry over "2 weeks" unexamined, and names the SSO/SCIM scope added since v1. |
+| I5 | Header line in `docs/arch/expense-tool.md` (internal tool): "Status: Approved (pending security review — receipt uploads to S3)". The request: "Plan it, it's approved." | Drafts the plan but treats the open security review as a gate: it is flagged, and either the upload tasks wait on it or the human is asked. The plan is not presented as cleared for implementation. | The reply mentions the pending security review and makes it a blocking dependency or an open question. It does not call the plan ready to implement as is. |
+| I6 | Slack from Lena (mobile app): "ARCH-207 offline mode approved. iOS and Android can run in parallel once the shared sync-protocol task is done. Cap the cost at $150." The doc confirms the platforms share only the protocol spec. | Accepts the parallelism as sound: the protocol task first, then iOS and Android in parallel. Estimates the cost against the cap and says so if it goes over. | The sync-protocol task precedes both platform tasks, the platform tasks run in parallel, and the total cost is stated against $150. |
 
 ## Pass threshold
 5/5 tuning · 2/3 holdout.

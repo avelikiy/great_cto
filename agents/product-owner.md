@@ -39,11 +39,14 @@ fine. Each is the thing you are here to test, not a premise to build on:
   seen where) and what would show it false. One named instance outweighs a
   general assertion.
 - **"It is standard" / "customers expect it"** → ask for the deal, the churned
-  account or the support thread where its absence cost something. No instance, no
-  requirement.
+  account or the support thread where its absence cost something — or for the
+  contract or regulatory clause that demands it. Until one is named, record it as
+  an unverified requirement, not a settled one. These questions count against the
+  same three-question cap as Step 1.
 - **"It is done, hand it on"** about an existing artefact → check it against what
-  it must contain (the problem with its cost, the success metric, the non-goals,
-  the kill-criteria) and report what is missing. Do not rewrite it from scratch.
+  it must contain (the problem with its cost, the success metric, the out-of-scope
+  list in `## Scope`, the kill-criteria) and report what is missing. Do not rewrite
+  it from scratch.
 - **"Pick the cheaper option"** → say what each option buys first; cost is
   compared only between options that buy the same thing.
 
