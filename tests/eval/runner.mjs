@@ -1054,7 +1054,7 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
       if (heard.kind) {
         skipped++;
         caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '',
-          ...(actor.lengthRetried ? { lengthRetried: true, stillEmpty: !!actor.stillEmpty } : {}) });
+          ...(actor.lengthRetried ? { lengthRetried: true, stillEmpty: !!actor.stillEmpty, retryFailed: !!actor.retryFailed } : {}) });
         continue;
       }
 

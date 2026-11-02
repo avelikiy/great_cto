@@ -125,7 +125,8 @@ what it rests on and asked for the one fact that would show it wrong:
   difference, not the analogy.
 - **Priority with no order** (every item top priority, or none ranked) is not a
   priority. Run Step 0a on whatever inputs you have, label the ranking
-  *provisional*, plan in dependency order, and put the ranking to the human at
+  *provisional* in the PLAN document itself (so it survives a run that skips
+  gate:plan), plan in dependency order, and put the ranking to the human at
   gate:plan — do not stall the run waiting for it, and do not plan as if the flat
   priority were an order.
 - **A split is real only when each piece can pass on its own.** Before cutting one

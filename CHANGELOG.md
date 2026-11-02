@@ -93,7 +93,7 @@ From the first holdout measurement on 3.75.6. pm and product-owner now test the 
 
 ### Added
 
-- **Independent holdout cases I1–I6** for pm and product-owner, written by an agent that saw neither the prompts nor the eval files, using only a one-paragraph description of each role. They take varied forms, and two in each set are cases where the right answer is to proceed. The older holdout rows were read when the new rules were written, so they no longer count as an independent test, and the file says so. The I cases are the honest measure from here on.
+- **Independent holdout cases I1–I6** for pm and product-owner, written by an agent that saw neither the prompts nor the eval files, using only a one-paragraph description of each role. They take varied forms, and two in each set are cases where the right answer is to proceed. The older holdout rows were read when the new rules were written, so they no longer count as an independent test, and the file says so. The I cases are the least-seen measure, and they are reported apart from the older rows in the same split. They are still one author's judgement: an agent's, from a role description.
 
 ### Tests
 
