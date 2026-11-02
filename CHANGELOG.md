@@ -70,6 +70,34 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.8 — 2026-11-02
+
+From the holdout on 3.75.7, which left security-officer at 72. It was over-cautious: it called an excerpt truncated and answered "pending", refused to approve a clean change as "insufficient evidence", and blocked on a TODO or a keyword. One of its failures turned out to be the harness, not the agent.
+
+### Fixed
+
+- **security-officer** reviews the change it is shown and gives it a verdict. Code outside the excerpt goes in the report as an open question, and a scanner it could not run is `not_run`; neither withholds the verdict. A clean change is APPROVED, and the evidence for the approval is the list of what was checked and where. A TODO, a rename or a word like `password` or `eval` does not block `gate:ship` until there is a path from a controlled input to harm, at its `file:line`.
+  - Two lines in the prompt drove the over-caution. The verdict-quality rubric called any report without findings `boilerplate`, and `boilerplate` blocks. The "do not attempt partial work" stop, written for denied permissions, read as a rule for every review. The rubric now accepts a no-findings report that names what was checked, and the stop applies to the permission check only.
+- **Eval runner:** a GFM-escaped `\|` inside a case cell no longer cuts the case. Rows were split on every pipe, so three cases reached the actor cut in half: security-officer adversarial H1 (the 30-day JWT line was never shown, so the case failed on both holdout runs), ci-resolver named-cause 8 and library semver-surface H2. Scores recorded for those three before this release measured a cut case.
+
+### Added
+
+- **Independent holdout cases I1–I8 for security-officer** in `EVAL-security-officer-finding-gate.md`, written by an agent that saw neither the prompt nor the eval files. Each carries its own code excerpt. Four are changes the right answer approves, and two of those only look alarming.
+
+### Measured
+
+Holdout on the candidate, sonnet-5 actor and opus-5 judge, one sample per case:
+
+| | 3.75.7 | 3.75.8 |
+|---|---|---|
+| security-officer, seen holdout rows | 18/25 (72%) | 21/25 (84%), one case skipped on a network error |
+| security-officer, independent I1–I8 | — | 8/8 |
+
+The seen rows were read while these rules were written, so the 84% is the weaker number. The I cases are the least-seen measure, and they are still one author's judgement at one sample each. Still failing on seen rows: finding-gate H4 (a finding without an evidence pointer), H6 (severity from the keyword), H10 and H16.
+
+---
+
 ## v3.75.7 — 2026-11-02
 
 From the first holdout measurement on 3.75.6. pm and product-owner now test the premise a request carries before building on it, and security-officer keeps reviewing past an instruction planted in the change.

@@ -173,7 +173,9 @@ export function parseCasesTable(tableText) {
       headerParsed = true;
       continue; // skip column header row
     }
-    const cols = row.split('|').map(s => s.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
+    // GFM writes a literal pipe inside a cell as `\|`: split on the unescaped ones only,
+    // or a case like `a \|\| b` reaches the actor cut in half.
+    const cols = row.split(/(?<!\\)\|/).map(s => s.trim().replace(/\\\|/g, '|')).filter((_, i, a) => i > 0 && i < a.length - 1);
     if (cols.length >= 3) {
       out.push({
         num: cols[0],

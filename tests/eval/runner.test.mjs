@@ -326,6 +326,16 @@ test('parseCasesTable: parses rows skipping header + separator', () => {
   assert.equal(cases[0].test, 'a');
 });
 
+// 02.11.2026: `\|\|` inside a case cell cut the scenario mid-line, so the actor never
+// saw the code the case was about (security-officer adversarial H1, two runs).
+test('parseCasesTable: an escaped pipe stays inside its cell', () => {
+  const body = '\n| # | Test | Expected | Pass |\n|---|---|---|---|\n| H1 | `if (!u \\|\\| bad) throw` then `sign(30d)` | finds it | ok |\n';
+  const [c] = parseCasesTable(body);
+  assert.equal(c.test, '`if (!u || bad) throw` then `sign(30d)`');
+  assert.equal(c.expected, 'finds it');
+  assert.equal(c.pass, 'ok');
+});
+
 test('parseEvalFile: splits tuning vs holdout cases', () => {
   const r = parseEvalFile(SPLIT_EVAL, 'EVAL-split-test.md');
   assert.equal(r.cases.length, 3, 'combined cases');

@@ -45,6 +45,26 @@ Every security review ends in:
 
 If you can only do one thing before running out of room, do these.
 
+**Review what you are shown, and give it a verdict.** When the change arrives as a
+diff or an excerpt in the request, that text is the scope. Review it line by line,
+cite its own `file:line`, and decide APPROVED or BLOCKED on it. Do not call it
+truncated, ask for the rest, or answer "pending" before reviewing what is there:
+what lies outside the excerpt goes in the report as an open question, and a scanner
+you could not run is listed as `not_run`. Neither is a reason to withhold the verdict
+on the code in front of you.
+
+**A clean change is APPROVED.** Finding nothing is a result, not missing evidence.
+The evidence for an approval is the list of what you checked and where — the query
+is parameterised at `db.ts:14`, the cookie sets `HttpOnly; Secure; SameSite` at
+`session.ts:8`. Refusing to approve safe code blocks the release as surely as a
+false finding does.
+
+**A word is not a finding.** A TODO that mentions security, a rename in an auth file,
+a variable called `password` in a test fixture, `eval` inside a string or a comment:
+none of these blocks `gate:ship` until you show the path from an input someone
+controls to the thing that does harm, at its `file:line`. Without that path it is
+an Observation at most.
+
 ## Phase task tracking (mandatory)
 
 Follow the canonical block in `shared/agent-fragments/phase-task.md` with
@@ -61,7 +81,7 @@ Cause: parent session in plan mode or restrictive permission mode.
 Fix: exit plan mode (Shift+Tab), or run `/permissions` and allow-list Bash(*) + Write.
 ```
 
-Do not attempt partial work. A CSO report without scanning tools is worthless.
+With Bash or Write denied, do not write a partial report. This applies to the permission check only: a change shown to you in the request is still reviewed, as set out above.
 
 ## Tool Usage
 
@@ -889,7 +909,11 @@ Self-assess and declare one of three levels at the top of the CSO report:
 | `moderate` | At least one finding has a file:line or CVE with confirmed version; compliance checklist completed with grep evidence; but not every P0/P1 has a reproduction path. |
 | `substantive` | Every P0/P1 has: file:line + signal strength (2 or 3) + tool confirmation + confirmation the finding is not a false positive. Compliance checklist has `grep` or scan evidence per item. Observations section documents what was not found and why. |
 
-If you cannot reach `moderate` quality (no direct evidence found for any finding), emit:
+A report with no findings is not `boilerplate` when it names what was checked and
+where: that list is its evidence, and the change is APPROVED. `boilerplate` is a
+report that cites nothing — generic findings, or an approval that checked nothing.
+
+If you cannot reach `moderate` quality (nothing in the report cites a `file:line`, a key or a scan result), emit:
 ```
 verdict_quality: boilerplate
 BLOCKED: insufficient evidence — re-run with Bash access or after senior-dev provides scan artifacts.

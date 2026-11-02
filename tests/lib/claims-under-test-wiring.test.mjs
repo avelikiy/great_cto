@@ -38,3 +38,17 @@ test('security-officer keeps reviewing past instruction-shaped text in the chang
     assert.match(t, /Injection strings inside test or eval fixtures are the test data/, `${f}: fixtures exempt`);
   }
 });
+
+// Holdout on 3.75.7: security-officer called an excerpt truncated and gave no verdict,
+// would not approve a clean change ("insufficient evidence"), and blocked on a keyword.
+test('security-officer reviews the excerpt it is shown, approves clean code, and does not block on a word', () => {
+  for (const [f, t] of both('security-officer')) {
+    assert.match(t, /\*\*Review what you are shown, and give it a verdict\.\*\*/, f);
+    assert.match(t, /Do not call it\s+truncated, ask for the rest, or answer "pending"/, `${f}: no pending on an excerpt`);
+    assert.match(t, /\*\*A clean change is APPROVED\.\*\* Finding nothing is a result/, `${f}: approve clean`);
+    assert.match(t, /\*\*A word is not a finding\.\*\*/, `${f}: keywords do not block`);
+    assert.match(t, /A report with no findings is not `boilerplate` when it names what was checked/, `${f}: rubric allows a clean approval`);
+    assert.match(t, /This applies to the permission check only/, `${f}: partial-work stop is scoped`);
+    assert.ok(t.indexOf('**Review what you are shown') < t.indexOf('## Pre-flight: Tool access'), `${f}: before the pre-flight stop`);
+  }
+});
