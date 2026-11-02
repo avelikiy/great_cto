@@ -169,7 +169,13 @@ export function readAllVerdicts(dir, { transitions = {}, now = Date.now(), fresh
 export function pipelineOrder(transitions, verdicts = {}) {
   const agents = Object.keys(transitions);
   const referenced = new Set();
-  for (const a of agents) for (const n of (transitions[a]?.next || [])) referenced.add(n);
+  // Only default edges: a verdict branch naming an off-chain stage (architect's
+  // APPROVED_UI → design-advisor) must not take it out of the off-chain roots,
+  // or the stage disappears from the order it is running in.
+  for (const a of agents) {
+    if (a.includes('.')) continue;
+    for (const n of (transitions[a]?.next || [])) referenced.add(n);
+  }
   const roots = agents.filter((a) => !referenced.has(a));
   const mainRoots = roots.includes('product-owner') ? ['product-owner'] : roots;
   const offChainRoots = roots.filter((r) => !mainRoots.includes(r));

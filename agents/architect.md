@@ -666,6 +666,10 @@ manual configuration needed.
    ```
    `auto` cost → real token spend via cost-meter, not a guess.
 
+   **The feature has a user-facing surface** (T1 or higher): record `APPROVED_UI`
+   instead of `APPROVED`. That token is what sends the chain through
+   `design-advisor` before `pm`; with plain `APPROVED` the design stage never starts.
+
    Then create epic + implementation tasks:
    ```bash
    bd create "ARCH: <feature>" --type epic --priority 1
