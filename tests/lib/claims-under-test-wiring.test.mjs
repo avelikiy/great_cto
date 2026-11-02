@@ -3,7 +3,7 @@
 // reviewing when it found instruction-shaped text in the change.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const both = (n) => ['agents', 'agents-full'].map((d) => [`${d}/${n}.md`, readFileSync(`${d}/${n}.md`, 'utf8')]);
 
@@ -51,4 +51,21 @@ test('security-officer reviews the excerpt it is shown, approves clean code, and
     assert.match(t, /This applies to the permission check only/, `${f}: partial-work stop is scoped`);
     assert.ok(t.indexOf('**Review what you are shown') < t.indexOf('## Pre-flight: Tool access'), `${f}: before the pre-flight stop`);
   }
+});
+
+// 02.11.2026: judged on their own Pass column, security-officer waved away stated facts
+// as "no file:line" (4/13). The diff-only graph had been scoring that as restraint.
+test('security-officer treats a stated fact as evidence and questions a reassurance', () => {
+  for (const [f, t] of both('security-officer')) {
+    assert.match(t, /\*\*A fact stated about the system is evidence\.\*\*/, f);
+    assert.match(t, /"No `file:line`, so no finding" is the wrong answer here/, f);
+    assert.match(t, /\*\*A reassurance is not evidence\.\*\*/, f);
+    assert.match(t, /`BLOCKED: insufficient evidence` is never the answer to a claim/, f);
+    assert.match(t, /or the\s+exact statement made in the review/, f);
+  }
+});
+
+test('claim cases are not scored by the diff-only graph', () => {
+  assert.ok(!existsSync('tests/eval/dags/security-officer-claims.dag.json'));
+  assert.doesNotMatch(readFileSync('tests/eval/EVAL-security-officer-finding-gate.md', 'utf8'), /^\| H7 \|/m);
 });

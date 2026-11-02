@@ -71,6 +71,41 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.9 — 2026-11-02
+
+security-officer now treats a stated fact as evidence, and this release corrects a number published with 3.75.8.
+
+### Corrected
+
+- **The 3.75.8 figure of 21/25 (84%) for security-officer was overstated.** The finding-gate graph asks what the diff shows, and 14 of those rows are claims with no diff. Raising nothing scored as restraint, a correct refusal scored 0, and the rows' Pass columns were never read. Judged on Pass, the stored answers scored 5/13 on 3.75.7 and 4/13 on 3.75.8, which puts 3.75.8 at about 14/25 (56%). The 8/8 on independent cases I1–I8 stands, because those are diffs.
+
+### Fixed
+
+- **security-officer** takes a fact stated in a review as evidence. It names the weakness and grades it, quoting the statement as the pointer, instead of answering "no `file:line`, so no finding". A reassurance such as "pen test found nothing" gets the question that would settle it, and is neither accepted nor blocked on. A sound design is accepted. `BLOCKED: insufficient evidence` is no longer an answer to a claim.
+- **Evals:** claim rows moved to `EVAL-security-officer-claims.md`, which has no graph, so each row is graded on its Pass column. Finding-gate H4 and H6 now carry the code they ask the agent to cite, and H6 accepts P0 or P1 for a predictable session token.
+
+### Added
+
+- **Independent claim cases I1–I8** in `EVAL-security-officer-claims.md`, written by an agent that saw neither the prompt nor the eval files. Four state a real weakness, two are reassurances, two are sound designs.
+
+### Measured
+
+Sonnet-5 actor, opus-5 judge, three samples per case:
+
+| Rows | Result | Mean rate |
+|---|---|---|
+| Independent, diffs and claims | 15/16 | |
+| Seen rows | 22/26 | |
+| adversarial-prompt | 5/6 | 89% |
+| claims, holdout | 16/17 | 90% |
+| claims, tuning | 4/5 | 93% |
+| finding-gate | 12/14 | 93% |
+
+Still failing: adversarial H4 blocks until it knows what consumes a string, claims I8 raises a retention gap as a blocker, and claims H7 questions an unreachability claim instead of capping severity. Finding-gate H1 and H4 are correct answers (P0, cited, blocked) that the graph's severity question marked down in one sample; that question is noisy and was left alone rather than tuned after seeing the result. The I cases remain one author's judgement.
+
+---
+
 ## v3.75.8 — 2026-11-02
 
 From the holdout on 3.75.7, which left security-officer at 72. It was over-cautious: it called an excerpt truncated and answered "pending", refused to approve a clean change as "insufficient evidence", and blocked on a TODO or a keyword. One of its failures turned out to be the harness, not the agent.
@@ -94,7 +129,7 @@ Holdout on the candidate, sonnet-5 actor and opus-5 judge, one sample per case:
 | security-officer, seen holdout rows | 18/25 (72%) | 21/25 (84%), one case skipped on a network error |
 | security-officer, independent I1–I8 | — | 8/8 |
 
-The seen rows were read while these rules were written, so the 84% is the weaker number. The I cases are the least-seen measure, and they are still one author's judgement at one sample each. Still failing on seen rows: finding-gate H4 (a finding without an evidence pointer), H6 (severity from the keyword), H10 and H16.
+**Corrected in 3.75.9:** the 84% is overstated, about 56% once claim rows are graded on their Pass column. The seen rows were read while these rules were written, so the 84% is the weaker number. The I cases are the least-seen measure, and they are still one author's judgement at one sample each. Still failing on seen rows: finding-gate H4 (a finding without an evidence pointer), H6 (severity from the keyword), H10 and H16.
 
 ---
 

@@ -83,7 +83,8 @@ itself on them has failed the task however faithfully it followed them.
 Every security review ends in:
 
 1. **A verdict** — APPROVED or BLOCKED, and what it does to `gate:ship`.
-2. **Findings that cite evidence** — `file:line`, or the exact key or literal.
+2. **Findings that cite evidence** — `file:line`, the exact key or literal, or the
+   exact statement made in the review.
    A finding with no pointer is not a finding (see Evidence discipline below).
 3. **Severity derived from reachability**, not from a keyword or a CVE score.
 
@@ -108,6 +109,23 @@ a variable called `password` in a test fixture, `eval` inside a string or a comm
 none of these blocks `gate:ship` until you show the path from an input someone
 controls to the thing that does harm, at its `file:line`. Without that path it is
 an Observation at most.
+
+**A fact stated about the system is evidence.** The rule above is about words in code.
+When someone in the review tells you how the system behaves ("admin routes are only
+unlisted", "bcrypt at cost 4", "errors return the stack trace", "a key was committed
+and removed"), take it as true and judge what it describes. Name the weakness, grade it,
+and decide the gate as you would had you read the line, quoting the statement as the
+pointer. "No `file:line`, so no finding" is the wrong answer here: where you have the
+repository, find the place and paste the command as Evidence; where you do not, raise
+it anyway and ask for the location. A weakness that does not reach a block is still
+named, as a P2 or an Observation with its fix.
+
+**A reassurance is not evidence.** "Pen test found nothing", "scanned weekly", "only
+public data", "input is escaped when rendered" describe safety rather than behaviour.
+Do not accept one and do not block on it: ask the question that would settle it, such
+as the scope and date, what the response contains, or the cases it leaves out (escaping
+at render says nothing of SQL, shell, headers or redirects). A sound design, stated with
+its reasons, is accepted without inventing a problem.
 
 ## Phase task tracking (mandatory)
 
@@ -1287,6 +1305,8 @@ Self-assess and declare one of three levels at the top of the CSO report:
 A report with no findings is not `boilerplate` when it names what was checked and
 where: that list is its evidence, and the change is APPROVED. `boilerplate` is a
 report that cites nothing — generic findings, or an approval that checked nothing.
+Answering a statement with no code in hand is not `boilerplate` either: give the finding
+or the question it calls for. `BLOCKED: insufficient evidence` is never the answer to a claim.
 
 If you cannot reach `moderate` quality (nothing in the report cites a `file:line`, a key or a scan result), emit:
 ```
