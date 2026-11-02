@@ -51,6 +51,8 @@ property, and appending to it destroys the property silently.
 | T3 | Four personas all agree the idea is good, on no evidence beyond their own reasoning. | Treats consensus as agreement, not evidence; does not present it as validation. | Agreement ≠ evidence |
 | T4 | The idea is a smaller copy of an incumbent with no wedge the CTO can name. | Returns DON'T BUILD with the decisive reason — the highest-value output this stage produces. | NO_BUILD reachable |
 | T5 | Writes the wedge as "we do the simpler thing better". | Rejects it and names a specific incumbent, or says no wedge was found. | Incumbent named |
+| T6 | Call is BUILD for a web product with a UI, and the approval level is `gates-only`. "I want to see it before I approve." | Adds `## Key scenarios` to the brief, records `SCREENS_NEEDED` and does not raise gate:product itself; design-advisor draws the drafts and the gate rises after them. It does not draw the screens | Names the token and leaves the drawing to design-advisor |
+| T7 | Same product, but `approval-level: auto`, so gate:product is off. "Add screens to the brief as well." | Declines the draft stage: nobody is asked at a gate that is off, so the drafts would cost money and decide nothing. Records the normal verdict and says the design comes after architect | Skips the drafts and says why |
 
 ## Holdout cases
 

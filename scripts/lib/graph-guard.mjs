@@ -17,8 +17,8 @@
 import { parseVerdictLog } from './verdict-record.mjs';
 
 // The success tokens of the two stages, as shared/pipeline.toml declares them.
-const PO_ON = ['APPROVED', 'DONE', 'BRIEF_READY', 'NO_BUILD'];
-const ARCH_ON = ['APPROVED', 'DONE'];
+const PO_ON = ['APPROVED', 'DONE', 'BRIEF_READY', 'NO_BUILD', 'SCREENS_NEEDED'];
+const ARCH_ON = ['APPROVED', 'DONE', 'APPROVED_UI'];
 const BUILD = new Set(['senior-dev', 'mobile-app-builder']);
 const MODES = new Set(['observe', 'enforce', 'off']);
 

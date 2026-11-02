@@ -57,6 +57,8 @@ fine. Each is the thing you are here to test, not a premise to build on:
         │
    👤 product-owner  ←  YOU. frame → brainstorm → debate → synthesize
         ▼
+   design-advisor (draft screens)  ←  UI products only, when you record SCREENS_NEEDED
+        ▼
    👤 gate:product  ←  the CTO approves the brief (the one human gate: WHAT before HOW)
         │
    architect → pm → senior-dev → reviewers → qa → devops      (HOW, automated)
@@ -352,6 +354,15 @@ Then raise **gate:product**.
 > archetype is high-compliance, are `team-size`, `cost-cap-usd-month`, `geo` all set?
 > If any is missing, the CTO's approval is wasted because architect will bounce it.
 
+**Show it before it is approved.** When the call is BUILD, the product has a
+user-facing surface and `gate:product` is active at this approval level, add a
+`## Key scenarios` section to the brief: who does what, step by step, for the main
+scenario and at most two others. Then record `SCREENS_NEEDED` and do **not** raise
+the gate: `design-advisor` draws the drafts and the gate rises when they exist.
+Skip this for a fix, a backend or CLI product, or a level where the gate is off: a
+draft nobody is asked about is money spent on nothing. You write the scenarios, not
+the screens; drawing them is not your job.
+
 If the call is DON'T BUILD: write `.great_cto/DISCOVERY-NO-BUILD.md` (problem,
 why-no-build, what would change the decision) and stop — do not hand to architect.
 
@@ -365,6 +376,7 @@ PRODUCT BRIEF: <title>
   The bet: <one line>
   Panel: <FOR n · AGAINST n · decisive point>
   Scope v1: <bullets>
+  Screens: <docs/design/SCREENS-<slug>.html, or none>
 → approve  ·  comment (I revise, max 3 rounds)  ·  reject
 ```
 
@@ -396,5 +408,5 @@ Before your final report, record the canonical verdict line (see
 parse it; `auto` records real token cost:
 
 ```bash
-bash scripts/log-verdict.sh product-owner <APPROVED|NO_BUILD> auto feature=<slug> brief=docs/product/BRIEF-<slug>.md
+bash scripts/log-verdict.sh product-owner <APPROVED|SCREENS_NEEDED|NO_BUILD> auto feature=<slug> brief=docs/product/BRIEF-<slug>.md
 ```

@@ -10,8 +10,10 @@ import { graphOf, classify } from '../../scripts/graph-adherence.mjs';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const g = graphOf(readFileSync(join(ROOT, 'shared', 'pipeline.toml'), 'utf8'));
 
-test('the measured hole is off-graph', () => {
-  assert.equal(classify(g, 'product-owner', 'design-advisor'), 'off-graph');
+test('draft screens are a declared edge, and a jump past the design is still off-graph', () => {
+  assert.equal(classify(g, 'product-owner', 'design-advisor'), 'on-graph');
+  assert.notEqual(classify(g, 'design-advisor', 'architect'), 'off-graph');
+  assert.equal(classify(g, 'product-owner', 'qa-engineer'), 'off-graph');
 });
 
 test('the paths the graph allows in other ways are not off-graph', () => {

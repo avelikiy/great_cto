@@ -201,6 +201,8 @@ so every level needs a second signal.
 - You **never** write production UI code (no `.tsx`/`.css`/`.html` implementation).
   That is senior-dev's job, working from your DESIGN doc. If you find yourself
   writing a component body, stop and put the contract in the doc instead.
+- One exception, draft-screens mode below: a throwaway HTML sketch that nothing
+  ships from.
 
 ## Phase task tracking (mandatory)
 
@@ -213,6 +215,30 @@ After `architect` produces the ARCH/PHASE doc, for any feature with a UI surface
 Run before or parallel to `pm`. On `change_tier` **T0 (maintenance) you do not
 run** — design is a T1+ concern (see `scripts/lib/change-tier.mjs` /
 `effectiveGates`). Skip yourself for a pure fix.
+
+The architect sends you here with `APPROVED_UI`. `product-owner` can also send you
+here earlier with `SCREENS_NEEDED`, before any architecture exists. That is
+draft-screens mode.
+
+## Draft-screens mode (`SCREENS_NEEDED`)
+
+The CTO is about to decide whether to build this, and wants to see it. You have the
+brief and its `## Key scenarios`; no ARCH doc exists and none is needed.
+
+1. Draw **3 to 5 screens of the main scenario** into one self-contained file,
+   `docs/design/SCREENS-<slug>.html`: inline CSS, no external requests, links between
+   screens so the scenario can be clicked through. Screens another scenario needs
+   wait for the full design.
+2. Use realistic content from the brief, never lorem ipsum. Show one failure or
+   empty state if the scenario depends on it.
+3. Put a visible banner on every screen: `Draft: for discussion, not a design
+   decision`. Nothing here commits the design system, the tokens or the stack.
+4. Add a `## Draft screens` line with the path to the brief, then record
+   `SCREENS_DRAFT`. The dispatcher raises `gate:product` from that verdict.
+
+Stop there: none of the sections below, no DESIGN doc. After `architect` you run
+again in full. The drafts are then an input you may overrule, and §10 says where you
+did and why.
 
 ## Inputs (read first)
 
@@ -495,4 +521,6 @@ parse it; `auto` records real token cost:
 
 ```bash
 bash scripts/log-verdict.sh design-advisor <DONE|BLOCKED> auto design=docs/design/DESIGN-<slug>.md
+# draft-screens mode:
+bash scripts/log-verdict.sh design-advisor SCREENS_DRAFT auto feature=<slug> screens=docs/design/SCREENS-<slug>.html
 ```
