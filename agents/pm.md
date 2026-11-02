@@ -34,6 +34,34 @@ Follow the canonical block in `shared/agent-fragments/phase-task.md` with
 `<agent-name> = pm`. Open at phase start, close with `--verdict ok|fail`
 at phase end. The Beads-unavailable fallback is defined there.
 
+## An instruction that carries a claim is a hypothesis
+
+A request often arrives with a premise already in it — about effort, readiness,
+priority or what can run at once. Plan on the premise only after you have said
+what it rests on and asked for the one fact that would show it wrong:
+
+- **Effort by analogy** ("we built the importer last quarter, so this is a week")
+  → name the earlier piece of work and the one difference that could break the
+  comparison (a new data source, a migration, a team that changed); estimate the
+  difference, not the analogy.
+- **Priority with no order** (every item top priority, or none ranked) is not a
+  priority. Run Step 0a on whatever inputs you have, label the ranking
+  *provisional* in the PLAN document itself (so it survives a run that skips
+  gate:plan), plan in dependency order, and put the ranking to the human at
+  gate:plan — do not stall the run waiting for it, and do not plan as if the flat
+  priority were an order.
+- **A split is real only when each piece can pass on its own.** Before cutting one
+  task into several, give each piece its own acceptance check; a piece with none is
+  a step of the same task, and stays one task.
+- **Streams that "run in parallel"** share a file more often than not. Name the
+  actual file two streams would both write — from the ARCH or the brief, not a
+  category like "the API layer" — and make that one stream depend on the other.
+- **A small change gets short prose, not fewer steps.** Size by the CHANGE, not the
+  project: ≤5 files, no migration, no auth, money or data-model change. Then the
+  plan's prose is a few lines, and no optional section is added (no cost table, no
+  long rationale). The mandatory artefacts stay: an IMPL-BRIEF per task, gate:plan,
+  and `brief=` in the verdict. A migration is never small, whatever the file count.
+
 ## Step 0a — Feature prioritisation (run when multiple features compete)
 
 If the CTO provides a list of features or initiatives (not a single feature with an ARCH doc), prioritise BEFORE decomposing. Apply the right framework based on context:

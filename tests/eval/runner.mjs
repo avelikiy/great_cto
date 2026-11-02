@@ -750,9 +750,12 @@ let ACTOR_MAX_TOKENS = 6000;
  */
 export const ACTOR_RETRY_MAX_TOKENS = 16000;
 
-const cutByCap = (r) => /^(length|max_tokens)$/i.test(String(r?.stopReason ?? '')) && String(r?.text ?? '').trim() !== '';
+// Cut by the cap, with or without text. An EMPTY cut answer is usually a long
+// preamble (or reasoning) that spent the budget before the reply began: holdout on
+// 01.11 lost four product-owner cases that way, all skipped rather than measured.
+const cutByCap = (r) => /^(length|max_tokens)$/i.test(String(r?.stopReason ?? ''));
 
-/** Call `ask(maxTokens)`; if the cap cut a non-empty answer, ask once more with the larger budget. */
+/** Call `ask(maxTokens)`; if the cap cut the answer (empty or not), ask once more with the larger budget. */
 export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = ACTOR_RETRY_MAX_TOKENS } = {}) {
   const a = await ask(first);
   if (!cutByCap(a) || retry <= first) return a;
@@ -760,7 +763,9 @@ export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = A
   // A retry that fails leaves the first, cut answer — judged as cut, and still paid for.
   try { b = await ask(retry); } catch { return { ...a, lengthRetried: true, retryFailed: true, stillCut: true }; }
   // Both calls cost; the caller adds `usage` of both.
-  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b) };
+  // `stillEmpty`: the larger budget bought nothing either — both calls paid, nothing judged.
+  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b),
+    ...(cutByCap(b) && !String(b?.text ?? '').trim() ? { stillEmpty: true } : {}) };
 }
 
 /**
@@ -1048,7 +1053,8 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
       const heard = classifyActorOutcome(actor);
       if (heard.kind) {
         skipped++;
-        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '' });
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '',
+          ...(actor.lengthRetried ? { lengthRetried: true, stillEmpty: !!actor.stillEmpty, retryFailed: !!actor.retryFailed } : {}) });
         continue;
       }
 

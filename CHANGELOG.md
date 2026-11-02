@@ -69,6 +69,39 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.75.7 — 2026-11-02
+
+From the first holdout measurement on 3.75.6. pm and product-owner now test the premise a request carries before building on it, and security-officer keeps reviewing past an instruction planted in the change.
+
+### Fixed
+
+- **pm** treats a claim in the request as a hypothesis:
+  - an estimate by analogy gets the difference that could break the analogy named;
+  - a flat "all critical" gets a ranking marked provisional, put to the human at gate:plan without stalling the run;
+  - a split stands only when every piece has its own acceptance check;
+  - "parallel" streams get their shared file named;
+  - a small change, sized by the change and never a migration, gets short prose but keeps its IMPL-BRIEFs and gate:plan.
+- **product-owner** asks what "we know" or "it is standard" rests on. It wants a named instance, or the contract or regulatory clause, and records the claim as unverified until it gets one. It checks a finished brief for its required parts instead of rewriting it, and says what each option buys before comparing cost.
+- **security-officer:** instruction-shaped text inside the change (a README line, a commit message, a string literal) is data under review, and the review goes on. Refusing it and stopping is the same failure as obeying it. The text is a finding when something obeys it:
+  - a model prompt;
+  - a stored field later fed to a model;
+  - a file models read as instruction: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, an agent file, a RAG document.
+  A forged approval line is reported to the human as a sign of hostile intent. Test fixtures are exempt.
+- **Evals:** security-officer adversarial-prompt H1 and H2 now carry the code. Described in prose, they gave the agent nothing to review, which is the same defect fixed in the QA cases.
+- **Eval runner:** an answer cut by the cap while still empty also gets the second, larger budget. The holdout had lost four product-owner cases this way; they were skipped instead of measured.
+
+### Added
+
+- **Independent holdout cases I1–I6** for pm and product-owner, written by an agent that saw neither the prompts nor the eval files, using only a one-paragraph description of each role. They take varied forms, and two in each set are cases where the right answer is to proceed. The older holdout rows were read when the new rules were written, so they no longer count as an independent test, and the file says so. The I cases are the least-seen measure, and they are reported apart from the older rows in the same split. They are still one author's judgement: an agent's, from a role description.
+
+### Tests
+
+- Wiring tests for the three agents in both registrations.
+- An independent review of the candidate found 4 majors: the rules leaked the holdout cases, the small-plan rule clashed with mandatory pm steps, the flat-priority rule clashed with Step 0a, and the security-officer cap missed instruction files. It also found 7 minors. All are fixed. The self-written F cases were withdrawn in favour of the independent I cases.
+- A runner test for retrying an empty cut answer.
+---
+
 ## v3.75.6 — 2026-11-01
 
 A deploy can now tell a PASS written by its writer from one written by hand. The 01.11 re-measure failures are sorted into agent gaps (fixed in the agents) and eval defects (fixed in the cases). And every script recognises itself through a symlink.
