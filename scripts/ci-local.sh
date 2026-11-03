@@ -12,6 +12,7 @@
 #   bash scripts/ci-local.sh            # full gate
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
 #   bash scripts/ci-local.sh --e2e --serial # same gates, one root/lib test file worker
+#   bash scripts/ci-local.sh --e2e --jobs=8 # same gates, 8 lib test file workers (idle machine)
 #   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
 # Exit 0 = no executed gate failed. All gates run; skipped checks are reported.
@@ -39,15 +40,23 @@ SEAL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/gcto-seal-XXXXXX")"
 export GREAT_CTO_SEAL_KEY="$SEAL_TMP/verdict-seal.key"
 trap 'rm -rf "$SEAL_TMP"' EXIT
 
-E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2
+E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2; LIB_TEST_CONCURRENCY=""
 for a in "$@"; do
   case "$a" in
     --e2e) E2E=1 ;;
     --quick) QUICK=1 ;;
     --serial) GATE_TEST_CONCURRENCY=1 ;;
+    # lib tests were 75-80% of the gate in one worker (21-30 of 28-38 min).
+    # Measured 03.11 on 10 cores: 8 workers ran the same 4034 tests in 4.5 min.
+    # Only lib tests take it: root/board fixtures keep their bounded scheduling.
+    --jobs=[1-9]|--jobs=1[0-6]) LIB_TEST_CONCURRENCY="${a#--jobs=}" ;;
     *) echo "unknown flag: $a"; exit 2 ;;
   esac
 done
+if [ -n "$LIB_TEST_CONCURRENCY" ] && [ "$GATE_TEST_CONCURRENCY" = 1 ]; then
+  echo "--serial and --jobs contradict each other"; exit 2
+fi
+: "${LIB_TEST_CONCURRENCY:=$GATE_TEST_CONCURRENCY}"
 
 FAIL=0
 SKIP_TOTAL=0
@@ -82,7 +91,7 @@ step() {
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "ci-local: node $(node -v) on $(uname -s)"
-echo "   root/lib test worker concurrency: $GATE_TEST_CONCURRENCY (deadlines and assertions unchanged)"
+echo "   root/lib test worker concurrency: $GATE_TEST_CONCURRENCY/$LIB_TEST_CONCURRENCY (deadlines and assertions unchanged)"
 [ "$NODE_MAJOR" -lt 22 ] && echo "   ⚠ project targets Node 22 (.nvmrc); you are on $(node -v)"
 
 # ── The privacy guard is actually in force ──
@@ -392,7 +401,7 @@ step "root + hooks + board tests" node --test --test-concurrency="$GATE_TEST_CON
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
 # retain the full inventory and every original assertion.
-step "lib tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
+step "lib tests" node --test --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
 step "eval tests" node --test tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1

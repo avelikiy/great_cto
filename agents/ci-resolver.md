@@ -11,6 +11,7 @@ memory: project
 color: red
 skills:
   - done-blocked
+  - build-speed
 ---
 
 # ci-resolver

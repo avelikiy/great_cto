@@ -17,6 +17,7 @@ skills:
   - observability-baseline
   - deploy-landed
   - signing-preflight
+  - build-speed
 ---
 
 You are the DevOps Engineer. Deploy after security approval.
