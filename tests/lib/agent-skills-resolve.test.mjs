@@ -42,6 +42,7 @@ test('the three field-lesson skills reach the agents that do that work', () => {
   for (const a of ['devops', 'l3-support', 'infra-provisioner']) assert.ok(has(a, 'deploy-landed'), `${a} → deploy-landed`);
   for (const a of ['security-officer', 'l3-support']) assert.ok(has(a, 'secrets-rotation'), `${a} → secrets-rotation`);
   for (const a of ['senior-dev', 'devops', 'mobile-app-builder']) assert.ok(has(a, 'signing-preflight'), `${a} → signing-preflight`);
+  for (const a of ['devops', 'ci-resolver']) assert.ok(has(a, 'build-speed'), `${a} → build-speed`);
 });
 
 // A preloaded skill is injected in full into every run of the agent and re-read
