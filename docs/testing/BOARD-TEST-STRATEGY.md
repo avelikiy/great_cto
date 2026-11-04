@@ -259,7 +259,7 @@ The reproducing test stays in the suite: every fixed bug leaves a regression tes
 | 2 | Security cases of §3.2 | all pass in `--quick` — **done 2026-11-04**: mapped to existing tests, plus the all-route sweep |
 | 3 | CTRF reports from the gate, `gate-to-bd.mjs` with dedupe (`GATE_FILE_BUGS=1`) | a deliberately failing test creates one bug, a second run comments on it — **done 2026-11-04, proven on the real tracker** |
 | 4 | "Every control is wired" + global console-error check | runs on all destinations — **done 2026-11-04**: 10 destinations, up to 143 controls per view; proven to fail on a renamed handler and on a button with no handler |
-| 5 | Golden journeys 1–12 | all green in `--e2e` |
+| 5 | Golden journeys 1–12 | all green in `--e2e` — **done 2026-11-04**: 3, 8, 9, 11 were already covered; 1, 2, 4, 5, 6, 7, 10, 12 in `tests/e2e/journeys.e2e.test.mjs`, three mutation-checked; five product gaps filed under bd .5 |
 | 6 | axe per tab, desktop and 375 px | zero serious/critical — **gate in place 2026-11-04**: no new violation passes; 4 existing ones baselined and filed |
 | 7 | OpenAPI file + contract validation + Schemathesis | 57/57 routes in the contract — **contract and validation done 2026-11-04** (57/57 routes, 49 response shapes checked live); Schemathesis waits for request schemas |
 | 8 | Stryker baseline on the four critical files | score recorded, target set |
