@@ -14,32 +14,14 @@
 //     a form.
 //
 // Page errors and console errors on any destination fail the test too.
-// It SKIPS — loudly, as "not checked" — when Playwright or Chromium is missing.
+// It SKIPS — loudly, as "not checked" — when Playwright or Chromium is missing
+// (tests/helpers/board-page.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import fs from 'node:fs';
-import os from 'node:os';
-import path from 'node:path';
-import { buildFixture, FIXTURE_NAME } from '../../scripts/lib/screenshot-fixture.mjs';
-import { startServerOnFreePort } from '../helpers/board-start.mjs';
-import { reapAndClean } from '../helpers/reap.mjs';
-
-let chromium;
-try { ({ chromium } = await import('playwright')); } catch { /* reported as a skip */ }
+import { openBoard } from '../helpers/board-page.mjs';
 
 const CONTROLS = 'button, [role="button"], [onclick], a[href^="javascript:"]';
 const LISTENER_TYPES = new Set(['click', 'mousedown', 'mouseup', 'pointerdown', 'pointerup', 'keydown', 'keyup', 'change', 'input', 'submit']);
-
-/** Wait until no fetch/XHR except the event stream is in flight for `quietMs`. */
-async function settle(page, inflight, { quietMs = 300, maxMs = 10000 } = {}) {
-  const until = Date.now() + maxMs;
-  let quietSince = Date.now();
-  while (Date.now() < until) {
-    if (inflight.size) quietSince = Date.now();
-    else if (Date.now() - quietSince >= quietMs) return;
-    await page.waitForTimeout(50);
-  }
-}
 
 /** Mark every element that carries a relevant event listener, via CDP. */
 async function markListeners(cdp) {
@@ -87,46 +69,22 @@ function unwiredInPage(selector) {
 }
 
 test('every control on every destination is wired, and no destination logs an error', { timeout: 240000 }, async (t) => {
-  if (!chromium) return t.skip('playwright is not installed — not checked, not passed');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-controls-'));
-  buildFixture(dir);
-  const home = path.join(dir, '.home'); fs.mkdirSync(path.join(home, '.great_cto'), { recursive: true });
-  const registry = path.join(home, '.great_cto', 'projects.json');
-  fs.writeFileSync(registry, JSON.stringify({ projects: [{ slug: FIXTURE_NAME, name: FIXTURE_NAME, path: dir }] }));
-  let server, browser;
+  const b = await openBoard({ prefix: 'gcto-controls-' });
+  if (b.skip) return t.skip(b.skip);
+  const { page, errors, destinations, go } = b;
   try {
-    try {
-      server = await startServerOnFreePort({ entry: path.resolve('packages/board/server.mjs'), cwd: dir, portEnv: 'PORT', env: { HOME: home, USERPROFILE: home, GREAT_CTO_PROJECTS_FILE: registry, GREAT_CTO_NO_BOARD: '1', GREAT_CTO_NO_UPDATE_CHECK: '1' } });
-    } catch (e) { return t.skip(`board did not come up — not checked, not passed: ${e.message}`); }
-    try { browser = await chromium.launch(); } catch (e) { return t.skip(`chromium would not launch — not checked, not passed: ${String(e.message).split('\n')[0]}`); }
-
-    const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
-    const errors = [];
-    page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-    page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
-    const inflight = new Set();
-    page.on('request', (r) => { if (!/\/api\/sse/.test(r.url()) && ['fetch', 'xhr'].includes(r.resourceType())) inflight.add(r); });
-    page.on('requestfinished', (r) => inflight.delete(r));
-    page.on('requestfailed', (r) => inflight.delete(r));
     const cdp = await page.context().newCDPSession(page);
-
-    await page.goto(`http://127.0.0.1:${server.port}/?project=${encodeURIComponent(FIXTURE_NAME)}`);
-    await page.waitForFunction(() => typeof window.switchTab === 'function');
-    await settle(page, inflight);
-
-    const destinations = await page.evaluate(() => [...new Set([...document.querySelectorAll('[data-tab]')].map((e) => e.getAttribute('data-tab')).filter(Boolean))]);
     assert.ok(destinations.length >= 5, `only ${destinations.length} destinations found: ${destinations.join(', ')}`);
 
     const unwired = new Map();
     let controls = 0;
     for (const dest of destinations) {
       const before = errors.length;
-      await page.evaluate((d) => window.switchTab(d, document.querySelector(`[data-tab="${d}"]`)), dest);
-      await settle(page, inflight);
+      await go(dest);
       await markListeners(cdp);
       controls = Math.max(controls, await page.evaluate((s) => document.querySelectorAll(s).length, CONTROLS));
       for (const line of await page.evaluate(unwiredInPage, CONTROLS)) if (!unwired.has(line)) unwired.set(line, dest);
-      for (const e of errors.slice(before)) errors[errors.indexOf(e)] = `${dest}: ${e}`;
+      for (let i = before; i < errors.length; i++) errors[i] = `${dest}: ${errors[i]}`;
     }
     console.log(`controls checked: up to ${controls} per view across ${destinations.length} destinations (${destinations.join(', ')})`);
 
@@ -134,7 +92,6 @@ test('every control on every destination is wired, and no destination logs an er
     assert.deepEqual(report, [], `controls that do nothing:\n  ${report.join('\n  ')}`);
     assert.deepEqual(errors, [], `errors on the board:\n  ${errors.join('\n  ')}`);
   } finally {
-    await browser?.close();
-    if (server) await reapAndClean(server.proc, dir); else fs.rmSync(dir, { recursive: true, force: true });
+    await b.close();
   }
 });
