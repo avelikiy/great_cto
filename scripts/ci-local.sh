@@ -61,6 +61,7 @@ fi
 FAIL=0
 SKIP_TOTAL=0
 SKIP_LINES=""
+STEP_TIMES=""
 # Machine-readable results (docs/testing/BOARD-TEST-STRATEGY.md §4): a step that
 # runs node:test writes a CTRF report here as well as its TAP to the terminal, which
 # count-skips still reads. GATE_FILE_BUGS=1 turns the failures into Beads bugs at
@@ -77,16 +78,20 @@ step() {
   # it skipped. `node --test` exits 0 when tests skip: judged by exit code alone, a
   # board e2e that pressed no button printed ✓ and the gate ALL GATES GREEN.
   # No arrays below — macOS /bin/bash is 3.2, and with `set -u` an empty one is fatal.
-  local log rc skips
+  local log rc skips t0 dt
   log="$(mktemp "${TMPDIR:-/tmp}/ci-local-step.XXXXXX")"
+  t0=$SECONDS
   "$@" 2>&1 | tee "$log"
   rc=${PIPESTATUS[0]}
+  dt=$((SECONDS - t0))
+  # Durations, so the gate can say where its time goes instead of being guessed at.
+  STEP_TIMES="${STEP_TIMES:-}${dt}	${name}\n"
   skips="$(node scripts/lib/count-skips.mjs "$log" 2>/dev/null)" || skips=""
   rm -f "$log"
   if [ "$rc" -eq 0 ]; then
-    printf '\033[32m   ✓ %s\033[0m\n' "$name"
+    printf '\033[32m   ✓ %s · %ss\033[0m\n' "$name" "$dt"
   else
-    printf '\033[31m   ✗ %s (exit %s)\033[0m\n' "$name" "$rc"
+    printf '\033[31m   ✗ %s (exit %s) · %ss\033[0m\n' "$name" "$rc" "$dt"
     FAIL=1
   fi
   if [ -z "$skips" ]; then
@@ -527,7 +532,15 @@ if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1 && [ -x node_modules/.bin/allur
     node_modules/.bin/allure generate "$0/allure-results" --output "$0/allure-report" --clean --report-name "great_cto gate" >/dev/null &&
     node_modules/.bin/allure quality-gate "$0/allure-results" --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
   ' "$RESULTS_DIR"
+elif ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
+  # A missing report tool is not a passed report: say so in the verdict, like a skip.
+  printf '\033[33m   ⚠ test report (Allure quality gate): allure is not installed (npm ci) — not checked\033[0m\n'
+  SKIP_TOTAL=$((SKIP_TOTAL + 1))
+  SKIP_LINES="${SKIP_LINES}   - test report (Allure quality gate): allure not installed\n"
 fi
+
+printf '\n   slowest steps:\n'
+printf '%b' "$STEP_TIMES" | sort -rn | head -5 | awk -F'\t' '{printf "     %5ss  %s\n", $1, $2}'
 
 if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
   printf '\n   reports: %s/*.ctrf.json\n' "$RESULTS_DIR"
