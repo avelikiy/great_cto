@@ -87,7 +87,18 @@ without a `display-only:` note.
 **Mutation score:** Stryker (`@stryker-mutator/core` with the `command` runner, so it
 drives `node --test`). Not in every gate: it runs weekly and on any change to
 `gate-tokens.mjs`, `routes.mjs` gate handlers, `beads.mjs`, `receipt-read.mjs`.
-Target **≥ 60%** on those files; the first run sets the baseline.
+Target **≥ 60%** on those files; the first run sets the baseline. Run with
+`scripts/mutation.sh [name]` (configs in `stryker/`).
+
+Baseline, 2026-11-04:
+
+| File | Score | Killed | Timeout | Survived | Reading |
+|---|---|---|---|---|---|
+| `gate-tokens.mjs` | **54.2%** | 180 | 0 | 152 | below target: 152 changes to token checks pass the tests |
+| `receipt-read.mjs` | 92.2% | 17 | 148 | 14 | Stryker counts a timeout as detected. Here a timeout means the mutant made the worker hang until the 20 s limit, not that an assertion caught it. Only 17 of 179 (9.5%) are killed by an assertion |
+
+The receipt-read number therefore overstates the tests. It is recorded as measured, and
+the tests are to assert on the result, not on the hang.
 
 **Line coverage:** `node --test --experimental-test-coverage` (built into Node 22), reported, with
 a floor only on the four files above. Coverage is the cheap proxy; mutation is the truth.
@@ -203,7 +214,7 @@ log are kept next to the report (§4).
 |---|---|---|
 | Accessibility | `@axe-core/playwright` | zero `serious`/`critical` violations per tab |
 | Cold start | existing `boot-responsiveness` / `http-cold-read` tests | first byte < 1 s with a slow `bd` |
-| Hot routes | `autocannon` on `/api/work`, `/api/inbox`, `/api/sse` connect | p95 < 200 ms on the fixture, no error under 20 concurrent clients |
+| Hot routes | `packages/board/hot-routes-load.test.mjs` (20 clients × 10 requests, zero-dependency; `autocannon` was not needed) on `/api/work`, `/api/inbox`, `/api/sse` connect | no error under 20 concurrent clients; target p95 < 200 ms on a quiet machine. **Measured 2026-11-04** (machine ~67% idle): `/api/work` p95 31 ms, `/api/inbox` p95 118 ms, `/api/sse` p95 9 ms. The gate enforces p95 < 1000 ms (`HOT_ROUTE_P95_MS`), because it runs on a loaded machine |
 | Page | Lighthouse CI on the fixture board (local, no server upload) | performance ≥ 80, no regressions > 5 points |
 
 ## 4. Reports
@@ -213,7 +224,7 @@ One run produces one verdict, readable by a person and by the agents:
 | Output | Producer | Where |
 |---|---|---|
 | Per-test results | `scripts/lib/ctrf-reporter.mjs`, a zero-dependency node:test reporter writing CTRF (Common Test Report Format) JSON; every browser test is driven from node:test, so one reporter covers both layers | `.great_cto/test-results/<suite>.ctrf.json`, written by `ci-local.sh` (**in place**) |
-| Human report + verdict | Allure 3 over all suites (**next**); `allure quality-gate` sets the exit code (max failures, min test count, so an empty run cannot pass). Playwright HTML report with traces for debugging | `.great_cto/test-results/allure/`, `…/playwright/` |
+| Human report + verdict | Allure 3 over all suites (**in place 2026-11-04**): `scripts/ctrf-to-allure.mjs` turns the CTRF files into Allure results (a skip stays skipped, a todo is skipped with a `todo` tag), and the gate step "test report (Allure quality gate)" runs `allure quality-gate --max-failures 0 --min-tests-count ${GATE_MIN_TESTS:-100}`, so an empty run cannot pass. Playwright HTML report with traces for debugging | `.great_cto/test-results/allure-results/`, `…/allure-report/`, `…/playwright/` |
 | Gate line | `ci-local.sh` step summary: passed / failed / **skipped with why** | the gate log |
 | Board panel | the board itself reads `ctrf.json` and shows the last run per suite | new, small |
 
@@ -262,9 +273,9 @@ The reproducing test stays in the suite: every fixed bug leaves a regression tes
 | 5 | Golden journeys 1–12 | all green in `--e2e` — **done 2026-11-04**: 3, 8, 9, 11 were already covered; 1, 2, 4, 5, 6, 7, 10, 12 in `tests/e2e/journeys.e2e.test.mjs`, three mutation-checked; five product gaps filed under bd .5 |
 | 6 | axe per tab, desktop and 375 px | zero serious/critical — **gate in place 2026-11-04**: no new violation passes; 4 existing ones baselined and filed |
 | 7 | OpenAPI file + contract validation + Schemathesis | 57/57 routes in the contract — **contract and validation done 2026-11-04** (57/57 routes, 49 response shapes checked live); Schemathesis waits for request schemas |
-| 8 | Stryker baseline on the four critical files | score recorded, target set |
-| 9 | Installed-package E2E on release candidates | wired into the release chain |
-| 10 | Performance budgets | numbers recorded, then enforced |
+| 8 | Stryker baseline on the four critical files | score recorded, target set — **two of four measured 2026-11-04** (§3.1): `gate-tokens.mjs` 54.2%, below the 60% target; `receipt-read.mjs` 92.2% by Stryker's count, but only 17 of 179 mutants are killed by an assertion. `beads.mjs` has a config (weekly run); `routes.mjs` gate handlers have none yet |
+| 9 | Installed-package E2E on release candidates | wired into the release chain — **done 2026-11-04**: `tests/e2e/installed-package.e2e.test.mjs` packs the CLI, installs the tarball offline into a temp prefix, and runs the controls-wired and contract suites against the installed board (`BOARD_SERVER_ENTRY`); it runs in every `--e2e` gate, which is the one release chains use |
+| 10 | Performance budgets | numbers recorded, then enforced — **hot routes done 2026-11-04** (§3.6); Lighthouse not started |
 
 ## 7. Tool choice
 
