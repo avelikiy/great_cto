@@ -185,7 +185,9 @@ test('billing breach is recorded without clamping invoice to reserved amount', a
 test('timeout aborts a possible POST and retains Unknown with no retry', async t => {
   const { runKimiReview } = requireApi(); const { options } = await runtime(t);
   const original = options.fetchImpl; let sent = 0, aborted = false;
-  options.timeoutMs = 500;
+  // A real deadline: preparation before the POST runs on wall time, and 500 ms of it
+  // was eaten by a loaded machine (great_cto-lkbb). 3 s keeps the test about the abort.
+  options.timeoutMs = 3000;
   options.fetchImpl = async (url, init) => {
     if (init.method !== 'POST') return original(url, init);
     sent++;
@@ -199,7 +201,7 @@ test('body streaming deadline and response cap apply before JSON parsing', async
   const { runKimiReview } = requireApi();
   for (const oversized of [true, false]) {
     const { options } = await runtime(t); const original = options.fetchImpl; let cancelled = false;
-    options.timeoutMs = 500;
+    options.timeoutMs = 3000; // wall time, see the test above (great_cto-lkbb)
     options.fetchImpl = async (url, init) => {
       if (init.method !== 'POST') return original(url, init);
       return new Response(new ReadableStream({ start(controller) { if (oversized) controller.enqueue(new Uint8Array(262145)); }, cancel() { cancelled = true; } }));
@@ -491,7 +493,10 @@ const c = JSON.parse(input), calls = [], states = [];
 let elapsed = 0, deadlineDelay = null;
 Object.defineProperty(performance, 'now', { value: () => elapsed });
 const schedule = globalThis.setTimeout;
-globalThis.setTimeout = (callback, delay, ...args) => { deadlineDelay ??= delay; return schedule(callback, delay, ...args); };
+// The deadline is decided by the injected clock above. A real timer of that many ms
+// would also abort the request whenever this child takes longer than that in wall
+// time (a loaded machine): record the delay, never let real time fire it.
+globalThis.setTimeout = (callback, delay, ...args) => { deadlineDelay ??= delay; const h = schedule(callback, 2147483647, ...args); h.unref?.(); return h; };
 const controller = new AbortController(), rename = fs.renameSync;
 fs.renameSync = (...args) => {
   const result = rename(...args);
