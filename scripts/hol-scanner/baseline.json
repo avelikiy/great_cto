@@ -146,6 +146,12 @@
       "filePath": "tests/lib/history-secret-scan.test.mjs",
       "count": 2,
       "reason": "templates build fixture file contents and commit messages; the next statement is spawnSync(process.execPath, [CLI, ...]) with an argv array, no shell"
+    },
+    {
+      "ruleId": "SHELL_INJECTION_PATTERN",
+      "filePath": "tests/e2e/installed-package.e2e.test.mjs",
+      "count": 2,
+      "reason": "assertion messages with template strings precede spawnSync(\"npm\", [...]) and spawnSync(process.execPath, [...]); argv arrays with fixed arguments, no shell"
     }
   ]
 }
