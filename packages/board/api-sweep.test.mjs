@@ -20,20 +20,18 @@
 // deleted afterwards.
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { rmSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { tmpdir } from 'node:os';
-import { execFileSync } from 'node:child_process';
 import { startServerOnFreePort } from '../../tests/helpers/board-start.mjs';
 import { reap } from '../../tests/helpers/reap.mjs';
 import { routeInventory } from '../../tests/helpers/board-routes.mjs';
+import { sweepProject, call } from '../../tests/helpers/board-contract.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, 'server.mjs');
 const TMP_DIRS = [];
 after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
-const tmp = (prefix) => { const d = mkdtempSync(join(tmpdir(), prefix)); TMP_DIRS.push(d); return d; };
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 const FOREIGN = 'http://evil.example';
@@ -41,43 +39,10 @@ const FOREIGN = 'http://evil.example';
 // negative and non-numeric numbers, an absurd limit.
 const BAD_QUERY = '?project=no-such-project&id=..%2F..%2Fetc%2Fpasswd&session=..%2F..&turn=-1&days=-5&limit=abc&q=%00&path=..%2F..%2Fetc%2Fpasswd';
 
-function project() {
-  const home = tmp('gcto-sweep-home-');
-  const dir = tmp('gcto-sweep-proj-');
-  const git = (...a) => execFileSync('git', a, { cwd: dir, stdio: ['ignore', 'pipe', 'ignore'] });
-  git('init', '-q'); git('config', 'user.email', 't@t'); git('config', 'user.name', 't');
-  writeFileSync(join(dir, 'app.js'), 'export const x = 1;\n');
-  git('add', '.'); git('commit', '-q', '-m', 'init');
-  mkdirSync(join(dir, '.great_cto', 'verdicts'), { recursive: true });
-  writeFileSync(join(dir, '.great_cto', 'PROJECT.md'), 'archetype: web-service\n');
-  writeFileSync(join(dir, '.great_cto', 'tasks.md'),
-    '# Tasks\n\n| ID | Title | Status | Labels |\n|---|---|---|---|\n| g-plan | gate:plan — decomposition | open | gate |\n');
-  return { home, dir };
-}
+const project = () => sweepProject((d) => TMP_DIRS.push(d));
 
 /** A concrete URL path for a route: prefix routes get a plausible tail. */
 const concrete = (r) => (r.prefix ? `${r.path}x` : r.path);
-
-/**
- * One request with a deadline. The event stream never ends, so a response whose
- * headers arrived is enough: the status is what is asserted.
- */
-async function call(port, path, init = {}, ms = 20000) {
-  const ac = new AbortController();
-  const timer = setTimeout(() => ac.abort(), ms);
-  try {
-    const r = await fetch(`http://127.0.0.1:${port}${path}`, { ...init, signal: ac.signal });
-    const status = r.status;
-    const ct = r.headers.get('content-type') || '';
-    const body = ct.includes('event-stream') ? '' : await r.text();
-    return { status, body };
-  } catch (e) {
-    return { status: 0, body: String(e && e.name === 'AbortError' ? `no answer in ${ms} ms` : e) };
-  } finally {
-    clearTimeout(timer);
-    ac.abort();
-  }
-}
 
 let shared;
 // Registered at file level: an `after` inside a test fires when that test ends.
