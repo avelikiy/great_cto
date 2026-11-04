@@ -133,8 +133,8 @@ the real page against a fixture project.
 |---|---|---|
 | Static: no CDN, English UI, CSS classes declared, type scale, contrast | node:test source scans | exists |
 | Rendered layout signature (fonts, anchors, overflow) instead of pixel diffs | `tests/lib/layout-snapshot.test.mjs` | exists |
-| **Every control is wired:** each `<button>`/`data-action` triggers a request or a state change | Playwright: enumerate controls per tab, click, assert a request or DOM change | new |
-| No console errors or unhandled rejections on any tab | Playwright `pageerror` + `console` listener on every route | partial, make it global |
+| **Every control is wired:** on every destination, an inline handler calls only functions that exist, and any other control has a listener on it or an ancestor below `<body>` (read through the DevTools protocol) | `tests/e2e/controls-wired.e2e.test.mjs`. It does not click: 143 controls include gate approvals, and pressing them belongs to the journeys | **in place** |
+| No console errors or unhandled rejections on any tab | Playwright `pageerror` + `console` listener on all 10 destinations, same test | **in place** |
 | Degraded states render as "not read", not as empty | Playwright with a fixture whose `bd` fails | partial (`degraded-ui.test.mjs`) |
 | Accessibility (WCAG 2.2 AA rules) per tab, desktop and 375 px | `@axe-core/playwright` (axe-core is already a dependency) | new |
 | Mobile: 375 px, no horizontal scroll, drawer works | Playwright viewport | exists for some tabs |
@@ -247,7 +247,7 @@ The reproducing test stays in the suite: every fixed bug leaves a regression tes
 | 1 | Route inventory test + measured route map | the build lists every untested route and refuses new ones — **done 2026-11-04** |
 | 2 | Security cases of §3.2 | all pass in `--quick` — **done 2026-11-04**: mapped to existing tests, plus the all-route sweep |
 | 3 | CTRF reports from the gate, `gate-to-bd.mjs` with dedupe (`GATE_FILE_BUGS=1`) | a deliberately failing test creates one bug, a second run comments on it — **done 2026-11-04, proven on the real tracker** |
-| 4 | "Every control is wired" + global console-error check | runs on all five destinations |
+| 4 | "Every control is wired" + global console-error check | runs on all destinations — **done 2026-11-04**: 10 destinations, up to 143 controls per view; proven to fail on a renamed handler and on a button with no handler |
 | 5 | Golden journeys 1–12 | all green in `--e2e` |
 | 6 | axe per tab, desktop and 375 px | zero serious/critical |
 | 7 | OpenAPI file + contract validation + Schemathesis | 57/57 routes in the contract |
