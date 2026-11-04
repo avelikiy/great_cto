@@ -326,8 +326,14 @@ async function dispatch(req, res, url, cwd) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); } catch (e) {
+        // A body that is not JSON is the caller's mistake: 400, not a server crash.
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+      }
       try {
-        const { path: projPath } = JSON.parse(body || '{}');
+        const projPath = parsed && parsed.path;
         if (!projPath || typeof projPath !== 'string') {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ error: 'path missing' }));
