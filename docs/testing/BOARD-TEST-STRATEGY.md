@@ -201,9 +201,8 @@ One run produces one verdict, readable by a person and by the agents:
 
 | Output | Producer | Where |
 |---|---|---|
-| Per-test results | `node --test --test-reporter=junit` and Playwright's JUnit reporter | `.great_cto/test-results/*.xml` |
-| One merged summary | CTRF (Common Test Report Format) JSON: Playwright and node:test CTRF reporters, merged by `ctrf-cli` | `.great_cto/test-results/ctrf.json` |
-| Human report + verdict | Allure 3 over all suites; `allure quality-gate` sets the exit code (max failures, min test count, so an empty run cannot pass). Playwright HTML report with traces for debugging | `.great_cto/test-results/allure/`, `…/playwright/` |
+| Per-test results | `scripts/lib/ctrf-reporter.mjs`, a zero-dependency node:test reporter writing CTRF (Common Test Report Format) JSON; every browser test is driven from node:test, so one reporter covers both layers | `.great_cto/test-results/<suite>.ctrf.json`, written by `ci-local.sh` (**in place**) |
+| Human report + verdict | Allure 3 over all suites (**next**); `allure quality-gate` sets the exit code (max failures, min test count, so an empty run cannot pass). Playwright HTML report with traces for debugging | `.great_cto/test-results/allure/`, `…/playwright/` |
 | Gate line | `ci-local.sh` step summary: passed / failed / **skipped with why** | the gate log |
 | Board panel | the board itself reads `ctrf.json` and shows the last run per suite | new, small |
 
@@ -245,9 +244,9 @@ The reproducing test stays in the suite: every fixed bug leaves a regression tes
 
 | # | Step | Done when |
 |---|---|---|
-| 1 | Route inventory test + measured route map | the build lists every untested route and refuses new ones |
-| 2 | Security cases of §3.2 | all pass in `--quick` |
-| 3 | JUnit + CTRF reports, `gate-to-bd.mjs` with dedupe | a deliberately failing test creates one bug, a second run comments on it |
+| 1 | Route inventory test + measured route map | the build lists every untested route and refuses new ones — **done 2026-11-04** |
+| 2 | Security cases of §3.2 | all pass in `--quick` — **done 2026-11-04**: mapped to existing tests, plus the all-route sweep |
+| 3 | CTRF reports from the gate, `gate-to-bd.mjs` with dedupe (`GATE_FILE_BUGS=1`) | a deliberately failing test creates one bug, a second run comments on it — **done 2026-11-04, proven on the real tracker** |
 | 4 | "Every control is wired" + global console-error check | runs on all five destinations |
 | 5 | Golden journeys 1–12 | all green in `--e2e` |
 | 6 | axe per tab, desktop and 375 px | zero serious/critical |
