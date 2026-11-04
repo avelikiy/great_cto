@@ -1,0 +1,40 @@
+{
+  "$schema": "../node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+  "_comment": "Mutation run for packages/board/lib/gate-tokens.mjs: scripts/mutation.sh gate-tokens. See docs/testing/BOARD-TEST-STRATEGY.md §3.1. The sandbox copy drops the exec bit, so the command restores it on the shim fixtures first.",
+  "testRunner": "command",
+  "commandRunner": {
+    "command": "chmod +x packages/board/fixtures/*.mjs packages/board/fixtures/*.sh && node --test packages/board/gate-tokens.test.mjs"
+  },
+  "mutate": [
+    "packages/board/lib/gate-tokens.mjs"
+  ],
+  "reporters": [
+    "clear-text",
+    "progress",
+    "json"
+  ],
+  "jsonReporter": {
+    "fileName": ".great_cto/test-results/mutation/gate-tokens.json"
+  },
+  "thresholds": {
+    "high": 80,
+    "low": 60,
+    "break": null
+  },
+  "concurrency": 4,
+  "timeoutMS": 20000,
+  "tempDirName": ".stryker-tmp",
+  "cleanTempDir": "always",
+  "ignorePatterns": [
+    ".great_cto",
+    ".codex",
+    ".claude",
+    ".beads",
+    "docs",
+    "tests/eval",
+    "tests/e2e",
+    "packages/cli/board",
+    "packages/cli/*.tgz",
+    "stryker"
+  ]
+}
