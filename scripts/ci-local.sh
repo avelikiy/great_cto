@@ -61,6 +61,15 @@ fi
 FAIL=0
 SKIP_TOTAL=0
 SKIP_LINES=""
+# Machine-readable results (docs/testing/BOARD-TEST-STRATEGY.md §4): a step that
+# runs node:test writes a CTRF report here as well as its TAP to the terminal, which
+# count-skips still reads. GATE_FILE_BUGS=1 turns the failures into Beads bugs at
+# the end of the run (scripts/gate-to-bd.mjs, deduplicated by fingerprint).
+RESULTS_DIR=".great_cto/test-results"
+rm -rf "$RESULTS_DIR"; mkdir -p "$RESULTS_DIR"
+ctrf_to() {
+  printf -- '--test-reporter=tap --test-reporter-destination=stdout --test-reporter=./scripts/lib/ctrf-reporter.mjs --test-reporter-destination=%s/%s.ctrf.json' "$RESULTS_DIR" "$1"
+}
 step() {
   local name="$1"; shift
   printf '\n\033[1m── %s\033[0m\n' "$name"
@@ -396,7 +405,7 @@ step "docs screen classifies more than it shrugs at" bash -c '
 # Board fixtures have real child-start and IPC deadlines. Unbounded file
 # scheduling can expire a receipt before its held Git fixture reaches the
 # handshake. Bound scheduling, not those deadlines, and retain every suite.
-step "root + hooks + board tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
+step "root + hooks + board tests" env GATE_SUITE="root + hooks + board tests" node --test $(ctrf_to board-unit) --test-concurrency="$GATE_TEST_CONCURRENCY" tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 # Each library file can launch Git, browsers and signal-handling fixtures.
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
@@ -419,7 +428,7 @@ step "docs tests" bash -c 'ls tests/docs/*.test.mjs >/dev/null 2>&1 || { echo "n
 # existed since the kanban, the button had not — and every gate was green.
 # This step presses the buttons. It SKIPS (loudly) when Playwright or the
 # server is unavailable; a skip is "not checked", never "checked and fine".
-step "board e2e (browser)" node --test tests/e2e/*.test.mjs
+step "board e2e (browser)" env GATE_SUITE="board e2e (browser)" node --test $(ctrf_to board-e2e) tests/e2e/*.test.mjs
 
 # ── The pipeline, against a written-down answer ──
 #
@@ -507,6 +516,15 @@ fi
 # ── Optional heavier e2e ──
 if [ "$E2E" -eq 1 ]; then
   step "archetype e2e" bash -c 'cd packages/cli && npm run test:e2e'
+fi
+
+if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
+  printf '\n   reports: %s/*.ctrf.json\n' "$RESULTS_DIR"
+  if [ "$FAIL" -ne 0 ] && [ "${GATE_FILE_BUGS:-0}" = "1" ]; then
+    # Filing that fails must be seen: gate-to-bd exits 2 and the gate stays red anyway.
+    node scripts/gate-to-bd.mjs ${GATE_BUGS_PARENT:+--parent "$GATE_BUGS_PARENT"} --commit "$(git rev-parse --short HEAD 2>/dev/null)" "$RESULTS_DIR"/*.ctrf.json \
+      || printf '\033[31m   ✗ failures were not all filed in bd — see above\033[0m\n'
+  fi
 fi
 
 printf '\n'
