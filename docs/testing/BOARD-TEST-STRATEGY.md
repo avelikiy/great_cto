@@ -110,17 +110,19 @@ Four checks, from cheapest to strongest:
    board started on a fixture. It finds 500s, schema violations and crashes on inputs
    nobody wrote by hand. Runs in the full gate (`--e2e`), not `--quick`.
 
-**Security cases, written by hand because they are the safety story:**
+**Security cases.** Most already exist; a first pass of this strategy missed them because
+it searched for the wrong strings. Where each one lives:
 
-| Case | Expected |
-|---|---|
-| Gate POST without token / with reused token / expired token | 403 `refused-token` / `refused-expired` |
-| Approve expensive gate without typed `confirm` | 403 `refused-confirm` |
-| Project changed since the gate was listed | 409 `refused-stale` with `changed` paths |
-| Request with a foreign `Host` / `Origin` (DNS rebinding) | refused by the host allowlist |
-| `/api/doc?path=../../etc/passwd`, encoded variants, symlink out of the root | 400/404, never file bytes |
-| `/api/router-key` | never returns the key, only a fingerprint |
-| Every non-GET on a read-only route | 405 |
+| Case | Expected | Test |
+|---|---|---|
+| Gate POST without token / with reused token / expired token | 403 `refused-token` / `refused-expired` | `gate-tokens.test.mjs` |
+| Approve expensive gate without typed `confirm` | 403 `refused-confirm` | `gate-tokens.test.mjs` |
+| Project changed since the gate was listed | 409 `refused-stale` with `changed` paths | `gate-tokens.test.mjs` |
+| Request with a foreign `Host` (DNS rebinding) | refused by the host allowlist | `host-allowlist.test.mjs` |
+| `/api/doc` traversal, absolute paths, symlink out of the root | refused, never file bytes | `knowledge.test.mjs` |
+| `/api/router-key` | never returns the key, only a fingerprint | `router-key-verify.test.mjs` |
+| A write from another site, **on every route and every write method** | 403 before any handler | `api-sweep.test.mjs` (new) |
+| **Every route** with missing parameters, unknown project, traversal-shaped ids, bad numbers, a body that is not JSON | a 4xx or a state, never 5xx, never a hang | `api-sweep.test.mjs` (new) — its first run found `POST /api/projects/register` answering 500 to a non-JSON body |
 
 ### 3.3 Frontend
 
