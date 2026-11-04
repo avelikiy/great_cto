@@ -58,7 +58,7 @@ test('no new serious or critical accessibility violation on any destination, wid
 
     if (process.env.A11Y_BASELINE_WRITE === '1') {
       fs.writeFileSync(BASELINE, JSON.stringify({
-        note: 'Serious/critical axe violations accepted on the date below, pending a fix (bd label a11y); a fix that changes how the board looks needs the owner.s design approval first. Shrink only. See docs/testing/BOARD-TEST-STRATEGY.md §3.3.',
+        note: 'Serious/critical axe violations accepted on the date below, pending a fix (bd label a11y); a fix that changes how the board looks needs the owner\'s design approval first. Shrink only. See docs/testing/BOARD-TEST-STRATEGY.md §3.3.',
         measured: new Date().toISOString().slice(0, 10),
         violations: Object.fromEntries(keys.map((k) => [k, `${found.get(k).impact}: ${found.get(k).help} (first seen ${found.get(k).where})`])),
       }, null, 2) + '\n');
