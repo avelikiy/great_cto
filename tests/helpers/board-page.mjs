@@ -33,7 +33,7 @@ export async function openBoard({ prefix = 'gcto-board-page-', viewport = { widt
   };
   try {
     server = await startServerOnFreePort({
-      entry: path.resolve('packages/board/server.mjs'), cwd: dir, portEnv: 'PORT',
+      entry: process.env.BOARD_SERVER_ENTRY || path.resolve('packages/board/server.mjs'), cwd: dir, portEnv: 'PORT',
       env: { HOME: home, USERPROFILE: home, GREAT_CTO_PROJECTS_FILE: registry, GREAT_CTO_NO_BOARD: '1', GREAT_CTO_NO_UPDATE_CHECK: '1', ...env, ...(seeded?.env || {}) },
     });
   } catch (e) { await close(); return { skip: `board did not come up — not checked, not passed: ${e.message}` }; }

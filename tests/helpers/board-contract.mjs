@@ -12,7 +12,8 @@ import { startServerOnFreePort } from './board-start.mjs';
 import { reap } from './reap.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
-export const SERVER = join(ROOT, 'packages', 'board', 'server.mjs');
+// BOARD_SERVER_ENTRY: run against another copy of the board (the installed package).
+export const SERVER = process.env.BOARD_SERVER_ENTRY || join(ROOT, 'packages', 'board', 'server.mjs');
 export const CONTRACT = join(ROOT, 'packages', 'board', 'openapi.json');
 
 /** A git project with one gate in tasks.md, and an empty HOME next to it. */
