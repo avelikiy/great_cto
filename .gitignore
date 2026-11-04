@@ -128,3 +128,6 @@ docs/design/direction-one-spec.html
 # the engine's API declarations and a tsconfig pointing at them. Regenerated, never edited.
 /.claude-plugin/types/
 /tsconfig.json
+
+# StrykerJS sandbox (scripts/mutation.sh)
+.stryker-tmp/

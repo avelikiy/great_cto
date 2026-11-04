@@ -61,6 +61,7 @@ fi
 FAIL=0
 SKIP_TOTAL=0
 SKIP_LINES=""
+STEP_TIMES=""
 # Machine-readable results (docs/testing/BOARD-TEST-STRATEGY.md §4): a step that
 # runs node:test writes a CTRF report here as well as its TAP to the terminal, which
 # count-skips still reads. GATE_FILE_BUGS=1 turns the failures into Beads bugs at
@@ -77,16 +78,20 @@ step() {
   # it skipped. `node --test` exits 0 when tests skip: judged by exit code alone, a
   # board e2e that pressed no button printed ✓ and the gate ALL GATES GREEN.
   # No arrays below — macOS /bin/bash is 3.2, and with `set -u` an empty one is fatal.
-  local log rc skips
+  local log rc skips t0 dt
   log="$(mktemp "${TMPDIR:-/tmp}/ci-local-step.XXXXXX")"
+  t0=$SECONDS
   "$@" 2>&1 | tee "$log"
   rc=${PIPESTATUS[0]}
+  dt=$((SECONDS - t0))
+  # Durations, so the gate can say where its time goes instead of being guessed at.
+  STEP_TIMES="${STEP_TIMES:-}${dt}	${name}\n"
   skips="$(node scripts/lib/count-skips.mjs "$log" 2>/dev/null)" || skips=""
   rm -f "$log"
   if [ "$rc" -eq 0 ]; then
-    printf '\033[32m   ✓ %s\033[0m\n' "$name"
+    printf '\033[32m   ✓ %s · %ss\033[0m\n' "$name" "$dt"
   else
-    printf '\033[31m   ✗ %s (exit %s)\033[0m\n' "$name" "$rc"
+    printf '\033[31m   ✗ %s (exit %s) · %ss\033[0m\n' "$name" "$rc" "$dt"
     FAIL=1
   fi
   if [ -z "$skips" ]; then
@@ -410,8 +415,8 @@ step "root + hooks + board tests" env GATE_SUITE="root + hooks + board tests" no
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
 # retain the full inventory and every original assertion.
-step "lib tests" node --test --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
-step "eval tests" node --test tests/eval/*.test.mjs
+step "lib tests" env GATE_SUITE="lib tests" node --test $(ctrf_to lib) --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
+step "eval tests" env GATE_SUITE="eval tests" node --test $(ctrf_to eval) tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1
 # the README parity check was RED here while the gate reported ALL GATES GREEN.
@@ -518,8 +523,31 @@ if [ "$E2E" -eq 1 ]; then
   step "archetype e2e" bash -c 'cd packages/cli && npm run test:e2e'
 fi
 
+# ── Allure 3 over the CTRF reports: one human report, and a quality gate that an
+# empty or truncated run cannot pass (a suite that loaded nothing is not green). ──
+if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1 && [ -x node_modules/.bin/allure ]; then
+  rm -rf "$RESULTS_DIR/allure-results"
+  step "test report (Allure quality gate)" bash -c '
+    node scripts/ctrf-to-allure.mjs "$0/allure-results" "$0"/*.ctrf.json &&
+    node_modules/.bin/allure generate "$0/allure-results" --output "$0/allure-report" --clean --report-name "great_cto gate" >/dev/null &&
+    allure="$PWD/node_modules/.bin/allure" &&
+    # quality-gate writes its own files into ./allure-report: run it beside the report,
+    # not in the checkout root, where they would show up as untracked files.
+    cd "$0" && "$allure" quality-gate allure-results --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
+  ' "$RESULTS_DIR"
+elif ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
+  # A missing report tool is not a passed report: say so in the verdict, like a skip.
+  printf '\033[33m   ⚠ test report (Allure quality gate): allure is not installed (npm ci) — not checked\033[0m\n'
+  SKIP_TOTAL=$((SKIP_TOTAL + 1))
+  SKIP_LINES="${SKIP_LINES}   - test report (Allure quality gate): allure not installed\n"
+fi
+
+printf '\n   slowest steps:\n'
+printf '%b' "$STEP_TIMES" | sort -rn | head -5 | awk -F'\t' '{printf "     %5ss  %s\n", $1, $2}'
+
 if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
   printf '\n   reports: %s/*.ctrf.json\n' "$RESULTS_DIR"
+  [ -f "$RESULTS_DIR/allure-report/index.html" ] && printf '   allure:  %s/allure-report/index.html\n' "$RESULTS_DIR"
   if [ "$FAIL" -ne 0 ] && [ "${GATE_FILE_BUGS:-0}" = "1" ]; then
     # Filing that fails must be seen: gate-to-bd exits 2 and the gate stays red anyway.
     node scripts/gate-to-bd.mjs ${GATE_BUGS_PARENT:+--parent "$GATE_BUGS_PARENT"} --commit "$(git rev-parse --short HEAD 2>/dev/null)" "$RESULTS_DIR"/*.ctrf.json \
