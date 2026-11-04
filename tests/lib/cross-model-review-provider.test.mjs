@@ -248,6 +248,9 @@ import fs from 'node:fs'; import path from 'node:path';
 let text = ''; for await (const chunk of process.stdin) { text += chunk; if (Buffer.byteLength(text) > 131072) throw Error('fixture-input-too-large'); }
 const {dir} = JSON.parse(text), operatorRoot = path.join(dir, 'operator');
 let elapsed = 0, posts = 0; Object.defineProperty(performance, 'now', { value: () => elapsed });
+// The deadline is the injected clock above; a real timer of the same length would also
+// fire whenever this child is slower than that in wall time (great_cto-lkbb).
+const schedule = globalThis.setTimeout; globalThis.setTimeout = (cb, ms, ...a) => { const h = schedule(cb, ms >= 1000 ? 2147483647 : ms, ...a); if (ms >= 1000) h.unref?.(); return h; };
 const rename = fs.renameSync; fs.renameSync = (...args) => { const r = rename(...args); if (String(args[1]).endsWith('/report.json')) elapsed = 1000; return r; };
 const {runProfileReview} = await import(process.argv[1]);
 const model = 'moonshotai/kimi-k3.1-pro', canonical = model + '-20261023', tag = 'moonshotai/mxfp4';
