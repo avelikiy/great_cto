@@ -518,8 +518,20 @@ if [ "$E2E" -eq 1 ]; then
   step "archetype e2e" bash -c 'cd packages/cli && npm run test:e2e'
 fi
 
+# ── Allure 3 over the CTRF reports: one human report, and a quality gate that an
+# empty or truncated run cannot pass (a suite that loaded nothing is not green). ──
+if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1 && [ -x node_modules/.bin/allure ]; then
+  rm -rf "$RESULTS_DIR/allure-results"
+  step "test report (Allure quality gate)" bash -c '
+    node scripts/ctrf-to-allure.mjs "$0/allure-results" "$0"/*.ctrf.json &&
+    node_modules/.bin/allure generate "$0/allure-results" --output "$0/allure-report" --clean --report-name "great_cto gate" >/dev/null &&
+    node_modules/.bin/allure quality-gate "$0/allure-results" --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
+  ' "$RESULTS_DIR"
+fi
+
 if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
   printf '\n   reports: %s/*.ctrf.json\n' "$RESULTS_DIR"
+  [ -f "$RESULTS_DIR/allure-report/index.html" ] && printf '   allure:  %s/allure-report/index.html\n' "$RESULTS_DIR"
   if [ "$FAIL" -ne 0 ] && [ "${GATE_FILE_BUGS:-0}" = "1" ]; then
     # Filing that fails must be seen: gate-to-bd exits 2 and the gate stays red anyway.
     node scripts/gate-to-bd.mjs ${GATE_BUGS_PARENT:+--parent "$GATE_BUGS_PARENT"} --commit "$(git rev-parse --short HEAD 2>/dev/null)" "$RESULTS_DIR"/*.ctrf.json \
