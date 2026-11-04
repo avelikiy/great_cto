@@ -415,8 +415,8 @@ step "root + hooks + board tests" env GATE_SUITE="root + hooks + board tests" no
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
 # retain the full inventory and every original assertion.
-step "lib tests" node --test --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
-step "eval tests" node --test tests/eval/*.test.mjs
+step "lib tests" env GATE_SUITE="lib tests" node --test $(ctrf_to lib) --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
+step "eval tests" env GATE_SUITE="eval tests" node --test $(ctrf_to eval) tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1
 # the README parity check was RED here while the gate reported ALL GATES GREEN.
@@ -530,7 +530,10 @@ if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1 && [ -x node_modules/.bin/allur
   step "test report (Allure quality gate)" bash -c '
     node scripts/ctrf-to-allure.mjs "$0/allure-results" "$0"/*.ctrf.json &&
     node_modules/.bin/allure generate "$0/allure-results" --output "$0/allure-report" --clean --report-name "great_cto gate" >/dev/null &&
-    node_modules/.bin/allure quality-gate "$0/allure-results" --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
+    allure="$PWD/node_modules/.bin/allure" &&
+    # quality-gate writes its own files into ./allure-report: run it beside the report,
+    # not in the checkout root, where they would show up as untracked files.
+    cd "$0" && "$allure" quality-gate allure-results --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
   ' "$RESULTS_DIR"
 elif ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
   # A missing report tool is not a passed report: say so in the verdict, like a skip.
