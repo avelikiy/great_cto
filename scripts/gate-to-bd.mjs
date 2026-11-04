@@ -19,7 +19,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './lib/is-main.mjs';
 
 const SECURITY = /gate-tokens|host-allowlist|api-sweep|router-key|knowledge\.test|security|gates?\//i;
 
@@ -130,4 +130,4 @@ function main(argv) {
   return errors ? 2 : 0;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) process.exitCode = main(process.argv.slice(2));
+if (isMainModule(import.meta.url)) process.exitCode = main(process.argv.slice(2));
