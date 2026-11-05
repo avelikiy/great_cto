@@ -55,6 +55,9 @@ lui-même le flux. `/resume` ne poursuit que ce que vous avez déjà approuvé ;
 décision en attente vous attend toujours. Tout le reste — `/review`, `/spec`, `/save`,
 `/digest`, etc. — est là quand vous en avez besoin : [toutes les commandes](../COMMANDS.md).
 
+Vous configurez avec un agent IA ? Collez le prompt unique du
+[démarrage rapide pour agents IA](../QUICKSTART-AI.md) dans Claude Code ou Codex.
+
 ## Un projet, cinq vues
 
 Lancez `great-cto board` pour ouvrir le tableau local, normalement sur `localhost:3141`.
