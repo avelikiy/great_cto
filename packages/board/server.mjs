@@ -105,7 +105,8 @@ const server = http.createServer(async (req, res) => {
   // signal to a prober about what exists outside PUBLIC.
   if (isInsideDir(PUBLIC, fullPath) && fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
     const ext = path.extname(fullPath);
-    const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml' };
+    const mime = { '.html': 'text/html', '.css': 'text/css', '.js': 'text/javascript', '.svg': 'image/svg+xml',
+      '.png': 'image/png', '.ico': 'image/x-icon', '.webmanifest': 'application/manifest+json' };
     // HTML must never cache — board UI is iterated daily and stale layouts
     // hide new features (period selector, push toggle, etc.) until hard refresh
     const headers = { 'Content-Type': mime[ext] || 'text/plain' };

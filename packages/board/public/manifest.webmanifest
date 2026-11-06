@@ -1,0 +1,16 @@
+{
+  "name": "great_cto board",
+  "short_name": "great_cto",
+  "description": "Local board for great_cto: work, gates, decisions and agent activity.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#0a0e0c",
+  "theme_color": "#0a0e0c",
+  "icons": [
+    { "src": "/assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/assets/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "/assets/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
