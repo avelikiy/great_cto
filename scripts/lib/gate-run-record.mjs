@@ -16,6 +16,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { isMainModule } from './is-main.mjs';
 
 export const MAX_LINES = 200;
 export const RESULTS = Object.freeze(['green', 'skipped', 'red']);
@@ -62,7 +63,7 @@ export function appendRecord(record, { cwd = process.cwd() } = {}) {
   return file;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const arg = (n) => { const i = process.argv.indexOf(n); return i > 0 ? process.argv[i + 1] : undefined; };
   try {
     const file = appendRecord(buildRecord({ result: arg('--result'), failed: arg('--failed') || '' }));
