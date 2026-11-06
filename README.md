@@ -69,6 +69,9 @@ decision still waits for you. Everything else — `/review`, `/spec`, `/save`,
 `/digest` and the rest — is there when you need it:
 [all commands](docs/COMMANDS.md).
 
+Setting up through an AI agent? Paste the one prompt in
+[Quick start for AI agents](docs/QUICKSTART-AI.md) into Claude Code or Codex.
+
 ## One project, five views
 
 Run `great-cto board` to open the local board, normally at `localhost:3141`.
