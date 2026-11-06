@@ -34,6 +34,8 @@ import { isFailure } from './fleet.mjs';
 import { getShareState, toggleShare } from './share.mjs';
 import { checkForRelease, buildUpdatePayload } from './update-alert.mjs';
 import { log } from './log.mjs';
+import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
+import { blockedAgentEvents, redGateRunEvents, waitingGateEvents, readGateRuns, selectedInstantTriggers } from './instant-alerts.mjs';
 
 // ── Email alerts (Resend) ─────────────────────────────────────────────────
 // Dispatch model: read webhooks.json on every fire (idempotent if disabled
@@ -161,10 +163,48 @@ async function firePushAlert(eventName, dedupeKey, payload) {
   } catch (e) { log.warn('firePushAlert failed:', e.message); }
 }
 
+/**
+ * One pass of the instant triggers over every known project. Exported so a test
+ * can drive it without waiting for the timer.
+ * @returns {Promise<{event:string,dedupeKey:string}[]>} what was sent this pass
+ */
+async function sweepInstantAlerts({ now = Date.now(), projects = listProjects(), greatCtoDir = GREAT_CTO_DIR,
+  send = { email: fireEmailAlert, push: firePushAlert, history: addNotification } } = {}) {
+  const on = selectedInstantTriggers(greatCtoDir);
+  if (!on.size) return [];
+  const sent = [];
+  for (const proj of projects) {
+    const events = [];
+    if (on.has('agent.blocked')) events.push(...blockedAgentEvents(proj.slug, readSessionStatus(proj.path, { now }), { now }));
+    if (on.has('gate.local_red')) events.push(...redGateRunEvents(proj.slug, readGateRuns(proj.path), { now }));
+    if (on.has('gate.waiting')) events.push(...waitingGateEvents(proj.slug, getTasks(proj.path, SWEEP), { now }));
+    for (const ev of events) {
+      // Email and push each mark what THEY sent, and only when configured. The
+      // sweep marks the instance itself, before sending, so with neither channel
+      // set up it still reaches the in-app list once, not once a minute.
+      // An unreadable map is not an empty one: writing `{}` plus one key back
+      // would erase every other alert's dedupe and re-send them all. Stop instead.
+      const fired = fs.existsSync(ALERTS_FIRED_PATH) ? readAlertsHistory() : {};
+      if (!fired) { log.warn('instant alerts: alerts-fired.json is unreadable — nothing sent this pass'); return sent; }
+      const mark = `instant:${ev.dedupeKey}`;
+      if (fired[mark]) continue;
+      fired[mark] = new Date(now).toISOString();
+      const keys = Object.keys(fired);
+      writeAlertsFired(keys.length > 1000 ? Object.fromEntries(keys.slice(-1000).map((k) => [k, fired[k]])) : fired);
+      send.history(ev.event, ev.payload, ev.dedupeKey);
+      await send.email(ev.event, ev.dedupeKey, ev.payload);
+      await send.push(ev.event, ev.dedupeKey, ev.payload);
+      sent.push({ event: ev.event, dedupeKey: ev.dedupeKey });
+    }
+  }
+  return sent;
+}
+
 // ── Cron: scan gates / cost / weekly digest ───────────────────────────────
 // Runs every 5 minutes once the server boots. Each check is idempotent
 // thanks to alerts-fired.json dedupe.
 function startAlertCron() {
+  const ONE_MIN = 60 * 1000;
   const FIVE_MIN = 5 * 60 * 1000;
   const ONE_HOUR = 60 * 60 * 1000;
   const ONE_DAY = 24 * 60 * 60 * 1000;
@@ -301,6 +341,11 @@ function startAlertCron() {
       }
     } catch (e) { log.warn('cron gate.stale failed:', e.message); }
   }, FIVE_MIN);
+
+  // agent.blocked / gate.local_red / gate.waiting — the instant triggers.
+  // Every minute, and only for triggers the operator switched on (see
+  // lib/instant-alerts.mjs for why these three are opt-in on every channel).
+  setInterval(() => { sweepInstantAlerts().catch((e) => log.warn('cron instant alerts failed:', e.message)); }, ONE_MIN);
 
   // cost.threshold: monthly LLM spend at 80% / 100% of budget
   setInterval(async () => {
@@ -519,4 +564,4 @@ function startAlertCron() {
   log.info('Alert cron started: gate.stale (5min), sla.escalate (5min), connector.health (5min), cost.threshold (1h), digest.daily (Mon–Fri 08:00), digest.weekly (Fri 09:00), report.daily (09:00), update.available (24h)');
 }
 
-export { readAlertsFired, writeAlertsFired, fireEmailAlert, firePushAlert, startAlertCron };
+export { readAlertsFired, writeAlertsFired, fireEmailAlert, firePushAlert, startAlertCron, sweepInstantAlerts };

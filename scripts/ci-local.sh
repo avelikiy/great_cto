@@ -62,6 +62,8 @@ FAIL=0
 SKIP_TOTAL=0
 SKIP_LINES=""
 STEP_TIMES=""
+# Names of failed steps, one per line — recorded for the board (gate.local_red).
+FAILED_STEPS=""
 # Machine-readable results (docs/testing/BOARD-TEST-STRATEGY.md §4): a step that
 # runs node:test writes a CTRF report here as well as its TAP to the terminal, which
 # count-skips still reads. GATE_FILE_BUGS=1 turns the failures into Beads bugs at
@@ -93,6 +95,8 @@ step() {
   else
     printf '\033[31m   ✗ %s (exit %s) · %ss\033[0m\n' "$name" "$rc" "$dt"
     FAIL=1
+    FAILED_STEPS="${FAILED_STEPS:-}${name}
+"
   fi
   if [ -z "$skips" ]; then
     printf '\033[33m   ⚠ %s: skipped tests could not be counted\033[0m\n' "$name"
@@ -554,6 +558,11 @@ if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
       || printf '\033[31m   ✗ failures were not all filed in bd — see above\033[0m\n'
   fi
 fi
+
+# One line per run in the main checkout's .great_cto/gate-runs.jsonl, so the board
+# can raise gate.local_red. A report only: it never changes this gate's exit code.
+if [ "$FAIL" -ne 0 ]; then RUN_RESULT=red; elif [ "$SKIP_TOTAL" -ne 0 ]; then RUN_RESULT=skipped; else RUN_RESULT=green; fi
+node scripts/lib/gate-run-record.mjs --result "$RUN_RESULT" --failed "$(printf '%b' "$FAILED_STEPS")" || true
 
 printf '\n'
 if [ "$FAIL" -eq 0 ] && [ "$SKIP_TOTAL" -eq 0 ]; then
