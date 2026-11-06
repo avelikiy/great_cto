@@ -54,6 +54,9 @@ npx great-cto init
 核准的內容；待定的決定仍會等你。其餘的——`/review`、`/spec`、`/save`、`/digest`
 等——需要時隨時可用：[全部指令](../COMMANDS.md)。
 
+想透過 AI 代理來設定？把
+[面向 AI 代理的快速開始](../QUICKSTART-AI.md)中的那則提示詞貼到 Claude Code 或 Codex 中。
+
 ## 一個專案，五個檢視
 
 執行 `great-cto board` 開啟本機面板，預設位址為 `localhost:3141`。

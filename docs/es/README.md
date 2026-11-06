@@ -55,6 +55,9 @@ flujo por sí mismo. `/resume` continúa solo lo que ya aprobaste; una decisión
 pendiente sigue esperándote. Todo lo demás — `/review`, `/spec`, `/save`, `/digest`
 y el resto — está ahí cuando lo necesites: [todos los comandos](../COMMANDS.md).
 
+¿Configuras con un agente de IA? Pega el único prompt de la
+[guía rápida para agentes de IA](../QUICKSTART-AI.md) en Claude Code o Codex.
+
 ## Un proyecto, cinco vistas
 
 Ejecuta `great-cto board` para abrir el panel local, normalmente en `localhost:3141`.
