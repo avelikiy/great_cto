@@ -1,7 +1,7 @@
 # ADR-047: One task, one worktree — the workspace is the unit of delegation
 
 **Date:** 2026-11-05
-**Status:** Proposed
+**Status:** Accepted (2026-11-06, owner)
 **Issue:** great_cto-ldws.1
 **Related:** [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [ADR-045 verified distribution](ADR-045-verified-distribution.md) · [ADR-046 verdict seals](ADR-046-verdict-seals.md) · [project capabilities](../reference/project-capabilities.md)
 
