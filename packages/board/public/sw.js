@@ -37,7 +37,7 @@ async function handlePush() {
     body,
     tag,
     // icon may not exist — browsers handle missing icon gracefully
-    icon: `${BOARD_ORIGIN}/assets/logo-192.png`,
+    icon: `${BOARD_ORIGIN}/assets/icon-192.png`,
     badge: `${BOARD_ORIGIN}/assets/favicon-32.png`,
     data: {
       url: `${BOARD_ORIGIN}/`,
