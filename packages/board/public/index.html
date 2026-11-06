@@ -23,6 +23,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
 <link rel="shortcut icon" href="/assets/favicon.ico" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
 <link href="/assets/fonts/fonts.css" rel="stylesheet" />
 <link href="/assets/admin-shell.css" rel="stylesheet" />
 <script src="/assets/vendor/marked.min.js"></script>
@@ -668,6 +670,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: flex; align-items: center; transition: border-color .15s, color .15s;
 }
 .btn-bell:hover { border-color: var(--border-strong); color: var(--text); }
+/* Install app: shown only after the browser fires beforeinstallprompt, hidden in the
+   installed window (display-mode: standalone). */
+.btn-install {
+  display: none; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 0; background: var(--accent-soft);
+  color: var(--text); font: inherit; font-size: var(--fs-small); font-weight: 500; white-space: nowrap;
+}
+.btn-install.on { display: flex; }
+.btn-install:hover { background: var(--accent-strong); }
+@media (display-mode: standalone) { .btn-install.on { display: none; } }
 .btn-bell-badge {
   position: absolute; top: -5px; right: -5px;
   background: var(--accent); color: var(--on-accent);
@@ -3535,6 +3547,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              (#topbar-bell, opened the drawer) are deleted as top-level surfaces
              here — great_cto-ki1x.5. Their panels/functions are untouched for
              .11 to re-wire as Settings rows; nothing here calls them anymore. -->
+        <button class="btn-install" id="install-app-btn" type="button" onclick="installBoardApp()" title="Install the board as an app: own window and Dock icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span class="btn-label">Install app</span>
+        </button>
         <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme"><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z"></path></svg><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg></button>
         <button class="btn-bell" id="topbar-settings-btn" data-tab="settings" onclick="switchTab('settings', this)" title="Settings" aria-label="Settings" style="gap:6px;padding:6px 10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -10595,8 +10611,46 @@ async function _disablePush() {
   }
 }
 
+// ── Install app (PWA) ──────────────────────────────────────────────────────────
+// The button appears only when the browser offers installation (Chrome/Edge fire
+// beforeinstallprompt once the manifest is valid). Safari has no such event, so
+// the button stays hidden there. Once installed, the board runs in its own
+// window (display-mode: standalone) and the button never shows.
+let _installPrompt = null;
+function _installBtn() { return document.getElementById('install-app-btn'); }
+function _isStandalone() {
+  try { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+  catch { return false; }
+}
+function initInstallApp() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _installPrompt = e;
+    const btn = _installBtn();
+    if (btn && !_isStandalone()) btn.classList.add('on');
+  });
+  window.addEventListener('appinstalled', () => {
+    _installPrompt = null;
+    const btn = _installBtn();
+    if (btn) btn.classList.remove('on');
+    showToast('Board installed as an app', 'success', 3000);
+  });
+}
+async function installBoardApp() {
+  if (!_installPrompt) return;
+  const evt = _installPrompt;
+  _installPrompt = null;
+  // A prompt event can be used once: hide the button whatever the answer. If the
+  // user dismissed it, the browser fires beforeinstallprompt again later and the
+  // button comes back with a fresh event.
+  _installBtn()?.classList.remove('on');
+  evt.prompt();
+  try { await evt.userChoice; } catch { /* nothing to undo */ }
+}
+
 init();
 initPush();
+initInstallApp();
 loadNotifHistory();
 initPeriodChips();  // attaches click handlers + highlights active chip
 // Apply persisted period to labels on first paint
