@@ -55,6 +55,9 @@ Claude Code を再起動します。日々使うのは 3 つだけです:
 それ以外 — `/review`、`/spec`、`/save`、`/digest` など — は必要なときに:
 [全コマンド](../COMMANDS.md)。
 
+AI エージェントで設定しますか？
+[AI エージェント向けクイックスタート](../QUICKSTART-AI.md)のプロンプトを Claude Code または Codex に貼り付けてください。
+
 ## 1 つのプロジェクト、5 つの画面
 
 `great-cto board` でローカルボードを開きます。通常は `localhost:3141` です。
