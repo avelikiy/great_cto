@@ -19,6 +19,7 @@ import { usageReports } from './usage-report.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
+import { INSTANT_TRIGGERS } from './instant-alerts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
 
@@ -465,7 +466,7 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/notifications') {
     const NOTIFY_RELAY = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
     const stateFile = path.join(GREAT_CTO_DIR, 'notifications.json');
-    const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly'];
+    const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly', ...INSTANT_TRIGGERS];
     let state = { to: '', verified: false, enabled: false, triggers: [] };
     try { Object.assign(state, JSON.parse(fs.readFileSync(stateFile, 'utf8'))); } catch {}
 
