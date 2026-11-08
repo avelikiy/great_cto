@@ -9,7 +9,7 @@
   },
   "devDependencies": {
     "@stryker-mutator/core": "10.1.1",
-    "allure": "3.22.1",
+    "allure": "3.33.0",
     "axe-core": "^4.12.1",
     "playwright": "^1.60.0"
   },
