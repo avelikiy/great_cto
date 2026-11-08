@@ -28,6 +28,11 @@ import { execFileSync } from 'node:child_process';
 /** Where Claude Code puts agent worktrees, relative to the repo root. */
 export const WORKTREE_DIR = join('.claude', 'worktrees');
 
+/** Where one named worktree lives. The single reading of this path (ADR-047). */
+export function worktreePath(root, name = '') {
+  return join(root, WORKTREE_DIR, name);
+}
+
 /** Changes in one worktree, or null when it is clean or unreadable. */
 export function worktreeChanges(dir, { exec = execFileSync } = {}) {
   let out;
@@ -44,7 +49,7 @@ export function worktreeChanges(dir, { exec = execFileSync } = {}) {
 }
 
 /** The branch work lands on, as a full ref, or null when none can be named. */
-function integrationRef(git) {
+export function integrationRef(git) {
   const head = git(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD']);
   if (head) return head;
   for (const ref of ['refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/heads/main', 'refs/heads/master']) {
@@ -84,7 +89,7 @@ export function unmergedCommits(dir, { exec = execFileSync } = {}) {
  * every subagent stop would train people to ignore the message.
  */
 export function worktreesWithChanges(root = process.cwd(), { maxAgeMs = 6 * 60 * 60 * 1000, now = Date.now(), exec } = {}) {
-  const base = join(root, WORKTREE_DIR);
+  const base = worktreePath(root);
   if (!existsSync(base)) return [];
   let names;
   try { names = readdirSync(base); } catch { return []; }
