@@ -47,6 +47,7 @@ import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../.
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
 import { getWork, getHostGraphPage } from './work.mjs';
+import { readinessFor, readGateQueue, startGate } from './merge-readiness.mjs';
 let publicationPreviewBusy = false;
 let publicationWriteBusy = false;
 import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
@@ -136,7 +137,7 @@ async function dispatch(req, res, url, cwd) {
 
   // Existing synchronous projections may consume a completed snapshot, but
   // HTTP cold reads must await async I/O instead of freezing unrelated clients.
-  const taskRead = ['/api/work', '/api/sse', '/api/tasks', '/api/metrics',
+  const taskRead = ['/api/work', '/api/work/readiness', '/api/sse', '/api/tasks', '/api/metrics',
     '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share', '/api/cost', '/api/resume'].includes(pathname)
     || /^\/api\/tasks\/[^/]+\/history$/.test(pathname);
   const unknownWork = pathname === '/api/work' && requestedProject
@@ -252,6 +253,24 @@ async function dispatch(req, res, url, cwd) {
   }
 
   // New read model refuses project fallback rather than relabeling another project.
+  // The merge-readiness card (design v12). `task` is a Work entry key; the branch and
+  // its worktree are resolved from that entry, never taken from the request.
+  if (pathname === '/api/work/readiness' || pathname === '/api/work/readiness/run-gate') {
+    const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') { send(404, { error: 'Unknown project' }); return true; }
+    const running = pathname.endsWith('/run-gate');
+    if (req.method !== (running ? 'POST' : 'GET')) { send(405, { error: 'Method not allowed' }); return true; }
+    if (running && !originAllowed(req)) { send(403, { error: 'origin not allowed' }); return true; }
+    const entry = getWork(cwd).entries.find((e) => e.key === url.searchParams.get('task'));
+    if (!entry) { send(404, { error: 'Unknown task' }); return true; }
+    try {
+      if (running) { const { status, ...body } = await startGate(cwd, entry); send(status, body); return true; }
+      const tasks = getTasks(cwd);
+      send(200, await readinessFor(cwd, entry, { tasks: Array.isArray(tasks) ? tasks : null, gateQueue: readGateQueue(cwd) }));
+    } catch (err) { send(500, { error: String(err?.message || err) }); }
+    return true;
+  }
+
   if (pathname === '/api/work') {
     if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
       res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });

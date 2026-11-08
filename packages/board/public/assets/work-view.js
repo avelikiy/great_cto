@@ -251,6 +251,84 @@
     svg.dataset.zoom = String(next); svg.setAttribute('width', String(bounds.width * next)); svg.setAttribute('height', String(bounds.height * next));
     return true;
   }
+  // ── Merge readiness (design v12): on top of Overview, filled after the paint because gh is slow. ──
+  const READINESS_MS = 30000;
+  const readiness = new Map();
+  const MARKS = { pass: ['✓', 'passed'], fail: ['✗', 'failed'], 'not-read': ['✗', 'not read'], na: ['–', 'not required'] };
+  const ago = iso => { const min = Math.max(0, Math.round((Date.now() - Date.parse(iso)) / 60000)); return min ? `${min} min ago` : 'just now'; };
+  const safeHref = href => /^https:\/\/(github\.com|claude\.ai)\//.test(href || '') ? href : null;
+  function readinessAction(action) {
+    if (!action) return '';
+    if (action.kind === 'link') return safeHref(action.href) ? `<a class="rdy-link" href="${esc(action.href)}" target="_blank" rel="noopener">${esc(action.label)}</a>` : '';
+    if (action.kind === 'tab') return `<button type="button" class="rdy-link" data-work-tab="${esc(action.tab)}">${esc(action.label)}</button>`;
+    if (action.kind === 'issue') return `<button type="button" class="rdy-link" data-readiness-issue="${esc(action.issue)}"><span class="rdy-wide">${esc(action.label)}</span><span class="rdy-narrow">${esc(action.narrowLabel || action.label)}</span></button>`;
+    if (action.kind === 'copy') return `<button type="button" class="rdy-btn" data-readiness-copy="${esc(action.text)}">${esc(action.label)}</button>`;
+    if (action.kind === 'run-gate') return `<button type="button" class="rdy-btn" data-readiness-run>${esc(action.label)}</button>`;
+    return `<button type="button" class="rdy-btn" disabled>${esc(action.label)}</button>`;
+  }
+  function readinessRow(r) {
+    const [mark, label] = MARKS[r.state] || MARKS['not-read'];
+    const queue = r.queue ? ` New run: <b class="rdy-queue">${esc(r.queue)}</b>` : '';
+    const queueBrief = r.queue ? ` New run <b class="rdy-queue">${esc(r.queueBrief || r.queue)}</b>` : '';
+    const text = `<span class="rdy-detail"><span class="rdy-wide">${esc(r.detail)}${queue}</span><span class="rdy-narrow">${esc(r.brief || r.detail)}${queueBrief}</span></span>`;
+    return `<li class="rdy-row" data-state="${esc(r.state)}"><span class="rdy-mark" aria-label="${label}">${mark}</span><span class="rdy-label">${esc(r.label)}</span>${text}${readinessAction(r.action)}</li>`;
+  }
+  function renderReadiness(card) {
+    const noun = `${card.blockers} blocker${card.blockers === 1 ? '' : 's'}`;
+    const wide = card.ready ? 'Ready to merge' : `Ready to merge? Not yet — ${noun}`;
+    const narrow = card.ready ? 'Ready to merge' : `Not ready — ${noun}`;
+    const when = ago(card.checkedAt);
+    return `<section class="rdy" aria-labelledby="rdy-h" data-ready="${card.ready}"><div class="rdy-head"><div class="rdy-count">${card.ready ? '✓' : card.blockers}</div>`
+      + `<div class="rdy-title"><h2 id="rdy-h"><span class="rdy-wide">${esc(wide)}</span><span class="rdy-narrow">${esc(narrow)}</span></h2>`
+      + `<div class="rdy-sub"><span class="rdy-wide">Checked against head ${esc(card.shortHead)} · ${esc(when)}</span><span class="rdy-narrow">Head ${esc(card.shortHead)} · checked ${esc(when)}</span></div></div>`
+      + `<div class="rdy-note"><span class="rdy-wide">The board does not merge. When every row is green it shows the merge command to copy, or you ask an agent to merge.</span><span class="rdy-narrow">The board does not merge; when all rows pass it shows the command to copy.</span></div></div>`
+      + `<ul class="rdy-rows"><li class="rdy-group" data-group="blockers">BLOCKERS FIRST</li><li class="rdy-group" data-group="passed">PASSED</li>${card.rows.map(readinessRow).join('')}</ul>`
+      + `<div class="rdy-foot">A row that could not be read shows “Not read” and counts as a blocker, never as passed.</div></section>`
+      + (card.mergeCommand ? `<section class="rdy-ok" aria-label="Ready to merge"><span class="rdy-ok-mark" aria-hidden="true">✓</span><b>Ready to merge</b><code>${esc(card.mergeCommand)}</code><button type="button" class="rdy-btn" data-readiness-copy="${esc(card.mergeCommand)}">Copy command</button></section>` : '');
+  }
+  function readinessHtml(state) {
+    if (!state?.card && !state?.failed) return '';
+    if (state.failed) return '<p class="work-warning">Merge readiness could not be read. No row is assumed to pass.</p>';
+    return state.card.branch ? renderReadiness(state.card) : '';
+  }
+  const readinessSlot = entry => `<div data-readiness-slot="${esc(entry.key)}">${readinessHtml(readiness.get(entry.key))}</div>`;
+  async function hydrateReadiness(force = false) {
+    const slot = document.querySelector?.('[data-readiness-slot]');
+    if (!slot) return;
+    const key = slot.dataset.readinessSlot, project = config.project(), held = readiness.get(key);
+    if (!force && held && Date.now() - held.at < READINESS_MS) return;
+    readiness.set(key, { ...held, at: Date.now() });
+    let next;
+    try {
+      const card = await config.read(`/api/work/readiness?task=${encodeURIComponent(key)}${project ? '&project=' + encodeURIComponent(project) : ''}`);
+      next = !card || card.error ? { failed: true, at: Date.now() } : { card, at: Date.now() };
+    } catch { next = { failed: true, at: Date.now() }; }
+    if (project !== config.project()) return;
+    readiness.set(key, next);
+    const live = document.querySelector?.('[data-readiness-slot]');
+    if (live?.dataset.readinessSlot === key) live.innerHTML = readinessHtml(next);
+  }
+  async function readinessClick(event) {
+    const copy = event.target.closest?.('[data-readiness-copy]');
+    if (copy) {
+      try {
+        if (!navigator.clipboard) throw Error('no clipboard');
+        await navigator.clipboard.writeText(copy.dataset.readinessCopy);
+      } catch { status('Could not copy. Select the text and copy it by hand.'); return; }
+      const label = copy.textContent; copy.textContent = 'Copied'; setTimeout(() => { copy.textContent = label; }, 1500);
+      return;
+    }
+    const issue = event.target.closest?.('[data-readiness-issue]');
+    if (issue) { config.openIssue?.(issue.dataset.readinessIssue); return; }
+    const start = event.target.closest?.('[data-readiness-run]');
+    if (!start) return;
+    start.disabled = true;
+    const slot = start.closest('[data-readiness-slot]'), project = config.project();
+    const result = await config.publish(`/api/work/readiness/run-gate?task=${encodeURIComponent(slot.dataset.readinessSlot)}${project ? '&project=' + encodeURIComponent(project) : ''}`, {}).catch(() => null);
+    if (!result || result.error) status(result?.error || 'The gate could not be started.');
+    await hydrateReadiness(true);
+  }
+
   function renderCockpit(data, options = {}) {
     if (options.canvas) return renderWorkspace(data, options);
     const category = categories.some(([key]) => key === options.category) ? options.category : 'active';
@@ -267,7 +345,7 @@
     // Only the selected Overview owns mutation controls; observation tabs cannot duplicate them.
     const detail = tab === 'execution' ? renderExecution(selected) : tab === 'evidence'
       ? (Array.isArray(selected.evidenceSections) && selected.evidenceSections.length ? renderEvidence(selected.evidenceSections).replace('<details ', '<details open ') : '<p>Evidence unavailable. No verification or acceptance is inferred.</p>')
-      : render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
+      : readinessSlot(selected) + render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
     return toolbar + (tab === 'overview' ? '' : observed) + feedback + '<p class="work-meta">Running means host activity was recorded; current liveness is not measured. Closed records do not by themselves prove acceptance.</p>'
       + `<div class="work-cockpit">${list}<section class="work-detail" aria-label="Selected task details">${tabs}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section></div>`
       + (data.sessions.length ? `<details><summary>Claude sessions (${data.sessions.length}) · task linkage not recorded</summary>${data.sessions.map(s => `<p>${esc(s.session)} · ${esc(s.state)} · ${esc(s.reason || '')}</p>`).join('')}</details>` : '');
@@ -316,7 +394,7 @@
     const tabs = '<div class="work-tabs" role="tablist" aria-label="Selected task">' + taskTabs.map(name => `<button type="button" class="work-tab" id="work-tab-${name}" data-work-tab="${name}" role="tab" aria-selected="${tab === name}" aria-controls="work-detail-panel" tabindex="${tab === name ? 0 : -1}">${name[0].toUpperCase() + name.slice(1)}</button>`).join('') + '</div>';
     const detail = tab === 'execution' ? renderExecution(selected, { canvas: true, direction: options.direction }) : tab === 'evidence'
       ? (Array.isArray(selected.evidenceSections) && selected.evidenceSections.length ? renderEvidence(selected.evidenceSections).replace('<details ', '<details open ') : '<p>Evidence unavailable. No verification or acceptance is inferred.</p>')
-      : render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
+      : readinessSlot(selected) + render({ ...data, sources: [], sessions: [], entries: [{ ...selected, inspector: null, evidenceSections: null }] }, selected.terminal);
     const runLabel = selected.title.match(/^Controlled run ([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i);
     const title = runLabel ? `Controlled run <small class="work-meta work-run-identifier">${esc(runLabel[1].slice(0, 8))}</small>` : esc(selected.title);
     return `<section class="work-workspace work-detail-only" data-selected-work="${esc(selected.key)}" data-observation-scope="${esc(JSON.stringify([options.observationProject || data.projectId || null, selected.key]))}"><header class="work-task-header"><div class="work-task-navigation">${back}<span class="work-meta">${esc(selected.kind)} · ${esc(selected.host || 'Host not linked')}</span><button type="button" data-work-switch>Switch task</button><button type="button" data-work-previous${rows.findIndex(e => e.key === selected.key) > 0 ? '' : ' disabled'} aria-label="Previous task in current filter">Previous</button><button type="button" data-work-next${rows.findIndex(e => e.key === selected.key) >= 0 && rows.findIndex(e => e.key === selected.key) < rows.length - 1 ? '' : ' disabled'} aria-label="Next task in current filter">Next</button></div><h2>${title}</h2><p>${esc(phaseLabel(selected))}</p></header>${tabs}${feedback}${tab === 'overview' ? '' : observation}<div id="work-detail-panel" role="tabpanel" aria-labelledby="work-tab-${tab}" tabindex="0">${detail}</div></section>`;
@@ -495,6 +573,7 @@
     const graphScroll = oldCanvas?.closest('[data-selected-work]')?.dataset.selectedWork === selectedKey && oldSvg?.dataset.graphLayout === graphDirection ? { left: oldCanvas.scrollLeft, top: oldCanvas.scrollTop } : null;
     document.getElementById('work-list').innerHTML = renderCockpit(snapshot, { search: filter, selectedKey, category, tab, canvas: !!config.canvas, direction: graphDirection, observationProject: snapshotProject });
     document.getElementById('history-list').innerHTML = render(snapshot, true, filter);
+    hydrateReadiness();
     if (graphScroll) {
       const canvas = document.querySelector?.('.execution-graph-canvas'), svg = canvas?.querySelector('svg');
       if (svg && Number.isFinite(oldZoom) && oldZoom > 0) { const bounds = svg.viewBox.baseVal; svg.dataset.zoom = String(oldZoom); svg.setAttribute('width', String(bounds.width * oldZoom)); svg.setAttribute('height', String(bounds.height * oldZoom)); canvas.scrollLeft = graphScroll.left; canvas.scrollTop = graphScroll.top; }
@@ -531,6 +610,7 @@
       document.getElementById('work-allow-row').hidden = event.target.value !== 'codex';
       document.getElementById('work-command').textContent = ''; status('');
     });
+    document.getElementById('work-list').addEventListener('click', readinessClick);
     for (const id of ['work-list', 'history-list']) document.getElementById(id).addEventListener('click', event => {
       if (config.canvas && snapshotProject !== config.project()) return;
       const pageButton = event.target.closest('[data-host-graph-next]');
@@ -578,5 +658,5 @@
     });
     setInterval(() => { if (!document.hidden && options.visible()) refresh(); }, 10000);
   }
-  window.GctoWork = { bind, refresh, reset, leaveView, parseRoute, navigateRoute, render, renderCockpit, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; notifyView(); paint(); }, search(value) { filter = value; if (config?.canvas) { if (!selectedKey) changeWorkspace(); } else paint(); } };
+  window.GctoWork = { bind, refresh, reset, leaveView, parseRoute, navigateRoute, render, renderCockpit, renderReadiness, renderExecutionGraph, commandFor, publicationCommand, getSnapshot() { return snapshot; }, showCompleted() { category = 'completed'; selectedKey = null; tab = 'overview'; notifyView(); paint(); }, search(value) { filter = value; if (config?.canvas) { if (!selectedKey) changeWorkspace(); } else paint(); } };
 })();
