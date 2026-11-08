@@ -2919,6 +2919,78 @@
           }
         }
       }
+    },
+    "/api/work/readiness": {
+      "get": {
+        "summary": "",
+        "x-methods-declared": "any",
+        "x-probe": "/api/work/readiness",
+        "responses": {
+          "404": {
+            "description": "observed on a fresh project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "",
+        "x-methods-declared": "any",
+        "responses": {
+          "default": {
+            "description": "not probed: a write needs a request body the contract does not invent"
+          }
+        }
+      }
+    },
+    "/api/work/readiness/run-gate": {
+      "get": {
+        "summary": "",
+        "x-methods-declared": "any",
+        "x-probe": "/api/work/readiness/run-gate",
+        "responses": {
+          "405": {
+            "description": "observed on a fresh project",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "error"
+                  ],
+                  "properties": {
+                    "error": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "summary": "",
+        "x-methods-declared": "any",
+        "responses": {
+          "default": {
+            "description": "not probed: a write needs a request body the contract does not invent"
+          }
+        }
+      }
     }
   }
 }
