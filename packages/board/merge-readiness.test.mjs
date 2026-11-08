@@ -18,7 +18,9 @@ import {
 
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const HEAD = 'a'.repeat(40);
-const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'readiness-'));
+const madeDirs = [];
+const tmp = () => { const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'readiness-')); madeDirs.push(dir); return dir; };
+after(() => { for (const dir of madeDirs) fs.rmSync(dir, { recursive: true, force: true }); });
 
 const allPass = (over = {}) => ({
   branch: 'task/x', integration: 'origin/main', head: HEAD, ahead: 2, worktree: '/w', dirty: 0,
