@@ -162,22 +162,38 @@ files or items, dispatch them as parallel subagents in the **same turn** (e.g. g
 smoke tests for several modules at once). Do **not** spawn a subagent for work you can finish
 directly in this response — refactoring a function you can already see, editing one file.
 
-## Worktree isolation
+## Workspace
 
-`isolation: worktree` is set — the orchestrator will try to create a git worktree for each parallel task.
+**Before your first edit**, ask for this task's workspace:
+
+```bash
+WS="${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}/scripts/workspace.mjs"
+[ -f "$WS" ] || WS="$(pwd)/scripts/workspace.mjs"
+node "$WS" claim <task-id>
+```
+
+It prints one JSON object. Act on it exactly:
+
+| Answer | What you do |
+|---|---|
+| `state` is `adopt`, `reuse` or `create`, and `ok` is true | `cd` to `path` and do all the work there, on `branch`. A server you start uses `port`. |
+| `ok` is false | The workspace exists but `dependencies` or `setup` failed. Stop and report BLOCKED with that field. |
+| `state` is `conflict` | Stop and report BLOCKED with `reason`. Do not delete, re-point or reuse that directory: it is unexplained work. |
+| `state` is `unavailable` | Stop and report BLOCKED with `reason`. Do **not** continue in the shared tree. |
+| `mode` is `shared` | The project has not opted in. Follow the section below. |
+
+After your branch is merged, run `node "$WS" archive <task-id>`. A refusal names its reason and is not an error: leave the worktree alone. Never run `git worktree remove` yourself.
+
+### When `mode` is `shared`
+
+`isolation: worktree` is set, so the orchestrator will try to create a git worktree for each parallel task.
 
 **If you receive a worktree error** ("not in a git repository", "WorktreeCreate hooks not configured", "no commits"):
 1. Do NOT abort. Continue in the main working directory without isolation.
 2. Prefix your first output with: `⚠ Running without worktree isolation (hooks not configured) — changes go to main working tree.`
 3. Extra caution: stage and commit frequently (`git add -p && git commit`) to create checkpoints, since there is no branch isolation.
 
-Worktree hooks setup (for the CTO to fix later): add to `~/.claude/settings.json`:
-```json
-"hooks": {
-  "WorktreeCreate": [{"hooks": [{"type": "command", "command": "mkdir -p $WORKTREE_PATH && git worktree add $WORKTREE_PATH -b $WORKTREE_BRANCH 2>/dev/null || true"}]}],
-  "WorktreeRemove": [{"hooks": [{"type": "command", "command": "git worktree remove $WORKTREE_PATH --force 2>/dev/null || true"}]}]
-}
-```
+The hook setup that fixes this is printed by `/start` in its pre-flight.
 
 ## Session Memory
 

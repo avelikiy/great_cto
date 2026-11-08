@@ -166,6 +166,23 @@ test('a blocker keeps its shorter phone wording from the approved design', () =>
   assert.equal(sub.action.narrowLabel, 'Show subtask');
 });
 
+test('resolveBranch: a workspace a host made is found through its record, and a stale record is not', async () => {
+  const common = tmp();
+  fs.mkdirSync(path.join(common, 'great-cto-workspaces'));
+  const record = (branch) => fs.writeFileSync(path.join(common, 'great-cto-workspaces', 't-1.json'), JSON.stringify({ branch }));
+  const exec = (known) => async (_cmd, args) => {
+    if (args.includes('rev-parse')) return common + '\n';
+    if (args.includes('refs/heads/' + known)) return '';
+    throw new Error('no such ref');
+  };
+  record('host-branch');
+  assert.equal(await resolveBranch({ issueIds: ['t-1'] }, { root: '/r', exec: exec('host-branch') }), 'host-branch');
+  assert.equal(await resolveBranch({ issueIds: ['t-1'] }, { root: '/r', exec: exec('other') }), null);
+  record('--upload-pack=x');
+  assert.equal(await resolveBranch({ issueIds: ['t-1'] }, { root: '/r', exec: exec('--upload-pack=x') }), null);
+  assert.equal(await resolveBranch({ issueIds: ['../x'] }, { root: '/r', exec: exec('host-branch') }), null);
+});
+
 test('resolveBranch: a recorded publication wins, an unsafe one is ignored, then task/<id>, else null', async () => {
   const none = async () => { throw new Error('no ref'); };
   const some = async () => '';
