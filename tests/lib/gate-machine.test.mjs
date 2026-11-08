@@ -44,13 +44,14 @@ test('a failed read is reported as not measured, never as a calm machine', () =>
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 
-test('red under strain says so and keeps the gate red; red without strain points at the code', () => {
+test('red under strain says so and keeps the gate red; red without strain names no culprit', () => {
   const strained = report([s(1800)], 'red');
   assert.match(strained, /1800 ms/);
   assert.match(strained, /stays red/);
   const calm = report([s(90)], 'red');
   assert.match(calm, /no strain seen/);
-  assert.match(calm, /code/);
+  assert.match(calm, /not judged/); // memory is unjudged, so a calm listing cannot blame the code
+  assert.doesNotMatch(calm, /failure in the code/);
   assert.doesNotMatch(calm, /stays red/);
   const green = report([s(90)], 'green');
   assert.match(green, /machine during this run/);

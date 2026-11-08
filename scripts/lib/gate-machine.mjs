@@ -98,7 +98,7 @@ export function report(samples, result) {
   if (result === 'red' && state === 'strained') {
     text += `   ⚠ the machine was strained: ${m.ps_over_deadline} sample(s) at or over the deadline. A test with a fixed deadline may have failed on the machine rather than the code. The gate stays red: rerun on a quiet machine.\n`;
   } else if (result === 'red') {
-    text += '   no strain seen in the samples: read this red as a failure in the code until shown otherwise.\n';
+    text += '   no strain seen in the process listing. Memory and swap are not judged, so this does not show whether the machine or the code caused the red.\n';
   }
   return text;
 }
