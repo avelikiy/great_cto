@@ -73,6 +73,40 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.76.0 — 2026-11-08
+
+One task can now get its own worktree, branch and port, and the board shows whether that task is ready to merge.
+
+### Added
+
+- **Per-task workspaces (ADR-047), off by default.** Add `workspace: per-task` to `.great_cto/PROJECT.md` and `senior-dev` claims a worktree on `task/<id>` through `scripts/workspace.mjs`. A claim links `node_modules` when the lockfile matches and runs a real install when it does not. It also runs `setup` from the committed `.great_cto/workspace.toml` and gives the workspace a port from 3142-3241. A worktree made by Conductor, Claude Code or Codex is adopted, never removed. `archive` removes only a worktree great_cto created, with nothing uncommitted or untracked and a HEAD on the integration branch. Without the setting, a claim creates nothing and agents behave as before.
+- **Merge-readiness card** on a task's Overview: branch, pull request, local gate, reviewers, review comments, subtasks and design approval, bound to the branch head. A row that could not be read counts as a blocker. The command to merge appears only when every row passes.
+- **Three instant board alerts:** an agent is blocked, the local gate went red, a gate is waiting on you.
+- **Install the board as an app** (PWA).
+- **`/start` inspects the repository before it asks**, and there is a quick start for AI agents in the docs.
+- **`design-advisor` runs after `architect`** on routes with a UI, and draws draft screens before `gate:product`.
+- **Gate reports:** each step reports its duration, the run lists its five slowest steps and records what the machine was doing, and failures reach Beads as one deduplicated bug each through CTRF and Allure 3 reports.
+
+### Changed
+
+- **A board started for a workspace refuses a taken port** instead of attaching to another workspace's board. The main board on 3141 still defers.
+- **`/save` reports servers on workspace ports too.**
+- **The gate's library tests can run in 8 workers.**
+
+### Fixed
+
+- **`worktree-state` reports committed work that was never merged**, not only uncommitted files.
+- **A phase task written from a worktree reaches the main checkout**, instead of disappearing with the worktree.
+- **`POST /api/projects/register` answers 400 to a non-JSON body**, not 500.
+- **The NEW badge uses the contrast-safe accent token.**
+
+### Tests
+
+- Browser suites for the board: golden journeys, every control wired on every destination, an axe accessibility check at both widths and themes, an OpenAPI contract for all routes, a cross-site and malformed-input sweep of `/api`, and hot routes under concurrent clients.
+
+---
+
 ## v3.75.10 — 2026-11-02
 
 `great-cto upgrade --self` no longer rolls back under a private umask, and a rollback now says why.
