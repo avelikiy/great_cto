@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { encodeReleaseArchive, inspectReleaseArchive } from '../../packages/cli/src/release-archive.mjs';
 import { isPluginRuntimePath, makeReleaseIndex, buildReleaseArtifacts } from '../../scripts/build-release-artifacts.mjs';
+import { inspectRuntimeImportReferences } from '../../packages/cli/src/release-trust.mjs';
 import { signReleaseArtifacts, assertSigningContext } from '../../scripts/sign-release-artifacts.mjs';
 
 const sha = (kind, bytes) => createHash(kind).update(bytes).digest('hex');
@@ -343,6 +344,14 @@ test('plugin delivers only the two approved public source helpers and excludes s
   const entries=inspectReleaseArchive(fs.readFileSync(path.join(f.directory,`great-cto-plugin-${version}.tgz`)),{prefix:'plugin'});const paths=new Set(entries.map(x=>x.path));
   for(const name of ['packages/cli/src/state-home.mjs','packages/cli/src/private-state.mjs'])assert(paths.has(name),name);
   for(const name of ['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs','packages/cli/src/main.ts','tests/eval/runner.mjs'])assert.equal(paths.has(name),false,name);
+});
+
+test('the real tree packs no runtime file that imports something left out of the archive', () => {
+  // The builder refuses this at release time; running the same check here turns a refused release into a red gate.
+  const root=path.resolve(path.dirname(new URL(import.meta.url).pathname),'../..');
+  const names=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8',maxBuffer:64*1024*1024}).split('\0').filter(n=>n&&isPluginRuntimePath(n));
+  assert(names.length>100,`only ${names.length} runtime files found: the walk is broken`);
+  inspectRuntimeImportReferences(names.map(n=>({path:n,bytes:fs.readFileSync(path.join(root,n))})));
 });
 
 test('builder refuses a final snapshot whose relative runtime import targets omitted test sources', async t => {
