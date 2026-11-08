@@ -38,7 +38,7 @@ export PYTHONDONTWRITEBYTECODE=1
 # never creates or uses the operator's.
 SEAL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/gcto-seal-XXXXXX")"
 export GREAT_CTO_SEAL_KEY="$SEAL_TMP/verdict-seal.key"
-trap 'rm -rf "$SEAL_TMP"' EXIT
+trap '[ -n "${GATE_MACHINE_PID:-}" ] && kill "$GATE_MACHINE_PID" 2>/dev/null; rm -rf "$SEAL_TMP"' EXIT
 
 E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2; LIB_TEST_CONCURRENCY=""
 for a in "$@"; do
@@ -70,6 +70,9 @@ FAILED_STEPS=""
 # the end of the run (scripts/gate-to-bd.mjs, deduplicated by fingerprint).
 RESULTS_DIR=".great_cto/test-results"
 rm -rf "$RESULTS_DIR"; mkdir -p "$RESULTS_DIR"
+# What the machine was doing, so a red can be read against it (great_cto-tbnc).
+node scripts/lib/gate-machine.mjs sample --out "$RESULTS_DIR/machine.jsonl" >/dev/null 2>&1 &
+GATE_MACHINE_PID=$!
 ctrf_to() {
   printf -- '--test-reporter=tap --test-reporter-destination=stdout --test-reporter=./scripts/lib/ctrf-reporter.mjs --test-reporter-destination=%s/%s.ctrf.json' "$RESULTS_DIR" "$1"
 }
@@ -563,6 +566,7 @@ fi
 # can raise gate.local_red. A report only: it never changes this gate's exit code.
 if [ "$FAIL" -ne 0 ]; then RUN_RESULT=red; elif [ "$SKIP_TOTAL" -ne 0 ]; then RUN_RESULT=skipped; else RUN_RESULT=green; fi
 node scripts/lib/gate-run-record.mjs --result "$RUN_RESULT" --failed "$(printf '%b' "$FAILED_STEPS")" || true
+node scripts/lib/gate-machine.mjs report --file "$RESULTS_DIR/machine.jsonl" --result "$RUN_RESULT" || true
 
 printf '\n'
 if [ "$FAIL" -eq 0 ] && [ "$SKIP_TOTAL" -eq 0 ]; then
