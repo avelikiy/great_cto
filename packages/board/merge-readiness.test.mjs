@@ -225,8 +225,9 @@ function gateFixture() {
   const root = tmp();
   fs.mkdirSync(path.join(root, 'scripts'));
   fs.writeFileSync(path.join(root, 'scripts', 'ci-local.sh'), '');
-  const exec = async () => `worktree ${root}\nHEAD ${HEAD}\nbranch refs/heads/feat/a\n\n`;
-  return { root, exec, entry: { publication: { branch: 'feat/a' } } };
+  const porcelain = [`worktree ${root}`, `HEAD ${HEAD}`, 'branch refs/heads/feat/a', '', ''].join('\n');
+  const list = async () => porcelain;
+  return { root, exec: list, entry: { publication: { branch: 'feat/a' } } };
 }
 
 test('startGate runs detached on the worktree git reports and records the queue', async () => {
