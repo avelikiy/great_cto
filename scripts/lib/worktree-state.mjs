@@ -43,8 +43,41 @@ export function worktreeChanges(dir, { exec = execFileSync } = {}) {
   return lines.length ? lines : null;
 }
 
+/** The branch work lands on, as a full ref, or null when none can be named. */
+function integrationRef(git) {
+  const head = git(['symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD']);
+  if (head) return head;
+  for (const ref of ['refs/remotes/origin/main', 'refs/remotes/origin/master', 'refs/heads/main', 'refs/heads/master']) {
+    if (git(['rev-parse', '--verify', '--quiet', ref])) return ref;
+  }
+  return null;
+}
+
 /**
- * Worktrees holding unlanded changes.
+ * Commits in a worktree that the integration branch does not have, as
+ * { count, ref }, or null when there are none or git cannot say. A clean status
+ * proves nothing here: committed work leaves `git status` empty.
+ */
+export function unmergedCommits(dir, { exec = execFileSync } = {}) {
+  const opts = { encoding: 'utf8', timeout: 5000, stdio: ['ignore', 'pipe', 'ignore'] };
+  const git = (args) => {
+    try { return String(exec('git', ['-C', dir, ...args], opts)).trim(); } catch { return ''; }
+  };
+  const ref = integrationRef(git);
+  if (!ref) return null;
+  try {
+    exec('git', ['-C', dir, 'merge-base', '--is-ancestor', 'HEAD', ref], opts);
+    return null; // landed
+  } catch (e) {
+    // Exit 1 is the answer "not an ancestor"; anything else is git failing to answer.
+    if (e.status !== 1) return null;
+  }
+  const count = Number(git(['rev-list', '--count', `${ref}..HEAD`]));
+  return count > 0 ? { count, ref: ref.replace(/^refs\/(remotes\/|heads\/)/, '') } : null;
+}
+
+/**
+ * Worktrees holding unlanded changes: uncommitted, or committed and not merged.
  *
  * `maxAgeMs` bounds it to worktrees touched recently: an abandoned one from last
  * week is a cleanup task, not a stage that just stopped, and reporting it on
@@ -67,7 +100,8 @@ export function worktreesWithChanges(root = process.cwd(), { maxAgeMs = 6 * 60 *
     } catch { continue; }
     if (now - mtime > maxAgeMs) continue;
     const changes = worktreeChanges(dir, { exec });
-    if (changes) out.push({ name, dir, changes, ageMs: now - mtime });
+    const unmerged = unmergedCommits(dir, { exec });
+    if (changes || unmerged) out.push({ name, dir, changes: changes || [], unmerged, ageMs: now - mtime });
   }
   return out.sort((a, b) => a.ageMs - b.ageMs);
 }
@@ -78,7 +112,10 @@ export function explainWorktrees(list) {
   const parts = list.map((w) => {
     const shown = w.changes.slice(0, 5).map((c) => c.replace(/^\S+\s+/, ''));
     const more = w.changes.length > shown.length ? ` (+${w.changes.length - shown.length} more)` : '';
-    return `${w.dir}: ${shown.join(', ')}${more}`;
+    const held = [];
+    if (shown.length) held.push(`${shown.join(', ')}${more}`);
+    if (w.unmerged) held.push(`${w.unmerged.count} commit${w.unmerged.count === 1 ? '' : 's'} not on ${w.unmerged.ref}`);
+    return `${w.dir}: ${held.join('; ')}`;
   });
   return `work is sitting in a worktree and has not been landed — ${parts.join(' | ')}. `
     + 'The main tree looks clean, which reads as "the agent produced nothing" rather than '
