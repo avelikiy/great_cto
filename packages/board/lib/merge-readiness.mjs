@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { validTaskId } from '../../../scripts/lib/workspace.mjs';
 
 const SAFE_BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/;
 const REVIEWERS = Object.freeze(['code-reviewer', 'qa-engineer']);
@@ -40,8 +41,22 @@ export async function resolveBranch(entry, { root, exec = run } = {}) {
     if (!SAFE_BRANCH.test(candidate)) continue;
     const found = await attempt(() => exec('git', ['-C', root, 'show-ref', '--verify', '--quiet', `refs/heads/${candidate}`]));
     if (found !== null) return candidate;
+    const adopted = await adoptedBranch(root, id, exec);
+    if (adopted) return adopted;
   }
   return null;
+}
+
+/** The branch of a workspace a host made under its own name (ADR-047 section 4), if it still exists. */
+async function adoptedBranch(root, id, exec) {
+  if (!validTaskId(id)) return null;
+  const common = await attempt(async () => String(await exec('git', ['-C', root, 'rev-parse', '--path-format=absolute', '--git-common-dir'])).trim());
+  if (!common) return null;
+  let branch;
+  try { branch = JSON.parse(fs.readFileSync(path.join(common, 'great-cto-workspaces', id + '.json'), 'utf8')).branch; } catch { return null; } // no record is "not adopted"; the caller then says "no branch"
+  if (typeof branch !== 'string' || !SAFE_BRANCH.test(branch)) return null;
+  const found = await attempt(() => exec('git', ['-C', root, 'show-ref', '--verify', '--quiet', 'refs/heads/' + branch]));
+  return found !== null ? branch : null;
 }
 
 /** JSON lines of a verdict log. Older plain-text lines carry no head and are skipped. */

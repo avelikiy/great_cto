@@ -755,7 +755,12 @@ fi
 # ── 2. Worktree hooks — required for senior-dev parallel isolation ─────────
 WORKTREE_OK=false
 SETTINGS_FILE="${CLAUDE_SETTINGS_PATH:-$HOME/.claude/settings.json}"
-if grep -q "WorktreeCreate" "$SETTINGS_FILE" 2>/dev/null; then
+if grep -qE '^workspace:[[:space:]]*per-task' .great_cto/PROJECT.md 2>/dev/null; then
+  # ADR-047: senior-dev claims its own worktree, so the settings file does not matter here.
+  # A repository with no commits is reported by check 3, and a claim there refuses.
+  WORKTREE_OK=true
+  echo "  ✓ workspace: per-task (each task claims its own worktree and port)"
+elif grep -q "WorktreeCreate" "$SETTINGS_FILE" 2>/dev/null; then
   WORKTREE_OK=true
   echo "  ✓ worktree hooks: configured (senior-dev can run in parallel)"
 else

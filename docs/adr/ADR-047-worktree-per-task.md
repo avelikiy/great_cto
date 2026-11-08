@@ -221,7 +221,7 @@ current worktree and creates nothing:
 | Host | Signal |
 |---|---|
 | any linked worktree | `--git-dir` ≠ `--git-common-dir` |
-| Conductor | `CONDUCTOR_PORT` / `CONDUCTOR_*` in the environment; a `.conductor/` directory at the common root |
+| Conductor | `CONDUCTOR_PORT` / `CONDUCTOR_*` in the environment; a `.conductor/` directory at the common root, **and only inside a linked worktree** (a repository can commit `.conductor/`, and the main checkout must not be adopted because of it) |
 | Claude Code desktop / this plugin | an ancestor path containing `/.claude/worktrees/` — the test `scripts/lib/project-registry.mjs:42` already performs |
 | Codex worktrees | linked-worktree probe; no separate signal is needed |
 
@@ -253,6 +253,16 @@ with its own entry.
 | 3 | `agents/senior-dev.md:166-180` and `agents-full/senior-dev.md:282-291` — replace the hand-written host-hook instructions and the silent shared-tree fallback with the five claim states |
 | 3 | `commands/start.md:725-742` — pre-flight checks the workspace model, not the operator's settings file |
 | 3 | `packages/board/server.mjs:188` — refuse on EADDRINUSE under a workspace port; `scripts/lib/board-restart.sh` learns the port is a parameter, not 3141 |
+
+Implementation notes. Agents reach all of this through `scripts/workspace.mjs`
+(`claim`, `archive`). `scripts/lib/board-restart.sh` already took the port as a
+parameter, so phase 3 changed nothing there. `scripts/log-verdict.sh` already
+resolved through `--git-common-dir`; `scripts/phase-task.sh` was the writer left.
+Dependency linking runs for every claim, not from `workspace.toml`, so a project
+gets it without writing a helper; a symlink is excluded through `info/exclude`,
+or the archive rule "no output at all" would refuse it forever. A workspace a
+host created under its own branch name is recorded in the git common directory,
+so the board's merge-readiness card still finds its branch.
 
 `scripts/hooks/shared-tree-guard.mjs` is **not** touched and not relaxed. A
 workspace makes the shared tree rarer; it does not make resetting it safe, and

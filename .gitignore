@@ -5,7 +5,8 @@
 # Local Claude Code / great_cto project memory.
 # This is the per-project state directory that `npx great-cto init` creates.
 # Each user generates their own based on their stack; not committed.
-.great_cto/
+.great_cto/*
+!.great_cto/workspace.toml
 
 # Claude Code runtime state — per-session, developer-specific, never committed.
 .claude/

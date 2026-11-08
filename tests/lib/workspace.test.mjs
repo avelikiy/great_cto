@@ -160,7 +160,10 @@ test('detectHost names each signal, and no signal is null', () => {
   const base = { cwd: '/r', env: {}, git: noLink, exists: () => false, commonRoot: '/r' };
   assert.equal(detectHost(base), null);
   assert.equal(detectHost({ ...base, env: { CONDUCTOR_WORKSPACE: 'x' } }).host, 'conductor');
-  assert.equal(detectHost({ ...base, exists: (p) => p === path.join('/r', '.conductor') }).host, 'conductor');
+  // A committed .conductor/ must not turn the shared main checkout into an adopted workspace.
+  assert.equal(detectHost({ ...base, exists: (p) => p === path.join('/r', '.conductor') }), null);
+  let linked = 0;
+  assert.equal(detectHost({ ...base, git: () => ({ ok: true, out: '/q' + (linked += 1) }), exists: (p) => p === path.join('/r', '.conductor') }).host, 'conductor');
   assert.equal(detectHost({ ...base, cwd: '/r/.claude/worktrees/x/sub' }).host, 'claude-code');
   assert.equal(detectHost({ ...base, env: { NOT_CONDUCTOR_PORT: '1' } }), null);
   let n = 0;

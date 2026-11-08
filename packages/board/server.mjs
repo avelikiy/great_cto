@@ -187,6 +187,12 @@ server.listen(PORT, HOST, () => {
 
 server.on('error', e => {
   if (e.code === 'EADDRINUSE') {
+    // A workspace must not defer: the board already on this port belongs to another
+    // workspace, and its verdicts are not the ones this operator is looking at.
+    if (process.env.GREAT_CTO_WORKSPACE_PORT === String(PORT)) {
+      log.error(`Port ${PORT} is taken and this workspace was given it. Not attaching to another board.`);
+      process.exit(1);
+    }
     log.info(`Port ${PORT} in use — board already running at http://localhost:${PORT}`);
   } else {
     log.error(e);

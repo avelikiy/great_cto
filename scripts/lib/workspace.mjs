@@ -34,7 +34,7 @@ export function validTaskId(id) {
 }
 
 /** One git command in `dir`, as { ok, out, status }. `status` is the exit code; null after a timeout. */
-function gitIn(dir, exec) {
+export function gitIn(dir, exec) {
   return (...args) => {
     try {
       return { ok: true, out: String(exec('git', ['-C', dir, ...args], OPTS)).trim(), status: 0 };
@@ -51,8 +51,12 @@ function real(p) {
 /** The host that already made this workspace, or null. Whoever made it removes it. */
 export function detectHost({ cwd, env = process.env, git, exists = fs.existsSync, commonRoot = null }) {
   if (Object.keys(env).some((k) => k.startsWith('CONDUCTOR_'))) return { host: 'conductor', signal: 'CONDUCTOR_* in the environment' };
-  if (commonRoot && exists(path.join(commonRoot, '.conductor'))) return { host: 'conductor', signal: '.conductor/ at the common root' };
-  if (isLinkedWorktree(git)) return { host: 'linked-worktree', signal: 'git-dir differs from git-common-dir' };
+  if (isLinkedWorktree(git)) {
+    // `.conductor/` alone proves nothing: a repository can commit it, and then the
+    // main checkout, shared with every session, would be adopted as a workspace.
+    if (commonRoot && exists(path.join(commonRoot, '.conductor'))) return { host: 'conductor', signal: '.conductor/ at the common root, in a linked worktree' };
+    return { host: 'linked-worktree', signal: 'git-dir differs from git-common-dir' };
+  }
   if (`${cwd.split(path.sep).join('/')}/`.includes('/.claude/worktrees/')) return { host: 'claude-code', signal: 'path under .claude/worktrees' };
   return null;
 }
@@ -239,16 +243,32 @@ export function allocatePort({
 
   const claims = read.claims.filter((c) => c.taskId !== taskId && !dropped.has(c.taskId));
   claims.push({ taskId, port, path: workspace, pid, at: now.toISOString() });
+  const failed = writeClaims(file, claims);
+  return failed ? { state: 'failed', file, reason: failed } : { state, port, file };
+}
+
+/** Write-then-rename: a crash mid-write must not leave a truncated file that reads as "nothing allocated". */
+function writeClaims(file, claims) {
   try {
-    // Write-then-rename: a crash mid-write must not leave a truncated file that reads as "nothing allocated".
     fs.mkdirSync(path.dirname(file), { recursive: true });
     const tmp = file + '.' + process.pid + '.tmp';
     fs.writeFileSync(tmp, JSON.stringify({ claims }, null, 2) + '\n');
     fs.renameSync(tmp, file);
+    return null;
   } catch (e) {
-    return { state: 'failed', file, reason: e.message };
+    return e.message;
   }
-  return { state, port, file };
+}
+
+/** Gives a task's port back. A ports file that cannot be trusted is left as it is. */
+export function releasePort(taskId, { env = process.env } = {}) {
+  const file = portsFile(env);
+  const read = readClaims(file);
+  if (read.refused) return { state: 'refused', file, reason: read.refused };
+  const claims = read.claims.filter((c) => c.taskId !== taskId);
+  if (claims.length === read.claims.length) return { state: 'none', file };
+  const failed = writeClaims(file, claims);
+  return failed ? { state: 'failed', file, reason: failed } : { state: 'released', file };
 }
 
 /** The environment a workspace's servers get: one new name, and the one the board already honours. */
