@@ -74,6 +74,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.76.1 — 2026-11-09
+
+A security fix for the board, and the release build no longer refuses on a developer tool.
+
+### Security
+
+- **The board sanitizes markdown with DOMPurify 3.4.17 instead of 3.1.7** (GHSA-cg2g-xh64-v4q7 and earlier advisories). The board ships its own copy, which Dependabot could not see. A test now checks every vendored JS file against the SHA-384 in `PROVENANCE.md` and refuses a DOMPurify older than 3.4.17.
+- **Allure 3.33.0** for the gate's test reports, which brings its own DOMPurify to 3.4.17 (development only).
+
+### Fixed
+
+- **The release build leaves `scripts/board-openapi.mjs` out of the plugin archive.** It imports test helpers, which are not shipped, and the first 3.76.0 build refused. A test runs the same import check over the real tree, so the next such file turns the gate red instead.
+
+---
+
 ## v3.76.0 — 2026-11-08
 
 One task can now get its own worktree, branch and port, and the board shows whether that task is ready to merge.
