@@ -26,14 +26,14 @@ const read = (rel) => readFileSync(join(ROOT, rel), 'utf8');
 const agentNames = () => readdirSync(join(ROOT, 'agents'))
   .filter((f) => f.endsWith('.md') && !f.startsWith('_')).map((f) => f.slice(0, -3));
 
-test('every fragment in _shared is pointed at by at least one agent', () => {
-  const fragments = readdirSync(join(ROOT, 'agents/_shared')).filter((f) => f.endsWith('.md'));
+test('every fragment in shared/agent-fragments/ is pointed at by at least one agent', () => {
+  const fragments = readdirSync(join(ROOT, 'shared/agent-fragments')).filter((f) => f.endsWith('.md'));
   const bodies = agentNames().map((a) => read(`agents/${a}.md`)).join('\n');
   // No exceptions. The first version of this test carried one for
   // contract-agent-altitude.md, on a count taken over the eight pipeline agents;
   // seven other agents point at it. Counting the wrong population is how a file
   // gets called dead while it is being read.
-  const orphans = fragments.filter((f) => !bodies.includes(`agents/_shared/${f}`));
+  const orphans = fragments.filter((f) => !bodies.includes(`shared/agent-fragments/${f}`));
   assert.deepEqual(orphans, [],
     'a fragment nobody points at is a file that drifts out of date unread — adopt it or delete it');
 });

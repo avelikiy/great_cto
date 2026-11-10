@@ -35,6 +35,7 @@ import { homedir } from 'node:os';
 // translations. Re-implementing that rule here is how the board's Docs screen and
 // this search would come to disagree about what a document is.
 import { listDocs } from './doc-links.mjs';
+import { isMainModule } from './is-main.mjs';
 
 // A small English stopword set — memory is technical, so keep it minimal so
 // domain terms (auth, cache, gate, archetype) are never dropped.
@@ -295,7 +296,7 @@ export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit
 }
 
 // ── CLI ──────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const args = process.argv.slice(2);
   let source = 'all', limit = 8, json = false, cwd = process.cwd();
   const q = [];

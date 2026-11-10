@@ -27,6 +27,7 @@
  * not a declaration, and treating the two alike would let a document declare
  * requirements by talking about them.
  */
+import { isMainModule } from './is-main.mjs';
 export function requirements(text) {
   const out = new Map();
   for (const raw of String(text ?? '').split('\n')) {
@@ -149,7 +150,7 @@ export function describeCoverage(cov, { max = 12 } = {}) {
 // which is the ordinary case: "what did this brief ask for that nothing has
 // picked up".
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync, readdirSync, existsSync } = await import('node:fs');
   const { join } = await import('node:path');
 

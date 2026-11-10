@@ -1,5 +1,6 @@
 /** Restricted Claude Code subprocess for controller-owned, read-only proposals. */
 import { spawn, spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
 
 const PROPOSAL_SCHEMA = JSON.stringify({
   type: 'object',
@@ -35,24 +36,56 @@ export function parseClaudeResult(raw) {
     usage: body.usage || null, model: body.model || null };
 }
 
-export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.env.GREAT_CTO_CLAUDE_BIN || 'claude' }) {
+export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.env.GREAT_CTO_CLAUDE_BIN || 'claude', onEvent = null }) {
   return new Promise(resolve => {
+    const deadline = performance.now() + timeoutMs;
     // Safe mode removes hooks, skills, plugins and project instructions. Restricted
     // mode confines file tools to cwd. The tools allow only inspection; the
     // controller remains the sole writer and gate owner.
-    const args = ['--print', '--output-format', 'json', '--no-session-persistence',
+    const streaming = typeof onEvent === 'function';
+    const args = ['--print', '--output-format', streaming ? 'stream-json' : 'json', ...(streaming ? ['--verbose'] : []), '--no-session-persistence',
       '--safe-mode', '--restricted', '--strict-mcp-config', '--tools', 'Read,Glob,Grep',
       '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--json-schema', PROPOSAL_SCHEMA];
     const group = process.platform !== 'win32';
     const proc = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], detached: group });
     let out = '', err = '', settled = false, timedOut = false, stdinError = null;
+    let observationHealth = 'ok', line = '', dropping = false;
+    const observationLimit = 1024 * 1024;
+    const observeLine = value => {
+      if (!value.trim()) return;
+      try {
+        const event = JSON.parse(value);
+        if (!event || typeof event !== 'object' || Array.isArray(event)) { observationHealth = 'degraded'; return; }
+        const pending = onEvent(event);
+        if (pending && typeof pending.then === 'function') {
+          // Observations are synchronous: do not create an untracked writer lifetime.
+          observationHealth = 'degraded'; Promise.resolve(pending).catch(() => {});
+        }
+      } catch { observationHealth = 'degraded'; }
+    };
+    const observeChunk = chunk => {
+      let offset = 0;
+      while (offset < chunk.length) {
+        const newline = chunk.indexOf('\n', offset), end = newline < 0 ? chunk.length : newline;
+        if (!dropping) {
+          const part = chunk.slice(offset, end);
+          if (Buffer.byteLength(line, 'utf8') + Buffer.byteLength(part, 'utf8') > observationLimit) {
+            line = ''; dropping = true; observationHealth = 'degraded';
+          } else line += part;
+        }
+        if (newline < 0) break;
+        if (!dropping) observeLine(line);
+        line = ''; dropping = false; offset = newline + 1;
+      }
+    };
     const finish = result => { if (!settled) { settled = true; clearTimeout(timer); resolve(result); } };
     const kill = () => {
       try { if (group && proc.pid) process.kill(-proc.pid, 'SIGKILL'); else proc.kill('SIGKILL'); }
       catch { try { proc.kill('SIGKILL'); } catch { /* process already exited */ } }
     };
     const timer = setTimeout(() => { timedOut = true; kill(); }, timeoutMs);
-    proc.stdout.on('data', bytes => { out += String(bytes); });
+    proc.stdout.setEncoding('utf8');
+    proc.stdout.on('data', bytes => { out += bytes; if (streaming) observeChunk(bytes); });
     proc.stderr.on('data', bytes => { err += String(bytes); });
     const inputFailed = error => {
       stdinError ||= typeof error?.code === 'string' ? error.code : 'STDIN_ERROR';
@@ -62,14 +95,24 @@ export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.e
     proc.on('error', error => finish({ state: 'unreadable', finalText: null, errors: [String(error.message)], usage: null, code: null }));
     proc.on('close', code => {
       if (group && proc.pid) { try { process.kill(-proc.pid, 'SIGKILL'); } catch { /* gone */ } }
-      const parsed = parseClaudeResult(out);
+      if (streaming && line && !dropping) observeLine(line);
+      // Final execution parsing is independent of the bounded observer and its callback.
+      let final = out;
+      if (streaming) {
+        final = '';
+        for (const candidate of out.split('\n')) {
+          try { if (JSON.parse(candidate)?.type === 'result') final = candidate; } catch { /* observer reports malformed lines */ }
+        }
+      }
+      const parsed = parseClaudeResult(final);
       if (err.trim()) parsed.errors.push(err.trim().slice(-4000));
       if (stdinError) {
         parsed.state = 'unreadable'; parsed.text = null; parsed.finalText = null;
         parsed.errors.push(`prompt transport failed: ${stdinError}`);
       }
-      if (timedOut) { parsed.state = 'unreadable'; parsed.errors.push(`timed out after ${timeoutMs}ms`); }
-      finish({ ...parsed, code, timedOut });
+      if (performance.now() >= deadline) timedOut = true;
+      if (timedOut) { parsed.state = 'unreadable'; parsed.text = null; parsed.finalText = null; parsed.errors.push(`timed out after ${timeoutMs}ms`); }
+      finish({ ...parsed, code, timedOut, ...(streaming ? { observationHealth } : {}) });
     });
     try { proc.stdin.end(prompt); } catch (error) { inputFailed(error); }
   });

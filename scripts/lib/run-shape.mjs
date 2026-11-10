@@ -36,6 +36,7 @@
  * contract says — which is precisely why a run full of them reads as a bad
  * agent instead of a bad fixture.
  */
+import { isMainModule } from './is-main.mjs';
 export const SHORT_CIRCUITS = Object.freeze([
   { key: 'precondition-block', re: /block(s|ed|ing)?\b.*(gate|approval|precondition|missing (project|config))|refus(es|ed).*(gate|without an approved)/i,
     means: 'refused on a precondition the fixture never satisfied' },
@@ -145,6 +146,6 @@ async function main(argv) {
   return argv.includes('--strict') && fixtures.length ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

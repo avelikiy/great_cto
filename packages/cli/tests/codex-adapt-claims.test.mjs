@@ -44,7 +44,12 @@ async function adaptInto(cwd) {
 
 test('adapt writes no hooks file for Codex — nothing reads one', async () => {
   const cwd = mkdtempSync(path.join(tmpdir(), 'gc-adapt-'));
+  mkdirSync(path.join(cwd, '.codex'), { recursive: true });
+  const activeConfig = path.join(cwd, '.codex/config.toml');
+  const operatorConfig = '# existing operator config\n';
+  writeFileSync(activeConfig, operatorConfig);
   await adaptInto(cwd);
+  assert.equal(readFileSync(activeConfig, 'utf8'), operatorConfig, 'existing config is untouched');
   assert.equal(existsSync(path.join(cwd, '.codex/hooks.json')), false, 'no hooks.json is written');
   assert.ok(existsSync(path.join(cwd, '.codex/great_cto.toml')), 'the MCP fragment is still written');
 });
@@ -60,8 +65,11 @@ test('the fragment enables nothing Codex cannot run', async () => {
   assert.doesNotMatch(toml, /^\s*\[agents\./m, 'Codex routes none of our role agents');
   assert.doesNotMatch(toml, /\d+-agent routing/, 'a count that was already stale when written');
 
-  // And the one section that does run is still there.
-  assert.match(toml, /\[mcp_servers\.great_cto\]/);
+  assert.doesNotMatch(toml, /^\s*\[mcp_servers\./m);
+  assert.doesNotMatch(toml, /^\s*(?:command|args|startup_timeout_sec)\s*=/m);
+  assert.doesNotMatch(toml, /great-cto@latest/);
+  assert.ok(toml.split('\n').every(line => !line.trim() || line.trim().startsWith('#')), 'only comments are emitted');
+  assert.match(toml, /UNSUPPORTED.*no-fetch/);
 });
 
 test('the fragment states what does not come with it, from the install plan', async () => {
@@ -81,7 +89,8 @@ test('and what it prints says so too', async () => {
   const printed = await adaptInto(cwd);
   assert.doesNotMatch(printed, /activate hooks/i, 'the sentence that shipped');
   assert.match(printed, /do NOT carry over/, 'it says what is missing instead');
-  assert.match(printed, /codex plugin marketplace add/, 'and points at the path that works');
+  assert.match(printed, /UNSUPPORTED.*no-fetch/);
+  assert.doesNotMatch(printed, /merge .*config\.toml|codex plugin marketplace add|then restart Codex/);
 });
 
 test('adapt never tells the user that hooks are now active', () => {

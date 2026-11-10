@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import { promptProfile } from '../../scripts/lib/prompt-size.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
-const FRAGMENT = 'agents/_shared/evidence-discipline.md';
+const FRAGMENT = 'shared/agent-fragments/evidence-discipline.md';
 const read = (p) => readFileSync(join(ROOT, p), 'utf8');
 const CONSUMERS = ['l3-support', 'devops'];
 

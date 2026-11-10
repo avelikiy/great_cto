@@ -11,8 +11,10 @@
 #        files with the top-20 most-git-churned files (last 6 months).
 #        Every file in the intersection MUST receive concrete file:line
 #        citations in the findings table — these are the most expensive
-#        places to leave debt unaddressed. Writes scratch files to
-#        /tmp/audit-{largest,churn,hotspots}.txt.
+#        places to leave debt unaddressed. Each hotspot is then marked
+#        TESTED (with the test file found) or NO TEST → characterize before
+#        change. Writes scratch files to $AUDIT_TMP (default /tmp)/
+#        audit-{largest,churn,hotspots}.txt.
 #   4A   Code structure signals — god files (>500 lines), circular-import
 #        risk count, dead-code marker count (TODO/FIXME/HACK/XXX/DEPRECATED),
 #        duplicated-basename files.
@@ -23,6 +25,7 @@
 #        library presence count, metrics/tracing tool presence count.
 
 set -uo pipefail
+T=${AUDIT_TMP:-/tmp}; mkdir -p "$T"
 
 echo "=== 4A.0. Hot-spot identification (size x churn intersection) ==="
 
@@ -30,17 +33,36 @@ echo "=== 4A.0. Hot-spot identification (size x churn intersection) ==="
 find . -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.py" \
   -o -name "*.go" -o -name "*.rs" -o -name "*.java" -o -name "*.kt" \) \
   ! -path "*/node_modules/*" ! -path "*/.git/*" ! -path "*/dist/*" ! -path "*/build/*" \
-  -exec wc -l {} \; 2>/dev/null | sort -rn | head -20 > /tmp/audit-largest.txt
+  -exec wc -l {} \; 2>/dev/null | sed 's# \./# #' | sort -rn | head -20 > $T/audit-largest.txt
 
 # Top 20 most-modified files (last 6 months)
 git log --since="6 months ago" --name-only --pretty=format: 2>/dev/null \
   | grep -E '\.(ts|tsx|js|py|go|rs|java|kt)$' \
-  | sort | uniq -c | sort -rn | head -20 > /tmp/audit-churn.txt
+  | sort | uniq -c | sort -rn | head -20 > $T/audit-churn.txt
 
-# Intersection — these are the worst architectural offenders, focus 4B/4C/4D here
-awk 'NR==FNR{a[$2];next} ($2 in a)' /tmp/audit-largest.txt /tmp/audit-churn.txt \
-  > /tmp/audit-hotspots.txt
-cat /tmp/audit-hotspots.txt
+# Intersection — paths in both lists are repo-relative without "./" (find printed
+# "./src/x.ts", git prints "src/x.ts": until 2026-10-30 they never matched and the
+# hotspot list was always empty). These are the worst architectural offenders, focus 4B/4C/4D here
+awk 'NR==FNR{a[$2];next} ($2 in a)' $T/audit-largest.txt $T/audit-churn.txt \
+  > $T/audit-hotspots.txt
+cat $T/audit-hotspots.txt
+
+# Does each hotspot have a test? Beside it (x.test.ts, x.spec.ts, x_test.go,
+# test_x.py), in a __tests__/ next to it, or anywhere under the same stem.
+# A hotspot without one gets "characterize before change" (project-auditor 4A.0).
+echo "--- test presence per hotspot ---"
+awk '{print $2}' $T/audit-hotspots.txt | while read -r f; do
+  [ -n "$f" ] || continue
+  d=$(dirname "$f"); b=$(basename "$f"); stem=${b%.*}; ext=${b##*.}
+  found=""
+  for c in "$d/$stem.test.$ext" "$d/$stem.spec.$ext" "$d/${stem}_test.$ext" "$d/test_$stem.$ext" \
+           "$d/__tests__/$stem.test.$ext" "$d/__tests__/$stem.$ext"; do
+    [ -f "$c" ] && { found=$c; break; }
+  done
+  [ -n "$found" ] || found=$(find . \( -name "$stem.test.*" -o -name "$stem.spec.*" -o -name "${stem}_test.*" -o -name "test_$stem.*" \) \
+    ! -path "*/node_modules/*" ! -path "*/.git/*" 2>/dev/null | head -1 | sed 's#^\./##')
+  if [ -n "$found" ]; then echo "TESTED   $f ($found)"; else echo "NO TEST  $f → characterize before change"; fi
+done
 
 echo ""
 echo "=== 4A. Code structure signals ==="
@@ -97,3 +119,6 @@ grep -rn "winston\|pino\|structlog\|zerolog\|zap\|slog" \
 # Metrics / tracing
 grep -rn "prometheus\|datadog\|opentelemetry\|jaeger\|honeycomb\|grafana" \
   . 2>/dev/null | grep -v node_modules | wc -l
+
+# A section that finds nothing is a result, not a failure of the scan.
+exit 0

@@ -12,7 +12,7 @@
  *   the actor's answer was not stored, so nobody could see the instruction
  *   appeared in 4 of 22 answers — the wording was never the variable;
  *
- *   `agents/_shared/*` was unreachable, so forty of sixty-nine agents were being
+ *   `shared/agent-fragments/*` was unreachable, so forty of sixty-nine agents were being
  *   judged without half their contract;
  *
  *   a truncated run reported a rate, so 402s read as a score;
@@ -41,6 +41,7 @@
 
 import { shapeOf } from './run-shape.mjs';
 import { adherence } from './adherence.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Paths a prompt-improving agent may not write. Not a lint rule — the reason the
@@ -212,6 +213,6 @@ async function main(argv) {
   return plan.actionable.length ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

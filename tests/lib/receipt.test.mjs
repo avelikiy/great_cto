@@ -4,13 +4,17 @@
 // that was reviewed is the code that shipped — `code-reviewer` approves a tree,
 // senior-dev keeps editing, and every rung still reads green because every rung
 // is answering a question about the past.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance, taskBase } from '../../scripts/lib/receipt.mjs';
+
+// Acceptances are sealed (ADR-046): a throwaway key, never the operator's.
+const SEAL_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-receipt-seal-'));
+process.env.GREAT_CTO_SEAL_KEY = path.join(SEAL_DIR, 'verdict-seal.key');
+import { treeReceipt, compareReceipts, describeDrift, fileDigest, receiptHash, writeAcceptance, readAcceptance, clearAcceptance, taskBase, readOnlyGit, gitReadTimeoutMs, GIT_READ_TIMEOUT_MS } from '../../scripts/lib/receipt.mjs';
 
 function repo() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-receipt-'));
@@ -420,3 +424,31 @@ test('a previous stage recorded at HEAD ends the search — an older verdict is 
     assert.ok(!('docs/plan.md' in treeReceipt(d, { verdictsDir: dir }).files));
   } finally { clean(d); }
 });
+
+test('a Git read bound widens for a slow caller but never narrows below the hook-safe default', () => {
+  assert.equal(gitReadTimeoutMs(undefined), GIT_READ_TIMEOUT_MS);
+  assert.equal(gitReadTimeoutMs('20000'), 20000);
+  for (const raw of ['1000', '0', '', '-1', '20s', '1e5', ' 20000']) assert.equal(gitReadTimeoutMs(raw), GIT_READ_TIMEOUT_MS, raw);
+  assert.equal(gitReadTimeoutMs('999999999'), 120000);
+});
+
+test('a Git read slower than the default is unavailable by default and answered when widened', () => {
+  // Under load a read can outlive 5 s without hanging; the caller that can wait
+  // says so, and a hook keeps the bound that fits its host deadline.
+  const fake = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-slow-git-'));
+  const prior = { PATH: process.env.PATH, bound: process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS };
+  try {
+    fs.writeFileSync(path.join(fake, 'git'), '#!/bin/sh\nsleep 6\necho slow-answer\n', { mode: 0o755 });
+    process.env.PATH = `${fake}:${prior.PATH}`;
+    delete process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS;
+    assert.equal(readOnlyGit(['rev-parse', 'HEAD'], fake), null);
+    process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS = '30000';
+    assert.equal(readOnlyGit(['rev-parse', 'HEAD'], fake), 'slow-answer\n');
+  } finally {
+    process.env.PATH = prior.PATH;
+    if (prior.bound === undefined) delete process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS; else process.env.GREAT_CTO_GIT_READ_TIMEOUT_MS = prior.bound;
+    clean(fake);
+  }
+});
+
+after(() => fs.rmSync(SEAL_DIR, { recursive: true, force: true }));

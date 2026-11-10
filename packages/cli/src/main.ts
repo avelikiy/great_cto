@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "distribution" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -137,6 +137,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "board") args.command = "board";
     else if (a === "console") args.command = "console";
     else if (a === "telemetry") args.command = "telemetry";
+    else if (a === "distribution") { args.command = "distribution"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "register") args.command = "register";
     else if (a === "ci") args.command = "ci";
     else if (a === "mcp") args.command = "mcp";
@@ -719,8 +720,8 @@ ${bold("Usage:")}
   npx great-cto run "describe the task" [--host claude-code|codex] [--dir PATH]
   npx great-cto status [RUN_UUID] [--host codex] [--json]
   npx great-cto resume [RUN_UUID] [--host codex]
-  npx great-cto install [options]    Same as init
-  npx great-cto [init] [options]     Detect + bootstrap
+  npx great-cto install [options]    Refused until managed plugin admission is supported
+  npx great-cto [init] [options]     Plugin activation currently unsupported (ADR-045)
   npx great-cto board [--port 3141] [--no-open]
   npx great-cto console [--port 8788] [--bind 0.0.0.0] [--no-open]
   npx great-cto register [--dir PATH]
@@ -730,8 +731,9 @@ ${bold("Usage:")}
   npx great-cto task work decisions|approve|verify|complete|metrics|preview|publish ...
   npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
-  npx great-cto upgrade [superpowers|beads]  Re-clone companions to latest tag + re-apply overlays
-  npx great-cto upgrade --self                Upgrade the great-cto CLI itself, in place
+  npx great-cto upgrade [superpowers|beads]  Unsupported pending companion artifact admission
+  npx great-cto upgrade --self                Verified update for an owned plain npm installation
+  npx great-cto distribution status          Inspect separately configured verifier toolchain
   npx great-cto statusline install            Record Claude's plan use (5h / weekly %) for the board; keeps your status line
   npx great-cto statusline uninstall          Put your previous status line back
   npx great-cto uninstall [--yes]             Show what great_cto installed; --yes removes it (your data stays)
@@ -767,16 +769,18 @@ ${bold("Register:")}
                                 run this if the project doesn't appear in board)
 
 ${bold("Upgrade:")}
-  great-cto upgrade              Upgrade superpowers + beads to latest, re-apply critic overlays
-  great-cto upgrade superpowers  Upgrade superpowers only
-  great-cto upgrade beads        Upgrade beads only
-  great-cto upgrade --self       Upgrade the great-cto CLI itself (also: upgrade self)
-  great-cto upgrade codex        Refresh great_cto in Codex (also part of plain upgrade)
+  great-cto upgrade              Refused: choose a supported explicit update route
+  great-cto upgrade superpowers  Unsupported until companion runtime admission is available
+  great-cto upgrade beads        Unsupported until companion runtime admission is available
+  great-cto upgrade --self       Verify signed artifacts, then update an owned plain npm prefix
+  great-cto upgrade codex        Unsupported until native no-fetch activation is proven
+  great-cto distribution status  Inspect operator verifier configuration; no release admission
+  great-cto distribution configure ...  Register explicit tool paths and digests (see ADR-045)
   great-cto uninstall            Plan: what would be removed, what is kept (changes nothing)
   great-cto uninstall --yes      Remove plugin, agents, commands, board service, caches
       --purge-data               Also move ~/.great_cto aside (reversible, never deleted)
       --projects                 Also remove the pre-push hooks init wrote into your projects
-  ${dim("(Safe to run any time — idempotent if already on latest)")}
+  ${dim("(Missing artifact proof preserves the selected installation; no mutable fallback)")}
 
 ${bold("CI gate:")}
   great-cto ci                         Single-command CI gate (archetype + budget check)
@@ -843,57 +847,8 @@ ${bold("Links:")}
 }
 
 async function runInitCodex(args: CliArgs): Promise<number> {
-  const { codexInstallPlan } = await import("./codex.js");
-  const { execFileSync, spawnSync } = await import("node:child_process");
-
-  log(bold("great-cto · Codex host install"));
-  log("");
-
-  // Is the host actually there? The previous version of this function wrote
-  // hook scripts and a config fragment without checking, into
-  // `~/.codex/skills/great_cto/` — a directory a working Codex install does not
-  // have. It reported success either way.
-  let codexOnPath = false;
-  try { execFileSync("codex", ["--version"], { stdio: "ignore", timeout: 15000 }); codexOnPath = true; }
-  catch { codexOnPath = false; }
-
-  const plan = codexInstallPlan({ repoDir: args.dir, codexOnPath });
-
-  if (!plan.ok) {
-    error(plan.why);
-    return 1;
-  }
-
-  log(`This registers ${cyan(args.dir)} as a Codex plugin marketplace and installs from it.`);
-  log("");
-  log(bold("Carries over:"));
-  for (const s2 of plan.supported) log(`  ${green("✓")} ${s2}`);
-  log("");
-  // Printed on every run, not buried in docs. An install that lists only what it
-  // gives promises a pipeline this host cannot run.
-  log(bold("Does NOT carry over on Codex:"));
-  for (const s2 of plan.notSupported) log(`  ${yellow("—")} ${s2}`);
-  log("");
-
-  if (args.dryRun) {
-    log(yellow("dry-run: these commands would run."));
-    for (const c of plan.commands) log(`  ${dim(c)}`);
-    return 0;
-  }
-
-  for (const c of plan.commands) {
-    log(dim(`  $ ${c}`));
-    const parts = c.split(" ");
-    const r = spawnSync(parts[0], parts.slice(1), { stdio: "inherit", timeout: 120000 });
-    if (r.status !== 0) {
-      error(`command failed: ${c}`);
-      return 1;
-    }
-  }
-
-  log("");
-  log(`${green("✓")} installed. Verify with: ${cyan("codex plugin list")}`);
-  return 0;
+  error("Codex activation is unsupported until a verified no-fetch local runtime and recovery route are proven. No marketplace or installed plugin was changed.");
+  return 1;
 }
 
 async function runInit(args: CliArgs): Promise<number> {
@@ -1418,43 +1373,11 @@ function installPrePushHook(projectDir: string): void {
 
 
 async function runSelfUpgrade(): Promise<number> {
-  const { performSelfUpgrade, resolveRunningBinaryPath } = await import("./self-upgrade.js");
-  const currentVersion = getCliVersion();
-  const binaryPath = resolveRunningBinaryPath();
-
-  log(`${bold("great-cto upgrade --self")} — current version ${cyan(currentVersion)}`);
-  log(dim(`  running binary: ${binaryPath}`));
-  log("");
-
-  const result = performSelfUpgrade({ currentVersion, binaryPath });
-
-  if (result.manager === "npx") {
-    log(result.message);
-    return 0;
-  }
-
-  if (result.exitCode !== 0) {
-    error(result.message);
-    return result.exitCode;
-  }
-
-  success(result.message);
-
-  // The CLI is upgraded; the plugin Claude Code actually loads may not be.
-  // `npm i -g` never touches the plugin cache, so without this the user is told
-  // the upgrade succeeded and keeps running the previous release's hooks and
-  // agent prompts with nothing anywhere saying so.
-  try {
-    const { pluginCacheLagWarning } = await import("./self-upgrade.js");
-    const { readdirSync } = await import("node:fs");
-    const { join } = await import("node:path");
-    const cacheRoot = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
-    const dirs = readdirSync(cacheRoot);
-    const warning = pluginCacheLagWarning(result.newVersion ?? "", dirs);
-    if (warning) { log(""); log(dim(warning)); }
-  } catch { /* no plugin cache is not a lag — the plugin is simply not installed */ }
-
-  return 0;
+  const { resolveRunningBinaryPath } = await import("./self-upgrade.js");
+  const { runVerifiedSelfUpgrade } = await import("./release-update.mjs");
+  const result = await runVerifiedSelfUpgrade({ currentVersion: getCliVersion(), binaryPath: resolveRunningBinaryPath() });
+  log(JSON.stringify(result));
+  return ["SMOKE_PASSED", "ALREADY_ACTIVE", "ALREADY_CURRENT"].includes(result.state) ? 0 : 1;
 }
 
 async function runUpgrade(rawArgv: string[], args: CliArgs): Promise<number> {
@@ -1487,20 +1410,9 @@ async function runUpgrade(rawArgv: string[], args: CliArgs): Promise<number> {
     results = await upgradeAll();
   }
 
-  for (const r of results) {
-    if (r.status === "upgraded") {
-      success(`${r.name} ${r.fromVersion} → ${r.toVersion}`);
-    } else if (r.status === "already_latest") {
-      log(`  ${dim(`${r.name} ${r.toVersion} already at latest (overlays re-applied)`)}`);
-    } else {
-      warn(`${r.name} skipped — ${r.reason ?? "unknown reason"}`);
-    }
-  }
-  // Codex keeps its own snapshot of great_cto and never refreshes it; without this
-  // step every Codex guard shipped after the first install stays out of reach.
-  if (!targetPlugin) await reportCodexUpgrade();
-
-  return 0;
+  // Unadmitted companion routes fail before fetching, deleting caches or enabling plugins.
+  for (const r of results) warn(`${r.name}: ${r.reason ?? "UNSUPPORTED: companion artifact admission required"}`);
+  return 1;
 }
 
 async function reportCodexUpgrade(): Promise<number> {
@@ -1517,6 +1429,40 @@ async function reportCodexUpgrade(): Promise<number> {
     warn(`codex: ${r.reason}`);
   }
   return 0;
+}
+
+// A successful write() may still have queued pipe bytes. Complete an ordered
+// empty write before forced exit, without keeping a broken consumer alive.
+function drainOutput(stream: NodeJS.WriteStream): Promise<boolean> {
+  if (stream.destroyed || stream.closed || stream.writableFinished) return Promise.resolve(true);
+  return new Promise((resolve) => {
+    let settled = false;
+    const finish = (complete: boolean): void => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      stream.off("error", completed);
+      stream.off("close", completed);
+      stream.off("finish", completed);
+      resolve(complete);
+    };
+    const completed = (): void => finish(true);
+    const timer = setTimeout(() => finish(false), 1000);
+    timer.unref();
+    stream.once("error", completed);
+    stream.once("close", completed);
+    stream.once("finish", completed);
+    if (!stream.writableEnded) {
+      try {
+        stream.write("", (error?: Error | null) => {
+          // Node emits the write error after its callback; leave the listener
+          // in place for that event before cleaning up a callback-only failure.
+          if (error) queueMicrotask(completed);
+          else completed();
+        });
+      } catch { completed(); }
+    }
+  });
 }
 
 async function main(): Promise<void> {
@@ -1552,10 +1498,21 @@ async function main(): Promise<void> {
     try {
       await checkForUpdate({ currentVersion: getCliVersion(), command: args.command });
     } catch { /* update hint never affects the exit */ }
-    process.exit(code);
+    // An unref deadline cannot keep an otherwise empty event loop alive.
+    // Until completion is proven, even that early exit must fail closed.
+    process.exitCode = code || 1;
+    const completed = await Promise.all([drainOutput(process.stdout), drainOutput(process.stderr)]);
+    process.exit(completed.every(Boolean) ? code : code || 1);
   };
 
   // `great-cto telemetry <on|off|status|whoami>` — inspect / toggle, never sends.
+  if (args.command === "distribution") {
+    const { runDistributionCommand } = await import("./release-update.mjs");
+    const result = runDistributionCommand(rawArgv.slice(rawArgv.indexOf("distribution") + 1));
+    process.stdout.write(JSON.stringify(result) + "\n");
+    await finish(result.state === "REFUSED" ? 1 : 0);
+  }
+
   if (args.command === "telemetry") {
     const { exitCode, output } = telemetrySubcommand(args.positional[0]);
     process.stdout.write(output);

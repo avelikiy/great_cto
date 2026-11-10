@@ -93,6 +93,35 @@ on = ["NO_BUILD"]
 gate = "gate:product"
 next = []
 
+# A UI feature reaches design-advisor from here. The default edge above goes to
+# pm, and nothing else named design-advisor: it ran only when the orchestrator
+# happened to read the routing table, so "after architect" was a sentence and not
+# an edge. The stage cannot sit on the default edge, because a backend feature
+# would then wait for a design that never starts. The architect knows which case
+# this is, so its verdict picks the branch. No depth skip here: a contract exists
+# to be planned against, so pm runs after it at any depth.
+[transitions.architect.APPROVED_UI]
+on = ["APPROVED_UI"]
+produces = ["arch"]
+gate = "gate:arch"
+next = ["design-advisor"]
+
+# Draft screens before the CTO decides WHAT. product-owner records this instead of
+# raising gate:product, and the gate moves to the end of the draft: a person
+# approving a product should see what they are approving. No gate on this edge is
+# deliberate. It removes no check, it only moves the same one a stage later.
+[transitions.product-owner.SCREENS_NEEDED]
+on = ["SCREENS_NEEDED"]
+produces = ["brief"]
+next = ["design-advisor"]
+
+[transitions.design-advisor.SCREENS_DRAFT]
+on = ["SCREENS_DRAFT"]
+# docs/design/SCREENS-{slug}.html — throwaway drafts of the main scenario
+produces = ["screens"]
+gate = "gate:product"
+next = ["architect"]
+
 [transitions.pm]
 on = ["PLAN_READY", "DONE"]
 # PLAN-{slug}.md, and one IMPL-BRIEF per senior-dev task (Step 7b).
@@ -303,7 +332,13 @@ next = ["qa-engineer"]
 on = ["DONE", "APPROVED"]
 # DESIGN-{slug}.md — the design + a11y contract
 produces = ["design"]
-next = ["senior-dev"]
+# Into pm, not senior-dev. Both used to lead to senior-dev with no join, and the
+# routing table ran design-advisor alongside pm, so each success opened the edge
+# and senior-dev could start twice. A join cannot fix it: design-advisor runs only
+# for UI features, and pm would wait for a stage that never starts. One path into
+# senior-dev does; pm also plans the UI tasks against the finished contract — the
+# order the Codex controller already runs (design-advisor-prebuild).
+next = ["pm"]
 
 # Audits the Solidity/EVM contracts once they exist (web3, or /review --contracts).
 # PASS hands the audit to security-officer, which reads it before gate:ship; FAIL

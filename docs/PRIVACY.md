@@ -195,7 +195,10 @@ running on your machine.
 An event records facts, and only these fields: `ts`, `kind` (`agent-start`,
 `agent-stop`, `tool`, `denied`, `stop`, `pipeline`), `session`, `agent`, `tool`,
 up to ten `paths` a tool touched, `ok`, `duration_ms`, and for pipeline events an
-`outcome` and a verdict token.
+`outcome` and a verdict token. A guard hook (graph guard, ADR-039) also records a
+`why`: a reason of at most 120 characters built from rule ids, stage names and
+error codes (`edge-contract: qa-engineer named no report`) — never a path, a
+timestamp taken from a verdict, or text from a prompt or a file.
 
 It **never** records command text, file contents, prompts, tool output or
 environment variables — those can hold secrets. The allowlist is enforced in code
@@ -259,6 +262,16 @@ your own key. Each member's draft is written to
 `docs/architecture/council/<feature>/` in your project, with a `council.json`
 recording who drafted, who failed or was skipped, and what it cost. Nothing is sent
 to great_cto, and nothing is sent when `council:` is absent.
+
+## Cross-model code review (not telemetry — sent only to the provider you declared)
+
+The code reviewer's second opinion (`scripts/lib/cross-model-review.mjs`) sends the
+reviewed diff, and the spec when one is given, to one provider: the one named by
+`--provider`, or by `capabilities: second_opinion:` in `.great_cto/PROJECT.md`.
+`codex` runs through your own `codex` login; `openrouter` uses your own key.
+An exported `OPENROUTER_API_KEY` does not choose the provider: with nothing declared
+the review is skipped (exit 3) and nothing is sent. Each review appends one line to
+`.great_cto/cross-review.log` in your project. Nothing is sent to great_cto.
 
 ## Optional Kimi advisory profile (explicit selected context only)
 
@@ -354,3 +367,31 @@ else from the file, and only on the machine the board runs on.
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
+
+## Local execution graph observations
+
+The graph observation journal is local-only and separate from anonymous usage
+telemetry. Controlled runs enable supplementary host events explicitly with
+`codex-host start --observe-graph`. Native sessions require explicit enrollment
+for one canonical project, host and session through `task work graph-bind`, or
+project-and-host opt-in through `task work graph-enable` before SessionStart.
+Removing enrollment stops future collection; it does not delete existing history.
+No native transcript discovery, historical transcript import, terminal control,
+provider call or network export is performed by the observer.
+
+The private journal under `~/.great_cto/host-graphs/` keeps allowlisted lifecycle,
+tool class, outcome, opaque event/call identities, explicit parent references and
+observation timestamps. Enrollment is under `~/.great_cto/graph-bindings/`.
+Prompts, messages, commands, tool arguments/results, document contents,
+credentials and file paths are excluded from event records. Enrollment retains
+the canonical root privately to verify exact project membership. Stores require
+owner-only access and reject symlinks. Event and byte quotas are bounded; gaps,
+corruption and unsupported source formats remain incomplete observations.
+
+The journal grants no execution, approval, verification or release authority.
+Native event claims cannot establish a passed gate or accepted task. Users can
+inspect enrollment with `task work graph-read` and revoke it with
+`task work graph-unbind --host HOST --session SESSION`. History kept after
+revocation stays readable to you, read-only and marked retained, with
+`task work graph-read --host HOST --session SESSION`; reading it never resumes
+collection.

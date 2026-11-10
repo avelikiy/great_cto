@@ -10,27 +10,22 @@
 #   2. Build+pack — packages/cli build + npm pack (the release artifact)
 #   3. Dry-run    — npm publish --dry-run (shows exactly what WOULD ship)
 #   --push        — also: git push the current branch to origin
-#   --publish     — also: real npm publish (GUARDED, irreversible — see below)
-#
-# Guards on --publish (all must hold, else it refuses):
-#   • CI is green   • git tree is clean   • the version is NOT already on npm
-#   • you are logged in to npm (npm whoami)
-# Bump the version first (npm version patch|minor) — never republish an existing one.
+#   --publish     — refused: use the separately admitted immutable publisher
 #
 # Usage:
 #   bash scripts/cd-local.sh                 # CI + build + pack + dry-run (safe, default)
 #   bash scripts/cd-local.sh --push          # + push current branch to GitHub
-#   bash scripts/cd-local.sh --publish       # + publish to npm (guarded)
+#   node scripts/publish-local-release.mjs  # explicit signed-artifact route
 
 set -uo pipefail
 cd "$(dirname "$0")/.."   # repo root
 
-DO_PUSH=0; DO_PUBLISH=0
+DO_PUSH=0
 for a in "$@"; do
   case "$a" in
     --push) DO_PUSH=1 ;;
-    --publish) DO_PUBLISH=1 ;;
-    *) echo "unknown flag: $a (use --push | --publish)"; exit 2 ;;
+    --publish) echo "refusing legacy publication: use scripts/publish-local-release.mjs with verified admitted artifacts and explicit owner approval"; exit 1 ;;
+    *) echo "unknown flag: $a (use --push; publication requires the verified publisher)"; exit 2 ;;
   esac
 done
 
@@ -61,19 +56,4 @@ if [ "$DO_PUSH" -eq 1 ]; then
   echo "   ✓ pushed"
 fi
 
-# ── publish (opt-in, guarded) ───────────────────────────────────────────────
-if [ "$DO_PUBLISH" -eq 1 ]; then
-  say "npm publish (guarded)"
-  [ -z "$(git status --porcelain)" ] || die "refusing to publish — git tree is dirty. Commit first."
-  npm whoami >/dev/null 2>&1 || die "refusing to publish — not logged in to npm (run: npm login)."
-  if npm view "great-cto@${CLI_VERSION}" version >/dev/null 2>&1; then
-    die "refusing to publish — great-cto@${CLI_VERSION} already exists on npm. Bump first: (cd packages/cli && npm version patch)."
-  fi
-  # --provenance only works under CI OIDC (GitHub Actions); skip it for local publish.
-  PROV=""; [ -n "${CI:-}" ] && PROV="--provenance"
-  ( cd packages/cli && npm publish $PROV --access public ) || die "npm publish failed"
-  echo "   ✓ published great-cto@${CLI_VERSION}"
-  echo "   → tag the release: git tag v${CLI_VERSION} && git push origin v${CLI_VERSION}"
-fi
-
-printf '\n\033[42;30m CD-LOCAL: DONE \033[0m  (push:%s publish:%s)\n' "$DO_PUSH" "$DO_PUBLISH"
+printf '\n\033[42;30m CD-LOCAL: PREPARATION DONE \033[0m  (push:%s publish:0)\n' "$DO_PUSH"

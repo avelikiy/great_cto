@@ -16,7 +16,7 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /** Every hint event in these projects' logs, newest window only. */
 export function collectHints(projectDirs, { since = null } = {}) {
@@ -83,7 +83,7 @@ function registeredProjects() {
   } catch { return []; }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   const a = process.argv.slice(2);
   const since = a.includes('--since') ? a[a.indexOf('--since') + 1] : null;
   const s = summarize(collectHints([...registeredProjects(), process.cwd()], { since }));

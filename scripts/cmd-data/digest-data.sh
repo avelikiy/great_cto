@@ -53,7 +53,7 @@ done | sort -r | head -5
 bd list --status open --priority 2 2>/dev/null | wc -l
 # New baseline format: p95:<value>ms error_rate:<value>% ts:<ISO8601> feature:<name>
 tail -7 .great_cto/perf-baseline.log 2>/dev/null | grep -oE 'p95:[0-9]+ms' | sed 's/p95://' | tr '\n' ' '
-ls docs/audits/AUDIT-*.md docs/audit/AUDIT-*.md 2>/dev/null | sort -V | tail -1 || echo "NO_AUDIT"
+A=$(ls docs/audits/AUDIT-*.md docs/audit/AUDIT-*.md 2>/dev/null | sort -V | tail -1); echo "${A:-NO_AUDIT}"
 
 # ── block 6 ────────────────────────
 # DAYS already set from args parse above
@@ -166,11 +166,11 @@ else: print(f'rework_rate=N/A ({r} hotfix/rework/unplanned tasks, no deploy coun
 # ── block 11 ────────────────────────
 # Load previous DORA snapshot for delta arrows
 DORA_LOG=".great_cto/dora-baseline.log"
-PREV_DEPLOY=$(awk '/^deploy_freq:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
-PREV_LEAD=$(awk '/^lead_time_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
-PREV_MTTR=$(awk '/^mttr_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
-PREV_CFR=$(awk '/^cfr_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
-PREV_REWORK=$(awk '/^rework_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1 || echo "")
+PREV_DEPLOY=$(awk '/^deploy_freq:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1)
+PREV_LEAD=$(awk '/^lead_time_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1)
+PREV_MTTR=$(awk '/^mttr_h:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1)
+PREV_CFR=$(awk '/^cfr_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1)
+PREV_REWORK=$(awk '/^rework_pct:/{print $2}' "$DORA_LOG" 2>/dev/null | tail -1)
 
 # Shell helper: emit arrow (↑ bad / ↓ good / — same) for a metric
 # Usage: dora_delta <current_float> <prev_float> <higher_is_worse: 1|0>

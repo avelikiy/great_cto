@@ -56,6 +56,19 @@ test('invocation identity carries only a bounded digest, never arbitrary content
   }
 });
 
+// `why` is the one free-ish string an event carries (graph-guard says why a call would have been
+// blocked). It stays a fact: a short reason built from rule ids, stage names and error codes —
+// never a path, a sentence of prose, or anything a prompt or a file could have put there.
+test('why is a short fixed-vocabulary reason; anything shaped like content is dropped', () => {
+  assert.ok(EVENT_FIELDS.includes('why'));
+  const ok = (why) => makeEvent({ kind: 'hint', hook: 'graph-guard', why }, { now: NOW }).why;
+  assert.equal(ok('edge-contract: qa-engineer named no report'), 'edge-contract: qa-engineer named no report');
+  assert.equal(ok('product-owner=EISDIR,architect=EACCES'), 'product-owner=EISDIR,architect=EACCES');
+  for (const bad of ['/srv/someone/private/QA-x.md', 'docs/qa/QA-x.md', 'C:\\Users\\x', 'two\nlines', 'say "hi"; rm -rf', 'a'.repeat(121), '', '  ', 42, null, { why: 'x' }]) {
+    assert.equal(ok(bad), undefined, `dropped: ${JSON.stringify(bad)}`);
+  }
+});
+
 test('paths are bounded, and values are typed rather than trusted', () => {
   const e = makeEvent({
     kind: 'tool', tool: 'Edit', ok: 'yes', duration_ms: -5,

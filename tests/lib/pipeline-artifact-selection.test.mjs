@@ -41,7 +41,9 @@ test('explicit candidate mode is labelled separately and never registers with ho
 
 test('canonical library gate bounds scheduling without excluding test inventory', () => {
   const ci = readFileSync(new URL('../../scripts/ci-local.sh', import.meta.url), 'utf8');
-  assert.match(ci, /step "lib tests" node --test --test-concurrency="\$GATE_TEST_CONCURRENCY" tests\/lib\/\*\.test\.mjs scripts\/lib\/\*\.test\.mjs/);
+  // The step may carry a suite label and the CTRF report (BOARD-TEST-STRATEGY §4); what
+  // must hold is the bounded concurrency and both globs, nothing filtered out.
+  assert.match(ci, /step "lib tests" (?:env GATE_SUITE="lib tests" )?node --test (?:\$\(ctrf_to lib\) )?--test-concurrency="\$LIB_TEST_CONCURRENCY" tests\/lib\/\*\.test\.mjs scripts\/lib\/\*\.test\.mjs$/m);
   assert.match(ci, /GREAT_CTO_TEST_PLUGIN_DIR/);
   assert.doesNotMatch(ci, /--test-name-pattern|--test-skip-pattern/);
 });

@@ -28,7 +28,7 @@ if [ -z "$VERSION" ]; then
   VERSION=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
 fi
 if [ -z "$VERSION" ]; then
-  VERSION=$(grep -m1 '"version"' .claude-plugin/plugin.json 2>/dev/null | sed 's/.*"\([0-9][0-9.]*\)".*/\1/' || echo "")
+  VERSION=$(grep -m1 '"version"' .claude-plugin/plugin.json 2>/dev/null | sed 's/.*"\([0-9][0-9.]*\)".*/\1/')
 fi
 if [ -z "$VERSION" ]; then
   VERSION="unversioned-$(date +%Y%m%d)"

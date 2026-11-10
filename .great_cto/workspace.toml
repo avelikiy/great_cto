@@ -1,0 +1,6 @@
+# Per-task workspaces (ADR-047). Committed and reviewed like code: these commands
+# run when a task claims a worktree. node_modules is linked before setup runs.
+[scripts]
+setup = ["npm run build --prefix packages/cli"]
+run = ["node packages/board/server.mjs --no-open"]
+archive = []

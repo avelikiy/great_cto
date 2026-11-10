@@ -12,6 +12,7 @@
  * the one that renders without complaining.
  */
 
+import { isMainModule } from './is-main.mjs';
 const DECL = /(--[A-Za-z0-9_-]+)\s*:/g;
 const USE = /var\(\s*(--[A-Za-z0-9_-]+)\s*(,)?/g;
 
@@ -73,7 +74,7 @@ export function checkTokenParity(css) {
 // that is green by construction, which is the exact defect this module exists
 // to catch, one level up.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const file = process.argv[2];
   if (!file) { console.error('usage: css-tokens.mjs <file> [--json]'); process.exit(2); }

@@ -16,7 +16,7 @@
 
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /** Domain invariants per archetype. `pattern` is matched (case-insensitive) against the
  *  concatenated test-file text — presence = the dangerous path is tested. */
@@ -169,5 +169,5 @@ function main(argv) {
   process.exit(r.covered < r.total ? 1 : 0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

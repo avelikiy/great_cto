@@ -1,0 +1,101 @@
+{
+  "schemaVersion": 1,
+  "contract": "distribution-trust",
+  "revision": 1,
+  "status": "ACCEPTED_DESIGN",
+  "authority": "NONE",
+  "releaseEligibility": "NOT_CHECKED",
+  "sourceDecision": "docs/adr/ADR-045-verified-distribution.md",
+  "productionIdentity": {
+    "repository": "avelikiy/great_cto",
+    "workflow": ".github/workflows/publish.yml",
+    "issuer": "https://token.actions.githubusercontent.com",
+    "ref": "refs/tags/v<exact-stable-version>",
+    "certificateWorkflowShaMatchesIndexCommit": true
+  },
+  "requiredScenarios": [
+    {
+      "id": "crypto_identity",
+      "requirement": "Exact issuer, workflow, tag and certificate workflow SHA; reject altered or missing proof",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "trusted_verifier",
+      "requirement": "Separately authenticated verifier and trust roots; no candidate or environment policy override",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "bounded_download",
+      "requirement": "Fixed asset origins, bounded bodies, no private redirects or truncation",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "archive_membership",
+      "requirement": "Reject traversal, duplicate/colliding paths, links, special files, private entries and missing runtime",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "zero_pre_admission_execution",
+      "requirement": "Failed admission produces zero lifecycle, import, package-manager or host activation calls",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "dependency_closure",
+      "requirement": "Zero runtime, optional and bundled dependencies or explicit unsupported result",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "npm_activation",
+      "requirement": "Local admitted tgz, exact prefix, sanitized configuration, offline and ignore-scripts",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "transaction_recovery",
+      "requirement": "Exclusive updater lock, durable phases, target-drift refusal and package/bin-only rollback; first legacy snapshot restoration is labelled LEGACY_LOCAL_RECOVERY and cannot grant signed-release admission",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "version_replay",
+      "requirement": "Reject downgrade and changed bytes under the same stable version",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "claude_registration",
+      "requirement": "Immutable complete snapshot, compare-and-swap and managed-file recovery",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "native_capability",
+      "requirement": "Actual isolated host tracing before support; otherwise zero native upgrade/install calls; reject external npx MCP and automatic companion downloads without independently admitted runtime closure",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "legacy_timer",
+      "requirement": "Inventory old owned timer; installed-phase migration only with authority",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "signed_release_outputs",
+      "requirement": "Sign final archives, inventory, SBOM and strict index from one reviewed commit",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "production_bootstrap",
+      "requirement": "Real exact-tag GitHub OIDC SIGN_ONLY proof; branch/test identity must fail release policy; all tag-triggered registry publication, including JSR, and announcements remain blocked during SIGN_ONLY",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "same_byte_publish",
+      "requirement": "Publish existing verified tarball; registry read-back matches admitted digest",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "regression",
+      "requirement": "Preserve existing graph gates, frozen assertions/deadlines and final independent/canonical review",
+      "state": "NOT_RUN"
+    }
+  ],
+  "existingGateChanges": false,
+  "syntheticEvidenceCanAuthorizeRelease": false,
+  "approvedAt": "2026-10-26"
+}

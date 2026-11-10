@@ -32,6 +32,7 @@
  */
 
 import { createHash } from 'node:crypto';
+import { isMainModule } from './is-main.mjs';
 
 const isLeafScore = (v) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= 1;
 
@@ -292,6 +293,6 @@ async function main(argv) {
   return result.score === null ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

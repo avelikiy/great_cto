@@ -35,11 +35,11 @@ function under(child, parent) {
 // create hundreds of them. Registering those into the real registry is how the board
 // ends up listing /private/tmp/gcto-probe. An explicit GREAT_CTO_PROJECTS_FILE means
 // the caller chose the registry (tests do), so the location rule does not apply there.
-function scratchReason(dir, env) {
+export function scratchReason(dir, env) {
   if (env.GREAT_CTO_PROJECTS_FILE) return null;
   const scratch = [tmpdir(), '/tmp', '/private/tmp', '/var/folders', '/private/var/folders'].map(real);
   if (scratch.some((s) => under(dir, s))) return 'temporary directory';
-  if (dir.split(sep).join('/').includes('/.claude/worktrees/')) return 'agent worktree';
+  if (dir.split(sep).join('/').includes('/.claude/worktrees/')) return 'workspace'; // a lane of its parent project, not a project of its own (ADR-047)
   return null;
 }
 

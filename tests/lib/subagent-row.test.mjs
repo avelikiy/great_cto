@@ -44,7 +44,7 @@ const row = (over, opts = {}) => rowContent(task(over), { agents: AGENTS, column
 test('the roster is read from agents/, and shared fragments are not agents', () => {
   assert.ok(AGENTS.has('senior-dev'), 'senior-dev is a shipped agent');
   assert.ok(AGENTS.has('qa-engineer'), 'qa-engineer is a shipped agent');
-  assert.ok(![...AGENTS].some((a) => a.startsWith('_')), '_shared prompt fragments leaked into the roster');
+  assert.ok(![...AGENTS].some((a) => a.startsWith('_')), 'prompt fragments leaked into the roster');
 });
 
 test('one agent is one name, whichever way the host spelled it', () => {

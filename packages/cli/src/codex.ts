@@ -140,17 +140,8 @@ export function upgradeCodexPlugin(opts: { codexHome?: string; bin?: string | nu
     return { status: "skipped", fromVersion: null, toVersion: null, reason: "great_cto is not installed for Codex" };
   }
   const from = installedCodexVersion(codexHome);
-  const bin = opts.bin === undefined ? findCodexBinary() : opts.bin;
-  if (!bin) {
-    return { status: "skipped", fromVersion: from, toVersion: from, reason: "codex not found on PATH or under ~/.nvm — run: codex plugin marketplace upgrade great-cto" };
-  }
-  try {
-    execFileSync(bin, ["plugin", "marketplace", "upgrade", "great-cto"], {
-      stdio: ["ignore", "pipe", "pipe"], timeout: 180_000, env: { ...process.env, CODEX_HOME: codexHome },
-    });
-  } catch (e) {
-    return { status: "failed", fromVersion: from, toVersion: from, reason: String((e as Error).message).split("\n")[0] };
-  }
-  const to = installedCodexVersion(codexHome);
-  return { status: to && to !== from ? "upgraded" : "already_latest", fromVersion: from, toVersion: to };
+  return {
+    status: "failed", fromVersion: from, toVersion: from,
+    reason: "verified native Codex activation is unsupported until no-fetch runtime and preactivation/recovery admission are proven; marketplace refresh was not invoked",
+  };
 }

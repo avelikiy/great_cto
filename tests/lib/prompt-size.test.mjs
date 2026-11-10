@@ -1,4 +1,4 @@
-// Inlining `agents/_shared/*.md` into the actor prompt grew devops from 41,993
+// Inlining `shared/agent-fragments/*.md` into the actor prompt grew devops from 41,993
 // to 58,415 characters — 39% on the single input that turned out to be ~97% of a
 // run's cost. Nobody noticed at commit time. It surfaced two runs and roughly
 // twenty dollars later, while working out where the money went.
@@ -15,7 +15,7 @@ import { estimateTokens, promptProfile, fleetProfile, runCost, formatFleet } fro
 
 function fixture(files) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-ps-'));
-  fs.mkdirSync(path.join(root, '_shared'), { recursive: true });
+  fs.mkdirSync(path.join(root, 'fragments'), { recursive: true });
   for (const [name, body] of Object.entries(files)) {
     const p = path.join(root, name);
     fs.mkdirSync(path.dirname(p), { recursive: true });
@@ -58,11 +58,11 @@ test('the profile counts the shared contracts, not just the file', () => {
   // Reporting the file alone is exactly the measurement that missed the 39%
   // growth: the file did not change size, the prompt did.
   const root = fixture({
-    'x.md': 'Body of x. See agents/_shared/verdict-format.md for the format.',
-    '_shared/verdict-format.md': 'VERDICT CONTRACT. '.repeat(200),
+    'x.md': 'Body of x. See shared/agent-fragments/verdict-format.md for the format.',
+    'fragments/verdict-format.md': 'VERDICT CONTRACT. '.repeat(200),
   });
   try {
-    const p = promptProfile('x', { root });
+    const p = promptProfile('x', { root, fragmentsDir: path.join(root, 'fragments') });
     assert.ok(p.sharedTokens > 500, 'the inlined contract has to appear in the count');
     assert.equal(p.tokens, p.ownTokens + p.sharedTokens);
     assert.deepEqual(p.shared, ['verdict-format.md']);

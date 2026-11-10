@@ -21,6 +21,7 @@ import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -96,6 +97,8 @@ function main() {
   const guards = process.argv.slice(2).filter((g) => /^[a-z0-9-]+$/.test(g));
   let payload;
   try { payload = JSON.parse(readFileSync(0, 'utf8') || '{}'); } catch { process.exit(0); }
+  // Observation consumes the original event once, including malformed patches; it cannot deny a tool call.
+  if (guards.length === 1 && guards[0] === 'host-graph-observer') { runGuard(guards[0], payload); return; }
   const tool = payload?.tool_name;
   const payloads = tool === 'apply_patch' ? payloadsForPatch(payload) : [payload];
   const context = [];
@@ -127,4 +130,4 @@ export function additionalContextOf(stdout) {
   } catch { return null; }
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) main();
+if (isMainModule(import.meta.url)) main();

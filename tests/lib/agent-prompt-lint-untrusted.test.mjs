@@ -2,7 +2,7 @@
 //
 // A page, an issue body or a log line can carry text written to steer the model
 // ("ignore previous instructions", a fake system message). An agent with WebFetch
-// or WebSearch and Write/Edit/Bash can act on it. `agents/_shared/untrusted-content.md`
+// or WebSearch and Write/Edit/Bash can act on it. `shared/agent-fragments/untrusted-content.md`
 // is the contract; this rule makes every web-capable agent point at it.
 //
 // Same shape as the FM-005 tests: each case mutates one agent in a throwaway copy
@@ -16,7 +16,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 
 const ROOT = path.resolve(import.meta.dirname, '../..');
-const FRAGMENT = 'agents/_shared/untrusted-content.md';
+const FRAGMENT = 'shared/agent-fragments/untrusted-content.md';
 
 function lint(root) {
   let out;
@@ -37,6 +37,7 @@ const untrustedErrors = (d) => d.results.flatMap((r) => r.findings
 function sandbox() {
   const dir = mkdtempSync(path.join(tmpdir(), 'gc-lint-untrusted-'));
   cpSync(path.join(ROOT, 'agents'), path.join(dir, 'agents'), { recursive: true });
+  cpSync(path.join(ROOT, 'shared/agent-fragments'), path.join(dir, 'shared/agent-fragments'), { recursive: true });
   mkdirSync(path.join(dir, 'scripts'), { recursive: true });
   cpSync(path.join(ROOT, 'scripts/agent-prompt-lint.mjs'), path.join(dir, 'scripts/agent-prompt-lint.mjs'));
   return dir;
@@ -84,7 +85,7 @@ test('a web-capable agent that loses the pointer is an error', () => {
     mutate(dir, 'devops', dropPointer);
     const errs = untrustedErrors(lint(dir));
     assert.equal(errs.length, 1, errs.join('\n'));
-    assert.match(errs[0], /^devops: .*WebSearch.*agents\/_shared\/untrusted-content\.md/);
+    assert.match(errs[0], /^devops: .*WebSearch.*shared\/agent-fragments\/untrusted-content\.md/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
 });
 

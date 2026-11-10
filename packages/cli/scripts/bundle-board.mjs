@@ -33,7 +33,7 @@ if (!existsSync(join(boardSrc, "server.mjs"))) {
 rmSync(out, { recursive: true, force: true });
 
 // board runtime (skip tests, the cloudflare worker, and stray tarballs)
-const skip = /(\.test\.mjs$|cloudflare-worker|\.tgz$)/;
+const skip = /(\.test\.mjs$|cloudflare-worker|\.tgz$|(?:^|\/)(?:tests?|fixtures?)(?:\/|$))/;
 cpSync(boardSrc, join(out, "packages", "board"), {
   recursive: true,
   filter: (src) => !skip.test(src),

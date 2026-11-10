@@ -109,7 +109,8 @@ test('every declared key is one an agent actually writes', () => {
   //
   // `briefs` ends in a slash and names a directory; `brief` (singular, from
   // product-owner) is one product brief. Different stages, different things.
-  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'briefs', 'design', 'report', 'audit', 'files'];
+  // `screens` is the draft file agents/design-advisor.md records with SCREENS_DRAFT.
+  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'briefs', 'design', 'screens', 'report', 'audit', 'files'];
   const KNOWN_BLOCKS = ['receipt'];
   const KNOWN = new Set([...KNOWN_META, ...KNOWN_BLOCKS]);
   const r = contractCoverage(readFileSync(MAP, 'utf8'));

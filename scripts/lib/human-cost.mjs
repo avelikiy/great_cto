@@ -12,6 +12,7 @@
 // meant to prevent.
 import fs from 'node:fs';
 import path from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /** Verdicts that represent a human decision point rather than agent progress. */
 const GATE_RE = /\b(APPROVED|REJECTED|BLOCKED|CHANGES(_REQUESTED)?|gate:[a-z]+)\b/i;
@@ -83,7 +84,7 @@ export function renderHumanCost(h) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const dir = argv.find((a) => !a.startsWith('--')) || process.cwd();

@@ -4,9 +4,10 @@ import { spawn, spawnSync } from 'node:child_process';
 import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, readdirSync, copyFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { createServer } from 'node:net';
 import { once } from 'node:events';
+import { isMainModule } from './is-main.mjs';
 
 export async function runBoardSmoke({ serverPath, agentsDir }) {
   const server = realpathSync(resolve(serverPath));
@@ -153,7 +154,7 @@ export async function runBoardSmoke({ serverPath, agentsDir }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(await runBoardSmoke({ serverPath: process.argv[2], agentsDir: process.argv[3] }))); }
   catch (e) { console.error(e.message); process.exitCode = e.code === 'BOARD_SMOKE_ISOLATION_UNSUPPORTED' ? 77 : 1; }
 }

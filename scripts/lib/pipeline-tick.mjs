@@ -39,6 +39,7 @@
  * escapes the machine, costs money, or cannot be undone needs a human in the
  * loop, and "the gate was off" is not the same as "a human decided".
  */
+import { isMainModule } from './is-main.mjs';
 export const NEVER_AUTO = Object.freeze(['devops', 'infra-provisioner']);
 
 /** Default minimum gap between dispatches, whatever the schedule asks for. */
@@ -155,6 +156,6 @@ async function main(argv) {
   return decision.act ? 0 : 1;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

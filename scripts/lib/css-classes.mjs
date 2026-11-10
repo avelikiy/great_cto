@@ -28,6 +28,7 @@
  * Newlines are kept — a multi-line comment collapsed to a space would move
  * every line number after it, and strayCloseBraces reports by line.
  */
+import { isMainModule } from './is-main.mjs';
 function scrubCss(css) {
   const blank = (s) => s.replace(/[^\n]/g, ' ');
   return css
@@ -244,7 +245,7 @@ export function strayCloseBraces(css) {
 // module, defines some functions and exits 0 on any input at all — a check that
 // is green by construction, which is the defect this module exists to catch.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const file = process.argv[2];
   if (!file) { console.error('usage: css-classes.mjs <file> [--json]'); process.exit(2); }

@@ -27,7 +27,7 @@ const CLI_ENTRY = join(REPO_ROOT, 'packages', 'cli', 'index.mjs');
 
 test('canonical root fixture scheduling is bounded without dropping test inventories', () => {
   const script = readFileSync(join(REPO_ROOT, 'scripts/ci-local.sh'), 'utf8');
-  assert.match(script, /step "root \+ hooks \+ board tests" node --test --test-concurrency="\$GATE_TEST_CONCURRENCY" tests\/\*\.test\.mjs tests\/hooks\/\*\.test\.mjs tests\/helpers\/\*\.test\.mjs packages\/board\/\*\.test\.mjs/);
+  assert.match(script, /step "root \+ hooks \+ board tests" env GATE_SUITE="root \+ hooks \+ board tests" node --test \$\(ctrf_to board-unit\) --test-concurrency="\$GATE_TEST_CONCURRENCY" tests\/\*\.test\.mjs tests\/hooks\/\*\.test\.mjs tests\/helpers\/\*\.test\.mjs packages\/board\/\*\.test\.mjs/);
 });
 
 // ── G5: typed-map gate-count integrity ─────────────────────────────────────
@@ -857,8 +857,16 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
   // port nor the collision.
   const { freePort } = await import('./helpers/free-port.mjs');
   const wantPort = await freePort();
+  // CLI board startup reads HOME/.great_cto/board.pid and stops that process.
+  // A parsing fixture must never inherit the operator's board selection.
+  const fixtureHome = mkdtempSync(join(tmpdir(), 'gcto-cli-port-home-'));
   const proc = spawn('node', [cli, 'board', `--port=${wantPort}`, '--no-open'], {
     stdio: ['ignore', 'pipe', 'pipe'], detached: true,
+    env: { ...process.env, HOME: fixtureHome, USERPROFILE: fixtureHome,
+      GREAT_CTO_HOME: join(fixtureHome, '.great_cto'), CODEX_HOME: join(fixtureHome, '.codex'),
+      GREAT_CTO_PROJECTS_FILE: join(fixtureHome, '.great_cto', 'projects.json'),
+      GREAT_CTO_DISCOVERY_ROOT: fixtureHome, GREAT_CTO_NO_UPDATE_CHECK: '1',
+      DO_NOT_TRACK: '1', GREAT_CTO_TELEMETRY: 'off' },
   });
   let stdout = '';
   proc.stdout.on('data', (b) => { stdout += b.toString(); });
@@ -886,13 +894,10 @@ test('BH-C4: CLI --port=N form parses correctly', async () => {
     }
     assert.match(stdout, new RegExp(`:${wantPort}`), `--port=${wantPort} should bind to ${wantPort}, got: ${stdout.slice(0, 200)}`);
   } finally {
-    // Group-kill reaps the spawned server (grandchild) so no fds linger past
-    // the suite.
-    // reap-exempt: this test removes no directory of its own, so there is
-    // nothing for the dying group to race — waiting would cost the suite time
-    // for a guarantee it does not need.
-    try { process.kill(-proc.pid, 'SIGKILL'); } catch {}
-    try { proc.kill('SIGKILL'); } catch {}
+    // The new private HOME must outlive the owned launcher/server group.
+    const cleanup = await reap(proc);
+    assert.notEqual(cleanup, 'timeout', 'owned board group must stop before fixture HOME cleanup');
+    rmSync(fixtureHome, { recursive: true, force: true });
   }
 });
 

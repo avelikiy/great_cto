@@ -21,8 +21,8 @@
 //   node tests/eval/runner.mjs --agent <A> --split holdout --samples 5 --prompt-file cand.md --out candidate.jsonl
 
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { parseResultsJsonl } from '../eval-gate.mjs';
+import { isMainModule } from './is-main.mjs';
 
 function round(n) { return Math.round(n * 10000) / 10000; }
 
@@ -112,5 +112,5 @@ function main(argv) {
   process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

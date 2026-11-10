@@ -32,7 +32,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULT_ROOT = join(homedir(), '.claude', 'projects');
 
@@ -147,7 +147,7 @@ export function formatReport(r) {
   ].join('\n');
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const opt = (k) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : null; };

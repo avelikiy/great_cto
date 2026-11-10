@@ -11,11 +11,13 @@ function recordUpgrades({ codex }) {
   writeFileSync(codex, '#!/bin/sh\nif [ "$*" = "plugin marketplace list" ]; then\n  [ "${CODEX_FIXTURE_NO_MARKETPLACE:-}" = "1" ] && exit 0\n  printf "great-cto  %s\\n" "$CODEX_FIXTURE_MARKETPLACE"\nelse\n  printf "%s\\n" "$*" >> "$CODEX_FIXTURE_CALLS"\nfi\n');
 }
 
-test('refresh validates origin and delegates the upgrade to Codex', (t) => {
+test('refresh refuses unproven native activation before invoking the host', (t) => {
   const f = fixture(t);
   recordUpgrades(f);
-  execFileSync('sh', [script, 'refresh', f.codex], { env: f.env });
-  assert.equal(readFileSync(join(f.dir, 'upgrade.calls'), 'utf8'), 'plugin marketplace upgrade great-cto --json\n');
+  const result = spawnSync('sh', [script, 'refresh', f.codex], { env: f.env, encoding: 'utf8' });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /verified native activation is unsupported/);
+  assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
 });
 
 test('refresh refuses a changed marketplace origin before any upgrade', (t) => {
@@ -24,7 +26,7 @@ test('refresh refuses a changed marketplace origin before any upgrade', (t) => {
   execFileSync('git', ['-C', f.marketplace, 'remote', 'set-url', 'origin', 'https://example.com/untrusted.git']);
   const r = spawnSync('sh', [script, 'refresh', f.codex], { env: f.env, encoding: 'utf8' });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /does not point to the expected GitHub repository/);
+  assert.match(r.stderr, /verified native activation is unsupported/);
   assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
 });
 
@@ -34,7 +36,7 @@ test('refresh refuses a missing marketplace before any upgrade', (t) => {
   f.env.CODEX_FIXTURE_NO_MARKETPLACE = '1';
   const r = spawnSync('sh', [script, 'refresh', f.codex], { env: f.env, encoding: 'utf8' });
   assert.equal(r.status, 1);
-  assert.match(r.stderr, /not configured/);
+  assert.match(r.stderr, /verified native activation is unsupported/);
   assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
 });
 
@@ -84,8 +86,10 @@ test('launchd PATH runs an env-node launcher with Node outside the system direct
   const path = xml.match(/<key>PATH<\/key><string>([^<]*)<\/string>/)?.[1].replaceAll('&amp;', '&');
   assert.ok(path?.startsWith(`${runtime}:`));
   assert.ok(xml.includes('runtime &amp; tools'));
-  execFileSync('/bin/sh', [script, 'refresh', f.codex], { env: { ...f.env, PATH: path } });
-  assert.equal(readFileSync(join(f.dir, 'upgrade.calls'), 'utf8'), 'plugin marketplace upgrade great-cto --json\n');
+  const refresh = spawnSync('/bin/sh', [script, 'refresh', f.codex], { env: { ...f.env, PATH: path }, encoding: 'utf8' });
+  assert.equal(refresh.status, 1);
+  assert.match(refresh.stderr, /verified native activation is unsupported/);
+  assert.throws(() => readFileSync(join(f.dir, 'upgrade.calls')));
 });
 
 test('enable and disable refuse a foreign launch agent without replacing or removing it', (t) => {
@@ -112,7 +116,7 @@ test('status reports disabled without creating any files', (t) => {
   assert.throws(() => readFileSync(join(dir, 'Library', 'LaunchAgents', 'com.great-cto.codex-auto-update.plist')));
 });
 
-test('enable registers a user timer, and disable removes only that timer', (t) => {
+test('enable refuses a new timer and disable removes only an existing owned timer', (t) => {
   const { dir, env } = fixture(t);
   const fakeUname = join(dir, 'uname');
   const fakeLaunchctl = join(dir, 'launchctl');
@@ -124,12 +128,18 @@ test('enable registers a user timer, and disable removes only that timer', (t) =
   env.GREAT_CTO_LAUNCHCTL = fakeLaunchctl;
   const plist = join(dir, 'Library', 'LaunchAgents', 'com.great-cto.codex-auto-update.plist');
 
-  assert.match(execFileSync('sh', [script, 'enable'], { env, encoding: 'utf8' }), /enabled:/);
-  assert.match(readFileSync(plist, 'utf8'), /<key>RunAtLoad<\/key><true\/>/);
+  const enable = spawnSync('sh', [script, 'enable'], { env, encoding: 'utf8' });
+  assert.equal(enable.status, 1);
+  assert.match(enable.stderr, /verified native activation is unsupported/);
+  assert.throws(() => readFileSync(plist));
+  assert.throws(() => readFileSync(join(dir, 'launchctl.calls')));
+  mkdirSync(join(dir, 'Library', 'LaunchAgents'), { recursive: true });
+  writeFileSync(plist, '<plist><dict><key>Label</key><string>com.great-cto.codex-auto-update</string></dict></plist>');
   assert.match(execFileSync('sh', [script, 'status'], { env, encoding: 'utf8' }), /enabled:/);
   assert.equal(execFileSync('sh', [script, 'disable'], { env, encoding: 'utf8' }).trim(), 'disabled');
   assert.throws(() => readFileSync(plist));
-  assert.match(readFileSync(join(dir, 'launchctl.calls'), 'utf8'), /bootstrap gui\/\d+/);
+  assert.match(readFileSync(join(dir, 'launchctl.calls'), 'utf8'), /bootout gui\/\d+/);
+  assert.doesNotMatch(readFileSync(join(dir, 'launchctl.calls'), 'utf8'), /bootstrap/);
   assert.doesNotMatch(readFileSync(join(dir, 'launchctl.calls'), 'utf8'), /kickstart/);
 });
 

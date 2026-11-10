@@ -22,6 +22,7 @@
 
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 const REGIME = {
   R2: new Set(['qa-engineer', 'security-officer', 'devops']),
@@ -149,4 +150,4 @@ function main() {
   if (m.false_block_rate_pct > 30) console.log('  ⚠ false-block proxy > 30% — gates over-fire; calibrate severity (anti-inflation).');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

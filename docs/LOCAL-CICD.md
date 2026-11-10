@@ -16,24 +16,64 @@ bash scripts/ci-local.sh --e2e    # also the heavier archetype e2e suite
 
 Green here ≈ green in CI. Exit 0 = all gates pass.
 
-## CD — `scripts/cd-local.sh`
+## CD: admitted immutable artifacts
 
-Runs the CI gate, then the release stages:
+ADR-045 now explicitly keeps local CI/CD as the operational route and adds a
+separately enrolled Ed25519 release authority. This approved design does not
+mean its production key is selected, enrolled or authorized to sign yet.
+The exact contract is [verified-updates.md](reference/verified-updates.md).
 
-```bash
-bash scripts/cd-local.sh           # CI + build + pack + npm publish --dry-run (safe, default)
-bash scripts/cd-local.sh --push    # + git push the current branch to GitHub
-bash scripts/cd-local.sh --publish # + real npm publish (GUARDED — see below)
-```
+The safe default `bash scripts/cd-local.sh` retains local CI, build, pack and
+publication dry-run. `--push` still needs the ordinary source hooks/authority.
+The legacy `--publish` route must refuse early before any CI, credential access
+or external mutation: its old clean-tree/login/version checks do not establish
+artifact admission. `release.sh` must also refuse its legacy real-release path
+before mutation. A green gate cannot bypass either refusal.
 
-`--publish` refuses unless: CI green · git tree clean · `npm whoami` logged in ·
-the version is **not already on npm**. Bump first — never republish:
+The admitted local release sequence is:
 
-```bash
-( cd packages/cli && npm version patch )   # 2.74.0 → 2.74.1
-bash scripts/cd-local.sh --publish
-git tag "v$(node -p "require('./packages/cli/package.json').version")" && git push --tags
-```
+1. Validate and independently review the exact clean source commit/tree.
+2. Build the complete npm/plugin/runtime set twice in clean worktrees, compare
+   the five deliverables byte for byte and freeze the index and final bytes.
+3. After separate operator key selection and independent public-fingerprint
+   enrollment, sign all artifacts and the index under `local-ed25519` policy.
+4. Verify through the production consumer. Complete the artifact and ship gates.
+5. Publish only with explicit approval pins for the exact commit and index
+   digest. Recheck the exact current public tag and source ancestry in main
+   before any registry mutation; unavailable metadata causes refusal.
+6. Publish the admitted tarball path without rebuilding or directory repacking,
+   then compare downloaded registry bytes/integrity against the original set.
+   Preserve immutable signed GitHub assets; install/activate separately.
+
+The publisher requires an explicitly selected canonical owner-only `0600` npm
+authentication file. It copies only the registry-scoped `_authToken` into a
+private temporary configuration; it does not inherit ambient npm tokens, npm
+configuration or Node preloads. Authentication is not inferred from `npm whoami`
+or copied from a candidate. Never put the token in argv, reports or release
+assets. This is local operator authentication, not npm Trusted Publisher/OIDC.
+Actual CLI flags must follow the delivered publisher help; this document does
+not invent a command or authorize a production invocation.
+
+In-place rotate/revoke commands are unsupported; production key-lifecycle
+acceptance remains NOT_RUN. Future trust replacement/removal needs reviewed
+operator action without automatic migration. Retained tickets recheck the key
+file, but removing configuration does not revoke an already held ticket.
+
+The optional hosted profile remains separate and requires its own exact-tag
+OIDC proof, protected owner review and npm Trusted Publisher. A hosted billing
+failure never silently selects a local key or bypasses admission. The immutable
+`v3.71.0` preparation tag remains unchanged; changed source needs a fresh
+candidate version/tag after its gates.
+
+### Historical path
+
+Commit `dc90600c` introduced `cd-local.sh` on 2026-06-28 for account-wide Actions
+startup failures. It ran CI, build, pack and dry-run; optional `--publish` checked
+a clean tree, npm login and absence of the version, then published the directory.
+`3b281937` deliberately omitted `--provenance` locally because GitHub OIDC was
+unavailable. That history explains previous releases; it is not an exception to
+the new exact-artifact admission requirement. The old invocation must not be
+used to publish this candidate.
 
 ## Installing the working copy as the local plugin
 

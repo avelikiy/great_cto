@@ -35,6 +35,8 @@
  * "there is none" stops looking for something that exists.
  */
 
+import { isMainModule } from './is-main.mjs';
+
 /** The closed vocabulary. Adding one is a deliberate edit, not a free-text key. */
 export const CAPABILITIES = Object.freeze([
   'logs',      // where log lines are searched
@@ -141,7 +143,7 @@ export function describeCapabilities({ map, declaredCount, unknownKeys }) {
 // Exit 0 always. A project with nothing declared is a fact to report, not an
 // error to fail on — failing here would make an unconfigured project unable to
 // run an incident, which is exactly when you need the agent most.
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const { join } = await import('node:path');
   const args = process.argv.slice(2);

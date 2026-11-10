@@ -1,12 +1,11 @@
 // Install the great_cto plugin into ~/.claude/plugins/cache/local/great_cto/<version>/.
 // Uses git clone. Falls back to tarball fetch if git is unavailable.
-import { spawnSync, execFileSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 import { cpSync } from "node:fs";
-import { existsSync, mkdirSync, rmSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync } from "node:fs";
 import { homedir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { log, success, warn, dim } from "./ui.js";
 const REPO_URL = "https://github.com/avelikiy/great_cto.git";
 export function hasGit() {
     try {
@@ -60,75 +59,8 @@ export function findInstalledVersions() {
     }
 }
 export function install(opts = {}) {
-    if (!hasGit()) {
-        throw new Error("git is required to install great_cto. Install git first: https://git-scm.com/downloads");
-    }
-    // Resolve version
-    let version = opts.version;
-    if (!version) {
-        const latest = detectLatestVersion();
-        if (!latest) {
-            warn("Could not detect latest version from GitHub tags — falling back to main branch.");
-            version = "main";
-        }
-        else {
-            version = latest;
-        }
-    }
-    const pluginDir = join(getPluginBaseDir(), version);
-    if (existsSync(pluginDir)) {
-        const manifest = join(pluginDir, ".claude-plugin", "plugin.json");
-        const looksValid = existsSync(manifest);
-        if (looksValid && !opts.force) {
-            return { installed: false, pluginDir, version, alreadyInstalled: true };
-        }
-        // Either corrupted, or --force: wipe and reinstall
-        if (!looksValid) {
-            warn(`Previous install at ${pluginDir} looks corrupted — reinstalling.`);
-        }
-        rmSync(pluginDir, { recursive: true, force: true });
-    }
-    mkdirSync(getPluginBaseDir(), { recursive: true });
-    log(dim(`  cloning ${REPO_URL} into ${pluginDir}`));
-    const ref = /^[0-9]+\.[0-9]+\.[0-9]+$/.test(version) ? `v${version}` : version;
-    const result = spawnSync("git", ["clone", "--depth=1", "--branch", ref, REPO_URL, pluginDir], {
-        stdio: ["ignore", "pipe", "pipe"],
-        timeout: 120_000,
-    });
-    if (result.status !== 0) {
-        const stderr = result.stderr?.toString() ?? "";
-        // If branch/tag doesn't exist, try plain clone of main
-        if (stderr.includes("not found") || stderr.includes("Remote branch")) {
-            warn(`Tag ${ref} not found — cloning default branch.`);
-            rmSync(pluginDir, { recursive: true, force: true });
-            const r2 = spawnSync("git", ["clone", "--depth=1", REPO_URL, pluginDir], {
-                stdio: ["ignore", "pipe", "pipe"],
-                timeout: 120_000,
-            });
-            if (r2.status !== 0) {
-                throw new Error(`git clone failed: ${r2.stderr?.toString() ?? "unknown error"}`);
-            }
-            // Re-read version from actual plugin.json
-            version = readPluginVersion(pluginDir) ?? "main";
-        }
-        else {
-            throw new Error(`git clone failed: ${stderr}`);
-        }
-    }
-    // A clone carries sources; the plugin runs on the build. Supply it from this
-    // CLI's own dist before checking whether the result can run.
-    const supplied = supplyBuiltDist(pluginDir);
-    if (supplied != null)
-        log(dim(`  supplied ${supplied} built file(s) into packages/cli/dist/`));
-    // Sanity check: can it RUN, not merely "did files arrive".
-    const missing = missingRuntimeParts(pluginDir);
-    if (missing.length) {
-        throw new Error(`Install appeared to succeed but the plugin cannot run — missing:\n` +
-            missing.map((m) => `  - ${m}`).join("\n") +
-            `\nThis is an install bug, not a configuration problem. Please report it with this list.`);
-    }
-    success(`plugin installed at ${pluginDir}`);
-    return { installed: true, pluginDir, version, alreadyInstalled: false };
+    throw new Error("Plugin installation refused: a signed complete runtime and verified managed activation are required. " +
+        "Mutable Git/main fallback and supplying dist from the running CLI are disabled.");
 }
 /**
  * The plugin needs BUILT JavaScript, and a git clone does not contain any.

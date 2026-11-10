@@ -1,10 +1,11 @@
 /** Trusted harness: construction/selection only; never calls runStage or approve. */
 import assert from 'node:assert/strict';
 import { mkdirSync, writeFileSync, readFileSync, unlinkSync, realpathSync, lstatSync, readdirSync, openSync, writeSync, ftruncateSync, closeSync } from 'node:fs';
-import { join, dirname, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { join, dirname } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { isMainModule } from './is-main.mjs';
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const domains = [
@@ -154,6 +155,6 @@ export async function probeControllerAssets({ pluginRoot, fixtureRoot }) {
   } finally { closeSync(progressFd); }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   console.log(JSON.stringify(await probeControllerAssets({ pluginRoot: process.argv[2], fixtureRoot: process.argv[3] })));
 }

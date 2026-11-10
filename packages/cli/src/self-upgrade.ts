@@ -120,9 +120,9 @@ export function resolveRunningBinaryPath(argv1: string = process.argv[1] ?? ""):
 }
 
 /**
- * Perform the actual self-upgrade: run the install command synchronously
- * with inherited stdio, then verify by spawning the SAME binary path with
- * --version.
+ * Retained synchronous API: classify ephemeral/no-op installs and refuse
+ * unverified activation. The CLI uses release-update.mjs for admission and
+ * transactional local-archive activation. No injected runner grants authority.
  *
  * Never throws — all failure modes are captured in the returned result so
  * callers can decide the process exit code themselves.
@@ -143,50 +143,17 @@ export function performSelfUpgrade(opts: {
       prefix: null,
       oldVersion: opts.currentVersion,
       newVersion: opts.currentVersion,
-      message: "running via npx — npx always fetches the latest release on every run, nothing to upgrade.",
+      message: "running via npx — no persistent installation target to upgrade; the next invocation has its own bootstrap trust boundary.",
     };
   }
 
-  const [cmd, ...cmdArgs] = plan.command;
-  const installRun = spawnFn(cmd as string, cmdArgs, { stdio: "inherit" });
-
-  if (installRun.error) {
-    return {
-      exitCode: 1,
-      manager: plan.manager,
-      prefix: plan.prefix,
-      oldVersion: opts.currentVersion,
-      newVersion: null,
-      message: `self-upgrade failed: could not run '${plan.command.join(" ")}' — ${installRun.error.message}`,
-    };
-  }
-
-  const installExitCode = installRun.status ?? 1;
-  if (installExitCode !== 0) {
-    return {
-      exitCode: installExitCode,
-      manager: plan.manager,
-      prefix: plan.prefix,
-      oldVersion: opts.currentVersion,
-      newVersion: null,
-      message: `self-upgrade failed: '${plan.command.join(" ")}' exited with code ${installExitCode}`,
-    };
-  }
-
-  // Verify: spawn the SAME binary path with --version and report old -> new.
-  const verifyRun = spawnFn(process.execPath, [binaryPath, "--version"], { encoding: "utf8" });
-  const newVersion = verifyRun.status === 0 ? (verifyRun.stdout ?? "").trim() || null : null;
-
-  const prefixNote = plan.prefix ? ` (prefix: ${plan.prefix})` : "";
+  // Legacy synchronous callers have no artifact-admission capability. The CLI
+  // uses the asynchronous verified updater; an injected process runner cannot
+  // turn this old registry-install path into an authorized activation.
   return {
-    exitCode: 0,
-    manager: plan.manager,
-    prefix: plan.prefix,
-    oldVersion: opts.currentVersion,
-    newVersion,
-    message: newVersion
-      ? `upgraded via ${plan.manager}${prefixNote}: ${opts.currentVersion} → ${newVersion}`
-      : `install via ${plan.manager}${prefixNote} succeeded, but could not verify the new version (--version check failed)`,
+    exitCode: 1, manager: plan.manager, prefix: plan.prefix,
+    oldVersion: opts.currentVersion, newVersion: null,
+    message: "self-upgrade refused: verified artifact admission is required; use the verified CLI updater",
   };
 }
 

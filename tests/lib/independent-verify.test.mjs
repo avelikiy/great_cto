@@ -19,7 +19,7 @@ const tmpDir = (d) => (TMP_DIRS.push(d), d);
 after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
 
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
@@ -345,7 +345,8 @@ test('a tie nothing settles still comes back — but as undecided, not as a find
   });
   assert.equal(r.state, STATE.REWORK, 'falling toward rework is right when verifying');
   const f = r.findings.join(' ');
-  assert.match(f, /split 1 yes \/ 1 no/);
+  // Split after three, so two more were taken: yes, no, unclear, yes, no.
+  assert.match(f, /split 2 yes \/ 2 no/);
   assert.match(f, /did not settle it/);
   assert.doesNotMatch(f, /answered no/, 'a coin flip must not borrow the sentence for a rejection');
 });
@@ -358,7 +359,9 @@ test('with no second model at all a tie is unresolved, never silently decided', 
     second: null,
   });
   assert.equal(r.state, STATE.REWORK);
-  assert.match(r.findings.join(' '), /did not settle it/);
+  // Review of 3.75.4: nothing was asked, so nothing "did not settle it".
+  assert.match(r.findings.join(' '), /no second model was asked/);
+  assert.doesNotMatch(r.findings.join(' '), /did not settle it/);
 });
 
 test('a decided no is untouched by the tie-break — a second model never overrules', async () => {
@@ -435,4 +438,442 @@ test('a changed test file brings the tests question back', () => {
 test('with no receipt there are no changed files to settle a test count against', () => {
   const v = withFiles([]); delete v.receipt;
   assert.ok(!asksAboutTests(claimsAsRequirements(v)));
+});
+
+// ── quality 0–100 and the recommendations that close the gap (great_cto-1zu7) ──
+//
+// The owner's ask: the judge of task implementation gives a 0–100 score and,
+// below 100, says what to improve. The score is counted from checks, never asked
+// of a model — so each case below has its number known before the run.
+
+import { assessQuality } from '../../scripts/lib/independent-verify.mjs';
+
+const TWO = ['# B', '## ACCEPTANCE',
+  '- [ ] The endpoint rate-limits by IP',
+  '- [ ] Rejections are written to the audit log'].join('\n');
+
+test('quality: work that meets every requirement scores 100 and carries no recommendation', async () => {
+  const root = project({ brief: TWO });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => 'yes' });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 100);
+  assert.deepEqual(r.recommendations, []);
+  assert.match(r.conclusion, /quality: 100\/100 — 3 of 3 check\(s\) passed/);
+  assert.doesNotMatch(r.conclusion, /To reach 100/);
+});
+
+test('quality: one unmet requirement of two costs its share, and the recommendation names it', async () => {
+  const root = project({ brief: TWO });
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: stubJudge({ 'audit log': 'no', 'rate-limits': 'yes' }),
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.equal(r.quality, 66, 'artefact + one requirement of three checks: floor(200/3)');
+  assert.equal(r.recommendations.length, 1);
+  assert.match(r.recommendations[0], /^Address “Rejections are written to the audit log”/);
+  assert.match(r.conclusion, /To reach 100\/100:\n  - Address/);
+});
+
+test('quality: a short-circuit does not raise the score — what it left unrun counts against it', async () => {
+  const root = project({ brief: TWO });
+  let asked = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md', design: 'docs/impl-briefs/MISSING.md' }), root,
+    ask: async () => { asked += 1; return 'yes'; },
+  });
+  assert.equal(r.state, STATE.REWORK);
+  assert.equal(asked, 0, 'still no model call after a missing file');
+  // 1 of 2 artefacts present, 2 requirements never asked: 1 of 4, not 1 of 2.
+  assert.equal(r.quality, 25);
+  assert.equal(r.counted, 4);
+  assert.match(r.recommendations.join(' '), /MISSING\.md/);
+  assert.match(r.recommendations.at(-1), /verify again — 2 check\(s\) did not run/);
+});
+
+test('quality: unverifiable is not scored at all — null, never 0 — and says how to become checkable', async () => {
+  const root = project();
+  const r = await verifyAgentOutput({ verdict: verdictFor({ task: 'great_cto-1' }), root });
+  assert.equal(r.state, STATE.UNVERIFIABLE);
+  assert.equal(r.quality, null);
+  assert.match(r.recommendations.join(' '), /Name what the stage produced/);
+  assert.match(r.conclusion, /quality: not assessed/);
+  assert.match(r.conclusion, /To make this stage checkable:/);
+});
+
+test('quality: a pass the judge split on is 99, not 100 — there is still something to show', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  let n = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: async () => (n++ % 3 === 2 ? 'no' : 'yes'),
+  });
+  // 2–1 after three, so two more: 4 yes / 1 no over five, a quorum.
+  assert.equal(n, 5);
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 99);
+  assert.match(r.recommendations[0], /passed it only 4 yes \/ 1 no/);
+});
+
+test('quality: without a judge, the requirements nobody asked keep the score from 100', async () => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root });
+  assert.equal(r.state, STATE.VERIFIED, 'the file exists — layers 1–2 pass');
+  assert.equal(r.quality, 50, 'but only the file was checked, not the requirement');
+  assert.match(r.recommendations[0], /Run verification with a judge — 1 requirement/);
+});
+
+test('quality: floor, not round — 199 of 200 is 99', () => {
+  const q = assessQuality({
+    state: STATE.REWORK,
+    checks: [{ layer: 'artefacts', status: 'fail', checked: 200, missing: ['x=a.md (absent)'] }],
+  });
+  assert.equal(q.quality, 99);
+  assert.equal(q.counted, 200);
+});
+
+test('quality: 100 exactly when there is nothing to recommend', () => {
+  const cases = [
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 2, missing: [] }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 1, missing: [] },
+      { layer: 'judgement', status: 'pass', answers: [{ requirement: 'R', answer: 'yes', split: '2 yes / 1 no' }],
+        abstained: 0, skipped: 0, excerpt: { truncated: false } }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'artefacts', status: 'pass', checked: 1, missing: [] },
+      { layer: 'judgement', status: 'pass', answers: [{ requirement: 'R', answer: 'yes' }], abstained: 0, skipped: 0,
+        excerpt: { truncated: true, shownBytes: 10, totalBytes: 20, path: 'a.md', files: null, totalFiles: null } }] },
+    { state: STATE.VERIFIED, checks: [{ layer: 'acceptance', status: 'pass', passed: 3, failed: [] }], pending: { judgement: 1 } },
+  ];
+  for (const c of cases) {
+    const q = assessQuality(c);
+    assert.equal(q.quality === 100, q.recommendations.length === 0, JSON.stringify({ c, q }));
+  }
+});
+
+// Review findings on great_cto-1zu7, each pinned with the input that showed it.
+
+test('s6n0: one yes and two unanswered is not a pass — the gate needs a quorum', async () => {
+  // Was F1 of great_cto-1zu7: yes > no verified this on a single vote, and only
+  // the grade said so. The owner's decision (01.11): the gate needs a majority of
+  // every sample taken, unanswered ones counted.
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const said = ['yes', 'maybe', 'hmm'];
+  let n = 0;
+  const r = await verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root, ask: async () => said[n++ % 3],
+  });
+  assert.equal(n, 5, 'no quorum after three, so two more were taken');
+  assert.equal(r.state, STATE.REWORK);
+  const f = r.findings.join(' ');
+  assert.match(f, /reached no quorum \(2 yes \/ 0 no \/ 3 unanswered of 5\)/, 'no split, so not called one');
+  assert.doesNotMatch(f, /judge split/);
+  assert.match(f, /undecided, not rejected/);
+  assert.doesNotMatch(f, /answered no/);
+});
+
+const judgeOnce = (said, second = null) => {
+  const root = project({ brief: ['# B', '## ACCEPTANCE', '- [ ] The endpoint rate-limits by IP'].join('\n') });
+  const calls = { n: 0 };
+  const run = verifyAgentOutput({
+    verdict: verdictFor({ brief: 'docs/impl-briefs/B.md' }), root,
+    ask: async () => said[calls.n++] ?? 'unclear', second,
+  });
+  return run.then((r) => ({ r, calls: calls.n }));
+};
+
+test('s6n0: a unanimous answer costs three samples, not five', async () => {
+  const { r, calls } = await judgeOnce(['yes', 'yes', 'yes', 'no', 'no']);
+  assert.equal(calls, 3);
+  assert.equal(r.state, STATE.VERIFIED);
+  const { r: r2, calls: c2 } = await judgeOnce(['no', 'no', 'no', 'yes', 'yes']);
+  assert.equal(c2, 3);
+  assert.equal(r2.state, STATE.REWORK);
+});
+
+test('s6n0: a 2–1 that the next two samples confirm passes', async () => {
+  const { r, calls } = await judgeOnce(['yes', 'no', 'yes', 'yes', 'no']);
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.VERIFIED, '3 yes of 5 is a quorum');
+});
+
+test('s6n0: a 2–1 yes that the next two samples overturn is not a pass', async () => {
+  // The architect case: the same input gave 2 yes / 1 no, then 1 yes / 2 no.
+  const { r, calls } = await judgeOnce(['yes', 'yes', 'no', 'no', 'no'], async () => 'no');
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.REWORK, '3 no of 5 is a quorum for no');
+  assert.match(r.findings.join(' '), /answered no/, 'a quorum for no is a real finding');
+});
+
+test('s6n0: a 2–1 no that the next two samples overturn is a pass', async () => {
+  const { r, calls } = await judgeOnce(['no', 'no', 'yes', 'yes', 'yes'], async () => { throw new Error('a quorum for yes needs no second model'); });
+  assert.equal(calls, 5);
+  assert.equal(r.state, STATE.VERIFIED);
+});
+
+test('s6n0: still no quorum after five goes to the second model, which may settle it', async () => {
+  // 2 yes / 1 no / 2 unanswered: neither side reaches 3.
+  let asked = 0;
+  const { r, calls } = await judgeOnce(['yes', 'no', 'yes', 'unclear', 'unclear'], async () => { asked += 1; return 'yes'; });
+  assert.equal(calls, 5);
+  assert.equal(asked, 1);
+  assert.equal(r.state, STATE.VERIFIED, 'the second model settled an undecided requirement');
+});
+
+test('s6n0: silent on every sample stays an abstention and costs no extra samples', async () => {
+  const { r, calls } = await judgeOnce(['unclear', 'unclear', 'unclear', 'yes', 'yes']);
+  assert.equal(calls, 3);
+  assert.notEqual(r.state, STATE.VERIFIED);
+});
+
+test('quality F2: files present but no criterion at all is 99, with the criterion to add', async () => {
+  const root = project({ brief: '# A\n\nprose, no acceptance section\n' });
+  const r = await verifyAgentOutput({ verdict: verdictFor({ arch: 'docs/impl-briefs/B.md' }), root, ask: async () => 'yes' });
+  assert.equal(r.state, STATE.VERIFIED);
+  assert.equal(r.quality, 99);
+  assert.match(r.recommendations[0], /Freeze `## ACCEPTANCE`/);
+});
+
+test('quality F3/F4: a deleted file is not a cut, a receipt the writer cut is', async () => {
+  const root = project();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/a.mjs'), 'export const a = 1;\n');
+  const files = { 'src/a.mjs': 'h1', 'src/gone.mjs': 'h2' };
+  const deleted = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files } }, root, ask: async () => 'yes',
+  });
+  assert.equal(deleted.quality, 100, 'the judge read every file there was to read');
+  const cut = await verifyAgentOutput({
+    verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files, truncated: true } }, root, ask: async () => 'yes',
+  });
+  assert.equal(cut.quality, 99);
+  assert.match(cut.recommendations.join(' '), /receipt itself was cut/);
+});
+
+test('quality F5: the invariant holds the other way — a recommendation means below 100', () => {
+  const q = assessQuality({ state: STATE.REWORK,
+    checks: [{ layer: 'artefacts', status: 'fail', checked: 2, missing: ['x=a.md (absent)'] }] });
+  assert.equal(q.quality, 50);
+  assert.equal(q.recommendations.length, 1);
+  assert.notEqual(q.quality === 100, q.recommendations.length > 0);
+});
+
+// ── the judge reads the change, and every file of it ─────────────────────────
+//
+// A live run on 2026-10-31 graded a senior-dev stage 33/100: the excerpt took
+// files whole, in receipt order, and three 40–70 KB prompts that sort first used
+// the 128 KB budget — the eight files where the change lived, its test among
+// them, were never shown. It read today's disk, too, not what the run recorded.
+import { changedFilesExcerpt, artefactExcerpt } from '../../scripts/lib/independent-verify.mjs';
+import { checkArtifacts, resolveClaimPath } from '../../scripts/lib/artifact-claims.mjs';
+import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+
+const sh = (cwd, ...args) => {
+  const r = spawnSync('git', args, { cwd, encoding: 'utf8' });
+  assert.equal(r.status, 0, `git ${args.join(' ')}: ${r.stderr}`);
+  return r.stdout.trim();
+};
+
+test('evidence: large files first do not starve the small ones after them', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-share-'));
+  const files = {};
+  for (const f of ['a-big1.md', 'a-big2.md', 'a-big3.md']) { writeFileSync(join(root, f), 'x'.repeat(5000)); files[f] = 'h'; }
+  writeFileSync(join(root, 'z-impl.mjs'), 'export const feature = true;\n'); files['z-impl.mjs'] = 'h';
+  writeFileSync(join(root, 'z-impl.test.mjs'), 'test("feature", () => {});\n'); files['z-impl.test.mjs'] = 'h';
+  const e = changedFilesExcerpt({ receipt: { files } }, { root, bytes: 4000 });
+  assert.deepEqual(e.files, Object.keys(files), 'every file is shown, in receipt order');
+  assert.match(e.text, /export const feature = true/);
+  assert.match(e.text, /test\("feature"/);
+  assert.equal(e.truncated, true);
+  assert.ok(e.shownBytes <= 4000, `budget kept: ${e.shownBytes}`);
+  assert.equal(e.totalBytes, 15000 + 29 + 27, 'the total is the whole of it, not what was shown');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: the judge reads the diff the run recorded, not today\'s disk', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-diff-'));
+  sh(root, 'init', '-q');
+  sh(root, 'config', 'user.email', 't@t'); sh(root, 'config', 'user.name', 't');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = (xs) => xs.reduce((a, b) => a + b, 0);\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  const base = sh(root, 'rev-parse', 'HEAD');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = (xs) => xs.reduce((a, b) => a + b, 0);\nexport const discount = (t) => t * 0.9;\n');
+  const changed = sh(root, 'hash-object', '-w', 'cart.mjs');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const code = "SAVE10";\n');
+  const created = sh(root, 'hash-object', '-w', 'coupon.mjs');
+  // The tree moves on after the run; the judge must not read the later version.
+  writeFileSync(join(root, 'cart.mjs'), 'export const unrelated = 1;\n');
+
+  const e = changedFilesExcerpt({ receipt: { base, files: { 'cart.mjs': changed, 'coupon.mjs': created } } }, { root });
+  assert.equal(e.change, true);
+  assert.match(e.text, /cart\.mjs \(diff against base\)/);
+  assert.match(e.text, /^\+export const discount/m, 'the added line is shown as added');
+  assert.doesNotMatch(e.text, /unrelated/, 'today\'s disk is not what the run did');
+  assert.match(e.text, /coupon\.mjs \(new file\)[\s\S]*SAVE10/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a recorded blob missing from git falls back to the disk, and says so', () => {
+  const root = mkdtempSync(join(tmpdir(), 'iv-disk-'));
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  const e = changedFilesExcerpt({ receipt: { files: { 'a.mjs': 'f'.repeat(40) } } }, { root });
+  assert.match(e.text, /a\.mjs \(current tree — the run's version is not in git\)/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('a claimed path under ~/ is the home directory, not a folder called ~', () => {
+  const home = mkdtempSync(join(tmpdir(), 'iv-home-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-root-'));
+  const saved = process.env.HOME;
+  process.env.HOME = home;
+  try {
+    mkdirSync(join(home, 'evidence'), { recursive: true });
+    writeFileSync(join(home, 'evidence', 'CSO.md'), '# Security report\n\n' + 'finding '.repeat(40));
+    assert.equal(resolveClaimPath(root, '~/evidence/CSO.md'), join(home, 'evidence', 'CSO.md'));
+    assert.equal(resolveClaimPath(root, 'docs/A.md'), join(root, 'docs/A.md'));
+    assert.equal(resolveClaimPath(root, '/abs/A.md'), '/abs/A.md');
+    const r = checkArtifacts({ report: '~/evidence/CSO.md' }, { root });
+    assert.equal(r.ok, true, `reported absent: ${JSON.stringify(r.missing)}`);
+  } finally {
+    if (saved === undefined) delete process.env.HOME; else process.env.HOME = saved;
+    rmSync(home, { recursive: true, force: true });
+    rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('evidence: a change cut by file count says files, not "N of N bytes"', async () => {
+  const root = project();
+  const files = {};
+  for (let i = 0; i < 45; i++) { const f = `src/f${i}.mjs`; mkdirSync(join(root, 'src'), { recursive: true }); writeFileSync(join(root, f), `export const v${i} = ${i};\n`); files[f] = 'h'; }
+  const r = await verifyAgentOutput({ verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' }, receipt: { files } }, root, ask: async () => 'no' });
+  const j = r.checks.find((c) => c.layer === 'judgement');
+  assert.match(j.detail, /judge saw 40 of 45 changed file\(s\)/);
+  assert.doesNotMatch(j.detail, /(\d+) of \1 bytes/);
+});
+
+// Review of the first version (BLOCKED): receipts recorded digests only, so an
+// uncommitted change — the normal senior-dev case — had no object in git, and
+// the judge fell back to today's disk. The emitted receipt now persists them.
+import { treeReceipt } from '../../scripts/lib/receipt.mjs';
+
+const repo = (prefix) => {
+  const root = mkdtempSync(join(tmpdir(), prefix));
+  sh(root, 'init', '-q'); sh(root, 'config', 'user.email', 't@t'); sh(root, 'config', 'user.name', 't');
+  return root;
+};
+
+test('evidence: an uncommitted change is judged as the receipt recorded it, not as the disk is later', () => {
+  const root = repo('iv-persist-');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = 0;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'cart.mjs'), 'export const total = 0;\nexport const discount = 0.9;\n');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const code = "SAVE10";\n');
+  const receipt = treeReceipt(root, { base: 'HEAD', persist: true });
+  writeFileSync(join(root, 'cart.mjs'), 'export const later = 1;\n');
+  writeFileSync(join(root, 'coupon.mjs'), 'export const later = 2;\n');
+
+  const e = changedFilesExcerpt({ receipt }, { root });
+  assert.match(e.text, /cart\.mjs \(diff against base\)[\s\S]*^\+export const discount/m);
+  assert.match(e.text, /coupon\.mjs \(new file\)[\s\S]*SAVE10/);
+  assert.doesNotMatch(e.text, /later/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('a receipt built for a check, not for a verdict, writes nothing into git', () => {
+  const root = repo('iv-nopersist-');
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'b.mjs'), 'export const b = "only-on-disk";\n');
+  const receipt = treeReceipt(root, { base: 'HEAD' });
+  const r = spawnSync('git', ['cat-file', '-e', receipt.files['b.mjs']], { cwd: root });
+  assert.notEqual(r.status, 0, 'the board polls receipts; it must not leave objects behind');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a project in a subdirectory gets no diff against a same-named file at the top', () => {
+  const root = repo('iv-subdir-');
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/index.mjs'), 'export const repoLevel = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  const app = join(root, 'app');
+  mkdirSync(join(app, 'src'), { recursive: true });
+  writeFileSync(join(app, 'src/index.mjs'), 'export const appLevel = 1;\n');
+  const blob = sh(app, 'hash-object', '-w', 'src/index.mjs');
+  const e = changedFilesExcerpt({ receipt: { base: sh(root, 'rev-parse', 'HEAD'), files: { 'src/index.mjs': blob } } }, { root: app });
+  assert.doesNotMatch(e.text, /repoLevel/);
+  assert.match(e.text, /appLevel/);
+  assert.match(e.text, /src\/index\.mjs \(as recorded\)/, 'without a base it is not called new');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a receipt key or a claim outside the project is not handed to the judge', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'iv-outside-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-inside-'));
+  writeFileSync(join(outside, 'private.md'), '# private\n' + 'secret notes '.repeat(20));
+  writeFileSync(join(root, 'ok.mjs'), 'export const ok = 1;\n');
+  const rel = join('..', outside.split('/').pop(), 'private.md');
+  const e = changedFilesExcerpt({ receipt: { files: { [rel]: 'h', [join(outside, 'private.md')]: 'h', 'ok.mjs': 'h' } } }, { root });
+  assert.deepEqual(e.files, ['ok.mjs']);
+  assert.equal(e.refused.length, 2, 'refusals are counted, not silent');
+  assert.doesNotMatch(e.text, /secret notes/);
+  assert.equal(artefactExcerpt({ meta: { report: join(outside, 'private.md') } }, { root }), null);
+  rmSync(outside, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: headers count against the budget, and an unchanged file is shown, not dropped', () => {
+  const root = repo('iv-budget-');
+  const files = {};
+  for (let i = 0; i < 30; i++) { writeFileSync(join(root, `f${i}.mjs`), `export const v${i} = "${'y'.repeat(60)}";\n`); }
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  for (let i = 0; i < 30; i++) files[`f${i}.mjs`] = sh(root, 'rev-parse', `HEAD:f${i}.mjs`);
+  const e = changedFilesExcerpt({ receipt: { base: 'HEAD', files } }, { root, bytes: 4000 });
+  assert.ok(e.text.length <= 4000, `text ${e.text.length} over a 4000-byte budget`);
+  assert.ok(e.shownBytes > 0, 'the reserve for headers must leave room for content');
+  assert.equal(e.files.length, 30, 'unchanged-against-base files are still shown');
+  assert.match(e.text, /f0\.mjs \(as recorded\)/);
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('evidence: a byte cut with a file missing on disk says bytes, not "files"', async () => {
+  const root = project();
+  mkdirSync(join(root, 'src'), { recursive: true });
+  writeFileSync(join(root, 'src/big.mjs'), 'x'.repeat(200000));
+  const r = await verifyAgentOutput({ verdict: { agent: 'senior-dev', verdict: 'TASK_DONE', meta: { feature: 'x' },
+    receipt: { files: { 'src/big.mjs': 'h', 'src/gone.mjs': 'h' } } }, root, ask: async () => 'no' });
+  const j = r.checks.find((c) => c.layer === 'judgement');
+  assert.match(j.detail, /judge saw \d+ of 200000 bytes/);
+  assert.doesNotMatch(r.recommendations.join(' '), /of 2 changed file/);
+});
+
+test('evidence: a symlink inside the project does not carry an outside file to the judge', () => {
+  const outside = mkdtempSync(join(tmpdir(), 'iv-linked-'));
+  const root = mkdtempSync(join(tmpdir(), 'iv-linkroot-'));
+  writeFileSync(join(outside, 'private.md'), '# private\n' + 'linked secret '.repeat(20));
+  writeFileSync(join(root, 'ok.mjs'), 'export const ok = 1;\n');
+  symlinkSync(join(outside, 'private.md'), join(root, 'notes.md'));
+  const e = changedFilesExcerpt({ receipt: { files: { 'notes.md': 'h', 'ok.mjs': 'h' } } }, { root });
+  assert.deepEqual(e.files, ['ok.mjs']);
+  assert.equal(artefactExcerpt({ meta: { report: 'notes.md' } }, { root }), null);
+  rmSync(outside, { recursive: true, force: true }); rmSync(root, { recursive: true, force: true });
+});
+
+test('receipt.mjs --emit — the path log-verdict.sh uses — writes the change into git', () => {
+  const root = repo('iv-emit-');
+  writeFileSync(join(root, 'a.mjs'), 'export const a = 1;\n');
+  sh(root, 'add', '.'); sh(root, 'commit', '-qm', 'base');
+  writeFileSync(join(root, 'b.mjs'), 'export const b = "emitted";\n');
+  const cli = fileURLToPath(new URL('../../scripts/lib/receipt.mjs', import.meta.url));
+  const r = spawnSync(process.execPath, [cli, '--emit'], { cwd: root, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  const receipt = JSON.parse(r.stdout);
+  assert.ok(receipt.files['b.mjs'], `no b.mjs in ${r.stdout}`);
+  assert.equal(sh(root, 'cat-file', 'blob', receipt.files['b.mjs']), 'export const b = "emitted";');
+  rmSync(root, { recursive: true, force: true });
+});
+
+test('s6n0 review: a requirement a second model settled as yes says so in its recommendation', async () => {
+  const { r } = await judgeOnce(['yes', 'no', 'yes', 'no', 'unclear'], async () => 'yes');
+  assert.equal(r.state, STATE.VERIFIED);
+  const rec = r.recommendations.join(' ');
+  assert.match(rec, /no majority \(2 yes \/ 2 no\) and a second model settled it as yes/);
+  assert.doesNotMatch(rec, /passed it only/);
 });

@@ -34,6 +34,7 @@
 
 import fs from 'node:fs';
 import path from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 export const QUOTE_STATUS = Object.freeze({
   EXACT: 'exact',
@@ -382,6 +383,6 @@ function main(argv) {
   return 2;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main(process.argv.slice(2));
 }

@@ -1,38 +1,21 @@
-name: Publish to JSR
+name: JSR publication admission (blocked)
 
-# Mirrors npm publish to JSR (JavaScript Registry).
-# JSR auto-generates docs from JSDoc comments + improves discovery.
-# https://jsr.io/docs/publishing-packages
-
+# JSR transforms and republishes sources rather than the admitted npm tarball.
+# Until that separate artifact contract exists, neither a tag nor a manual run
+# may obtain publishing credentials or execute a registry helper.
 on:
-  push:
-    tags:
-      - 'v*'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  publish-jsr:
+  admission_required:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write   # required for JSR OIDC publishing
-
+    timeout-minutes: 1
     steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '22'
-
-      - name: Install dependencies
-        working-directory: packages/cli
-        run: npm ci
-
-      - name: Build
-        working-directory: packages/cli
-        run: npm run build
-
-      - name: Publish to JSR
-        working-directory: packages/cli
-        run: npx jsr publish --allow-dirty
-        continue-on-error: true   # JSR config may not exist yet — don't block npm publish
+      - name: Refuse unimplemented JSR artifact admission
+        shell: bash
+        run: |
+          echo 'BLOCKED: verified JSR publication is not implemented; no registry operation was attempted.' >&2
+          exit 1

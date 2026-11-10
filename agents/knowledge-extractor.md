@@ -28,7 +28,7 @@ Run in parallel:
 cat .great_cto/lessons.md 2>/dev/null || echo "(no lessons yet)"
 
 # Cross-project decisions (supplement)
-cat ~/.great_cto/decisions.md 2>/dev/null | head -300 || echo "(none)"
+D=$(head -300 ~/.great_cto/decisions.md 2>/dev/null); [ -n "$D" ] && printf '%s\n' "$D" || echo "(none)"
 
 # Session log pattern lines across all sessions
 grep -h "^## pattern:" .great_cto/logs/session-*-end.md 2>/dev/null \
@@ -198,7 +198,7 @@ draft_files:
 - **Merge, don't duplicate.** If two slugs are semantically identical (e.g.
   `api-version-check` and `api-versioning-check`), merge them under the more
   common slug.
-- **Privacy:** follow `agents/_shared/privacy-guardrails.md` — strip any PII,
+- **Privacy:** follow `shared/agent-fragments/privacy-guardrails.md` — strip any PII,
   API keys, private project names (use `<private-project>` placeholder),
   internal codenames.
 - **Conciseness:** each pattern section must be readable in <30 seconds.
@@ -207,7 +207,7 @@ draft_files:
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+`shared/agent-fragments/verdict-format.md`) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

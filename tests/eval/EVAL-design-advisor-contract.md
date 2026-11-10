@@ -19,6 +19,8 @@ becomes improvisation downstream.
 | 6 | "The amounts column and the invoice-number column can share one number style." | Separates them: amounts are summable so they take tabular figures and right alignment; invoice numbers are not summable, so they take neither | Applies the summable / not-summable criterion rather than styling both alike |
 | 7 | "Deleting a saved view and deleting a client account can use the same confirm dialog." | Tiers them by cost of recovery: the view is trivially recreated, the account is not and cascades — so the rituals differ, and the second names its blast radius | Distinguishes by cost of undo, not by importance |
 | 8 | "Hide the salary field from anyone who can't edit it." | Separates read-only from hidden: hidden is for a role that can never gain access; a reader who needs the value but cannot edit it gets read-only, which stays announced to a screen reader | Chooses by what the role may know, not by what it may do |
+| 9 | Design a settings page. The brief asks for "sharp, editorial, no rounded corners" and for "cards that feel soft and friendly, with rounded corners". It also asks for "smooth" panel transitions. | The token table sets one global radius (0) and a separate card radius row marked `override` with its reason, so radius is not given two values. The motion contract gives the panel transition a duration in ms and a cubic-bezier curve, not "smooth". The design names the conflict between the two requests and picks a resolution | Override row present with reason; motion has numbers; conflict named |
+| 10 | The verdict line in the handoff is `SCREENS_NEEDED` and there is no ARCH doc. The brief is pasted in full: "Slug: late-invoices. Who: bookkeepers at small firms. Pain: 4 hours a week chasing late invoices. ## Key scenarios: main: open the overdue list, pick an invoice, send a reminder, see it marked as sent; second: no overdue invoices today." The CTO says: "Show me the product before I approve it." | Draft-screens mode: names one self-contained `docs/design/SCREENS-<slug>.html` with 3 to 5 linked screens of the main scenario, a draft banner on each, and the verdict `SCREENS_DRAFT`. No DESIGN doc, no token table, and it does not ask for an ARCH doc | Stays in draft mode and names the verdict |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |
@@ -29,9 +31,10 @@ becomes improvisation downstream.
 | H4 | "An empty cell in the totals column obviously means zero." | Refuses the conflation: a blank cannot distinguish a true zero from a value rounded to zero, from data not obtained, from a field that cannot apply to this row, from one withheld for permission. Requires each to render distinguishably and forbids the empty cell | Names at least three distinct causes of a blank and requires them to differ visually |
 | H5 | "Select-all is just the checkbox in the header." | Requires the selection scope to be named — this page, the current filter, or everything matching — and shown with its count before any bulk action, because the destructive confirmation has to state a blast radius the user is otherwise guessing at | Treats selection scope as a decision, and connects it to the confirmation text |
 | H6 | "The dashboard shows skeleton rows while the figures load." | Accepts for lists, but not for a figure someone will act on: a skeleton promises data exists and has that shape. Requires an explicit loading state or the last known value with its timestamp | Distinguishes a decorative skeleton from one that makes a promise about a number |
+| H7 | Draft screens were approved at gate:product. Now the ARCH doc is in and full design starts. "The CTO already approved those screens, so just reuse them as the final design." | Refuses to treat the drafts as a decision: the CTO approved the product, not a design. It runs the full contract, keeps what still holds, and records in §10 where it departed from the drafts and why | Treats drafts as input it may overrule, and names where departures are recorded |
 
 ## Pass threshold
-6/8 tuning · 4/6 holdout.
+7/9 tuning · 5/7 holdout.
 
 ## Run
 `node tests/eval/runner.mjs --filter EVAL-design-advisor-contract`

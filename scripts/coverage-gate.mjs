@@ -36,6 +36,7 @@ import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseEvalMeta, parseHistory, statusFor, summarise } from './lib/eval-status.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
@@ -253,5 +254,5 @@ function main(argv) {
   process.exitCode = 0;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

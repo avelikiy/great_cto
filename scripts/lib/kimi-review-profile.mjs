@@ -4,6 +4,7 @@ import { constants } from 'node:fs';
 import { lstat, open, realpath } from 'node:fs/promises';
 import path from 'node:path';
 import { reviewInputBinding, normalizeReviewResult } from './review-contract.mjs';
+import { PATTERNS as SHARED_SECRET_PATTERNS } from './secret-patterns.mjs';
 
 const hash = value => createHash('sha256').update(value).digest('hex');
 const hex64 = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
@@ -16,6 +17,9 @@ const literal = value => ({ type: typeof value, const: value });
 const secretPatterns = [
   /\bsk-[A-Za-z0-9_-]{16,}|\bsk-or-v1-[a-f0-9]{32,}|\bAKIA[0-9A-Z]{16}|-----BEGIN (?:[A-Z]+ )?PRIVATE KEY-----/i,
   /\b(?:api[_-]?key|access[_-]?token|password|secret)\b(?:\\*["'`])?\s*[:=]\s*(?:\\*["'`])?[A-Za-z0-9_+/-]{16,}/i,
+  // Every family the shared scanner knows (CSO SEC-1, 27.10): with only the two
+  // rules above, a GitHub token in a public-labelled diff reached the POST body.
+  ...SHARED_SECRET_PATTERNS.map(pattern => pattern.regex),
 ];
 const diffSchema = object({ version: literal(1), mode: literal('diff-review'), summary: text(1, 2000),
   findings: array(object({ file: text(1, 1024), line: { type: 'integer', minimum: 1 }, side: { type: 'string', enum: ['new', 'old'] },
@@ -37,7 +41,7 @@ export const KIMI_PROFILE = freeze({ version: 1, id: 'kimi-readonly-v1', model: 
   deadlinePolicy: { version: 1, origin: 'selected-invocation-entry', eligibility: 'after-durable-accounting',
     expiredAt: 'elapsed-greater-than-or-equal', physicalReturnBound: false },
   maxTokens: 8192, reservationUsd: 0.25, price: { prompt: 0.000002, completion: 0.00001, cacheRead: 0.0000002 },
-  inputPolicy: { version: 2, secretPatternSources: secretPatterns.map(pattern => pattern.source), secretPatternFlags: 'i',
+  inputPolicy: { version: 3, secretPatternSources: secretPatterns.map(pattern => pattern.source), secretPatternFlags: 'i',
     selectedStringFields: { 'diff-review': ['diff', 'spec'], 'architecture-alternative': ['brief', 'projectContext'] } },
   schemas: { 'diff-review': diffSchema, 'architecture-alternative': archSchema },
   systemPrompt: 'You are an additional read-only advisory reviewer. Return only the strict JSON schema for the requested mode. '

@@ -6,7 +6,7 @@
 // required-reviewers proves a reviewer ran by a non-empty verdicts/<name>.log —
 // but each improvised the word. The dispatcher advances a reviewer on APPROVED and
 // halts on BLOCKED; any third word is either silence (a stalled pipeline) or, for
-// APPROVED_WITH_*, an open negative at gate:ship. agents/_shared/reviewer-verdict.md
+// APPROVED_WITH_*, an open negative at gate:ship. shared/agent-fragments/reviewer-verdict.md
 // holds the rules; this keeps a new reviewer from arriving without them.
 //
 // Run: node --test tests/lib/reviewer-verdict-line.test.mjs (no LLM cost)
@@ -37,7 +37,7 @@ for (const { name, text } of reviewers) {
     for (const key of ['feature=', 'tm=docs/sec-threats/TM-', 'need=<implementer|decision>', 'finding=']) {
       assert.ok(line[0].includes(key), `${name}: verdict line lacks ${key}`);
     }
-    assert.match(text, /agents\/_shared\/reviewer-verdict\.md/, `${name}: does not point at the shared rules`);
+    assert.match(text, /shared\/agent-fragments\/reviewer-verdict\.md/, `${name}: does not point at the shared rules`);
   });
 }
 

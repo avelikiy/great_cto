@@ -20,6 +20,7 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * The directory git will read hooks from for `cwd`.
@@ -101,7 +102,7 @@ export function installCommand(cwd = process.cwd(), { run = git } = {}) {
 // Exit 1 on any state that means the guard is not in force, so ci-local can gate
 // on it. `--quiet` prints only when something is wrong.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const s = prePushStatus(process.cwd());
   const fine = s.state === 'ok' || s.state === 'not-a-repo';
   if (!fine) {

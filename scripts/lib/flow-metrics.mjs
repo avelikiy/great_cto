@@ -22,6 +22,7 @@
 //   node scripts/lib/flow-metrics.mjs [--stale-hours 24] [--json]
 
 import { readGateBeads } from './gate-state.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const MIN_SAMPLE = 5;
 
@@ -109,7 +110,7 @@ export function formatInboxSections(r) {
   return out.join('\n') + '\n\n';
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const i = argv.indexOf('--stale-hours');
   const staleHours = i >= 0 && Number.isFinite(Number(argv[i + 1])) ? Number(argv[i + 1]) : 24;

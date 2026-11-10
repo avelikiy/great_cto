@@ -34,7 +34,7 @@
  * evidence of staleness.
  */
 
-import { readFileSync, readdirSync, existsSync } from 'node:fs';
+import { readFileSync, readdirSync, existsSync, realpathSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
@@ -174,6 +174,11 @@ export function ensureBoard({ env = process.env, spawnFn = spawn,
 }
 
 // Only when run as the hook, so the pure parts above stay importable by tests.
-if (process.argv[1] && process.argv[1].endsWith('postinstall.mjs')) {
+// Real paths on both sides, the rule of scripts/lib/is-main.mjs — inlined
+// because the npm package does not ship scripts/.
+const isMain = () => {
+  try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; }
+};
+if (process.argv[1] && isMain()) {
   try { main(); } catch { /* an installer must never fail the install */ }
 }

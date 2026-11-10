@@ -35,7 +35,8 @@ for UI features, in 15 sessions across 12 projects. Nothing reported it.
 A PreToolUse hook on `Agent|Task` (`scripts/hooks/graph-guard.mjs`) runs one rule
 per measured hole. Rule 1, **architecture before build after a brief**:
 
-- trigger: dispatch of `design-advisor`, `senior-dev` or `mobile-app-builder`;
+- trigger: dispatch of `senior-dev` or `mobile-app-builder` (until 2026-10-30 also
+  `design-advisor` — see *Rule 1 stands at the build* below);
 - condition: the project's latest success verdict of `product-owner` is newer than
   its latest success verdict of `architect` — a brief exists with no architecture
   after it;
@@ -44,13 +45,17 @@ per measured hole. Rule 1, **architecture before build after a brief**:
 
 Modes, read from `.great_cto/PROJECT.md` `graph-guard:` (default `observe`):
 
-- `observe` — never blocks. Appends `{ts, rule, agent, would_block: true, why}` to
-  `.great_cto/events.jsonl` (kind `graph-guard`) and lets the call through.
-- `enforce` — denies with the reason and the command that lifts it.
+- `observe` — never blocks. Appends a `hint` event (hook `graph-guard`, outcome
+  `would-block-<rule>`, with a `why`) to `.great_cto/events.jsonl` and lets the
+  call through. Shape: [Event shape](#event-shape).
+- `enforce` — denies with the reason and the command that lifts it, and appends a
+  `denied` event (outcome `blocked-<rule>`, same `why`).
 - `off` — nothing.
 
-Failure to read a verdict log is not a reason to block: the guard records
-`unreadable` and allows (it guards a route, not data integrity).
+Failure to read a verdict log is not a reason to block: the guard allows, and
+appends one `unreadable` event per call naming the log and the error code (it
+guards a route, not data integrity — but a guard that could not look must not read
+the same as a guard that saw a clean route). See [Event shape](#event-shape).
 
 ## Delivery
 
@@ -59,8 +64,10 @@ Failure to read a verdict log is not a reason to block: the guard records
    hooks where applicable.
 2. The graph-1 measurement script committed (`scripts/graph-adherence.mjs`) so the
    number can be re-taken.
-3. After 14 days in `observe`: read the `would_block` events. Enforce by default
-   only if every sampled one was a real skip; otherwise fix the rule first.
+3. After 14 days in `observe`: read the `would-block-*` events and their `why`.
+   Enforce by default only if every sampled one was a real skip; otherwise fix the
+   rule first. Count the `unreadable` events beside them: they are the calls the
+   guard could not judge.
 
 Not in scope: an executing controller on Claude Code; rules for pairs not yet
 measured as harmful; changing `pipeline.toml` itself.
@@ -72,3 +79,139 @@ measured as harmful; changing `pipeline.toml` itself.
 - One more hook on every Agent call; it reads two small logs.
 - Each new rule needs its own measurement — the guard grows by evidence, not by
   listing every edge.
+
+## Rule 2 — the edge being taken carries its contract (2026-10-26, great_cto-1puj.3)
+
+`produces` in `shared/pipeline.toml` names what a stage must hand on. The Codex
+controller checks it before a transition (`scripts/lib/codex-pipeline.mjs`); on
+Claude Code nothing did — `pipeline-dispatcher` named the next stage whether or
+not the stage before it had named its output.
+
+Measured with `scripts/edge-contract-adherence.mjs` over local verdict logs since
+2026-10-01 (3 projects):
+
+| stage | met | unnamed | named a path that does not exist |
+|---|---|---|---|
+| senior-dev (receipt) | 46/46 | 0 | 0 |
+| code-reviewer (receipt) | 14/16 | 2 | 0 |
+| qa-engineer (report) | 7/12 | 5 | 0 |
+| security-officer (report) | 1/30 | 29 | 0 |
+| design-advisor (design) | 0/2 | 0 | 2 |
+| pm (plan, briefs) | 0/1 | 0 | 1 |
+
+security-officer's 29 were the contract's fault, not the agent's: its log-verdict
+line never asked for `report=`. smart-contract-auditor logged `audit=` against a
+contract asking for `report`. Both prompts now name the key, and
+`tests/lib/pipeline-produces-prompts.test.mjs` holds every declared key to the
+stage agent's own log-verdict instruction — a contract the agent was never told
+about is one nobody can meet.
+
+Contract: on dispatch of stage X, of the stages whose `next` holds X the one with
+the newest success verdict is the edge being taken. If it declares `produces`,
+each key must be named in its verdict (`receipt` by the receipt's files), and a
+value containing `/` must exist on disk. Same modes, same exception (`graph`), same
+observe-first default as rule 1; an unreadable predecessor log drops only this rule,
+and is recorded (below).
+
+Enforce by default only after its own observation window shows the would-block
+events are real misses — the numbers above are mostly a prompt defect that this
+change fixes, so the window starts now, not from the old logs.
+
+## Scope — which verdict a dispatch is measured against (2026-10-28, great_cto-2u72.4)
+
+Both rules compared a dispatch with the newest brief or predecessor verdict, of any age
+and any feature. The first real Claude Code events, on 2026-10-28, were six false
+positives: maintenance dispatches in this repository measured against a product brief
+written seven weeks earlier for another feature. Under `enforce` they would have been
+denied. The same review found that the only seven real rule-1 opportunities since 3.68.0
+came from native Codex sessions, which have no `Agent` tool and so no check at all.
+
+A verdict is now in scope for a dispatch when either holds:
+
+- it is at most 72 hours old (`SCOPE_WINDOW_HOURS`) — the measured hole is a brief
+  followed by its build within hours;
+- the dispatch prompt names its `feature`, or a path it produced (`brief`, `arch`,
+  `plan`, `design`).
+
+Out of scope, the rule does not apply and nothing is recorded. The prompt is read to
+decide scope only; it is never written to an event. Without a clock (a caller that
+passes no `now`) every verdict stays in scope, as before.
+
+The enforce decision (great_cto-1puj.5) is not taken on the observe window that ended
+before this change: its events were mostly false positives of the unscoped rules, and
+native Codex sessions were never observed. A new observe window starts with this scope.
+
+## Rule 1 stands at the build (2026-10-30)
+
+The Context above counted the pair product-owner → design-advisor and read it as the
+skip. Re-measured over the same transcripts, following each chain to its next build
+or its next brief: of **84** distinct such dispatches, **61** never reached
+`senior-dev` or `mobile-app-builder` — design reviews, UX audits and redesign
+proposals, often dispatched beside product-owner in one turn. **18** reached a build
+with no architect after the brief; 5 ran architect first.
+
+A design document written without an architecture is cheap to throw away; a build
+is not. Under `enforce`, a trigger on `design-advisor` would have denied mostly the
+61 reviews. Rule 1 now fires on `senior-dev` and `mobile-app-builder` only, where all
+18 real skips are still caught. Rule 2 is unchanged: its edges carry their own
+contracts, whatever the target.
+
+Re-take: `node scripts/graph-adherence.mjs` shows the pair as off-graph either way —
+the graph has no review path, and this change does not add one.
+
+## Event shape
+
+(2026-10-28, great_cto-2u72.1.) This ADR first said an observe event is
+`{ts, rule, agent, would_block: true, why}` of kind `graph-guard`, and that an
+unreadable log "records `unreadable`". The code wrote neither: it wrote `kind: hint`
+with an `outcome` and no reason, and nothing at all for an unreadable log — so the
+enforce decision (great_cto-1puj.5) could not read why a call would have been
+blocked, and a silent guard looked the same as a guard that saw nothing. What the
+hook writes is below; the older shape is retired (`kind: graph-guard` is not in
+`EVENT_KINDS`, and `rule` and `would_block` live in `outcome`).
+
+Every event goes to `.great_cto/events.jsonl` through `appendEvent`, with the
+fields its allowlist permits (`scripts/lib/agent-events.mjs`):
+
+| Field | Observe | Enforce | Unreadable |
+|---|---|---|---|
+| `v`, `ts` | 1, UTC | 1, UTC | 1, UTC |
+| `kind` | `hint` | `denied` | `hint` |
+| `hook` | `graph-guard` | `graph-guard` | `graph-guard` |
+| `agent` | the stage being dispatched | same | same |
+| `session` | session id | same | same |
+| `outcome` | `would-block-<rule>` | `blocked-<rule>` | `unreadable` |
+| `why` | the reason, see below | same | the logs and their error codes |
+
+`<rule>` is `architecture-before-build` or `edge-contract`. One event per
+violation; a call that violates both writes two. A rule that passes, or a
+violation an approved `graph` exception covers, writes nothing.
+
+**`why`** is a short reason built from rule ids, stage names and error codes, at
+most 120 characters of `[A-Za-z0-9 :=,._-]`. It is not the sentence the deny
+message shows: that one carries the predecessor's timestamp and whatever path its
+verdict named, and `events.jsonl` records facts, never content (ADR-021,
+`docs/PRIVACY.md`). A `why` that does not fit the charset is dropped, not trimmed.
+
+| Rule / case | `why` |
+|---|---|
+| `architecture-before-build` | `architecture-before-build: architect has not run since the product-owner brief` |
+| `edge-contract`, `receipt` | `edge-contract: <stage> named no receipt` |
+| `edge-contract`, any other key | `edge-contract: <stage> named no <key>` |
+| `edge-contract`, a named path that is missing | `edge-contract: <stage> <key> path does not exist` |
+| unreadable | `<stage>=<CODE>[,<stage>=<CODE>…]`, e.g. `product-owner=EISDIR,architect=EACCES` |
+
+**Unreadable.** A verdict log is unreadable when reading it fails with anything but
+"does not exist" (`EISDIR`, `EACCES`, …; the code is recorded, never the message,
+which names a path), or when it has content and not one parseable record
+(`MALFORMED`: a write cut short, binary noise). The call is allowed, the rule that
+needed the log is dropped, and **one** event per call lists every such log. A log
+that does not exist is not unreadable: it is a stage that never ran. A log is read
+only when the decision needs it — rule 1 reads `product-owner` and `architect` only
+for a build or design stage, rule 2 only the predecessors of the stage dispatched —
+so a broken log nothing asked about is not an event.
+
+Reading it: `jq 'select(.hook=="graph-guard")' .great_cto/events.jsonl`. `would-block-*`
+and `blocked-*` are calls the guard judged and found wrong; `unreadable` are calls it
+could not judge; a call with no event was judged and found fine — or never reached
+the hook (`graph-guard: off`, no `.great_cto/PROJECT.md`, a host without the hook).

@@ -38,6 +38,7 @@
  */
 
 import { existsSync } from 'node:fs';
+import { isMainModule } from './is-main.mjs';
 
 /** Directories whose contents are OUR source — a path here is a claim about this repo. */
 export const SOURCE_DIRS = ['scripts', 'packages', 'agents', 'commands', 'tests', 'skills', 'hooks'];
@@ -135,6 +136,6 @@ async function main(argv) {
   return argv.includes('--strict') && total ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

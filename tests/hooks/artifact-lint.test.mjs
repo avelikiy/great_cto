@@ -343,3 +343,92 @@ test('REVIEW docs need a findings section', () => {
   const r = lint({ 'docs/reviews/REVIEW-a.md': '# Review\n\n**Date:** 2026-10-20\n\n' + MAP });
   assert.ok(errKinds(r).includes('missing-section'));
 });
+
+// ─── error paths (01.11.2026) ────────────────────────────────────────────────
+// An ARCH walks its error paths; the unhandled, untested row must say CRITICAL.
+// Required from 2026-11-01; documents dated before it are not judged by it.
+const EP = '## Error paths\n\n| Path | Failure | Handled? | Test? | User sees | Logged? |\n|---|---|---|---|---|---|\n| sync.read | provider 500 | retry ×3, then raise | yes | "sync failed, retry" | yes |\n';
+const archEP = (date, ep = EP) => arch(date, MAP + '\n' + ep);
+const epKinds = (r) => errKinds(r).filter((k) => /error-path/.test(k));
+
+test('error paths: a dated ARCH with the table passes', () => {
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01') })), []);
+});
+
+test('error paths: missing on a new ARCH is an error; an older ARCH is not judged', () => {
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', '') })), ['error-paths-missing']);
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-10-31', '') })), []);
+});
+
+test('error paths: unhandled and untested must say CRITICAL', () => {
+  const silent = EP + '| cursor.advance | read failed | no | no | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', silent) })), ['error-path-unmarked']);
+  const marked = EP + '| cursor.advance | read failed | no | no | nothing — CRITICAL gap | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', marked) })), []);
+});
+
+test('error paths: a table without handled/test columns, or with no rows, is an error', () => {
+  const noCols = '## Error paths\n\n| Path | Failure |\n|---|---|\n| a | b |\n';
+  const noRows = '## Error paths\n\n| Path | Failure | Handled? | Test? |\n|---|---|---|---|\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', noCols) })), ['error-paths-not-a-table']);
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', noRows) })), ['error-paths-empty']);
+});
+
+test('error paths: a design with nothing that can fail says so, with a reason', () => {
+  const none = '## Error paths\n\nNo error paths: a static docs page with no I/O or input.\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', none) })), []);
+  const bare = '## Error paths\n\nNo error paths.\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', bare) })), ['error-paths-not-a-table'], 'the reason is required');
+});
+
+// ─── DESIGN token conflicts (01.11.2026) ─────────────────────────────────────
+// One value per token; a component that departs from a global says "override".
+const designWith = (tokens) => `---\ndate: ${today}\n---\n# DESIGN\n## Design system\nx\n## Component inventory\nx\n## A11y\nx\n## Responsive\nx\n## Numeric contract\nx\n## Destructive actions — cost of recovery\nx\n## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n${tokens}\n`;
+const conflicts = (r) => errKinds(r).filter((k) => k === 'token-conflict');
+
+test('token conflict: a token named twice with two values is an error', () => {
+  const r = lint({ 'docs/design/DESIGN-x.md': designWith('| --radius | 0 | sharp corners |\n| --space-4 | 16px | |\n| --radius | 8px | cards |') });
+  assert.equal(conflicts(r).length, 1);
+});
+
+test('token conflict: a stated override, a repeated equal value, or distinct tokens pass', () => {
+  for (const rows of [
+    '| --radius | 0 | sharp corners |\n| --radius | 8px | override for cards: touch targets read as buttons |',
+    '| --radius | 0 | |\n| --radius | 0 | repeated in the card section |',
+    '| --radius-card | 8px | |\n| --radius | 0 | |',
+  ]) assert.deepEqual(conflicts(lint({ 'docs/design/DESIGN-x.md': designWith(rows) })), [], rows);
+});
+
+// Review of 3.75.5 (m1, m2).
+
+test('m1: light and dark themes may give a token two values under their own sub-headings', () => {
+  const themed = designWith('| --space | 8px | |').replace('## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n| --space | 8px | |',
+    '## Brand tokens\n\n### Light\n\n| Token | Value |\n|---|---|\n| --bg | #fff |\n\n### Dark\n\n| Token | Value |\n|---|---|\n| --bg | #000 |');
+  assert.deepEqual(conflicts(lint({ 'docs/design/DESIGN-x.md': themed })), []);
+});
+
+test('m2: "No test yet" and "not handled" are noes; an escaped pipe does not shift the columns', () => {
+  for (const row of ['| cursor.advance | read failed | not handled | No test yet | nothing | no |',
+                     '| cursor.advance | retry \\| timeout | no | — | nothing | no |']) {
+    assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row + '\n') })), ['error-path-unmarked'], row);
+  }
+  const named = EP + '| cursor.advance | read failed | raise ReadFailed | cursor.test#readFailed | "retry" | yes |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', named) })), []);
+});
+
+test('m2: a test whose name starts with not-, none_ or no. is a test, not a "no"', () => {
+  for (const t of ['not-found.spec#readFailed', 'none_path.test', 'no.empty.test#cursor']) {
+    const row = `| cursor.advance | read failed | no | ${t} | nothing | no |\n`;
+    assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row) })), [], t);
+  }
+  const row = '| cursor.advance | read failed | no | Not yet. | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', EP + row) })), ['error-path-unmarked']);
+});
+
+test('N2/N3: bold **no** is a no; a non-theme sub-heading does not hide a conflict', () => {
+  const bold = EP + '| read | 5xx | **no** | **no** | nothing | no |\n';
+  assert.deepEqual(epKinds(lint({ 'docs/architecture/ARCH-a.md': archEP('2026-11-01', bold) })), ['error-path-unmarked']);
+  const cards = designWith('| --space | 8px | |').replace('## Brand tokens\n\n| Token | Value | Note |\n|---|---|---|\n| --space | 8px | |',
+    '## Brand tokens\n\n### Global\n\n| Token | Value |\n|---|---|\n| --radius | 0px |\n\n### Cards\n\n| Token | Value |\n|---|---|\n| --radius | 8px |');
+  assert.equal(conflicts(lint({ 'docs/design/DESIGN-x.md': cards })).length, 1);
+});

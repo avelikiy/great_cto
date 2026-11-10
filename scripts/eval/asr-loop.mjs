@@ -24,6 +24,7 @@
 import { readFileSync, existsSync, appendFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const DEFAULT_SUITE = join(HERE, '..', '..', 'tests', 'eval', 'security', 'asr-suite.jsonl');
@@ -130,4 +131,4 @@ async function main() {
   if (phase === 'candidate' && verdict === 'REJECT') process.exit(1);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

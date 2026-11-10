@@ -29,6 +29,7 @@
  *   node scripts/lib/eval-status.mjs --stale-days 14
  */
 
+import { isMainModule } from './is-main.mjs';
 export const STATES = Object.freeze({
   PASSING: 'passing',
   FAILING: 'failing',
@@ -232,6 +233,6 @@ async function main(argv) {
   return strict && sum.failing ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

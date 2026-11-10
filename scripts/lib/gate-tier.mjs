@@ -18,7 +18,7 @@
 // Thirty evals clear the interval. Only some of those may drop a gate, and the
 // three cuts are mechanical rather than judgement:
 //
-//   - `sharedExpanded` non-empty: the harness inlined `_shared` contracts into
+//   - `sharedExpanded` non-empty: the harness inlined shared contracts into
 //     the actor's prompt, so the agent was handed something it may never fetch
 //     on a live run. On 2026-08-07 architect did not fetch the one whose command
 //     sat verbatim in its own file. An eval that inlines the handoff measures an
@@ -41,6 +41,7 @@
  * the machine, costs money, or cannot be undone needs a human in the loop, and
  * "it scored well" is not the same as "a human decided".
  */
+import { isMainModule } from './is-main.mjs';
 export const CLASS_A = Object.freeze(['devops', 'infra-provisioner']);
 
 /** The run shape a tier decision may be based on. Anything else is not evidence. */
@@ -243,7 +244,7 @@ export async function notifyOnlyForProject(cwd = process.cwd()) {
 // Prints who qualifies and, for everyone else, the specific reason — because
 // "inconclusive" and "fixture-inlined" are different work.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync, existsSync } = await import('node:fs');
   const { join, dirname } = await import('node:path');
   const { fileURLToPath } = await import('node:url');

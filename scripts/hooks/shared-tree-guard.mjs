@@ -36,6 +36,7 @@
 import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { readFileSync } from 'node:fs';
 import { simpleCommands, gitParts } from '../lib/shell-commands.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 // ── Classifier: one simple command → the rule it breaks, if any ──────────────
 
@@ -122,4 +123,4 @@ export function run(raw, env = process.env) {
   return deny({ guard: 'shared-tree', tag: 'shared-tree', reason: blockReason(hit) });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdinOnce()));
+if (isMainModule(import.meta.url)) emit(run(readStdinOnce()));

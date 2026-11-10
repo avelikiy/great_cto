@@ -120,7 +120,7 @@ emit RFC_OVERDUE "$(_s_rfc_overdue)"
 
 _s_on_call() {
 # On-call
-[ -f ".great_cto/oncall-schedule.md" ] && grep "^Current:" .great_cto/oncall-schedule.md | head -5 || echo "oncall: not configured"
+ONCALL=$(grep "^Current:" .great_cto/oncall-schedule.md 2>/dev/null | head -5); echo "${ONCALL:-oncall: not configured}"
 }
 emit ON_CALL "$(_s_on_call)"
 
@@ -135,7 +135,7 @@ _s_health() {
 bd list --status open --priority 2 2>/dev/null | wc -l
 tail -5 .great_cto/perf-baseline.log 2>/dev/null || echo "NO_BASELINE"
 ls .great_cto/retrospectives/*.md 2>/dev/null | sort | tail -1 | xargs grep -h "What slowed down:" 2>/dev/null | sort | uniq -c | sort -rn | head -3
-ls docs/audits/AUDIT-*.md 2>/dev/null | sort -V | tail -1 || echo "NO_AUDIT"
+A=$(ls docs/audits/AUDIT-*.md 2>/dev/null | sort -V | tail -1); echo "${A:-NO_AUDIT}"
 }
 emit HEALTH "$(_s_health)"
 
@@ -589,7 +589,7 @@ UNOWNED_URGENT=$(bd list --status open 2>/dev/null | grep -E 'P[01]' | grep -v '
 # Tasks older than 60 days
 STALE_TASKS=0
 if [ -f .beads/tasks.db ] || command -v bd >/dev/null 2>&1; then
-  STALE_TASKS=$(bd list --status open --older-than 60d 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+  STALE_TASKS=$(bd list --status open --older-than 60d 2>/dev/null | wc -l | tr -d ' '); STALE_TASKS=${STALE_TASKS:-0}
 fi
 
 if [ "$OPEN_TASKS" -gt 100 ] || [ "$DUP_COUNT" -gt 0 ] || [ "$UNOWNED_URGENT" -gt 2 ] || [ "$STALE_TASKS" -gt 10 ]; then

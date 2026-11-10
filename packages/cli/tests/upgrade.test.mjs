@@ -1,63 +1,60 @@
-// Tests for upgrade.ts — force re-clone companion plugins + apply overlays.
-//
-// HOME is redirected to a tmpdir before any module is imported so that
-// upgradeAll() targets an isolated cache instead of the real ~/.claude.
-// This prevents tests from mutating the developer's installed plugins.
-//
-// Run: npm run build && node --test tests/upgrade.test.mjs
+// Consumer admission refusals use isolated children, never the operator's HOME.
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
-import { mkdtempSync, mkdirSync } from "node:fs";
-import { tmpdir, homedir } from "node:os";
-import { join } from "node:path";
-import { test } from "node:test";
-import assert from "node:assert/strict";
-
-// ── Isolate HOME before importing any module that uses homedir() ───────────
-// upgrade.ts and overlay.ts both call homedir() inside functions, so setting
-// HOME here (before the dynamic imports below) ensures they see the fake HOME.
-const fakeHome = mkdtempSync(join(tmpdir(), "gc-upgrade-home-"));
-const realHome = process.env.HOME;
-process.env.HOME = fakeHome;
-process.env.USERPROFILE = fakeHome; // Windows
-
-// ── Module imports (must come AFTER HOME is set) ────────────────────────────
-const { upgradeAll } = await import("../dist/upgrade.js");
-const { COMPANION_PLUGINS } = await import("../dist/companion.js");
-
-// ── Tests ────────────────────────────────────────────────────────────────────
-
-test("COMPANION_PLUGINS has superpowers and beads", () => {
-  const names = COMPANION_PLUGINS.map((p) => p.name);
-  assert.ok(names.includes("superpowers"), "missing superpowers");
-  assert.ok(names.includes("beads"), "missing beads");
-});
-
-test("upgradeAll returns one result per companion plugin (isolated HOME)", async () => {
-  // With an empty fake HOME, no plugins are installed.
-  // upgradeAll will try ls-remote (may succeed or skip if no network/git).
-  // All results must have a valid status — "skipped" is acceptable.
-  const results = await upgradeAll();
-  assert.equal(results.length, COMPANION_PLUGINS.length);
-  for (const r of results) {
-    assert.ok(
-      ["upgraded", "already_latest", "skipped"].includes(r.status),
-      `unexpected status '${r.status}' for ${r.name}`,
-    );
-    assert.ok(typeof r.name === "string" && r.name.length > 0);
-    assert.ok(typeof r.fromVersion === "string");
-    assert.ok(typeof r.toVersion === "string");
+const dist = path.resolve(import.meta.dirname, '../dist');
+function fixture(t, installed = true) {
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gc-upgrade-refusal-')));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const home = path.join(root, 'home'); fs.mkdirSync(home);
+  const settings = path.join(home, '.claude/settings.json'); fs.mkdirSync(path.dirname(settings), { recursive: true }); fs.writeFileSync(settings, '{"enabledPlugins":{"existing@local":true}}\n');
+  if (installed) for (const name of ['superpowers', 'beads']) {
+    const dir = path.join(home, '.claude/plugins/cache/local', name, '1.0.0'); fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, 'keep.md'), 'operator bytes\n');
   }
-});
-
-test("upgradeAll result names match COMPANION_PLUGINS names", async () => {
-  const results = await upgradeAll();
-  const resultNames = results.map((r) => r.name).sort();
-  const pluginNames = COMPANION_PLUGINS.map((p) => p.name).sort();
-  assert.deepEqual(resultNames, pluginNames);
-});
-
-test("upgradeAll does not touch real HOME", () => {
-  // Verify HOME was not restored mid-test (sanity check)
-  assert.equal(process.env.HOME, fakeHome, "HOME must still point to tmpdir");
-  assert.notEqual(fakeHome, realHome, "fakeHome must differ from real HOME");
+  const bin = path.join(root, 'bin'), calls = path.join(root, 'git-calls'); fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'git'), '#!/bin/sh\nprintf "called\\n" >> "$CALLS_FILE"\nexit 1\n', { mode: 0o755 });
+  return { root, home, calls, env: { ...process.env, HOME: home, USERPROFILE: home, PATH: bin + path.delimiter + process.env.PATH, CALLS_FILE: calls, GREAT_CTO_NO_UPDATE_CHECK: '1', GREAT_CTO_UPDATE_CHECK_NO_SPAWN: '1', GREAT_CTO_TELEMETRY: 'off' } };
+}
+function inventory(root) {
+  const result = [];
+  function walk(dir) { for (const name of fs.readdirSync(dir).sort()) {
+    const file = path.join(dir, name), stat = fs.lstatSync(file), relative = path.relative(root, file);
+    if (stat.isDirectory()) { result.push([relative, 'directory']); walk(file); }
+    else result.push([relative, fs.readFileSync(file).toString('base64')]);
+  } }
+  walk(root); return result;
+}
+for (const installed of [false, true]) for (const route of ['upgradePlugin', 'upgradeAll', 'installCompanionPlugin', 'installAllCompanions']) {
+  test(`${route} refuses ${installed ? 'existing' : 'missing'} companions before process, cache, settings or overlays`, t => {
+    const f = fixture(t, installed), before = inventory(f.home);
+    const source = `import cp from 'node:child_process'; import {syncBuiltinESMExports} from 'node:module';
+      let calls=0; cp.execFileSync=cp.spawnSync=()=>{calls++;throw Error('forbidden process before admission')}; syncBuiltinESMExports();
+      const c=await import(process.argv[1]);
+      const u=await import(process.argv[2]);
+      const route=process.argv[3]; const plugin=c.COMPANION_PLUGINS[0];
+      const result=route==='upgradePlugin'?await u.upgradePlugin(plugin):route==='upgradeAll'?await u.upgradeAll():route==='installCompanionPlugin'?c.installCompanionPlugin(plugin):c.installAllCompanions();
+      process.stdout.write(JSON.stringify({calls,result}));`;
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', source,
+      pathToFileURL(path.join(dist, 'companion.js')).href, pathToFileURL(path.join(dist, 'upgrade.js')).href, route], { env: f.env, encoding: 'utf8', timeout: 10000 });
+    assert.equal(child.status, 0, child.stderr);
+    const value = JSON.parse(child.stdout); assert.equal(value.calls, 0);
+    const results = Array.isArray(value.result) ? value.result : [value.result];
+    assert.equal(results.length, route.endsWith('All') || route === 'installAllCompanions' ? 2 : 1);
+    for (const result of results) { assert.equal(result.status, 'skipped'); assert.match(result.reason, /UNSUPPORTED.*admission/i); }
+    assert.deepEqual(inventory(f.home), before);
+  });
+}
+for (const target of [null, 'superpowers', 'beads']) test(`CLI upgrade ${target ?? '(default)'} fails closed without mutation or git`, t => {
+  const f = fixture(t), before = inventory(f.home);
+  const child = spawnSync(process.execPath, [path.join(dist, 'main.js'), 'upgrade', ...(target ? [target] : []), '--no-telemetry'], { env: f.env, encoding: 'utf8', timeout: 10000 });
+  assert.equal(child.status, 1, child.stdout + child.stderr);
+  assert.match(child.stdout + child.stderr, /UNSUPPORTED.*admission/i);
+  assert.equal(fs.existsSync(f.calls), false);
+  assert.deepEqual(inventory(f.home), before);
 });

@@ -103,6 +103,17 @@ test('step() keeps the command\'s own exit status through the tee', () => {
   assert.match(r.stdout, /RESULT FAIL=1 SKIP_TOTAL=0/);
 });
 
+test('step() prints how long the step took and keeps it for the slowest-steps summary', () => {
+  const r = runStep(`step "lib tests" bash -c 'exit 0'\nprintf "%b" "$STEP_TIMES"`);
+  assert.match(r.stdout, /✓ lib tests · \d+s/);
+  assert.match(r.stdout, /^\d+\tlib tests$/m);
+});
+
+test('a missing Allure counts as not checked, never as a passed report', () => {
+  assert.match(GATE, /allure is not installed \(npm ci\) — not checked/);
+  assert.match(GATE, /allure is not installed[\s\S]{0,120}SKIP_TOTAL=\$\(\(SKIP_TOTAL \+ 1\)\)/);
+});
+
 test('the exit status survives the tee even without pipefail', () => {
   // ci-local sets pipefail, under which `$?` of the pipeline would also be right.
   // PIPESTATUS[0] does not depend on it, and does not report a failing tee as the

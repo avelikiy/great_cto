@@ -42,7 +42,7 @@ echo "Sessions: $SESSION_COUNT"
 cat .great_cto/lessons.md 2>/dev/null || echo "(no lessons yet)"
 
 # Read cross-project decisions
-cat ~/.great_cto/decisions.md 2>/dev/null | head -200 || echo "(none)"
+D=$(head -200 ~/.great_cto/decisions.md 2>/dev/null); [ -n "$D" ] && printf '%s\n' "$D" || echo "(none)"
 
 # Find patterns that appear in ≥3 sessions
 grep -h "^## pattern:" .great_cto/logs/session-*-end.md 2>/dev/null | sort | uniq -c | sort -rn | head -20

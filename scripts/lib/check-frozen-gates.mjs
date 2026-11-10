@@ -19,6 +19,7 @@
  */
 
 import { execFileSync } from 'node:child_process';
+import { isMainModule } from './is-main.mjs';
 
 const GATE_DIR_DEFAULT = 'docs/gates';
 
@@ -84,4 +85,4 @@ function main() {
   if (!json) console.log(`✓ frozen gates intact (${dir})`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

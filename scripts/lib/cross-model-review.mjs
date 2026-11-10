@@ -14,7 +14,6 @@
 //   GREAT_CTO_CROSS_REVIEW_MODEL=google/gemini-2.5-pro node ... --diff -
 
 import { readFileSync, lstatSync, openSync, closeSync, fstatSync, readSync, constants } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { costForUsage, round4, resolvePrice } from './cost-meter.mjs';
 import { resolveSecondOpinion, codexReview } from './second-opinion.mjs';
@@ -22,6 +21,7 @@ import { principalError } from './provider-exhaustion.mjs';
 import { existsSync, appendFileSync, mkdirSync } from 'node:fs';
 import { join, resolve, parse, sep } from 'node:path';
 import { reviewInputBinding, parseLegacyReview } from './review-contract.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Exit codes. The first version had two: 0 for PASS and 1 for everything else —
@@ -34,9 +34,14 @@ import { reviewInputBinding, parseLegacyReview } from './review-contract.mjs';
 export const EXIT = Object.freeze({ PASS: 0, BLOCK: 1, USAGE: 2, SKIPPED: 3 });
 
 /**
- * Which provider reviews, decided from three sources in a fixed order:
- * an explicit `--provider`, then the project's `capabilities: second_opinion`,
- * then — for compatibility with every script that set it — the OpenRouter env.
+ * Which provider reviews, decided from two sources in a fixed order:
+ * an explicit `--provider`, then the project's `capabilities: second_opinion`.
+ *
+ * An exported OPENROUTER_API_KEY used to be a third source: with nothing
+ * declared, the key chose OpenRouter and the diff left the machine without
+ * anyone deciding it should (CSO SEC-2, 27.10). The key is a credential, not a
+ * decision — undeclared stays undeclared, and the skip line names the
+ * declaration that would turn the review on.
  *
  * Returns the resolver's four states plus `source`, so the log line can say
  * why this provider and not another. Pure: `codex` and `env` are injected.
@@ -48,9 +53,9 @@ export function decideProvider({ argv = [], projectMd = '', codex = null, env = 
     return { ...r, source: '--provider' };
   }
   const fromProject = resolveSecondOpinion({ projectMd, codex, env });
-  if (fromProject.state !== 'undeclared') return { ...fromProject, source: 'PROJECT.md' };
-  if (env.OPENROUTER_API_KEY) {
-    return { state: 'declared', provider: 'openrouter', why: '', source: 'OPENROUTER_API_KEY (second_opinion undeclared)' };
+  if (fromProject.state === 'undeclared' && env.OPENROUTER_API_KEY) {
+    return { ...fromProject, source: 'PROJECT.md',
+      why: `${fromProject.why}; OPENROUTER_API_KEY is set but does not choose the provider — declare \`second_opinion: openrouter\` or pass --provider openrouter` };
   }
   return { ...fromProject, source: 'PROJECT.md' };
 }
@@ -328,5 +333,5 @@ async function main(argv) {
   process.exit(verdict === 'BLOCK' ? EXIT.BLOCK : EXIT.PASS);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2)).catch(e => { console.error('FATAL:', e.message); process.exit(EXIT.SKIPPED); });

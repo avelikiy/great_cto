@@ -19,6 +19,7 @@ import { usageReports } from './usage-report.mjs';
 import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
+import { INSTANT_TRIGGERS } from './instant-alerts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
 
@@ -45,7 +46,8 @@ import { readVerdicts } from './verdicts.mjs';
 import { parseAgentBudgets, upsertAgentBudget, removeAgentBudget } from '../../../scripts/lib/agent-budget.mjs';
 import { resolveSecondOpinion, SECOND_OPINION_PROVIDERS } from '../../../scripts/lib/second-opinion.mjs';
 import { detectCodex } from '../../../scripts/lib/codex-exec.mjs';
-import { getWork } from './work.mjs';
+import { getWork, getHostGraphPage } from './work.mjs';
+import { readinessFor, readGateQueue, startGate } from './merge-readiness.mjs';
 let publicationPreviewBusy = false;
 let publicationWriteBusy = false;
 import { publicationTickets, localPublicationOrigin } from './publication-tickets.mjs';
@@ -135,7 +137,7 @@ async function dispatch(req, res, url, cwd) {
 
   // Existing synchronous projections may consume a completed snapshot, but
   // HTTP cold reads must await async I/O instead of freezing unrelated clients.
-  const taskRead = ['/api/work', '/api/sse', '/api/tasks', '/api/metrics',
+  const taskRead = ['/api/work', '/api/work/readiness', '/api/sse', '/api/tasks', '/api/metrics',
     '/api/memory', '/api/pipeline', '/api/heartbeat', '/api/share', '/api/cost', '/api/resume'].includes(pathname)
     || /^\/api\/tasks\/[^/]+\/history$/.test(pathname);
   const unknownWork = pathname === '/api/work' && requestedProject
@@ -237,7 +239,38 @@ async function dispatch(req, res, url, cwd) {
     return true;
   }
 
+  if (pathname === '/api/host-graph') {
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
+      res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Unknown project' })); return true;
+    }
+    if (req.method !== 'GET') { res.writeHead(405, { Allow: 'GET' }); res.end(); return true; }
+    try {
+      const graph = getHostGraphPage(cwd, { host: url.searchParams.get('host'), sessionId: url.searchParams.get('session'),
+        runId: url.searchParams.get('run'), cursor: url.searchParams.get('cursor') });
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(graph));
+    } catch { res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify({ error: 'Bound graph page is unavailable' })); }
+    return true;
+  }
+
   // New read model refuses project fallback rather than relabeling another project.
+  // The merge-readiness card (design v12). `task` is a Work entry key; the branch and
+  // its worktree are resolved from that entry, never taken from the request.
+  if (pathname === '/api/work/readiness' || pathname === '/api/work/readiness/run-gate') {
+    const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }); res.end(JSON.stringify(body)); };
+    if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') { send(404, { error: 'Unknown project' }); return true; }
+    const running = pathname.endsWith('/run-gate');
+    if (req.method !== (running ? 'POST' : 'GET')) { send(405, { error: 'Method not allowed' }); return true; }
+    if (running && !originAllowed(req)) { send(403, { error: 'origin not allowed' }); return true; }
+    const entry = getWork(cwd).entries.find((e) => e.key === url.searchParams.get('task'));
+    if (!entry) { send(404, { error: 'Unknown task' }); return true; }
+    try {
+      if (running) { const { status, ...body } = await startGate(cwd, entry); send(status, body); return true; }
+      const tasks = getTasks(cwd);
+      send(200, await readinessFor(cwd, entry, { tasks: Array.isArray(tasks) ? tasks : null, gateQueue: readGateQueue(cwd) }));
+    } catch (err) { send(500, { error: String(err?.message || err) }); }
+    return true;
+  }
+
   if (pathname === '/api/work') {
     if (requestedProject && resolveProjectInfo(requestedProject).resolved === 'fallback') {
       res.writeHead(404, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
@@ -313,8 +346,14 @@ async function dispatch(req, res, url, cwd) {
     let body = '';
     req.on('data', c => body += c);
     req.on('end', () => {
+      let parsed;
+      try { parsed = JSON.parse(body || '{}'); } catch (e) {
+        // A body that is not JSON is the caller's mistake: 400, not a server crash.
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: 'invalid_json', message: String(e.message || e) }));
+      }
       try {
-        const { path: projPath } = JSON.parse(body || '{}');
+        const projPath = parsed && parsed.path;
         if (!projPath || typeof projPath !== 'string') {
           res.writeHead(400, { 'Content-Type': 'application/json' });
           return res.end(JSON.stringify({ error: 'path missing' }));
@@ -446,7 +485,7 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/notifications') {
     const NOTIFY_RELAY = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
     const stateFile = path.join(GREAT_CTO_DIR, 'notifications.json');
-    const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly'];
+    const KNOWN_TRIGGERS = ['incident.p0', 'gate.stale', 'gate.blocked', 'cost.threshold', 'digest.weekly', ...INSTANT_TRIGGERS];
     let state = { to: '', verified: false, enabled: false, triggers: [] };
     try { Object.assign(state, JSON.parse(fs.readFileSync(stateFile, 'utf8'))); } catch {}
 

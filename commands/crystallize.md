@@ -580,7 +580,7 @@ if [ "$EVAL_COUNT" -gt 0 ] && [ -n "$ANTHROPIC_API_KEY" ]; then
   echo "Running baseline eval for $TARGET_AGENT ($EVAL_COUNT files)..."
   BEFORE_SCORE=$(cd "$REPO_DIR" && node tests/eval/runner.mjs \
     --filter "$EVAL_PATTERN" --dry-run 2>/dev/null | grep "pass rate" | \
-    grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "no-eval")
+    grep -oE '[0-9]+\.[0-9]+' | head -1); BEFORE_SCORE=${BEFORE_SCORE:-no-eval}
   echo "Baseline score: ${BEFORE_SCORE:-no-eval}"
 else
   BEFORE_SCORE="no-eval"
@@ -619,7 +619,7 @@ if [ -n "$ANTHROPIC_API_KEY" ] && [ "$EVAL_COUNT" -gt 0 ]; then
   echo "Running post-change eval..."
   AFTER_SCORE=$(cd "$REPO_DIR" && node tests/eval/runner.mjs \
     --filter "$EVAL_PATTERN" --dry-run 2>/dev/null | grep "pass rate" | \
-    grep -oE '[0-9]+\.[0-9]+' | head -1 || echo "no-eval")
+    grep -oE '[0-9]+\.[0-9]+' | head -1); AFTER_SCORE=${AFTER_SCORE:-no-eval}
 else
   AFTER_SCORE="no-eval"
 fi

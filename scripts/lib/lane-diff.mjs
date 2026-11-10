@@ -38,6 +38,7 @@ import { readFileSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 import { parseWpl, lanesFromWpl } from './wpl.mjs';
 import { fileInClaim } from './check-lane-overlap.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const EXIT = Object.freeze({ INSIDE: 0, STRAY: 1, USAGE: 2, NOT_CHECKED: 3 });
 
@@ -114,7 +115,7 @@ export function changedFiles({ cwd = process.cwd(), base = 'HEAD' } = {}) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const arg = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : undefined; };
   const flags = new Set(['--lane', '--base', '--cwd', '--files']);

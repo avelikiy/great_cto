@@ -15,14 +15,22 @@ import { reviewInputBinding } from '../../scripts/lib/review-contract.mjs';
 const SCRIPT = path.resolve(import.meta.dirname, '../../scripts/lib/cross-model-review.mjs');
 const AVAILABLE = { state: 'available', version: '0.153.4', auth: 'chatgpt', model: 'gpt-5.6-terra', why: '' };
 
-test('--provider wins, then PROJECT.md, then the OpenRouter env — and each says which', () => {
+test('--provider wins, then PROJECT.md — and each says which', () => {
   const md = 'capabilities:\n  second_opinion: codex\n';
   assert.equal(decideProvider({ argv: ['--provider', 'openrouter'], projectMd: md, env: { OPENROUTER_API_KEY: 'k' } }).source, '--provider');
   const p = decideProvider({ projectMd: md, codex: AVAILABLE, env: {} });
   assert.equal(p.provider, 'codex'); assert.equal(p.source, 'PROJECT.md');
-  const e = decideProvider({ projectMd: '', env: { OPENROUTER_API_KEY: 'k' } });
-  assert.equal(e.provider, 'openrouter'); assert.match(e.source, /OPENROUTER_API_KEY/);
   assert.equal(decideProvider({ projectMd: '', env: {} }).state, 'undeclared');
+});
+
+// CSO SEC-2 (27.10): an exported key used to choose the provider when the project
+// had not, and the diff left the machine without anyone deciding it should.
+test('an OpenRouter key alone does not send the diff anywhere: undeclared stays undeclared', () => {
+  const e = decideProvider({ projectMd: '', env: { OPENROUTER_API_KEY: 'k' } });
+  assert.equal(e.state, 'undeclared'); assert.equal(e.provider, null);
+  assert.match(e.why, /second_opinion: openrouter/, 'the skip line names the declaration that would enable it');
+  const declared = decideProvider({ projectMd: 'capabilities:\n  second_opinion: openrouter\n', env: { OPENROUTER_API_KEY: 'k' } });
+  assert.equal(declared.state, 'declared'); assert.equal(declared.provider, 'openrouter');
 });
 
 test('the exit codes are three distinct numbers, and SKIPPED is not PASS', () => {
@@ -57,6 +65,14 @@ function fakeCodex(dir, lines) {
   chmodSync(bin, 0o755);
   return bin;
 }
+// A home of its own, with a Codex login in it. detectCodex reads ~/.codex/auth.json,
+// so these tests passed or failed with the machine's Codex login: on 2026-10-31 the
+// operator's Codex was logged out and eight of them went red on every branch, main
+// included, while the fake binary they point at had nothing to do with it.
+const HOME = mkdtempSync(path.join(tmpdir(), 'gc-xr-home-'));
+projectRoots.add(HOME);
+mkdirSync(path.join(HOME, '.codex'));
+writeFileSync(path.join(HOME, '.codex', 'auth.json'), JSON.stringify({ auth_mode: 'chatgpt' }));
 function run(dir, extra = [], env = {}, diffText = '--- a/x.js\n+++ b/x.js\n@@ -1 +1 @@\n-1\n+2\n') {
   const diff = path.join(dir, 'd.diff'); writeFileSync(diff, diffText);
   const home = mkdtempSync(path.join(dir, 'synthetic-home-'));
@@ -86,6 +102,16 @@ test('nothing declared and no key: SKIPPED with its own exit code, and the log s
   assert.match(r.stdout, /not declared is not none/);
   const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
   assert.equal(last.state, 'undeclared'); assert.equal(last.verdict, null);
+});
+
+test('nothing declared but a key exported: still SKIPPED, the diff is not sent', () => {
+  const dir = project('capabilities:\n  logs: loki\n');
+  const r = run(dir, [], { OPENROUTER_API_KEY: 'example-synthetic-key', HTTPS_PROXY: 'http://127.0.0.1:9' });
+  assert.equal(r.status, EXIT.SKIPPED, r.stdout + r.stderr);
+  assert.match(r.stdout, /SKIPPED \(undeclared\)/);
+  assert.match(r.stdout, /second_opinion: openrouter/);
+  const last = JSON.parse(readFileSync(path.join(dir, '.great_cto', 'cross-review.log'), 'utf8').trim().split('\n').at(-1));
+  assert.equal(last.state, 'undeclared'); assert.equal(last.provider, null); assert.equal(last.cost, null);
 });
 
 test('codex declared but the binary is dead: SKIPPED, not PASS and not BLOCK', () => {
@@ -229,6 +255,9 @@ import fs from 'node:fs'; import path from 'node:path';
 let text = ''; for await (const chunk of process.stdin) { text += chunk; if (Buffer.byteLength(text) > 131072) throw Error('fixture-input-too-large'); }
 const {dir} = JSON.parse(text), operatorRoot = path.join(dir, 'operator');
 let elapsed = 0, posts = 0; Object.defineProperty(performance, 'now', { value: () => elapsed });
+// The deadline is the injected clock above; a real timer of the same length would also
+// fire whenever this child is slower than that in wall time (great_cto-lkbb).
+const schedule = globalThis.setTimeout; globalThis.setTimeout = (cb, ms, ...a) => { const h = schedule(cb, ms >= 1000 ? 2147483647 : ms, ...a); if (ms >= 1000) h.unref?.(); return h; };
 const rename = fs.renameSync; fs.renameSync = (...args) => { const r = rename(...args); if (String(args[1]).endsWith('/report.json')) elapsed = 1000; return r; };
 const {runProfileReview} = await import(process.argv[1]);
 const model = 'moonshotai/kimi-k3.1-pro', canonical = model + '-20261023', tag = 'moonshotai/mxfp4';

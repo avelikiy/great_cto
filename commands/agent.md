@@ -670,9 +670,9 @@ fi
 
 # Check archetype dependencies
 echo "### Archetype usage"
-grep -l "applies_to:.*$AGENT_NAME" agents/*.md packages/cli/src/archetypes.ts 2>/dev/null | head -5 || \
-  grep -l "$AGENT_NAME" packages/cli/src/archetypes.ts 2>/dev/null | head -3 || \
-  echo "- Not directly referenced by archetype rules ✓ safe to retire"
+REFS=$(grep -l "applies_to:.*$AGENT_NAME" agents/*.md packages/cli/src/archetypes.ts 2>/dev/null | head -5)
+[ -n "$REFS" ] || REFS=$(grep -l "$AGENT_NAME" packages/cli/src/archetypes.ts 2>/dev/null | head -3)
+[ -n "$REFS" ] && printf '%s\n' "$REFS" || echo "- Not directly referenced by archetype rules ✓ safe to retire"
 ```
 
 ### Step 3 — Confirmation prompt (interactive)

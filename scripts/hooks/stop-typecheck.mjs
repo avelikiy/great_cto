@@ -45,6 +45,7 @@ import { spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { join, dirname, resolve, relative, extname, delimiter, isAbsolute } from 'node:path';
 import { sessionKey, stateDir, listPath, isActive, readList } from './typecheck-accumulate.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 export const MAX_LINES = 15;
 const TS_EXTS = new Set(['.ts', '.tsx', '.mts', '.cts']);
@@ -245,6 +246,6 @@ export async function main() {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main().then((c) => { process.exitCode = c; }, () => { process.exitCode = 0; });
 }

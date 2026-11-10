@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { runPinnedPackageSmoke, smokeProcessDiagnostic } from '../../scripts/lib/pinned-package-smoke.mjs';
+import { runPinnedPackageSmoke, smokeProcessDiagnostic, runProgressWatchedProcess, PROBE_STALL_MS, PROBE_HARD_MS } from '../../scripts/lib/pinned-package-smoke.mjs';
 import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
 import { runtimeImportClosure } from '../../packages/cli/scripts/runtime-import-closure.mjs';
@@ -78,14 +78,14 @@ test('archive writer retains private timeout and nonzero evidence without echoin
     });
   }
 });
-test('actual published-layout CLI runs twice in private isolated store without lifecycle script', t => {
+test('actual published-layout CLI runs twice in private isolated store without lifecycle script', async t => {
   const f = fixture(t, { code: "if(process.env.PACKAGE_SMOKE_TEST_SENTINEL) throw Error('inherited environment');\n" + entry });
   assert.equal(JSON.parse(readFileSync(join(f.writerRoot, 'writer-progress.json'))).stage, 'archive-write-complete');
   const priorOptions = process.env.NODE_OPTIONS, priorSentinel = process.env.PACKAGE_SMOKE_TEST_SENTINEL;
   let report;
   try {
     process.env.NODE_OPTIONS = '--import=/nonexistent-smoke-preload.mjs'; process.env.PACKAGE_SMOKE_TEST_SENTINEL = randomUUID();
-    report = runPinnedPackageSmoke(f.options);
+    report = await runPinnedPackageSmoke(f.options);
   } finally {
     if (priorOptions === undefined) delete process.env.NODE_OPTIONS; else process.env.NODE_OPTIONS = priorOptions;
     if (priorSentinel === undefined) delete process.env.PACKAGE_SMOKE_TEST_SENTINEL; else process.env.PACKAGE_SMOKE_TEST_SENTINEL = priorSentinel;
@@ -102,16 +102,16 @@ test('actual published-layout CLI runs twice in private isolated store without l
   assert.equal(statSync(join(report.evidenceRoot, 'process-diagnostics.json')).mode & 0o777, 0o600);
   assert.equal(existsSync(f.marker), false);
 });
-test('wrong byte pin and symlink archive are refused before extraction', t => {
+test('wrong byte pin and symlink archive are refused before extraction', async t => {
   const f = fixture(t);
-  assert.throws(() => runPinnedPackageSmoke({ ...f.options, artifactSha256: 'a'.repeat(64) }), /byte pin mismatch/);
+  await assert.rejects(() => runPinnedPackageSmoke({ ...f.options, artifactSha256: 'a'.repeat(64) }), /byte pin mismatch/);
   const link = `${f.options.artifactFile}.link`; symlinkSync(f.options.artifactFile, link);
-  assert.throws(() => runPinnedPackageSmoke({ ...f.options, artifactFile: link }), /noncanonical/);
+  await assert.rejects(() => runPinnedPackageSmoke({ ...f.options, artifactFile: link }), /noncanonical/);
   assert.equal(existsSync(f.marker), false);
 });
-test('actual missing extractor executable records spawn error without granting smoke proof', t => {
+test('actual missing extractor executable records spawn error without granting smoke proof', async t => {
   const f = fixture(t);
-  assert.throws(() => runPinnedPackageSmoke({ ...f.options, pythonBin: join(f.options.artifactFile, 'missing-python') }), error => {
+  await assert.rejects(() => runPinnedPackageSmoke({ ...f.options, pythonBin: join(f.options.artifactFile, 'missing-python') }), error => {
     f.clean(error.evidenceRoot);
     const diagnostic = JSON.parse(readFileSync(join(error.evidenceRoot, 'extraction-diagnostics.json')));
     assert.equal(diagnostic.errorCode, 'ENOTDIR'); assert.equal(diagnostic.outcome, 'process-error');
@@ -120,14 +120,14 @@ test('actual missing extractor executable records spawn error without granting s
     return /extraction failed/.test(error.message);
   });
 });
-test('actual CLI timeout, output limit and signal retain distinct private diagnostics', { timeout: 45000 }, t => {
+test('actual CLI timeout, output limit and signal retain distinct private diagnostics', { timeout: 45000 }, async t => {
   for (const [code, outcome, errorCode, signal] of [
     ["setInterval(() => {}, 1000);", 'timeout', 'ETIMEDOUT', 'SIGTERM'],
     ["process.stdout.write('x'.repeat(256 * 1024));", 'output-limit', 'ENOBUFS', 'SIGTERM'],
     ["process.kill(process.pid, 'SIGTERM');", 'signalled', null, 'SIGTERM'],
   ]) {
     const f = fixture(t, { code });
-    assert.throws(() => runPinnedPackageSmoke(f.options), error => {
+    await assert.rejects(() => runPinnedPackageSmoke(f.options), error => {
       f.clean(error.evidenceRoot);
       const diagnostic = JSON.parse(readFileSync(join(error.evidenceRoot, 'process-diagnostics.json'))).processes.at(-1);
       assert.equal(diagnostic.outcome, outcome); assert.equal(diagnostic.errorCode, errorCode);
@@ -138,31 +138,31 @@ test('actual CLI timeout, output limit and signal retain distinct private diagno
     });
   }
 });
-test('traversal, duplicate, special, overlapping and oversized archive inventory refuses before execution', t => {
+test('traversal, duplicate, special, overlapping and oversized archive inventory refuses before execution', async t => {
   for (const extras of [[{ name: 'package/../outside', content: 'bad' }], [{ name: '/outside', content: 'bad' }],
     [{ name: 'package/index.mjs', content: 'duplicate' }], [{ name: 'package/link', type: 'symlink' }],
     [{ name: 'package/link', type: 'hardlink' }], [{ name: 'package/device', type: 'device' }],
     [{ name: 'package/nested', content: 'file' }, { name: 'package/nested/file', content: 'overlap' }],
     [{ name: 'package/huge', size: 9 * 1024 * 1024 }], [{ name: 'package/negative', size: -1 }]]) {
     const f = fixture(t, { extras });
-    assert.throws(() => runPinnedPackageSmoke(f.options), error => {
+    await assert.rejects(() => runPinnedPackageSmoke(f.options), error => {
       f.clean(error.evidenceRoot); assert.equal(existsSync(join(error.evidenceRoot, 'runs')), false);
       assert.equal(existsSync(f.marker), false); return /extraction failed/.test(error.message);
     });
   }
 });
-test('gzip expansion is bounded before tar metadata parsing', t => {
+test('gzip expansion is bounded before tar metadata parsing', async t => {
   const f = fixture(t, { bomb: true });
-  assert.throws(() => runPinnedPackageSmoke(f.options), error => { f.clean(error.evidenceRoot); return /extraction failed/.test(error.message); });
+  await assert.rejects(() => runPinnedPackageSmoke(f.options), error => { f.clean(error.evidenceRoot); return /extraction failed/.test(error.message); });
 });
-test('wrong version, non-JSON/unsafe listing, changed package and failed child do not become smoke proof', t => {
+test('wrong version, non-JSON/unsafe listing, changed package and failed child do not become smoke proof', async t => {
   for (const code of [entry.replace("console.log('9.0.0')", "console.log('8.0.0')"),
     entry.replace("state:'ok'", "state:'degraded'"), entry.replace('runs:[]', 'runs:[{}]'),
     entry.replace("console.log(JSON.stringify({state:'ok',runs:[],unreadable:0}))", "console.log('private fixture output')"),
     "import {writeFileSync} from 'node:fs'; writeFileSync(new URL('./extra',import.meta.url),'mutated');\n" + entry,
     "process.stderr.write('private fixture error');process.exit(7);"]) {
     const f = fixture(t, { code });
-    assert.throws(() => runPinnedPackageSmoke(f.options), error => {
+    await assert.rejects(() => runPinnedPackageSmoke(f.options), error => {
       f.clean(error.evidenceRoot); assert.doesNotMatch(error.message, /private fixture/);
       if (code.includes('process.exit(7)')) {
         const diagnostic = JSON.parse(readFileSync(join(error.evidenceRoot, 'process-diagnostics.json'))).processes.at(-1);
@@ -173,27 +173,29 @@ test('wrong version, non-JSON/unsafe listing, changed package and failed child d
     });
   }
 });
-test('malformed package metadata does not echo private content', t => {
+test('malformed package metadata does not echo private content', async t => {
   for (const rawMetadata of ['private fixture metadata', 'null', '[]']) {
     const f = fixture(t, { rawMetadata });
-    assert.throws(() => runPinnedPackageSmoke(f.options), error => {
+    await assert.rejects(() => runPinnedPackageSmoke(f.options), error => {
       f.clean(error.evidenceRoot); assert.doesNotMatch(error.message, /private fixture/); return /unsupported published/.test(error.message);
     });
   }
 });
 
-test('opt-in delivered controller probe runs the matrix in a separate private process', t => {
+test('opt-in delivered controller probe runs the matrix in a separate private process', async t => {
   const repo = fileURLToPath(new URL('../../', import.meta.url));
   const files = runtimeImportClosure(repo, [join(repo, 'scripts/lib/codex-pipeline.mjs')]);
   const extras = files.map(path => ({ name: `package/board/${relative(repo, path)}`, content: readFileSync(path, 'utf8') }));
   extras.push({ name: 'package/board/shared/pipeline.toml', content: readFileSync(join(repo, 'shared/pipeline.toml'), 'utf8') });
   const f = fixture(t, { extras, rawMetadata: JSON.stringify({ name: 'great-cto', version: '9.0.0', type: 'module', bin: { 'great-cto': 'index.mjs' } }) });
-  const report = runPinnedPackageSmoke({ ...f.options, controllerProbe: true }); f.clean(report.evidenceRoot);
+  const report = await runPinnedPackageSmoke({ ...f.options, controllerProbe: true }); f.clean(report.evidenceRoot);
   assert.equal(report.controllerAssets.cases.length, 12); assert.equal(report.controllerAssets.refusals.length, 8);
   const diagnostics = JSON.parse(readFileSync(join(report.evidenceRoot, 'controller-probe-diagnostics.json')));
   assert.ok(diagnostics.pid !== process.pid); assert.equal(diagnostics.exitCode, 0);
   assert.equal(diagnostics.outcome, 'exited-zero'); assert.equal(diagnostics.errorCode, null);
-  assert.equal(diagnostics.signal, null); assert.equal(diagnostics.timeoutMs, 30000);
+  assert.equal(diagnostics.signal, null); assert.equal(diagnostics.timeoutMs, null);
+  assert.equal(diagnostics.stallTimeoutMs, PROBE_STALL_MS); assert.equal(diagnostics.hardTimeoutMs, PROBE_HARD_MS);
+  assert.equal(diagnostics.watchdog, null);
   assert.equal(diagnostics.descendantQuiescenceVerified, false);
   const progressPath = join(report.evidenceRoot, 'fixtures/probe-progress.json');
   const progress = JSON.parse(readFileSync(progressPath));
@@ -210,7 +212,7 @@ test('opt-in delivered controller probe runs the matrix in a separate private pr
   assert.equal(report.controllerProbeProcess.pid, diagnostics.pid);
   assert.equal(existsSync(f.marker), false); assert.equal(report.benchmarkEligible, false);
   const missing = fixture(t);
-  assert.throws(() => runPinnedPackageSmoke({ ...missing.options, controllerProbe: true }), error => {
+  await assert.rejects(() => runPinnedPackageSmoke({ ...missing.options, controllerProbe: true }), error => {
     missing.clean(error.evidenceRoot); assert.doesNotMatch(error.message, /ERR_MODULE_NOT_FOUND|Cannot find module/);
     const diagnostic = JSON.parse(readFileSync(join(error.evidenceRoot, 'controller-probe-diagnostics.json')));
     assert.equal(diagnostic.outcome, 'nonzero-or-unknown'); assert.equal(diagnostic.exitCode, 1);
@@ -219,11 +221,54 @@ test('opt-in delivered controller probe runs the matrix in a separate private pr
       'missing plugin root is refused before progress file creation');
     return /packaged controller probe failed/.test(error.message);
   });
-  assert.throws(() => runPinnedPackageSmoke({ ...f.options, controllerProbe: 'yes' }), /must be boolean/);
+  await assert.rejects(() => runPinnedPackageSmoke({ ...f.options, controllerProbe: 'yes' }), /must be boolean/);
   const altered = fixture(t, { extras: extras.map(file => file.name.endsWith('/pipeline.toml')
     ? { ...file, content: file.content.replace('gate = ["gate:security", "gate:compliance", "gate:ship"]', 'gate = ["gate:ship"]') } : file),
     rawMetadata: JSON.stringify({ name: 'great-cto', version: '9.0.0', type: 'module', bin: { 'great-cto': 'index.mjs' } }) });
-  assert.throws(() => runPinnedPackageSmoke({ ...altered.options, controllerProbe: true }), error => {
+  await assert.rejects(() => runPinnedPackageSmoke({ ...altered.options, controllerProbe: true }), error => {
     altered.clean(error.evidenceRoot); return /packaged controller probe failed/.test(error.message);
   });
+});
+
+// The probe's limit is progress, not wall-clock: a loaded machine slows it, a hang stops it.
+// Children are /bin/sh, not node: their startup must not eat the stall window under load.
+function watched(t, script, limits) {
+  const dir = realpathSync(mkdtempSync(join(tmpdir(), 'progress-watchdog-')));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const progressPath = join(dir, 'progress');
+  return runProgressWatchedProcess('/bin/sh', ['-c', script], {
+    env: { PATH: '/usr/bin:/bin', PROGRESS: progressPath }, progressPath, pollMs: 50, ...limits });
+}
+test('slow but progressing probe outlives the stall window', async t => {
+  const result = await watched(t, 'i=0; while [ $i -lt 20 ]; do echo $i > "$PROGRESS"; i=$((i+1)); sleep 0.2; done; echo done',
+    { stallMs: 2000, hardMs: 60000 });
+  assert.equal(result.status, 0); assert.equal(result.error, null); assert.equal(result.watchdog, null);
+  assert.equal(result.stdout.trim(), 'done');
+  assert.equal(smokeProcessDiagnostic(result, { startedAt: 'fixture', elapsedMs: 4000 }).outcome, 'exited-zero');
+});
+test('probe that stops progressing fails closed as a stall timeout', async t => {
+  const start = performance.now();
+  const result = await watched(t, 'echo 1 > "$PROGRESS"; exec sleep 60', { stallMs: 1000, hardMs: 60000 });
+  assert.ok(performance.now() - start < 30000, 'stall is detected without waiting for the hard cap');
+  assert.equal(result.watchdog, 'stall'); assert.equal(result.signal, 'SIGTERM');
+  assert.equal(smokeProcessDiagnostic(result, { startedAt: 'fixture', elapsedMs: 1000 }).outcome, 'timeout');
+});
+test('probe that never writes progress fails closed as a stall timeout', async t => {
+  const result = await watched(t, 'exec sleep 60', { stallMs: 1000, hardMs: 60000 });
+  assert.equal(result.watchdog, 'stall'); assert.equal(result.error.code, 'ETIMEDOUT');
+});
+test('probe that progresses forever still hits the hard cap', async t => {
+  const result = await watched(t, 'i=0; while :; do i=$((i+1)); echo $i > "$PROGRESS"; sleep 0.05; done', { stallMs: 60000, hardMs: 1500 });
+  assert.equal(result.watchdog, 'wall');
+  assert.equal(smokeProcessDiagnostic(result, { startedAt: 'fixture', elapsedMs: 1500 }).outcome, 'timeout');
+});
+test('probe that ignores SIGTERM is killed after the grace period', async t => {
+  // An ignored disposition survives exec, so sleep itself ignores SIGTERM.
+  const result = await watched(t, 'trap "" TERM; exec sleep 60', { stallMs: 1000, hardMs: 60000, killGraceMs: 300 });
+  assert.equal(result.watchdog, 'stall'); assert.equal(result.signal, 'SIGKILL');
+});
+test('probe output beyond the buffer bound is an output-limit failure', async t => {
+  const result = await watched(t, 'head -c 200000 /dev/zero | tr "\\0" x; exec sleep 60', { stallMs: 60000, hardMs: 60000, maxBuffer: 1024 });
+  assert.equal(result.error.code, 'ENOBUFS'); assert.equal(result.watchdog, null);
+  assert.equal(smokeProcessDiagnostic(result, { startedAt: 'fixture', elapsedMs: 1 }).outcome, 'output-limit');
 });

@@ -5,6 +5,7 @@ import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, read
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export function runSessionEndSmoke({ hookPath }) {
   const hook = realpathSync(resolve(hookPath));
@@ -57,7 +58,7 @@ export function runSessionEndSmoke({ hookPath }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(runSessionEndSmoke({ hookPath: process.argv[2] }))); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

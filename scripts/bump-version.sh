@@ -27,6 +27,15 @@ if ! echo "$NEW" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
 fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Claim the version before touching any file (great_cto-inty). Codex and Claude
+# Code release from the same machine; without this both can prepare one version
+# in parallel and find out only at the tag. Refuses when another session holds
+# it, or when the remote tag or npm version is taken or could not be checked.
+node "$(dirname "$0")/lib/release-lease.mjs" acquire --version "$NEW" --root "$ROOT" >/dev/null || {
+  echo "FAIL: could not claim the release lease for $NEW (reason above)" >&2
+  exit 1
+}
 PLUGIN_JSON="$ROOT/.claude-plugin/plugin.json"
 CLI_JSON="$ROOT/packages/cli/package.json"
 JSR_JSON="$ROOT/packages/cli/jsr.json"

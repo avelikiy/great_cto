@@ -19,7 +19,7 @@ Frames the problem and turns a raw idea into a validated brief, an architecture,
 |---|---|---|---|
 | `architect` | claude-opus-5 | XHIGH | Use when starting any new feature. Creates architecture docs, ADRs, cost estimates, Well-Architected review. Always first in the pipeline. |
 | `decision-scorer` | claude-sonnet-5 | MEDIUM | Scores 2+ architectural alternatives against PROJECT.md criteria. Called by architect after proposing variants. Outputs a weighted scoring table and recommended choice. |
-| `design-advisor` | claude-opus-5 | XHIGH | Use after architect, before/parallel to pm, for any UI-bearing feature (landing pages, dashboards, admin panels, web apps, React Native apps). Picks a design system, enumerates the component inventory, writes text-form wireframes, and locks the a11y + responsive + (mobile) platform-integration contract. Outputs docs/design/DESIGN-{slug}.md. Plan altitude only — never writes implementation code. |
+| `design-advisor` | claude-opus-5 | XHIGH | Use after architect and before pm, for any UI-bearing feature (landing pages, dashboards, admin panels, web apps, React Native apps). Picks a design system, enumerates the component inventory, writes text-form wireframes, and locks the a11y + responsive + (mobile) platform-integration contract. Outputs docs/design/DESIGN-{slug}.md. Plan altitude only — never writes implementation code. |
 | `product-owner` | claude-opus-5 | HIGH | The first agent in the pipeline — runs BEFORE architect. Turns a raw idea or problem statement into a validated product brief. Frames the problem, brainstorms options, runs a multi-LLM idea debate (4 personas on 4 models), and synthesizes a recommendation the CTO approves at gate:product (the one human gate — WHAT before HOW). Outputs docs/product/BRIEF-{slug}.md + discovery-summary for architect. |
 
 ## Builder — Prototype → production product
@@ -47,7 +47,7 @@ Reviews, tests, and tightens what Builder produced — correctness, quality, and
 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
-| `code-reviewer` | haiku | MEDIUM | Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict. |
+| `code-reviewer` | sonnet | MEDIUM | Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict. |
 | `e2e-test-engineer` | haiku | MEDIUM | Use after qa-engineer passes and before/around devops deploy. Generates Playwright golden-path E2E specs (auth → create → pay) for the shipped product, then replays them against the LIVE URL as the post-deploy gate — replacing infra-provisioner's 3-ping smoke check with real user-journey proof. |
 | `qa-engineer` | haiku | MEDIUM | Use after senior-dev completes implementation. Analyzes actual code, then runs type-appropriate QA, writes report, files bugs in Beads. |
 

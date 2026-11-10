@@ -70,13 +70,8 @@ EOF
 
 case "${1:-}" in
   refresh)
-    _bin=${2:-$(codex_bin)}
-    [ -n "$_bin" ] && [ -x "$_bin" ] || { echo 'codex executable not found' >&2; exit 1; }
-    case "$_bin" in /*) ;; *) echo 'codex executable must have an absolute path' >&2; exit 1 ;; esac
-    # A marketplace can be reconfigured after enable. Revalidate on EVERY tick,
-    # before asking the host to download or replace any installed artifact.
-    trusted_marketplace
-    exec "$_bin" plugin marketplace upgrade great-cto --json
+    echo 'verified native activation is unsupported; no marketplace refresh was invoked' >&2
+    exit 1
     ;;
   render)
     render_plist
@@ -89,22 +84,8 @@ case "${1:-}" in
     if [ -f "$PLIST" ] && ! grep -q "<string>$LABEL</string>" "$PLIST"; then
       echo "refusing to replace an unexpected launch agent: $PLIST" >&2; exit 1
     fi
-    mkdir -p "$AGENTS_DIR" "$HOME/.great_cto"
-    _temp=$(mktemp "$AGENTS_DIR/.$LABEL.XXXXXX")
-    trap 'rm -f "$_temp"' EXIT HUP INT TERM
-    render_plist > "$_temp"
-    chmod 600 "$_temp"
-    if [ -f "$PLIST" ]; then
-      if "$LAUNCHCTL" print "$DOMAIN/$LABEL" 2>/dev/null | grep -q 'state = running'; then
-        echo 'refresh is running; retry enable after it finishes' >&2; exit 1
-      fi
-      "$LAUNCHCTL" bootout "$DOMAIN" "$PLIST" >/dev/null 2>&1 || true
-    fi
-    mv -f "$_temp" "$PLIST"
-    trap - EXIT HUP INT TERM
-    "$LAUNCHCTL" bootstrap "$DOMAIN" "$PLIST"
-    # RunAtLoad starts the first refresh. Do not kill it with kickstart -k.
-    echo "enabled: $PLIST (every 6 hours and at load; inspect refresh logs for results)"
+    echo 'verified native activation is unsupported; no launch agent was created' >&2
+    exit 1
     ;;
   disable)
     if [ -f "$PLIST" ]; then

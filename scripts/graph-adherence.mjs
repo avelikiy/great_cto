@@ -14,6 +14,7 @@ import { homedir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parsePipelineToml } from './lib/pipeline-toml.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const ENTRY = new Set(['product-owner', 'architect', 'project-auditor', 'l3-support']);
@@ -71,7 +72,7 @@ function sequences(dir) {
   return out;
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   const g = graphOf(readFileSync(join(ROOT, 'shared', 'pipeline.toml'), 'utf8'));
   const nodes = new Set([...Object.keys(g), ...Object.values(g).flatMap((v) => [...v.next])]);
   const counts = {}; const off = {}; let pairs = 0;

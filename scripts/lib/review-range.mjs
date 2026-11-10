@@ -23,7 +23,7 @@
 import { spawnSync } from 'node:child_process';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const MARKER = (cwd) => join(cwd, '.great_cto', 'review-marker.json');
 
@@ -67,7 +67,7 @@ export function recordReview({ cwd = process.cwd(), now = new Date() } = {}) {
   return all[branch];
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const i = a.indexOf('--cwd');

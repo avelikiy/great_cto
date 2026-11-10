@@ -42,6 +42,7 @@
  *   node scripts/lib/lessons-write.mjs <lessons.md> --stdin --dry-run
  */
 
+import { isMainModule } from './is-main.mjs';
 const FIELD_ORDER = ['date', 'session-id', 'archetype', 'project', 'projects', 'support', 'confidence', 'shape', 'occurrences'];
 const CONFIDENCE_RANK = { low: 1, medium: 2, high: 3 };
 
@@ -364,6 +365,6 @@ async function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

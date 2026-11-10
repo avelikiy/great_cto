@@ -3,8 +3,8 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { mkdirSync, writeFileSync, realpathSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { createOwnedPhaseFixture } from './owned-phase-fixture.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const execute = promisify(execFile);
 const quote = s => `'${s.replaceAll("'", "'\\''")}'`;
@@ -89,7 +89,7 @@ export async function runPhaseSmoke({ phaseScript, bdPath }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try { console.log(JSON.stringify(await runPhaseSmoke({ phaseScript: process.argv[2], bdPath: process.argv[3] }))); }
   catch (error) { console.error(error.message); process.exitCode = 1; }
 }

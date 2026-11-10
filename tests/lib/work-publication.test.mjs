@@ -17,7 +17,9 @@ function fixture() {
   writeFileSync(join(root, 'README.md'), 'Base\n'); git('add', '.'); git('commit', '-qm', 'base'); git('init', '-q', '--bare', remote);
   git('remote', 'add', 'origin', remote); git('push', '-q', 'origin', 'main'); git('checkout', '-qb', 'feature');
   mkdirSync(join(root, 'src')); writeFileSync(join(root, 'src', 'feature.txt'), 'Verified feature\n'); git('add', '.'); git('commit', '-qm', 'feature');
-  const f = { root, store, remote, dir, git, pushes: 0, creates: 0, reads: 0, prs: [], timeout: false, invisible: false };
+  // Publication sees a clean transport env, so a caller's GIT_SSH(_COMMAND) cannot leak into the fixture.
+  const { GIT_SSH, GIT_SSH_COMMAND, ...env } = process.env;
+  const f = { root, store, remote, dir, git, env, pushes: 0, creates: 0, reads: 0, prs: [], timeout: false, invisible: false };
   const work = beginWork({ root, host: 'claude-code', goal: 'Deliver feature', acceptance: ['Feature checked'], authority: { writeScope: ['src'] } }, f);
   f.taskId = work.task.taskId; finishWork(f.taskId, work.operation.operationId, 0, f); work.lease.release();
   const verify = () => mutateWorkTask(f.taskId, t => { t.phase = 'verified'; t.outcome = { kind: 'delivery', state: 'verified',
@@ -155,6 +157,13 @@ test('SSH alias resolves only to GitHub and custom transport is refused', () => 
   assert.equal(f.preview().repository, 'example/fixture'); assert.doesNotMatch(JSON.stringify(f.preview()), /private\/key/);
   hostname = 'evil.test'; assert.throws(() => f.preview(), /does not resolve/);
   hostname = 'github.com'; custom = true; assert.throws(() => f.preview(), /custom SSH/);
+  custom = false; f.env = { ...f.env, GIT_SSH_COMMAND: 'ssh -o IdentityAgent=none' }; assert.throws(() => f.preview(), /custom SSH/);
+  const { GIT_SSH_COMMAND, ...clean } = f.env;
+  f.env = { ...clean, GIT_SSH: '/usr/local/bin/ssh-wrapper' }; assert.throws(() => f.preview(), /custom SSH/);
+  // Without an injected env the real process env still decides (production default).
+  delete f.env; const saved = process.env.GIT_SSH_COMMAND; process.env.GIT_SSH_COMMAND = 'ssh -o IdentityAgent=none';
+  try { assert.throws(() => f.preview(), /custom SSH/); }
+  finally { if (saved === undefined) delete process.env.GIT_SSH_COMMAND; else process.env.GIT_SSH_COMMAND = saved; }
 });
 test('fresh preview after an uncertain publication retains the original confirmation identity', () => {
   const f = fixture(), preview = f.preview(); f.timeout = true;

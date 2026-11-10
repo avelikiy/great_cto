@@ -15,7 +15,7 @@
  * when the log cannot be read (an unreadable log is not "0 skipped").
  */
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export function countSkips(text) {
   let n = 0;
@@ -27,7 +27,7 @@ export function countSkips(text) {
   return n;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
   let text;
   try { text = readFileSync(process.argv[2], 'utf8'); } catch { process.exit(2); }
   process.stdout.write(`${countSkips(text)}\n`);

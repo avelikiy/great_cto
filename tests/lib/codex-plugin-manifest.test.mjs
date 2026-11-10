@@ -109,7 +109,7 @@ test('the Codex hooks file is in the schema Codex accepts, and every guard it na
   const events = Object.keys(h.hooks);
   assert.ok(events.length > 0);
   for (const ev of events) {
-    assert.match(ev, /^(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop)$/, `event ${ev}`);
+    assert.match(ev, /^(SessionStart|PreToolUse|PostToolUse|UserPromptSubmit|Stop|SessionEnd|SubagentStart|SubagentStop)$/, `event ${ev}`);
     for (const entry of h.hooks[ev]) {
       for (const hook of entry.hooks) {
         assert.equal(hook.type, 'command');
@@ -122,5 +122,9 @@ test('the Codex hooks file is in the schema Codex accepts, and every guard it na
     }
   }
   const matchers = h.hooks.PreToolUse.map((e) => e.matcher).sort();
-  assert.deepEqual(matchers, ['Bash', 'apply_patch'], 'Codex names its shell and edit tools this way');
+  assert.deepEqual(matchers, ['', 'Bash', 'apply_patch'], 'existing shell/edit guards plus one opt-in read-only observer');
+  assert.equal(h.hooks.PreToolUse.find(e => e.matcher === '').hooks.length, 1);
+  assert.match(h.hooks.PreToolUse.find(e => e.matcher === '').hooks[0].command, /codex-adapter\.mjs" host-graph-observer;/);
+  assert.equal(h.hooks.PreToolUse.find(e => e.matcher === 'Bash').hooks.length, 1);
+  assert.equal(h.hooks.PreToolUse.find(e => e.matcher === 'apply_patch').hooks.length, 1);
 });

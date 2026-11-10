@@ -42,15 +42,21 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const DIRTY_CAP = 30;
 export const COMMITS_CAP = 10;
+
+/** Ports given to per-task workspaces (ADR-047 section 3). 3141 stays the main checkout's board. */
+export const WORKSPACE_PORT_FIRST = 3142;
+export const WORKSPACE_PORT_LAST = 3241;
 
 /** Ports a dev server usually sits on. Anything else listening is not ours to report. */
 export const DEV_PORTS = new Set([
   3000, 3001, 3002, 3003, 3004, 3005, 3141, 3333, 4000, 4173, 4200, 4321,
   5000, 5001, 5173, 5174, 5555, 6006, 8000, 8001, 8080, 8081, 8787, 8888, 9000, 19006,
+  // Without these, /save reports "no servers" for a workspace that has one.
+  ...Array.from({ length: WORKSPACE_PORT_LAST - WORKSPACE_PORT_FIRST + 1 }, (_, i) => WORKSPACE_PORT_FIRST + i),
 ]);
 
 /** OS daemons that squat on dev ports (macOS AirPlay holds :5000 and :7000). Not a server you left running. */
@@ -113,6 +119,16 @@ function defaultLsof() {
 }
 
 /**
+ * Is this a linked worktree? `git` runs one git command and answers { ok, out }.
+ * False when git cannot say: callers treat that as "not known to be linked".
+ */
+export function isLinkedWorktree(git) {
+  const gd = git('rev-parse', '--path-format=absolute', '--git-dir');
+  const cd = git('rev-parse', '--path-format=absolute', '--git-common-dir');
+  return gd.ok && cd.ok && path.resolve(gd.out) !== path.resolve(cd.out);
+}
+
+/**
  * The run state of the tree at `cwd`, right now.
  * Options: `probeServers` (default true), `lsof` (a function returning lsof
  * text — injectable for tests), `env` (for git), `now` (a Date).
@@ -161,9 +177,7 @@ export function captureState({ cwd = process.cwd(), probeServers = true, lsof, e
 
   const top = g('rev-parse', '--show-toplevel');
   s.worktree = top.ok ? top.out : null;
-  const gd = g('rev-parse', '--path-format=absolute', '--git-dir');
-  const cd = g('rev-parse', '--path-format=absolute', '--git-common-dir');
-  s.linkedWorktree = gd.ok && cd.ok && path.resolve(gd.out) !== path.resolve(cd.out);
+  s.linkedWorktree = isLinkedWorktree(g);
 
   // Counted, never touched: a stash in a shared tree may be someone else's work.
   const stash = g('stash', 'list');
@@ -459,6 +473,6 @@ export function main(argv = process.argv.slice(2), { cwd = process.cwd(), out = 
   return 2;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main();
 }

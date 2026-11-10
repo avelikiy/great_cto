@@ -20,7 +20,6 @@ import { homedir } from 'node:os';
 import { basename, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
 
 const DIR = process.env.GREAT_CTO_HOME || join(homedir(), '.great_cto');
 const LOG = join(DIR, 'claude-limits.jsonl');
@@ -96,6 +95,10 @@ function main() {
 }
 
 // Real paths on both sides: the module URL is resolved through symlinks (macOS
-// /var → /private/var, a symlinked home), the command line is not.
-const real = (p) => { try { return realpathSync(p); } catch { return resolve(p); } };
-if (process.argv[1] && real(fileURLToPath(import.meta.url)) === real(process.argv[1])) main();
+// /var → /private/var, a symlinked home), the command line is not. Same rule as
+// scripts/lib/is-main.mjs, inlined because this file is copied alone into
+// ~/.claude; a path that does not resolve is not this file.
+const isMain = () => {
+  try { return realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; }
+};
+if (process.argv[1] && isMain()) main();

@@ -34,6 +34,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSy
 import { join } from 'node:path';
 import { contractPath } from '../lib/contract-path.mjs';
 import { isProjectState } from '../lib/great-cto-scope.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const MARKER = join(PROJ_DIR, '.pipeline-tick');
@@ -303,7 +304,7 @@ async function main() {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   // A session must start even if this throws. Nothing here is worth a failed start.
   main().then((c) => { process.exitCode = c; }).catch(() => { process.exitCode = 0; });
 }
