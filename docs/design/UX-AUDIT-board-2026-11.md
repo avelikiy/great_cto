@@ -1,10 +1,11 @@
 ---
 surface: web
 feature: board-declutter
-status: approved by the owner on 2026-11-10 (mockup version 10: Home and Cost, desktop and phone); not implemented
+status: approved by the owner on 2026-11-10 (mockup version 10: Home and Cost, desktop and phone); Home implemented as version 11, approved the same day; Cost mockup awaiting approval
 date: 2026-11-10
 audited-version: 3.76.1
 design: https://claude.ai/artifact/5RGTJp7zZkfn3RwQSTgSQG
+design-v11: https://claude.ai/artifact/9zzFn9Ms7A2pDiGXCq9j8p
 ---
 
 # UX audit of the board, November 2026
@@ -236,6 +237,10 @@ Deviations from the mockup, each for a reason found in the code:
 - The sidebar footer is two lines (connection, then version): the connection text can be long.
 - The project icon stays in the project switcher: the collapsed sidebar needs it.
 - Cost in the navigation opens the current Ledger screen until step 2.
+
+The owner approved Home as built, with these six deviations, as version 11 on 2026-11-10:
+https://claude.ai/artifact/9zzFn9Ms7A2pDiGXCq9j8p (artboard "Main"). The same canvas holds
+the Cost mockup for step 2 (current next to proposed, desktop and phone), not yet approved.
 
 ## 9. Not covered
 
