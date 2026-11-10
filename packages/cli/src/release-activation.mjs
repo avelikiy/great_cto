@@ -2,89 +2,15 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { getAdmissionInfo, getAdmittedArtifact, inspectNpmPayload, inspectPluginPayload } from './release-trust.mjs';
+import { UUID, hash, owned, within, fail, canonicalDirectory, readRegular, syncDirectory, syncAncestors, writeRecord, readRecord,
+  packageSnapshot, outcome, privateInstallationState, releaseLock, backupSnapshot } from './release-transaction.mjs';
 
-const MAX_FILES = 10000, MAX_BYTES = 512 * 1024 * 1024;
 const STABLE = /^(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})\.(0|[1-9]\d{0,5})$/;
-const UUID = /^[a-f0-9]{8}-[a-f0-9]{4}-4[a-f0-9]{3}-[89ab][a-f0-9]{3}-[a-f0-9]{12}$/;
-const hash = bytes => createHash('sha256').update(bytes).digest('hex');
-const owned = stat => typeof process.getuid !== 'function' || stat.uid === (typeof stat.uid === 'bigint' ? BigInt(process.getuid()) : process.getuid());
-const within = (root, file) => file !== root && file.startsWith(root + path.sep);
-const fail = reason => { throw Object.assign(new Error(reason), { activationReason: reason }); };
 const compare = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return Math.sign(x[i] - y[i]); return 0; };
 const access = { getAdmissionInfo, getAdmittedArtifact, inspectNpmPayload, inspectPluginPayload };
-
-function canonicalDirectory(dir, { create = false, privateMode = false } = {}) {
-  if (typeof dir !== 'string' || !path.isAbsolute(dir)) fail('absolute-directory-required');
-  const resolved = path.resolve(dir);
-  for (let current = resolved; current !== path.dirname(current); current = path.dirname(current)) {
-    if (fs.existsSync(current) && fs.lstatSync(current).isSymbolicLink()) fail('directory-symlink-refused');
-  }
-  if (create) fs.mkdirSync(resolved, { recursive: true, mode: 0o700 });
-  const stat = fs.lstatSync(resolved);
-  if (!stat.isDirectory() || !owned(stat) || (privateMode ? (stat.mode & 0o777) !== 0o700 : !!(stat.mode & 0o022))) fail('unsafe-directory');
-  if (fs.realpathSync(resolved) !== resolved) fail('noncanonical-directory');
-  return resolved;
-}
-
-function readRegular(file, { max = MAX_BYTES, privateMode = false, allowRootOwner = false } = {}) {
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
-  try {
-    const before = fs.fstatSync(fd, { bigint: true });
-    if (!before.isFile() || before.nlink !== 1n || before.size > BigInt(max) || !(owned(before) || (allowRootOwner && before.uid === 0n)) || (before.mode & 0o022n) || (privateMode && (before.mode & 0o777n) !== 0o600n)) fail('unsafe-file');
-    const bytes = fs.readFileSync(fd), after = fs.fstatSync(fd, { bigint: true });
-    if (before.ino !== after.ino || before.size !== after.size || before.mtimeNs !== after.mtimeNs || before.ctimeNs !== after.ctimeNs) fail('file-changed-during-read');
-    return bytes;
-  } finally { fs.closeSync(fd); }
-}
-
-function syncDirectory(dir) { const fd = fs.openSync(dir, fs.constants.O_RDONLY); try { fs.fsyncSync(fd); } finally { fs.closeSync(fd); } }
-
-function syncAncestors(dir, root) {
-  for (let current = dir; ; current = path.dirname(current)) {
-    syncDirectory(current); if (current === root) return;
-    if (!within(root, current)) fail('transaction-path-outside-state-root');
-  }
-}
-
-function writeRecord(file, record) {
-  const temp = file + '.' + randomUUID() + '.tmp';
-  const fd = fs.openSync(temp, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
-  try { fs.writeFileSync(fd, JSON.stringify(record) + '\n'); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-  try { fs.renameSync(temp, file); syncDirectory(path.dirname(file)); } finally { fs.rmSync(temp, { force: true }); }
-}
-
-function readRecord(file) { return JSON.parse(readRegular(file, { max: 1024 * 1024, privateMode: true }).toString('utf8')); }
-
-function packageSnapshot(root) {
-  canonicalDirectory(root);
-  const files = [], directories = [], names = new Set(); let total = 0, entries = 0;
-  function walk(dir) {
-    const dirStat = fs.lstatSync(dir);
-    if (!owned(dirStat) || dirStat.mode & 0o6022) fail('unsafe-package-directory');
-    directories.push({ path: path.relative(root, dir), mode: dirStat.mode & 0o777 });
-    for (const entry of fs.readdirSync(dir).sort()) {
-      if (++entries > MAX_FILES * 2 || path.relative(root, dir).split(path.sep).length > 64) fail('package-backup-limit');
-      if (entry.includes('\\') || /[\0-\x1f]/.test(entry)) fail('invalid-package-path');
-      const file = path.join(dir, entry), stat = fs.lstatSync(file);
-      if (!owned(stat) || stat.isSymbolicLink() || stat.mode & 0o6022) fail('unsafe-package-entry');
-      if (stat.isDirectory()) { walk(file); continue; }
-      if (!stat.isFile() || stat.nlink !== 1) fail('unsafe-package-entry');
-      const rel = path.relative(root, file), name = rel.normalize('NFC').toLowerCase();
-      if (names.has(name)) fail('colliding-package-path'); names.add(name);
-      const bytes = readRegular(file);
-      total += bytes.length; if (files.length >= MAX_FILES || total > MAX_BYTES) fail('package-backup-limit');
-      files.push({ path: rel, size: bytes.length, sha256: hash(bytes), mode: stat.mode & 0o777, bytes });
-    }
-  }
-  walk(root);
-  files.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-  const inventory = files.map(({ bytes, ...file }) => file);
-  directories.sort((a, b) => a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
-  return { files, directories, digest: hash(JSON.stringify({ files: inventory, directories })), filesDigest: hash(JSON.stringify(inventory)) };
-}
 
 function binSelection(bin, packageRoot) {
   const stat = fs.lstatSync(bin);
@@ -121,15 +47,6 @@ function fixtureMode(testing, prefix, stateRoot, artifactPath = null) {
   const temp = fs.realpathSync(os.tmpdir());
   if (!within(temp, root) || !within(root, prefix) || !within(root, path.resolve(stateRoot)) || (artifactPath && !within(root, artifactPath))) fail('synthetic-fixture-outside-temp');
   return true;
-}
-
-function outcome(state, context = {}, reason = null) {
-  const synthetic = !!context.synthetic;
-  return { state: synthetic && ['SMOKE_PASSED', 'ALREADY_ACTIVE', 'ROLLED_BACK'].includes(state) ? 'SIMULATED_' + state : state,
-    authority: synthetic || context.recovery || !['SMOKE_PASSED', 'ALREADY_ACTIVE'].includes(state) ? 'NONE' : 'INSTALLATION_ACTIVATION',
-    evidence: synthetic ? 'SYNTHETIC_ONLY' : 'LOCAL_TRANSACTION', releaseEligibility: 'NOT_CHECKED',
-    ...(context.version ? { version: context.version } : {}), ...(context.installationId ? { installationId: context.installationId } : {}),
-    ...(context.transactionId ? { transactionId: context.transactionId } : {}), ...(reason ? { reason } : {}) };
 }
 
 function safeEnvironment(tx, npmPath) {
@@ -175,52 +92,6 @@ function stepFailure(step, result) {
 function withPackageUmask(action) {
   const previous = process.umask(0o022);
   try { return action(); } finally { process.umask(previous); }
-}
-
-function privateInstallationState(stateRoot, packageRoot, { recovering = false } = {}) {
-  const root = canonicalDirectory(stateRoot, { create: true, privateMode: true });
-  const installationId = hash(packageRoot), dir = path.join(root, installationId);
-  canonicalDirectory(dir, { create: true, privateMode: true });
-  const lock = path.join(dir, 'lock');
-  if (recovering && fs.existsSync(lock)) {
-    const guard = path.join(dir, 'recovery-lock');
-    try { fs.mkdirSync(guard, { mode: 0o700 }); } catch (e) { if (e.code === 'EEXIST') fail('recovery-busy-lock'); throw e; }
-    try {
-      canonicalDirectory(lock, { privateMode: true });
-      const ownerFile = path.join(lock, 'owner.json'), owner = readRecord(ownerFile);
-      if (owner.schema !== 1 || !Number.isInteger(owner.pid) || owner.pid <= 0 || !UUID.test(owner.token)) fail('invalid-lock-owner');
-      try { process.kill(owner.pid, 0); fail('installation-busy-lock'); } catch (e) { if (e.code !== 'ESRCH') throw e; }
-      // Normal updaters cannot remove this lock; recovery contenders are serialized.
-      if (JSON.stringify(readRecord(ownerFile)) !== JSON.stringify(owner)) fail('lock-owner-changed');
-      fs.renameSync(lock, path.join(dir, 'orphaned-lock-' + owner.token)); syncDirectory(dir);
-    } finally { fs.rmdirSync(guard); }
-  }
-  try { fs.mkdirSync(lock, { mode: 0o700 }); } catch (e) { if (e.code === 'EEXIST') fail('installation-busy-lock'); throw e; }
-  const lockToken = randomUUID();
-  try { writeRecord(path.join(lock, 'owner.json'), { schema: 1, pid: process.pid, token: lockToken }); }
-  catch (e) { try { fs.rmdirSync(lock); } catch { /* leave failed ownership evidence */ } throw e; }
-  syncDirectory(dir);
-  return { installationId, dir, lock, lockToken, journalPath: path.join(dir, 'transaction.json'), watermarkPath: path.join(dir, 'watermark.json') };
-}
-
-function releaseLock(state) {
-  if (!state?.lock) return;
-  try {
-    const ownerFile = path.join(state.lock, 'owner.json'), owner = readRecord(ownerFile);
-    if (owner.pid !== process.pid || owner.token !== state.lockToken) return;
-    fs.unlinkSync(ownerFile); fs.rmdirSync(state.lock); syncDirectory(state.dir);
-  } catch { /* Never remove a lock whose ownership cannot be established. */ }
-}
-
-function backupSnapshot(snapshot, backupRoot) {
-  fs.mkdirSync(backupRoot, { recursive: true, mode: 0o700 });
-  for (const directory of snapshot.directories) fs.mkdirSync(path.join(backupRoot, directory.path), { recursive: true, mode: 0o700 });
-  for (const file of snapshot.files) {
-    const out = path.join(backupRoot, file.path); fs.mkdirSync(path.dirname(out), { recursive: true, mode: 0o700 });
-    const fd = fs.openSync(out, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, file.mode);
-    try { fs.writeFileSync(fd, file.bytes); fs.fchmodSync(fd, file.mode); fs.fsyncSync(fd); } finally { fs.closeSync(fd); }
-  }
-  for (const directory of [...snapshot.directories].reverse()) { const dir = path.join(backupRoot, directory.path); fs.chmodSync(dir, directory.mode); syncDirectory(dir); }
 }
 
 function validJournal(journal, installation, state) {

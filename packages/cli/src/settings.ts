@@ -1,77 +1,358 @@
-// Atomic merge of enabledPlugins into ~/.claude/settings.json.
+// Atomic, compare-and-swap merge of enabledPlugins into ~/.claude/settings.json.
 // Preserves all other keys. Backup-aware.
+//
+// The write is: read -> digest -> build next -> write a private temp file in the same
+// directory -> re-read the original and confirm its digest is unchanged -> rename. A host
+// write between the first read and the rename is therefore refused, never lost.
+// (ARCH-plugin-activation Q2 step 8, ADR-048 decision 4.)
 
-import { existsSync, readFileSync, writeFileSync, mkdirSync, copyFileSync, renameSync } from "node:fs";
+import {
+  closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync,
+  readFileSync, renameSync, rmSync, writeFileSync,
+} from "node:fs";
+import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";
-import { join, dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { dim, success, warn } from "./ui.js";
+
+export type SettingsRefusalReason =
+  | "invalid-plugin-key"
+  | "target-not-regular-file"
+  | "settings-unreadable"
+  | "settings-unparseable"
+  | "settings-not-object"
+  | "enabled-plugins-not-object"
+  | "changed-since-snapshot"
+  | "settings-changed-concurrently"
+  | "staged-readback-mismatch";
+
+/** A named, expected refusal. Nothing was written to the settings file when this is thrown. */
+export class SettingsRefusal extends Error {
+  readonly reason: SettingsRefusalReason;
+  readonly settingsPath: string;
+  constructor(reason: SettingsRefusalReason, settingsPath: string, message: string) {
+    super(message);
+    this.name = "SettingsRefusal";
+    this.reason = reason;
+    this.settingsPath = settingsPath;
+  }
+}
 
 export interface EnableResult {
   settingsPath: string;
   enabled: boolean;       // true if we flipped the flag
   alreadyEnabled: boolean;
   backupPath: string | null;
+  /** sha256 of the file before the call; null when the file did not exist. */
+  previousDigest?: string | null;
+  /** sha256 of what this call wrote; null when nothing was written. */
+  writtenDigest?: string | null;
+  /** Set by the non-throwing legacy wrapper when it declined to touch the file. */
+  refusal?: { reason: SettingsRefusalReason; message: string };
+}
+
+export interface EnableCasResult extends EnableResult {
+  previousDigest: string | null;
+  writtenDigest: string | null;
+  /** true when the existing file's whitespace was not canonical and was normalised on write. */
+  reformatted: boolean;
+}
+
+/** Phases reported to `onPhase`, in order. The same pattern release-activation.mjs uses. */
+export type CasPhase = "read" | "staged" | "renamed";
+
+export interface EnablePluginCasOptions {
+  /** Defaults to ~/.claude/settings.json. */
+  settingsPath?: string;
+  /**
+   * Transaction directory. The original bytes are copied to `<backupDir>/<basename>` (0600)
+   * before the swap. If a file is already there it must be byte-equal to the current
+   * settings file (a snapshot taken earlier in the transaction) or the call refuses.
+   * Without it, no backup is written.
+   */
+  backupDir?: string;
+  /** Called after each phase; lets a caller journal boundaries or simulate a crash/host write. */
+  onPhase?: (phase: CasPhase) => void;
 }
 
 export function getSettingsPath(): string {
   return join(homedir(), ".claude", "settings.json");
 }
 
+// ── helpers ───────────────────────────────────────────────────────────────────────────
+
+const sha256 = (data: Buffer | string): string => createHash("sha256").update(data).digest("hex");
+
+// Real plugin keys look like `name@marketplace`. The class is deliberately small so a key can
+// never be a prototype-pollution vector or carry control characters into a terminal.
+const KEY_RE = /^[A-Za-z0-9._@-]{1,200}$/;
+const validKey = (key: unknown): key is string =>
+  typeof key === "string" && KEY_RE.test(key) && key !== "__proto__";
+
+const handEdit = (key: string): string => `enabledPlugins["${key}"] = true`;
+
+function errCode(e: unknown): string | undefined {
+  return typeof e === "object" && e !== null ? (e as { code?: string }).code : undefined;
+}
+
+function isPlainObject(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null && !Array.isArray(v);
+}
+
+interface Snapshot {
+  bytes: Buffer;
+  digest: string;
+}
+
 /**
- * Enable a plugin key in ~/.claude/settings.json.
- * Idempotent — no-op if the key is already present.
- * Takes an optional backup of the existing file before writing.
+ * Read the settings file without following a symlink. `null` means the file does not exist.
+ * Any other failure to read is a refusal: a file we could not read is never an empty file.
  */
-export function enablePlugin(pluginKey: string): EnableResult {
-  const path = getSettingsPath();
-  const backupPath = existsSync(path) ? `${path}.bak-${Date.now()}` : null;
+function readTarget(path: string, key: string): Snapshot | null {
+  let st;
+  try {
+    st = lstatSync(path);
+  } catch (e) {
+    if (errCode(e) === "ENOENT") return null;
+    throw new SettingsRefusal("settings-unreadable", path,
+      `could not read ${path} (${errCode(e) ?? "error"}), so great_cto did not change it. ` +
+      `Fix the permissions, or add ${handEdit(key)} to it by hand.`);
+  }
+  const notRegular = (): SettingsRefusal => new SettingsRefusal("target-not-regular-file", path,
+    `${path} is a symlink or not a regular file, so great_cto did not rewrite it. ` +
+    `Add ${handEdit(key)} to the file it points at by hand.`);
+  if (st.isSymbolicLink() || !st.isFile()) throw notRegular();
+
+  let fd: number | undefined;
+  try {
+    // O_NOFOLLOW closes the window between the lstat above and this open.
+    fd = openSync(path, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0));
+    if (!fstatSync(fd).isFile()) throw notRegular();
+    const bytes = readFileSync(fd);
+    return { bytes, digest: sha256(bytes) };
+  } catch (e) {
+    if (e instanceof SettingsRefusal) throw e;
+    const code = errCode(e);
+    if (code === "ELOOP") throw notRegular();
+    if (code === "ENOENT") {
+      throw new SettingsRefusal("settings-changed-concurrently", path,
+        `${path} disappeared while great_cto was reading it; nothing was written — retry after the host update.`);
+    }
+    throw new SettingsRefusal("settings-unreadable", path,
+      `could not read ${path} (${code ?? "error"}), so great_cto did not change it. ` +
+      `Fix the permissions, or add ${handEdit(key)} to it by hand.`);
+  } finally {
+    if (fd !== undefined) closeSync(fd);
+  }
+}
+
+interface Style {
+  indent: string;
+  eol: string;
+  trailingNewline: boolean;
+}
+
+const DEFAULT_STYLE: Style = { indent: "  ", eol: "\n", trailingNewline: true };
+
+/** Reproduce the file's own indentation, line endings and trailing newline. */
+function detectStyle(raw: string): Style {
+  const eol = raw.includes("\r\n") ? "\r\n" : "\n";
+  const trailingNewline = raw.endsWith("\n");
+  if (!raw.trim().includes("\n")) return { indent: "", eol, trailingNewline };
+  const indented = /^([ \t]+)"/m.exec(raw);
+  return { indent: indented ? indented[1].slice(0, 10) : DEFAULT_STYLE.indent, eol, trailingNewline };
+}
+
+function render(value: unknown, style: Style): string {
+  let text = JSON.stringify(value, null, style.indent);
+  if (style.eol !== "\n") text = text.replace(/\n/g, style.eol);
+  return style.trailingNewline ? text + style.eol : text;
+}
+
+interface Parsed {
+  root: Record<string, unknown>;
+  style: Style;
+  reformatted: boolean;
+}
+
+function parseSettings(snap: Snapshot | null, path: string, key: string): Parsed {
+  if (!snap) return { root: {}, style: DEFAULT_STYLE, reformatted: false };
+  const raw = snap.bytes.toString("utf8");
+  if (raw.trim() === "") return { root: {}, style: DEFAULT_STYLE, reformatted: false };
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new SettingsRefusal("settings-unparseable", path,
+      `${path} is not valid JSON, so great_cto did not change it. ` +
+      `Fix the file, or add ${handEdit(key)} to it by hand.`);
+  }
+  if (!isPlainObject(parsed)) {
+    throw new SettingsRefusal("settings-not-object", path,
+      `${path} does not hold a JSON object, so great_cto did not change it. ` +
+      `Fix the file, or add ${handEdit(key)} to it by hand.`);
+  }
+  const plugins = parsed["enabledPlugins"];
+  if (plugins !== undefined && plugins !== null && !isPlainObject(plugins)) {
+    throw new SettingsRefusal("enabled-plugins-not-object", path,
+      `"enabledPlugins" in ${path} is not an object, so great_cto did not change it. ` +
+      `Fix the file, or add ${handEdit(key)} to it by hand.`);
+  }
+  const style = detectStyle(raw);
+  return { root: parsed, style, reformatted: render(parsed, style) !== raw };
+}
+
+function syncDir(dir: string): void {
+  try {
+    const fd = openSync(dir, constants.O_RDONLY);
+    try { fsyncSync(fd); } finally { closeSync(fd); }
+  } catch {
+    // Directory fsync is unsupported on some platforms. The rename has already happened, so
+    // this only narrows a crash window; it must not turn a completed write into a failure.
+  }
+}
+
+function applyEnable(
+  pluginKey: unknown,
+  path: string,
+  backupTarget: string | null,
+  onPhase: ((phase: CasPhase) => void) | undefined,
+): EnableCasResult {
+  if (!validKey(pluginKey)) {
+    throw new SettingsRefusal("invalid-plugin-key", path,
+      `refusing plugin key ${JSON.stringify(String(pluginKey))}: expected something like "name@marketplace".`);
+  }
+  const key = pluginKey;
+
+  const original = readTarget(path, key);
+  onPhase?.("read");
+  const previousDigest = original ? original.digest : null;
+  const { root, style, reformatted } = parseSettings(original, path, key);
+
+  const current = root["enabledPlugins"];
+  if (isPlainObject(current) && current[key] === true) {
+    return { settingsPath: path, enabled: false, alreadyEnabled: true, backupPath: null,
+      previousDigest, writtenDigest: null, reformatted: false };
+  }
+
+  // A snapshot taken earlier in the transaction must still describe this file.
+  if (backupTarget && existsSync(backupTarget)) {
+    const snapshot = readFileSync(backupTarget);
+    if (!original || !snapshot.equals(original.bytes)) {
+      throw new SettingsRefusal("changed-since-snapshot", path,
+        `${path} no longer matches the snapshot in ${backupTarget}; nothing was written — ` +
+        `retry after the host update.`);
+    }
+  }
+
+  const nextRoot = {
+    ...root,
+    enabledPlugins: { ...(isPlainObject(current) ? current : {}), [key]: true },
+  };
+  const text = render(nextRoot, style);
 
   mkdirSync(dirname(path), { recursive: true });
 
-  // Read existing
-  let existing: Record<string, unknown> = {};
-  if (existsSync(path)) {
-    try {
-      const raw = readFileSync(path, "utf-8");
-      if (raw.trim()) existing = JSON.parse(raw) as Record<string, unknown>;
-    } catch (e) {
-      warn(`${path} exists but is not valid JSON — leaving it alone.`);
-      warn(`Create or fix it manually and add: { "enabledPlugins": { "${pluginKey}": true } }`);
-      return { settingsPath: path, enabled: false, alreadyEnabled: false, backupPath: null };
+  let backupPath: string | null = null;
+  let createdBackup = false;
+  if (original && backupTarget) {
+    backupPath = backupTarget;
+    if (!existsSync(backupTarget)) {
+      mkdirSync(dirname(backupTarget), { recursive: true, mode: 0o700 });
+      writeFileSync(backupTarget, original.bytes, { flag: "wx", mode: 0o600 });
+      createdBackup = true;
     }
-    if (backupPath) copyFileSync(path, backupPath);
   }
 
-  // Check if already enabled
-  const currentEnabled = existing["enabledPlugins"];
-  if (
-    currentEnabled &&
-    typeof currentEnabled === "object" &&
-    (currentEnabled as Record<string, unknown>)[pluginKey] === true
-  ) {
-    return { settingsPath: path, enabled: false, alreadyEnabled: true, backupPath: null };
+  const temp = `${path}.great-cto-${randomUUID()}.tmp`;
+  try {
+    const fd = openSync(temp, "wx", 0o600);
+    try {
+      writeFileSync(fd, text);
+      fsyncSync(fd);
+    } finally {
+      closeSync(fd);
+    }
+    onPhase?.("staged");
+
+    const staged = JSON.parse(readFileSync(temp, "utf8")) as { enabledPlugins?: Record<string, unknown> };
+    if (staged.enabledPlugins?.[key] !== true) {
+      throw new SettingsRefusal("staged-readback-mismatch", path,
+        `the staged copy of ${path} did not read back with ${handEdit(key)}; nothing was written.`);
+    }
+
+    // The compare in compare-and-swap: the original must be exactly what we built from.
+    const again = readTarget(path, key);
+    if ((again ? again.digest : null) !== previousDigest) {
+      throw new SettingsRefusal("settings-changed-concurrently", path,
+        `${path} changed while great_cto was updating it; nothing was written — ` +
+        `retry after the host update.`);
+    }
+    renameSync(temp, path);
+    syncDir(dirname(path));
+  } catch (e) {
+    if (createdBackup && backupPath) rmSync(backupPath, { force: true });
+    throw e;
+  } finally {
+    rmSync(temp, { force: true });
   }
+  onPhase?.("renamed");
 
-  // Merge
-  const enabledPlugins =
-    currentEnabled && typeof currentEnabled === "object"
-      ? { ...(currentEnabled as Record<string, unknown>) }
-      : {};
-  enabledPlugins[pluginKey] = true;
-  existing["enabledPlugins"] = enabledPlugins;
+  return { settingsPath: path, enabled: true, alreadyEnabled: false, backupPath,
+    previousDigest, writtenDigest: sha256(text), reformatted };
+}
 
-  // Atomic write: write to temp, rename
-  const tmp = `${path}.tmp-${Date.now()}`;
-  writeFileSync(tmp, JSON.stringify(existing, null, 2) + "\n", "utf-8");
-  renameSync(tmp, path);
+// ── public API ────────────────────────────────────────────────────────────────────────
 
-  if (backupPath) {
-    success(`enabled ${pluginKey} in ~/.claude/settings.json ${dim(`(backup: ${backupPath})`)}`);
-  } else {
-    success(`created ~/.claude/settings.json with ${pluginKey} enabled`);
+/**
+ * Enable a plugin key in settings.json with compare-and-swap semantics.
+ *
+ * Throws {@link SettingsRefusal} (nothing written) when the file is unparseable, not a plain
+ * regular file, unreadable, or changed between the read and the rename. Idempotent: a key that
+ * is already enabled writes nothing, not even a backup.
+ *
+ * `writtenDigest` is null when nothing was written, so a caller restoring on rollback has
+ * nothing to restore in the `alreadyEnabled` case.
+ */
+export function enablePluginCas(pluginKey: string, options: EnablePluginCasOptions = {}): EnableCasResult {
+  const path = options.settingsPath ?? getSettingsPath();
+  const backupTarget = options.backupDir ? join(options.backupDir, basename(path)) : null;
+  return applyEnable(pluginKey, path, backupTarget, options.onPhase);
+}
+
+/**
+ * Enable a plugin key in ~/.claude/settings.json.
+ * Idempotent — no-op (and no backup) if the key is already present.
+ * Backs up the existing file beside it before writing.
+ *
+ * Legacy contract, kept for current callers: a file we must not touch is reported through
+ * `refusal` plus a warning rather than thrown. Managed activation should call
+ * {@link enablePluginCas}, which throws.
+ */
+export function enablePlugin(pluginKey: string): EnableResult {
+  const path = getSettingsPath();
+  try {
+    const result = applyEnable(pluginKey, path, `${path}.bak-${Date.now()}`, undefined);
+    if (result.enabled) {
+      if (result.backupPath) {
+        success(`enabled ${pluginKey} in ~/.claude/settings.json ${dim(`(backup: ${result.backupPath})`)}`);
+      } else {
+        success(`created ~/.claude/settings.json with ${pluginKey} enabled`);
+      }
+    }
+    return result;
+  } catch (e) {
+    if (e instanceof SettingsRefusal) {
+      warn(e.message);
+      return {
+        settingsPath: path, enabled: false, alreadyEnabled: false, backupPath: null,
+        previousDigest: null, writtenDigest: null,
+        refusal: { reason: e.reason, message: e.message },
+      };
+    }
+    throw e;
   }
-
-  return { settingsPath: path, enabled: true, alreadyEnabled: false, backupPath };
 }
 
 /** Convenience alias — kept for backward compatibility with existing callers. */

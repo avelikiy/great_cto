@@ -30,10 +30,6 @@
     "cto-workflow",
     "adaptive-pipelines"
   ],
-  "dependencies": [
-    "superpowers@superpowers-marketplace",
-    "beads@local"
-  ],
   "mcpServers": {
     "great_cto_llm_router": {
       "command": "python3",

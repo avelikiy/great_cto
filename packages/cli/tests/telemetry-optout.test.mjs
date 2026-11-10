@@ -34,10 +34,8 @@ export async function load(url, context, nextLoad) {
     return { format:'module', source:trace + source, shortCircuit:true };
   }
   const stubs = {
-    'installer.js': "export const findInstalledVersions=()=>[]; export const install=()=>{trace('bootstrap-install',true);return {alreadyInstalled:true,version:'0.0.0',pluginDir:'fixture'}};",
-    'settings.js': "export const enableGreatCto=()=>({alreadyEnabled:true,settingsPath:'fixture'});",
-    'companion.js': "export const installAllCompanions=()=>[];",
-    'overlay.js': "export const applyOverlays=()=>{};",
+    'release-trust.mjs': "export const admitEmbeddedRelease=()=>({});",
+    'plugin-activation.mjs': "export const activatePluginRelease=()=>{trace('bootstrap-install',true);return {state:'ALREADY_ACTIVE',versionDir:'fixture'}}; export const recoverPluginActivation=()=>({state:'NOTHING_TO_RECOVER'}); export const otherRegistrations=()=>[]; export const pluginActivationTargets=()=>({registry:'fixture',versionDir:'fixture'});",
     'bootstrap.js': "export const bootstrap=()=>{trace('bootstrap',true);return {created:true,projectMdPath:'fixture'}};",
     'worker.js': "export const runTask=async a=>{trace('delegate',a);return 0}; export const runWorker=runTask;",
     'work-task.js': "export const runWorkTask=a=>{trace('delegate',a);return 0};",
@@ -90,7 +88,9 @@ function fixture(t, config) {
     register(${JSON.stringify(pathToFileURL(loader).href)});
   `);
   const env = { PATH: process.env.PATH || '/usr/bin:/bin', HOME: home, USERPROFILE: home,
-    LANG: 'C', TZ: 'UTC', NO_COLOR: '1', GREAT_CTO_TELEMETRY_DRYRUN: '1', GREAT_CTO_NO_UPDATE_CHECK: '1' };
+    LANG: 'C', TZ: 'UTC', NO_COLOR: '1', GREAT_CTO_TELEMETRY_DRYRUN: '1', GREAT_CTO_NO_UPDATE_CHECK: '1',
+    // init ends by bringing the board up; a test must never start or probe one.
+    GREAT_CTO_NO_BOARD: '1' };
   function run(argv, overrides = {}, mode = '', code) {
     const nodeArgs = ['--import', preload];
     if (code) nodeArgs.push('--input-type=module', '-e', code, ...argv);
