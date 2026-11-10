@@ -20,6 +20,7 @@ import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { tmpdir } from 'node:os';
 import { join, resolve, dirname, extname, sep } from 'node:path';
+import { isMainModule } from '../lib/is-main.mjs';
 
 export const TYPED_EXTS = new Set(['.ts', '.tsx', '.mts', '.cts', '.py']);
 
@@ -90,6 +91,6 @@ export function main() {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   try { process.exitCode = main(); } catch { process.exitCode = 0; }
 }

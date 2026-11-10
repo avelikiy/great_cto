@@ -20,13 +20,13 @@
 
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import { fileURLToPath } from 'node:url';
 
 import { classify } from './change-tier.mjs';
 import { selectJudgeModel } from './judge-model.mjs';
 // Generated from the canonical CLI policy, but shipped in Git too: marketplace
 // installs do not contain the gitignored CLI build.
 import { effectiveGates } from './gate-policy.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /** Parse archetype + project_size out of a .great_cto/PROJECT.md body. */
 export function parseProject(text) {
@@ -90,7 +90,7 @@ function readProject() {
   return { archetype: 'greenfield', size: 'medium' };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const opt = (name) => { const i = argv.indexOf(name); return i >= 0 ? argv[i + 1] : null; };
   const json = argv.includes('--json');

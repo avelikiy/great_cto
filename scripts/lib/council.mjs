@@ -38,6 +38,7 @@ import { join, relative } from 'node:path';
 import { resolveSecondOpinion, codexReview, SECOND_OPINION_PROVIDERS } from './second-opinion.mjs';
 import { callOpenRouter, pickReviewerModel, validateKimiRuntimePaths } from './cross-model-review.mjs';
 import { resolvePrice, priceUsage, round4 } from './cost-meter.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const COUNCIL_STAGES = Object.freeze(['arch']);
 export const DEFAULT_MAX_USD = 2;
@@ -258,7 +259,7 @@ export async function runCouncil({
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const arg = (n) => { const i = argv.indexOf(n); return i >= 0 ? argv[i + 1] : undefined; };
   const root = arg('--root') || process.cwd();

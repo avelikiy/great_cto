@@ -17,7 +17,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const WEEK_MS = 7 * 24 * 3600_000;
 
@@ -40,7 +40,7 @@ export function reportLine(cwd, now = Date.now()) {
   return `great_cto learner, last run ${when} UTC: ${state} — ${why}`;
 }
 
-if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+if (isMainModule(import.meta.url)) {
   try {
     if (process.env.GREAT_CTO_DISABLE_LEARNER_REPORT !== '1') {
       const line = reportLine(process.cwd());

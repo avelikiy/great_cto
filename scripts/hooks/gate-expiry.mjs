@@ -20,7 +20,7 @@
 
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { isMainModule } from "../lib/is-main.mjs";
 
 const EXPIRY_HOURS = Number(process.env.GREAT_CTO_GATE_EXPIRY_HOURS || 72);
 const WARN_HOURS = 24;
@@ -75,5 +75,5 @@ function main() {
   return process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

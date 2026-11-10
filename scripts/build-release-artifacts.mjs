@@ -18,7 +18,7 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
-  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/board-openapi.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
   const parts = name.split('/');
   if (parts.some(p => !p || p === '.' || p === '..' || /^(?:node_modules|\.git|\.beads|\.great_cto|\.codex|\.claude|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(p) || /^\.env(?:$|\.)/.test(p))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;
@@ -203,7 +203,10 @@ export function compareReleaseArtifactSets(first,second){
   return {state:'BYTE_IDENTICAL',version:left.version,commit:left.source.commit,artifacts:5,scope:'byte comparison only; build provenance and SLSA level not attested'};
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+// Real paths on both sides, the rule of scripts/lib/is-main.mjs — inlined so the
+// builder still runs as a single copied file with no repository imports.
+const isMain = () => { try { return fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url)); } catch { return false; } };
+if (process.argv[1] && isMain()) {
   if(process.argv.includes('--self-test')){
     if(process.argv.length!==3){console.error('--self-test accepts no release arguments');process.exitCode=2;}else{
     // A nested Node test runner would silently skip files under this marker.

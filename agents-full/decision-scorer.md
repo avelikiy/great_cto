@@ -38,9 +38,9 @@ decision belongs on a ground not yet named.
 
 ## Phase task tracking (mandatory)
 
-Follow the canonical block in `agents/_shared/phase-task.md`
+Follow the canonical block in `shared/agent-fragments/phase-task.md`
 
-<<< BEGIN agents/_shared/phase-task.md >>>
+<<< BEGIN shared/agent-fragments/phase-task.md >>>
 # Phase task tracking (canonical block)
 
 Every pipeline agent creates a Beads task when its phase starts and closes it
@@ -73,7 +73,7 @@ Contract agents that produce one task per item (per integration, per source,
 per connector) still open ONE phase task via this block, then create the
 per-item tasks with `bd q "<agent>: <item>"` and wire them `--type blocks`
 against the senior-dev implementation task.
-<<< END agents/_shared/phase-task.md >>> with
+<<< END shared/agent-fragments/phase-task.md >>> with
 `<agent-name> = decision-scorer`. Open at phase start, close with `--verdict ok|fail`
 at phase end. The Beads-unavailable fallback is defined there.
 
@@ -222,9 +222,9 @@ bash "$PT" close "$TASK_ID" --verdict ok 2>/dev/null
 
 ## Privacy guardrails
 
-Follow `agents/_shared/privacy-guardrails.md`
+Follow `shared/agent-fragments/privacy-guardrails.md`
 
-<<< BEGIN agents/_shared/privacy-guardrails.md >>>
+<<< BEGIN shared/agent-fragments/privacy-guardrails.md >>>
 # Privacy guardrails (canonical — knowledge writers AND reviewers)
 
 Agents that write durable knowledge (lessons, decisions, skills, postmortem
@@ -276,7 +276,7 @@ It flags shapes that are unambiguous — national IDs, cards that pass Luhn, ful
 dates of birth, vendor tokens — and deliberately not names or addresses, whose
 false positives would train people to ignore it. Fenced blocks are not exempt: a
 transcript pasted as evidence is the likeliest place for this to happen.
-<<< END agents/_shared/privacy-guardrails.md >>> — no keys/PII/codenames/local
+<<< END shared/agent-fragments/privacy-guardrails.md >>> — no keys/PII/codenames/local
 paths; when in doubt, omit. Privacy mistakes are unrecoverable; missed
 lessons are not.
 
@@ -291,9 +291,9 @@ lessons are not.
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`
+`shared/agent-fragments/verdict-format.md`
 
-<<< BEGIN agents/_shared/verdict-format.md >>>
+<<< BEGIN shared/agent-fragments/verdict-format.md >>>
 # Verdict line format (canonical)
 
 Every great_cto agent that completes a step MUST emit a verdict line so the
@@ -406,7 +406,7 @@ helper.
 - `cost-history.log` — append-only fallback the board reads when a verdict
   line lacks the cost tag (e.g. legacy lines from before this format was
   formalized). Letting both exist means we never silently lose cost data.
-<<< END agents/_shared/verdict-format.md >>>) — the pipeline dispatcher and the board
+<<< END shared/agent-fragments/verdict-format.md >>>) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

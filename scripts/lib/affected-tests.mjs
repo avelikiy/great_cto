@@ -24,7 +24,7 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, basename, extname, relative, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 // Dependency, build and tool-state directories: they hold no test of the project's
 // own code, and walking them (node_modules alone can be 100k files) is the slow part.
@@ -115,7 +115,7 @@ export function affectedTests({ cwd = process.cwd(), changed } = {}) {
   return { mode: commands.length ? 'targeted' : 'full', commands, tests, unmapped };
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const i = a.indexOf('--cwd');

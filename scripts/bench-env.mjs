@@ -20,6 +20,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
+import { isMainModule } from './lib/is-main.mjs';
 
 // Where throwaway clusters live. Kept out of the product dirs so a re-score never
 // dirties the tree it is measuring.
@@ -221,7 +222,7 @@ function provision(req) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const argv = process.argv.slice(2);
   const dirs = argv.filter((a) => !a.startsWith('--'));

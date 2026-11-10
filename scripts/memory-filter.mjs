@@ -25,6 +25,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { resolve, basename } from "node:path";
 import { safeReadFile } from "./lib/guards.mjs";
 import { registerDrops, formatRecallFooter } from "./lib/ccr.mjs";
+import { isMainModule } from "./lib/is-main.mjs";
 
 // ─── Provider config (mirrors generate-summary.mjs) ──────────────────────────
 const ANTHROPIC_API   = "https://api.anthropic.com/v1/messages";
@@ -292,7 +293,6 @@ async function filterMemory(taskTitle, memoryContent, opts = {}) {
 }
 
 // ─── CLI ──────────────────────────────────────────────────────────────────────
-import { fileURLToPath } from "node:url";
 
 async function main() {
   const args = process.argv.slice(2);
@@ -367,7 +367,7 @@ Examples:
   }
 }
 
-const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   main().catch((e) => {
     process.stderr.write(`✗ fatal: ${e?.message ?? e}\n`);

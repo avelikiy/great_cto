@@ -56,6 +56,9 @@ eine offene Entscheidung wartet weiter auf dich. Alles andere — `/review`, `/s
 `/save`, `/digest` und der Rest — ist da, wenn du es brauchst:
 [alle Befehle](../COMMANDS.md).
 
+Einrichtung über einen KI-Agenten? Füge den einen Prompt aus dem
+[Schnellstart für KI-Agenten](../QUICKSTART-AI.md) in Claude Code oder Codex ein.
+
 ## Ein Projekt, fünf Ansichten
 
 Mit `great-cto board` öffnest du das lokale Board, normalerweise auf `localhost:3141`.

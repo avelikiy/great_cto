@@ -16,9 +16,9 @@
 // files actually use (block maps/sequences, block scalars, one-line flow lists
 // and maps, comments). Anchors, aliases and multi-document streams are not
 // supported — GitHub itself rejects most of them in workflows.
-import { readdirSync, readFileSync, existsSync, realpathSync } from 'node:fs';
+import { readdirSync, readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 // ── tiny YAML reader ────────────────────────────────────────────────────────
 
@@ -472,9 +472,7 @@ export function renderTable(result) {
   return head + rows.map((r) => `${r[0].padEnd(w[0])}  ${r[1].padEnd(w[1])}  ${r[2].padEnd(w[2])}  ${r[3]}`).join('\n') + '\n';
 }
 
-const isMain = (() => {
-  try { return Boolean(process.argv[1]) && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url)); } catch { return false; }
-})();
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
   const ci = args.indexOf('--cwd');

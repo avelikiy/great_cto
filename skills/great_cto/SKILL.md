@@ -67,7 +67,7 @@ pipeline gets bypassed.
 | React Native mobile implementation (DESIGN doc targets RN; offline-first, store readiness) | `mobile-app-builder` |
 | E2E golden-path suite (Playwright) + live-URL validation around deploy | `e2e-test-engineer` |
 | Score 2+ ADR/ARCH variants against weighted criteria (after architect proposes alternatives) | `decision-scorer` |
-| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before pm — its next stage is pm) | `design-advisor` |
+| UI-bearing feature: design system pick, wireframes, a11y contract (after architect, before pm — its next stage is pm; on `SCREENS_NEEDED` it draws draft screens before gate:product) | `design-advisor` |
 | Pattern extraction from session → `lessons.md` | `continuous-learner` |
 | Crystallize sessions → new skills | `continuous-learner` → `knowledge-extractor` | `/crystallize` |
 
@@ -110,8 +110,8 @@ for**. With `approval-level: product-only` that is two stops in a whole feature:
 
 ```
 /start "CRM for realtors"
-  product-owner  →  🛑 gate:product   ← the CTO decides WHAT
-  architect → pm → senior-dev → code-reviewer → qa + security   (unattended)
+  product-owner  →  (UI product: draft screens)  →  🛑 gate:product   ← the CTO decides WHAT
+  architect → (UI feature: design-advisor) → pm → senior-dev → code-reviewer → qa + security   (unattended)
                  →  🛑 gate:ship      ← the CTO decides to release
   devops
 ```
@@ -175,7 +175,7 @@ Moved to `skills/great_cto/reference/findings-format.md` — read it when you ne
 - Evidence-backed: every finding links to a file:line or named component
 - No "it looks good" — always produce concrete findings or explicit LGTM with rationale
 - Separate pre-existing issues from issues introduced by the current change
-- **Argument-quality gate** (`agents/_shared/argument-quality.md`): every finding must name mechanism + evidence + consequence, with severity calibrated against runtime exploitability — an argument you can't falsify can't block a gate, and an over-firing gate gets overridden into uselessness
+- **Argument-quality gate** (`shared/agent-fragments/argument-quality.md`): every finding must name mechanism + evidence + consequence, with severity calibrated against runtime exploitability — an argument you can't falsify can't block a gate, and an over-firing gate gets overridden into uselessness
 
 ## Environment Bootstrap
 

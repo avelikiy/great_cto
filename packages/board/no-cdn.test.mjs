@@ -52,6 +52,23 @@ test('vendored JS libs exist locally (marked + dompurify)', () => {
   assert.ok(fs.existsSync(path.join(PUBLIC, 'assets', 'vendor', 'purify.min.js')));
 });
 
+test('every vendored JS file matches the SHA-384 recorded in PROVENANCE.md, and DOMPurify is patched', async () => {
+  const { createHash } = await import('node:crypto');
+  const dir = path.join(PUBLIC, 'assets', 'vendor');
+  const table = fs.readFileSync(path.join(dir, 'PROVENANCE.md'), 'utf8');
+  for (const name of ['marked.min.js', 'purify.min.js']) {
+    const row = table.split('\n').find(l => l.startsWith('| `' + name + '`'));
+    assert.ok(row, name + ' has no PROVENANCE row');
+    const recorded = row.match(/`([A-Za-z0-9+/]{60,}={0,2})`/)?.[1];
+    const actual = createHash('sha384').update(fs.readFileSync(path.join(dir, name))).digest('base64');
+    assert.equal(actual, recorded, name + ' differs from the hash in PROVENANCE.md');
+  }
+  // 3.4.17 fixes GHSA-cg2g-xh64-v4q7; an older copy is a known XSS bypass in the board's markdown.
+  const head = fs.readFileSync(path.join(dir, 'purify.min.js'), 'utf8').slice(0, 200);
+  const [maj, min, pat] = head.match(/DOMPurify (\d+)\.(\d+)\.(\d+)/).slice(1).map(Number);
+  assert.ok(maj > 3 || (maj === 3 && (min > 4 || (min === 4 && pat >= 17))), `vendored DOMPurify ${maj}.${min}.${pat} is older than 3.4.17`);
+});
+
 test('vendored fonts exist locally (Geist + Geist Mono)', () => {
   assert.ok(fs.existsSync(path.join(PUBLIC, 'assets', 'fonts', 'fonts.css')));
   assert.ok(fs.existsSync(path.join(PUBLIC, 'assets', 'fonts', 'geist-variable.woff2')));

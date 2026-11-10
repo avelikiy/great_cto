@@ -1,9 +1,9 @@
 import { readFileSync } from 'node:fs';
-import { pathToFileURL } from 'node:url';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import vm from 'node:vm';
 import { cases } from './host-quality-cases.mjs';
+import { isMainModule } from '../../../scripts/lib/is-main.mjs';
 
 // No host functions, process, filesystem or network exposed to generated code.
 // VM is defense in depth for this local corpus, not a production security boundary.
@@ -39,7 +39,7 @@ export async function score(source, task) {
   return { passed: checks.filter(t => t.passed).length, total: checks.length, checks };
 }
 
-if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (isMainModule(import.meta.url)) {
   const payload = process.argv[2] === '--stdin' ? JSON.parse(readFileSync(0, 'utf8')) : null;
   const task = payload ? payload.task : cases.find(t => t.id === process.argv[2]);
   if (!task) throw Error('unknown scoring task');

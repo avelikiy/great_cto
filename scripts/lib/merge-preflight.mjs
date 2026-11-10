@@ -27,7 +27,7 @@
  * Exit:  0 clean · 1 refused / nothing-to-merge / conflict · 2 usage · 3 not checked
  */
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const EXIT = Object.freeze({ CLEAN: 0, NO: 1, USAGE: 2, NOT_CHECKED: 3 });
 
@@ -73,7 +73,7 @@ export function exitFor(state) {
   return EXIT.NO;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const opt = (k, d) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : d; };

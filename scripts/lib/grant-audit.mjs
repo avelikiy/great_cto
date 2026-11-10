@@ -17,7 +17,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { execSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Pure classification. `i` = gathered inputs (all optional).
@@ -102,5 +102,5 @@ function main(argv) {
   console.log(`\n  ${s.ok} ok · ${s.missing} missing · ${s.orphan} orphan${s.critical ? `  (⛔ ${s.critical} critical)` : ''}`);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

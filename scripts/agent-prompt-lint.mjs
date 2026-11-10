@@ -108,7 +108,7 @@ function tierSatisfies(tier, expected) {
 
 // ── Resolving a phase-task section that lives in a shared file ──────────────
 //
-// `agents/_shared/phase-task.md` holds the canonical block; each pipeline agent
+// `shared/agent-fragments/phase-task.md` holds the canonical block; each pipeline agent
 // keeps a short section that names it and binds the placeholder to its own slug.
 // The PHASE rules need both halves: the shared file carries the helper
 // invocation, the agent's own section carries the slug claim.
@@ -116,7 +116,7 @@ function tierSatisfies(tier, expected) {
 // Resolved from this file's location, not the process cwd: the linter is run
 // from the repo root by ci-local and from anywhere by a person.
 const REPO_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-const SHARED_PHASE_TASK = 'agents/_shared/phase-task.md';
+const SHARED_PHASE_TASK = 'shared/agent-fragments/phase-task.md';
 
 /** The agent's own `## Phase task tracking` section, or null. */
 function ownPhaseSection(file) {
@@ -137,7 +137,7 @@ function resolvePhaseSection(file) {
   if (!own) return { state: 'absent', text: '', own: '', shared: false };
 
   // Any reference to the shared block, however it is written in prose.
-  if (!/_shared\/phase-task\.md/.test(own)) {
+  if (!/agent-fragments\/phase-task\.md/.test(own)) {
     return { state: 'ok', text: own, own, shared: false };
   }
   const abs = resolve(REPO_ROOT, SHARED_PHASE_TASK);
@@ -193,7 +193,7 @@ function canWrite(tools) {
 // ── Untrusted content (SEC-001) ─────────────────────────────────────────────
 // An agent that can fetch from the web reads text somebody else wrote, and many of
 // them can also Write, Edit or run Bash. The shared contract says that text is data.
-const SHARED_UNTRUSTED = 'agents/_shared/untrusted-content.md';
+const SHARED_UNTRUSTED = 'shared/agent-fragments/untrusted-content.md';
 
 /** The web tools an agent's `tools:` grants (`*` grants both). */
 function webTools(tools) {
@@ -331,7 +331,7 @@ const RULES = [
   //
   // These three rules used to read ONLY the agent's own text. Then the eight
   // pipeline agents were refactored to stop duplicating the block and point at
-  // `agents/_shared/phase-task.md` instead — the DRY move the CONS-NOREPEAT rule
+  // `shared/agent-fragments/phase-task.md` instead — the DRY move the CONS-NOREPEAT rule
   // asks for elsewhere in this same file. The rules kept looking for the inlined
   // text, so all eight failed at once, and the fix that would have satisfied them
   // was to paste the block back into every agent.

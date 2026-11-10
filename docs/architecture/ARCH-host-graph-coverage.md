@@ -1,6 +1,10 @@
 # ARCH: Host graph coverage
 
 **Date:** 2026-10-25
+**Reconciled with code:** 2026-10-28 (3.73.0). The event fields, enums, limits and coverage
+shape below are what `scripts/lib/host-graph-events.mjs` and
+`scripts/lib/host-graph-journal.mjs` implement. Anything this document says the code does
+not do is marked *not implemented*; it is design intent, not a feature.
 Design: [ADR-044](../adr/ADR-044-host-graph-coverage.md)
 State: Implementation contract; no completion or live-provider claim
 
@@ -92,48 +96,73 @@ or `native`. The trusted binding contains canonical `projectId`, an explicitly
 registered `sessionId`, and controller-owned `runId`/`attemptId` when present.
 Never copy these authority fields from the source payload over the binding.
 
-Normalized event v1 fields:
+Normalized event v1 fields (the journal stores exactly these and drops everything else):
 
 | Field | Rule |
 |---|---|
-| `id`, `sourceEventId` | Stable bounded identity; source ID scoped by host, source and trusted binding |
+| `schemaVersion` | Always `1`; an unknown value is refused, never read as the current schema |
+| `id` | 64-hex SHA-256 digest. For a source event it covers the normalized event without `observedAt`, so replaying one source event yields one id; for a gap event it covers the binding and the sorted codes |
+| `sourceEventId` | SHA-256 digest of the host-supplied identity (tool-use, agent, turn or item id), or null; a raw host id is never stored |
+| `callId` | Digest on `tool` and `child` events; pairs a start with its outcome (`same-call`); null otherwise |
 | `sequence` | Nonnegative safe integer or null; detects source gaps, never proves dependency |
-| `host`, `mode`, `sourceVersion` | Allowlisted host/mode; bounded version metadata |
-| `kind`, `phase`, `outcome` | Closed enums; unknown values are diagnostics |
-| `sessionId`, `attemptId` | Exact binding; absent linkage stays absent |
-| `parentIds` | Bounded explicit references; no automatic previous-event parent |
+| `host`, `mode`, `sourceVersion` | `host` is `codex` or `claude-code`; `mode` is `controlled` or `native`; version is syntax-checked and nullable, and is not a capability attestation |
+| `kind` | `session`, `turn`, `tool`, `child`, `error` |
+| `phase` | `started`, `completed`, `failed`, `stopped`, `unknown` |
+| `outcome` | `unknown`, `succeeded`, `failed`, `cancelled` |
+| `projectId`, `runId`, `sessionId`, `attemptId` | Exact trusted binding, never copied from the payload; absent linkage stays absent |
+| `parentIds` | At most 16 explicit digest references; no automatic previous-event parent |
 | `occurredAt`, `observedAt` | Valid date or null for source time; collector time is separate |
-| `toolClass` | Closed classification, such as shell/read/patch/mcp/search/other; no raw names or arguments |
-| `artifactDigest` | Valid digest of an admitted artifact; never a path or bearer token |
+| `toolClass` | `shell`, `read`, `write`, `search`, `mcp`, `agent`, `other`; no raw names or arguments |
+| `diagnosticCodes` | Only on `error` events: at most 16 codes from the closed `HOST_GRAPH_DIAGNOSTICS` list. This is how a gap is stored |
 
-Recommended kinds are session, turn, attempt, tool, child, handoff, verification,
-gate, artifact and gap. Phases are start, update and end; outcomes are unknown,
-success, failure, cancelled, timeout and rejected. Source mappings are explicit;
-an unrecognized host status must not default to success.
+Kinds, phases and outcomes are closed enums: an unknown value is a diagnostic, not a
+new member. A gap is an `error` event carrying `diagnosticCodes`. Attempt identity is
+the `attemptId` field, not an event kind. Source mappings are explicit; an
+unrecognized host status maps to `unknown` and must not default to success.
 
-An observation is not an execution receipt. Native verification/gate/artifact
-events remain reported observations unless an existing trusted adapter provides
-the required binding. Public projection retains this distinction.
+*Not implemented:* the kinds `attempt`, `handoff`, `verification`, `gate` and
+`artifact`, the phases `start`/`update`/`end`, the outcomes `timeout` and `rejected`,
+and the `artifactDigest` field. No code path produces or accepts them; they are
+design intent only.
+
+An observation is not an execution receipt. Verification, gate and artifact are
+**unsupported** for host observations: they are not event kinds, the coverage
+dimensions always report `supported: false` and `unavailable`, and no host event can
+establish them. Their authority comes from controller receipts, validated controller
+decisions and separately bound evidence, exactly as
+[Execution graphs across hosts](../HOST-GRAPHS.md) states. Public projection
+retains this distinction.
 
 ## Journal, replay and recovery
 
 `appendHostGraphEvent(binding, event, { store })` returns
-`{ state: recorded|duplicate|degraded, reason }`.
+`{ state: recorded|duplicate|degraded, reason }`; a `degraded` result also carries
+`lossMarker: recorded|unavailable`.
 `readHostGraph(binding, { store, cursor, limit })` returns
-`{ events, coverage, cursor, health }`.
+`{ state, events, total, cursor, health, reason, diagnostics, coverage }`, where
+`health` is `ok`, `degraded` or `absent`.
 
 The default store is operator-owned outside the worker project. Resolve project
 identity from canonical root, validate file components, refuse symlinks and unsafe
 permissions, and create directories/files as 0700/0600. Do not include a raw root
 path in the public projection. A reader cannot choose arbitrary store paths.
 
-Bound every event before serialization. Initial design limits: at most 16 KiB
-per normalized record, 4096 events and 16 MiB per run/session journal, and 512
-events per read page. These are resource ceilings, not performance measurements.
-Reaching a ceiling produces `partial` and an explicit reason; it never stops,
-approves or retries a model invocation. No automatic eviction that could make
+Bound every event before serialization. Limits (`HOST_GRAPH_LIMITS` in
+`scripts/lib/host-graph-journal.mjs`): at most 4 KiB per normalized record, 4096
+events and 4 MiB per run/session journal, and 200 events per read page. These are
+resource ceilings, not performance measurements. Reaching a ceiling makes the append
+`degraded` with an explicit reason and a durable `.incomplete` loss marker
+(`event-quota`, `byte-quota`), and the journal then reads as `degraded`; it never
+stops, approves or retries a model invocation. No automatic eviction that could make
 lost history appear complete. Any later retention policy must preserve an
 explicit retained interval and loss marker.
+
+Revoking an enrollment (`graph-unbind`, `graph-disable`) removes the right to record,
+not the journal. A revoked session stays readable as retained history: the page is
+marked `retained: true, enrolled: false`, is derived from the exact project, host and
+session, and creates no enrollment, so reading it can never resume recording. A live
+page is marked `enrolled: true, retained: false`. A session with neither an enrollment
+nor a journal is refused.
 
 Use a single writer/lease for each journal and idempotent event identity.
 Different journals may append concurrently. Same-ID/same-content delivery is
@@ -156,6 +185,14 @@ Dimensions are lifecycle, parentChild, tools, verification, gates and artifacts.
 Unknown support never maps to not-applicable. No event is evidence that an
 unreported capability is supported.
 
+*Implemented subset:* each dimension is `{ supported: true|false|null, state, reason }`
+with `null` meaning unknown, and a one-sentence `reason` rather than codes. `state` is
+only ever `partial` or `unavailable`; `complete` and `not-applicable` are never
+emitted, because host support is never attested (`known = false` in
+`hostGraphCapabilities`) until live acceptance records a host version. Lifecycle,
+parentChild and tools therefore report `supported: null`; verification, gates and
+artifacts always report `supported: false` and `unavailable`.
+
 Lifecycle is complete only for an admitted interval with an explicit start and
 terminal event and no known capture loss. Running intervals are in progress,
 not complete historical sessions. Duplicate/late delivery is supported;
@@ -164,11 +201,15 @@ must establish whether the source promises contiguous sequence numbers before
 their absence can prove no gap.
 
 Every edge records provenance: controller decision or explicit host reference.
+Host observations produce two edge kinds: `observed-parent` (an explicit parent
+identity, such as session membership of a child) and `same-call` (a start and an
+outcome with the same host, session, attempt and call identity).
 Unknown parents remain unresolved diagnostics; late parents may resolve them.
 Self-edges, cycles and cross-project/session references are rejected or isolated
 with coverage degradation. Sorting events for display cannot manufacture edges.
-Handoffs require an explicit originating attempt, target session and accepted
-binding; matching titles or nearby timestamps is insufficient.
+Handoffs (*not implemented*: there is no `handoff` kind or edge) would require an
+explicit originating attempt, target session and accepted binding; matching titles
+or nearby timestamps is insufficient.
 
 Project only exactly linked runs/sessions. Ambiguous multi-run task linkage
 keeps separate graphs, rather than silently combining their authority. Legacy

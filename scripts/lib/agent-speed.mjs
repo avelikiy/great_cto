@@ -21,7 +21,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export const DEFAULT_ROOT = join(homedir(), '.claude', 'projects');
 const ts = (s) => { const t = Date.parse(s); return Number.isFinite(t) ? t : null; };
@@ -113,7 +113,7 @@ export function agentSpeed({ root = DEFAULT_ROOT, since = null, until = null, ag
   return out;
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const opt = (k) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : null; };

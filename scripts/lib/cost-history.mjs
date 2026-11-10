@@ -26,6 +26,7 @@
  * keeps its own running total. A per-run row always counts in full.
  */
 
+import { isMainModule } from './is-main.mjs';
 const round2 = (n) => Math.round(n * 100) / 100;
 
 /**
@@ -86,7 +87,7 @@ export function spendWindows(text, now = new Date()) {
 //   node cost-history.mjs today|month|all [log]   → "12.34"
 //   node cost-history.mjs --json [log]            → {"spentToday":…,"spentMonth":…,"spentAll":…}
 // A missing log is $0.00: nothing recorded is nothing spent, as far as the log knows.
-if (process.argv[1] && import.meta.url === new URL(`file://${process.argv[1]}`).href) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync, existsSync } = await import('node:fs');
   const args = process.argv.slice(2);
   const which = args.find((a) => ['today', 'month', 'all', '--json'].includes(a)) || '--json';

@@ -3,8 +3,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash, createPrivateKey, createPublicKey, sign, verify } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { parseStrictReleaseIndex, validateReleaseIndex } from '../packages/cli/src/release-trust.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const HASH = /^[a-f0-9]{64}$/, COMMIT = /^[a-f0-9]{40}$/;
@@ -102,7 +102,7 @@ export function signLocalReleaseArtifacts({ directory, version, expectedCommit, 
   } finally { fs.unlinkSync(lock); syncDirectory(directory); }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     const allowed = new Set(['--directory','--version','--commit','--private-key','--key-fingerprint']), flags = new Map();
     for (let i=2;i<process.argv.length;i+=2) {

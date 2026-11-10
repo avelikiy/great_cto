@@ -2,7 +2,7 @@
 // Codex must never read as a project's decision to review without one.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, chmodSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { resolveSecondOpinion, codexAsk, codexReview, SECOND_OPINION_PROVIDERS } from '../../scripts/lib/second-opinion.mjs';
@@ -42,6 +42,17 @@ test('openrouter without a key is unavailable, not declared', () => {
   assert.equal(r.state, 'unavailable');
   const ok = resolveSecondOpinion({ projectMd: 'capabilities:\n  second_opinion: openrouter\n', env: { OPENROUTER_API_KEY: 'k' } });
   assert.equal(ok.state, 'declared');
+});
+
+test('openrouter with the key only in ~/.great_cto/secrets.env is declared — where the router reads it', () => {
+  const home = mkdtempSync(path.join(tmpdir(), 'so-home-'));
+  try {
+    mkdirSync(path.join(home, '.great_cto'));
+    const md = 'capabilities:\n  second_opinion: openrouter\n';
+    assert.equal(resolveSecondOpinion({ projectMd: md, env: { HOME: home } }).state, 'unavailable', 'no file, no key');
+    writeFileSync(path.join(home, '.great_cto', 'secrets.env'), 'OTHER=1\nOPENROUTER_API_KEY=sk-or-v1-test\n');
+    assert.equal(resolveSecondOpinion({ projectMd: md, env: { HOME: home } }).state, 'declared');
+  } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
 test('a provider the plugin does not know is unavailable, with the list it does know', () => {

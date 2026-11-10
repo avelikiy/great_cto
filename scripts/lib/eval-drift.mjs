@@ -18,6 +18,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { detectDrift } from './metrics-trend.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const HISTORY = join(__dirname, '..', '..', 'tests', 'eval', 'results-history.jsonl');
@@ -189,5 +190,5 @@ function main(argv) {
   process.exit(0);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

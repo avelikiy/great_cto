@@ -67,3 +67,11 @@ test('unrelated JSON schema flag does not establish Codex event streaming', () =
   const fixture = commandFixture({ '--version': { status: 0, stdout: '1.2.3' }, 'exec --help': { status: 0, stdout: '--json-schema <schema>' } });
   assert.equal(auditHostGraphRuntime({ host: 'codex', run: fixture.run }).controlled.streamEvents, false);
 });
+
+test('liveAcceptance reads the acceptance record for the exact version, and says when it cannot', () => {
+  const run = (bin, args) => args[0] === '--version' ? { status: 0, stdout: 'codex-cli 0.160.0\n' } : { status: 0, stdout: 'Usage: codex exec [--json]\n' };
+  const acceptance = [{ host: 'codex', mode: 'native', version: '0.160.0' }, { host: 'codex', mode: 'controlled', version: '0.160.0' }, { host: 'codex', mode: 'native', version: '0.159.0' }];
+  assert.deepEqual(auditHostGraphRuntime({ host: 'codex', run, acceptance }).liveAcceptance, { state: 'accepted', modes: ['controlled', 'native'] });
+  assert.equal(auditHostGraphRuntime({ host: 'codex', run, acceptance: [] }).liveAcceptance, 'not-checked');
+  assert.equal(auditHostGraphRuntime({ host: 'codex', run, acceptance: null }).liveAcceptance, 'unreadable');
+});

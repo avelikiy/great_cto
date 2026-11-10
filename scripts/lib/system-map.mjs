@@ -26,6 +26,7 @@
 
 import { readdirSync, readFileSync, statSync, existsSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * The groups a great_cto project is built from, and what each one is.
@@ -46,8 +47,10 @@ export const GROUPS = Object.freeze([
   { key: 'evals', label: 'Evals', dirs: ['tests/eval'], ext: ['.md'], what: 'what each agent is measured against' },
 ]);
 
-// Generated or third-party trees, plus _shared: its contracts are counted by
-// the groups that fetch them, and counting the directory twice inflated Agents.
+// Generated or third-party trees, plus _shared: the old home of the prompt fragments,
+// which sat under agents/ and were counted as agents. They live in
+// shared/agent-fragments/ now, outside every group's file type; the entry stays so a
+// project still laid out the old way does not count its fragments as agents.
 const SKIP = new Set(['node_modules', 'dist', 'build', '.git', 'coverage', 'vendor', '_shared']);
 
 function filesIn(root, dir, ext, depth = 0, out = []) {
@@ -189,7 +192,7 @@ export function pipelineMermaid(tomlText) {
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const map = systemMap(process.cwd());
   if (process.argv.includes('--json')) {
     console.log(JSON.stringify(map, null, 2));

@@ -154,3 +154,57 @@ test('native Codex explicit turn identity survives replay without invented gaps 
   graph = nativeGraphObservations(f.root, f)[0].graph;
   assert.equal(graph.nodes.filter(n => n.kind === 'turn').length, beforeMalformed + 2, 'malformed source IDs cannot collapse distinct received deliveries');
 });
+
+test('unbind keeps the session readable as retained history without enrolling it again', async t => {
+  const { readNativeGraphPage } = await import('../../scripts/lib/host-graph-bindings.mjs');
+  const f = fixture(t), sessionId = randomUUID(), canary = 'RETAINED-CANARY-DO-NOT-STORE';
+  const read = (extra = {}, root = f.root, host = 'claude-code', session = sessionId) => readNativeGraphPage({ root, host, sessionId: session, ...extra }, f);
+  const tool = { tool_use_id: 'tool-1', tool_name: 'Bash', tool_input: { command: canary } };
+  const ingest = (hook_event_name, extra = {}) => observeNativeGraphHook({ root: f.root, host: 'claude-code', event: { session_id: sessionId, hook_event_name, ...extra } }, f);
+  bindNativeGraph({ root: f.root, host: 'claude-code', sessionId, sourceVersion: '2.1.292' }, f);
+  ingest('PreToolUse', tool); ingest('PostToolUse', { ...tool, tool_response: canary });
+  const live = read();
+  assert.equal(live.enrolled, true); assert.equal(live.retained, false);
+  assert.equal(live.nodes.length, 2);
+
+  assert.equal(unbindNativeGraph({ root: f.root, host: 'claude-code', sessionId }, f).state, 'unenrolled');
+  const kept = read();
+  assert.equal(kept.retained, true); assert.equal(kept.enrolled, false);
+  assert.deepEqual(kept.nodes, live.nodes); assert.deepEqual(kept.edges, live.edges);
+  assert.equal(kept.complete, false, 'retained history is never promoted to complete');
+  assert(!JSON.stringify(kept).includes(canary));
+  assert.equal(read({ limit: 1 }).nodes.length, 1, 'retained pages stay bounded');
+  assert(read({ limit: 1 }).cursor);
+
+  // Reading is not enrolling: recording stays off and the session is not listed as enrolled.
+  assert.equal(ingest('PreToolUse', { ...tool, tool_use_id: 'tool-2' }).state, 'not-enrolled');
+  assert.equal(read().total, live.total);
+  assert.deepEqual(nativeGraphObservations(f.root, f), []);
+
+  // The retained journal belongs to this project, host and session only.
+  assert.throws(() => read({}, f.root, 'claude-code', randomUUID()), /not enrolled/);
+  assert.throws(() => read({}, f.root, 'codex'), /not enrolled/);
+  const other = join(f.tmp, 'other'); mkdirSync(other);
+  assert.throws(() => read({}, other), /not enrolled/);
+});
+
+test('project disable keeps every revoked session readable as retained history', async t => {
+  const { enableNativeGraph, disableNativeGraph, readNativeGraphPage } = await import('../../scripts/lib/host-graph-bindings.mjs');
+  const f = fixture(t), sessionId = randomUUID();
+  enableNativeGraph({ root: f.root, host: 'claude-code', sourceVersion: '2.1.292' }, f);
+  const ingest = (session_id, hook_event_name, extra = {}) => observeNativeGraphHook({ root: f.root, host: 'claude-code', event: { session_id, hook_event_name, ...extra } }, f);
+  ingest(sessionId, 'SessionStart'); ingest(sessionId, 'PreToolUse', { tool_use_id: 'tool-1', tool_name: 'Read' });
+  const total = readNativeGraphPage({ root: f.root, host: 'claude-code', sessionId }, f).total;
+  assert(total >= 2);
+
+  const disabled = disableNativeGraph({ root: f.root, host: 'claude-code' }, { store: f.store });
+  assert.equal(disabled.retainedHistory, true);
+  const kept = readNativeGraphPage({ root: f.root, host: 'claude-code', sessionId }, f);
+  assert.equal(kept.retained, true); assert.equal(kept.enrolled, false); assert.equal(kept.total, total);
+
+  // Disabled means off: neither the old session nor a new SessionStart records anything.
+  assert.equal(ingest(sessionId, 'PostToolUse', { tool_use_id: 'tool-1', tool_name: 'Read' }).state, 'not-enrolled');
+  assert.equal(ingest(randomUUID(), 'SessionStart').state, 'not-enrolled');
+  assert.equal(readNativeGraphPage({ root: f.root, host: 'claude-code', sessionId }, f).total, total);
+  assert.deepEqual(nativeGraphObservations(f.root, f), []);
+});

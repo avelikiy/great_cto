@@ -13,6 +13,8 @@
  * threshold: an exception you have to write down is one you have to defend.
  */
 
+import { isMainModule } from './is-main.mjs';
+
 /** Strip comments and quoted strings so their contents never read as CSS. */
 function scrub(css) {
   return css.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))
@@ -137,7 +139,7 @@ export const EXCEPTIONS = [
   { match: /\.share-card h2/,  why: 'showcase hero — Share is the one outward-facing screen' },
 ];
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const { readFileSync } = await import('node:fs');
   const file = process.argv[2];
   if (!file) { console.error('usage: css-type-scale.mjs <file> [--json]'); process.exit(2); }

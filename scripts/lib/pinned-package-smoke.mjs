@@ -30,6 +30,11 @@ export function smokeProcessDiagnostic(child, { startedAt, elapsedMs, limits = {
 // The probe now fails closed when its progress file stops changing for stallMs;
 // hardMs still bounds a probe that keeps writing progress but never finishes.
 export const PROBE_STALL_MS = 30000, PROBE_HARD_MS = 600000;
+// The packaged controller's own Git evidence reads default to 5 s each (hook
+// deadlines). At load ~200 one exceeded that inside the probe and it failed as
+// "evidence unavailable". Widen it here, below the stall window, so a slow read
+// still finishes and a hung one still fails before the watchdog fires.
+export const PROBE_GIT_READ_TIMEOUT_MS = 20000;
 export function runProgressWatchedProcess(command, args, { progressPath, stallMs = PROBE_STALL_MS, hardMs = PROBE_HARD_MS,
   pollMs = 250, killGraceMs = 5000, maxBuffer = 65536, ...options }) {
   return new Promise(settle => {
@@ -144,7 +149,8 @@ async function smokeExtractedPackage({ artifactFile, artifactSha256, pythonBin, 
     const startedAt = new Date().toISOString(), start = performance.now();
     const child = await runProgressWatchedProcess(process.execPath, [controllerProbeEntry, join(root, 'board'), fixtures], {
       cwd: evidenceRoot, env: { ...env, GREAT_CTO_CODEX_RUNS_DIR: runs,
-        GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' }, progressPath: join(fixtures, 'probe-progress.json') });
+        GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null', GREAT_CTO_GIT_READ_TIMEOUT_MS: String(PROBE_GIT_READ_TIMEOUT_MS) },
+      progressPath: join(fixtures, 'probe-progress.json') });
     const diagnostic = smokeProcessDiagnostic(child, { startedAt, elapsedMs: performance.now() - start,
       limits: { timeoutMs: null, stallTimeoutMs: PROBE_STALL_MS, hardTimeoutMs: PROBE_HARD_MS, watchdog: child.watchdog } });
     writeFileSync(join(evidenceRoot, 'controller-probe-diagnostics.json'), JSON.stringify({ ...diagnostic,

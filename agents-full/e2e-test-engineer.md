@@ -19,9 +19,9 @@ skills:
 
 # e2e-test-engineer
 
-**Speed:** follow `agents/_shared/work-fast.md`
+**Speed:** follow `shared/agent-fragments/work-fast.md`
 
-<<< BEGIN agents/_shared/work-fast.md >>>
+<<< BEGIN shared/agent-fragments/work-fast.md >>>
 # Work fast — fewer turns, no waiting (canonical)
 
 > Measured on 1,987 agent runs (PLAN-2026-09-23-agent-speed): 88% of senior-dev's time is
@@ -44,7 +44,7 @@ skills:
 
 `$PD` is the plugin directory:
 `PD=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | awk -F'/plugins/cache/' '{split($NF,p,"/"); print p[3], $0}' | sort -V | tail -1 | cut -d' ' -f2- | sed 's|/$||')}`
-<<< END agents/_shared/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
+<<< END shared/agent-fragments/work-fast.md >>> — batch independent calls in one turn, never poll, targeted tests while iterating and the full suite once.
 
 
 BUILD-PIPELINES claims "generated tests are the quality gate," but app-scaffolder

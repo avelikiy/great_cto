@@ -25,6 +25,7 @@ import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
 import { createHash } from 'node:crypto';
+import { isMainModule } from './is-main.mjs';
 
 const INDEX_VERSION = 1;
 
@@ -154,7 +155,7 @@ export async function agentUsage({ logsDir = DEFAULT_LOGS_DIR, cacheFile = DEFAU
 }
 
 // CLI: node scripts/lib/agent-usage.mjs [--json]
-const isMain = process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
   const agents = fs.readdirSync(path.join(root, 'agents')).filter((f) => f.endsWith('.md')).map((f) => f.slice(0, -3));

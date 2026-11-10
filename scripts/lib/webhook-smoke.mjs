@@ -5,8 +5,9 @@ import { createHmac } from 'node:crypto';
 import { mkdtempSync, realpathSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { pathToFileURL, fileURLToPath } from 'node:url';
+import { pathToFileURL } from 'node:url';
 import { once } from 'node:events';
+import { isMainModule } from './is-main.mjs';
 
 export async function runWebhookSmoke({ cliPath, signature = 'valid' }) {
   assert.ok(['valid', 'invalid'].includes(signature), 'unknown signature fixture');
@@ -93,7 +94,7 @@ export async function runWebhookSmoke({ cliPath, signature = 'valid' }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     const result = await runWebhookSmoke({ cliPath: process.argv[2], signature: process.argv[3] });
     console.log(JSON.stringify(result));

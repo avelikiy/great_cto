@@ -199,9 +199,9 @@ draft_files:
 - **Merge, don't duplicate.** If two slugs are semantically identical (e.g.
   `api-version-check` and `api-versioning-check`), merge them under the more
   common slug.
-- **Privacy:** follow `agents/_shared/privacy-guardrails.md`
+- **Privacy:** follow `shared/agent-fragments/privacy-guardrails.md`
 
-<<< BEGIN agents/_shared/privacy-guardrails.md >>>
+<<< BEGIN shared/agent-fragments/privacy-guardrails.md >>>
 # Privacy guardrails (canonical — knowledge writers AND reviewers)
 
 Agents that write durable knowledge (lessons, decisions, skills, postmortem
@@ -253,7 +253,7 @@ It flags shapes that are unambiguous — national IDs, cards that pass Luhn, ful
 dates of birth, vendor tokens — and deliberately not names or addresses, whose
 false positives would train people to ignore it. Fenced blocks are not exempt: a
 transcript pasted as evidence is the likeliest place for this to happen.
-<<< END agents/_shared/privacy-guardrails.md >>> — strip any PII,
+<<< END shared/agent-fragments/privacy-guardrails.md >>> — strip any PII,
   API keys, private project names (use `<private-project>` placeholder),
   internal codenames.
 - **Conciseness:** each pattern section must be readable in <30 seconds.
@@ -262,9 +262,9 @@ transcript pasted as evidence is the likeliest place for this to happen.
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`
+`shared/agent-fragments/verdict-format.md`
 
-<<< BEGIN agents/_shared/verdict-format.md >>>
+<<< BEGIN shared/agent-fragments/verdict-format.md >>>
 # Verdict line format (canonical)
 
 Every great_cto agent that completes a step MUST emit a verdict line so the
@@ -377,7 +377,7 @@ helper.
 - `cost-history.log` — append-only fallback the board reads when a verdict
   line lacks the cost tag (e.g. legacy lines from before this format was
   formalized). Letting both exist means we never silently lose cost data.
-<<< END agents/_shared/verdict-format.md >>>) — the pipeline dispatcher and the board
+<<< END shared/agent-fragments/verdict-format.md >>>) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

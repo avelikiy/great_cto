@@ -40,6 +40,7 @@
 import { readFileSync, existsSync } from 'node:fs';
 import { basename, isAbsolute, resolve } from 'node:path';
 import { isCovered } from '../lib/exceptions.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const GATE = 'gate-weakening';
 
@@ -199,4 +200,4 @@ function main() {
   return process.exit(2);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) main();
+if (isMainModule(import.meta.url)) main();

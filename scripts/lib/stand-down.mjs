@@ -26,6 +26,7 @@
 
 import { openSync, writeSync, fsyncSync, closeSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 export const STAND_DOWN_PATH = join('.great_cto', 'stand-downs.jsonl');
 
@@ -123,7 +124,7 @@ export function readStandDowns(cwd, { limit = 0 } = {}) {
 // board's inbox answers for gates that waited, and nothing answered for gates
 // that did not.
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   const li = argv.indexOf('--limit');
   const limit = li !== -1 ? Number(argv[li + 1]) : 0;

@@ -15,8 +15,8 @@
 import { readFileSync, readdirSync, existsSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { runBrowserChecks } from './product-browser.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /** Weights sum to 100. n/a dimensions score full (nothing to fail) so a zero-dep
  *  .mjs product isn't punished for lacking a tsconfig/lint/lockfile. */
@@ -239,5 +239,5 @@ async function main(argv) {
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

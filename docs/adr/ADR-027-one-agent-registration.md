@@ -23,7 +23,7 @@ Measured on 2026-09-21:
 | Hooks that route by agent name | normalise both spellings (`pipeline-dispatcher.normalizeAgent`, `subagent-stop-completion`) |
 
 Since commit `3ccb70c9` the two copies are no longer the same text: the installed copy
-carries the `agents/_shared/` fragments its pointers name, and the plugin copy still
+carries the `shared/agent-fragments/` fragments its pointers name, and the plugin copy still
 carries only the pointers — which resolve to nothing in a user's project. The plugin copy
 is now the weaker one, and it is the one the model picks 4% of the time.
 

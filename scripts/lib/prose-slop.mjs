@@ -32,9 +32,11 @@
  *
  * Opt out of a single line with a trailing `<!-- slop-ok: reason -->`.
  *
- * Phrases come from agents/_shared/prose-deny.txt (the one list) plus the
+ * Phrases come from shared/agent-fragments/prose-deny.txt (the one list) plus the
  * built-ins below, which add a per-phrase replacement the flat file cannot carry.
  */
+
+import { isMainModule } from './is-main.mjs';
 
 /** Words that carry no information in our writing. value = the plain word. */
 const DEAD_WORDS = Object.freeze({
@@ -182,7 +184,7 @@ const DENY_FIX = Object.freeze({
 });
 
 /**
- * Parse `agents/_shared/prose-deny.txt` into {ruleId: [phrase, …]}.
+ * Parse `shared/agent-fragments/prose-deny.txt` into {ruleId: [phrase, …]}.
  *
  * The deny list and this module used to be two lists of banned phrases that
  * nobody diffed — one documented as "reference-only" (a word list, never a
@@ -214,7 +216,7 @@ export function parseDenyList(text) {
 
 /** Default deny-list location, resolved from this file so cwd does not matter. */
 export function defaultDenyPath() {
-  return new URL('../../agents/_shared/prose-deny.txt', import.meta.url);
+  return new URL('../../shared/agent-fragments/prose-deny.txt', import.meta.url);
 }
 
 /** Read + parse the deny list; {} when it is absent (the lib must still work). */
@@ -395,6 +397,6 @@ async function main(argv) {
   return strict ? 1 : 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   main(process.argv.slice(2)).then((c) => { process.exitCode = c; });
 }

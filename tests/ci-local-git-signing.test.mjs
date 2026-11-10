@@ -25,6 +25,18 @@ test('serial mode refuses ambiguous or arbitrary concurrency values', () => {
   }
 });
 
+test('--jobs widens only the lib test step, within 1..16', () => {
+  const lib = (...args) => execFileSync('/bin/bash', ['-c',
+    parser + '\nprintf "%s %s" "$GATE_TEST_CONCURRENCY" "$LIB_TEST_CONCURRENCY"', 'fixture', ...args], { encoding: 'utf8' });
+  assert.equal(lib(), '2 2');
+  assert.equal(lib('--serial'), '1 1');
+  assert.equal(lib('--e2e', '--jobs=8'), '2 8');
+  for (const flag of ['--jobs=0', '--jobs=17', '--jobs=', '--jobs=x']) {
+    assert.throws(() => lib(flag), error => error.status === 2);
+  }
+  assert.throws(() => lib('--serial', '--jobs=8'), error => error.status === 2, 'one worker and eight cannot both hold');
+});
+
 test('ci-local turns commit and tag signing off for every git it starts', () => {
   assert.match(SRC, /export GIT_CONFIG_KEY_\d=commit\.gpgsign\s+GIT_CONFIG_VALUE_\d=false/);
   assert.match(SRC, /export GIT_CONFIG_KEY_\d=tag\.gpgSign\s+GIT_CONFIG_VALUE_\d=false/);

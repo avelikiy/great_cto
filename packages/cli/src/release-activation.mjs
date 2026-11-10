@@ -156,6 +156,27 @@ function expectedCandidate(files) {
   return hash(JSON.stringify(inventory));
 }
 
+/** What npm wrote against what was admitted: names the first difference, keeps no bytes. */
+function candidateDifference(files, packageRoot) {
+  const actual = new Map(packageSnapshot(packageRoot).files.map(file => [file.path, file]));
+  const differing = files.filter(file => { const found = actual.get(file.path); return !found || found.sha256 !== hash(file.bytes) || found.mode !== file.mode; });
+  const first = differing[0], found = first && actual.get(first.path);
+  return { differing: differing.length, unexpected: [...actual.keys()].filter(name => !files.some(file => file.path === name)).length, ...(first ? { path: first.path, expectedMode: first.mode.toString(8), actualMode: found ? found.mode.toString(8) : null, sameBytes: !!found && found.sha256 === hash(first.bytes) } : {}) };
+}
+
+/** The result of a failed step, bounded: the journal explains the rollback and stays small. */
+function stepFailure(step, result) {
+  return { step, status: result?.status ?? null, signal: result?.signal ?? null, error: result?.error?.code || result?.error?.message || null,
+    stdout: String(result?.stdout || '').slice(-500), stderr: String(result?.stderr || '').slice(-2000) };
+}
+
+/** npm applies the caller's umask to the files it unpacks, and the admitted inventory
+ * includes modes. A private umask must not turn identical bytes into a failed activation. */
+function withPackageUmask(action) {
+  const previous = process.umask(0o022);
+  try { return action(); } finally { process.umask(previous); }
+}
+
 function privateInstallationState(stateRoot, packageRoot, { recovering = false } = {}) {
   const root = canonicalDirectory(stateRoot, { create: true, privateMode: true });
   const installationId = hash(packageRoot), dir = path.join(root, installationId);
@@ -208,15 +229,16 @@ function validJournal(journal, installation, state) {
   return journal;
 }
 
-function rollback(installation, state, journal, context) {
+function rollback(installation, state, journal, context, reason = null, detail = null) {
   try {
     validJournal(journal, installation, state);
+    if (reason) { journal.failure = reason; journal.failureDetail = detail; }
     const backup = path.join(state.dir, 'transactions', journal.transactionId, 'previous/package');
     const snapshot = packageSnapshot(backup);
     if (snapshot.digest !== journal.previous.packageDigest) fail('recovery-backup-digest-mismatch');
     const current = targetState(installation);
     if (stateMatches(current, journal.previous)) {
-      journal.state = 'ROLLED_BACK'; writeRecord(state.journalPath, journal); return outcome('ROLLED_BACK', context);
+      journal.state = 'ROLLED_BACK'; writeRecord(state.journalPath, journal); return outcome('ROLLED_BACK', context, reason || journal.failure);
     }
     if (!journal.written || !stateMatches(current, journal.written)) fail('recovery-target-drift-or-unobserved-write');
     const restored = path.join(state.dir, 'transactions', journal.transactionId, 'restored-' + randomUUID());
@@ -246,7 +268,7 @@ function rollback(installation, state, journal, context) {
     syncDirectory(path.dirname(installation.packageRoot)); syncDirectory(path.dirname(installation.binPath));
     if (!stateMatches(targetState(installation), journal.previous)) fail('restored-state-mismatch');
     journal.state = 'ROLLED_BACK'; journal.recovery = 'RESTORED_PREEXISTING_OPERATOR_STATE'; writeRecord(state.journalPath, journal);
-    return outcome('ROLLED_BACK', context);
+    return outcome('ROLLED_BACK', context, reason || journal.failure);
   } catch (error) {
     journal.state = 'RECOVERY_REQUIRED'; journal.failure = error.activationReason || 'recovery-check-failed';
     try { writeRecord(state.journalPath, journal); } catch { /* preserve original journal if its writer fails */ }
@@ -319,15 +341,18 @@ export function activateNpmRelease(admission, options) {
     const finalArtifact = api.getAdmittedArtifact(admission, 'npm');
     if (finalArtifact.sha256 !== artifact.sha256 || hash(readRegular(activationArchive, { max: 128 * 1024 * 1024 })) !== artifact.sha256) fail('artifact-changed-at-activation');
     const args = ['install', '--global', activationArchive, '--ignore-scripts', '--offline', '--prefix', installation.prefix, '--package-lock=false', '--no-save', '--audit=false', '--fund=false'];
-    const result = run(npmPath, args, { cwd: tx, env, encoding: 'utf8', timeout: 180000, maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
+    const result = withPackageUmask(() => run(npmPath, args, { cwd: tx, env, encoding: 'utf8', timeout: 180000, maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] }));
     try { journal.written = targetState(installation); } catch { journal.written = null; }
     phase('ACTIVE');
-    if (result?.error || result?.signal || result?.status !== 0) return rollback(installation, state, journal, context);
-    if (!journal.written || journal.written.filesDigest !== expectedCandidate(payload.files)) return rollback(installation, state, journal, context);
+    if (result?.error || result?.signal || result?.status !== 0) return rollback(installation, state, journal, context, 'npm-install-failed', stepFailure('npm-install', result));
+    if (!journal.written) return rollback(installation, state, journal, context, 'installed-package-unreadable');
+    if (journal.written.filesDigest !== expectedCandidate(payload.files)) return rollback(installation, state, journal, context, 'installed-files-differ-from-admitted', candidateDifference(payload.files, installation.packageRoot));
     if (!stateMatches(targetState(installation), journal.written)) return outcome('RECOVERY_REQUIRED', context, 'target-drift-after-activation');
     for (const smokeArgs of [[installation.binaryPath, '--version'], [installation.binaryPath, 'codex-host', 'list']]) {
       const smoke = run(process.execPath, smokeArgs, { cwd: tx, env, encoding: 'utf8', timeout: 30000, maxBuffer: 1024 * 1024, stdio: ['ignore', 'pipe', 'pipe'] });
-      if (smoke?.error || smoke?.signal || smoke?.status !== 0 || (smokeArgs.includes('--version') && String(smoke.stdout || '').trim() !== info.version)) return rollback(installation, state, journal, context);
+      const step = 'smoke-' + (smokeArgs.includes('--version') ? 'version' : 'codex-host-list');
+      if (smoke?.error || smoke?.signal || smoke?.status !== 0) return rollback(installation, state, journal, context, step + '-failed', stepFailure(step, smoke));
+      if (smokeArgs.includes('--version') && String(smoke.stdout || '').trim() !== info.version) return rollback(installation, state, journal, context, 'smoke-version-mismatch', stepFailure(step, smoke));
       if (!stateMatches(targetState(installation), journal.written)) return outcome('RECOVERY_REQUIRED', context, 'target-drift-during-smoke');
     }
     writeRecord(state.watermarkPath, { schema: 1, version: info.version, digest: artifact.sha256, synthetic });
@@ -336,7 +361,7 @@ export function activateNpmRelease(admission, options) {
   } catch (error) {
     if (journal && error.activationCrash) return outcome('RECOVERY_REQUIRED', context, 'interrupted-activation');
     if (journal && ['ACTIVATING', 'ACTIVE', 'RECOVERY_REQUIRED'].includes(journal.state)) {
-      return rollback(installation, state, journal, context);
+      return rollback(installation, state, journal, context, error.activationReason || 'activation-check-failed');
     }
     if (journal) { journal.state = 'REFUSED'; try { writeRecord(state.journalPath, journal); } catch { /* do not replace a failed writer with a success */ } }
     const reason = error.activationReason || 'activation-check-failed';

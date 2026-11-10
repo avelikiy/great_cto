@@ -198,7 +198,7 @@ draft_files:
 - **Merge, don't duplicate.** If two slugs are semantically identical (e.g.
   `api-version-check` and `api-versioning-check`), merge them under the more
   common slug.
-- **Privacy:** follow `agents/_shared/privacy-guardrails.md` — strip any PII,
+- **Privacy:** follow `shared/agent-fragments/privacy-guardrails.md` — strip any PII,
   API keys, private project names (use `<private-project>` placeholder),
   internal codenames.
 - **Conciseness:** each pattern section must be readable in <30 seconds.
@@ -207,7 +207,7 @@ draft_files:
 ## Verdict log (mandatory)
 
 Before your final report, record the canonical verdict line (see
-`agents/_shared/verdict-format.md`) — the pipeline dispatcher and the board
+`shared/agent-fragments/verdict-format.md`) — the pipeline dispatcher and the board
 parse it; `auto` records real token cost:
 
 ```bash

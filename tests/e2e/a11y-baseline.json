@@ -1,0 +1,10 @@
+{
+  "note": "Serious/critical axe violations accepted on the date below, pending a fix (bd label a11y); a fix that changes how the board looks needs the owner's design approval first. Shrink only. See docs/testing/BOARD-TEST-STRATEGY.md §3.3.",
+  "measured": "2026-11-04",
+  "violations": {
+    "aria-hidden-focus #agent-drawer": "serious: ARIA hidden element must not be focusable or contain focusable elements (first seen settings/light/1440)",
+    "nested-interactive .inbox-row[role=\"button\"]:nth-child(2)": "serious: Interactive controls must not be nested (first seen decisions/light/1440)",
+    "nested-interactive div[data-gate-id=\"acme-3c\"]": "serious: Interactive controls must not be nested (first seen decisions/light/1440)",
+    "scrollable-region-focusable .admin-table-scroll": "serious: Scrollable region must have keyboard access (first seen insights/light/375)"
+  }
+}

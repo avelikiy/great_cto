@@ -4,7 +4,7 @@
  *
  * Why this exists
  * ---------------
- * On 2026-08-05 the eval harness was changed to inline `agents/_shared/*.md`
+ * On 2026-08-05 the eval harness was changed to inline `shared/agent-fragments/*.md`
  * into the actor's system prompt, because forty of sixty-nine agents point at
  * shared contracts the actor could never reach. It was the right fix and it grew
  * devops from 41,993 to 58,415 characters — a 39% increase on the single input
@@ -39,6 +39,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandSharedRefs } from '../../tests/eval/runner.mjs';
 import { priceForModel } from './cost-meter.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const AGENTS_DIR = join(ROOT, 'agents');
@@ -93,14 +94,19 @@ export function preloadedSkills(frontmatter, { skillsRoot }) {
 }
 
 /**
- * One agent's EFFECTIVE prompt — the file, the `_shared` contracts it points at,
+ * One agent's EFFECTIVE prompt — the file, the shared contracts it points at,
  * and the skills it preloads, which is what the model actually receives.
  *
  * Reporting the file alone is the measurement that missed the 39% growth: the
  * file did not change size, the prompt did. Leaving out the preloaded skills
  * missed more: senior-dev carried a 46 KB UI-design skill into every backend task.
  */
-export function promptProfile(agentName, { root = AGENTS_DIR, skillsRoot = join(root, '..', 'skills') } = {}) {
+export function promptProfile(agentName, {
+  root = AGENTS_DIR,
+  skillsRoot = join(root, '..', 'skills'),
+  // agents/, skills/ and shared/agent-fragments/ are siblings in the plugin tree.
+  fragmentsDir = join(root, '..', 'shared', 'agent-fragments'),
+} = {}) {
   let file;
   try {
     file = readFileSync(join(root, `${agentName}.md`), 'utf8');
@@ -109,7 +115,7 @@ export function promptProfile(agentName, { root = AGENTS_DIR, skillsRoot = join(
   }
   const raw = stripFrontmatter(file);
   const frontmatter = (file.match(/^---\n([\s\S]*?)\n---/) || [, ''])[1];
-  const { text, expanded } = expandSharedRefs(raw, { root });
+  const { text, expanded } = expandSharedRefs(raw, { fragmentsDir });
   const own = estimateTokens(raw);
   const withShared = estimateTokens(text);
   const skills = preloadedSkills(frontmatter, { skillsRoot });
@@ -225,6 +231,6 @@ function main(argv) {
   return 0;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   process.exitCode = main(process.argv.slice(2));
 }

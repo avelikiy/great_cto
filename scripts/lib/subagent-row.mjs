@@ -25,9 +25,10 @@
  *   - It does not break the panel. Input it cannot read produces no overrides
  *     and exit 0; the host falls back to its own rows.
  */
-import { readdirSync, readFileSync, realpathSync } from 'node:fs';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { readdirSync, readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { isMainModule } from './is-main.mjs';
 
 /** Agent names shipped in `agents/`. Shared prompt fragments are not agents. */
 export function greatCtoAgents(dir) {
@@ -151,10 +152,7 @@ function main() {
   if (lines.length) process.stdout.write(`${lines.join('\n')}\n`);
 }
 
-// Compared through realpath: on macOS /tmp is a symlink to /private/tmp, and a
-// plain string comparison silently skips main() when invoked through the link.
-const invokedDirectly = (() => {
-  try { return import.meta.url === pathToFileURL(realpathSync(process.argv[1])).href; }
-  catch { return false; }
-})();
+// Compared through realpath (is-main.mjs): on macOS /tmp is a symlink to
+// /private/tmp, and a plain string comparison silently skips main() through it.
+const invokedDirectly = isMainModule(import.meta.url);
 if (invokedDirectly) main();

@@ -24,6 +24,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { adaptiveSpecialistPlan, planNotice } from '../lib/specialist-plan.mjs';
+import { isMainModule } from "../lib/is-main.mjs";
 
 const cwd = process.cwd();
 const greatCtoDir = join(cwd, ".great_cto");
@@ -444,6 +445,5 @@ function main() {
 }
 
 // Guarded so reviewer-nudge.mjs can import RULES/shouldExclude without running the scan.
-import { fileURLToPath } from "node:url";
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

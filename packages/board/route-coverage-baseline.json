@@ -1,0 +1,25 @@
+{
+  "note": "API routes with no test referencing them. Shrink only: add a test, then remove the line. See docs/testing/BOARD-TEST-STRATEGY.md.",
+  "measured": "19 of 57 routes",
+  "untested": [
+    "/api/agent-budgets",
+    "/api/agents/",
+    "/api/change-tier",
+    "/api/gate-tiers",
+    "/api/memory",
+    "/api/memory-pattern",
+    "/api/notif-history",
+    "/api/notif-history/read",
+    "/api/notifications",
+    "/api/portfolio",
+    "/api/push/subscribe",
+    "/api/push/vapid-key",
+    "/api/receipt",
+    "/api/scores",
+    "/api/session-search",
+    "/api/sessions",
+    "/api/sessions/",
+    "/api/stand-downs",
+    "/api/views"
+  ]
+}

@@ -57,6 +57,7 @@ import { verdict as powerVerdict, dropout as dropoutOf } from '../../scripts/lib
 import { classifyProviderError, exhaustionReport, admissibleToHistory } from '../../scripts/lib/provider-exhaustion.mjs';
 import { parseAdherenceMarker, adherence, explainAdherence } from '../../scripts/lib/adherence.mjs';
 import { expandSharedRefs as expandShared } from '../../scripts/lib/shared-fragments.mjs';
+import { isMainModule } from '../../scripts/lib/is-main.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EVAL_DIR = __dirname;
@@ -172,7 +173,9 @@ export function parseCasesTable(tableText) {
       headerParsed = true;
       continue; // skip column header row
     }
-    const cols = row.split('|').map(s => s.trim()).filter((_, i, a) => i > 0 && i < a.length - 1);
+    // GFM writes a literal pipe inside a cell as `\|`: split on the unescaped ones only,
+    // or a case like `a \|\| b` reaches the actor cut in half.
+    const cols = row.split(/(?<!\\)\|/).map(s => s.trim().replace(/\\\|/g, '|')).filter((_, i, a) => i > 0 && i < a.length - 1);
     if (cols.length >= 3) {
       out.push({
         num: cols[0],
@@ -424,7 +427,7 @@ function stripFrontmatter(text) {
 }
 
 /**
- * Expand `agents/_shared/*.md` references into the prompt body.
+ * Expand `shared/agent-fragments/*.md` references into the prompt body.
  *
  * An agent file points at shared contracts — verdict format, phase task,
  * privacy guardrails, handoff format — and in production the agent has Read and
@@ -435,7 +438,7 @@ function stripFrontmatter(text) {
  * behind a pointer and appeared in 1 of 40 answers — not because the pointer was
  * weak, but because the file was never reachable. Forty of sixty-nine agents
  * carry at least one such pointer, so every run of those judged an agent without
- * the half of its contract that lives in `_shared`.
+ * the half of its contract that lives in the shared fragments.
  *
  * Inlining is an approximation, and it is the generous one: it measures the
  * agent given the material, not the agent choosing to fetch it. A harness with
@@ -443,10 +446,11 @@ function stripFrontmatter(text) {
  * if it were the strict one is the mistake this comment exists to prevent.
  * Runs record `sharedExpanded` so a result carries which it was.
  */
-export function expandSharedRefs(body, { root = AGENTS_DIR, seen = new Set() } = {}) {
+export function expandSharedRefs(body, { fragmentsDir, seen = new Set() } = {}) {
   // The same inlining sync-managed applies to every agent it installs — one source,
-  // so the prompt measured here is the prompt a user runs.
-  return expandShared(body, { root, seen });
+  // so the prompt measured here is the prompt a user runs. No `fragmentsDir` means
+  // this checkout's shared/agent-fragments/ (the resolver's own default).
+  return expandShared(body, { fragmentsDir, seen });
 }
 
 /** Load an agent's prompt body from agents/<name>.md. Returns null if absent. */
@@ -540,7 +544,7 @@ export const CACHE_MIN_CHARS = 4000;
 /**
  * Mark the system prompt as a cacheable prefix.
  *
- * The actor's system prompt is one agent file with its `_shared` contracts
+ * The actor's system prompt is one agent file with its shared contracts
  * inlined — 58k characters for devops, identical for every case in a run and
  * re-sent on every ReAct turn within a case. That prefix was ~97% of the bill:
  * the judge, which people reach for first when a run costs too much, is 3%.
@@ -737,17 +741,49 @@ export async function runActorLoop({ system, scenario, test, llmFn, maxTurns = 4
 let ACTOR_MAX_TOKENS = 6000;
 
 /**
+ * A second, larger budget for an answer the cap cut.
+ *
+ * 2026-11-01: architect's cases 9 and 10 came back cut mid-sentence and the judge
+ * failed them for not containing the ARCH document they were writing. The cut
+ * was this runner's 6000-token cap — in use the architect writes that document
+ * to a file, at any length. So a cut answer is asked once more with this budget.
+ * Only an answer cut at BOTH is judged as cut: that one is too long for any
+ * reasonable reply, which is a property of the agent and the judge may say so.
+ */
+export const ACTOR_RETRY_MAX_TOKENS = 16000;
+
+// Cut by the cap, with or without text. An EMPTY cut answer is usually a long
+// preamble (or reasoning) that spent the budget before the reply began: holdout on
+// 01.11 lost four product-owner cases that way, all skipped rather than measured.
+const cutByCap = (r) => /^(length|max_tokens)$/i.test(String(r?.stopReason ?? ''));
+
+/** Call `ask(maxTokens)`; if the cap cut the answer (empty or not), ask once more with the larger budget. */
+export async function withLengthRetry(ask, { first = ACTOR_MAX_TOKENS, retry = ACTOR_RETRY_MAX_TOKENS } = {}) {
+  const a = await ask(first);
+  if (!cutByCap(a) || retry <= first) return a;
+  let b;
+  // A retry that fails leaves the first, cut answer — judged as cut, and still paid for.
+  try { b = await ask(retry); } catch { return { ...a, lengthRetried: true, retryFailed: true, stillCut: true }; }
+  // Both calls cost; the caller adds `usage` of both.
+  // `stillEmpty`: the larger budget bought nothing either — both calls paid, nothing judged.
+  return { ...b, lengthRetried: true, firstUsage: a.usage, firstModel: a.model, stillCut: cutByCap(b),
+    ...(cutByCap(b) && !String(b?.text ?? '').trim() ? { stillEmpty: true } : {}) };
+}
+
+/**
  * Step 1 — Actor: responds AS the agent under test.
  * `actorSystem` is the real agent body (or candidate prompt). One-shot by default;
  * with useTools, runs the ReAct inspection loop. Returns the raw call result.
  */
 async function callActor({ actorModel, scenario, test, actorSystem, useTools = false, actorTurns = 4 }) {
-  if (useTools) {
-    const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens: ACTOR_MAX_TOKENS });
-    return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
-  }
-  const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
-  return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens: ACTOR_MAX_TOKENS });
+  return withLengthRetry((maxTokens) => {
+    if (useTools) {
+      const llmFn = ({ system, user }) => callLlm({ model: actorModel, system, user, maxTokens });
+      return runActorLoop({ system: actorSystem, scenario, test, llmFn, maxTurns: actorTurns });
+    }
+    const user = `Scenario: ${scenario}\n\nTest case: ${test}\n\nProvide your agent response:`;
+    return callLlm({ model: actorModel, system: actorSystem || GENERIC_ACTOR_SYSTEM, user, maxTokens });
+  });
 }
 
 /**
@@ -1014,11 +1050,13 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
     try {
       const actor = await callActor({ actorModel, scenario: parsed.scenario, test: c.test, actorSystem, useTools, actorTurns });
       costUsd += costForUsage({ model: actor.model, usage: actor.usage });
+      if (actor.lengthRetried) costUsd += costForUsage({ model: actor.firstModel, usage: actor.firstUsage });
 
       const heard = classifyActorOutcome(actor);
       if (heard.kind) {
         skipped++;
-        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '' });
+        caseResults.push({ num: c.num, verdict: 'SKIP', reason: `${heard.kind}${heard.stopReason ? ` (${heard.stopReason})` : ''}`, skip: { kind: heard.kind, stopReason: heard.stopReason ?? null }, answer: '',
+          ...(actor.lengthRetried ? { lengthRetried: true, stillEmpty: !!actor.stillEmpty, retryFailed: !!actor.retryFailed } : {}) });
         continue;
       }
 
@@ -1049,6 +1087,9 @@ export async function runEvalFileOnce({ parsed, evalName, actorModel, judgeModel
         // Bounded: a tool-using actor can emit tens of KB per case, and this
         // file accumulates across every run.
         answer: truncateAnswer(actor.text),
+        // Asked again with the larger budget because the cap cut the first answer;
+        // `stillCut` means the judged answer was cut at that budget too.
+        ...(actor.lengthRetried ? { lengthRetried: true, stillCut: !!actor.stillCut } : {}),
         ...(dag ? { score: judge.score, dagPath: judge.dagPath, judge: 'dag' } : { judge: 'rubric' }),
       });
     } catch (err) {
@@ -1157,7 +1198,7 @@ export async function runEvalFile({ evalPath, evalName, actorModel, judgeModel, 
     eval: evalName.replace(/\.md$/, ''),
     agent: agentName,
     actorSource,
-    // Which _shared contracts were inlined into the actor's prompt. A result
+    // Which shared contracts were inlined into the actor's prompt. A result
     // that does not say this cannot be compared with one from before the
     // expansion existed.
     sharedExpanded,
@@ -1574,7 +1615,7 @@ async function main() {
 }
 
 // Only run main() when this file is executed directly (not when imported by tests).
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   main().catch(err => {
     console.error('\nFATAL:', err.message);

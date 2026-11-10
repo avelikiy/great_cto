@@ -21,7 +21,7 @@
 
 import { readFileSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Parse the `## ACCEPTANCE` section into items. Each checklist bullet (`- [ ]` /
@@ -119,5 +119,5 @@ function main(argv) {
   process.exit(exit);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

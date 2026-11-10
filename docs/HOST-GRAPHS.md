@@ -40,6 +40,12 @@ For native Codex prompt/stop events, a valid explicit `turn_id` can identify sou
 replays; it creates no causal edge and does not replace project/session bindings.
 Absent or malformed source identities retain the gap warning.
 
+The Codex plugin routes SessionStart, UserPromptSubmit, PreToolUse, PostToolUse,
+Stop, SessionEnd, SubagentStart and SubagentStop to the observer. The last three
+are present in the codex-cli 0.160 binary; a Codex build that never fires them
+leaves no session-end or child node, and the session stays incomplete rather than
+being closed by inference.
+
 ## Audit without model calls
 
 ```sh
@@ -49,6 +55,12 @@ great-cto task work graph-audit
 The audit executes version/help commands only. Stream support is CLI surface
 evidence; native hook delivery and live execution remain not checked until an
 actual admitted run provides evidence. No key is read or uploaded by the audit.
+
+Coverage support and `liveAcceptance` come from `shared/host-graph-acceptance.json`: a
+host version that passed a live run is listed with each dimension it delivered
+(`true`) or was exercised and did not deliver (`false`). Only an exact listed version
+is `supported`; any other version keeps `unknown`, and an unreadable record is reported
+as `unreadable`, never as "none".
 
 ## Controlled runs
 
@@ -112,7 +124,8 @@ host lanes do not add dependencies. Supplementary observations collapse by
 attempt/session, and expansion is scoped to the current project and task. Local
 node search and latest-recorded focus controls never filter causal edges or
 issue mutation requests. Missing worker provenance stays Host not recorded. Next observation page is a read-only GET.
-Unknown projects and unbound sessions cannot fall back to another graph.
+Unknown projects and sessions with neither an enrollment nor a retained journal
+cannot fall back to another graph.
 
 Revoke collection:
 
@@ -123,6 +136,21 @@ great-cto task work graph-disable --dir "$PWD" --host claude-code
 
 Project disable revokes its enrolled sessions for that host too. Recorded
 journals remain private history; revocation does not delete them.
+
+A revoked session stays readable. Name its host and session, as for a live one:
+
+```sh
+great-cto task work graph-read --dir "$PWD" --host claude-code --session SESSION_ID
+```
+
+The page comes back marked `retained: true, enrolled: false` (a live session is
+`enrolled: true, retained: false`). Reading retained history is read-only: it creates
+no enrollment, never resumes recording, and later events for that session stay
+`not-enrolled`. The listing without `--session` shows enrolled sessions only, so keep
+the session ID if you will want the history after revocation. A session that was
+never recorded in this project, or is named with the wrong host, is still refused
+with "not enrolled". The board page endpoint (`/api/host-graph`) serves the same
+pages, with the same project, host and session checks.
 
 ## Storage and failure
 

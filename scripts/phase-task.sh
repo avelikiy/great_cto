@@ -55,6 +55,20 @@ extract_id() {
   awk -F'[: \t—–]+' '/Created issue:/ { for (i=1; i<=NF; i++) if ($i ~ /^[a-zA-Z][a-zA-Z0-9_-]+-[a-z0-9]+$/) { print $i; exit } }'
 }
 
+# Same reading as log-verdict.sh: a linked worktree's own .great_cto/ goes when
+# the worktree goes, and nothing else reads it. (ADR-047, the 2026-08-07 incident.)
+project_state_dir() {
+  [ -n "${GREAT_CTO_DIR:-}" ] && { printf '%s\n' "$GREAT_CTO_DIR"; return; }
+  local common gitdir main
+  common=$(git rev-parse --git-common-dir 2>/dev/null || true)
+  gitdir=$(git rev-parse --git-dir 2>/dev/null || true)
+  if [ -n "$common" ] && [ "$common" != "$gitdir" ]; then
+    main=$(cd "$(dirname "$common")" 2>/dev/null && pwd || true)
+    [ -n "$main" ] && { printf '%s\n' "$main/.great_cto"; return; }
+  fi
+  printf '%s\n' ".great_cto"
+}
+
 phase_label_for() {
   case "$1" in
     product-owner)    echo "phase-product" ;;
@@ -140,9 +154,11 @@ phase_open() {
   fi
 
   # Fallback: append to .great_cto/tasks.md
-  mkdir -p .great_cto
+  local state_dir
+  state_dir=$(project_state_dir)
+  mkdir -p "$state_dir"
   local fb_id="phase-${agent}-$(date +%s)"
-  echo "- [ ] [${fb_id}] ${agent}: ${feature}" >> .great_cto/tasks.md
+  echo "- [ ] [${fb_id}] ${agent}: ${feature}" >> "$state_dir/tasks.md"
   echo "$fb_id"
 }
 

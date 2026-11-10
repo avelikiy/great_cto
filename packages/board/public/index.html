@@ -23,6 +23,8 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/favicon-32.png" />
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/favicon-16.png" />
 <link rel="shortcut icon" href="/assets/favicon.ico" />
+<link rel="manifest" href="/manifest.webmanifest" />
+<link rel="apple-touch-icon" href="/assets/apple-touch-icon.png" />
 <link href="/assets/fonts/fonts.css" rel="stylesheet" />
 <link href="/assets/admin-shell.css" rel="stylesheet" />
 <script src="/assets/vendor/marked.min.js"></script>
@@ -95,6 +97,7 @@
   --focus-ring: #00d97e;
   --rail-ok-bg: rgba(0, 217, 126, 0.12);
   --rail-fail-bg: rgba(255, 84, 102, 0.12);
+  --rdy-fail-bg: rgba(255, 84, 102, 0.06);
   --surface-drawer: #0f1411;
 
   --accent: #00d97e;
@@ -217,6 +220,7 @@
   --surface-translucent: rgba(255, 255, 255, 0.72);
   --rail-ok-bg: rgba(10, 125, 77, 0.12);
   --rail-fail-bg: rgba(196, 48, 48, 0.12);
+  --rdy-fail-bg: rgba(196, 48, 48, 0.05);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.08);
   --shadow-card-hover: 0 1px 3px rgba(0, 0, 0, 0.12), 0 8px 24px rgba(0, 168, 98, 0.08);
   --drawer-shadow: 0 16px 32px rgba(0, 0, 0, 0.18);
@@ -668,6 +672,16 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   display: flex; align-items: center; transition: border-color .15s, color .15s;
 }
 .btn-bell:hover { border-color: var(--border-strong); color: var(--text); }
+/* Install app: shown only after the browser fires beforeinstallprompt, hidden in the
+   installed window (display-mode: standalone). */
+.btn-install {
+  display: none; align-items: center; gap: 6px; padding: 6px 10px; cursor: pointer;
+  border: 1px solid var(--accent); border-radius: 0; background: var(--accent-soft);
+  color: var(--text); font: inherit; font-size: var(--fs-small); font-weight: 500; white-space: nowrap;
+}
+.btn-install.on { display: flex; }
+.btn-install:hover { background: var(--accent-strong); }
+@media (display-mode: standalone) { .btn-install.on { display: none; } }
 .btn-bell-badge {
   position: absolute; top: -5px; right: -5px;
   background: var(--accent); color: var(--on-accent);
@@ -2963,6 +2977,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .notif-row .emoji { font-size: 16px; flex-shrink: 0; }
 .notif-row strong { color: var(--text); margin-right: 4px; }
 .notif-row input[type="checkbox"] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+.notif-new { font-family: var(--mono); font-size: var(--fs-eyebrow); color: var(--accent-text); border: 1px solid var(--accent-text); padding: 1px 6px; margin-left: 4px; }
 
 .toggle {
   width: 38px; height: 22px;
@@ -3390,6 +3405,57 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .work-meta { color: var(--text2); font-size: var(--fs-caption); }
 .work-card [data-work-detail="evidence"] dt { margin-top: 12px; font-weight: 600; }
 .work-card [data-work-detail="evidence"] dd { margin: 4px 0 12px; color: var(--text2); font-size: var(--fs-body); overflow-wrap: anywhere; }
+.rdy { margin: 18px 0 16px; border: 1px solid var(--border-strong); border-radius: 12px; overflow: hidden; }
+.rdy-head { display: flex; align-items: center; gap: 14px; padding: 16px 20px; background: var(--bg-muted); flex-wrap: wrap; }
+.rdy-count { width: 36px; height: 36px; border-radius: 50%; background: var(--p0-fg); color: var(--bg-card); display: flex; align-items: center; justify-content: center; font-weight: 600; flex-shrink: 0; }
+.rdy[data-ready="true"] .rdy-count { background: var(--accent-text); }
+.rdy-title { flex: 1; min-width: 220px; }
+.work-page .rdy-title h2, .rdy-title h2 { margin: 0; font-size: var(--fs-title-s); font-weight: 600; }
+.rdy-sub { font-size: var(--fs-small); color: var(--text2); margin-top: 2px; }
+.rdy-note { font-size: var(--fs-small); color: var(--text2); max-width: 300px; }
+.rdy-narrow { display: none; }
+.rdy-rows { list-style: none; margin: 0; padding: 0; font-size: var(--fs-body); display: flex; flex-direction: column; }
+.rdy-group { display: none; }
+.rdy-row { display: flex; gap: 12px; align-items: center; padding: 12px 20px; border-top: 1px solid var(--border); flex-wrap: wrap; }
+.rdy-row[data-state="fail"], .rdy-row[data-state="not-read"] { background: var(--rdy-fail-bg); }
+.rdy-mark { width: 22px; font-weight: 600; color: var(--text2); }
+.rdy-row[data-state="pass"] .rdy-mark { color: var(--accent-text); }
+.rdy-row[data-state="fail"] .rdy-mark, .rdy-row[data-state="not-read"] .rdy-mark { color: var(--status-blocked-ink); }
+.rdy-label { width: 170px; font-weight: 500; }
+.rdy-detail { flex: 1; color: var(--text2); min-width: 200px; }
+.rdy-queue { color: var(--absent-warn-fg); font-weight: 500; }
+.rdy-link { font-size: var(--fs-small); color: var(--text); text-decoration: underline; background: none; border: 0; padding: 0; font-family: inherit; cursor: pointer; }
+.rdy-btn { height: 34px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--border-strong); background: var(--bg-card); color: var(--text); font: inherit; font-size: var(--fs-small); cursor: pointer; }
+.rdy-btn:disabled { color: var(--text2); cursor: default; }
+.rdy-foot { padding: 10px 20px; border-top: 1px solid var(--border); font-size: var(--fs-caption); color: var(--text2); }
+.rdy-ok { margin: 16px 0; border: 1px solid var(--accent-text); border-radius: 12px; padding: 14px 20px; display: flex; gap: 14px; align-items: center; flex-wrap: wrap; font-size: var(--fs-body); }
+.rdy-ok-mark { width: 32px; height: 32px; border-radius: 50%; background: var(--accent-text); color: var(--bg-card); display: flex; align-items: center; justify-content: center; font-weight: 600; }
+.rdy-ok b { font-weight: 600; flex: 1; min-width: 200px; }
+.rdy-ok code { font-family: var(--mono); font-size: var(--fs-caption); background: var(--bg-muted); padding: 8px 10px; border-radius: 6px; overflow-wrap: anywhere; }
+@media (max-width: 600px) {
+  .rdy { margin: 12px 0; }
+  .rdy-wide { display: none; }
+  .rdy-narrow { display: inline; }
+  .rdy-head { flex-direction: column; align-items: stretch; gap: 10px; padding: 14px; }
+  .rdy-title { min-width: 0; }
+  .rdy-count { width: 32px; height: 32px; }
+  .rdy-title h2 { font-size: var(--fs-title-s); }
+  .rdy-note, .rdy-sub { font-size: var(--fs-caption); max-width: none; }
+  .rdy-group { display: block; order: 0; padding: 10px 14px; font-size: var(--fs-caption); font-weight: 600; color: var(--p0-fg); border-top: 1px solid var(--border); }
+  .rdy-group[data-group="passed"] { order: 2; color: var(--accent-text); }
+  .rdy-row { order: 3; padding: 10px 14px; font-size: var(--fs-small); color: var(--text2); gap: 4px; flex-wrap: nowrap; }
+  .rdy-row .rdy-mark { width: auto; margin-right: 2px; }
+  .rdy-row .rdy-label { width: auto; font-weight: 400; }
+  .rdy-row:not([data-state="fail"]):not([data-state="not-read"]) .rdy-label::after { content: " ·"; }
+  .rdy-row:not([data-state="fail"]):not([data-state="not-read"]) .rdy-detail { min-width: 0; }
+  .rdy-row:not([data-state="fail"]):not([data-state="not-read"]) .rdy-link, .rdy-row:not([data-state="fail"]):not([data-state="not-read"]) .rdy-btn { display: none; }
+  .rdy-row[data-state="fail"], .rdy-row[data-state="not-read"] { order: 1; flex-wrap: wrap; padding: 12px 14px; gap: 8px; font-size: var(--fs-body); color: var(--text); }
+  .rdy-row[data-state="fail"] .rdy-label, .rdy-row[data-state="not-read"] .rdy-label { font-weight: 500; flex: 1; }
+  .rdy-row[data-state="fail"] .rdy-detail, .rdy-row[data-state="not-read"] .rdy-detail { flex: 0 0 100%; min-width: 0; font-size: var(--fs-small); }
+  .rdy-row[data-state="fail"] .rdy-btn, .rdy-row[data-state="not-read"] .rdy-btn { flex: 0 0 100%; height: 44px; }
+  .rdy-row[data-state="fail"] .rdy-link, .rdy-row[data-state="not-read"] .rdy-link { min-height: 44px; display: flex; align-items: center; }
+  .rdy-foot { display: none; }
+}
 .work-warning { color: var(--absent-warn-fg); background: var(--bg-card); border: 1px solid var(--absent-warn-fg); padding: 12px; }
 .work-page pre { font-weight: 400; white-space: pre-wrap; overflow-wrap: anywhere; margin: 12px 0; }
 #work-compose textarea, #work-compose input, #work-compose select { display: block; width: 100%; margin: 8px 0 12px; padding: 8px; background: var(--bg-muted); color: var(--text); border: 1px solid var(--border-strong); border-radius: 4px; }
@@ -3534,6 +3600,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              (#topbar-bell, opened the drawer) are deleted as top-level surfaces
              here — great_cto-ki1x.5. Their panels/functions are untouched for
              .11 to re-wire as Settings rows; nothing here calls them anymore. -->
+        <button class="btn-install" id="install-app-btn" type="button" onclick="installBoardApp()" title="Install the board as an app: own window and Dock icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
+          <span class="btn-label">Install app</span>
+        </button>
         <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme"><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z"></path></svg><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg></button>
         <button class="btn-bell" id="topbar-settings-btn" data-tab="settings" onclick="switchTab('settings', this)" title="Settings" aria-label="Settings" style="gap:6px;padding:6px 10px;">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
@@ -4051,6 +4121,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
             <label class="notif-row"><input type="checkbox" data-trigger="gate.blocked"> <span class="emoji">🛡️</span><strong>Security BLOCKED</strong> — security-officer rejected a merge</label>
             <label class="notif-row"><input type="checkbox" data-trigger="cost.threshold"> <span class="emoji">💸</span><strong>Budget alert</strong> — LLM spend &gt; 80% / 100% of monthly cap</label>
             <label class="notif-row"><input type="checkbox" data-trigger="digest.weekly"> <span class="emoji">📊</span><strong>Weekly digest</strong> — Friday 09:00 DORA recap</label>
+            <label class="notif-row"><input type="checkbox" data-trigger="agent.blocked"> <span class="emoji">✋</span><strong>Agent blocked</strong> — a session is waiting for your input <span class="notif-new">NEW</span></label>
+            <label class="notif-row"><input type="checkbox" data-trigger="gate.local_red"> <span class="emoji">🔴</span><strong>Local gate red</strong> — a ci-local run finished with failures <span class="notif-new">NEW</span></label>
+            <label class="notif-row"><input type="checkbox" data-trigger="gate.waiting"> <span class="emoji">⏳</span><strong>Gate waiting now</strong> — at once, not after 2h <span class="notif-new">NEW</span></label>
           </div>
 
           <div class="cta-row" style="margin-top:24px;display:flex;gap:10px;flex-wrap:wrap">
@@ -4080,7 +4153,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           </div>
           <div id="push-status" style="margin-top:10px;font-size: var(--fs-small);font-family:var(--mono);color:var(--text3)"></div>
           <div class="share-note" style="margin-top:16px">
-            Push subscriptions are stored locally in <code>~/.great_cto/push-subscriptions.json</code>. Notifications fire for the same 5 triggers as email alerts.
+            Push subscriptions are stored locally in <code>~/.great_cto/push-subscriptions.json</code>. Notifications fire for the same 8 triggers as email alerts; the three marked NEW only when ticked there.
           </div>
         </div>
 
@@ -10591,8 +10664,46 @@ async function _disablePush() {
   }
 }
 
+// ── Install app (PWA) ──────────────────────────────────────────────────────────
+// The button appears only when the browser offers installation (Chrome/Edge fire
+// beforeinstallprompt once the manifest is valid). Safari has no such event, so
+// the button stays hidden there. Once installed, the board runs in its own
+// window (display-mode: standalone) and the button never shows.
+let _installPrompt = null;
+function _installBtn() { return document.getElementById('install-app-btn'); }
+function _isStandalone() {
+  try { return window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; }
+  catch { return false; }
+}
+function initInstallApp() {
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    _installPrompt = e;
+    const btn = _installBtn();
+    if (btn && !_isStandalone()) btn.classList.add('on');
+  });
+  window.addEventListener('appinstalled', () => {
+    _installPrompt = null;
+    const btn = _installBtn();
+    if (btn) btn.classList.remove('on');
+    showToast('Board installed as an app', 'success', 3000);
+  });
+}
+async function installBoardApp() {
+  if (!_installPrompt) return;
+  const evt = _installPrompt;
+  _installPrompt = null;
+  // A prompt event can be used once: hide the button whatever the answer. If the
+  // user dismissed it, the browser fires beforeinstallprompt again later and the
+  // button comes back with a fresh event.
+  _installBtn()?.classList.remove('on');
+  evt.prompt();
+  try { await evt.userChoice; } catch { /* nothing to undo */ }
+}
+
 init();
 initPush();
+initInstallApp();
 loadNotifHistory();
 initPeriodChips();  // attaches click handlers + highlights active chip
 // Apply persisted period to labels on first paint

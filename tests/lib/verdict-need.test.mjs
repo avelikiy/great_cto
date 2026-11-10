@@ -70,7 +70,7 @@ test('need survives the write-and-read round trip', () => {
 // ── the agents that write halting verdicts ─────────────────────────────────
 
 test('the canonical verdict format documents need and its three states', () => {
-  const t = read('agents/_shared/verdict-format.md');
+  const t = read('shared/agent-fragments/verdict-format.md');
   assert.match(t, /`need`/);
   assert.match(t, /implementer/);
   assert.match(t, /decision/);
@@ -99,6 +99,6 @@ for (const [agent, token] of [['qa-engineer', 'FAIL'], ['security-officer', 'BLO
     assert.ok(calls.some((c) => c.includes(token)), `${agent} no longer records ${token} through the helper — update this test`);
     assert.ok(calls.some((c) => c.includes(token) && /need=<implementer\|decision>/.test(c)),
       `${agent}'s ${token} call does not write need=<implementer|decision>`);
-    assert.match(t, /agents\/_shared\/verdict-format\.md/, `${agent} must point at the format that defines need`);
+    assert.match(t, /shared\/agent-fragments\/verdict-format\.md/, `${agent} must point at the format that defines need`);
   });
 }

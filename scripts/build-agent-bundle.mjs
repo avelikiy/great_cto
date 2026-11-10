@@ -6,7 +6,7 @@
  * Every agent reaches a session twice: under the plugin's namespace
  * (`great-cto:senior-dev`) and as the copy SessionStart installs into
  * `~/.claude/agents` (`senior-dev`). Since 2026-09-21 the installed copy carries the
- * `agents/_shared/` fragments its pointers name, because that relative path does not
+ * `shared/agent-fragments/` fragments its pointers name, because that relative path does not
  * exist in a user's project. The plugin copy still carried the pointers, so the 4% of
  * dispatches that use the prefixed name got an agent without half of its contract.
  *
@@ -27,6 +27,7 @@ import { readdirSync, readFileSync, writeFileSync, mkdirSync, rmSync, existsSync
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { expandSharedRefs } from './lib/shared-fragments.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SRC = join(ROOT, 'agents');
@@ -58,7 +59,7 @@ export function shortDescription(desc) {
 }
 
 /** agent name → the text the plugin should register. */
-export function bundle({ src = SRC } = {}) {
+export function bundle({ src = SRC, fragmentsDir = join(src, '..', 'shared', 'agent-fragments') } = {}) {
   const out = new Map();
   for (const f of readdirSync(src).filter((n) => n.endsWith('.md') && !n.startsWith('_')).sort()) {
     const raw = readFileSync(join(src, f), 'utf8');
@@ -68,7 +69,7 @@ export function bundle({ src = SRC } = {}) {
     // except the description, which the plugin copy lists in one line (ADR-027 E).
     const front = (m ? m[1] : '').replace(/^description:\s*(.*)$/m, (_, d) => `description: ${shortDescription(d)}`);
     const body = m ? m[2] : raw;
-    const { text } = expandSharedRefs(body, { root: src });
+    const { text } = expandSharedRefs(body, { fragmentsDir });
     out.set(f, `${front}${HEADER}\n${text.endsWith('\n') ? text : `${text}\n`}`);
   }
   return out;
@@ -95,5 +96,5 @@ function main() {
   process.stdout.write(`agents-full: wrote ${built.size} agent(s) with their shared fragments inlined\n`);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();

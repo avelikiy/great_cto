@@ -28,6 +28,7 @@ import { fileURLToPath } from 'node:url';
 import { buildFixture, buildShowcaseRecords, SAMPLE_TASK_ID } from './lib/screenshot-fixture.mjs';
 import { seedRecordedCapture } from './lib/screenshot-causal-fixture.mjs';
 import { writeTextChunk } from './lib/png-meta.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'docs', 'screenshots');
@@ -212,6 +213,6 @@ async function main() {
   }
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   main().catch((e) => { console.error(String(e && e.stack || e)); process.exit(1); });
 }

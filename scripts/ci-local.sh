@@ -12,6 +12,7 @@
 #   bash scripts/ci-local.sh            # full gate
 #   bash scripts/ci-local.sh --e2e      # also run the heavier archetype e2e suite
 #   bash scripts/ci-local.sh --e2e --serial # same gates, one root/lib test file worker
+#   bash scripts/ci-local.sh --e2e --jobs=8 # same gates, 8 lib test file workers (idle machine)
 #   bash scripts/ci-local.sh --quick    # skip cli tests/pack (fast inner-loop)
 #
 # Exit 0 = no executed gate failed. All gates run; skipped checks are reported.
@@ -32,19 +33,49 @@ export GIT_CONFIG_KEY_1=tag.gpgSign    GIT_CONFIG_VALUE_1=false
 # A subsequent security scan must inspect shipped source, not local caches.
 export PYTHONDONTWRITEBYTECODE=1
 
-E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2
+# Verdict seals (ADR-046): tests run the real log-verdict.sh, which seals with
+# ~/.great_cto/keys/verdict-seal.key. The gate gives them a throwaway key so a run
+# never creates or uses the operator's.
+SEAL_TMP="$(mktemp -d "${TMPDIR:-/tmp}/gcto-seal-XXXXXX")"
+export GREAT_CTO_SEAL_KEY="$SEAL_TMP/verdict-seal.key"
+trap '[ -n "${GATE_MACHINE_PID:-}" ] && kill "$GATE_MACHINE_PID" 2>/dev/null; rm -rf "$SEAL_TMP"' EXIT
+
+E2E=0; QUICK=0; GATE_TEST_CONCURRENCY=2; LIB_TEST_CONCURRENCY=""
 for a in "$@"; do
   case "$a" in
     --e2e) E2E=1 ;;
     --quick) QUICK=1 ;;
     --serial) GATE_TEST_CONCURRENCY=1 ;;
+    # lib tests were 75-80% of the gate in one worker (21-30 of 28-38 min).
+    # Measured 03.11 on 10 cores: 8 workers ran the same 4034 tests in 4.5 min.
+    # Only lib tests take it: root/board fixtures keep their bounded scheduling.
+    --jobs=[1-9]|--jobs=1[0-6]) LIB_TEST_CONCURRENCY="${a#--jobs=}" ;;
     *) echo "unknown flag: $a"; exit 2 ;;
   esac
 done
+if [ -n "$LIB_TEST_CONCURRENCY" ] && [ "$GATE_TEST_CONCURRENCY" = 1 ]; then
+  echo "--serial and --jobs contradict each other"; exit 2
+fi
+: "${LIB_TEST_CONCURRENCY:=$GATE_TEST_CONCURRENCY}"
 
 FAIL=0
 SKIP_TOTAL=0
 SKIP_LINES=""
+STEP_TIMES=""
+# Names of failed steps, one per line — recorded for the board (gate.local_red).
+FAILED_STEPS=""
+# Machine-readable results (docs/testing/BOARD-TEST-STRATEGY.md §4): a step that
+# runs node:test writes a CTRF report here as well as its TAP to the terminal, which
+# count-skips still reads. GATE_FILE_BUGS=1 turns the failures into Beads bugs at
+# the end of the run (scripts/gate-to-bd.mjs, deduplicated by fingerprint).
+RESULTS_DIR=".great_cto/test-results"
+rm -rf "$RESULTS_DIR"; mkdir -p "$RESULTS_DIR"
+# What the machine was doing, so a red can be read against it (great_cto-tbnc).
+node scripts/lib/gate-machine.mjs sample --out "$RESULTS_DIR/machine.jsonl" >/dev/null 2>&1 &
+GATE_MACHINE_PID=$!
+ctrf_to() {
+  printf -- '--test-reporter=tap --test-reporter-destination=stdout --test-reporter=./scripts/lib/ctrf-reporter.mjs --test-reporter-destination=%s/%s.ctrf.json' "$RESULTS_DIR" "$1"
+}
 step() {
   local name="$1"; shift
   printf '\n\033[1m── %s\033[0m\n' "$name"
@@ -52,17 +83,23 @@ step() {
   # it skipped. `node --test` exits 0 when tests skip: judged by exit code alone, a
   # board e2e that pressed no button printed ✓ and the gate ALL GATES GREEN.
   # No arrays below — macOS /bin/bash is 3.2, and with `set -u` an empty one is fatal.
-  local log rc skips
+  local log rc skips t0 dt
   log="$(mktemp "${TMPDIR:-/tmp}/ci-local-step.XXXXXX")"
+  t0=$SECONDS
   "$@" 2>&1 | tee "$log"
   rc=${PIPESTATUS[0]}
+  dt=$((SECONDS - t0))
+  # Durations, so the gate can say where its time goes instead of being guessed at.
+  STEP_TIMES="${STEP_TIMES:-}${dt}	${name}\n"
   skips="$(node scripts/lib/count-skips.mjs "$log" 2>/dev/null)" || skips=""
   rm -f "$log"
   if [ "$rc" -eq 0 ]; then
-    printf '\033[32m   ✓ %s\033[0m\n' "$name"
+    printf '\033[32m   ✓ %s · %ss\033[0m\n' "$name" "$dt"
   else
-    printf '\033[31m   ✗ %s (exit %s)\033[0m\n' "$name" "$rc"
+    printf '\033[31m   ✗ %s (exit %s) · %ss\033[0m\n' "$name" "$rc" "$dt"
     FAIL=1
+    FAILED_STEPS="${FAILED_STEPS:-}${name}
+"
   fi
   if [ -z "$skips" ]; then
     printf '\033[33m   ⚠ %s: skipped tests could not be counted\033[0m\n' "$name"
@@ -75,7 +112,7 @@ step() {
 
 NODE_MAJOR="$(node -p 'process.versions.node.split(".")[0]')"
 echo "ci-local: node $(node -v) on $(uname -s)"
-echo "   root/lib test worker concurrency: $GATE_TEST_CONCURRENCY (deadlines and assertions unchanged)"
+echo "   root/lib test worker concurrency: $GATE_TEST_CONCURRENCY/$LIB_TEST_CONCURRENCY (deadlines and assertions unchanged)"
 [ "$NODE_MAJOR" -lt 22 ] && echo "   ⚠ project targets Node 22 (.nvmrc); you are on $(node -v)"
 
 # ── The privacy guard is actually in force ──
@@ -380,13 +417,13 @@ step "docs screen classifies more than it shrugs at" bash -c '
 # Board fixtures have real child-start and IPC deadlines. Unbounded file
 # scheduling can expire a receipt before its held Git fixture reaches the
 # handshake. Bound scheduling, not those deadlines, and retain every suite.
-step "root + hooks + board tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
+step "root + hooks + board tests" env GATE_SUITE="root + hooks + board tests" node --test $(ctrf_to board-unit) --test-concurrency="$GATE_TEST_CONCURRENCY" tests/*.test.mjs tests/hooks/*.test.mjs tests/helpers/*.test.mjs packages/board/*.test.mjs
 # Each library file can launch Git, browsers and signal-handling fixtures.
 # Unbounded file parallelism starved the fixed 1s scorer-ready window in a
 # canonical 3301-test run. Bound scheduling, not case/IPC/cleanup deadlines;
 # retain the full inventory and every original assertion.
-step "lib tests" node --test --test-concurrency="$GATE_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
-step "eval tests" node --test tests/eval/*.test.mjs
+step "lib tests" env GATE_SUITE="lib tests" node --test $(ctrf_to lib) --test-concurrency="$LIB_TEST_CONCURRENCY" tests/lib/*.test.mjs scripts/lib/*.test.mjs
+step "eval tests" env GATE_SUITE="eval tests" node --test $(ctrf_to eval) tests/eval/*.test.mjs
 # `|| true` used to end this line, from the days when tests/docs/ might be empty
 # in a partial checkout. It made the step incapable of failing — and on v3.28.1
 # the README parity check was RED here while the gate reported ALL GATES GREEN.
@@ -403,7 +440,7 @@ step "docs tests" bash -c 'ls tests/docs/*.test.mjs >/dev/null 2>&1 || { echo "n
 # existed since the kanban, the button had not — and every gate was green.
 # This step presses the buttons. It SKIPS (loudly) when Playwright or the
 # server is unavailable; a skip is "not checked", never "checked and fine".
-step "board e2e (browser)" node --test tests/e2e/*.test.mjs
+step "board e2e (browser)" env GATE_SUITE="board e2e (browser)" node --test $(ctrf_to board-e2e) tests/e2e/*.test.mjs
 
 # ── The pipeline, against a written-down answer ──
 #
@@ -492,6 +529,44 @@ fi
 if [ "$E2E" -eq 1 ]; then
   step "archetype e2e" bash -c 'cd packages/cli && npm run test:e2e'
 fi
+
+# ── Allure 3 over the CTRF reports: one human report, and a quality gate that an
+# empty or truncated run cannot pass (a suite that loaded nothing is not green). ──
+if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1 && [ -x node_modules/.bin/allure ]; then
+  rm -rf "$RESULTS_DIR/allure-results"
+  step "test report (Allure quality gate)" bash -c '
+    node scripts/ctrf-to-allure.mjs "$0/allure-results" "$0"/*.ctrf.json &&
+    node_modules/.bin/allure generate "$0/allure-results" --output "$0/allure-report" --clean --report-name "great_cto gate" >/dev/null &&
+    allure="$PWD/node_modules/.bin/allure" &&
+    # quality-gate writes its own files into ./allure-report: run it beside the report,
+    # not in the checkout root, where they would show up as untracked files.
+    cd "$0" && "$allure" quality-gate allure-results --max-failures 0 --min-tests-count "${GATE_MIN_TESTS:-100}"
+  ' "$RESULTS_DIR"
+elif ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
+  # A missing report tool is not a passed report: say so in the verdict, like a skip.
+  printf '\033[33m   ⚠ test report (Allure quality gate): allure is not installed (npm ci) — not checked\033[0m\n'
+  SKIP_TOTAL=$((SKIP_TOTAL + 1))
+  SKIP_LINES="${SKIP_LINES}   - test report (Allure quality gate): allure not installed\n"
+fi
+
+printf '\n   slowest steps:\n'
+printf '%b' "$STEP_TIMES" | sort -rn | head -5 | awk -F'\t' '{printf "     %5ss  %s\n", $1, $2}'
+
+if ls "$RESULTS_DIR"/*.ctrf.json >/dev/null 2>&1; then
+  printf '\n   reports: %s/*.ctrf.json\n' "$RESULTS_DIR"
+  [ -f "$RESULTS_DIR/allure-report/index.html" ] && printf '   allure:  %s/allure-report/index.html\n' "$RESULTS_DIR"
+  if [ "$FAIL" -ne 0 ] && [ "${GATE_FILE_BUGS:-0}" = "1" ]; then
+    # Filing that fails must be seen: gate-to-bd exits 2 and the gate stays red anyway.
+    node scripts/gate-to-bd.mjs ${GATE_BUGS_PARENT:+--parent "$GATE_BUGS_PARENT"} --commit "$(git rev-parse --short HEAD 2>/dev/null)" "$RESULTS_DIR"/*.ctrf.json \
+      || printf '\033[31m   ✗ failures were not all filed in bd — see above\033[0m\n'
+  fi
+fi
+
+# One line per run in the main checkout's .great_cto/gate-runs.jsonl, so the board
+# can raise gate.local_red. A report only: it never changes this gate's exit code.
+if [ "$FAIL" -ne 0 ]; then RUN_RESULT=red; elif [ "$SKIP_TOTAL" -ne 0 ]; then RUN_RESULT=skipped; else RUN_RESULT=green; fi
+node scripts/lib/gate-run-record.mjs --result "$RUN_RESULT" --failed "$(printf '%b' "$FAILED_STEPS")" || true
+node scripts/lib/gate-machine.mjs report --file "$RESULTS_DIR/machine.jsonl" --result "$RUN_RESULT" || true
 
 printf '\n'
 if [ "$FAIL" -eq 0 ] && [ "$SKIP_TOTAL" -eq 0 ]; then

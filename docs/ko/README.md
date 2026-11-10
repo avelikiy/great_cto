@@ -55,6 +55,9 @@ Claude Code를 다시 시작하세요. 매일 쓰는 것은 세 가지입니다:
 나머지 — `/review`, `/spec`, `/save`, `/digest` 등 — 는 필요할 때 쓰면 됩니다:
 [전체 명령어](../COMMANDS.md).
 
+AI 에이전트로 설정하시나요?
+[AI 에이전트용 빠른 시작](../QUICKSTART-AI.md)의 프롬프트 하나를 Claude Code 또는 Codex에 붙여넣으세요.
+
 ## 프로젝트 하나, 화면 다섯 개
 
 `great-cto board`로 로컬 보드를 엽니다. 기본 주소는 `localhost:3141`입니다.

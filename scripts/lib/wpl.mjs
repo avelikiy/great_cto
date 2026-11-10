@@ -30,6 +30,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { claimsOverlap, laneOverlaps } from './check-lane-overlap.mjs';
+import { isMainModule } from './is-main.mjs';
 
 /**
  * Columns the contract names — in BOTH spellings it is written in.
@@ -153,7 +154,7 @@ export function checkWpl(markdown) {
 export { claimsOverlap };
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (isMainModule(import.meta.url)) {
   const argv = process.argv.slice(2);
   let text;
   if (argv.includes('--stdin')) {

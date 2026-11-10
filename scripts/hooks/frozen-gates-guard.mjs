@@ -22,6 +22,7 @@ import { PASS, deny, emit, readStdinOnce } from '../lib/guard-result.mjs';
 import { existsSync, readFileSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { simpleCommands, base } from '../lib/shell-commands.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const GATE_DIR = 'docs/gates/';
 
@@ -110,4 +111,4 @@ export function run(raw, env = process.env) {
   return deny({ guard: 'frozen-gates', tag: 'frozen-gates', reason, what: 'edit' });
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) emit(run(readStdin()));
+if (isMainModule(import.meta.url)) emit(run(readStdin()));

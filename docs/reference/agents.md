@@ -47,7 +47,7 @@ Reviews, tests, and tightens what Builder produced — correctness, quality, and
 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
-| `code-reviewer` | haiku | MEDIUM | Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict. |
+| `code-reviewer` | sonnet | MEDIUM | Use after senior-dev completes a task and before gate:ship. One stable, human-grade reviewer (correctness, security, performance, readability) — replaces ad-hoc inline review forks. Reads the diff, files bugs in Beads, emits a verdict. |
 | `e2e-test-engineer` | haiku | MEDIUM | Use after qa-engineer passes and before/around devops deploy. Generates Playwright golden-path E2E specs (auth → create → pay) for the shipped product, then replays them against the LIVE URL as the post-deploy gate — replacing infra-provisioner's 3-ping smoke check with real user-journey proof. |
 | `qa-engineer` | haiku | MEDIUM | Use after senior-dev completes implementation. Analyzes actual code, then runs type-appropriate QA, writes report, files bugs in Beads. |
 

@@ -326,6 +326,16 @@ test('parseCasesTable: parses rows skipping header + separator', () => {
   assert.equal(cases[0].test, 'a');
 });
 
+// 02.11.2026: `\|\|` inside a case cell cut the scenario mid-line, so the actor never
+// saw the code the case was about (security-officer adversarial H1, two runs).
+test('parseCasesTable: an escaped pipe stays inside its cell', () => {
+  const body = '\n| # | Test | Expected | Pass |\n|---|---|---|---|\n| H1 | `if (!u \\|\\| bad) throw` then `sign(30d)` | finds it | ok |\n';
+  const [c] = parseCasesTable(body);
+  assert.equal(c.test, '`if (!u || bad) throw` then `sign(30d)`');
+  assert.equal(c.expected, 'finds it');
+  assert.equal(c.pass, 'ok');
+});
+
 test('parseEvalFile: splits tuning vs holdout cases', () => {
   const r = parseEvalFile(SPLIT_EVAL, 'EVAL-split-test.md');
   assert.equal(r.cases.length, 3, 'combined cases');
@@ -712,9 +722,9 @@ test('a split with no cases run says nothing rather than failing on an empty sam
   assert.equal(out.holdout.below, false, 'an unrun split is not a failed one');
 });
 
-// ── _shared expansion ───────────────────────────────────────────────────────
+// ── shared-fragment expansion ───────────────────────────────────────────────
 //
-// Forty of sixty-nine agents point at `agents/_shared/*.md` for their verdict
+// Forty of sixty-nine agents point at `shared/agent-fragments/*.md` for their verdict
 // format, phase task, privacy guardrails and handoff contract. The actor's
 // system prompt was the agent file alone, and the actor has no filesystem —
 // `buildFixture` answers every INSPECT with the scenario text. So every one of
@@ -725,28 +735,28 @@ test('a split with no cases run says nothing rather than failing on an empty sam
 
 test('a pointer is replaced by the file, and the pointer text survives it', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
-  fs.mkdirSync(path.join(root, '_shared'), { recursive: true });
-  fs.writeFileSync(path.join(root, '_shared', 'verdict-format.md'), '# Verdict\nEmit PASS or BLOCK.');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, 'verdict-format.md'), '# Verdict\nEmit PASS or BLOCK.');
   try {
-    const { text, expanded } = expandSharedRefs('See `agents/_shared/verdict-format.md` for the format.', { root });
+    const { text, expanded } = expandSharedRefs('See `shared/agent-fragments/verdict-format.md` for the format.', { fragmentsDir: root });
     assert.match(text, /Emit PASS or BLOCK/, 'the material has to reach the actor');
-    assert.match(text, /agents\/_shared\/verdict-format\.md/, 'the pointer stays, so the prompt still reads as written');
-    assert.match(text, /BEGIN agents\/_shared\/verdict-format\.md/, 'inlined material is delimited, not merged into the prose');
+    assert.match(text, /shared\/agent-fragments\/verdict-format\.md/, 'the pointer stays, so the prompt still reads as written');
+    assert.match(text, /BEGIN shared\/agent-fragments\/verdict-format\.md/, 'inlined material is delimited, not merged into the prose');
     assert.deepEqual(expanded, ['verdict-format.md']);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
 test('a shared file that points at another is expanded too, once', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
-  fs.mkdirSync(path.join(root, '_shared'), { recursive: true });
-  fs.writeFileSync(path.join(root, '_shared', 'a.md'), 'A body, see agents/_shared/b.md');
-  fs.writeFileSync(path.join(root, '_shared', 'b.md'), 'B body, back to agents/_shared/a.md');
+  fs.mkdirSync(root, { recursive: true });
+  fs.writeFileSync(path.join(root, 'a.md'), 'A body, see shared/agent-fragments/b.md');
+  fs.writeFileSync(path.join(root, 'b.md'), 'B body, back to shared/agent-fragments/a.md');
   try {
-    const { text, expanded } = expandSharedRefs('start agents/_shared/a.md', { root });
+    const { text, expanded } = expandSharedRefs('start shared/agent-fragments/a.md', { fragmentsDir: root });
     assert.match(text, /A body/);
     assert.match(text, /B body/, 'a contract reached through another contract is still part of the prompt');
     assert.deepEqual(expanded, ['a.md', 'b.md'], 'a cycle terminates and nothing is inlined twice');
-    assert.equal(text.match(/BEGIN agents\/_shared\/a\.md/g).length, 1);
+    assert.equal(text.match(/BEGIN shared\/agent-fragments\/a\.md/g).length, 1);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -755,8 +765,8 @@ test('a pointer at a file that does not exist stays a pointer', () => {
   // reference or throw in the middle of a paid run.
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-sh-'));
   try {
-    const { text, expanded } = expandSharedRefs('see agents/_shared/nope.md', { root });
-    assert.equal(text, 'see agents/_shared/nope.md');
+    const { text, expanded } = expandSharedRefs('see shared/agent-fragments/nope.md', { fragmentsDir: root });
+    assert.equal(text, 'see shared/agent-fragments/nope.md');
     assert.deepEqual(expanded, []);
   } finally { fs.rmSync(root, { recursive: true, force: true }); }
 });
@@ -773,7 +783,7 @@ test('the run records which contracts were inlined', () => {
   const r = resolveActorSystem({ agentName: 'devops' });
   assert.match(r.source, /^agent:devops$/);
   assert.ok(Array.isArray(r.sharedExpanded));
-  assert.ok(r.sharedExpanded.length > 0, 'devops points at _shared and the run must say so');
+  assert.ok(r.sharedExpanded.length > 0, 'devops points at shared fragments and the run must say so');
 });
 
 test('a generic actor reports an empty expansion, not undefined', () => {
@@ -879,7 +889,7 @@ test('the raise-more-samples advice skips the runs that stopped', () => {
 
 // ── prompt caching ──────────────────────────────────────────────────────────
 //
-// The actor's system prompt is one agent file with its _shared contracts
+// The actor's system prompt is one agent file with its shared contracts
 // inlined — 58k characters for devops, identical for every case in a run and
 // re-sent on every ReAct turn. Measured against the real bill it was ~97% of
 // the cost; the judge, which is what people swap when a run costs too much,
@@ -1361,11 +1371,24 @@ test('runEvalFileOnce: a refused actor reply is recorded as refused, not failed'
   assert.equal(result.judged, 0);
 });
 
-test('runEvalFileOnce: a cut answer that has text is still judged', async () => {
-  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' }, { text: 'FAIL - stops before the finding' }]);
-  assert.equal(calls, 2);
+test('runEvalFileOnce: a cut answer is asked once more; cut again, it is still judged and marked', async () => {
+  // Since 2026-11-01 the cap's cut gets a second, larger budget before the judge.
+  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' },
+    { text: 'still half a review', stop: 'max_tokens' }, { text: 'FAIL - stops before the finding' }]);
+  assert.equal(calls, 3);
   assert.equal(result.judged, 1);
   assert.equal(result.caseResults[0].verdict, 'FAIL');
+  assert.equal(result.caseResults[0].lengthRetried, true);
+  assert.equal(result.caseResults[0].stillCut, true);
+});
+
+test('runEvalFileOnce: a cut answer that the larger budget completes is judged on the whole answer', async () => {
+  const { result, calls } = await runOnePlain([{ text: 'half a review', stop: 'max_tokens' },
+    { text: 'the whole review' }, { text: 'PASS - names the finding' }]);
+  assert.equal(calls, 3);
+  assert.equal(result.caseResults[0].verdict, 'PASS');
+  assert.equal(result.caseResults[0].stillCut, false);
+  assert.match(result.caseResults[0].answer, /the whole review/);
 });
 
 test('runActorLoop: an empty FINAL carries the stop reason, so the runner can classify it', async () => {
@@ -1424,4 +1447,51 @@ test('splitPower: a split that never ran leaves the run inconclusive, not passed
   const p = splitPower({ tuning: 1, holdout: 2 / 3 }, [{ caseResults: [{ num: '1', verdict: 'PASS' }, { num: '2', verdict: 'PASS' }] }], new Set(['H1']));
   assert.equal(p.splits.holdout.status, 'not_run');
   assert.notEqual(p.status, 'passed');
+});
+
+// 2026-11-01: architect cases 9 and 10 were failed for an answer this runner's cap cut.
+import { withLengthRetry, ACTOR_RETRY_MAX_TOKENS } from './runner.mjs';
+
+test('a non-empty answer cut by the cap is asked again with the larger budget', async () => {
+  const asked = [];
+  const ask = async (n) => { asked.push(n); return n < ACTOR_RETRY_MAX_TOKENS
+    ? { text: 'ARCH doc, cut mid-', stopReason: 'length', usage: { output_tokens: n }, model: 'm' }
+    : { text: 'ARCH doc, whole', stopReason: 'end_turn', usage: { output_tokens: 9000 }, model: 'm' }; };
+  const r = await withLengthRetry(ask, { first: 6000 });
+  assert.deepEqual(asked, [6000, ACTOR_RETRY_MAX_TOKENS]);
+  assert.equal(r.text, 'ARCH doc, whole');
+  assert.equal(r.lengthRetried, true);
+  assert.equal(r.stillCut, false);
+  assert.deepEqual(r.firstUsage, { output_tokens: 6000 }, 'the first call is still paid for');
+});
+
+test('an answer cut at both budgets is judged as cut, and says so', async () => {
+  const r = await withLengthRetry(async () => ({ text: 'endless', stopReason: 'max_tokens' }), { first: 6000 });
+  assert.equal(r.stillCut, true);
+});
+
+test('a complete answer, an empty one that ended normally, or a refusal is not asked again', async () => {
+  for (const first of [{ text: 'done', stopReason: 'end_turn' }, { text: '', stopReason: 'end_turn' }, { text: '', stopReason: 'content_filter' }]) {
+    let n = 0;
+    const r = await withLengthRetry(async () => { n += 1; return first; }, { first: 6000 });
+    assert.equal(n, 1, JSON.stringify(first));
+    assert.equal(r.lengthRetried, undefined);
+  }
+});
+
+test('a retry that throws leaves the first, cut answer — judged as cut', async () => {
+  let n = 0;
+  const r = await withLengthRetry(async () => { n += 1; if (n === 2) throw new Error('provider down'); return { text: 'half', stopReason: 'length' }; }, { first: 6000 });
+  assert.equal(r.text, 'half');
+  assert.equal(r.retryFailed, true);
+  assert.equal(r.stillCut, true);
+});
+
+test('an EMPTY answer cut by the cap is asked again too (holdout 01.11: four lost that way)', async () => {
+  const asked = [];
+  const r = await withLengthRetry(async (n) => { asked.push(n); return n < ACTOR_RETRY_MAX_TOKENS
+    ? { text: '', stopReason: 'length' } : { text: 'the brief', stopReason: 'end_turn' }; }, { first: 6000 });
+  assert.deepEqual(asked, [6000, ACTOR_RETRY_MAX_TOKENS]);
+  assert.equal(r.text, 'the brief');
+  assert.equal(r.stillCut, false);
 });

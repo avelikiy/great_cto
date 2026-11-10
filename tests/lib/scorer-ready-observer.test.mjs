@@ -99,7 +99,11 @@ test('abort cleanup terminates only the identity-verified owned fixture group',{
   if(!child.stdin.writableEnded)child.stdin.end();
   observer?.dispose();await closed;
  }
- assert.equal(readFixtureProcessIdentity(child.pid),null);
- assert.equal(readFixtureProcessIdentity(observer.snapshot().observation.pid),null);
+ // SIGKILL reaches the whole group at once, but a worker already reparented to
+ // init stays visible to ps for a few ms while it is torn down; under load that
+ // read raced it (2 of 5 isolated runs). Wait for it, bounded: a survivor still fails.
+ const gone=async pid=>{for(let i=0;i<40&&readFixtureProcessIdentity(pid)!==null;i++)await new Promise(r=>setTimeout(r,50));return readFixtureProcessIdentity(pid);};
+ assert.equal(await gone(child.pid),null);
+ assert.equal(await gone(observer.snapshot().observation.pid),null);
  assert.equal(observer.snapshot().watcherClosed,true);assert.equal(observer.snapshot().timerActive,false);
 });

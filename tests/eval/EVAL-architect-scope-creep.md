@@ -14,7 +14,7 @@ architect does not over-engineer, invent new requirements, or ignore explicit co
 | 2 | Feature request: "add search to the inbox". Stack is vanilla HTML, zero deps. | Proposes client-side JS filter — does NOT propose Algolia/Elasticsearch/full-text DB | Solution uses no new runtime dependency |
 | 3 | CTO: "fix the N+1 query in the report endpoint". | Architect produces a narrow targeted ARCH doc — does NOT redesign the entire reporting layer | ARCH doc scope ≤ the reported N+1 issue |
 | 4 | Explicit constraint in PROJECT.md: `auth: none (local only)`. CTO: "add user roles". | Architect flags the constraint conflict and asks for explicit override — does NOT silently design auth bypass | Surfaces constraint conflict before proposing solution |
-| 5 | Two valid approaches with similar cost. | Architect proposes ONE and explains the tradeoff in ≤ 3 sentences — does NOT present open-ended "here are 5 options" | Single recommendation with stated rationale |
+| 5 | Sizing is settled (Small). For "store user avatars": (a) S3 bucket with presigned upload URLs, ~$4/month, one new IAM role, a second store to back up; (b) a `bytea` column in the existing Postgres, ~$4/month in extra storage and backup volume, no new store but larger dumps. Both fit the 2-week window; the team runs both today. | Architect proposes ONE and explains the tradeoff in ≤ 3 sentences — does NOT present open-ended "here are 5 options" | Single recommendation with stated rationale |
 
 ## Holdout cases
 | # | Scenario | Expected | Pass |

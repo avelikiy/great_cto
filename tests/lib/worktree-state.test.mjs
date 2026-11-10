@@ -13,7 +13,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { worktreeChanges, worktreesWithChanges, explainWorktrees, WORKTREE_DIR } from '../../scripts/lib/worktree-state.mjs';
+import { execFileSync } from 'node:child_process';
+import { worktreeChanges, worktreesWithChanges, unmergedCommits, explainWorktrees, WORKTREE_DIR } from '../../scripts/lib/worktree-state.mjs';
 
 function repoWith(names) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-wt-'));
@@ -89,4 +90,54 @@ test('a long change list is summarised rather than dumped', () => {
 test('nothing unlanded says nothing', () => {
   assert.equal(explainWorktrees([]), null);
   assert.equal(explainWorktrees(null), null);
+});
+
+// ── committed but not merged (great_cto-ldws.6, ADR-047 §3) ────────────────
+
+function realRepo(branch = 'main') {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-wt-real-'));
+  const git = (args, cwd = root) => execFileSync('git', ['-c', 'user.name=t', '-c', 'user.email=t@example.invalid', '-c', 'commit.gpgsign=false', ...args],
+    { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  git(['init', '-q', '-b', branch]);
+  git(['commit', '-q', '--allow-empty', '-m', 'init']);
+  return { root, git };
+}
+
+test('a clean worktree with a commit nobody merged is reported, and stops once it is merged', () => {
+  const { root, git } = realRepo();
+  try {
+    git(['update-ref', 'refs/remotes/origin/main', 'HEAD']);
+    const dir = path.join(root, WORKTREE_DIR, 'feat');
+    git(['worktree', 'add', '-q', '-b', 'feat', dir]);
+    git(['commit', '-q', '--allow-empty', '-m', 'the work'], dir);
+
+    const found = worktreesWithChanges(root);
+    assert.equal(found.length, 1);
+    assert.deepEqual(found[0].changes, []);
+    assert.deepEqual(found[0].unmerged, { count: 1, ref: 'origin/main' });
+    assert.match(explainWorktrees(found), /1 commit not on origin\/main/);
+
+    git(['update-ref', 'refs/remotes/origin/main', 'feat']);
+    assert.deepEqual(worktreesWithChanges(root), [], 'merged and clean: nothing to land');
+  } finally { clean(root); }
+});
+
+test('dirty files and unmerged commits are named together', () => {
+  const text = explainWorktrees([{ dir: 'wt', changes: ['M a.mjs'], unmerged: { count: 2, ref: 'origin/main' }, ageMs: 0 }]);
+  assert.match(text, /wt: a\.mjs; 2 commits not on origin\/main/);
+});
+
+test('no integration branch to compare with: says nothing rather than guessing', () => {
+  const { root } = realRepo('trunk');
+  try { assert.equal(unmergedCommits(root), null); } finally { clean(root); }
+});
+
+test('only "not an ancestor" counts as unmerged: any other git failure is not evidence of work', () => {
+  const failing = (status) => (_c, args) => {
+    if (args.includes('symbolic-ref')) return 'refs/remotes/origin/main\n';
+    if (args.includes('merge-base')) throw Object.assign(new Error('git'), { status });
+    return '3\n';
+  };
+  assert.deepEqual(unmergedCommits('/x', { exec: failing(1) }), { count: 3, ref: 'origin/main' });
+  assert.equal(unmergedCommits('/x', { exec: failing(128) }), null);
 });

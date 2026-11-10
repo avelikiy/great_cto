@@ -18,7 +18,7 @@
 
 import { readFileSync, appendFileSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 const PROJ_DIR = process.env.GREAT_CTO_DIR || '.great_cto';
 const HISTORY_PATH = join(PROJ_DIR, 'metrics-history.jsonl');
@@ -134,5 +134,5 @@ function main(argv) {
   process.exit(2);
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main(process.argv.slice(2));

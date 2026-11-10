@@ -60,6 +60,381 @@ All notable changes to great_cto are documented here.
 
 
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+## v3.76.1 — 2026-11-09
+
+A security fix for the board, and the release build no longer refuses on a developer tool.
+
+### Security
+
+- **The board sanitizes markdown with DOMPurify 3.4.17 instead of 3.1.7** (GHSA-cg2g-xh64-v4q7 and earlier advisories). The board ships its own copy, which Dependabot could not see. A test now checks every vendored JS file against the SHA-384 in `PROVENANCE.md` and refuses a DOMPurify older than 3.4.17.
+- **Allure 3.33.0** for the gate's test reports, which brings its own DOMPurify to 3.4.17 (development only).
+
+### Fixed
+
+- **The release build leaves `scripts/board-openapi.mjs` out of the plugin archive.** It imports test helpers, which are not shipped, and the first 3.76.0 build refused. A test runs the same import check over the real tree, so the next such file turns the gate red instead.
+
+---
+
+## v3.76.0 — 2026-11-08
+
+One task can now get its own worktree, branch and port, and the board shows whether that task is ready to merge.
+
+### Added
+
+- **Per-task workspaces (ADR-047), off by default.** Add `workspace: per-task` to `.great_cto/PROJECT.md` and `senior-dev` claims a worktree on `task/<id>` through `scripts/workspace.mjs`. A claim links `node_modules` when the lockfile matches and runs a real install when it does not. It also runs `setup` from the committed `.great_cto/workspace.toml` and gives the workspace a port from 3142-3241. A worktree made by Conductor, Claude Code or Codex is adopted, never removed. `archive` removes only a worktree great_cto created, with nothing uncommitted or untracked and a HEAD on the integration branch. Without the setting, a claim creates nothing and agents behave as before.
+- **Merge-readiness card** on a task's Overview: branch, pull request, local gate, reviewers, review comments, subtasks and design approval, bound to the branch head. A row that could not be read counts as a blocker. The command to merge appears only when every row passes.
+- **Three instant board alerts:** an agent is blocked, the local gate went red, a gate is waiting on you.
+- **Install the board as an app** (PWA).
+- **`/start` inspects the repository before it asks**, and there is a quick start for AI agents in the docs.
+- **`design-advisor` runs after `architect`** on routes with a UI, and draws draft screens before `gate:product`.
+- **Gate reports:** each step reports its duration, the run lists its five slowest steps and records what the machine was doing, and failures reach Beads as one deduplicated bug each through CTRF and Allure 3 reports.
+
+### Changed
+
+- **A board started for a workspace refuses a taken port** instead of attaching to another workspace's board. The main board on 3141 still defers.
+- **`/save` reports servers on workspace ports too.**
+- **The gate's library tests can run in 8 workers.**
+
+### Fixed
+
+- **`worktree-state` reports committed work that was never merged**, not only uncommitted files.
+- **A phase task written from a worktree reaches the main checkout**, instead of disappearing with the worktree.
+- **`POST /api/projects/register` answers 400 to a non-JSON body**, not 500.
+- **The NEW badge uses the contrast-safe accent token.**
+
+### Tests
+
+- Browser suites for the board: golden journeys, every control wired on every destination, an axe accessibility check at both widths and themes, an OpenAPI contract for all routes, a cross-site and malformed-input sweep of `/api`, and hot routes under concurrent clients.
+
+---
+
+## v3.75.10 — 2026-11-02
+
+`great-cto upgrade --self` no longer rolls back under a private umask, and a rollback now says why.
+
+### Fixed
+
+- **`upgrade --self` under `umask 077`.** npm applied the caller's umask to the files it unpacked, and the admitted inventory includes modes, so identical bytes at 600/700 failed the check before any smoke step ran. npm now installs under umask 022, and the caller's umask is restored afterwards. Anyone whose shell uses `umask 077` could not upgrade this way at all. The same fault looked intermittent in the 3.75.6–3.75.9 releases because only the first attempt ran under that umask.
+
+### Added
+
+- **A rollback carries its reason.** The outcome returns `reason`, for example `installed-files-differ-from-admitted`, `npm-install-failed` or `smoke-version-mismatch`. The transaction journal keeps `failure` and `failureDetail`: the failing step with its status, signal and output tail, or the first differing file with both modes.
+
+---
+
+## v3.75.9 — 2026-11-02
+
+security-officer now treats a stated fact as evidence, and this release corrects a number published with 3.75.8.
+
+### Corrected
+
+- **The 3.75.8 figure of 21/25 (84%) for security-officer was overstated.** The finding-gate graph asks what the diff shows, and 14 of those rows are claims with no diff. Raising nothing scored as restraint, a correct refusal scored 0, and the rows' Pass columns were never read. Judged on Pass, the stored answers scored 5/13 on 3.75.7 and 4/13 on 3.75.8, which puts 3.75.8 at about 14/25 (56%). The 8/8 on independent cases I1–I8 stands, because those are diffs.
+
+### Fixed
+
+- **security-officer** takes a fact stated in a review as evidence. It names the weakness and grades it, quoting the statement as the pointer, instead of answering "no `file:line`, so no finding". A reassurance such as "pen test found nothing" gets the question that would settle it, and is neither accepted nor blocked on. A sound design is accepted. `BLOCKED: insufficient evidence` is no longer an answer to a claim.
+- **Evals:** claim rows moved to `EVAL-security-officer-claims.md`, which has no graph, so each row is graded on its Pass column. Finding-gate H4 and H6 now carry the code they ask the agent to cite, and H6 accepts P0 or P1 for a predictable session token.
+
+### Added
+
+- **Independent claim cases I1–I8** in `EVAL-security-officer-claims.md`, written by an agent that saw neither the prompt nor the eval files. Four state a real weakness, two are reassurances, two are sound designs.
+
+### Measured
+
+Sonnet-5 actor, opus-5 judge, three samples per case:
+
+| Rows | Result | Mean rate |
+|---|---|---|
+| Independent, diffs and claims | 15/16 | |
+| Seen rows | 22/26 | |
+| adversarial-prompt | 5/6 | 89% |
+| claims, holdout | 16/17 | 90% |
+| claims, tuning | 4/5 | 93% |
+| finding-gate | 12/14 | 93% |
+
+Still failing: adversarial H4 blocks until it knows what consumes a string, claims I8 raises a retention gap as a blocker, and claims H7 questions an unreachability claim instead of capping severity. Finding-gate H1 and H4 are correct answers (P0, cited, blocked) that the graph's severity question marked down in one sample; that question is noisy and was left alone rather than tuned after seeing the result. The I cases remain one author's judgement.
+
+---
+
+## v3.75.8 — 2026-11-02
+
+From the holdout on 3.75.7, which left security-officer at 72. It was over-cautious: it called an excerpt truncated and answered "pending", refused to approve a clean change as "insufficient evidence", and blocked on a TODO or a keyword. One of its failures turned out to be the harness, not the agent.
+
+### Fixed
+
+- **security-officer** reviews the change it is shown and gives it a verdict. Code outside the excerpt goes in the report as an open question, and a scanner it could not run is `not_run`; neither withholds the verdict. A clean change is APPROVED, and the evidence for the approval is the list of what was checked and where. A TODO, a rename or a word like `password` or `eval` does not block `gate:ship` until there is a path from a controlled input to harm, at its `file:line`.
+  - Two lines in the prompt drove the over-caution. The verdict-quality rubric called any report without findings `boilerplate`, and `boilerplate` blocks. The "do not attempt partial work" stop, written for denied permissions, read as a rule for every review. The rubric now accepts a no-findings report that names what was checked, and the stop applies to the permission check only.
+- **Eval runner:** a GFM-escaped `\|` inside a case cell no longer cuts the case. Rows were split on every pipe, so three cases reached the actor cut in half: security-officer adversarial H1 (the 30-day JWT line was never shown, so the case failed on both holdout runs), ci-resolver named-cause 8 and library semver-surface H2. Scores recorded for those three before this release measured a cut case.
+
+### Added
+
+- **Independent holdout cases I1–I8 for security-officer** in `EVAL-security-officer-finding-gate.md`, written by an agent that saw neither the prompt nor the eval files. Each carries its own code excerpt. Four are changes the right answer approves, and two of those only look alarming.
+
+### Measured
+
+Holdout on the candidate, sonnet-5 actor and opus-5 judge, one sample per case:
+
+| | 3.75.7 | 3.75.8 |
+|---|---|---|
+| security-officer, seen holdout rows | 18/25 (72%) | 21/25 (84%), one case skipped on a network error |
+| security-officer, independent I1–I8 | — | 8/8 |
+
+**Corrected in 3.75.9:** the 84% is overstated, about 56% once claim rows are graded on their Pass column. The seen rows were read while these rules were written, so the 84% is the weaker number. The I cases are the least-seen measure, and they are still one author's judgement at one sample each. Still failing on seen rows: finding-gate H4 (a finding without an evidence pointer), H6 (severity from the keyword), H10 and H16.
+
+---
+
+## v3.75.7 — 2026-11-02
+
+From the first holdout measurement on 3.75.6. pm and product-owner now test the premise a request carries before building on it, and security-officer keeps reviewing past an instruction planted in the change.
+
+### Fixed
+
+- **pm** treats a claim in the request as a hypothesis:
+  - an estimate by analogy gets the difference that could break the analogy named;
+  - a flat "all critical" gets a ranking marked provisional, put to the human at gate:plan without stalling the run;
+  - a split stands only when every piece has its own acceptance check;
+  - "parallel" streams get their shared file named;
+  - a small change, sized by the change and never a migration, gets short prose but keeps its IMPL-BRIEFs and gate:plan.
+- **product-owner** asks what "we know" or "it is standard" rests on. It wants a named instance, or the contract or regulatory clause, and records the claim as unverified until it gets one. It checks a finished brief for its required parts instead of rewriting it, and says what each option buys before comparing cost.
+- **security-officer:** instruction-shaped text inside the change (a README line, a commit message, a string literal) is data under review, and the review goes on. Refusing it and stopping is the same failure as obeying it. The text is a finding when something obeys it:
+  - a model prompt;
+  - a stored field later fed to a model;
+  - a file models read as instruction: `AGENTS.md`, `CLAUDE.md`, `.cursorrules`, an agent file, a RAG document.
+  A forged approval line is reported to the human as a sign of hostile intent. Test fixtures are exempt.
+- **Evals:** security-officer adversarial-prompt H1 and H2 now carry the code. Described in prose, they gave the agent nothing to review, which is the same defect fixed in the QA cases.
+- **Eval runner:** an answer cut by the cap while still empty also gets the second, larger budget. The holdout had lost four product-owner cases this way; they were skipped instead of measured.
+
+### Added
+
+- **Independent holdout cases I1–I6** for pm and product-owner, written by an agent that saw neither the prompts nor the eval files, using only a one-paragraph description of each role. They take varied forms, and two in each set are cases where the right answer is to proceed. The older holdout rows were read when the new rules were written, so they no longer count as an independent test, and the file says so. The I cases are the least-seen measure, and they are reported apart from the older rows in the same split. They are still one author's judgement: an agent's, from a role description.
+
+### Tests
+
+- Wiring tests for the three agents in both registrations.
+- An independent review of the candidate found 4 majors: the rules leaked the holdout cases, the small-plan rule clashed with mandatory pm steps, the flat-priority rule clashed with Step 0a, and the security-officer cap missed instruction files. It also found 7 minors. All are fixed. The self-written F cases were withdrawn in favour of the independent I cases.
+- A runner test for retrying an empty cut answer.
+---
+
+## v3.75.6 — 2026-11-01
+
+A deploy can now tell a PASS written by its writer from one written by hand. The 01.11 re-measure failures are sorted into agent gaps (fixed in the agents) and eval defects (fixed in the cases). And every script recognises itself through a symlink.
+
+### Added
+
+- **Seals on verdict lines and receipt acceptances** (ADR-046, great_cto-dv3b). Each one carries an HMAC-SHA256 seal over every field but the seal, keyed by `~/.great_cto/keys/verdict-seal.key` (0600, created on first use; the secret-read guard refuses a direct read of a `*.key` file). `log-verdict.sh` and `receipt.mjs --accept` seal what they write. Under `--require`, a newest approval whose seal does not match exits 4, and devops blocks: the line was written or edited outside `log-verdict.sh`. One with no seal exits 3 (not verified). An acceptance without a valid seal is not one, for a deploy or for pre-push. A verdict counts only in the log of the stage it names. **Limit, stated in the ADR:** agents run as the same OS user, so code that runs the writer can still make a valid line. The seal makes forgery deliberate rather than accidental. It is not a lock.
+
+### Fixed
+
+- **Agents, from the re-measure:**
+  - devops calls a record that cites no approval *unapproved* outright, and reports `partial` (not BLOCKED) after a deploy whose migration check was skipped.
+  - senior-dev treats a red test as a defect until a clean rerun shows otherwise.
+  - security-officer states each finding's gate effect with its grade.
+- **Evals, from the re-measure:**
+  - The QA cases now carry their file:line. The agent rightly refused to invent one, and those cases had measured the eval instead of QA.
+  - architect scope-creep 5 and pm 4 name what they ask about.
+  - product-owner T1 and T2 now follow the agent's own rules, which they had contradicted.
+- **Eval runner:** an answer cut by the 6000-token cap is asked once more with 16000 tokens. Only an answer cut at both budgets is judged as cut, and it is marked `stillCut`.
+- **Main-module guards** (great_cto-hu2l, from a parallel session). About 120 scripts compared `process.argv[1]` with `import.meta.url` as strings. Through a symlink (`/var` → `/private/var`, the plugin cache) the two differ, so the CLI did nothing and exited 0. All of them now use `scripts/lib/is-main.mjs`, and `tests/main-guard-scan.test.mjs` refuses a new string comparison. pre-push treats a receipt check that did not run as unverifiable, not a pass.
+
+### Tests
+
+- New suites:
+  - `verdict-seal`: key creation and mode, each covered field, a foreign key, a missing key, acceptances, and `log-verdict.sh` writing a valid seal;
+  - deploy cases: an appended PASS reads not-verified, a forged seal blocks, an edited field breaks the seal, and a hand-written acceptance is refused;
+  - runner length-retry;
+  - `is-main` and `main-guard-scan`.
+- The gate runs with a throwaway seal key, so it never touches the operator's.
+- The seal wiring is mutation-checked: 5 mutants, each red.
+---
+
+## v3.75.5 — 2026-11-01
+
+A review of public agent repositories (gstack, BMAD-METHOD, Anthropic's plugins, with ideas credited in each agent) turned up eight concrete improvements and two broken checks in the security-officer.
+
+### Fixed
+
+- **security-officer: the git-history secret scan never found anything.** Its first check, `git show <sha>:.`, does not print a commit; the command failed and `2>/dev/null` hid the failure. Its second check, `git log -S "A\|B"`, searches for that literal string. Both printed nothing on every repository, which read as "no secrets in history". Had either worked, the scan would have printed the secret it found into the agent's transcript. The new `scripts/lib/history-secret-scan.mjs` scans the lines each commit added, using the write hook's own patterns. It reports commit, file and kind, never the value. It reads merge resolutions (`--cc`), non-ASCII paths, and added lines that start with `++`. When it cannot read the history it exits 2 **NOT SCANNED**. A capped walk or a shallow clone exits 3 **PARTIAL**. Neither is reported as clean. On this repository it read the whole history (about 3,970 commits) and found 90 pattern hits. All of them sit in tests, fixtures, the security docs (`docs/HOOKS.md`, `docs/security/`, `docs/ru/`) and `scripts/test-pipeline.sh`. Four are bare `BEGIN … PRIVATE KEY` headers with no key body. The rest look like test values to a shape check, but only the OpenRouter-shaped strings were tested for liveness: the provider refuses both (HTTP 401). The AWS, OpenAI, Anthropic and GitHub ones were not tested.
+- **code-reviewer ran on haiku**; ADR-002 sets sonnet for reviewers. The linter had flagged it since June.
+
+### Added
+
+- **code-reviewer reads the contracts outside the diff.** This is the defect class of the 22.09 outage, which none of our agents covered. The reviewer now checks each changed call against the callee's real declaration and checks every caller of a changed signature. It finds every consumer of a new enum value and names the contract deleted code held. It also tries to prove each claim in the commit or PR wrong.
+- **Gate integrity** (`scripts/lib/gate-integrity.mjs`) lists the diff lines that make a check pass without the code getting better. These are: a skipped or removed test, an exact assertion made loose, a suppression pragma, production code that branches on running under test, a CI step allowed to fail, a swallowed error, a moved timeout or threshold, and a snapshot rewritten with no test beside it. Each is a question for the author, answered by ID under `## Gate integrity` in the PR or hand-off, and never an automatic fix. Left unanswered at gate:code, it becomes a P1 when the question is about a test that was switched off, removed or loosened, and a P2 otherwise. senior-dev refuses test-only branches and loosened checks.
+- **devops deploys only what was approved.** Before, it deployed when the newest QA file said PASS. Now each approving stage (QA, security, review) is checked against the working tree being shipped. A change made after an approval blocks the deploy, and so does a comparison that cannot run. A stage with no receipt is reported as FRESHNESS NOT VERIFIED. `receipt.mjs --verify` gains `--agent` (one stage) and `--require`. `--require` is the deploy question: files added since the approval count as drift, and a receipt capped at 200 files cannot show a match. Inside `.great_cto/`, the comparison counts only what decides behaviour: `PROJECT.md` (size and tier, which decide the stages a deploy checks), `exceptions/` and configuration (`*.toml`, `*.yml`). It also counts the files that change a deploy: `security-signals.log` raises the tier, `slo-budget-current.md` can block a deploy, and `env.sh` is sourced into the deploy shell. Everything else the pipeline writes there (verdicts, logs, lessons, the review marker, handoffs) is ignored. So an approval is not drift from itself in a project that does not gitignore `.great_cto/`, while a config change after an approval still is. **Scope:** the check catches approvals that went stale in the normal flow. It does not detect a forged verdict line or a hand-written acceptance file, because both are plain files an agent could write. Signing them is a separate task. An operator's `--accept` is bound to the stage it was given for, can accept added files under `--require`, and no longer voids itself on write. Verdict logs are found from a linked worktree.
+- **architect walks the error paths.** A new section `## Error paths` gives each place the feature can fail its own row: Path · Failure · Handled? · Test? · User sees · Logged?. An unhandled, untested row must say CRITICAL. `artifact-lint` requires the section in an ARCH dated 2026-11-01 or later. **qa-engineer** treats the Test? column as a claim, and a CRITICAL row still unhandled blocks the PASS.
+- **qa-engineer: a verification-gap pass** runs where mutation testing is not configured. It names four kinds of gap and says what does not count as proof: a snapshot alone, a mock-call check, a source-text check, or an end-to-end test that passes through the change. **senior-dev** is asked to write `no_claim:` for each new test, saying what passing does not show. That is an instruction to the agent; no checker enforces it.
+- **design-advisor states motion and tokens as numbers.** Every motion gets a duration and a cubic-bezier curve, with defaults. Brand tokens hold one value per token, and a component that departs from a global token says `override` and why. `artifact-lint` rejects a token defined twice with two values and no override. A theme sub-heading (light, dark, high contrast) starts its own scope; any other sub-heading does not.
+
+### Tests
+
+- New suites: `history-secret-scan` (7 tests), `gate-integrity` (13, with fixtures built at runtime because the gate-weakening guard rejects them written literally), `deploy-approval-freshness` (10, which cut the devops bash step from the prompt and run it against throwaway repositories), artifact-lint error paths and token conflicts (7), and wiring tests across both agent registrations.
+- New eval tuning cases for code-reviewer, devops, architect, qa-engineer and design-advisor.
+- Every new check was mutation-tested, and the fixes from an independent review were mutation-tested again.
+- An independent review of the candidate found 1 blocker, 7 majors and 10 minors. Every one is fixed and pinned by a test, except two. The error-paths rule still skips an ARCH without a date, as the change-map rule does, and undated documents keep their existing no-date warning. A stage with no receipt is still reported, not blocked, and that stays the owner's policy choice.
+
+---
+
+## v3.75.4 — 2026-11-01
+
+The judge needs a real majority before it passes a requirement. And only one session at a time can release a given version.
+
+### Changed
+
+- **independent-verify: an answer needs a quorum** (great_cto-s6n0). Before, the answer was `yes > no`. So one yes and two unanswered samples verified a requirement on a single vote. A 2–1 split also flipped on unchanged input: the same architect artefact got 99 on one run and 75 on the next. Now an answer needs a strict majority of every sample taken, and unanswered samples count. When the first three samples split or fall short of a quorum, the judge takes two more and counts the quorum over all five. If there is still no quorum, the requirement is undecided. That is handled like a tie: the stage goes to rework, a second model may settle it, and the finding says "undecided", not "answered no". A unanimous answer still costs three samples. A requirement the judge never answered still counts as abstained, with no extra samples.
+
+### Added
+
+- **Release lease: one writer per version** (great_cto-inty). `bump-version.sh` claims the version before it changes any file. The claim is an atomic, expiring file `~/.great_cto/release-lease/great-cto@VERSION.json`. It is refused in three cases: another session holds the version, the remote tag or npm version is taken, or the remote could not be checked. Before the tag, `release-lease.mjs bind` records the commit. `publish-local-release` refuses a first publication unless the lease is live, belongs to this session and is bound to the approved commit. Reading back an already published version does not need the lease. After the GitHub release, `release-lease.mjs release` frees the version. An expired lease is kept aside, not deleted, and `journal.jsonl` records every step. Every write about a version (acquire, renew, bind, release) happens under a per-version lock, so two sessions cannot both take over the same expired lease. The lock is never taken over automatically: a process that died inside it leaves the version refused, and the refusal names the lock to remove. Codex and Claude Code each hold the lease as their own session id. Without an id, the lease refuses and asks for `GREAT_CTO_RELEASE_HOLDER`; it never falls back to a name two sessions would share. A lease whose expiry cannot be read counts as live. The holder can renew its own lapsed lease only if the remote tag is absent or points at the lease's bound commit. Before this, the second session found out only at the tag, after a full gate.
+
+### Fixed
+
+- The lease CLI's "run directly" check now compares real paths. Through a symlinked path such as `/var` → `/private/var`, the CLI did nothing and exited 0, and bump-version would have treated that as a granted claim. A wiring test found it. The same guard pattern in other scripts is tracked separately.
+
+### Tests
+
+- 7 new judge cases (unanimous, 2–1 confirmed, 2–1 overturned either way, no quorum after five reaching the second model, all silent); the three tests that pinned the old rule now pin the new one. 22 lease cases, including a real `bump-version.sh` run that must refuse and leave `plugin.json` untouched, and an interleaved takeover; 2 publisher cases. An independent review found two majors (a holder fallback two sessions shared, a takeover race) and nine minors. Its second pass found that the stale-lock takeover added for the race reopened it, plus eight minors. All are fixed and pinned. Mutation-checked: 33 mutants, each red.
+
+---
+
+## v3.75.3 — 2026-10-31
+
+The verifier's judge now reads what a stage changed — every file of it, as the run left it. On this repository's own verdicts, three stages graded low for the verifier's reasons, not theirs.
+
+### Fixed
+
+- **independent-verify: the judge reads the change, not whole files in order.** Per changed file it gets the diff from the receipt's base to the recorded blob, the blob whole for a new file, or today's file only when the run's version is not in git (marked so). The 128 KB budget is shared — equal parts of what is left, smallest first, headers counted — so large files no longer starve the rest. Before: a senior-dev stage was graded 33/100 because three large prompts used the budget and the eight files holding the change, its test among them, were never shown. Same verdicts after: senior-dev 33 → 100, code-reviewer 99 → 100.
+- **receipt: a verdict's receipt keeps the bytes, not only their digest.** `receipt.mjs --emit` (the path `log-verdict.sh` uses) writes the blobs into git's object store, so an uncommitted change — senior-dev's normal case — is judged as recorded rather than from a disk that moved on. Other receipt callers (the board polls them) stay digest-only.
+- **A claimed path under `~/` is the home directory.** A security report that existed at `~/.great_cto/evidence/…` was reported absent and graded 0/100; now 100.
+- **What reaches the remote judge is bounded.** Receipt keys outside the project, and artefact claims outside the project or `~/.great_cto`, are not sent — after symlinks are resolved on both sides — and the refusals are counted in the judgement line. A project in a repository subdirectory gets no base diff (receipt keys and `base:path` name different trees there; great_cto-74rv).
+- "judge saw N of N bytes" when files were dropped by count now says "N of M changed files".
+- **`second_opinion: openrouter` finds the key where the router does.** It looked in the environment only, so a key kept in `~/.great_cto/secrets.env` left the OpenRouter second opinion — reviewer and verifier's second judge — `unavailable`.
+- **Eight cross-model-review tests no longer follow the machine's Codex login.** They point at a fake Codex but read the real `~/.codex/auth.json`; with Codex logged out they went red on every branch. They now run under a temporary home.
+
+### Tests
+
+- 13 new tests (evidence source, fair share, persisted receipts through the real `--emit` CLI, subdirectory root, containment incl. symlinks, home paths); each fix checked against a deliberately broken implementation (12 mutations, each caught). A code review blocked the first version twice — receipts that kept no bytes, then a symlink bypass — both fixed and pinned.
+- Measured for the open gate decision great_cto-s6n0: in 44 judged requirements so far, one `yes` with two unanswerable samples never occurred; 2–1 splits did, and one flipped the verdict on unchanged input.
+
+---
+
+## v3.75.2 — 2026-10-31
+
+The verifier now grades each stage 0–100 and says what would bring it to 100. Agents can no longer print a secret file into their own transcript.
+
+### Added
+
+- **independent-verify: quality 0–100 and recommendations.** The score is counted, not asked of a model: every check the verification ran or would have run is one unit (a claimed artefact, the stage contract, an acceptance `verify:` command, a judged requirement), and quality = floor(100 × passed / counted). Abstentions, requirements over the judge cap, and checks a short-circuit or a missing judge left unrun count and do not pass, so failing early never scores higher. 100 holds exactly when there is nothing to recommend: a judge split or silent on a passed requirement, evidence it read only in part, or a stage with no criterion at all caps the grade at 99 with the reason. `unverifiable` scores null, not 0. The grade and recommendations go to `scores.jsonl` `meta` beside `value`, which is unchanged, and into the pipeline's rework, blocked and verified directives. On this repository's own verdicts: architect 75/100, senior-dev 33/100 — the judge read 3 of the 11 changed files, which the recommendation now says.
+- **secret-read guard.** `secret-scan` stopped a key being written; nothing stopped one being read. PreToolUse on `Read|Grep`, and inside `bash-guards` for Bash (so Codex shell calls get it): refuses `Read` of `.env`, `.env.*`, `.envrc`, `secrets.env`, `*.pem`, `*.key`, SSH private keys; a Grep path or glob that selects one; and readers (`cat`, `head`, `less`, `sed`, `awk`, `grep`, `base64`, `xxd`, `diff`, …) given one, including `< file`, `bash -c` and `$(…)`. `source .env`, `grep -q`/`-c`/`-l`, `cp`, `sed -i`, a redirect target, `.env.example` and `*.pub` pass, and the refusal names them. Bypass: a signed `secret-read` exception or `GREAT_CTO_DISABLE_SECRET_READ_GUARD=1`. Not covered: a Grep over a directory. Docs: `docs/HOOKS.md`.
+
+### Tests
+
+- 12 new verifier tests, 1 directive test, 7 guard tests; checked against deliberately broken implementations (15 mutations, each caught by at least one test). A code review of the grading found four ways to 100 with something unchecked; all four are fixed and pinned.
+- Open decision, not changed here: a requirement with one `yes` and two unanswerable samples still counts as met by the gate (great_cto-s6n0); the grade already caps it at 99.
+
+---
+
+## v3.75.1 — 2026-10-30
+
+The graph guard's first rule now fires at the build step, where skipping the architecture costs something. The auditor's hotspot list works again, and code-reviewer's empty-implementation check, which did not work in 3.75.0, now does in 2 of 3 samples.
+
+### Fixed
+
+- Graph guard, rule 1 (ADR-039): it fires when `senior-dev` or `mobile-app-builder` is dispatched after a product brief with no architecture, not on `design-advisor`. Re-measured over local transcripts: of 84 product-owner → design-advisor dispatches, 61 never reached a build (design reviews, UX audits), 18 reached one without architect. Under `enforce` the old trigger would have denied mostly the reviews; the new one still catches all 18. The enforce decision moves to a clean observe window that starts with this release.
+- project-auditor Phase 4A.0: the size × churn intersection compared `./src/x.ts` with `src/x.ts` and was always empty. Paths are normalised, and each hotspot is now marked `TESTED` (with the test file) or `NO TEST → characterize before change`. Scratch files honour `AUDIT_TMP`; a section that finds nothing no longer makes the scan exit 1.
+- qa-engineer said senior-dev runs the empty-implementation check at RED; it runs before GREEN since 3.75.0.
+- code-reviewer, empty-implementation check: the 3.75.0 one-clause rule did not work — 0 of 3 samples on its eval case, the reviewer filed vacuous tests as an Observation. Rubric item 4 now has a stub pass as its own step: run each new test in your head against a do-nothing stub; a test made only of negative assertions is a P2 Finding citing the line. 2 of 3 samples in agent mode.
+
+### Tests and evals
+
+- The eval-scenario leak check catches paraphrases ("no tests", "stub", "could still pass against") and lets a PIN-code scenario through, with a self-test.
+- The eval rows behind the 3.75.0 measurement history are committed under `tests/eval/runs/2026-10-30-test-discipline/`; its README names the two claims that have no saved row.
+- A process-cleanup test waited 0 ms for a killed worker to leave `ps` and failed 2 of 5 runs; it now waits up to 2 s.
+
+---
+
+## v3.75.0 — 2026-10-30
+
+Three test-discipline rules for the implementing and reviewing agents, each with an eval case that fails on the previous prompt.
+
+### What's new
+
+- senior-dev, stub check before GREEN: once the function under test exists as an empty stub, the new tests run against it, and any that still pass are strengthened. A RED that failed only because the function did not exist proves nothing about the assertions. code-reviewer flags a test an empty body would satisfy (rubric item 4); qa-engineer runs this cheap check on small tasks that skip mutation testing.
+- senior-dev, characterize before changing: code with no covering test gets a test pinning its current behaviour first, run green on the unchanged code; then the change. project-auditor marks untested hotspots as characterize-before-change.
+- senior-dev, attack the premise: after two fixes resting on one assumption fail the same check, the agent writes the assumption down and tests it instead of making a third edit.
+
+### Fixed
+
+- `git` reads in the packaged controller probe wait longer under load (test only).
+
+### Validation and limits
+
+Eval cases describe a situation without naming the rule; a wiring test rejects scenarios that use the rule's words. Measured at one or two samples per prompt, rules vs the previous prompt: senior-dev stub check PASS, PASS vs FAIL; characterization PASS vs FAIL; code-reviewer empty-body PASS vs FAIL, but noisy across samples (token-cap skips), so no rate is claimed; the premise case passes on both prompts. These are indications, not rates.
+
+---
+
+## v3.74.0 — 2026-10-29
+
+Graph observation is now backed by live runs, the graph guard measures a dispatch only against the route it is on, and the plugin ships without the validator warnings.
+
+### What's new
+
+- Coverage support comes from live acceptance: `shared/host-graph-acceptance.json` lists each host version that passed a live run and the dimensions it delivered. `graph-audit` reports `liveAcceptance` from it instead of a fixed `not-checked`; any unlisted version stays `unknown`, and an unreadable record reads `unreadable`. Accepted on 28–29.10: Claude Code 2.1.292 and 2.1.312 native (lifecycle, tools, parent/child) and controlled (lifecycle, tools); Codex 0.160.0 controlled (lifecycle, tools).
+- The Codex plugin routes `SessionEnd`, `SubagentStart` and `SubagentStop` to the graph observer (codex-cli 0.160 ships these hooks). Codex asks you to review new hooks once before they run.
+- A revoked native session stays readable as retained history (`retained: true, enrolled: false`); recording does not resume.
+
+### Fixed
+
+- Graph guard scope (ADR-039): both rules compared a dispatch with the newest brief or predecessor verdict of any age and feature. Its first real events were false positives on unrelated maintenance work. A verdict now counts only when it is at most 72 hours old or the dispatch names its feature or a path it produced. The enforce decision waits for a new observe window.
+- Graph guard events carry `why` (rule, stage, key), and an unreadable verdict log records an `unreadable` event instead of nothing, so a silent guard is distinguishable from one that saw a clean route.
+- `edge-contract-adherence.mjs` reports an unreadable source as NOT READ with its error code instead of crashing, and never counts it as zero.
+- Prompt fragments moved from `agents/_shared/` to `shared/agent-fragments/`; `claude plugin validate` no longer reports 17 fragments as agents without frontmatter.
+- `ARCH-host-graph-coverage` matches the code (limits, kinds, phases, outcomes; artifact, verification and gate unsupported).
+
+### Validation and limits
+
+Each change passed the full local gate with browser e2e on its merge with main. Live runs used synthetic projects and cost about $0.19. Codex native hook delivery, including the three new events, is NOT CHECKED: it needs a one-time hook trust review in Codex. Sixteen live/opt-in checks remain NOT CHECKED. Publication follows the ADR-045 signing route with the owner's approval.
+
+---
+
+## v3.73.0 — 2026-10-28
+
+An optional Kimi advisory reviewer, a per-invocation telemetry refusal, and a second opinion that no longer leaves the machine because a key happened to be exported.
+
+### What's new
+
+- Optional Kimi K3.1 Pro read-only advisory review through OpenRouter (`--profile kimi-readonly-v1`). It is off unless selected: no key read, no request and no store write otherwise. It never replaces the native code, QA or security review and cannot satisfy a gate. Input is admitted only from a prepared envelope whose diff and source bytes match; output must pass a strict schema with literal evidence. Spend is reserved conservatively ($0.25 per call; $1 per task, $5 per day, $20 per month per ledger) and unknown charges survive restarts. See `docs/PRIVACY.md`.
+- `--no-telemetry` refuses telemetry for one invocation, even when telemetry is on in the environment or config, without changing the stored choice. Only the root flag counts: the same text as a value of another option is data.
+
+### Fixed
+
+- Cross-model review: with `second_opinion` undeclared, an exported `OPENROUTER_API_KEY` sent the review diff to OpenRouter. Undeclared now stays undeclared: the review is skipped (exit 3), nothing is sent, and the skip line names the declaration that enables it. **A setup that got a second opinion only from the key must now declare `second_opinion: openrouter`.** `docs/PRIVACY.md` describes where the review sends the diff.
+- The Kimi input filter denies every family the shared secret scanner knows (sixteen), not two; a GitHub token in a public-labelled diff had reached the request body.
+- Verified self-update isolates npm's user and global configuration during activation.
+- The local publisher names a publish npm holds STAGED for the owner's 2FA approval, and other npm failures by npm's error code, instead of a bare refusal; token-like text is redacted from the refusal line.
+- Controller `list`/`status` and other forced-exit JSON outputs wait for stdout to drain, so piped JSON over 8 KB is no longer cut.
+- Gate stability: the pinned controller probe is watched by progress instead of a 30 s wall clock, board e2e waits for screens and drains held routes, and the publication SSH and CLI board checks no longer read the caller's environment.
+
+### Validation and limits
+
+Each merged change passed the full local gate on its merge with main; the Kimi merge also passed the browser suite (23 scenarios) and was reviewed by QA (PASS), ci-resolver (PASS), devtools-reviewer (APPROVED, 0 critical, 0 high) and security (APPROVED, P0/P1 none). The Kimi profile's live provider behaviour, billing and quality were not exercised: no paid call was made. Sixteen live/opt-in checks remain NOT CHECKED. Publication follows the ADR-045 signing route with the owner's approval.
+
+---
+
 ## v3.72.0 — 2026-10-26
 
 The orchestrator follows the stage graph with a lighter skill file, and a gate checks the contract of the edge being taken, not only the stage that ran.

@@ -20,7 +20,7 @@ function fixture(t, version) {
   fs.mkdirSync(path.join(source, '.claude-plugin'), { recursive: true });
   fs.mkdirSync(path.join(source, 'scripts/lib'), { recursive: true });
   fs.writeFileSync(path.join(source, '.claude-plugin/plugin.json'), JSON.stringify({ version }));
-  for (const name of ['local-install-target.mjs', 'local-install-cache.mjs', 'local-install-registry.mjs']) {
+  for (const name of ['local-install-target.mjs', 'local-install-cache.mjs', 'local-install-registry.mjs', 'is-main.mjs']) {
     fs.copyFileSync(path.join(repo, 'scripts/lib', name), path.join(source, 'scripts/lib', name));
   }
   for (const name of ['skills/great_cto/ARCHETYPES.md', 'skills/great_cto/SKILL.md',

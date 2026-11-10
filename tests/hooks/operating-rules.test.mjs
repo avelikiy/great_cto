@@ -39,7 +39,7 @@ test('the rules say: take reversible steps, ask for irreversible ones, prove don
   // counts as done. Rule 6 puts that line in, and reproduces a bug before fixing it.
   assert.match(t, /Done when:/);
   assert.match(t, /reproduce it first/);
-  assert.match(t, /agents\/_shared\/task-brief\.md/);
+  assert.match(t, /shared\/agent-fragments\/task-brief\.md/);
   // Paid in every session: keep it short. Raised from 1500 for rule 6.
   assert.ok(t.length < 1700, `operating rules are ${t.length} chars`);
 });

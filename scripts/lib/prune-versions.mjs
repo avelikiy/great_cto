@@ -21,9 +21,9 @@
 import { readdirSync, lstatSync, realpathSync, readFileSync, rmSync, mkdirSync, rmdirSync } from 'node:fs';
 import { join, dirname, basename, isAbsolute, resolve } from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { randomUUID } from 'node:crypto';
+import { isMainModule } from './is-main.mjs';
 
 const norm = (p) => String(p).replace(/\/+$/, '');
 const versionName = name => /^(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:[-+][0-9A-Za-z.+-]+)?$/.test(name);
@@ -135,10 +135,7 @@ export function applyPrunePlan({ root, keep, remove }) {
   } finally { rmdirSync(lock); }
 }
 
-const invokedDirectly = (() => {
-  try { return Boolean(process.argv[1]) && fileURLToPath(import.meta.url) === realpathSync(process.argv[1]); }
-  catch { return false; }
-})();
+const invokedDirectly = isMainModule(import.meta.url);
 
 if (invokedDirectly) {
   const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };

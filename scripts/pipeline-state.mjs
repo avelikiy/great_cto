@@ -15,6 +15,7 @@
 //   node scripts/pipeline-state.mjs [dir] [--json]
 import { getPipeline } from '../packages/board/lib/data-readers.mjs';
 import { reviewerStatus } from './lib/required-reviewers.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 // The linear build pipeline. `reviewers`, `l3-support` and the human gate are
 // real stages but not sequential build steps, so they are reported separately
@@ -77,7 +78,7 @@ export function renderSummary(sum, stages = []) {
 }
 
 // ── CLI ─────────────────────────────────────────────────────────────────────
-const isMain = import.meta.url === `file://${process.argv[1]}`;
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const args = process.argv.slice(2);
   const dir = args.find(a => !a.startsWith('--')) || process.cwd();

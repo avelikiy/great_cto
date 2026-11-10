@@ -379,9 +379,23 @@ if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receip
   # what the old `|| true` was really for — it kept the script alive and ate the
   # answer in the same breath. Disable it for exactly this assignment.
   set +e
-  RECEIPT_OUT="$(node scripts/lib/receipt.mjs --verify 2>/dev/null)"
+  RECEIPT_ERR_FILE="$(mktemp "${TMPDIR:-/tmp}/great-cto-receipt.XXXXXX")"
+  RECEIPT_OUT="$(node scripts/lib/receipt.mjs --verify 2>"$RECEIPT_ERR_FILE")"
   RECEIPT_RC=$?
+  RECEIPT_ERR="$(head -c 600 "$RECEIPT_ERR_FILE" 2>/dev/null)"
+  rm -f "$RECEIPT_ERR_FILE"
   set -e
+
+  # --verify prints a line in every state it reaches, "nothing was verified"
+  # included. Empty output means it never got there — a crash, a missing import,
+  # a main guard that did not see itself through a symlink — and that used to
+  # skip this whole block: the push went through with no word about review.
+  # A check that did not run is unverifiable evidence (great_cto-hu2l).
+  if [[ -z "$RECEIPT_OUT" ]]; then
+    RECEIPT_OUT="receipt: the check did not run (scripts/lib/receipt.mjs --verify exited ${RECEIPT_RC} and printed nothing)"
+    [[ -n "$RECEIPT_ERR" ]] && RECEIPT_OUT="${RECEIPT_OUT}"$'\n'"$(printf '%s\n' "$RECEIPT_ERR" | sed 's/^/  /')"
+    RECEIPT_RC=2
+  fi
 
   if [[ -n "$RECEIPT_OUT" ]]; then
     if [[ "$RECEIPT_RC" -ne 0 ]]; then
@@ -398,7 +412,10 @@ if [[ "${GREAT_CTO_SKIP_RECEIPT_CHECK:-}" != "1" ]] && [[ -f "scripts/lib/receip
       RECEIPT_GATE="warn"
       # Read posture beside the shared verdicts too: a linked checkout need not
       # have its own PROJECT.md. Do not turn the primary project's enforce into warn.
-      RECEIPT_STATE_DIR="$(node scripts/lib/receipt.mjs --state-dir)"
+      # The same script may be what failed; then read the posture where this
+      # project keeps it, rather than let `set -e` end the hook with no message.
+      RECEIPT_STATE_DIR="$(node scripts/lib/receipt.mjs --state-dir 2>/dev/null)" || RECEIPT_STATE_DIR=""
+      [[ -n "$RECEIPT_STATE_DIR" ]] || RECEIPT_STATE_DIR=".great_cto"
       if grep -qE '^[[:space:]]*receipt-gate:[[:space:]]*enforce[[:space:]]*$' "$RECEIPT_STATE_DIR/PROJECT.md" 2>/dev/null; then
         RECEIPT_GATE="enforce"
       fi

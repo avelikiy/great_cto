@@ -24,9 +24,9 @@
  *   → one JSON line: { cursor, changes: [...], timedOut }
  *   With no --since it answers at once with the current cursor and nothing else.
  */
-import { fileURLToPath } from 'node:url';
 import { latestVerdicts } from './ship-evidence.mjs';
 import { readSessionStatus } from './session-status.mjs';
+import { isMainModule } from './is-main.mjs';
 
 export const MAX_TIMEOUT_S = 600;
 
@@ -82,7 +82,7 @@ export async function waitForChange({ cwd = process.cwd(), since = null, timeout
   }
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) {
   const a = process.argv.slice(2);
   const opt = (k, d) => { const i = a.indexOf(k); return i >= 0 ? a[i + 1] : d; };

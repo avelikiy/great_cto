@@ -26,11 +26,12 @@
  * @see docs/HOOKS.md
  */
 
-import { readFileSync, appendFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs';
+import { readFileSync, appendFileSync, mkdirSync, existsSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { dirname, join, resolve, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ensureStateDir } from '../lib/great-cto-scope.mjs';
+import { isMainModule } from '../lib/is-main.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 
@@ -132,14 +133,11 @@ async function main() {
 
 // Only run when invoked as the hook, so the test can import feedsReference.
 //
-// Compared through realpath, because resolve() does not follow symlinks and the
-// two sides can disagree about the same file: on macOS /tmp is a link to
-// /private/tmp, so argv[1] arrives as /tmp/… while import.meta.url reports
-// /private/tmp/…. The comparison then fails and the hook does nothing, silently
-// — which is exactly how it behaves when it is working and has nothing to do.
-const sameFile = (a, b) => {
-  try { return realpathSync(a) === realpathSync(b); } catch { return resolve(a) === resolve(b); }
-};
-if (process.argv[1] && sameFile(process.argv[1], fileURLToPath(import.meta.url))) {
+// Compared through realpath (scripts/lib/is-main.mjs): on macOS /tmp is a link
+// to /private/tmp, so argv[1] arrives as /tmp/… while import.meta.url reports
+// /private/tmp/…. A string comparison then fails and the hook does nothing,
+// silently — which is exactly how it behaves when it is working and has nothing
+// to do.
+if (isMainModule(import.meta.url)) {
   main().catch((err) => { log(`unhandled: ${err?.message}`); });
 }

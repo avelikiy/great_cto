@@ -7,6 +7,7 @@ import { createHash } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { encodeReleaseArchive, inspectReleaseArchive } from '../../packages/cli/src/release-archive.mjs';
 import { isPluginRuntimePath, makeReleaseIndex, buildReleaseArtifacts } from '../../scripts/build-release-artifacts.mjs';
+import { inspectRuntimeImportReferences } from '../../packages/cli/src/release-trust.mjs';
 import { signReleaseArtifacts, assertSigningContext } from '../../scripts/sign-release-artifacts.mjs';
 
 const sha = (kind, bytes) => createHash(kind).update(bytes).digest('hex');
@@ -37,7 +38,7 @@ const env = {
 };
 
 test('runtime allowlist excludes service state and admits required public roots', () => {
-  for(const name of ['LICENSE','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json','.codex-plugin/mcp.json','.agents/plugins/marketplace.json','agents/architect.md','agents/_shared/task-brief.md','commands/start.md','skills/codex-host/SKILL.md','shared/pipeline.toml','scripts/codex-pipeline.mjs','scripts/hooks/guard.mjs','mcp-servers/llm-router/server.py','packages/board/server.mjs','packages/board/public/index.html','packages/cli/index.mjs','packages/cli/package.json']) assert.equal(isPluginRuntimePath(name),true,name);
+  for(const name of ['LICENSE','.claude-plugin/plugin.json','.claude-plugin/marketplace.json','.codex-plugin/plugin.json','.codex-plugin/mcp.json','.agents/plugins/marketplace.json','agents/architect.md','shared/agent-fragments/task-brief.md','commands/start.md','skills/codex-host/SKILL.md','shared/pipeline.toml','scripts/codex-pipeline.mjs','scripts/hooks/guard.mjs','mcp-servers/llm-router/server.py','packages/board/server.mjs','packages/board/public/index.html','packages/cli/index.mjs','packages/cli/package.json']) assert.equal(isPluginRuntimePath(name),true,name);
   for(const name of ['docs/report.md','tests/case.test.mjs','AGENTS.md','CLAUDE.md','.github/workflows/publish.yml','.git/config','.great_cto/state.json','.beads/state.json','.codex/config.toml','.claude/settings.json','.env','scripts/.env.local','skills/private-overlay/context.md','scripts/probe.test.mjs','packages/board/test.test.mjs','packages/cli/src/main.ts','packages/cli/dist/main.js','packages/cli/node_modules/pkg/index.js','scripts/key.pem','scripts/output.log','scripts/archive.tgz','../scripts/code.mjs','scripts\\code.mjs']) assert.equal(isPluginRuntimePath(name),false,name);
 });
 
@@ -343,6 +344,14 @@ test('plugin delivers only the two approved public source helpers and excludes s
   const entries=inspectReleaseArchive(fs.readFileSync(path.join(f.directory,`great-cto-plugin-${version}.tgz`)),{prefix:'plugin'});const paths=new Set(entries.map(x=>x.path));
   for(const name of ['packages/cli/src/state-home.mjs','packages/cli/src/private-state.mjs'])assert(paths.has(name),name);
   for(const name of ['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/judge-calibrate.mjs','scripts/lib/prompt-size.mjs','packages/cli/src/main.ts','tests/eval/runner.mjs'])assert.equal(paths.has(name),false,name);
+});
+
+test('the real tree packs no runtime file that imports something left out of the archive', () => {
+  // The builder refuses this at release time; running the same check here turns a refused release into a red gate.
+  const root=path.resolve(path.dirname(new URL(import.meta.url).pathname),'../..');
+  const names=execFileSync('git',['ls-files','-z'],{cwd:root,encoding:'utf8',maxBuffer:64*1024*1024}).split('\0').filter(n=>n&&isPluginRuntimePath(n));
+  assert(names.length>100,`only ${names.length} runtime files found: the walk is broken`);
+  inspectRuntimeImportReferences(names.map(n=>({path:n,bytes:fs.readFileSync(path.join(root,n))})));
 });
 
 test('builder refuses a final snapshot whose relative runtime import targets omitted test sources', async t => {

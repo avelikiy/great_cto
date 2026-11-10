@@ -2,8 +2,7 @@
 // Registry activation is a separate atomic write; other plugin scopes survive.
 import fs from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { isMainModule } from './is-main.mjs';
 
 export function readInstallRegistry(registry) {
   const stat = fs.lstatSync(registry);
@@ -69,7 +68,7 @@ export function registerLocalPlugin({ registry, dest, version }) {
   }
 }
 
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+if (isMainModule(import.meta.url)) {
   try {
     const [registry, dest, version] = process.argv.slice(2);
     const result = process.argv.includes('--check') ? readInstallRegistry(registry) : registerLocalPlugin({ registry, dest, version });

@@ -19,9 +19,9 @@
 
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 import { readLedger } from './prompt-evolve.mjs';
+import { isMainModule } from './lib/is-main.mjs';
 
 const GREAT_CTO_HOME = process.env.GREAT_CTO_HOME || join(homedir(), '.great_cto');
 export const REVIEWS_ROOT = join(GREAT_CTO_HOME, 'agent-reviews');
@@ -128,5 +128,5 @@ function main() {
   process.stdout.write(md + '\n');
 }
 
-const isMain = process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1];
+const isMain = isMainModule(import.meta.url);
 if (isMain) main();
