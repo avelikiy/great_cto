@@ -84,11 +84,11 @@ test('running now: one source, and "not read" is not zero', () => {
     { phase: 'working' }, { phase: 'publishing' }, { phase: 'working', terminal: true }, { phase: 'accepted' },
   ] }) } });
   assert.equal(ctx.homeRunningNow(), 2);
-  // Ledger's "Running now" tile reads it too; it used to count pipeline stages.
-  const ledger = fn('renderLedgerHead');
-  const tile = ledger.slice(ledger.indexOf('<div class="metric-label">Running now</div>') - 400, ledger.indexOf('<div class="metric-label">Running now</div>'));
-  assert.match(tile, /homeRunningNow\(\)/);
-  assert.doesNotMatch(tile, /running\.length/);
+  // Cost no longer draws its own "Running now" (it used to count pipeline
+  // stages); Home is the one place that answers it.
+  const cost = fn('renderLedgerHead');
+  assert.doesNotMatch(cost, /Running now/);
+  assert.doesNotMatch(cost, /ledger-strip|ledger-stuck/);
 });
 
 test('the closed task panel cannot scroll the board sideways', () => {
@@ -122,3 +122,57 @@ test('one primary action in the top bar', () => {
   assert.match(bar, /id="topbar-task-count" hidden/);
   assert.match(html, /label: 'New issue', run: \(\) => openNewIssueModal\(\)/, 'creating a Beads issue stays in the command palette');
 });
+
+// Cost (UX audit F4, approved mockup): one screen, one alert, two totals.
+function costContext(over, usage) {
+  const els = { 'ledger-head': { innerHTML: '' }, 'cost-title': { textContent: '' }, 'cost-sub': { textContent: '' } };
+  const context = {
+    document: { getElementById: (id) => els[id] || null },
+    currentPeriod: 30, fleetState: { agents: [] },
+    periodLabel: (d) => `${d} days`, fmtMoney: (n) => String(Math.round(n)),
+    fmtUsdEq: (n) => `$${Math.round(n)}`,
+    esc: (x) => String(x).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`),
+    absent: (kind, why) => `<span class="abs" data-kind="${kind}" title="${why}">·</span>`,
+  };
+  vm.createContext(context);
+  vm.runInContext(`${fn('costOverCap')}\n${fn('costRange')}\n${fn('renderLedgerHead')}`, context);
+  context.renderLedgerHead({ cost: {}, metrics: { cost: { real_llm_usd: 60 }, tasks: { done_in_window: 349 }, avg_completion_min: 45, acceptance: { cost_per_accepted: 1.05 } }, usage, over });
+  return els;
+}
+
+test('cost: one alert names the agent over its cap; none when nothing is over', () => {
+  const els = costContext([{ slug: 'senior-dev', spent: 48.36, cap: 25 }], null);
+  assert.match(els['ledger-head'].innerHTML, /role="alert"[\s\S]*senior-dev is over its cap:<\/b> \$48\.36 spent of \$25/);
+  assert.match(els['ledger-head'].innerHTML, /Change cap/);
+  assert.equal(els['cost-title'].textContent, 'Cost · last 30 days');
+  assert.doesNotMatch(costContext([], null)['ledger-head'].innerHTML, /role="alert"/);
+});
+
+test('cost: list price is a figure only when counted and priced, never $0', () => {
+  const priced = costContext([], { state: 'counted', seen: { claude: true }, hosts: { claude: { usd: 1719 } } })['ledger-head'].innerHTML;
+  assert.match(priced, /\$1719/);
+  assert.match(priced, /On a subscription this is not a charge/);
+  assert.match(priced, /Token detail/);
+  assert.match(priced, /349 tasks done · median 45 min from start to done · \$1\.05 per accepted task/);
+  const unpriced = costContext([], { state: 'counted', seen: { claude: true }, hosts: { claude: { usd: null } } })['ledger-head'].innerHTML;
+  assert.match(unpriced, /data-kind="uncomputable"/);
+  assert.match(costContext([], { state: 'computing' })['ledger-head'].innerHTML, /counting…/);
+  assert.match(costContext([], null)['ledger-head'].innerHTML, /data-kind="unloaded"/);
+});
+
+test('cost: the nav opens one screen, no sub-tabs; old links still land', () => {
+  const context = { window: {} };
+  vm.createContext(context);
+  vm.runInContext(shell, context);
+  const ui = context.window.GctoAdmin;
+  for (const input of ['insights', 'cost', 'ledger', 'budgets', 'insights/ledger']) {
+    assert.equal(ui.route(input).canonical, 'insights/ledger', input);
+    assert.equal(ui.route(input).panel, 'budgets', input);
+  }
+  assert.equal(ui.route('insights/consumption').panel, 'usage', 'Token detail');
+  assert.equal(ui.route('insights/outcomes').panel, 'admin-outcomes', 'Outcomes stays reachable by route');
+  assert.doesNotMatch(shell, /Ledger & budgets/);
+  const panel = html.slice(html.indexOf('<div class="panel" id="panel-budgets"'), html.indexOf('<div class="panel" id="panel-docs">'));
+  assert.deepEqual([...panel.matchAll(/data-period="(\d+)"/g)].map((m) => m[1]), ['7', '30', '90']);
+});
+

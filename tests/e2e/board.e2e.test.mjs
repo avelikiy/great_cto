@@ -29,7 +29,7 @@ try { ({ chromium } = await import('playwright')); } catch { /* reported as a sk
 
 const SCREENS = [
   ['decisions', 'Decisions'],
-  ['ledger', 'Ledger'],
+  ['ledger', 'Cost'],
   ['fleet', 'Settings'],
   ['harness', 'Harness'],
   ['usage', 'Usage'],
@@ -297,7 +297,7 @@ test('an unregistered server project can open Skills and Usage without invented 
     const requests = [];
     page.on('request', req => { if (/\/api\/(usage|outcomes)[?]/.test(req.url())) requests.push(req.url()); });
     await page.getByRole('tab', { name: 'Cost', exact: true }).click();
-    await page.getByRole('button', { name: 'Consumption', exact: true }).click();
+    await page.getByRole('button', { name: 'Token detail', exact: true }).click();
     await page.waitForSelector('.usage-card[data-host="codex"]', { timeout: 20000 });
     assert.ok(requests.length > 0);
     assert.ok(requests.every(url => !new URL(url).searchParams.has('project')));

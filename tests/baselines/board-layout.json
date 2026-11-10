@@ -17,7 +17,6 @@
   "anchors": [
     "act-tab-logs",
     "act-tab-sessions",
-    "agent-budgets",
     "agent-drawer",
     "agent-drawer-backdrop",
     "agent-drawer-body",

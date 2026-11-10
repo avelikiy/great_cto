@@ -1788,6 +1788,63 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 /* Settings is the last destination and sits at the bottom, above the footer. */
 #nav-tablist { flex: 1 1 auto; }
 #nav-tablist .nav-item[data-tab="settings"] { margin-top: auto; }
+/* ── Cost (UX audit 2026-11, F4, approved mockup) ─────────────────────────
+   Board tokens and components only; the mockup fixed layout and content. */
+.cost-page { max-width: 1040px; }
+.cost-heading { display: flex; flex-direction: column; gap: 4px; }
+.cost-sub { font-size: var(--fs-small); color: var(--text2); }
+.cost-alert {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 8px 16px; padding: 12px 16px; margin-bottom: 16px;
+  background: var(--bg-card); border: 1px solid var(--status-progress);
+  font-size: var(--fs-body); color: var(--text);
+}
+.cost-alert b { color: var(--status-progress); }
+.cost-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cost-total {
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.cost-total h2 {
+  margin: 0; font-family: var(--mono); font-size: var(--fs-eyebrow); font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2);
+}
+.cost-total-num { font-size: var(--fs-num-l); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.cost-total p { margin: 0; font-size: var(--fs-body); line-height: 1.5; color: var(--text2); }
+.cost-facts { margin: 14px 0 20px; font-size: var(--fs-body); color: var(--text2); }
+.cost-agents { background: var(--bg-card); border: 1px solid var(--border); }
+.cost-agents-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; }
+.cost-agents-head h2 { margin: 0; font-size: var(--fs-title-s); font-weight: 600; color: var(--text); }
+.cost-row {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1fr) 96px;
+  gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--border);
+  font-size: var(--fs-body); color: var(--text);
+}
+.cost-row-head {
+  background: var(--bg-muted); font-family: var(--mono); font-size: var(--fs-eyebrow);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2);
+}
+.cost-row .num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.cost-row .act { text-align: right; }
+.cost-agent { font-family: var(--mono); font-size: var(--fs-small); min-width: 0; overflow-wrap: anywhere; }
+.cost-over { color: var(--status-progress); font-weight: 600; }
+.cost-line { display: none; }
+.cost-idle { border-top: 1px solid var(--border); padding: 10px 16px; font-size: var(--fs-body); color: var(--text2); }
+.cost-idle summary { cursor: pointer; min-height: 24px; }
+.cost-idle .budgets-uncapped { margin-top: 10px; }
+.cost-about { margin-top: 16px; font-size: var(--fs-small); color: var(--text2); }
+.cost-about summary { cursor: pointer; color: var(--accent-text); min-height: 24px; }
+.cost-about ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+@media (max-width: 767px) {
+  .cost-page .ledger-title-row { flex-direction: column; align-items: stretch; }
+  .cost-page .period-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cost-page .period-chip { min-height: 44px; }
+  .cost-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .cost-row-head, .cost-row > .cost-col { display: none; }
+  .cost-line { display: block; font-family: var(--sans); font-size: var(--fs-small); color: var(--text2); }
+  .cost-line.cost-over { color: var(--status-progress); }
+  .cost-row .ab-btn, .cost-agents-head .ab-btn { min-height: 44px; }
+}
 @media (max-width: 767px) {
   .home-tiles { grid-template-columns: 1fr; gap: 0; }
   .home-tile { border-width: 1px 1px 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 14px 16px; min-height: 48px; }
@@ -4048,47 +4105,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     </div>
 
     <div class="panel" id="panel-budgets" role="tabpanel">
-      <div class="metrics-page">
+      <!-- Cost (UX audit 2026-11, F4; approved Cost mockup, artboards CostDesktop and
+           CostPhone). One screen instead of three tabs: the over-cap alert, the two
+           totals side by side, one line of results, one table by agent with a Cap
+           column. Running now, the stage strip and the stuck list live on Home and
+           Work. Token detail is the old Consumption screen. -->
+      <div class="metrics-page cost-page">
         <div class="ledger-title-row">
-          <h1 class="page-title" style="margin:0">Ledger</h1>
-          <!-- The period governs every figure below it, so it sits where the
-               figures start — beside the name, not under the stuck list. -->
-          <div class="period-toolbar" style="margin:0">
-            <span class="period-label">PERIOD</span>
-            <div class="period-chips" id="period-chips">
-              <button class="period-chip" data-period="1">1D</button>
-              <button class="period-chip" data-period="7">7D</button>
-              <button class="period-chip active" data-period="30">30D</button>
-              <button class="period-chip" data-period="90">90D</button>
-              <button class="period-chip" data-period="365">1Y</button>
-            </div>
+          <div class="cost-heading">
+            <h1 class="page-title" style="margin:0" id="cost-title">Cost · last 30 days</h1>
+            <div class="cost-sub" id="cost-sub"></div>
+          </div>
+          <div class="period-chips" id="period-chips" role="group" aria-label="Period">
+            <button type="button" class="period-chip" data-period="7">7 days</button>
+            <button type="button" class="period-chip active" data-period="30">30 days</button>
+            <button type="button" class="period-chip" data-period="90">90 days</button>
           </div>
         </div>
-        <!-- Ledger (great_cto-ki1x.7): the one decision this screen supports is
-             "is something running that I should stop". Two figures, the stage
-             strip and the stuck list answer it; the caps table below is where
-             the money is stopped. -->
         <div id="ledger-head" class="ledger-head"><div class="muted">loading…</div></div>
-        <!-- From the old Metrics tab (great_cto-ki1x.16): the period chips, the caps
-             card and the cost panel keep their ids — the code that fills them did
-             not move, only the screen that shows them. -->
-        <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
-             drill-in. A control the operator could not find is a control they do
-             not have — and it was invisible on top of that, hidden whenever a
-             project had declared no caps, which is exactly the project that
-             needs the button to declare one. -->
-        <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
-        <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:var(--fs-small);margin-bottom:4px;"></div>
-        <!-- The old cost panel (four tiles: 'vs human team', a projected month, a
-             daily burn, an empty chart) left in the fidelity pass — a forecast and a
-             human-team comparison are two of the brief's refusals, and the
-             Ledger head already carries spend with its provenance. -->
-
-        <!-- Whether the judge is connected at all. Without a key nothing breaks
-             — every stage is scored `unverifiable`, honestly — but "not
-             connected" and "nothing to check" read the same from here, and the
-             key is not discoverable: the README names OpenRouter once without
-             saying where it goes. -->
         <div id="budgets-page-body">loading…</div>
       </div>
     </div>
@@ -5687,89 +5721,98 @@ async function verifyJudgeKey() {
   loadJudgeStatus();
 }
 
-// Ledger head (great_cto-ki1x.7). Every figure names its state: spend is
-// `measured` only when a verdict carried a cost, otherwise `estimated` and
-// labelled so; a cap that is not set says "no cap", never $0; a stage is a
-// filled dot when done, hollow when active, red when failed, bare when idle;
-// a stuck task with no readable age is counted and shown as `?`, never dropped.
-function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
+// Cost head (UX audit 2026-11, F4; replaces the Ledger head). Every figure
+// names its state: spend is `measured` only when a verdict carried a cost,
+// otherwise `estimated` and labelled so; list price is n/a when no price is
+// set, never $0. Running now, the stage strip and the stuck list moved to Home
+// and Work — this screen answers "what did it cost".
+function costOverCap() {
+  const agents = (fleetState?.agents || []).filter((a) => a.budget?.state === 'exceeded');
+  return agents.map((a) => ({ slug: a.slug, spent: a.budget.measuredUsd ?? 0, cap: a.budget.limitUsd }));
+}
+function costRange(days) {
+  const end = new Date(), start = new Date(end.getTime() - (days - 1) * 86400000);
+  const f = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${f(start)} – ${f(end)}`;
+}
+function renderLedgerHead({ cost, metrics, usage, over }) {
+  if (!over) over = costOverCap();
   const el = document.getElementById('ledger-head');
   if (!el) return;
-  // Spend, three states, and $0.00 is only one of them (carried over from the
-  // Metrics tab this replaced): a measured figure; a time-based ESTIMATE that
-  // says so; and a zero that is the estimate with nothing to estimate from,
-  // which is not a figure at all.
+  const title = document.getElementById('cost-title');
+  if (title) title.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
+  const sub = document.getElementById('cost-sub');
+  if (sub) sub.textContent = `${costRange(currentPeriod)} · updated just now`;
   const costKnown = !!(metrics && metrics.cost);
   const realLlmUsd = metrics?.cost?.real_llm_usd ?? null;
   const llmUsd = metrics?.cost?.llm_usd ?? null;
   const spent = realLlmUsd != null ? realLlmUsd : llmUsd;
   const spentState = realLlmUsd != null ? 'measured' : (llmUsd != null ? 'estimated' : 'unmeasured');
-  const cap = cost?.monthly_budget;
-  const pct = (spent != null && cap) ? Math.min(100, Math.round(spent / cap * 100)) : null;
   const spentCell = !costKnown
     ? absent('unloaded', 'the metrics payload carried no cost section')
     : (realLlmUsd === 0 && llmUsd === 0) || spent == null
       ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
       : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)}`;
-  // Tasks done: a zero is a count; only a payload with no tasks section is an absence.
+
+  // One alert: agents over their cap, and the project's monthly cap if passed.
+  // `over` is read once per load: the fleet is re-read in the background and a
+  // redraw mid-reload must not drop the alert.
+  const cap = cost?.monthly_budget;
+  const monthlyOver = !!(cap && spent != null && spent > cap);
+  let alert = '';
+  if (over.length === 1) {
+    const o = over[0];
+    alert = `<b>${esc(o.slug)} is over its cap:</b> $${o.spent.toFixed(2)} spent of $${esc(String(o.cap))}`;
+  } else if (over.length > 1) {
+    alert = `<b>${over.length} agents are over their caps:</b> ${over.map((o) => esc(o.slug)).join(', ')}`;
+  }
+  if (monthlyOver) alert += `${alert ? '<br>' : ''}<b>The project is over its monthly cap:</b> $${fmtMoney(spent)} of $${fmtMoney(cap)}`;
+  const alertAction = over.length === 1
+    ? `<button type="button" class="home-link" onclick="editAgentBudget('${esc(over[0].slug)}', ${Number(over[0].cap)})">Change cap</button>` : '';
+
+  // List price: Claude Code tokens priced at the API's list price. Codex has none.
+  let listCell, listNote = '';
+  if (!usage) listCell = absent('unloaded', 'session statistics have not been read yet');
+  else if (usage.state === 'computing') listCell = '<span class="muted">counting…</span>';
+  else if (usage.error || usage.state !== 'counted') listCell = absent('unloaded', usage.why || usage.error || 'session statistics are unavailable');
+  else if (!usage.seen?.claude) listCell = absent('none', 'no Claude Code session logs are attributed to this project');
+  else if (usage.hosts?.claude?.usd == null) listCell = absent('uncomputable', 'no price is set for these models — add one to ~/.great_cto/model-prices.json');
+  else {
+    listCell = esc(fmtUsdEq(usage.hosts.claude.usd));
+    if (usage.hosts.claude.unpricedResponses) listNote = ` ${usage.hosts.claude.unpricedResponses} responses from unpriced models are not in it.`;
+  }
+
+  // One line of results. Each part keeps its three-way distinction: a zero is a
+  // count, an absence names its kind. Omitted only when the metrics never loaded.
+  const acc = metrics?.acceptance || {};
   const doneKnown = !!(metrics && metrics.tasks);
   const done = (metrics?.tasks?.done_in_window || metrics?.tasks?.done) ?? 0;
-  const acc = metrics?.acceptance || {};
   const avgMin = metrics?.avg_completion_min;
-  // The same tiles the Metrics tab drew, as facts on one line. Each keeps its
-  // three-way distinction: a zero is a count, an absence names its kind.
-  const facts = [
-    { label: 'Done', v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'), sub: 'in window' },
+  const facts = metrics ? [
+    `${doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section')} tasks done`,
     // A dash here means "could not be computed", not "took no time".
-    { label: 'Cycle', v: avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure'), sub: avgMin ? 'min median' : '' },
-    { label: 'Cost', v: acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: acc.cost_per_accepted != null ? '/ accepted' : '' },
-  ];
-  // Fleet 30d spend from verdicts — measured for some agents, or not at all.
-  const s = fleetState?.summary || null;
-  const fleetSpend = s == null ? absent('unloaded', 'the fleet summary has not been read')
-    : s.llm_usd_30d != null ? `$${s.llm_usd_30d.toFixed(2)} <span class="muted">measured for ${s.llm_usd_30d_measured_for} agent(s)</span>`
-    : absent('uncomputable', `no verdict carries a cost — ${s.llm_usd_30d_agents_with_runs ?? 0} agent(s) ran in this window`);
-  facts.push({ label: 'Fleet 30d', v: fleetSpend, sub: '' });
-  const capCell = cap ? `of $${fmtMoney(cap)}${pct != null ? ` · ${pct}%` : ''}` : `<span class="abs" title="no monthly cap in PROJECT.md — spend is not being stopped">no cap</span>`;
-  const stages = Array.isArray(pipeline) ? pipeline : [];
-  const running = stages.filter((st) => st.status === 'active');
-  const dotFor = (st) => st.status === 'done' ? 'dot ok' : st.status === 'active' ? 'dot run' : st.status === 'failed' ? 'dot bad' : 'dot';
-  const strip = stages.length
-    ? stages.map((st, i) => `${i ? '<span class="muted">→</span>' : ''}<span class="ledger-stage${st.status === 'idle' ? ' muted' : ''}" title="${esc(st.stage)} · ${esc(st.status)}${st.verdict ? ' · ' + esc(st.verdict) : ''}${st.ts ? ' · ' + esc(fmtDT(st.ts)) : ''}"><span class="${dotFor(st)}"${st.status === 'idle' ? ' style="background:var(--bg-strong)"' : ''}></span>${esc(st.stage)}</span>`).join('')
-    : `<span class="abs" title="/api/pipeline returned nothing — stage state unknown, not idle">· pipeline state unloaded</span>`;
-  const stuck = Array.isArray(heartbeat?.stuck) ? heartbeat.stuck : [];
-  const unmeasurable = Number(heartbeat?.stuck_unmeasurable) || 0;
-  const stuckRows = stuck.slice(0, 5).map((t) => `
-    <div class="ledger-stuck-row">
-      <span class="mono">${esc(t.id || '')}</span>
-      <span class="ttl-desc">${esc(t.title || '')}</span>
-      <span class="mono tab" style="color:var(--status-progress)" title="${t.since ? esc(fmtDate(t.since)) : 'no timestamp'}">${t.age_h != null ? Math.round(t.age_h) + 'h' : '<span class="abs" title="updated_at unreadable — counted, age unknown">?</span>'}</span>
-    </div>`).join('');
+    `median ${avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure')} min from start to done`,
+    `${acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window')} per accepted task`,
+  ] : [];
+
   el.innerHTML = `
-    <div class="ledger-kpis">
-      <div class="metric-card">
-        <div class="metric-num">${spentCell}</div>
-        <div class="metric-label">Spent · ${esc(spentState)}</div>
-        <div class="metric-trend">${capCell}</div>
-        ${pct != null ? `<div class="bar" style="margin-top:8px"><i style="width:${pct}%${pct >= 100 ? ';background:var(--status-blocked)' : ''}"></i></div>` : ''}
-      </div>
-      <div class="metric-card">
-        <div class="metric-num"><span class="dot run" style="width:12px;height:12px;vertical-align:middle;margin-right:8px"></span>${homeRunningNow() == null ? absent('unloaded', 'the task projection has not been read') : homeRunningNow()}</div>
-        <div class="metric-label">Running now</div>
-        <div class="metric-trend">${homeRunningNow() ? 'tasks with a run in progress' : (running.length ? `no task is running · ${running.length} pipeline stage${running.length > 1 ? 's' : ''} never recorded a final verdict` : 'nothing active')}</div>
-      </div>
+    ${alert ? `<div class="cost-alert" role="alert"><div>${alert}</div>${alertAction}</div>` : ''}
+    <div class="cost-totals">
+      <section class="cost-total">
+        <h2>${spentState === 'estimated' ? 'Estimated spend' : 'Measured spend'}</h2>
+        <div class="cost-total-num">${spentCell}</div>
+        <p>${spentState === 'estimated'
+          ? 'No run recorded a cost, so this is estimated from run time. Caps fire only on measured spend.'
+          : 'What agent runs recorded as spent. This is the number the caps are checked against.'}</p>
+      </section>
+      <section class="cost-total">
+        <h2>At API list price</h2>
+        <div class="cost-total-num">${listCell}</div>
+        <p>All Claude Code tokens in this project, priced as if bought from the API. On a subscription this is not a charge. Codex has no list price.${esc(listNote)}</p>
+        <button type="button" class="home-link" onclick="switchTab('insights/consumption')">Token detail</button>
+      </section>
     </div>
-    <div class="ledger-facts">
-      ${facts.map((f) => `<span><span class="eyebrow">${esc(f.label)}</span> <span class="mono">${f.v}</span>${f.sub ? ` <span class="muted cap">${esc(f.sub)}</span>` : ''}</span>`).join('')}
-    </div>
-    <div class="ledger-strip">${strip}</div>
-    <div class="ledger-stuck">
-      <div class="ledger-stuck-head">
-        <span class="eyebrow">Stuck · in progress over the line</span>
-        <span class="mono cap" style="color:var(--status-progress)">${stuck.length}${unmeasurable ? ` <span class="abs" title="${unmeasurable} in-progress task(s) with no readable age — counted, not dropped">+${unmeasurable}?</span>` : ''}</span>
-      </div>
-      ${stuckRows || `<div class="muted cap">${Array.isArray(heartbeat?.stuck) ? 'nothing over the line' : '<span class="abs" title="heartbeat not read">· stuck state unloaded</span>'}</div>`}
-    </div>`;
+    ${facts.length ? `<div class="cost-facts">${facts.join(' · ')}</div>` : ''}`;
 }
 
 // Settings (great_cto-ki1x.11). A row is a fact and the file that holds it;
@@ -5852,32 +5895,33 @@ async function registerProjectFromSettings() {
   } catch (e) { showToast(`Not registered: ${String(e.message || e)}`, 'error', 3000); }
 }
 
+let _costUsageTimer = null, _costRequest = 0;
 async function loadBudgetsPage() {
   loadJudgeStatus();
   loadJudgeScores();
   const body = document.getElementById('budgets-page-body');
   if (!body) return;
   body.innerHTML = '<div class="muted">loading…</div>';
+  if (![7, 30, 90].includes(currentPeriod)) {
+    // The chips offer 7, 30 and 90 days; an older stored 1D or 1Y reads as 30.
+    currentPeriod = 30;
+    document.querySelectorAll('.period-chip').forEach((c) => c.classList.toggle('active', parseInt(c.dataset.period, 10) === 30));
+  }
+  document.querySelectorAll('.period-chip').forEach((c) => c.setAttribute('aria-pressed', String(c.classList.contains('active'))));
+  const request = ++_costRequest;
+  clearTimeout(_costUsageTimer);
 
-  // Three states, not two: loading | loaded | failed.
-  //
-  // Without this catch the two reads below were awaited bare, so a rejection
-  // returned from the function and left `loading…` on screen permanently. Caught
-  // once in the wild: opening Budgets during startup raced the agent list, the
-  // promise rejected, and the page sat there looking busy. A page that failed
-  // and a page still working are the same picture, and the one you are looking
-  // at is the one where nothing more is coming.
-  let h, pipe = null, cost = null, m = null;
+  // Three states, not two: loading | loaded | failed. A page that failed and a
+  // page still working must not look the same.
+  let h, cost = null, m = null;
   try {
-    [h, pipe, cost, m] = await Promise.all([
+    [h, cost, m] = await Promise.all([
       api(`/api/heartbeat${pqs()}`),
-      api(`/api/pipeline${pqs()}`).catch(() => null),
       api(`/api/cost${pqsd()}`).catch(() => null),
       api(`/api/metrics${pqsd()}`).catch(() => null),
       (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length)
         ? refreshAgentsInstalled() : Promise.resolve(),
     ]);
-    renderLedgerHead({ heartbeat: h, pipeline: pipe, cost, metrics: m });
   } catch (err) {
     body.innerHTML = `
       <div class="budgets-failed">
@@ -5889,104 +5933,73 @@ async function loadBudgetsPage() {
       </div>`;
     return;
   }
+  if (request !== _costRequest) return;
+  const over = costOverCap();
+  renderLedgerHead({ cost, metrics: m, usage: null, over });
+  // The list-price total comes from the session logs, which can take a while to
+  // count; it fills in when ready and never holds the rest of the screen.
+  const period = currentPeriod;
+  const readUsage = async (tries) => {
+    const u = await api(`/api/usage?days=${period}${pqs().replace('?', '&')}`).catch(() => null);
+    if (request !== _costRequest || currentTab !== 'budgets') return;
+    renderLedgerHead({ cost, metrics: m, usage: u || { error: 'the board is not reachable' }, over });
+    if (u && (u.state === 'computing' || u.refreshing) && tries < 30) _costUsageTimer = setTimeout(() => readUsage(tries + 1), 2000);
+  };
+  readUsage(0);
+
   const caps = h?.budgets || {};
   const agents = (fleetState?.agents || []).filter((a) => !a.retired);
-
-  // 69 identical chips in one blob answered none of the three questions a person
-  // arrives with: what does this agent do, what does it usually cost, and over
-  // what period. Worse, 62 of the 69 had not run in thirty days — a cap on an
-  // agent that never runs is a cap on nothing, and they were the bulk of the
-  // wall.
-  //
-  // Ordered by what it costs to leave uncapped: agents that ran, most spend
-  // first. The ones that never ran are still reachable, behind a count.
-  const spendOf = (a) => (a.llm_usd_30d_real ?? a.llm_usd_30d_est ?? 0);
-  const ran = agents.filter((a) => (a.runs_30d || 0) > 0)
-    .sort((x, y) => spendOf(y) - spendOf(x) || (y.runs_30d || 0) - (x.runs_30d || 0));
-  const idle = agents.filter((a) => !(a.runs_30d > 0));
-
+  const bySlug = new Map((fleetState?.agents || []).map((a) => [a.slug, a]));
+  const ranUncapped = agents.filter((a) => (a.runs_30d || 0) > 0 && !(a.slug in caps));
+  const idle = agents.filter((a) => !(a.runs_30d > 0) && !(a.slug in caps));
   const firstSentence = (t) => {
     const s1 = String(t || '').split(/(?<=[.!?])\s/)[0] || '';
     return s1.length > 150 ? s1.slice(0, 147) + '…' : s1;
   };
 
-  // Spend is stated with its window and its provenance. `est` is a time-based
-  // guess and says so; a real figure only exists where a verdict carried a cost.
-  const spendCell = (a) => {
-    if (a.llm_usd_30d_real != null && a.llm_usd_30d_real > 0) {
-      return `<span class="bt-usd">$${a.llm_usd_30d_real.toFixed(2)}</span> <span class="muted">measured</span>`;
-    }
-    if (a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0) {
-      return `<span class="bt-usd">$${a.llm_usd_30d_est.toFixed(2)}</span> <span class="muted">estimated</span>`;
-    }
-    return '<span class="muted">not measured</span>';
-  };
-
-  const stateCell = (slug) => {
-    const b = (fleetState?.agents || []).find((a) => a.slug === slug)?.budget;
-    if (!b || b.state === 'no-limit') return '';
-    const spent = (b.state === 'within' || b.state === 'exceeded')
-      ? `$${(b.measuredUsd ?? 0).toFixed(2)} measured` : (b.state === 'unmeasured' ? 'nothing measured yet' : '');
-    return `${budgetChip(b)} <span class="ab-spent">${esc(spent)}</span>`;
-  };
-
-  const row = (a, cap) => `
-    <tr>
-      <td class="bt-agent">
-        <div class="bt-slug">${esc(a.slug)}</div>
-        <div class="bt-desc">${esc(firstSentence(a.description))}</div>
-      </td>
-      <td class="bt-runs">${a.runs_30d || 0}</td>
-      <td class="bt-spend">${spendCell(a)}</td>
-      <td class="bt-cap">${cap != null ? `$${esc(String(cap))}` : '<span class="muted">—</span>'}</td>
-      <td class="bt-state">${cap != null ? stateCell(a.slug) : ''}</td>
-      <td class="bt-actions">${cap != null
-        ? `<button type="button" class="ab-btn" onclick="editAgentBudget('${esc(a.slug)}', ${Number(cap)})">Change</button>`
-          + `<button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(a.slug)}', ${Number(cap)})">Remove</button>`
-        : `<button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')">Set a cap</button>`}</td>
-    </tr>`;
-
-  const table = (rows) => `
-    <table class="budgets-table">
-      <thead><tr>
-        <th scope="col">Agent</th>
-        <th scope="col" title="Dispatches in the last 30 days">Runs 30d</th>
-        <th scope="col" title="LLM spend over the same 30 days">Spend 30d</th>
-        <th scope="col">Cap</th><th scope="col">State</th><th scope="col"></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-
-  // A cap declared for an agent the fleet does not list still has to appear —
-  // otherwise a limit that is holding a stage would be invisible here.
-  const known = new Set(agents.map((a) => a.slug));
-  const orphanCaps = Object.entries(caps).filter(([slug]) => !known.has(slug));
-
-  const capped = ran.filter((a) => a.slug in caps);
-  const uncappedRan = ran.filter((a) => !(a.slug in caps));
-
+  // One table, one row per cap, then the agents that ran without one as one row.
+  const row = ({ agent, spent, cap, state, over, line, action, title }) => `
+    <div class="cost-row"${title ? ` title="${esc(title)}"` : ''}>
+      <div class="cost-agent">${esc(agent)}<span class="cost-line${over ? ' cost-over' : ''}">${esc(line)}</span></div>
+      <div class="cost-col num">${esc(spent)}</div>
+      <div class="cost-col num">${esc(cap)}</div>
+      <div class="cost-col${over ? ' cost-over' : ''}">${esc(state)}</div>
+      <div class="act">${action || ''}</div>
+    </div>`;
+  const capRows = Object.entries(caps).map(([slug, capUsd]) => {
+    const b = bySlug.get(slug)?.budget;
+    const st = b?.state;
+    const spent = st === 'within' || st === 'exceeded' ? `$${(b.measuredUsd ?? 0).toFixed(2)}`
+      : st === 'unmeasured' ? 'nothing yet' : 'not loaded';
+    const state = st === 'exceeded' ? 'Over cap' : (st === 'within' || st === 'unmeasured') ? 'Under cap' : '—';
+    return row({
+      agent: slug, spent, cap: `$${capUsd}`, state, over: st === 'exceeded',
+      line: st === 'exceeded' ? `${spent} of $${capUsd} · over cap` : `${spent} of $${capUsd}`,
+      action: `<button type="button" class="ab-btn" onclick="editAgentBudget('${esc(slug)}', ${Number(capUsd)})" aria-label="Change the ${esc(slug)} cap">Change</button>`,
+      title: bySlug.has(slug) ? firstSentence(bySlug.get(slug).description) : 'not among the installed agents',
+    });
+  }).join('');
+  let otherRow = '';
+  if (ranUncapped.length) {
+    const measured = ranUncapped.filter((a) => a.llm_usd_30d_real != null && a.llm_usd_30d_real > 0);
+    const sum = measured.reduce((t, a) => t + a.llm_usd_30d_real, 0);
+    const unmeasured = ranUncapped.length - measured.length;
+    const spent = measured.length ? `$${sum.toFixed(2)}` : 'not measured';
+    otherRow = row({
+      agent: `other agents (${ranUncapped.length})`, spent: spent + (measured.length && unmeasured ? ` · ${unmeasured} not measured` : ''),
+      cap: 'no cap', state: '—', line: `${spent} · no cap`,
+      title: ranUncapped.map((a) => a.slug).join(', '),
+    });
+  }
   const notes = [
     h?.budgets_deprecated_key
       ? `<div class="ab-note">Read from the deprecated <code>${esc(h.budgets_deprecated_key)}:</code> key — rename it to <code>agent-budgets:</code>.</div>` : '',
     (h?.budgets_malformed || []).length
       ? `<div class="ab-note ab-bad">${h.budgets_malformed.length} line(s) in PROJECT.md were not read: `
-        + h.budgets_malformed.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>' : '',
+        + h.budgets_malformed.map((x) => `<code>${esc(x.line)}</code> — ${esc(x.why)}`).join('; ') + '</div>' : '',
   ].join('');
-
-  const capsBlock = (capped.length || orphanCaps.length) ? `
-    <div class="mp-section-label">Capped (${capped.length + orphanCaps.length})</div>
-    ${table(capped.map((a) => row(a, caps[a.slug])).join('')
-      + orphanCaps.map(([slug, cap]) => row({ slug, description: 'not among the installed agents', runs_30d: 0 }, cap)).join(''))}`
-    : `<div class="budgets-empty">No agent has a spending cap in this project. Nothing is being held, and nothing will be.</div>`;
-
-  const activeBlock = uncappedRan.length ? `
-    <div class="mp-section-label" style="margin-top:28px">Ran in the last 30 days, no cap (${uncappedRan.length})</div>
-    <p class="muted" style="margin:4px 0 10px">These are the ones a cap would actually apply to.</p>
-    ${table(uncappedRan.map((a) => row(a, null)).join(''))}` : '';
-
-  // Capping an agent that has not run is capping nothing. Reachable, not shown.
   const idleBlock = idle.length ? `
-    <details class="budgets-idle" style="margin-top:28px">
+    <details class="cost-idle">
       <summary>${idle.length} installed agents have not run in 30 days</summary>
       <div class="budgets-uncapped">${idle.slice(0, 80).map((a) => `
         <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
@@ -5994,9 +6007,29 @@ async function loadBudgetsPage() {
         ${idle.length > 80 ? `<span class="muted">and ${idle.length - 80} more</span>` : ''}
       </div>
     </details>` : '';
+  const empty = !capRows && !otherRow
+    ? '<div class="cost-row"><div class="muted" style="grid-column:1/-1">No agent has a cap and none ran in 30 days.</div></div>' : '';
 
-  body.innerHTML = `${notes}${capsBlock}${activeBlock}${idleBlock}
-    <button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget for any agent</button>`;
+  body.innerHTML = `${notes}
+    <section class="cost-agents" aria-labelledby="cost-agents-title">
+      <div class="cost-agents-head">
+        <h2 id="cost-agents-title">By agent</h2>
+        <button type="button" class="ab-btn" onclick="addAgentBudget()">Add a cap</button>
+      </div>
+      <div class="cost-row cost-row-head" aria-hidden="true">
+        <div>Agent</div><div class="num" title="Last 30 days, from verdicts">Spent</div><div class="num">Cap</div><div>State</div><div></div>
+      </div>
+      ${capRows}${otherRow}${empty}${idleBlock}
+    </section>
+    <details class="cost-about">
+      <summary>About this data</summary>
+      <ul>
+        <li>Measured spend counts only runs whose verdict carried a cost. When none did, the figure is estimated from run time and labelled so.</li>
+        <li>The list-price total prices every Claude Code token in this project's session logs at the API's list price. It is not what a subscription is charged.</li>
+        <li>Spent by agent covers the last 30 days whatever the period above. Caps live in <code>.great_cto/PROJECT.md</code> under <code>agent-budgets:</code>.</li>
+        <li>Monthly project cap: ${cost?.monthly_budget ? `$${esc(fmtMoney(cost.monthly_budget))}` : 'none set — spend is not being stopped'}.</li>
+      </ul>
+    </details>`;
 
   const badge = document.getElementById('nav-budget-count');
   if (badge) badge.textContent = Object.keys(caps).length ? String(Object.keys(caps).length) : '';
@@ -6035,9 +6068,12 @@ function budgetPrompt(agent, current) {
   const raw = prompt(
     `Spending cap for ${agent}, in dollars.\n\n`
     + `Measured spend past this figure stops the pipeline dispatching ${agent}.\n`
-    + `Spend is measured from verdicts; while none carries a cost the cap cannot fire.`,
+    + `Spend is measured from verdicts; while none carries a cost the cap cannot fire.`
+    + (current != null ? `\n\nLeave it empty to remove the cap.` : ''),
     current != null ? String(current) : '');
   if (raw === null) return null;
+  // Cost shows one Change button per cap; an empty answer is how a cap is removed.
+  if (current != null && String(raw).trim() === '') return 'remove';
   const usd = Number(String(raw).replace(/[$\s,]/g, ''));
   if (!Number.isFinite(usd) || usd <= 0) { alert(`Not a positive dollar amount: ${raw}`); return null; }
   return usd;
@@ -6046,6 +6082,7 @@ function budgetPrompt(agent, current) {
 function editAgentBudget(agent, current) {
   const usd = budgetPrompt(agent, current);
   if (usd == null) return;
+  if (usd === 'remove') { clearAgentBudget(agent, current); return; }
   writeAgentBudget({ agent, limit_usd: usd },
     `Set ${agent} to $${usd}, replacing $${current}?\n\n`
     + `Written to .great_cto/PROJECT.md. Measured spend past $${usd} stops the pipeline dispatching ${agent}.`);
@@ -7363,6 +7400,7 @@ function setPeriod(days) {
   // Highlight active chip
   document.querySelectorAll('.period-chip').forEach(c => {
     c.classList.toggle('active', parseInt(c.dataset.period, 10) === days);
+    c.setAttribute('aria-pressed', String(parseInt(c.dataset.period, 10) === days));
   });
   // Update BOTH labels immediately on click — so user never sees a mismatch
   // between the active chip and the section headers, even before fetch returns

@@ -1,7 +1,7 @@
 ---
 surface: web
 feature: board-declutter
-status: approved by the owner on 2026-11-10 (mockup version 10: Home and Cost, desktop and phone); Home implemented as version 11, approved the same day; Cost mockup awaiting approval
+status: approved by the owner on 2026-11-10 (mockup version 10: Home and Cost, desktop and phone); Home implemented as version 11, approved the same day; Cost mockup (artboards CostDesktop/CostPhone) approved the same day and implemented
 date: 2026-11-10
 audited-version: 3.76.1
 design: https://claude.ai/artifact/5RGTJp7zZkfn3RwQSTgSQG
@@ -240,7 +240,23 @@ Deviations from the mockup, each for a reason found in the code:
 
 The owner approved Home as built, with these six deviations, as version 11 on 2026-11-10:
 https://claude.ai/artifact/9zzFn9Ms7A2pDiGXCq9j8p (artboard "Main"). The same canvas holds
-the Cost mockup for step 2 (current next to proposed, desktop and phone), not yet approved.
+the Cost mockup for step 2 (current next to proposed, desktop and phone).
+
+### Step 2: Cost
+
+The owner approved the Cost mockup on 2026-11-10 (same canvas, artboards CostDesktop and
+CostPhone). Implemented on the same branch:
+
+- Cost is one screen: title with range, period chips 7 / 30 / 90 days, one alert for agents over
+  their cap, two totals (measured spend, at API list price), one line of results, one "By agent"
+  table with an aggregate row for agents without a cap, idle agents folded, "About this data"
+  folded. The Insights sub-tabs are gone; old links (`#/insights`, `#/ledger`, `#/budgets`,
+  `#/insights/consumption`, `#/insights/outcomes`) still land.
+- The deviation "Cost opens the current Ledger screen" is resolved.
+- Older stored periods (1, 14, 60 days) snap to 30 days, since the mockup shows three chips.
+- The aggregate row shows the measured sum of the other agents, which fills the mockup's
+  "[rest of $60]" placeholder; agents without a measurement are counted, not priced.
+- "Change cap" offers removal: an empty answer removes the cap.
 
 ## 9. Not covered
 
