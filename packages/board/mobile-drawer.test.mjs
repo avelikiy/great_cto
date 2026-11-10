@@ -120,8 +120,10 @@ test('the topbar fits, and the buttons it shrinks keep their names', () => {
   assert.match(mobileBlock, /\.btn-label \{ display: none; \}/);
   // Hiding a label is only acceptable if the name survives somewhere a screen
   // reader reaches.
-  assert.match(html, /<button class="btn-new"[^>]*aria-label="New issue"/);
-  assert.match(html, /<span class="btn-label"[^>]*>Settings<\/span>/);
+  // One action is left in the bar since the 2026-11 audit (theme and Settings
+  // moved to the sidebar), so its label stays visible on a phone as well.
+  assert.match(html, /<button class="btn-new"[^>]*aria-label="New task"/);
+  assert.match(mobileBlock, /\.topbar \.btn-new \.btn-label \{ display: inline; \}/);
 });
 
 test('the stat grids wrap instead of being clipped', () => {
@@ -161,8 +163,11 @@ test('the id and the status share a line, and a gate keeps its own', () => {
 test('the phone keeps where you are, not the whole path', () => {
   // Raising every control to 44px gave the actions 223px of a 375px bar and
   // crushed the breadcrumb to "g… / B." — present, unreadable, worse than absent.
-  assert.match(mobileBlock, /#crumb-project \{ display: none; \}/);
-  assert.match(mobileBlock, /\.topbar \.crumbs \.here \{ color: var\(--text\)/);
+  // Still one name, never the path. It is the project now: the screen names
+  // itself in its own heading, and with one button in the bar the name fits.
+  assert.match(mobileBlock, /\.topbar \.crumbs \.here \{ display: none; \}/);
+  assert.match(mobileBlock, /\.topbar \.crumbs \.sep,/);
+  assert.match(mobileBlock, /#crumb-project \{ color: var\(--text\)/);
 });
 
 // ── Tablet breakpoint (768–1199px: icon rail) ───────────────────────────────

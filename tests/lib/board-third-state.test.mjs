@@ -76,17 +76,21 @@ test('Cell 4: paired-diff count (Harness) — join key absent → unmeasured, ne
 
 // ── Cell 5: Cost — `cost_usd: null` → `unmeasured` (`—`), while `0` → `$0`, never same rendering
 test('Cell 5: cost — cost_usd: null → unmeasured (—), 0 → $0, never same render', () => {
-  // The Ledger screen (`.7`) shows cost. Cost is never measured is not cost is zero.
+  // The Cost screen shows cost. Cost is never measured is not cost is zero.
   // `cost_usd: null` → render `—` (unmeasured, none measured)
   // `cost_usd: 0` → render `$0.00` (measured zero)
   // These must never render the same way.
 
   const fleetSummaryRaw = readFileSync(path.join(ROOT, 'packages/board/public/index.html'), 'utf8');
 
-  // Look for the fleet summary rendering that handles cost
-  // Line 8054-8056 shows: s.llm_usd_30d != null ? '$' + ... : absent('uncomputable', ...)
-  assert.match(fleetSummaryRaw, /s\.llm_usd_30d != null/,
+  // The Cost screen's "Measured spend" total (renderLedgerHead) is where cost is
+  // shown since the approved Cost redesign; the old "Fleet 30d" tile is gone.
+  // It must test for null explicitly, so a measured $0 stays a figure and an
+  // unmeasured spend becomes an absence.
+  assert.match(fleetSummaryRaw, /realLlmUsd != null \? 'measured'/,
     'must explicitly check for null vs 0 to avoid rendering unmeasured as $0');
+  assert.match(fleetSummaryRaw, /absent\('uncomputable', 'no verdict carries a cost/,
+    'an unmeasured spend renders as an absence, never as $0');
 
   // The rendering paths must differ: one has `absent()` call, one has `$`.
   assert.match(fleetSummaryRaw, /\$.*\.toFixed|absent.*uncomputable/,

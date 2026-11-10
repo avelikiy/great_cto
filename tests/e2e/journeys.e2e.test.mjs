@@ -80,7 +80,7 @@ test('journey 1: no projects, the board says so, a project registered from Setti
       'the project switcher says there are none');
 
     // Settings → General is where a project is registered from, the way an operator gets there.
-    await page.locator('#topbar-settings-btn').click();
+    await page.locator('.nav-item[data-tab="settings"]').click();
     await page.getByRole('button', { name: 'General', exact: true }).first().click();
     const input = page.locator('#settings-register-path');
     await input.waitFor({ timeout: 15000 });

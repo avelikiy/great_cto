@@ -1,13 +1,13 @@
 /* Task-first projection. Existing controller commands and authorization remain authoritative. */
 (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const aliases = { docs:'knowledge', usage:'insights/consumption', ledger:'insights/ledger', budgets:'insights/ledger', dashboard:'insights/ledger', fleet:'settings/executors', agents:'settings/executors', harness:'settings/runtime', skills:'settings/capabilities', history:'work/completed', inbox:'decisions', notifications:'settings/general', share:'settings/general' };
+  const aliases = { docs:'knowledge', usage:'insights/consumption', ledger:'insights/ledger', budgets:'insights/ledger', dashboard:'insights/ledger', fleet:'settings/executors', agents:'settings/executors', harness:'settings/runtime', skills:'settings/capabilities', history:'work/completed', inbox:'home', decisions:'home', cost:'insights/ledger', insights:'insights/ledger', notifications:'settings/general', share:'settings/general' };
   function route(input) {
     const taskRoute = window.GctoWork?.parseRoute?.(input);
     if (taskRoute) return { canonical:taskRoute.canonical, panel:'work', primary:'work', workRoute:true };
     if (/^(?:agents|fleet)\/[a-z0-9-]+$/i.test(input)) return {canonical:input,panel:'agents',primary:'settings'};
     const canonical = aliases[input] || input;
-    const panels = { work:'work','work/completed':'history',decisions:'inbox',knowledge:'knowledge',insights:'admin-outcomes','insights/outcomes':'admin-outcomes','insights/consumption':'usage','insights/ledger':'budgets',settings:'agents','settings/executors':'agents','settings/runtime':'harness','settings/capabilities':'skills','settings/general':'settings' };
+    const panels = { home:'inbox', work:'work','work/completed':'history',knowledge:'knowledge',insights:'admin-outcomes','insights/outcomes':'admin-outcomes','insights/consumption':'usage','insights/ledger':'budgets',settings:'agents','settings/executors':'agents','settings/runtime':'harness','settings/capabilities':'skills','settings/general':'settings' };
     if (!panels[canonical]) return null;
     return { canonical, panel:panels[canonical], primary:canonical.split('/')[0] };
   }
@@ -16,7 +16,7 @@
     const completed = tasks.filter(e => e.taskOutcome?.state === 'completed').length;
     return {tasks:tasks.length,completed,unknown:tasks.length-completed,acceptanceRate:null,costPerAcceptedTask:null};
   }
-  let generation=0, selectedDoc=null, selectedRoute='work', request=0, indexRequest=0;
+  let generation=0, selectedDoc=null, selectedRoute='home', request=0, indexRequest=0;
   const scope = () => new URLSearchParams(location.search).get('project') || '';
   const scoped = path => path+(path.includes('?')?'&':'?')+'project='+encodeURIComponent(scope());
   const panel = id => document.getElementById(id);
@@ -38,7 +38,7 @@
       el.innerHTML=`<p class="work-meta">Observed ${esc(data.observedAt)} · ${data.health==='current'?'Sources read':'Sources incomplete'} · Recorded task metadata, not a benchmark</p>
         <div class="admin-metrics"><section><h2>${d.tasks}</h2><p>Tracked tasks</p><small>Legacy issues and standalone runs excluded</small></section><section><h2>${d.completed}</h2><p>Explicitly completed outcomes</p><small>Recorded completion, not an acceptance-rate estimate</small></section><section><h2>${d.unknown}</h2><p>No completed outcome recorded</p><small>Includes in-progress tasks; not a failure count</small></section><section><h2>Unavailable</h2><p>Cost per accepted task</p><small>Complete task-bound actual spend is not available</small></section></div>
         <div class="admin-notice">Acceptance rate, time to acceptance and severe regressions are not measured by this projection. Role verdicts, closed issues and successful processes cannot supply those numbers.</div>
-        <h2 class="admin-section-title">Recorded work</h2><div class="admin-table-scroll"><table class="admin-table"><thead><tr><th>Task</th><th>Host</th><th>State</th><th>Outcome</th></tr></thead><tbody>${(data.entries||[]).filter(e=>e.kind==='task').slice(0,100).map(e=>`<tr><td>${esc(e.title)}</td><td>${esc(e.host||'Not linked')}</td><td>${esc(e.phase||'Unknown')}</td><td>${esc(e.taskOutcome?.state||'Not recorded')}</td></tr>`).join('')||'<tr><td colspan="4">No tracked task outcomes in the readable records.</td></tr>'}</tbody></table></div><p class="work-meta">All available tracked tasks, not a time-window cohort. Host quality comparisons require matched tasks, budgets and acceptance criteria.</p>`;
+        <h2 class="admin-section-title" id="admin-outcomes-work">Recorded work</h2><div class="admin-table-scroll" tabindex="0" role="region" aria-labelledby="admin-outcomes-work"><table class="admin-table"><thead><tr><th>Task</th><th>Host</th><th>State</th><th>Outcome</th></tr></thead><tbody>${(data.entries||[]).filter(e=>e.kind==='task').slice(0,100).map(e=>`<tr><td>${esc(e.title)}</td><td>${esc(e.host||'Not linked')}</td><td>${esc(e.phase||'Unknown')}</td><td>${esc(e.taskOutcome?.state||'Not recorded')}</td></tr>`).join('')||'<tr><td colspan="4">No tracked task outcomes in the readable records.</td></tr>'}</tbody></table></div><p class="work-meta">All available tracked tasks, not a time-window cohort. Host quality comparisons require matched tasks, budgets and acceptance criteria.</p>`;
     } catch(error) { if(current(seq,project)&&ticket===request) el.textContent='Outcomes could not be read: '+error.message; }
   }
   async function loadKnowledge() {
@@ -102,7 +102,14 @@
   function setup() {
     const nav=panel('nav-tablist'), existing={};
     document.querySelectorAll('.nav-item[data-tab]').forEach(n=>existing[n.dataset.tab]=n.querySelector('svg')?.outerHTML||'');
-    nav.innerHTML=['work','decisions','knowledge','insights','settings'].map(key=>`<button type="button" class="nav-item${key==='work'?' active':''}" role="tab" aria-selected="${key==='work'}" data-tab="${key}" aria-label="${key[0].toUpperCase()+key.slice(1)}" data-nav-label="${key[0].toUpperCase()+key.slice(1)}" tabindex="0" onkeydown="navTabKeydown(event,this)">${existing[key]||existing[key==='knowledge'?'skills':key==='insights'?'usage':'harness']||''}<span class="nav-label">${key[0].toUpperCase()+key.slice(1)}</span>${key==='decisions'?'<span class="count" id="nav-inbox-count">0</span>':''}</button>`).join('');
+    // Home · Work · Cost · Knowledge · Settings (UX audit 2026-11, approved mockup).
+    // Route keys are unchanged where a screen is unchanged: Cost is still the
+    // `insights` route, Home is the panel Decisions used; `#/decisions` lands on Home.
+    const NAV_LABEL={home:'Home',work:'Work',insights:'Cost',knowledge:'Knowledge',settings:'Settings'};
+    // Cost is one screen (F4): `insights` opens it; Token detail (`insights/consumption`)
+    // and Outcomes (`insights/outcomes`, hidden until it has data) stay reachable by route.
+    const NAV_ICON={home:'decisions',work:'work',insights:'ledger',knowledge:'skills',settings:'harness'};
+    nav.innerHTML=['home','work','insights','knowledge','settings'].map(key=>`<button type="button" class="nav-item${key==='home'?' active':''}" role="tab" aria-selected="${key==='home'}" data-tab="${key}" aria-label="${NAV_LABEL[key]}" data-nav-label="${NAV_LABEL[key]}" tabindex="0" onkeydown="navTabKeydown(event,this)">${existing[NAV_ICON[key]]||''}<span class="nav-label">${NAV_LABEL[key]}</span>${key==='home'?'<span class="count" id="nav-inbox-count" title="items that need you in this project">0</span>':''}</button>`).join('');
     nav.querySelectorAll('[data-tab]').forEach(n=>n.addEventListener('click',()=>window.switchTab(n.dataset.tab)));
     const tools=panel('tools-nav');tools.hidden=true;
     const workspace=document.querySelector('.workspace');
@@ -137,8 +144,8 @@
       if (r.workRoute && typeof currentTab === 'string' && currentTab === 'work') { closeMenu(false); window.GctoWork.refresh(); }
       else original(old); // Keep established loaders and mutation guards; task inspection adds no view POST.
       document.querySelectorAll('.nav-item[data-tab]').forEach(n=>{const active=n.closest('#nav-tablist')&&n.dataset.tab===r.primary;n.classList.toggle('active',!!active);n.setAttribute('aria-selected',String(!!active));});
-      panel('crumb-here').textContent=r.primary[0].toUpperCase()+r.primary.slice(1);
-      const items=r.primary==='settings'?[['settings/executors','Executors'],['settings/runtime','Runtime'],['settings/capabilities','Capabilities'],['settings/general','General']]:r.primary==='insights'?[['insights/outcomes','Outcomes'],['insights/consumption','Consumption'],['insights/ledger','Ledger & budgets']]:[];
+      panel('crumb-here').textContent=({home:'Home',insights:'Cost'})[r.primary]||r.primary[0].toUpperCase()+r.primary.slice(1);
+      const items=r.primary==='settings'?[['settings/executors','Executors'],['settings/runtime','Runtime'],['settings/capabilities','Capabilities'],['settings/general','General']]:[];
       bar.hidden=!items.length;bar.innerHTML=items.map(([key,label])=>`<button type="button" class="admin-subtab" data-route="${key}" aria-pressed="${r.canonical===key||(r.canonical===r.primary&&key===items[0][0])}">${label}</button>`).join('');
       bar.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>window.switchTab(b.dataset.route));
       history.replaceState(history.state,'','#/'+r.canonical);
@@ -149,7 +156,7 @@
     const composer=panel('work-compose');
     const disclosure=document.createElement('details');disclosure.className='admin-compose';const summary=document.createElement('summary');summary.textContent='New task · prepare launch command';disclosure.append(summary);composer.before(disclosure);disclosure.append(composer);
     composer.querySelector('button[type="submit"]').textContent='Copy launch command';
-    window.switchTab((location.hash||'#/work').replace(/^#\/?/,''));
+    window.switchTab((location.hash||'#/home').replace(/^#\/?/,''));
   }
   window.GctoAdmin={route,outcomes,reset,openDocument,setWorkView,navigateWork};
   if(typeof document!=='undefined') setup();
