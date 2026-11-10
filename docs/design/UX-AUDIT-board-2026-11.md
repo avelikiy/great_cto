@@ -10,6 +10,10 @@ design-v11: https://claude.ai/artifact/9zzFn9Ms7A2pDiGXCq9j8p
 
 # UX audit of the board, November 2026
 
+**Related:** [the September board redesign](DESIGN-board-redesign-2026-09.md) ·
+[ADR-024 — board approvals](../adr/ADR-024-board-approvals.md) ·
+[ADR-048 — board local API guards](../adr/ADR-048-board-local-api-guards.md)
+
 **Request.** "Run a UI/UX analysis of the admin: what should be improved so that a user really
 finds it clear and convenient to use. Right now it is overloaded with information."
 
@@ -19,7 +23,7 @@ different results, each screen carries its own caveats, and internal mechanism n
 if they were user concepts. The visual layer (colors, type, contrast, both themes) is in good
 shape and is not the problem.
 
-**Nothing in this document is implemented.** The owner approved the mockup linked above on
+**Home and Cost are implemented** (section 8); the rest is not. The owner approved the mockup linked above on
 2026-11-10. The approval covers what the mockup shows: Home, Cost and the navigation, on desktop
 and phone. Settings, task detail, first run and Knowledge (F6, F7, F9, F14, F15) are described
 here in words only and need their own mockup before they are coded. Items marked
