@@ -23,9 +23,11 @@ const corpus = gatherCorpus({ cwd: ROOT, source: 'docs' });
 function hitAt3(granularity) {
   const misses = [];
   let hits = 0;
-  for (const { q, doc } of GOLDEN) {
+  for (const { q, doc, also = [] } of GOLDEN) {
     const top = searchMemory({ query: q, cwd: ROOT, source: 'docs', limit: 3, corpus, granularity }).map((r) => r.file);
-    if (top.includes(doc)) hits++; else misses.push(`${q} → wanted ${doc}, got ${top.join(', ') || 'nothing'}`);
+    // `also`: another document that answers the question just as well. It is a
+    // second correct answer, not a looser floor — the floor stays where it was.
+    if ([doc, ...also].some((d) => top.includes(d))) hits++; else misses.push(`${q} → wanted ${doc}, got ${top.join(', ') || 'nothing'}`);
   }
   return { hits, total: GOLDEN.length, rate: hits / GOLDEN.length, misses };
 }
@@ -33,7 +35,7 @@ function hitAt3(granularity) {
 test('every golden answer is a document the corpus actually holds', () => {
   // A typo in the golden set would read as a ranking failure forever.
   const ids = new Set(corpus.map((d) => d.id));
-  for (const { doc } of GOLDEN) {
+  for (const doc of GOLDEN.flatMap((g) => [g.doc, ...(g.also || [])])) {
     assert.ok(existsSync(path.join(ROOT, doc)), `${doc} does not exist`);
     assert.ok(ids.has(doc), `${doc} exists but is not in the docs corpus`);
   }
