@@ -48,6 +48,42 @@ export async function loadBrowser() {
   } catch { return null; }
 }
 
+/**
+ * Launch Playwright's bundled Chromium; the installed Google Chrome only when it is absent.
+ *
+ * WHY NOT THE SYSTEM CHROME BY DEFAULT
+ * ------------------------------------
+ * These checks used `channel: 'chrome'` so that nothing had to download a
+ * browser. On macOS that has a cost nobody saw: every launch of the installed
+ * Chrome copies the app into
+ * `$(getconf DARWIN_USER_TEMP_DIR)../X/com.google.Chrome.code_sign_clone/` to
+ * check its signature. A clean `close()` removes the copy; a SIGKILL does not.
+ * The contrast-abort test kills its browser on purpose, so every gate run left
+ * one copy behind (measured 2026-11-10: a normal launch and close leaves none,
+ * a killed one leaves one, and the bundled Chromium leaves none either way).
+ *
+ * The signature these checks read (computed font sizes, colours, ids) is the
+ * same in both browsers. Measured on 32 screens in both themes: identical font
+ * sizes, and the layout test passes 8/8 on the bundled build.
+ *
+ * Falling back to the system Chrome when the bundled build is missing keeps a
+ * machine without it CHECKED rather than skipped. Any other launch error is
+ * re-thrown: a crash is not a missing browser.
+ *
+ * @param {object} chromium   Playwright's `chromium` (from loadBrowser)
+ * @param {object} [options]  launch options; `headless` defaults to true
+ * @param {'launch'|'launchServer'} [method]
+ */
+export async function launchBrowser(chromium, options = {}, method = 'launch') {
+  const opts = { headless: true, ...options };
+  try {
+    return await chromium[method](opts);
+  } catch (e) {
+    if (!/Executable doesn't exist/i.test(String(e && e.message))) throw e;
+    return chromium[method]({ ...opts, channel: 'chrome' });
+  }
+}
+
 /** Read the signature out of an open page. */
 /**
  * Selectors the type-scale check already excuses, so this one excuses them too.
@@ -107,7 +143,7 @@ export async function snapshotAll(url, { panels, themes = ['dark', 'light'],
   const chromium = await loadBrowser();
   if (!chromium) return { state: 'unavailable', reason: 'playwright is not installed' };
   let browser;
-  try { browser = await chromium.launch({ channel: 'chrome', headless: true }); }
+  try { browser = await launchBrowser(chromium); }
   catch (e) { return { state: 'unavailable', reason: `no usable browser: ${String(e.message).split('\n')[0]}` }; }
 
   const screens = [];
@@ -142,10 +178,10 @@ export async function snapshot(url, { width = 1440, height = 900, settleMs = 250
 
   let browser;
   try {
-    // The system Chrome, so nothing has to download a browser. If it is absent
-    // that is `unavailable` too — a machine without a browser cannot answer the
-    // question, and pretending otherwise is the failure this file guards.
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    // Bundled Chromium, the system Chrome only as a fallback (launchBrowser says
+    // why). No browser at all is `unavailable` too — a machine without one cannot
+    // answer the question, and pretending otherwise is the failure this file guards.
+    browser = await launchBrowser(chromium);
   } catch (e) {
     return { state: 'unavailable', reason: `no usable browser: ${String(e.message).split('\n')[0]}` };
   }

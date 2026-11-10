@@ -1,9 +1,9 @@
 {
-  "about": "Questions an operator actually asks /recall, each with the document that answers it — and, for questions about a detail inside a long document, the section. Worded the way someone half-remembers a decision; a question that repeats the document's title only measures string matching. Revised 2026-09-15 after an ai-eval-engineer review found four questions copying title words and none reaching past a document's first section. Used by tests/lib/recall-golden.test.mjs.",
+  "about": "Questions an operator actually asks /recall, each with the document that answers it — and, for questions about a detail inside a long document, the section. Worded the way someone half-remembers a decision; a question that repeats the document's title only measures string matching. Revised 2026-09-15 after an ai-eval-engineer review found four questions copying title words and none reaching past a document's first section. An `also` list names other documents that answer the question just as well (ADR-048, added 2026-11-10, is the decision on cross-site requests). Used by tests/lib/recall-golden.test.mjs.",
   "questions": [
     { "q": "why does a risky action need a human even when it is not at a stage boundary", "doc": "docs/adr/ADR-009-gates-follow-reversibility.md" },
     { "q": "can I review what an agent edited in a single step afterwards", "doc": "docs/adr/ADR-023-per-turn-diffs.md" },
-    { "q": "can another web page approve a gate through the board", "doc": "docs/adr/ADR-024-board-approvals.md" },
+    { "q": "can another web page approve a gate through the board", "doc": "docs/adr/ADR-024-board-approvals.md", "also": ["docs/adr/ADR-048-board-local-api-guards.md"] },
     { "q": "what stops an API key from being written into a file", "doc": "docs/adr/ADR-014-secret-detection-patterns.md" },
     { "q": "do hooks block the turn or run in the background", "doc": "docs/adr/ADR-019-hook-execution-modes.md" },
     { "q": "what shell commands an agent is allowed to run", "doc": "docs/adr/ADR-020-bash-execution-boundary.md" },

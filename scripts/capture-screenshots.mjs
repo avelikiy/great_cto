@@ -29,6 +29,7 @@ import { buildFixture, buildShowcaseRecords, SAMPLE_TASK_ID } from './lib/screen
 import { seedRecordedCapture } from './lib/screenshot-causal-fixture.mjs';
 import { writeTextChunk } from './lib/png-meta.mjs';
 import { isMainModule } from './lib/is-main.mjs';
+import { launchBrowser } from './lib/layout-snapshot.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'docs', 'screenshots');
@@ -135,7 +136,7 @@ async function main() {
       throw new Error(`the board did not answer on ${base}\n${serverLog.join('').slice(-800)}`);
     }
 
-    browser = await chromium.launch({ channel: 'chrome', headless: true });
+    browser = await launchBrowser(chromium);
     const page = await browser.newPage({
       viewport: { width: 1440, height: 900 },
       deviceScaleFactor: 2,

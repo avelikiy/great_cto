@@ -51,6 +51,24 @@ function originAllowed(req) {
   return allowedHostList().includes(u.host.toLowerCase());
 }
 
+// The value for Access-Control-Allow-Origin: the request's Origin when it is one of
+// the board's own, otherwise none. It was `*` for every response, which let any page
+// in the same browser read the API.
+function corsOriginFor(req) {
+  const o = req.headers.origin;
+  if (!o) return null;
+  return originAllowed({ headers: { origin: o } }) ? o : null;
+}
+
+// Is this a read coming from another site? Reads carry tasks, verdicts and costs, and
+// a GET reaches the server whether or not the page may read the answer. A foreign
+// Origin or Referer says so; Sec-Fetch-Site says so even when both are stripped
+// (an <img>, a no-referrer link). No header at all is a tool, not a browser.
+function crossSiteRead(req) {
+  if (String(req.headers['sec-fetch-site'] || '').toLowerCase() === 'cross-site') return true;
+  return !originAllowed(req);
+}
+
 // Which surface an alert belongs to. Operate-side events (autopilot runtime: dead-letters,
 // connector health, case SLA, gate/safe-mode pushes) are the operator console's concern and
 // must not clutter the builder board's notifications — the two surfaces are separated.
@@ -121,4 +139,4 @@ function isInsideDir(base, target) {
   return resolvedTarget === resolvedBase || resolvedTarget.startsWith(resolvedBase + path.sep);
 }
 
-export { csvCell, originAllowed, hostAllowed, allowedHostList, parseAllowedHosts, eventSurface, readFileSafe, readSafe, parseSafe, isInsideDir };
+export { csvCell, originAllowed, corsOriginFor, crossSiteRead, hostAllowed, allowedHostList, parseAllowedHosts, eventSurface, readFileSafe, readSafe, parseSafe, isInsideDir };
