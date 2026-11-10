@@ -133,7 +133,19 @@ function ciProbe(run, cwd) {
   }
 }
 
+const USAGE = `usage: release-receipt.mjs --stage <staged|released> --kind <web|ios|android|ota>
+  --version <v> --sha <40 hex> --artifact <deployment id | build number | path>
+  --artifact-sha <sha read back from the artifact> --ci-run <id> --ci-conclusion success
+  released also needs: --e2e-run <id> --e2e-result pass --e2e-target <url | build>
+  --gate <gate id> --live pass --rollback "<exact command>" --cleanup "<one-line df result>"
+  options: --verify-ci [--repo <owner/name>] --out-dir <dir> (default .great_cto/releases)
+Writes the receipt only when every required line holds; exits 1 with NOT RELEASED otherwise.`;
+
 if (isMainModule(import.meta.url)) {
+  if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+    console.log(USAGE);
+    process.exit(0);
+  }
   const args = parseArgs(process.argv.slice(2));
   const cwd = args.repo || process.cwd();
   const probes = gitProbe(cwd);

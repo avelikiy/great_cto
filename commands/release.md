@@ -60,7 +60,7 @@ This command does not build or upload anything itself. It hands the release to t
    default in PROJECT.md) the agent prepares the store submission and the operator
    presses the button.
 4. "Released" is a receipt in `.great_cto/releases/`, written by
-   `scripts/lib/release-receipt.mjs`. No receipt — not released.
+   the plugin's `scripts/lib/release-receipt.mjs`. No receipt — not released.
 
 Release notes for the same build: `/release notes <version>` (below). They cite the build
 the receipt names.

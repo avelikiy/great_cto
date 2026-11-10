@@ -104,6 +104,8 @@ Execution mostra grafos causais registrados pelo controlador; sessões nativas e
 
 São contratos de responsabilidade, não oito chamadas obrigatórias ao modelo nem oito agentes simultâneos. Project focus é uma visão de apresentação: não remove especialistas, não altera o despacho e não dispensa verificações obrigatórias. Os revisores específicos de cada risco continuam sujeitos à política do projeto.
 
+Frontends web e builds mobile não são implantados pelo `devops`: ele os entrega ao `release-manager`, que compila uma única vez a partir do commit com CI verde, publica a build numa URL de preview ou numa trilha de teste interna, faz o `e2e-test-engineer` testar exatamente essa build e só promove ou prepara o envio à loja depois de `gate:release`. Um release está concluído quando o recibo em `.great_cto/releases/` nomeia a build, os testes, a versão publicada e o rollback. `/release ship <web|ios|android|ota>` o inicia.
+
 ## Contexto de engenharia focado
 
 Cinco candidatos a domain packs, versionados e ativados explicitamente, cobrem quatro áreas:
@@ -152,7 +154,7 @@ Uma linha em `.great_cto/PROJECT.md`:
 | `auto` | nada no pipeline | 0 |
 
 Produtos regulados — fintech, saúde, governo — mantêm seus gates de segurança,
-conformidade e entrega em todos os níveis. [Como os gates funcionam](../GATES.md).
+conformidade e entrega em todos os níveis. Uma promoção web para produção, um envio à loja ou uma atualização OTA de produção sempre para em `gate:release`, inclusive com `auto`. [Como os gates funcionam](../GATES.md).
 
 ## Números, medidos
 

@@ -123,3 +123,12 @@ test('CLI: writes the receipt only when it holds, and exits 1 otherwise', () => 
   assert.equal(rec.sha, head);
   assert.equal(rec.schema, 'great-cto/release-receipt@1');
 });
+
+test('--help prints usage and exits 0 instead of a NOT RELEASED list', () => {
+  // A live run asked the script for --help and got "NOT RELEASED — 9 problem(s)":
+  // an empty invocation read as a failed release. Help is not a release attempt.
+  const r = spawnSync(process.execPath, [SCRIPT, '--help'], { encoding: 'utf8' });
+  assert.equal(r.status, 0);
+  assert.match(r.stdout, /usage: release-receipt\.mjs/);
+  assert.doesNotMatch(r.stdout + r.stderr, /NOT RELEASED — \d+ problem/);
+});

@@ -1213,3 +1213,86 @@ test('the hook says nothing at all when the agent was only launched', () => {
   assert.doesNotMatch(out, /log-verdict/,
     'the hook still asks for a verdict about work that has not happened');
 });
+
+// ── release-manager: client artifacts go out in two runs with gate:release between ──
+//
+// devops ships services. A web frontend or a mobile build is a client artifact:
+// devops hands it over with CLIENT_RELEASE, release-manager stages it, e2e tests
+// THAT artifact, and only gate:release lets run 2 promote or submit it. Store
+// submission and production promote cannot be taken back, so gate:release is a
+// floor: no approval level, `auto` included, opts out of it.
+
+test('devops hands a client artifact to release-manager, not to l3-support', () => {
+  const d = decideNext({
+    agent: 'devops', transitions: MAP,
+    verdict: { verdict: 'CLIENT_RELEASE' }, activeGates: [],
+  });
+  assert.equal(d.kind, 'next');
+  assert.match(d.text, /subagent_type: release-manager/);
+  assert.ok(!/subagent_type: l3-support/.test(d.text), 'a staged frontend is not yet in production');
+});
+
+test('a staged artifact goes to e2e, ungated: staging reaches no real user', () => {
+  const d = decideNext({
+    agent: 'release-manager', transitions: MAP,
+    verdict: { verdict: 'STAGED' }, activeGates: [],
+  });
+  assert.equal(d.kind, 'next');
+  assert.match(d.text, /subagent_type: e2e-test-engineer/);
+});
+
+test('ARTIFACT_PASSED waits for gate:release at every approval level, auto included', () => {
+  for (const level of APPROVAL_LEVELS) {
+    const d = decideNext({
+      agent: 'e2e-test-engineer', transitions: MAP,
+      verdict: { verdict: 'ARTIFACT_PASSED' },
+      activeGates: gatesForApprovalLevel(level),
+    });
+    assert.equal(d.kind, 'gate', `level ${level} must stop before the promote`);
+    assert.match(d.text, /gate:release/);
+    assert.match(d.text, /subagent_type: release-manager/);
+  }
+});
+
+test('an approved gate:release dispatches run 2', () => {
+  const d = decideNext({
+    agent: 'e2e-test-engineer', transitions: MAP,
+    verdict: { verdict: 'ARTIFACT_PASSED', ts: '2026-11-10T10:00:00Z' },
+    activeGates: gatesForApprovalLevel('auto'),
+    gateStates: { 'gate:release': { state: 'approved' } },
+  });
+  assert.equal(d.kind, 'next');
+  assert.match(d.text, /subagent_type: release-manager/);
+});
+
+test('a plain e2e PASSED still ends at devops, not at the release gate', () => {
+  const d = decideNext({
+    agent: 'e2e-test-engineer', transitions: MAP,
+    verdict: { verdict: 'PASSED' }, activeGates: [],
+  });
+  assert.match(d.text, /subagent_type: devops/);
+  assert.ok(!/gate:release/.test(d.text));
+});
+
+test('RELEASED hands production to l3-support; HANDED-OFF ends the chain for the operator', () => {
+  const released = decideNext({
+    agent: 'release-manager', transitions: MAP,
+    verdict: { verdict: 'RELEASED' }, activeGates: [],
+  });
+  assert.equal(released.kind, 'next');
+  assert.match(released.text, /subagent_type: l3-support/);
+
+  const handedOff = decideNext({
+    agent: 'release-manager', transitions: MAP,
+    verdict: { verdict: 'HANDED-OFF' }, activeGates: [],
+  });
+  assert.equal(handedOff.kind, 'done', 'the store button is the operator\'s; nothing is spawned after it');
+});
+
+test('a BLOCKED release halts the chain', () => {
+  const d = decideNext({
+    agent: 'release-manager', transitions: MAP,
+    verdict: { verdict: 'BLOCKED' }, activeGates: [],
+  });
+  assert.equal(d.kind, 'blocked');
+});
