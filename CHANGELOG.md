@@ -5,6 +5,17 @@ All notable changes to great_cto are documented here.
 ---
 
 
+
+## v3.78.1 — 2026-11-10
+
+The Cost screen's wording now matches the approved mockups on the phone as well as on the desktop.
+
+### Fixed
+
+- **Cost wording on the phone.** 3.78.0 showed the desktop wording on every screen width. Below 768 px the screen now reads "Cost · 30 days", "Caps are checked against it.", "median 45 min" and "have not run", as the approved phone mockup shows; the desktop list-price line drops "All", as the desktop mockup shows. Found by comparing the live 3.78.0 board with the mockups.
+
+---
+
 ## v3.78.0 — 2026-11-10
 
 The board opens on Home and shows cost on one screen; its local API stops answering other web pages.
