@@ -4,6 +4,31 @@ All notable changes to great_cto are documented here.
 
 ---
 
+
+## v3.78.0 — 2026-11-10
+
+The board opens on Home and shows cost on one screen; its local API stops answering other web pages.
+
+### Changed
+
+- **Home is the board's landing screen** (#271). One "needs you" count, from one counting function, and one source for what is running now. The navigation is Home · Work · Cost · Knowledge · Settings. Design approved by the owner in Claude Design; the audit and its deviations are in `docs/design/UX-AUDIT-board-2026-11.md`.
+- **Cost is one screen instead of the Insights tabs** (#271). Period chips for 7, 30 and 90 days, one alert for agents over their cap, measured spend next to the API list price, one line of results and one "By agent" table with an aggregate row for agents without a cap. Idle agents and the data caveats are folded. Old links (`#/insights`, `#/ledger`, `#/budgets`, `#/insights/consumption`, `#/insights/outcomes`) still land. Changing a cap can remove it.
+
+### Security
+
+- **The board's local API refuses cross-site requests** (#270, ADR-048). CORS is limited to the board's own origins (it was `*`), a request to `/api/*` from another site is refused with 403, and binding to a non-loopback address without authentication is refused. `docs/PRIVACY.md` describes it.
+
+### Fixed
+
+- **Browser checks launch the bundled Chromium**, not the installed Chrome, so gate runs no longer leave Chrome code-sign copies on the disk (#270).
+- The Outcomes table region can be focused from the keyboard.
+
+### Docs
+
+- RFC draft: `docs/rfc/RFC-accounts-sso-and-hosting.md` (decisions open).
+
+---
+
 ## v3.77.0 — 2026-11-10
 
 Web frontends and mobile builds get their own release agent, and a production promote or store submission now always stops at `gate:release`.
