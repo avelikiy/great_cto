@@ -60,9 +60,12 @@ test('the greeting does not claim "nothing urgent" on degraded data', () => {
   // And the reassuring strings must be unreachable from that branch: they belong
   // to the healthy paths below it.
   const degradedFirst = html.indexOf('if (anyDegraded())');
-  const allClear = html.indexOf('All clear —');
+  // Home (UX audit 2026-11): the reassuring headline is "Nothing needs you".
+  const allClear = html.indexOf("'Nothing needs you here'");
   assert.ok(degradedFirst > -1 && allClear > degradedFirst,
     'the degraded case is decided before any all-clear wording');
+  assert.equal(html.split("'Nothing needs you here'").length - 1, 1,
+    'one place says it, so one branch order protects it');
 });
 
 test('anyDegraded reflects the degradation map', () => {

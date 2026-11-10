@@ -296,7 +296,7 @@ test('an unregistered server project can open Skills and Usage without invented 
     assert.match(await page.locator('#skills-table').innerText(), /local-observation/);
     const requests = [];
     page.on('request', req => { if (/\/api\/(usage|outcomes)[?]/.test(req.url())) requests.push(req.url()); });
-    await page.getByRole('tab', { name: 'Insights', exact: true }).click();
+    await page.getByRole('tab', { name: 'Cost', exact: true }).click();
     await page.getByRole('button', { name: 'Consumption', exact: true }).click();
     await page.waitForSelector('.usage-card[data-host="codex"]', { timeout: 20000 });
     assert.ok(requests.length > 0);
@@ -326,7 +326,7 @@ test('Russian browser locale keeps UI English and task/document text unchanged',
     });
     assert.equal(await page.evaluate(() => navigator.language), 'ru-RU', 'actually exercise a non-English browser');
     assert.equal(await page.locator('html').getAttribute('lang'), 'en');
-    assert.equal((await page.locator('.nav-item[data-tab="decisions"] .nav-label').innerText()).trim(), 'Decisions');
+    assert.equal((await page.locator('.nav-item[data-tab="home"] .nav-label').innerText()).trim(), 'Home');
     await page.getByRole('button', { name: title, exact: true }).click();
     await page.waitForSelector('#side-panel.open');
     assert.equal(await page.locator('#side-body .side-title').innerText(), title);
@@ -504,7 +504,7 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
     assert.match(page.url(), /#\/settings/, 'and the URL says where the operator is');
 
     // The nav is a tablist: a keyboard operator reaches every screen.
-    const ledger = page.getByRole('tab', { name: 'Insights', exact: true });
+    const ledger = page.getByRole('tab', { name: 'Cost', exact: true });
     await ledger.focus();
     await page.keyboard.press('Enter');
     await page.waitForTimeout(700);
@@ -676,7 +676,11 @@ test('the fixture project is the one the board resolved', { timeout: 120_000 }, 
   if (env.skip) return t.skip(env.skip);
   try {
     const { page } = await openBoard(env, '#/decisions');
-    const shell = await page.locator('body').innerText();
+    // Home rows carry the task id on the chip's tooltip, not as visible text
+    // (UX audit 2026-11), so the ids are read from there as well.
+    await page.waitForSelector('.home-queue .inbox-row', { timeout: 15000 });
+    const shell = await page.locator('body').innerText()
+      + ' ' + (await page.locator('.home-chip[title]').evaluateAll((els) => els.map((el) => el.title).join(' ')));
     assert.ok(shell.includes(FIXTURE_NAME) || shell.includes('acme'),
       'the board is showing the fixture, not some other project on this machine');
   } finally { await env.close(); }
@@ -764,13 +768,13 @@ test('Decisions shows a session that waits for the operator, above the status', 
       { session: 'eeee1111', state: 'waiting', since: new Date().toISOString() },
     ] }) }));
     await page.goto(`${env.url}/#/decisions`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('#inbox-sessions .session-blocked', { timeout: 15000 });
-    const text = await page.locator('#inbox-sessions').innerText();
-    assert.match(text, /session a1b2c3d4 waits for you/);
+    await page.waitForSelector('#inbox-sessions-rows .home-row', { timeout: 15000 });
+    const text = await page.locator('#inbox-sessions-rows').innerText();
+    assert.match(text, /Session a1b2c3d4 waits for you/);
     assert.match(text, /permission to use Bash/);
     assert.match(text, /2 sessions finished a turn/);
     const above = await page.evaluate(() => {
-      const a = document.getElementById('inbox-sessions'); const b = document.getElementById('proj-status');
+      const a = document.getElementById('inbox-sessions-rows'); const b = document.getElementById('proj-status');
       return !!(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     });
     assert.ok(above, 'the waiting session is above the project-status disclosure');
