@@ -25,6 +25,10 @@ test('the gates that escape the machine are marked expensive', () => {
   assert.ok(ship.categories.includes('escapes-the-machine'));
   assert.ok(ship.categories.includes('costs-money'));
 
+  const rel = reversibilityOf('gate:release');
+  assert.equal(rel.state, 'expensive');
+  assert.deepEqual(rel.categories, ['escapes-the-machine']);
+
   const imp = reversibilityOf('gate:import');
   assert.equal(imp.state, 'expensive');
   assert.deepEqual(imp.categories, ['destroys-evidence']);

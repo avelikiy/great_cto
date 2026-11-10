@@ -42,7 +42,7 @@
  * "it scored well" is not the same as "a human decided".
  */
 import { isMainModule } from './is-main.mjs';
-export const CLASS_A = Object.freeze(['devops', 'infra-provisioner']);
+export const CLASS_A = Object.freeze(['devops', 'infra-provisioner', 'release-manager']);
 
 /** The run shape a tier decision may be based on. Anything else is not evidence. */
 export const REQUIRED_SPLIT = 'holdout';

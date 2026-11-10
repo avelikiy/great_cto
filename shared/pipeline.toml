@@ -206,6 +206,39 @@ next = ["devops"]
 on = ["DEPLOYED", "DONE"]
 next = ["l3-support"]
 
+# Client artifacts — a web frontend bundle, an iOS/Android build, an OTA update —
+# are not a running service: no migration, no canary by error rate, a rollback
+# that re-aliases a deployment or halts a store rollout. devops recognises them
+# first thing and hands them over with this verdict instead of deploying.
+#
+# The edges INTO devops are untouched on purpose: the gate:ship floor and the
+# controller probes both assert reviewers → devops. Branching after devops keeps
+# every existing gate where it is.
+[transitions.devops.CLIENT_RELEASE]
+on = ["CLIENT_RELEASE"]
+next = ["release-manager"]
+
+# release-manager runs twice with gate:release between the runs.
+#   run 1 → STAGED: built from the CI-green commit, on preview / internal track
+#   e2e-test-engineer tests THAT artifact → ARTIFACT_PASSED → gate:release
+#   run 2 → RELEASED: promoted / submitted, landed, receipt written, old builds cleaned
+# HANDED-OFF: a store submission was prepared and the operator presses the button
+# (`store-submit: hand-off`, the default) — nothing follows automatically.
+[transitions.release-manager]
+on = ["RELEASED", "DONE"]
+produces = ["release"]
+next = ["l3-support"]
+
+[transitions.release-manager.STAGED]
+on = ["STAGED"]
+produces = ["release"]
+next = ["e2e-test-engineer"]
+
+[transitions.release-manager.HANDED-OFF]
+on = ["HANDED-OFF"]
+produces = ["release"]
+next = []
+
 [transitions.l3-support]
 on = ["OK", "DONE"]
 next = []
@@ -298,6 +331,14 @@ next = ["code-reviewer"]
 [transitions.e2e-test-engineer]
 on = ["PASSED", "DONE"]
 next = ["devops"]
+
+# The artifact release-manager staged passed its E2E. The next step reaches users
+# — production promote, store submission, production OTA — so a human decides
+# here, at every approval level (IRREVERSIBLE_FLOOR in approval-level.mjs).
+[transitions.e2e-test-engineer.ARTIFACT_PASSED]
+on = ["ARTIFACT_PASSED"]
+gate = ["gate:release"]
+next = ["release-manager"]
 
 # Data import is the one edge in this map that destroys evidence.
 #

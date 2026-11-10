@@ -89,8 +89,15 @@ const REGULATED_FLOOR = ['security', 'compliance'];
  * level is a statement about how much review you want; it is not permission to
  * overwrite a client's data unattended, and a floor of `[]` at `auto` would have
  * made it exactly that.
+ *
+ * `release` is here because it guards release-manager's second run: production
+ * promote of a web frontend, store submission, a phased-rollout increase, a
+ * production OTA update. Each reaches users' devices and browsers — ADR-009's
+ * "escapes the machine" — and a store submission cannot be called back at all.
+ * The edge exists only for client artifacts, so a project that never ships one
+ * never meets the gate.
  */
-const IRREVERSIBLE_FLOOR = ['import'];
+const IRREVERSIBLE_FLOOR = ['import', 'release'];
 
 export function isRegulated(archetype) {
   return REGULATED.has(String(archetype || '').toLowerCase());
@@ -138,7 +145,7 @@ export function gatesForApprovalLevel(level, { archetype, briefReadable = true }
     if (!base.includes('ship')) base.push('ship');
   }
 
-  const order = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship'];
+  const order = ['product', 'arch', 'plan', 'code', 'import', 'qa', 'security', 'compliance', 'ship', 'release'];
   return [...new Set(base)].sort((a, b) => order.indexOf(a) - order.indexOf(b));
 }
 

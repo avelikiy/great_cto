@@ -4,76 +4,30 @@ All notable changes to great_cto are documented here.
 
 ---
 
+## v3.77.0 — 2026-11-10
 
+Web frontends and mobile builds get their own release agent, and a production promote or store submission now always stops at `gate:release`.
 
+### Added
 
+- **`release-manager` agent (73 agents).** `devops` keeps services; a web frontend, an iOS or Android build or an OTA update goes to `release-manager` through the new `CLIENT_RELEASE` verdict. Run 1 builds once from the CI-green commit and stages it on a preview URL or an internal test track (TestFlight internal, Play internal, Firebase). `e2e-test-engineer` tests that exact artifact (Playwright on the preview, Maestro on the internal-track build) and writes `ARTIFACT_PASSED`. Run 2 promotes or prepares the store submission only after `gate:release`, proves the version landed, names the rollback and removes old builds. With `store-submit: hand-off` (the default) the operator presses "Submit for review" or "Start rollout". The agent never reads signing keys; signing goes through fastlane `match --readonly`, Play App Signing or EAS.
+- **`gate:release` is a floor, like `gate:import`.** No `approval-level`, `auto` included, opts out of it: a store submission or a production promote cannot be taken back.
+- **Release receipts.** `scripts/lib/release-receipt.mjs` writes `.great_cto/releases/<version>-<kind>-<stage>.json` only when CI, the artifact sha, the E2E run on the shipped artifact, the gate, the landed check, the rollback and the cleanup are all present; otherwise it exits 1 with "NOT RELEASED" and the missing items. No receipt, no "released".
+- **Three skills:** `web-release` (Vercel, Cloudflare Pages and Workers, S3/CDN: preview, promote, build-id proof, rollback by re-aliasing), `mobile-release` (build numbers read from the store, signing through tooling, phased rollout and halt, OTA refused when the native fingerprint changed) and `artifact-retention` (keep the shipped build and one rollback, measure with `df`).
+- **`/release ship <web|ios|android|ota>`** starts the client release.
+- RFC: `docs/rfc/RFC-release-manager-agent.md`.
 
+### Fixed
 
+- **The board's stale-version banner compares the plugin Claude Code actually loads** (#267): the enabled user registration in `installed_plugins.json`, not the newest directory in the local plugin cache. A conflicting, partial or unreadable registration is reported as unknown with a reason.
+- **Controlled ship reviews are bound to the candidate and the reviewer** (#268). A later role verdict no longer drops the candidate identity from the ship evidence: reviews carry the receipt head, the dirty snapshot and the task, plus the reviewer identity, and are persisted with a fence.
 
+### Tests
 
+- The client-release route in the pipeline map: `CLIENT_RELEASE` → `release-manager` → `STAGED` → e2e → `ARTIFACT_PASSED` held at `gate:release` on every approval level → `RELEASED` → `l3-support`; `HANDED-OFF` ends the chain.
+- `release-receipt` (15 tests) and an 8 + 6 case eval for `release-manager` (`EVAL-release-manager-ship-safety.md`).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+---
 
 ## v3.76.1 — 2026-11-09
 
