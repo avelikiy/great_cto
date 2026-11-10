@@ -35,7 +35,7 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
     await page.locator('.agent-row').first().waitFor();
     await page.locator('#nav-view-all').click();
     await page.waitForFunction(n => document.querySelectorAll('.agent-row').length === n, slugs.length);
-    assert.equal(slugs.length, 72);
+    assert.equal(slugs.length, 73);
     for (const slug of slugs) {
       const row = page.locator(`.agent-row[data-slug="${slug}"]`);
       assert.equal(await row.locator('.grp-icon').getAttribute('data-agent-group'), classifyAgentGroup(slug), slug);

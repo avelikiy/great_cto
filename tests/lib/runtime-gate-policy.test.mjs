@@ -24,11 +24,11 @@ function fixture(t) {
   return { dir, root, base, put, git, options };
 }
 
-test('opt-in T0 and T1 remove only architecture pause, retaining product/import/ship', t => {
+test('opt-in T0 and T1 remove only architecture pause, retaining product/import/ship/release', t => {
   const f = fixture(t); f.put('README.md');
   let p = runtimeGatePolicy(f.options);
   assert.equal(p.assessment.tier, 'T0'); assert.deepEqual(p.removed, ['arch']);
-  assert.deepEqual(p.activeGates, ['product', 'import', 'ship']);
+  assert.deepEqual(p.activeGates, ['product', 'import', 'ship', 'release']);
   f.put('src/util.js'); p = runtimeGatePolicy(f.options);
   assert.equal(p.assessment.tier, 'T1'); assert.deepEqual(p.removed, ['arch']);
   assert.equal(nativeRuntimePolicy({ ...f.options, env: {} }), null);

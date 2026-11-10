@@ -40,7 +40,7 @@
  * loop, and "the gate was off" is not the same as "a human decided".
  */
 import { isMainModule } from './is-main.mjs';
-export const NEVER_AUTO = Object.freeze(['devops', 'infra-provisioner']);
+export const NEVER_AUTO = Object.freeze(['devops', 'infra-provisioner', 'release-manager']);
 
 /** Default minimum gap between dispatches, whatever the schedule asks for. */
 export const MIN_INTERVAL_MS = 10 * 60 * 1000;

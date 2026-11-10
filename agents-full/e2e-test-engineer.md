@@ -83,6 +83,24 @@ the result into `docs/infra/PROVISION-{slug}.md` under a `## LIVE validation` se
 (`✓ passed N/N` or `✗ failed: <journey> — <error>` + timestamp), replacing the
 3-ping check.
 
+## Step 2b — a staged client artifact (from release-manager)
+
+When `release-manager` writes `STAGED`, it names an artifact: a preview URL for a web
+frontend, or a build on an internal track for mobile. Test **that** artifact — never a
+local rebuild, which is a different binary and proves nothing about what ships.
+
+- **Web:** the same Playwright suite with `PLAYWRIGHT_BASE_URL=<preview URL>`.
+- **Mobile:** Maestro flows (`maestro test <flows dir>`) against the build installed from
+  the internal track (TestFlight internal, Play internal, Firebase App Distribution). On an
+  iOS simulator, which cannot install TestFlight builds, use the `.app` exported from the
+  same archive (same build number, same commit) and say so. Read the per-step screenshots
+  of a failing flow before re-running it.
+
+Record the result next to the release receipt and write the verdict:
+`ARTIFACT_PASSED` (every flow green on that artifact — the next step is `gate:release`) or
+`BLOCKED` with the failing journey. `ARTIFACT_PASSED` names the artifact you tested:
+`target=<preview URL | build number@track>`.
+
 ## Gate behaviour
 
 - Any **deterministic** golden-path failure → **block** the handoff to l3-support;
@@ -94,6 +112,7 @@ the result into `docs/infra/PROVISION-{slug}.md` under a `## LIVE validation` se
 
 `tests/e2e/{slug}.spec.ts`, `docs/e2e/PLAYWRIGHT-{slug}.md`, the LIVE section in
 PROVISION, and a verdict:
-`scripts/log-verdict.sh e2e-test-engineer <PASSED|BLOCKED> auto feature=<slug> live=<url> e2e=docs/e2e/PLAYWRIGHT-<slug>.md`
+`scripts/log-verdict.sh e2e-test-engineer <PASSED|ARTIFACT_PASSED|BLOCKED> auto feature=<slug> live=<url> e2e=docs/e2e/PLAYWRIGHT-<slug>.md`
+(`ARTIFACT_PASSED` only for a release-manager artifact, with `target=`)
 (`auto` cost → real token spend recorded). Done = suite written, live replay run,
 result recorded, verdict emitted.

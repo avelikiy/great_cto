@@ -37,7 +37,7 @@ was accepted, merged or deployed. You use your own provider account;
 great_cto is MIT and bills nothing.
 
 Project focus presents eight core roles plus the selected project's required
-reviewers. The full catalog of 72 agents remains available. Catalog availability is
+reviewers. The full catalog of 73 agents remains available. Catalog availability is
 not proof of execution or expertise.
 
 ## Quick start
@@ -130,6 +130,13 @@ concurrent agents. Project focus is a presentation view; it does not remove
 specialists, change dispatch or waive required checks. Risk-specific reviewers
 remain governed by project policy.
 
+Web frontends and mobile builds are not deployed by `devops`: it hands them to
+`release-manager`, which builds once from the CI-green commit, stages the build on a
+preview URL or an internal test track, has `e2e-test-engineer` test that exact build,
+and promotes or prepares the store submission only after `gate:release`. A release
+counts as done when its receipt in `.great_cto/releases/` names the build, the tests,
+the landed version and the rollback. `/release ship <web|ios|android|ota>` starts it.
+
 ## Focused engineering context
 
 Five versioned, opt-in domain pack candidates cover four focus areas:
@@ -199,7 +206,8 @@ One line in `.great_cto/PROJECT.md`:
 | `auto` | nothing in the pipeline | 0 |
 
 Regulated products — fintech, healthcare, gov — keep their security, compliance
-and ship gates at every level. [How the gates work](docs/GATES.md).
+and ship gates at every level. A production web promote, a store submission or a
+production OTA update always stops at `gate:release`, `auto` included. [How the gates work](docs/GATES.md).
 
 ## Numbers, measured
 

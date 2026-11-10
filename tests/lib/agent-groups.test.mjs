@@ -10,7 +10,7 @@ test('browser and Node use identical glyphs and classification for the entire sh
   vm.runInContext(readFileSync(new URL('../../packages/board/public/assets/agent-groups.js', import.meta.url), 'utf8'), context);
   const browser = context.GctoAgentGroups;
   const slugs = readdirSync(new URL('../../agents/', import.meta.url)).filter(f => f.endsWith('.md')).map(f => f.slice(0, -3));
-  assert.equal(slugs.length, 72);
+  assert.equal(slugs.length, 73);
   assert.equal(agentGroups.length, 9);
   assert.equal(new Set(agentGroups.map(g => g.svg)).size, 9);
   for (const slug of slugs) {

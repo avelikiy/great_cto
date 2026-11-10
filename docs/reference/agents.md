@@ -3,7 +3,7 @@
 > **Auto-generated** by `scripts/gen-docs-reference.mjs` from `agents/*.md` frontmatter.
 > Do not edit by hand — run `node scripts/gen-docs-reference.mjs` to refresh.
 
-**72 agents** · 31 core & specialists · 41 domain reviewers.
+**73 agents** · 32 core & specialists · 41 domain reviewers.
 
 Grouped by **team role** — after Boris Cherny's (Anthropic, Claude Code) five roles of the
 IT team of the future (Prototyper · Builder · Sweeper · Grower · Maintainer), plus the two
@@ -138,3 +138,4 @@ Coordinates multi-stream work, decomposes plans, audits existing codebases, and 
 | Agent | Model | Effort | What it does |
 |---|---|---|---|
 | `quant-researcher` | sonnet | XHIGH | Quantitative research agent for systematic-trading projects. Forms hypotheses, builds and runs backtests, and reports results with the validity conditions that make a backtest evidence rather than decoration — purged cross-validation with an embargo, stationarity, sample uniqueness under overlapping labels, transaction costs and slippage, and a trials count for multiple-testing. RESEARCH ONLY: it never places an order, never touches execution credentials, and never sizes a position. Outputs docs/research/QUANT-{slug}.md; a human decides what to do with it. |
+| `release-manager` | sonnet | HIGH | Use after gate:ship for web frontend and mobile releases. Builds the artifact from the CI-green commit, signs it through tooling (never reads keys), ships it to preview or internal tracks, has E2E run on that exact artifact, and promotes or hands off for stores only after gate:release. Proves the release with a receipt and cleans old builds. |
