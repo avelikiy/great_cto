@@ -1829,6 +1829,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .cost-agent { font-family: var(--mono); font-size: var(--fs-small); min-width: 0; overflow-wrap: anywhere; }
 .cost-over { color: var(--status-progress); font-weight: 600; }
 .cost-line { display: none; }
+/* Desktop and phone mockups word some lines differently; both sit in the markup. */
+.cost-short { display: none; }
+@media (max-width: 767px) { .cost-long { display: none; } .cost-short { display: inline; } }
 .cost-idle { border-top: 1px solid var(--border); padding: 10px 16px; font-size: var(--fs-body); color: var(--text2); }
 .cost-idle summary { cursor: pointer; min-height: 24px; }
 .cost-idle .budgets-uncapped { margin-top: 10px; }
@@ -4113,7 +4116,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       <div class="metrics-page cost-page">
         <div class="ledger-title-row">
           <div class="cost-heading">
-            <h1 class="page-title" style="margin:0" id="cost-title">Cost · last 30 days</h1>
+            <h1 class="page-title" style="margin:0" id="cost-title">Cost · <span class="cost-long">last </span>30 days</h1>
             <div class="cost-sub" id="cost-sub"></div>
           </div>
           <div class="period-chips" id="period-chips" role="group" aria-label="Period">
@@ -5740,7 +5743,7 @@ function renderLedgerHead({ cost, metrics, usage, over }) {
   const el = document.getElementById('ledger-head');
   if (!el) return;
   const title = document.getElementById('cost-title');
-  if (title) title.textContent = `Cost · last ${periodLabel(currentPeriod)}`;
+  if (title) title.innerHTML = `Cost · <span class="cost-long">last </span>${esc(periodLabel(currentPeriod))}`;
   const sub = document.getElementById('cost-sub');
   if (sub) sub.textContent = `${costRange(currentPeriod)} · updated just now`;
   const costKnown = !!(metrics && metrics.cost);
@@ -5791,7 +5794,7 @@ function renderLedgerHead({ cost, metrics, usage, over }) {
   const facts = metrics ? [
     `${doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section')} tasks done`,
     // A dash here means "could not be computed", not "took no time".
-    `median ${avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure')} min from start to done`,
+    `median ${avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure')} min<span class="cost-long"> from start to done</span>`,
     `${acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window')} per accepted task`,
   ] : [];
 
@@ -5803,12 +5806,12 @@ function renderLedgerHead({ cost, metrics, usage, over }) {
         <div class="cost-total-num">${spentCell}</div>
         <p>${spentState === 'estimated'
           ? 'No run recorded a cost, so this is estimated from run time. Caps fire only on measured spend.'
-          : 'What agent runs recorded as spent. This is the number the caps are checked against.'}</p>
+          : 'What agent runs recorded as spent. <span class="cost-long">This is the number the caps are checked against.</span><span class="cost-short">Caps are checked against it.</span>'}</p>
       </section>
       <section class="cost-total">
         <h2>At API list price</h2>
         <div class="cost-total-num">${listCell}</div>
-        <p>All Claude Code tokens in this project, priced as if bought from the API. On a subscription this is not a charge. Codex has no list price.${esc(listNote)}</p>
+        <p>Claude Code tokens<span class="cost-long"> in this project,</span> priced as if bought from the API. On a subscription this is not a charge.<span class="cost-long"> Codex has no list price.</span>${esc(listNote)}</p>
         <button type="button" class="home-link" onclick="switchTab('insights/consumption')">Token detail</button>
       </section>
     </div>
@@ -6000,7 +6003,7 @@ async function loadBudgetsPage() {
   ].join('');
   const idleBlock = idle.length ? `
     <details class="cost-idle">
-      <summary>${idle.length} installed agents have not run in 30 days</summary>
+      <summary>${idle.length} installed agents have not run<span class="cost-long"> in 30 days</span></summary>
       <div class="budgets-uncapped">${idle.slice(0, 80).map((a) => `
         <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
                 title="${esc(firstSentence(a.description))}">${esc(a.slug)} +</button>`).join('')}

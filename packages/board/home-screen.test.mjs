@@ -125,7 +125,7 @@ test('one primary action in the top bar', () => {
 
 // Cost (UX audit F4, approved mockup): one screen, one alert, two totals.
 function costContext(over, usage) {
-  const els = { 'ledger-head': { innerHTML: '' }, 'cost-title': { textContent: '' }, 'cost-sub': { textContent: '' } };
+  const els = { 'ledger-head': { innerHTML: '' }, 'cost-title': { textContent: '', innerHTML: '' }, 'cost-sub': { textContent: '' } };
   const context = {
     document: { getElementById: (id) => els[id] || null },
     currentPeriod: 30, fleetState: { agents: [] },
@@ -144,7 +144,7 @@ test('cost: one alert names the agent over its cap; none when nothing is over', 
   const els = costContext([{ slug: 'senior-dev', spent: 48.36, cap: 25 }], null);
   assert.match(els['ledger-head'].innerHTML, /role="alert"[\s\S]*senior-dev is over its cap:<\/b> \$48\.36 spent of \$25/);
   assert.match(els['ledger-head'].innerHTML, /Change cap/);
-  assert.equal(els['cost-title'].textContent, 'Cost · last 30 days');
+  assert.equal(els['cost-title'].innerHTML, 'Cost · <span class="cost-long">last </span>30 days');
   assert.doesNotMatch(costContext([], null)['ledger-head'].innerHTML, /role="alert"/);
 });
 
@@ -153,7 +153,9 @@ test('cost: list price is a figure only when counted and priced, never $0', () =
   assert.match(priced, /\$1719/);
   assert.match(priced, /On a subscription this is not a charge/);
   assert.match(priced, /Token detail/);
-  assert.match(priced, /349 tasks done · median 45 min from start to done · \$1\.05 per accepted task/);
+  // Desktop wording; the phone hides the long part (approved CostPhone mockup).
+  assert.match(priced, /349 tasks done · median 45 min<span class="cost-long"> from start to done<\/span> · \$1\.05 per accepted task/);
+  assert.match(priced, /<span class="cost-short">Caps are checked against it\.<\/span>/);
   const unpriced = costContext([], { state: 'counted', seen: { claude: true }, hosts: { claude: { usd: null } } })['ledger-head'].innerHTML;
   assert.match(unpriced, /data-kind="uncomputable"/);
   assert.match(costContext([], { state: 'computing' })['ledger-head'].innerHTML, /counting…/);
