@@ -77,12 +77,12 @@ const server = http.createServer(async (req, res) => {
   // browser could read the API. Vary keeps a cache from serving one origin's answer
   // to another.
   res.setHeader('Vary', 'Origin');
+  // Expose our debug headers to browsers (CORS hides custom headers by default).
+  // Sent on every answer: without Access-Control-Allow-Origin it grants nothing,
+  // and a client that checks the list must not find it missing.
+  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved, X-Project-Serving');
   const corsOrigin = corsOriginFor(req);
-  if (corsOrigin) {
-    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
-    // Expose our debug headers to browsers (CORS hides custom headers by default)
-    res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved, X-Project-Serving');
-  }
+  if (corsOrigin) res.setHeader('Access-Control-Allow-Origin', corsOrigin);
 
   // ── Cross-site reads ────────────────────────────────────────────────────────
   // Withholding the CORS header stops a page reading the answer; the request still
