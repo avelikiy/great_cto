@@ -1,8 +1,8 @@
 // release-receipt: "released" is a receipt the script wrote, not a sentence the
 // agent typed. Each case below is a way a release looked done and was not.
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -104,6 +104,7 @@ test('parseArgs reads values and bare flags', () => {
 
 test('CLI: writes the receipt only when it holds, and exits 1 otherwise', () => {
   const dir = mkdtempSync(join(tmpdir(), 'rr-'));
+  after(() => rmSync(dir, { recursive: true, force: true }));
   const git = (...a) => execFileSync('git', a, { cwd: dir, encoding: 'utf8' }).trim();
   git('init', '-q'); git('config', 'user.email', 't@example.test'); git('config', 'user.name', 't');
   git('config', 'commit.gpgsign', 'false');
