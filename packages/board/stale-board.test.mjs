@@ -72,6 +72,8 @@ test('the two directions do not share one message', () => {
   const fn = html.match(/async function checkBoardFreshness\(\)[\s\S]*?\n\}/)?.[0];
   assert.match(fn, /el\.innerHTML = v\.stale ===/, 'the message branches on which way the mismatch runs');
   assert.match(fn, /newer than the/, 'and says so when the running code is the newer one');
+  assert.match(fn, /user-installed plugin/, 'the comparison identifies its user installation scope');
+  assert.match(fn, /Restarting from that installation/, 'do not promise which installation another launcher will select');
 });
 
 // ── The installer restarts what it replaced ─────────────────────────────────
