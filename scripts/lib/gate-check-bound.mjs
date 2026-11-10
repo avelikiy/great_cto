@@ -2,7 +2,6 @@ import { readFileSync, writeFileSync, lstatSync, realpathSync, existsSync, mkdir
 import { join, resolve, relative, isAbsolute, sep, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
-import { fileURLToPath } from 'node:url';
 import { stableDigest, evaluateBoundShipEvidence, normalizeLegacyOrigins } from './ship-evidence-identity.mjs';
 import { readShipPolicy, captureShipContext, recheckShipContext, assertCommittedShipArtifacts } from './ship-evidence-context.mjs';
 import { codexRunStore } from './codex-host-state.mjs';
@@ -10,6 +9,7 @@ import { normalizeTask } from './gate-check.mjs';
 import { parseVerdictLine } from './verdict-record.mjs';
 import { canonicalAgent, verdictKind } from './ship-evidence.mjs';
 import { invocationIdentity } from './invocation-identity.mjs';
+import { isMainModule } from './is-main.mjs';
 
 const brands = new WeakMap();
 const caps = new WeakMap();
@@ -475,4 +475,4 @@ function main() {
     console.log(JSON.stringify(report)); process.exitCode = report.state === 'PASS' && !diagnostic ? 0 : 2;
   } catch { console.log(JSON.stringify(unknownReport())); process.exitCode = 2; }
 }
-if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();
+if (isMainModule(import.meta.url)) main();
