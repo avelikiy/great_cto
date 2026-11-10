@@ -12,9 +12,9 @@ import http from 'http';
 import fs from 'fs';
 import path from 'path';
 import { spawnSync } from 'child_process';
-import { PORT, PUBLIC, HOST } from './lib/config.mjs';
+import { PORT, PUBLIC, HOST, bindRefusal } from './lib/config.mjs';
 import { warmTasksAsync } from './lib/beads.mjs';
-import { originAllowed, hostAllowed, parseAllowedHosts, isInsideDir } from './lib/util.mjs';
+import { originAllowed, corsOriginFor, crossSiteRead, hostAllowed, parseAllowedHosts, isInsideDir } from './lib/util.mjs';
 import { discoverProjects, resolveProjectInfo } from './lib/projects.mjs';
 import { startAlertCron } from './lib/alerts.mjs';
 import { watchBeads, watchVerdicts, watchAgentEvents } from './lib/watchers.mjs';
@@ -73,10 +73,26 @@ const server = http.createServer(async (req, res) => {
     res.setHeader('X-Project-Resolved', projInfo.resolved);
   }
 
-  // CORS
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  // Expose our debug headers to browsers (CORS hides custom headers by default)
-  res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved, X-Project-Serving');
+  // CORS: only the board's own origins. This was `*`, so any page open in the same
+  // browser could read the API. Vary keeps a cache from serving one origin's answer
+  // to another.
+  res.setHeader('Vary', 'Origin');
+  const corsOrigin = corsOriginFor(req);
+  if (corsOrigin) {
+    res.setHeader('Access-Control-Allow-Origin', corsOrigin);
+    // Expose our debug headers to browsers (CORS hides custom headers by default)
+    res.setHeader('Access-Control-Expose-Headers', 'X-Project-Fallback, X-Project-Resolved, X-Project-Serving');
+  }
+
+  // ── Cross-site reads ────────────────────────────────────────────────────────
+  // Withholding the CORS header stops a page reading the answer; the request still
+  // arrives and still runs. The API and the event stream are refused outright.
+  // The page itself (`/`) stays reachable: a link in an alert email is cross-site.
+  if (pathname.startsWith('/api/') && crossSiteRead(req)) {
+    res.writeHead(403, { 'Content-Type': 'application/json' });
+    res.end(JSON.stringify({ error: 'cross-origin request blocked — the board API answers only its own page and local tools' }));
+    return;
+  }
 
   // ── CSRF guard (BH-31) ──────────────────────────────────────────────────────
   // The board binds 127.0.0.1, but a page the user visits in their browser can still
@@ -128,11 +144,16 @@ const server = http.createServer(async (req, res) => {
 });
 
 // ── Start ──────────────────────────────────────────────────────────────────────
+const refusal = bindRefusal();
+if (refusal) {
+  log.error(refusal);
+  process.exit(1);
+}
 server.listen(PORT, HOST, () => {
   log.info(`great_cto board → http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}`);
-  if (HOST !== '127.0.0.1' && HOST !== 'localhost') {
-    log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. Operators authenticate via invite`);
-    log.info(`    links; put your reverse-proxy auth in front for anything admin-grade.`);
+  if (bindRefusal(HOST, {}, []) !== null) {
+    log.info(`  ⚠ bound to ${HOST} — reachable beyond this machine. The board has no login of its own:`);
+    log.info(`    you stated that authentication sits in front of it (GREAT_CTO_BOARD_BEHIND_AUTH / --behind-auth).`);
   }
   if (['0.0.0.0', '::'].includes(HOST) && parseAllowedHosts().length === 0) {
     log.info(`  ⚠ bound to ${HOST} with no GREAT_CTO_ALLOWED_HOSTS — only localhost / 127.0.0.1 names are answered.`);

@@ -22,12 +22,33 @@ const BUILD_VERSION = (() => {
   }
   return 'unknown';
 })();
-// Bind host. Default loopback. --host/GREAT_CTO_HOST allows binding the board to a
-// non-loopback address for tunnelling; put your reverse-proxy auth in front.
-const HOST = (() => {
-  const i = process.argv.indexOf('--host');
-  return String(i > -1 ? process.argv[i + 1] : process.env.GREAT_CTO_HOST || '127.0.0.1');
-})();
+// Bind host. Default loopback. `--host`, then GREAT_CTO_BOARD_HOST, then the legacy
+// GREAT_CTO_HOST — but only when that one holds an address. The same variable name
+// carries the AGENT host (`codex`, `claude-code`) for hook children
+// (scripts/hooks/codex-adapter.mjs), and a board started from such a child used to
+// try to bind the name "codex".
+const LOOPBACK_BINDS = new Set(['127.0.0.1', 'localhost', '::1', '[::1]']);
+const looksLikeAddress = (v) => v === 'localhost' || /^[0-9.]+$/.test(v) || v.includes(':');
+export function bindHostFrom(argv = process.argv, env = process.env) {
+  const i = argv.indexOf('--host');
+  if (i > -1 && argv[i + 1]) return String(argv[i + 1]);
+  if (env.GREAT_CTO_BOARD_HOST) return String(env.GREAT_CTO_BOARD_HOST);
+  const legacy = String(env.GREAT_CTO_HOST || '');
+  return looksLikeAddress(legacy) ? legacy : '127.0.0.1';
+}
+// The board has no login. Beyond loopback, anyone who can reach the port can read
+// every project and approve gates, so the bind is refused unless the operator states
+// that authentication sits in front of it (a reverse proxy, a tunnel with access
+// control). Returns the reason to refuse, or null.
+export function bindRefusal(host = HOST, env = process.env, argv = process.argv) {
+  if (LOOPBACK_BINDS.has(String(host).toLowerCase())) return null;
+  if (env.GREAT_CTO_BOARD_BEHIND_AUTH === '1' || argv.includes('--behind-auth')) return null;
+  return `refusing to bind ${host}: the board has no authentication of its own, and beyond loopback ` +
+    `anyone who reaches this port can read every project and approve gates. ` +
+    `Put authentication in front of it (a reverse proxy or a tunnel with access control), ` +
+    `then start it with GREAT_CTO_BOARD_BEHIND_AUTH=1 (or --behind-auth).`;
+}
+const HOST = bindHostFrom();
 // Shared dedicated namespace with the CLI; unset/empty keeps the operator default.
 const GREAT_CTO_DIR = stateHome();
 const SHARE_STATE_FILE = path.join(GREAT_CTO_DIR, 'board-share.json');
