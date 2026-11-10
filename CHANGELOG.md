@@ -19,6 +19,7 @@ Web frontends and mobile builds get their own release agent, and a production pr
 
 ### Fixed
 
+- **The board's stale-version banner compares the plugin Claude Code actually loads** (#267): the enabled user registration in `installed_plugins.json`, not the newest directory in the local plugin cache. A conflicting, partial or unreadable registration is reported as unknown with a reason.
 - **Controlled ship reviews are bound to the candidate and the reviewer** (#268). A later role verdict no longer drops the candidate identity from the ship evidence: reviews carry the receipt head, the dirty snapshot and the task, plus the reviewer identity, and are persisted with a fence.
 
 ### Tests
