@@ -15,19 +15,19 @@ See also: [Agents](agents.md) · [Commands](commands.md) · [Skills](skills.md).
 
 ## How the code is arranged
 
-Derived from what imports what, across 834 files in 9 groups.
+Derived from what imports what, across 840 files in 9 groups.
 
 ```mermaid
 flowchart TD
   contracts["Contracts<br/><small>3 files</small>"]
-  agents["Agents<br/><small>72 files</small>"]
+  agents["Agents<br/><small>73 files</small>"]
   commands["Commands<br/><small>21 files</small>"]
-  skills["Skills<br/><small>166 files</small>"]
+  skills["Skills<br/><small>169 files</small>"]
   hooks["Hooks<br/><small>45 files</small>"]
-  libs["Libraries<br/><small>256 files</small>"]
+  libs["Libraries<br/><small>257 files</small>"]
   board["Board<br/><small>131 files</small>"]
   cli["CLI<br/><small>44 files</small>"]
-  evals["Evals<br/><small>96 files</small>"]
+  evals["Evals<br/><small>97 files</small>"]
   hooks -->|123| libs
   board -->|53| libs
   libs -->|4| hooks
@@ -38,14 +38,14 @@ flowchart TD
 | Group | Files | What it holds |
 |---|---:|---|
 | `contracts` | 3 | the pipeline map, orchestrator rules |
-| `agents` | 72 | the specialists the pipeline dispatches |
+| `agents` | 73 | the specialists the pipeline dispatches |
 | `commands` | 21 | what a human can invoke directly |
-| `skills` | 166 | knowledge agents load on demand |
+| `skills` | 169 | knowledge agents load on demand |
 | `hooks` | 45 | what fires on session, tool and stop events |
-| `libs` | 256 | the logic hooks and commands share |
+| `libs` | 257 | the logic hooks and commands share |
 | `board` | 131 | the admin view, zero runtime dependencies |
 | `cli` | 44 | the published npm package |
-| `evals` | 96 | what each agent is measured against |
+| `evals` | 97 | what each agent is measured against |
 
 ## How a feature moves
 
@@ -80,6 +80,8 @@ flowchart TD
   code_reviewer -.->|join| security_officer
   l3_support["l3-support"]
   devops --> l3_support
+  release_manager["release-manager"]
+  release_manager --> l3_support
   project_auditor["project-auditor"]
   auth_engineer["auth-engineer"]
   auth_engineer --> senior_dev

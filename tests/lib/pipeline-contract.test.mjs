@@ -110,7 +110,10 @@ test('every declared key is one an agent actually writes', () => {
   // `briefs` ends in a slash and names a directory; `brief` (singular, from
   // product-owner) is one product brief. Different stages, different things.
   // `screens` is the draft file agents/design-advisor.md records with SCREENS_DRAFT.
-  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'briefs', 'design', 'screens', 'report', 'audit', 'files'];
+  // `release` is the release receipt agents/release-manager.md writes into every
+  // STAGED / RELEASED / HANDED-OFF verdict (`release=.great_cto/releases/<file>.json`),
+  // produced by scripts/lib/release-receipt.mjs — the agent and the key landed together.
+  const KNOWN_META = ['arch', 'adr', 'plan', 'brief', 'briefs', 'design', 'screens', 'report', 'audit', 'files', 'release'];
   const KNOWN_BLOCKS = ['receipt'];
   const KNOWN = new Set([...KNOWN_META, ...KNOWN_BLOCKS]);
   const r = contractCoverage(readFileSync(MAP, 'utf8'));

@@ -37,7 +37,7 @@ was accepted, merged or deployed. You use your own provider account;
 great_cto is MIT and bills nothing.
 
 Project focus presents eight core roles plus the selected project's required
-reviewers. The full catalog of 72 agents remains available. Catalog availability is
+reviewers. The full catalog of 73 agents remains available. Catalog availability is
 not proof of execution or expertise.
 
 ## Quick start

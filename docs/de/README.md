@@ -28,7 +28,7 @@ npx great-cto init
 
 ---
 
-great_cto koordiniert native Claude-Code-Workflows und experimentelle kontrollierte Codex-Läufe mit expliziten Stufen, Reviews und Gates. Das lokale Board verbindet Aufgaben, protokollierte Ausführung, Projektdokumente und Verbrauch. Der öffentliche Katalog umfasst **72** Agenten; ein Eintrag beweist weder Ausführung noch Expertise. Fehlende Belege bleiben unbekannt. Merge, Release und Deployment brauchen eigene Nachweise und Freigaben. Du bezahlst deinen Anbieter; great_cto ist MIT und berechnet nichts.
+great_cto koordiniert native Claude-Code-Workflows und experimentelle kontrollierte Codex-Läufe mit expliziten Stufen, Reviews und Gates. Das lokale Board verbindet Aufgaben, protokollierte Ausführung, Projektdokumente und Verbrauch. Der öffentliche Katalog umfasst **73** Agenten; ein Eintrag beweist weder Ausführung noch Expertise. Fehlende Belege bleiben unbekannt. Merge, Release und Deployment brauchen eigene Nachweise und Freigaben. Du bezahlst deinen Anbieter; great_cto ist MIT und berechnet nichts.
 
 **Grenze der verifizierten Auslieferung (ADR-045):** Vor jeder Aktivierung werden signierte Artefakte geprüft. Die Selbstaktualisierung einer gewöhnlichen globalen npm-Installation wird nur mit einem unabhängig authentifizierten und separat konfigurierten Verifier sowie dem vollständigen signierten Release-Artefaktsatz unterstützt. Das zugelassene lokale Paket wird offline und ohne Lifecycle-Skripte installiert; ein Quellcode-Checkout oder eine vorhandene Plugin-Sitzung ist kein Nachweis einer verifizierten Aktualisierung.
 

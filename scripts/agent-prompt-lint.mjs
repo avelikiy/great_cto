@@ -177,6 +177,7 @@ const AUTHORITY_VALUES = ['autonomous', 'proposes', 'escalates'];
 const AUTHORITY_POLICY = {
   devops: 'escalates',
   'infra-provisioner': 'escalates',
+  'release-manager': 'escalates',
   'senior-dev': 'proposes',
   'continuous-learner': 'proposes',
 };

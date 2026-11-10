@@ -4,7 +4,7 @@
 > Do not edit by hand — edit the skill and re-run the generator.
 
 A skill is knowledge an agent loads on demand, rather than a thing that runs.
-34 in total: 1 industry domain packs and 33 others.
+37 in total: 1 industry domain packs and 36 others.
 
 ## Industry domain packs (1)
 
@@ -15,7 +15,7 @@ are not naive about the domain.
 |---|---|
 | `vertical-onboarding` | Onboarding-and-switching playbook for SMB Product-Builder products. |
 
-## Everything else (33)
+## Everything else (36)
 
 | Skill | What it carries |
 |---|---|
@@ -23,6 +23,7 @@ are not naive about the domain.
 | `anti-patterns` | Catalogue of known SDLC anti-patterns that great_cto agents must actively reject when reviewing architecture, plans, code, or post-mortems. |
 | `anydesign` | Analyze images, websites, and Figma files to extract their design and generate a `design.md` with token system, component inventory, and reconstruction notes. |
 | `archetype-review-base` | Shared review framework that every domain reviewer (pci, oracle, gov, edtech, healthcare, mlops, etc.) MUST follow. |
+| `artifact-retention` | After a build is delivered, delete its intermediate copies and old versions — keep exactly the version that runs and one previous for rollback — and report the space freed as measured by `df`, neve… |
 | `brainstorming` | Structured idea generation + multi-LLM debate for the product-owner stage. |
 | `build-speed` | Make a slow CI pipeline or build faster by measuring it first — per-step durations, the slowest step, a target — then one change at a time, re-measured the same way. |
 | `codex-host` | Run the great_cto controlled Codex lifecycle with controller-owned writes, verifier evidence, human gates and optional artifact release. |
@@ -36,6 +37,7 @@ are not naive about the domain.
 | `great_cto` | Use when the CTO describes a feature, task, or project goal. |
 | `lifecycle-messaging` | Email/SMS lifecycle and deliverability framework for SMB Product-Builder products that send transactional or lifecycle messages (booking reminders, CRM sequences, receipts, win-back). |
 | `migration-ready-schema` | Data-model rules that make a schema importable from day one, so the migration-import-engineer is never blocked on missing columns. |
+| `mobile-release` | Ship an iOS or Android build to testers and stores without reusing a build number or shipping an OTA bundle that crashes on launch. |
 | `observability-baseline` | Scaffold-time observability so a shipped product is not blind in prod from day one — error capture (Sentry), request-id structured logging, and /healthz + /readyz endpoints. |
 | `opportunity-solution-tree` | Build an Opportunity Solution Tree (OST) to structure product discovery — map a desired outcome to customer opportunities, possible solutions, and experiments. |
 | `outcome-roadmap` | Transform an output-focused roadmap (feature list) into an outcome-focused one. |
@@ -51,4 +53,5 @@ are not naive about the domain.
 | `test-strategy` | Coverage-design method for qa-engineer — pyramid ratios per archetype, equivalence/boundary/property case selection, mutation score as the real coverage signal, and a flake-quarantine policy. |
 | `ui-ux-pro-max` | UI/UX design intelligence for web and mobile. |
 | `verticals` | Domain knowledge for SMB industry products — the vocabulary, the entities a spec must model, the incumbent to route around, and what a naive build gets wrong — one file per industry, plus local SEO… |
+| `web-release` | Release a web frontend (Vercel, Cloudflare Pages / Workers static assets, S3/CDN, Netlify) so that production serves exactly the build that was tested, and rolling back is one named command. |
 | `well-architected` | 6-pillar architecture review framework. |

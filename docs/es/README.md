@@ -28,7 +28,7 @@ npx great-cto init
 
 ---
 
-great_cto coordina flujos nativos de Claude Code y ejecuciones controladas experimentales de Codex mediante etapas, revisiones y gates explícitos. El panel local conecta tareas, ejecución registrada, documentos y consumo. El catálogo público contiene **72** agentes; figurar en él no demuestra ejecución ni experiencia. La evidencia ausente sigue siendo desconocida. Merge, release y despliegue requieren sus propias pruebas y autorizaciones. Pagas a tu proveedor; great_cto usa MIT y no cobra.
+great_cto coordina flujos nativos de Claude Code y ejecuciones controladas experimentales de Codex mediante etapas, revisiones y gates explícitos. El panel local conecta tareas, ejecución registrada, documentos y consumo. El catálogo público contiene **73** agentes; figurar en él no demuestra ejecución ni experiencia. La evidencia ausente sigue siendo desconocida. Merge, release y despliegue requieren sus propias pruebas y autorizaciones. Pagas a tu proveedor; great_cto usa MIT y no cobra.
 
 **Límite de distribución verificada (ADR-045):** los artefactos firmados se validan antes de cualquier activación. La actualización automática de una instalación npm global convencional solo se admite con un verificador autenticado de forma independiente y configurado por separado, junto con el conjunto completo de artefactos firmados de la versión. El paquete local admitido se instala sin conexión y con los scripts de ciclo de vida deshabilitados; un checkout del código o una sesión de plugin existente no demuestran una actualización verificada.
 
