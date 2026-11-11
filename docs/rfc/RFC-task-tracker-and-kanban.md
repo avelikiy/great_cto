@@ -432,8 +432,9 @@ If none holds, Beads stays and the question is closed with the numbers.
 > `bd` on the same 1135 tasks; three concurrent writers produced 150 distinct keys. The first
 > rule above is met. The decision between the options in that document is the owner's.
 
-Kanban mockup for phase 5 (waiting for approval, no board code before it):
-https://claude.ai/artifact/1bw4YPY79hGrfsgPoDH6p9
+Kanban mockup for phase 5, approved by the owner on 2026-11-11 in the version published that
+day: https://claude.ai/artifact/1bw4YPY79hGrfsgPoDH6p9. Phase 5 builds exactly that version;
+any deviation goes back to the mockup for a new approval.
 
 ### Risks
 
@@ -572,7 +573,7 @@ mockup.
 | 2 | Key format | `<KEY>-<n>`; great_cto's own `KEY` is **`GCTO`** | Phase 2 uses it |
 | 3 | Alias or replacement | **Alias**; the Beads id stays the internal id | — |
 | 4 | Who names `KEY` | Derived from the project name, editable until the first task exists | First-run flow of the app; needs the phase-5 mockup for the field |
-| 11 | Mockup go-ahead | **Yes**, prepare the kanban mockup now | Mockup in Claude Design; no board code before it is approved |
+| 11 | Mockup go-ahead | **Yes**, prepare the kanban mockup now; the mockup was **approved** the same day | Phase 5 implements the approved mockup exactly; deviations go back for approval |
 | — | Order of work | Phase 1 PR after main is green; then keys (phase 2), the store spike and the mockup in parallel; then phase 3 | The store spike moves forward from phase 6: one read through `bd` already costs about seven seconds, above the 1 s threshold. Its decision stays the owner's |
 | 5–10, 12–14 | Strictness, release PRs, public key registry, branch protection, bot PRs, kanban placement, external mirror, completion evidence, limit handoff | **Open.** Recommendations given on 2026-11-11: every PR needs a task; release tooling creates its task; no public registry until the spike; required status after one or two weeks of the guard; bot PRs exempt by author; List / Board toggle inside Work; no mirror; advice first; propose only | Phase 3 needs 5–9; phase 5 needs 10 |
 | — | Additions from the takt research (section 7) | Added on 2026-11-11 at the request of the research session, which relayed the owner's approval; questions 13–14 are open | Proposals only; nothing is scheduled |
