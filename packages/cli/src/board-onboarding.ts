@@ -91,3 +91,29 @@ export function installAppHint(port: number): string[] {
     `  Safari        — File → Add to Dock`,
   ];
 }
+
+/**
+ * Which CLI entry the always-on service should run.
+ *
+ * The CLI that is running `init` is often an `npx` cache copy that npm may delete,
+ * and a unit that names it starts nothing after the next cache clean. The activated
+ * plugin directory is immutable and verified, so the service runs the CLI inside it.
+ * Without an activated directory (a plain `board install-daemon`), the running CLI
+ * is the only candidate.
+ */
+export function daemonCliPath(o: { activatedDir?: string | null; runningCli: string; exists: (path: string) => boolean }): string {
+  if (o.activatedDir) {
+    const candidate = `${o.activatedDir.replace(/\/+$/, "")}/packages/cli/index.mjs`;
+    if (o.exists(candidate)) return candidate;
+  }
+  return o.runningCli;
+}
+
+/**
+ * A unit written by an earlier version keeps starting that version at login.
+ * It is refreshed when what is on disk is not what this run would write.
+ * `current === null` means there is no unit: nothing to refresh.
+ */
+export function unitNeedsRefresh(current: string | null, rendered: string): boolean {
+  return current !== null && current !== rendered;
+}

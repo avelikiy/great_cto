@@ -22,7 +22,7 @@ import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled
 import { checkForUpdate } from "./update-check.js";
 import { findBoardServerPath } from "./board-path.js";
 import { daemonSpec, decideEnsureAction, isBoardResponse, type Platform } from "./board-daemon.js";
-import { alwaysOnVerdict, installAppHint, parseAlwaysOnState, renderAlwaysOnState, shouldOpenBoard } from "./board-onboarding.js";
+import { alwaysOnVerdict, daemonCliPath, installAppHint, unitNeedsRefresh, parseAlwaysOnState, renderAlwaysOnState, shouldOpenBoard } from "./board-onboarding.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -535,11 +535,11 @@ async function runBoardEnsure(args: CliArgs): Promise<number> {
  * `great-cto board install-daemon` — write + activate a per-user OS service that
  * keeps the board running across crashes and reboots. `--dry-run` prints only.
  */
-async function runBoardInstallDaemon(args: CliArgs): Promise<number> {
+async function runBoardInstallDaemon(args: CliArgs, cliPath: string = cliEntryPath()): Promise<number> {
   const { spawnSync } = await import("node:child_process");
   const spec = daemonSpec(process.platform as Platform, {
     nodePath: process.execPath,
-    cliPath: cliEntryPath(),
+    cliPath,
     port: args.boardPort,
     home: homedir(),
   });
@@ -591,15 +591,18 @@ async function runBoardInstallDaemon(args: CliArgs): Promise<number> {
  * Never fails init — the project is already set up by the time this runs — and
  * never stays silent about why something did not happen.
  */
-async function offerBoardAfterInit(args: CliArgs): Promise<void> {
+async function offerBoardAfterInit(args: CliArgs, activatedDir: string | null = null): Promise<void> {
   const env = process.env;
   // Same rule as postinstall: no board process out of CI or a test runner.
   if (env.CI || env.GITHUB_ACTIONS || env.NODE_TEST_CONTEXT || env.GREAT_CTO_NO_BOARD) return;
   try {
     const port = args.boardPort;
     const isTTY = Boolean(process.stdin.isTTY);
+    // The service runs the CLI inside the activated, immutable plugin directory —
+    // not this process's own path, which under npx is a cache npm may delete.
+    const cliPath = daemonCliPath({ activatedDir, runningCli: cliEntryPath(), exists: fsExistsSync });
     const spec = daemonSpec(process.platform as Platform, {
-      nodePath: process.execPath, cliPath: cliEntryPath(), port, home: homedir(),
+      nodePath: process.execPath, cliPath, port, home: homedir(),
     });
     const stateFile = join(homedir(), ".great_cto", "board-always-on.json");
     let decided = false;
@@ -616,10 +619,20 @@ async function offerBoardAfterInit(args: CliArgs): Promise<void> {
         mkdirSync(dirname(stateFile), { recursive: true });
         writeFileSync(stateFile, renderAlwaysOnState(yes ? "yes" : "no"));
       } catch { /* best-effort — worst case the question is asked again */ }
-      if (yes) daemon = (await runBoardInstallDaemon(args)) === 0;
+      if (yes) daemon = (await runBoardInstallDaemon(args, cliPath)) === 0;
       else log(dim(`  Not installed. Later: ${cyan("great-cto board install-daemon")}`));
     } else if (verdict.reason === "yes-flag" || verdict.reason === "not-a-tty") {
       log(dim(`  Board stops with this terminal. Keep it always on: ${cyan("great-cto board install-daemon")}`));
+    }
+
+    // A unit from an earlier version would keep starting that version at login.
+    if (daemon && !verdict.ask && spec.unitPath) {
+      let current: string | null = null;
+      try { current = readFileSync(spec.unitPath, "utf8"); } catch { /* unreadable — leave the unit alone */ }
+      if (unitNeedsRefresh(current, spec.render())) {
+        log(dim("  the always-on service points at an earlier version — updating it"));
+        await runBoardInstallDaemon(args, cliPath);
+      }
     }
 
     // With the service installed the supervisor starts the board; otherwise start it here.
@@ -1268,7 +1281,7 @@ async function runInit(args: CliArgs): Promise<number> {
   }
 
   // ── 8. board: always-on offer, bring it up, install-app hint ──
-  await offerBoardAfterInit(args);
+  await offerBoardAfterInit(args, activation.versionDir);
 
   // ── done ─────────────────────────────────────────────────
   log("");

@@ -77,7 +77,29 @@ test("the hint names the port and the button the board really has", () => {
 test("init calls the board step after bootstrap and before it says ready", () => {
   const main = fs.readFileSync(path.join(HERE, "..", "src", "main.ts"), "utf8");
   const bootstrapAt = main.indexOf('step(5, 5, "bootstrapping .great_cto/PROJECT.md")');
-  const offerAt = main.indexOf("await offerBoardAfterInit(args);");
+  const offerAt = main.indexOf("await offerBoardAfterInit(args, activation.versionDir);");
   const readyAt = main.indexOf("✓ great_cto is ready.");
   assert.ok(bootstrapAt > 0 && offerAt > bootstrapAt && readyAt > offerAt);
+});
+
+test("the service runs the CLI inside the activated directory, not an npx cache copy", async () => {
+  const { daemonCliPath } = await import("../dist/board-onboarding.js");
+  const running = "/home/u/.npm/_npx/abc/node_modules/great-cto/index.mjs";
+  const activated = "/home/u/.claude/plugins/cache/local/great_cto/3.80.0";
+  assert.equal(daemonCliPath({ activatedDir: activated, runningCli: running, exists: () => true }), `${activated}/packages/cli/index.mjs`);
+  assert.equal(daemonCliPath({ activatedDir: activated + "/", runningCli: running, exists: () => true }), `${activated}/packages/cli/index.mjs`);
+  assert.equal(daemonCliPath({ activatedDir: activated, runningCli: running, exists: () => false }), running, "a directory without a CLI is not used");
+  assert.equal(daemonCliPath({ activatedDir: null, runningCli: running, exists: () => true }), running);
+});
+
+test("a unit left by an earlier version is refreshed; a missing unit is not created", async () => {
+  const { unitNeedsRefresh } = await import("../dist/board-onboarding.js");
+  assert.equal(unitNeedsRefresh("old", "new"), true);
+  assert.equal(unitNeedsRefresh("same", "same"), false);
+  assert.equal(unitNeedsRefresh(null, "new"), false);
+});
+
+test("init passes the activated directory to the board step", () => {
+  const main = fs.readFileSync(path.join(HERE, "..", "src", "main.ts"), "utf8");
+  assert.ok(main.includes("await offerBoardAfterInit(args, activation.versionDir);"));
 });
