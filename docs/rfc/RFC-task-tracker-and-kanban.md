@@ -426,6 +426,15 @@ through the API on this machine:
 
 If none holds, Beads stays and the question is closed with the numbers.
 
+> **Update 2026-11-11.** The spike was run early, on the owner's word:
+> [SPIKE-task-store-sqlite-2026-11.md](../research/SPIKE-task-store-sqlite-2026-11.md). One
+> operation in a fresh process costs 0.1–0.25 s on built-in SQLite against 3–15 s through
+> `bd` on the same 1135 tasks; three concurrent writers produced 150 distinct keys. The first
+> rule above is met. The decision between the options in that document is the owner's.
+
+Kanban mockup for phase 5 (waiting for approval, no board code before it):
+https://claude.ai/artifact/1bw4YPY79hGrfsgPoDH6p9
+
 ### Risks
 
 | Risk | Mitigation |
