@@ -55,7 +55,9 @@ test('the dashboard tells apart "we looked and there is none" from "we could not
   // The savings multiplier left with the redesign; Ledger carries the same
   // three-way distinction on spend and on the stage strip (great_cto-ki1x.7).
   assert.match(html, /absent\('uncomputable', 'no verdict carries a cost and there is nothing to estimate from'\)/);
-  assert.match(html, /absent\('unloaded', 'pipeline state not read'\)/);
+  // "Running now" reads the task projection since the 2026-11 audit (one source
+  // for Home, Work and Ledger); unread is still an absence, never a zero.
+  assert.match(html, /absent\('unloaded', 'the task projection has not been read'\)/);
   assert.match(html, /absent\('none', 'nothing was accepted in this window'\)/);
 });
 

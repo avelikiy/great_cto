@@ -122,7 +122,7 @@ test('the desktop density is left alone', () => {
 test('zero tasks done renders as 0, not as an absence', () => {
   assert.ok(!/v: done \|\| '—'/.test(html),
     "`done || '—'` renders a real zero as a dash next to a trend line reading +0");
-  assert.match(html, /v: doneKnown \? done : absent\('unloaded'/,
+  assert.match(html, /\$\{doneKnown \? done : absent\('unloaded'/,
     'the absence marker is reserved for a payload with no tasks section at all');
 });
 
@@ -150,7 +150,7 @@ test('cycle time keeps its dash, and says why', () => {
   // Not the same shape as the two above: the backend emits 0 when no completion
   // could be timed, so 0 genuinely means not-computable here. Asserted so a
   // future sweep for falsy checks does not "fix" it into a literal 0 m.
-  assert.match(html, /v: avgMin \? `\$\{avgMin\}` : absent\('uncomputable'/,
+  assert.match(html, /avgMin \? `\$\{avgMin\}` : absent\('uncomputable'/,
     'still an absence, now labelled as the uncomputable kind rather than a bare dash');
   assert.match(html, /means "could not be computed", not "took no time"/,
     'and the reason is written down where the next reader will look');

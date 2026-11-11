@@ -346,13 +346,6 @@ const CHECKED_AND_SAFE = {
   'resume-col':
     'a grid child of `.resume-grid`, which sets `grid-template-columns: repeat(3, 1fr)` and the gap. ' +
     'The column comes from the parent; the child needs no rule of its own',
-  'bt-agent':
-    'the flexible cell of `.budgets-table` — `.budgets-table td` gives it padding and border, and its ' +
-    'contents carry the type (`.bt-slug`, `.bt-desc`). The named siblings exist to override alignment ' +
-    'and number formatting, which this cell does not want',
-  'bt-state':
-    'same row, same reason: `.budgets-table td` styles it and its contents are chips that style ' +
-    'themselves. The name marks the column for a reader of the row template',
   'cta-row':
     'the notifications save/test button row, laid out by its own inline ' +
     '`display:flex;gap:10px;flex-wrap:wrap`. The class names the row, the inline rule is the style',

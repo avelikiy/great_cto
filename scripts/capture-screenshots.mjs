@@ -149,7 +149,8 @@ async function main() {
     // Not `networkidle`: the board holds an SSE stream open for live updates, so
     // the network is never idle and the wait can only time out.
     await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60_000 });
-    await page.waitForSelector('[data-tab="decisions"]', { timeout: 30_000 });
+    // The admin shell replaces the nav once it boots; Home is its first item.
+    await page.waitForSelector('#nav-tablist [data-tab="home"]', { timeout: 30_000 });
     await sleep(2500);
 
     // Refuse to photograph an error. Every README screenshot from v3.26 to
