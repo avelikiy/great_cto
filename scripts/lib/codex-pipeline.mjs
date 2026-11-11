@@ -945,10 +945,12 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
           ...traceParents(state, Object.keys(state.results), false)], relation: 'verification', input: receipt });
       save(state);
     }
-    const verifierRunner = execute || runners[checker];
+    // `runners` are worker runners. As before, the verifier is the host's real
+    // subprocess unless one `execute` stands in for every call.
+    const verifierRunner = execute || (checker === 'codex' ? runCodexExec : runClaudeExec);
     const verifierCall = () => withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: checker, role: `${agentPrefix(checker)}-verifier` }, () =>
       observeControllerCall(state, { id: `${attempt.id}:verifier`, attemptId: attempt.id, host: checker, role: `${agentPrefix(checker)}-verifier`, kind: 'verifier' },
-        () => { if (typeof verifierRunner !== 'function') throw Error(`no verifier runner for ${checker}`); return verify(state, role, proposal, verifierRunner); }, save));
+        () => verify(state, role, proposal, verifierRunner), save));
     let verification = attempt.checks && attempt.checks.state !== 'passed'
       ? { state: attempt.checks.state === 'failed' ? 'rework' : 'unverifiable', findings: [`Required checks ${attempt.checks.state}: ${JSON.stringify(checkSummary(attempt.checks))}`], checks: ['controller executed mandatory checks'] }
       : await (shipCapability ? shipBoundary.runCall(shipCapability, {kind: 'verifier', callId: `${attempt.id}:verifier`, invoke: verifierCall}) : verifierCall());

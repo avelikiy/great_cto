@@ -9,7 +9,7 @@ import { chmodSync, existsSync, mkdtempSync, mkdirSync, readFileSync, readdirSyn
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { newRun, runStage, approve, verifierHost, runHosts } from '../../scripts/lib/codex-pipeline.mjs';
+import { newRun, runStage, approve, verifierHost, runHosts, verifyStage } from '../../scripts/lib/codex-pipeline.mjs';
 import { beginWork, readWorkTask, listWorkTasks, controlledTask, linkWork, observeWorkSession, finishWork } from '../../scripts/lib/work-tasks.mjs';
 import { commitFixture } from '../helpers/committed-fixture.mjs';
 
@@ -100,10 +100,12 @@ test('unlisted roles follow the run host; an explicit route still wins', async t
     return reply(options.prompt.includes('You are the writer specialist') ? PLAN.writer : PLAN.reviewer);
   };
   const runners = { codex: runner('codex'), 'claude-code': runner('claude-code') };
-  await runStage(s, { runners });
+  // `runners` are worker runners; the verifier's subprocess is stood in for here, on the host the run names.
+  const verify = (state, role, proposal) => verifyStage(state, role, proposal, runners[verifierHost(state)]);
+  await runStage(s, { runners, verify });
   assert.equal(s.status, 'awaiting-gate', s.reason);
   approve(s, s.pending.token);
-  await runStage(s, { runners });
+  await runStage(s, { runners, verify });
   assert.equal(s.status, 'awaiting-gate', s.reason);
   assert.deepEqual(seen, ['claude-code:worker', 'claude-code:verifier', 'codex:worker', 'claude-code:verifier']);
   assert.deepEqual(s.attempts.map(a => [a.host, a.verifierHost]), [['claude-code', 'claude-code'], ['codex', 'claude-code']]);
