@@ -122,9 +122,35 @@ async function toggleShare(enable, cwd = process.cwd(), force = false) {
   return state;
 }
 
+// What a published report carries about a task: the fields share.html reads, and
+// nothing else. The report is public to anyone with the link; it used to embed the
+// whole record — description, notes, design, assignee — of every listed task.
+const SHARE_TASK_FIELDS = Object.freeze(['title', 'status', 'priority', 'labels', 'created_at', 'updated_at', 'closed_at', 'close_reason']);
+const CLOSE_REASON_MAX = 71; // the page prints 70 characters and an ellipsis when there are more
+function shareTask(t) {
+  const str = (v) => (typeof v === 'string' ? v : '');
+  return {
+    title: str(t?.title),
+    status: str(t?.status),
+    priority: Number.isFinite(t?.priority) ? t.priority : null,
+    labels: Array.isArray(t?.labels) ? t.labels.filter((l) => typeof l === 'string') : [],
+    created_at: str(t?.created_at),
+    updated_at: str(t?.updated_at),
+    closed_at: str(t?.closed_at),
+    close_reason: str(t?.close_reason).slice(0, CLOSE_REASON_MAX),
+  };
+}
+// JSON that is safe inside a <script> block: `<` is escaped, so no value can close
+// the tag, and U+2028/2029 cannot end a line in older parsers.
+const scriptJson = (v) => JSON.stringify(v ?? null)
+  .replace(/</g, '\\u003c')
+  .replace(/[\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16)}`);
+
 function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
   const meta = readProjectMd(cwd);
-  const projectName = meta?.slug || path.basename(cwd);
+  // The name lands in <title>, an attribute and a JS string literal: letters, digits,
+  // space, dot, dash and underscore only.
+  const projectName = String(meta?.slug || path.basename(cwd)).replace(/[^\p{L}\p{N} ._-]/gu, '');
   const date = new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
   const done = tasks.filter(t => t.status === 'done' || t.status === 'closed');
   const shareTemplate = fs.readFileSync(path.join(PUBLIC, 'share.html'), 'utf8');
@@ -134,12 +160,14 @@ function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
   // from toggleShare, but the published HTML must be valid on its own —
   // shipping `const paused = {{PAUSED}};` literal triggers a SyntaxError
   // and blanks the entire report if the worker forgets to post-process.
+  // Function replacers: a string replacement would expand `$&`, `$1` and `$'` found
+  // in the data.
   return shareTemplate
-    .replaceAll('{{PROJECT}}', projectName)
-    .replaceAll('{{DATE}}', date)
-    .replaceAll('{{METRICS_JSON}}', JSON.stringify(metrics))
-    .replaceAll('{{TASKS_JSON}}', JSON.stringify(done.slice(-20)))
-    .replaceAll('{{PAUSED}}', 'false');
+    .replaceAll('{{PROJECT}}', () => projectName)
+    .replaceAll('{{DATE}}', () => date)
+    .replaceAll('{{METRICS_JSON}}', () => scriptJson(metrics))
+    .replaceAll('{{TASKS_JSON}}', () => scriptJson(done.slice(-20).map(shareTask)))
+    .replaceAll('{{PAUSED}}', () => 'false');
 }
 
-export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML };
+export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML, shareTask, SHARE_TASK_FIELDS };

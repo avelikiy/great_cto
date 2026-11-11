@@ -215,10 +215,10 @@ Source: `packages/board/lib/alerts.mjs`, `packages/board/cloudflare-worker/worke
 numbers at a public, unlisted URL (`https://greatcto.systems/r/<id>`).
 
 - **What is sent:** the generated HTML page. It embeds the project name, the lifetime
-  metrics, and the **full records of the last 20 completed tasks** as the board holds
-  them: ids, titles and every other task field, descriptions included, whether or not
-  the page displays them. Open tasks, code and verdict files are not included. If a
-  completed task's text holds something private, it is in the published page source.
+  metrics, and, for the last 20 completed tasks, the eight fields the page displays:
+  title, status, priority, labels, the created / updated / closed dates and the first
+  71 characters of the close reason. Descriptions, notes, design text, assignees and
+  comments are not included, and neither are open tasks, code or verdict files.
 - **Who can read it:** anyone who has the link. Treat the link as public.
 - **Retention:** 30 days from the last publish, then deleted. Turning Share off marks
   the page as paused at once.
@@ -411,6 +411,7 @@ else from the file, and only on the machine the board runs on.
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
 - **2026-11-10**: documented email alerts and share reports, which were already in the product and missing here.
+- **2026-11-11**: the share report embeds only the task fields it displays (it embedded full task records).
 
 ## Local execution graph observations
 

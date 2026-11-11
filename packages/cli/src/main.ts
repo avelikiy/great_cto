@@ -749,8 +749,11 @@ ${bold("Board:")}
   great-cto board install-daemon --dry-run   Print the service unit without installing
   great-cto board uninstall-daemon  Remove the always-on service
 
-${bold("Operator console (the second surface — invite-only, hostable):")}
-  great-cto console                 Serve ONLY the operator console (no dev board)
+${bold("A second board instance (legacy name: console):")}
+  great-cto console                 Start the same board as \`great-cto board\`, as a separate
+                                    process with its own pid file. The operator console it was
+                                    named for moved to its own repository; nothing here is
+                                    invite-only.
   great-cto console --port 8788     Different port
   great-cto console --bind 0.0.0.0  Reachable beyond this machine (tunnel/hosting).
                                     There is no login: put authentication in front and set
