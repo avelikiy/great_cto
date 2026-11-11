@@ -52,8 +52,11 @@ test('gates and P0s together, across several projects, agree in number', () => {
 test('the headline that ships uses "here" and appends the clause', () => {
   // The two places the page makes the claim. Both must scope it to "here" and
   // both must consult `elsewhere` — a third copy that forgot would be the old lie.
-  const stalled = html.match(/nothing is waiting on you here\.\$\{tail\}/g) || [];
-  assert.ok(stalled.length >= 1, 'the stalled headline appends the elsewhere tail');
+  // Home (UX audit 2026-11) replaced the stalled sentence with a headline and a
+  // line under it; the two properties are the same two.
+  assert.match(html, /: 'Nothing needs you here';/, 'the headline is scoped to "here"');
+  const head = html.match(/function renderHomeHead\(\)[\s\S]*?\n\}/)?.[0] || '';
+  assert.match(head, /elsewhereClause\(/, 'the line under the headline consults the other projects');
   assert.ok(/Nothing is waiting on you here\.<\/b>/.test(html), 'the all-clear card is scoped to "here"');
   assert.equal((html.match(/nothing is waiting on you either\./g) || []).length, 0,
     'the unscoped sentence must not survive anywhere');

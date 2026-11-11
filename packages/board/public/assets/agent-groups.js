@@ -20,7 +20,7 @@
     [/architect|adr|design|prompt|decision-scorer|project-auditor/, 'arch'],
     [/security|sec-|threat|pci|gdpr|hipaa|smart-contract/, 'security'],
     [/\bqa\b|test|eval|performance|^code-reviewer$/, 'qa'],
-    [/devops|deploy|infra|l3|support|oncall/, 'ops'],
+    [/devops|deploy|infra|l3|support|oncall|release/, 'ops'],
     [/reviewer$/, 'domain'],
     [/pm|plan|product|coordinator/, 'pm'],
     [/learn|memory|continuous|knowledge/, 'memory'],

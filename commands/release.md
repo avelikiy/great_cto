@@ -1,6 +1,6 @@
 ---
-description: "Release manager for frontend and mobile. Writes App Store notes, user-facing changelog, flags stale docs and landing copy. Actions: notes | changelog | docs | sync"
-argument-hint: "notes [version] | changelog [from..to] | docs | sync"
+description: "Release manager for frontend and mobile. Ships a web or mobile build through release-manager, writes App Store notes and the user-facing changelog, flags stale docs and landing copy. Actions: ship | notes | changelog | docs | sync"
+argument-hint: "ship <web|ios|android|ota> | notes [version] | changelog [from..to] | docs | sync"
 user-invocable: true
 allowed-tools: Read, Write, Bash, Glob, Grep
 model: sonnet
@@ -38,6 +38,32 @@ fi
 
 PROJECT_NAME=$(grep "^name:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}' || basename "$PWD")
 ```
+
+---
+
+## Action: `ship <web|ios|android|ota>` — release a client artifact
+
+This command does not build or upload anything itself. It hands the release to the
+`release-manager` agent, which owns it end to end:
+
+1. Check the preconditions it will refuse on, so the operator hears them now:
+   ```bash
+   git status --porcelain --untracked-files=no   # must be empty
+   git rev-parse HEAD                            # the commit CI must be green on
+   df -h / | tail -1                             # < 30 GB free → it cleans old builds first
+   ```
+2. Dispatch `release-manager` with the kind (`web`, `ios`, `android`, `ota`), the version,
+   and this sha. Its run 1 builds, stages to preview or the internal track, and writes a
+   staged receipt; `e2e-test-engineer` then tests that exact artifact.
+3. Production promote, store submission and production OTA wait for **gate:release** —
+   the operator's decision, at every approval level. With `store-submit: hand-off` (the
+   default in PROJECT.md) the agent prepares the store submission and the operator
+   presses the button.
+4. "Released" is a receipt in `.great_cto/releases/`, written by
+   the plugin's `scripts/lib/release-receipt.mjs`. No receipt — not released.
+
+Release notes for the same build: `/release notes <version>` (below). They cite the build
+the receipt names.
 
 ---
 

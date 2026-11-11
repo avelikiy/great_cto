@@ -34,9 +34,19 @@ including `auto`:
 | `product-only` | `product` · `security` · `compliance` · `ship` |
 | `gates-only` | `product` · `arch` · `security` · `compliance` · `ship` |
 
-The irreversible `import` gate also applies at every level, including auto, when
-the import branch is reached. Counts above describe normal paths without import;
-not every active gate is reached by every request.
+Two irreversible gates also apply at every level, including auto, when their
+branch is reached:
+
+- `import` — before `migration-import-engineer` overwrites existing records;
+- `release` — before `release-manager` promotes a web frontend to production,
+  submits a build to a store, widens a phased rollout or publishes a production OTA
+  update. A store submission cannot be called back, so no level trades it away.
+  With `store-submit: hand-off` (the default) the agent prepares the submission and
+  you press the button; `store-submit: gate` lets it run the prepared command once
+  you approve the gate.
+
+Counts above describe normal paths without import or a client release; not every
+active gate is reached by every request.
 
 Choosing a lighter level is a delegation of judgement, not a compliance bypass.
 An unrecognised value in `PROJECT.md` falls back to the default — a typo cannot

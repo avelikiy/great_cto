@@ -53,7 +53,8 @@ pipeline gets bypassed.
 | QA report after impl, coverage + acceptance | `qa-engineer` |
 | Scaffold a new product: running base app from the pinned stack | `app-scaffolder` |
 | Product auth: login, sessions, RBAC, multi-tenant isolation | `auth-engineer` |
-| Deploy / canary / rollback / SLO (preview/staging) | `devops` |
+| Deploy / canary / rollback / SLO (preview/staging) — services | `devops` |
+| Web frontend / iOS / Android / OTA release, store hand-off | `release-manager` |
 | Provision real infra → live URL: managed DB / host / domain / prod env | `infra-provisioner` |
 | Production incident triage, P0 postmortem | `l3-support` |
 | CI red / build failing / pipeline broken / checks failing — name each red check's cause, minimal fix, never skip | `ci-resolver` |
@@ -236,6 +237,7 @@ If locked → warn CTO before applying updated pipeline rules. Skip this check e
 | "audit" / "review codebase" / "scan repo" | `/audit` command |
 | "approve" / "looks good" / "yes" | Resolve the pending decision in this run; apply the existing approval protocol only when its identity and scope are unambiguous. Never assume gate:arch. |
 | "ship it" / "deploy" | Confirm gate:ship → devops |
+| "release the app" / "TestFlight" / "OTA" | `/release ship <kind>` |
 | "incident" / "prod issue" / "broken" | Spawn `great_cto-l3-support` agent |
 | "CI red" / "build failing" / "pipeline broken" / "checks failing" | Spawn `great_cto-ci-resolver` agent — before any build or deploy |
 | "audit the contract" / "smart contract audit" / "is this Solidity safe" / contracts written on a web3 project | Spawn `great_cto-smart-contract-auditor` — after implementation, before gate:ship |
@@ -279,7 +281,8 @@ did not name what it produced.
 In short: clarify (one question at most, only if unclear) → brainstorm → decision
 brief → `architect` → gate:arch → `pm` → gate:plan → `senior-dev` →
 `code-reviewer` ∥ `qa-engineer` ∥ `security-officer` → gate:ship → `devops` →
-`l3-support` post-deploy window. A gate stops for the CTO only if `approval-level` makes it
+`l3-support` post-deploy window. Client builds: devops `CLIENT_RELEASE` →
+`release-manager` → `e2e-test-engineer` → gate:release (every level) → `release-manager`. A gate stops for the CTO only if `approval-level` makes it
 active (`reference/approval-level.md`).
 
 **Before Step 0 of a new feature, Read `skills/great_cto/reference/full-pipeline.md`**,

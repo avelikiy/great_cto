@@ -1,6 +1,6 @@
 ---
 name: deploy-landed
-description: Prove a deploy landed — the served revision is the commit you meant, its env is present, and the product does its job — instead of trusting the deploy command's exit code. Also catches server drift before a pull or deploy. Use after any deploy, rollout, restart or server-side fix ("задеплой", "выкати", "проверь на проде", "почему не обновилось"). Loaded by devops, l3-support, infra-provisioner.
+description: Prove a deploy landed — the served revision is the commit you meant, its env is present, and the product does its job — instead of trusting the deploy command's exit code. Also catches server drift before a pull or deploy. Use after any deploy, rollout, restart or server-side fix ("задеплой", "выкати", "проверь на проде", "почему не обновилось"). Loaded by devops, release-manager, l3-support, infra-provisioner.
 when_to_use: |
   Apply when:
   - you ran, or are about to report, a deploy, a rollout, a container restart, a hot-fix on a server
@@ -60,6 +60,22 @@ overwritten silently, and never left as the only copy of a fix.
    A health endpoint proves the process is up, nothing more.
 4. **Startup errors.** Logs for the new revision since it started, at WARNING and above.
    Zero lines is a finding only if you saw the logs flowing at all.
+
+## Client artifacts: a frontend bundle or a mobile build
+
+There is no server process to inspect, so "landed" is read from the artifact itself.
+
+- **Web frontend.** The production URL returns the commit you promoted — `/version.json`,
+  a build-sha meta tag, or the host's deployment id and its commit. Bypass the edge cache
+  (cache-busting query) and read the cache header: a stale `index.html` with a long
+  max-age keeps users on the old build. Function = a Playwright golden path on the
+  production URL, not "the page loads".
+- **Mobile.** The build number inside the artifact (`bundletool dump manifest`,
+  `PlistBuddy`) equals the one you set; the store shows that build **processed**
+  (TestFlight) or **completed** on the track (Play); the installed app reports that
+  build. Function = the Maestro flows on that installed build.
+- **OTA update.** The update group id is published on the channel you meant, and its
+  runtime fingerprint equals the native build's.
 
 ## Report
 

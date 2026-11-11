@@ -185,6 +185,49 @@ stdio) and for non-interactive/CI runs (the prompt additionally requires an
 interactive stdin). Opt out with `GREAT_CTO_NO_UPDATE_CHECK=1`.
 Source: `packages/cli/src/update-check.ts`.
 
+## Email alerts (not telemetry — off until you verify an address)
+
+The board can email you when a gate is waiting or something fails. Nothing is sent
+until you enter an address under Notifications and confirm the 6-digit code.
+
+- **What is sent, per alert, to `https://greatcto.systems/notify`:** your address, the
+  event name and level, the alert title and body, the **project name**, a
+  `localhost` link, and the small key-value figures shown in the email. Titles and
+  bodies can contain task ids and task titles. No code, file content, verdict text
+  or secrets.
+- **What is stored:** your address, when it was verified, and a 24-hour send counter,
+  in Cloudflare KV. This record has no expiry. Verification codes expire on their own.
+  Alert content is not stored by the relay; it is passed to the mail provider (Resend)
+  for delivery.
+- **Limits:** 100 emails per address per 24 hours.
+- **Known gap:** the relay accepts an alert for any verified address without proving
+  which board sent it. Authenticating the sender is planned
+  (`docs/adr/ADR-048-board-local-api-guards.md`, follow-ups).
+- **Turn it off:** disable alerts under Notifications; the board then sends nothing.
+  To have the stored address removed, write to `privacy@greatcto.systems` from that
+  address. There is no self-service removal yet.
+
+Source: `packages/board/lib/alerts.mjs`, `packages/board/cloudflare-worker/worker.js`.
+
+## Share report (not telemetry — off until you turn it on)
+
+"Share" in the board publishes a read-only HTML snapshot of one project's delivery
+numbers at a public, unlisted URL (`https://greatcto.systems/r/<id>`).
+
+- **What is sent:** the generated HTML page. It embeds the project name, the lifetime
+  metrics, and the **full records of the last 20 completed tasks** as the board holds
+  them: ids, titles and every other task field, descriptions included, whether or not
+  the page displays them. Open tasks, code and verdict files are not included. If a
+  completed task's text holds something private, it is in the published page source.
+- **Who can read it:** anyone who has the link. Treat the link as public.
+- **Retention:** 30 days from the last publish, then deleted. Turning Share off marks
+  the page as paused at once.
+- **While Share is on,** approving a gate republishes the snapshot.
+- **Known gap:** publishing and pausing are not tied to an account or a key; whoever
+  holds a report's id can pause it.
+
+Source: `packages/board/lib/share.mjs`.
+
 ## Local agent events (not telemetry — on by default, never sent)
 
 So the board can show what agents are doing while they run (ADR-021), the hooks
@@ -367,6 +410,7 @@ else from the file, and only on the machine the board runs on.
 ## Changelog
 
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
+- **2026-11-10**: documented email alerts and share reports, which were already in the product and missing here.
 
 ## Local execution graph observations
 

@@ -61,7 +61,10 @@ test('the banner is silent unless the answer is a definite mismatch', () => {
   assert.ok(fn, 'located checkBoardFreshness');
   assert.match(fn, /if \(!v \|\| \(v\.stale !== '\w+' && v\.stale !== '\w+'\)\) return;/,
     "'no' and 'unknown' must both leave the page silent");
-  assert.match(fn, /esc\(v\.version\)/, 'server-supplied strings are escaped like everything else here');
+  // The notice is a footer line since the 2026-11 audit: server-supplied strings
+  // go in as text and as an attribute, never as markup.
+  assert.doesNotMatch(fn, /innerHTML/, 'server-supplied strings never become markup');
+  assert.match(fn, /el\.textContent = v\.stale ===/, 'the visible line is text');
 });
 
 test('the two directions do not share one message', () => {
@@ -70,8 +73,13 @@ test('the two directions do not share one message', () => {
   // restart into the wrong build again.
   const html = read('packages', 'board', 'public', 'index.html');
   const fn = html.match(/async function checkBoardFreshness\(\)[\s\S]*?\n\}/)?.[0];
-  assert.match(fn, /el\.innerHTML = v\.stale ===/, 'the message branches on which way the mismatch runs');
+  assert.match(fn, /const full = v\.stale ===/, 'the message branches on which way the mismatch runs');
+  assert.match(fn, /el\.textContent = v\.stale ===/, 'and so does the one line that is always visible');
+  assert.match(fn, /el\.title = full/, 'the full sentence is one hover or focus away');
+  assert.match(fn, /aria-label', full/, 'and is the accessible name');
   assert.match(fn, /newer than the/, 'and says so when the running code is the newer one');
+  assert.match(fn, /user-installed plugin/, 'the comparison identifies its user installation scope');
+  assert.match(fn, /Restarting from that installation/, 'do not promise which installation another launcher will select');
 });
 
 // ── The installer restarts what it replaced ─────────────────────────────────

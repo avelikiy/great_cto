@@ -158,6 +158,25 @@ MODE=$(grep "^mode:" .great_cto/PROJECT.md 2>/dev/null | awk '{print $2}')
 MODE=${MODE:-production}
 ```
 
+## First: is this a service or a client artifact?
+
+You ship **running services** — containers, serverless APIs, workers, databases and their
+migrations. A **client artifact** is different: a web frontend bundle (static or SSR on
+Vercel / Cloudflare Pages / a CDN), an iOS or Android build, an OTA update. It has no
+migration and no canary by error rate; it is promoted by alias, rolled out by a store, and
+rolled back by re-aliasing or halting. That is `release-manager`'s job.
+
+When the release is only client artifacts, deploy nothing. Record and stop:
+
+```bash
+bash scripts/log-verdict.sh devops CLIENT_RELEASE auto kind=<web|ios|android|ota> feature=<slug>
+```
+
+When it is both (an API change plus the frontend that calls it), ship the service first
+— the new API must serve the old client — and write `CLIENT_RELEASE` once the service is
+landed, naming the service version the client needs. Never build or upload an `.ipa`,
+`.aab` or OTA bundle yourself, and never promote a frontend deployment.
+
 ## Hard preconditions — checked before any deploy, at any depth
 
 Two refusals that come before the workflow, not inside it. Both were real

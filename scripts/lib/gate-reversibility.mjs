@@ -54,6 +54,10 @@ const GATE_COST = Object.freeze({
     categories: ['destroys-evidence'],
     why: 'guards migration-import-engineer; the map\'s own comment: an approval level "is not permission to overwrite a client\'s data unattended"',
   },
+  release: {
+    categories: ['escapes-the-machine'],
+    why: 'guards release-manager\'s second run — production promote, store submission, phased-rollout increase, production OTA; a submitted build cannot be called back',
+  },
   product: {
     categories: ['sunk-work'],
     why: 'the WHAT decision — approval-level.mjs put it in the default set for exactly this reason',

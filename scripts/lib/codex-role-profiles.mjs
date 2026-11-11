@@ -24,6 +24,7 @@ export const CODEX_ROLE_PROFILES = Object.freeze({
   'connector-builder': 'Specify read-side connector cursors, deduplication, backfill, ordering, freshness, replay and observability contracts.',
   'media-pipeline-engineer': 'Specify media ingestion, validation, transcoding, derivatives, delivery, retention, authorization and failure-recovery contracts.',
   'geo-routing-engineer': 'Specify geocoding, distance-matrix and route-optimization contracts, constraints, approximation bounds, re-optimization and degraded modes.',
+  'release-manager': 'Prepare the web or mobile client release: clean-tree build from the CI-green commit, artifact-to-commit proof, internal-track distribution, rollback command and retention. Production promote and store submission remain outside the proposal worker and under controller policy.',
   'mobile-app-builder': 'Implement the approved mobile slice with platform conventions, offline behavior, accessibility, privacy and store-readiness tests.',
   'e2e-test-engineer': 'Define and implement deterministic golden-path and failure-path tests that exercise the deployed product boundary and retain diagnosable evidence.',
   'migration-import-engineer': 'Specify and implement dry-run, validation, checkpointing, idempotent re-import, reconciliation and rollback for data migration.',

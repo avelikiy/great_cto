@@ -1,7 +1,7 @@
 import{test}from'node:test';
 import assert from'node:assert/strict';
 import{spawn,spawnSync}from'node:child_process';
-import{loadBrowser}from'../../scripts/lib/layout-snapshot.mjs';
+import{loadBrowser,launchBrowser}from'../../scripts/lib/layout-snapshot.mjs';
 import{createContrastLifetime}from'../helpers/contrast-lifetime.mjs';
 
 test('actual browser abort reaps captured owned processes and leaves unrelated sentinel alive',{timeout:20000},async t=>{
@@ -14,8 +14,8 @@ test('actual browser abort reaps captured owned processes and leaves unrelated s
  t.after(async()=>{try{await life.stop();}finally{for(const child of [board,sentinel])if(child.exitCode===null&&child.signalCode===null)child.kill('SIGKILL');await Promise.all([closed(board),closed(sentinel)]);}});
  await life.ownBoard(board);
  let server;
- try{server=await chromium.launchServer({channel:'chrome',headless:true,timeout:5000});}
- catch(error){if(String(error.message).includes("Executable doesn't exist"))return t.skip('Chrome unavailable; NOT CHECKED');throw Error('native contrast browser launch failed');}
+ try{server=await launchBrowser(chromium,{timeout:5000},'launchServer');}
+ catch(error){if(String(error.message).includes("Executable doesn't exist"))return t.skip('no browser available; NOT CHECKED');throw Error('native contrast browser launch failed');}
  await life.ownBrowser(server);
  const browser=await chromium.connect(server.wsEndpoint(),{timeout:5000});const page=await browser.newPage();await page.setContent('<p>native owned browser fixture</p>');
  const table=()=>{const result=spawnSync('/bin/ps',['-axo','pid=,ppid=,stat=,lstart='],{env,encoding:'utf8',timeout:1000,maxBuffer:1048576});assert.equal(result.status,0);

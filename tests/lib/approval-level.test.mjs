@@ -20,7 +20,8 @@ test('product-only pauses at product and ship — and nowhere technical it can s
   // `import` is present at every level and is not part of what this level chose.
   // See IRREVERSIBLE_FLOOR: a level says how much review you want; it is not a
   // decision about whether a client's data may be overwritten unattended.
-  assert.deepEqual(g, ['product', 'import', 'ship']);
+  // `release` is the same kind of floor: it guards a client release reaching users.
+  assert.deepEqual(g, ['product', 'import', 'ship', 'release']);
   assert.ok(!g.includes('arch') && !g.includes('code') && !g.includes('qa'),
     'nothing technical that the level is entitled to skip');
 });
@@ -72,7 +73,7 @@ test('auto has no gates it is entitled to skip — but cannot skip an irreversib
   // In practice this costs an unattended run nothing unless it actually imports
   // data: `gate:import` is declared on exactly one edge, so a project that never
   // runs migration-import-engineer never meets it.
-  assert.deepEqual(gatesForApprovalLevel('auto', { archetype: 'cli-tool' }), ['import']);
+  assert.deepEqual(gatesForApprovalLevel('auto', { archetype: 'cli-tool' }), ['import', 'release']);
   for (const g of ['product', 'arch', 'plan', 'code', 'qa', 'security', 'ship']) {
     assert.ok(!gatesForApprovalLevel('auto', { archetype: 'cli-tool' }).includes(g), `${g} must stay skippable at auto`);
   }
@@ -82,6 +83,10 @@ test('the irreversible floor cannot be removed by any level', () => {
   for (const level of ['auto', 'product-only', 'gates-only', 'strict', 'expert', 'step-by-step', 'bogus']) {
     assert.ok(gatesForApprovalLevel(level, { archetype: 'cli-tool' }).includes('import'),
       `${level} must still stop before an irreversible import`);
+    // A production promote or a store submission reaches users' devices; a
+    // submitted build cannot be called back. No level trades that away.
+    assert.ok(gatesForApprovalLevel(level, { archetype: 'cli-tool' }).includes('release'),
+      `${level} must still stop before a client release reaches users`);
   }
 });
 
@@ -112,7 +117,9 @@ test('levelFromProjectMd reads the field, and rejects an unknown value', () => {
 test('gates come back in pipeline order, not insertion order', () => {
   const g = gatesForApprovalLevel('expert', { archetype: 'web-service' });
   assert.equal(g[0], 'product', 'product is first — WHAT before HOW');
-  assert.equal(g[g.length - 1], 'ship', 'ship is last');
+  // ship is the last gate a level chooses; the release floor follows it, because
+  // a client release is promoted after it has been staged and tested.
+  assert.deepEqual(g.slice(-2), ['ship', 'release'], 'ship, then the release floor, are last');
 });
 
 test('every advertised level resolves to something', () => {
@@ -148,7 +155,7 @@ test('auto remains the way to ask for nothing this level chose', () => {
   // unavoidable rather than chosen. `import` is not part of that choice — it is
   // present at every level, including this one, for the reason stated at the top
   // of this file.
-  assert.deepEqual(gatesForApprovalLevel('auto').filter((g) => g !== 'import'), []);
+  assert.deepEqual(gatesForApprovalLevel('auto').filter((g) => g !== 'import' && g !== 'release'), []);
 });
 
 // ── ship-only: one gate, and a briefing where the other one was ─────────────
@@ -170,7 +177,7 @@ test('auto remains the way to ask for nothing this level chose', () => {
 // said nothing".
 test('ship-only gates exactly one pipeline decision', () => {
   const g = gatesForApprovalLevel('ship-only');
-  assert.deepEqual(g.filter((x) => x !== 'import'), ['ship'],
+  assert.deepEqual(g.filter((x) => x !== 'import' && x !== 'release'), ['ship'],
     'one pipeline gate — the only stop whose consequence leaves the machine');
 });
 

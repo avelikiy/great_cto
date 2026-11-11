@@ -346,6 +346,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   width: 100%;
   height: 100vh;
   overflow: hidden;
+  /* `hidden` still lets focus and scrollIntoView scroll the box: the closed task
+     panel sits off-canvas to the right, and tabbing into it moved the whole board
+     464px left with no way back. `clip` cannot be scrolled at all. */
+  overflow: clip;
   display: flex;
   background: var(--bg-page);
 }
@@ -359,15 +363,8 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     radial-gradient(ellipse 70% 50% at 100% 100%, rgba(0, 217, 126, 0.03), transparent 70%);
 }
 
-.stale-board {
-  display: flex; align-items: center; gap: 10px;
-  margin: 0 0 12px; padding: 10px 14px;
-  background: rgba(180, 83, 9, 0.10);
-  border: 1px solid var(--status-progress);
-  border-radius: 0;
-  font-size: var(--fs-body); color: var(--text);
-}
-.stale-board code { font-family: var(--mono); font-size: var(--fs-small); }
+.stale-board { color: var(--status-progress); cursor: help; white-space: nowrap; }
+.stale-board:focus-visible { outline: 2px solid var(--focus-ring, var(--accent)); outline-offset: 2px; }
 
 /* Per-agent budget. Four states, and they must not look alike: `exceeded` holds
    a dispatch, `unmeasured` deliberately does not. A shared grey chip for
@@ -963,9 +960,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   z-index: 10;
   display: flex; flex-direction: column;
   transform: translateX(100%);
-  transition: transform 0.2s ease;
+  /* Closed means out of the tab order too: its Close button used to take focus
+     while off-canvas, which is what scrolled the board sideways. */
+  visibility: hidden;
+  transition: transform 0.2s ease, visibility 0s 0.2s;
 }
-.side.open { transform: translateX(0); }
+.side.open { transform: translateX(0); visibility: visible; transition: transform 0.2s ease; }
 /* A document is not a task.
  *
  * 480px is right for a task: a dozen short property rows read fine in a
@@ -1576,10 +1576,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   }
   /* Theme toggle: two stroke icons, the theme picks one. No emoji — an emoji is
      a font the platform chooses, and it was rendering at three sizes on three OSes. */
-  #board-theme-btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
-  #board-theme-btn .ico-sun { display: none; }
-  [data-theme="light"] #board-theme-btn .ico-sun { display: inline; }
-  [data-theme="light"] #board-theme-btn .ico-moon { display: none; }
   /* The board has two text inputs styled in place — `#agent-panel input` and
      `.fleet-search input[type="search"]` — and a third, the Sessions search box,
      that asked for the house look by name and got the user agent's. Same values
@@ -1731,13 +1727,138 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .pl-stage.pl-compact .pl-name { color: var(--text2); }
 .pl-stage.active { flex: 2; }
 /* Idle-focus all-clear card (shown when nothing needs a decision). */
-/* A session stopped on a permission prompt or an unanswered wait — the one piece
-   of session status the operator can act on, so it is styled like a decision. */
-.session-blocked {
-  padding: 6px 10px;
-  margin-bottom: 4px;
-  border-left: 3px solid var(--status-blocked);
-  background: var(--bg-elevated);
+/* ── Home (UX audit 2026-11, approved mockup) ──────────────────────────────
+   One headline, one queue, three tiles, one disclosure. Existing components
+   and tokens only: rows are .inbox-row, chips are .why, buttons are .gate-btn. */
+.home-head { margin-bottom: 4px; }
+.home-queue { background: var(--bg-card); border: 1px solid var(--border); }
+.home-queue .inbox-section-head { padding: 12px 16px 10px; margin: 0; }
+.home-queue .inbox-section-head h3 {
+  font-size: var(--fs-eyebrow); font-weight: 500; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text2);
+}
+.home-queue-order { font-size: var(--fs-eyebrow); letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2); }
+.home-queue .inbox-section-head .inbox-count { margin-left: auto; }
+.home-queue .inbox-row { margin: 0; border-width: 1px 0 0; }
+.home-queue .inbox-row:hover { transform: none; background: var(--bg-muted); }
+.home-row { grid-template-columns: 104px 1fr auto; align-items: center; padding: 14px 16px; }
+.home-row-static { cursor: default; }
+.home-row-static:hover { background: var(--bg-card) !important; }
+/* The title is the row's one keyboard target: a real button, drawn as text. A
+   row that was itself a button could not also hold Unblock (nested controls). */
+.home-title {
+  background: none; border: 0; padding: 0; margin: 0; text-align: left;
+  font: inherit; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.home-title:hover { text-decoration: underline; }
+.home-title:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.home-row .ttl > :first-child { font-weight: 600; }
+.home-chip { justify-self: start; white-space: nowrap; }
+.home-open { pointer-events: none; padding: 0 12px; height: 30px; flex: 0 0 auto; }
+.home-row .actions .gate-btn { flex: 0 0 auto; height: 30px; padding: 0 12px; }
+.home-more, .home-link {
+  background: none; border: 0; padding: 0; margin: 0;
+  font-family: inherit; font-size: var(--fs-small); color: var(--accent-text);
+  cursor: pointer; text-align: left; align-self: flex-start;
+}
+.home-more { display: block; width: 100%; padding: 12px 16px; border-top: 1px solid var(--border); }
+.home-more:hover, .home-link:hover { text-decoration: underline; }
+.home-more:focus-visible, .home-link:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.home-tiles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 20px 0 8px; }
+.home-tile {
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.home-tile h2 { margin: 0; }
+.home-tile-num { font-size: var(--fs-title-m); font-weight: 600; color: var(--text); }
+.home-tile-unit { font-size: var(--fs-small); font-weight: 400; color: var(--text2); }
+.home-tile-sub { font-size: var(--fs-small); color: var(--text2); min-height: 1.4em; }
+.home-warn { color: var(--status-progress); }
+#home-stale { margin: 8px 0 0; }
+.home-latest { color: var(--text2); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-log-link { margin-left: auto; color: var(--accent-text); white-space: nowrap; }
+.proj-status[open] .home-log-link { visibility: hidden; }
+/* The connection line can be long ("connected · task data unavailable"), so the
+   version takes its own line instead of wrapping mid-phrase. */
+.footer-version { flex: 0 0 100%; }
+.sidebar-footer { flex-wrap: wrap; }
+/* Project tags left the sidebar (F1 table): archetype and compliance are
+   configuration, shown in the project chooser and in Settings. */
+.sidebar .sw-meta .sw-arch, .sidebar .sw-meta .sw-ancestry { display: none; }
+/* Settings is the last destination and sits at the bottom, above the footer. */
+#nav-tablist { flex: 1 1 auto; }
+#nav-tablist .nav-item[data-tab="settings"] { margin-top: auto; }
+/* ── Cost (UX audit 2026-11, F4, approved mockup) ─────────────────────────
+   Board tokens and components only; the mockup fixed layout and content. */
+.cost-page { max-width: 1040px; }
+.cost-heading { display: flex; flex-direction: column; gap: 4px; }
+.cost-sub { font-size: var(--fs-small); color: var(--text2); }
+.cost-alert {
+  display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center;
+  gap: 8px 16px; padding: 12px 16px; margin-bottom: 16px;
+  background: var(--bg-card); border: 1px solid var(--status-progress);
+  font-size: var(--fs-body); color: var(--text);
+}
+.cost-alert b { color: var(--status-progress); }
+.cost-totals { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.cost-total {
+  background: var(--bg-card); border: 1px solid var(--border);
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 6px; min-width: 0;
+}
+.cost-total h2 {
+  margin: 0; font-family: var(--mono); font-size: var(--fs-eyebrow); font-weight: 500;
+  letter-spacing: 0.08em; text-transform: uppercase; color: var(--text2);
+}
+.cost-total-num { font-size: var(--fs-num-l); font-weight: 600; color: var(--text); font-variant-numeric: tabular-nums; }
+.cost-total p { margin: 0; font-size: var(--fs-body); line-height: 1.5; color: var(--text2); }
+.cost-facts { margin: 14px 0 20px; font-size: var(--fs-body); color: var(--text2); }
+.cost-agents { background: var(--bg-card); border: 1px solid var(--border); }
+.cost-agents-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 16px; }
+.cost-agents-head h2 { margin: 0; font-size: var(--fs-title-s); font-weight: 600; color: var(--text); }
+.cost-row {
+  display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 1fr) 96px;
+  gap: 12px; align-items: center; padding: 10px 16px; border-top: 1px solid var(--border);
+  font-size: var(--fs-body); color: var(--text);
+}
+.cost-row-head {
+  background: var(--bg-muted); font-family: var(--mono); font-size: var(--fs-eyebrow);
+  letter-spacing: 0.06em; text-transform: uppercase; color: var(--text2);
+}
+.cost-row .num { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.cost-row .act { text-align: right; }
+.cost-agent { font-family: var(--mono); font-size: var(--fs-small); min-width: 0; overflow-wrap: anywhere; }
+.cost-over { color: var(--status-progress); font-weight: 600; }
+.cost-line { display: none; }
+/* Desktop and phone mockups word some lines differently; both sit in the markup. */
+.cost-short { display: none; }
+@media (max-width: 767px) { .cost-long { display: none; } .cost-short { display: inline; } }
+.cost-idle { border-top: 1px solid var(--border); padding: 10px 16px; font-size: var(--fs-body); color: var(--text2); }
+.cost-idle summary { cursor: pointer; min-height: 24px; }
+.cost-idle .budgets-uncapped { margin-top: 10px; }
+.cost-about { margin-top: 16px; font-size: var(--fs-small); color: var(--text2); }
+.cost-about summary { cursor: pointer; color: var(--accent-text); min-height: 24px; }
+.cost-about ul { margin: 8px 0 0; padding-left: 18px; line-height: 1.6; }
+@media (max-width: 767px) {
+  .cost-page .ledger-title-row { flex-direction: column; align-items: stretch; }
+  .cost-page .period-chips { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .cost-page .period-chip { min-height: 44px; }
+  .cost-row { grid-template-columns: minmax(0, 1fr) auto; }
+  .cost-row-head, .cost-row > .cost-col { display: none; }
+  .cost-line { display: block; font-family: var(--sans); font-size: var(--fs-small); color: var(--text2); }
+  .cost-line.cost-over { color: var(--status-progress); }
+  .cost-row .ab-btn, .cost-agents-head .ab-btn { min-height: 44px; }
+}
+@media (max-width: 767px) {
+  .home-tiles { grid-template-columns: 1fr; gap: 0; }
+  .home-tile { border-width: 1px 1px 0; flex-direction: row; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 14px 16px; min-height: 48px; }
+  .home-tile:last-child { border-bottom-width: 1px; }
+  .home-tile h2 { flex: 0 0 100%; }
+  .home-tile .home-link { margin-left: auto; min-height: 44px; }
+  .home-row { grid-template-columns: 1fr; gap: 6px; }
+  .home-row .actions { justify-self: start; width: auto; display: inline-flex; }
+  .home-row .actions .gate-btn { flex: 0 0 auto; }
+  .home-row .actions .gate-btn, .home-open { height: 44px; padding: 0 16px; }
+  .home-more { min-height: 44px; }
 }
 
 .inbox-allclear {
@@ -3310,8 +3431,11 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .topbar .crumbs > span { overflow: hidden; text-overflow: ellipsis; }
   .topbar .crumbs .proj-icon,
   .topbar .crumbs .sep,
-  .topbar .crumbs #crumb-project { display: none; }
-  .topbar .crumbs .here { color: var(--text); font-weight: 600; }
+  .topbar .crumbs .here { display: none; }
+  /* One button is left in the bar, so its name fits and stays on screen. */
+  .topbar .btn-new .btn-label { display: inline; }
+  /* The phone bar names the project; the screen names itself in its heading. */
+  .topbar .crumbs #crumb-project { color: var(--text); font-weight: 600; }
   .topbar-actions { flex-shrink: 0; }
   /* The search box is the one topbar item that can give up its width; ⌘K still
      reaches it, and on a phone there is no ⌘K but there is the Search tab. */
@@ -3483,7 +3607,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         </svg>
       </span>
       <span class="brand-name">greatcto</span>
-      <span id="build-version" title="great_cto build version" style="margin-left:6px;font-size:var(--fs-eyebrow);color:var(--text3);font-family:var(--mono);align-self:center">—</span>
     </div>
     <div class="proj-switch" id="proj-switch" onclick="toggleProjMenu(event)">
       <span class="proj-icon" id="proj-switch-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg></span>
@@ -3571,6 +3694,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
            the footer asserted a sync that had not happened. -->
       <span class="live-dot connecting" id="live-dot"></span>
       <span id="live-label">connecting…</span>
+      <!-- Version and the "newer build installed" notice live here, one line
+           (F16). The notice used to be a full-width banner above every screen. -->
+      <span class="footer-version"><span id="build-version" title="great_cto build version">—</span> <span id="stale-board-slot"></span></span>
     </div>
   </aside>
 
@@ -3595,7 +3721,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <kbd>⌘K</kbd>
       </div>
       <div class="topbar-actions">
-        <span class="task-count" id="topbar-task-count">0 ISSUES</span>
+        <!-- The issue counter is still written by three loaders, so the node stays;
+             it is not shown. A total of every issue ever filed answers none of the
+             questions a screen is opened for (UX audit 2026-11, F12). -->
+        <span class="task-count" id="topbar-task-count" hidden>0 ISSUES</span>
         <!-- Share (topbar button, data-tab="share") and the notification bell
              (#topbar-bell, opened the drawer) are deleted as top-level surfaces
              here — great_cto-ki1x.5. Their panels/functions are untouched for
@@ -3604,14 +3733,12 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 21h14"/></svg>
           <span class="btn-label">Install app</span>
         </button>
-        <button class="btn-bell" id="board-theme-btn" onclick="toggleBoardTheme()" title="Toggle light / dark theme" aria-label="Toggle theme"><svg class="ico-moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13.5 9.5A6 6 0 0 1 6.5 2.5a6 6 0 1 0 7 7z"></path></svg><svg class="ico-sun" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="3"></circle><path d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M3.4 12.6l1-1M11.6 4.4l1-1"></path></svg></button>
-        <button class="btn-bell" id="topbar-settings-btn" data-tab="settings" onclick="switchTab('settings', this)" title="Settings" aria-label="Settings" style="gap:6px;padding:6px 10px;">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span class="btn-label" style="font-size:var(--fs-small);font-weight:500">Settings</span>
-        </button>
-        <button class="btn-new" onclick="openNewIssueModal()" aria-label="New issue" title="New issue">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14 M5 12h14"/></svg>
-          <span class="btn-label">New issue</span>
+        <!-- Theme and Settings left the top bar (F12): the theme switch is a row in
+             Settings, and Settings is a destination in the sidebar. One primary
+             action stays. "New issue" is still in the command palette. -->
+        <button class="btn-new" onclick="openNewTask()" aria-label="New task" title="New task: prepare a launch command">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14 M5 12h14"/></svg>
+          <span class="btn-label">New task</span>
         </button>
       </div>
     </div>
@@ -3638,8 +3765,10 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <!-- Fidelity pass (v3.27.1): the design's header is the screen's name and
              its count; the sentence the board used to shout in 52px display
              type is still said, one line, muted, because it carries the stall. -->
-        <div class="panel-head" style="margin-bottom:6px"><h1 class="page-title" style="margin:0">Decisions <span id="decisions-count" class="muted" style="font-weight:400;font-size:var(--fs-title-s)"></span></h1></div>
-        <div class="inbox-greet" id="inbox-greet">Good morning. Here's what needs your decision.</div>
+        <!-- Home (UX audit 2026-11, approved mockup): one count of what needs the
+             operator, said once. The sidebar badge shows the same number. -->
+        <div class="panel-head home-head"><h1 class="page-title" id="home-headline" style="margin:0">Home</h1></div>
+        <div class="inbox-greet" id="inbox-greet"></div>
         <!-- Top rung of the evidence ladder: are the bytes that were reviewed
              still the bytes in the tree? Hidden while they match — and now only
              used for `differs`, the one reading that needs a decision. The other
@@ -3649,7 +3778,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         <!-- Sessions stopped on the operator: a permission prompt, or idle waiting for
              an answer (Notification hook → .great_cto/status/). The one piece of
              status that IS a decision, so it sits above the status disclosure. -->
-        <div id="inbox-sessions" style="display:none;margin:6px 0 10px;font-size:var(--fs-small)"></div>
+        
         <!-- Everything below is STATUS, and status is not a decision.
 
              Six of the seven blocks on this screen were read-only: a pipeline rail,
@@ -3661,8 +3790,92 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 
              Not deleted. "How is the project" is a real question; it is simply not
              the question this screen is named after. -->
+
+
+        <!-- Project archetype / compliance / phase used to be a full-width mono
+             row here, between the KPI tiles and the pipeline. On a screen whose
+             title is "what needs your decision" it answered no question the page
+             asks: it is configuration, it does not change day to day, and it was
+             one of three stacked strips competing with the two that ARE
+             actionable. Moved onto the sidebar project block, where the archetype
+             was already shown — same information, one place, and the stack of
+             strips on this page goes from three to two.
+             Not deleted: `PROJECT.md` is not in the Docs list, so compliance and
+             phase would have become unreachable. -->
+        <!-- Tool failure rate watchdog warning -->
+        <!-- One queue, not four sections.
+
+             Gates, P0s, blocked and stale were four headed lists, each with its own
+             count, on a screen that shows five to seven rows in total. The headings
+             cost more vertical space than the rows and forced the reader to work out
+             which bucket a thing was in before reading what it was.
+
+             Linear and GitHub both do the opposite: one ranked stream, and the reason
+             an item is there rides ON the row as a chip. The reason is a property of
+             the item, so it survives the item moving between buckets — which is what
+             made an expired gate unrecognisable when it fell out of the gate list.
+
+             Order: gates first (a signature is owed), then oldest first, because the
+             longest-ignored row is the one a triage list is read for. -->
+        <div class="inbox-section home-queue" id="inbox-queue-section">
+          <div class="inbox-section-head">
+            <h3>Needs you</h3>
+            <span class="home-queue-order">· oldest first</span>
+            <span class="inbox-count" id="inbox-queue-count">0</span>
+          </div>
+          <div id="inbox-sessions-rows"></div>
+          <div id="inbox-queue"></div>
+          <button type="button" class="home-more" id="home-more" hidden onclick="toggleHomeQueue()"></button>
+        </div>
+        <!-- Gates that did NOT wait for you. Placed directly under the decisions
+             you still owe, because "what proceeded without me" is the question a
+             tiered gate creates and nothing on this board answered. -->
+        <div class="inbox-section" id="inbox-standdown-section" style="display:none">
+          <div class="inbox-section-head">
+            <span class="dot dot-amber"></span>
+            <h3>Proceeded without you</h3>
+            <span class="inbox-count" id="inbox-standdown-count">0</span>
+          </div>
+          <div id="inbox-standdown"></div>
+        </div>
+        <!-- Idle focus: when nothing needs a decision, the four sections above collapse and this shows instead. -->
+        <div class="inbox-allclear" id="inbox-allclear" style="display:none">
+          <div class="ac-mark">✓</div>
+          <div class="ac-text"><b>All clear.</b> Nothing needs your decision — back to deep work.</div>
+          <div class="ac-actions">
+            <button class="ac-btn ac-primary" onclick="openNewIssueModal()">+ New issue</button>
+            <button class="ac-btn" onclick="switchTab('kanban', document.querySelector('.nav-item[data-tab=&quot;kanban&quot;]'))">View tasks</button>
+          </div>
+        </div>
+
+        <!-- Three answers that used to take two clicks each: are agents working,
+             what did it cost, what shipped. A tile is a number and a link to the
+             screen that owns it; nothing here is a second copy of that screen. -->
+        <div class="home-tiles" id="home-tiles">
+          <section class="home-tile" aria-labelledby="home-tile-agents-h">
+            <h2 class="eyebrow" id="home-tile-agents-h">Agents</h2>
+            <div class="home-tile-num" id="home-agents-num">—</div>
+            <div class="home-tile-sub" id="home-agents-sub"></div>
+            <button type="button" class="home-link" id="home-stale-toggle" aria-expanded="false" aria-controls="home-stale" hidden onclick="toggleHomeStale()">Review stale tasks</button>
+          </section>
+          <section class="home-tile" aria-labelledby="home-tile-cost-h">
+            <h2 class="eyebrow" id="home-tile-cost-h">Cost · 30 days</h2>
+            <div class="home-tile-num" id="home-cost-num">—</div>
+            <div class="home-tile-sub" id="home-cost-sub"></div>
+            <button type="button" class="home-link" onclick="switchTab('insights/ledger')">Open cost</button>
+          </section>
+          <section class="home-tile" aria-labelledby="home-tile-shipped-h">
+            <h2 class="eyebrow" id="home-tile-shipped-h">Shipped · 30 days</h2>
+            <div class="home-tile-num" id="home-shipped-num">—</div>
+            <div class="home-tile-sub" id="home-shipped-sub"></div>
+            <button type="button" class="home-link" onclick="switchTab('work/completed')">See completed work</button>
+          </section>
+        </div>
+        <div id="home-stale" hidden>
+          <div id="home-stale-list"></div>
+        </div>
         <details class="proj-status" id="proj-status">
-          <summary class="proj-status-summary">Project status<span class="proj-status-verdict" id="proj-status-verdict"></span></summary>
+          <summary class="proj-status-summary"><span id="home-latest" class="home-latest"></span><span class="proj-status-verdict" id="proj-status-verdict"></span><span class="home-log-link">Show activity log</span></summary>
           <div class="proj-status-body">
         <!-- Resume — pick up where you left off -->
         <div class="resume-card" id="resume-card" style="display:none">
@@ -3716,61 +3929,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              second opinion did, not what it is set to. -->
           </div>
         </details>
-
-
-        <!-- Project archetype / compliance / phase used to be a full-width mono
-             row here, between the KPI tiles and the pipeline. On a screen whose
-             title is "what needs your decision" it answered no question the page
-             asks: it is configuration, it does not change day to day, and it was
-             one of three stacked strips competing with the two that ARE
-             actionable. Moved onto the sidebar project block, where the archetype
-             was already shown — same information, one place, and the stack of
-             strips on this page goes from three to two.
-             Not deleted: `PROJECT.md` is not in the Docs list, so compliance and
-             phase would have become unreachable. -->
-        <!-- Tool failure rate watchdog warning -->
-        <!-- One queue, not four sections.
-
-             Gates, P0s, blocked and stale were four headed lists, each with its own
-             count, on a screen that shows five to seven rows in total. The headings
-             cost more vertical space than the rows and forced the reader to work out
-             which bucket a thing was in before reading what it was.
-
-             Linear and GitHub both do the opposite: one ranked stream, and the reason
-             an item is there rides ON the row as a chip. The reason is a property of
-             the item, so it survives the item moving between buckets — which is what
-             made an expired gate unrecognisable when it fell out of the gate list.
-
-             Order: gates first (a signature is owed), then oldest first, because the
-             longest-ignored row is the one a triage list is read for. -->
-        <div class="inbox-section" id="inbox-queue-section">
-          <div class="inbox-section-head">
-            <span class="dot dot-purple"></span>
-            <h3>Needs you</h3>
-            <span class="inbox-count" id="inbox-queue-count">0</span>
-          </div>
-          <div id="inbox-queue"></div>
-        </div>
-        <!-- Gates that did NOT wait for you. Placed directly under the decisions
-             you still owe, because "what proceeded without me" is the question a
-             tiered gate creates and nothing on this board answered. -->
-        <div class="inbox-section" id="inbox-standdown-section" style="display:none">
-          <div class="inbox-section-head">
-            <span class="dot dot-amber"></span>
-            <h3>Proceeded without you</h3>
-            <span class="inbox-count" id="inbox-standdown-count">0</span>
-          </div>
-          <div id="inbox-standdown"></div>
-        </div>
-        <!-- Idle focus: when nothing needs a decision, the four sections above collapse and this shows instead. -->
-        <div class="inbox-allclear" id="inbox-allclear" style="display:none">
-          <div class="ac-mark">✓</div>
-          <div class="ac-text"><b>All clear.</b> Nothing needs your decision — back to deep work.</div>
-          <div class="ac-actions">
-            <button class="ac-btn ac-primary" onclick="openNewIssueModal()">+ New issue</button>
-            <button class="ac-btn" onclick="switchTab('kanban', document.querySelector('.nav-item[data-tab=&quot;kanban&quot;]'))">View tasks</button>
-          </div>
-        </div>
 
         <!-- Evidence-ladder footer: the receipt readings that report a condition
              but do not ask for a decision ("could not check", "files added").
@@ -3950,47 +4108,24 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     </div>
 
     <div class="panel" id="panel-budgets" role="tabpanel">
-      <div class="metrics-page">
+      <!-- Cost (UX audit 2026-11, F4; approved Cost mockup, artboards CostDesktop and
+           CostPhone). One screen instead of three tabs: the over-cap alert, the two
+           totals side by side, one line of results, one table by agent with a Cap
+           column. Running now, the stage strip and the stuck list live on Home and
+           Work. Token detail is the old Consumption screen. -->
+      <div class="metrics-page cost-page">
         <div class="ledger-title-row">
-          <h1 class="page-title" style="margin:0">Ledger</h1>
-          <!-- The period governs every figure below it, so it sits where the
-               figures start — beside the name, not under the stuck list. -->
-          <div class="period-toolbar" style="margin:0">
-            <span class="period-label">PERIOD</span>
-            <div class="period-chips" id="period-chips">
-              <button class="period-chip" data-period="1">1D</button>
-              <button class="period-chip" data-period="7">7D</button>
-              <button class="period-chip active" data-period="30">30D</button>
-              <button class="period-chip" data-period="90">90D</button>
-              <button class="period-chip" data-period="365">1Y</button>
-            </div>
+          <div class="cost-heading">
+            <h1 class="page-title" style="margin:0" id="cost-title">Cost · <span class="cost-long">last </span>30 days</h1>
+            <div class="cost-sub" id="cost-sub"></div>
+          </div>
+          <div class="period-chips" id="period-chips" role="group" aria-label="Period">
+            <button type="button" class="period-chip" data-period="7">7 days</button>
+            <button type="button" class="period-chip active" data-period="30">30 days</button>
+            <button type="button" class="period-chip" data-period="90">90 days</button>
           </div>
         </div>
-        <!-- Ledger (great_cto-ki1x.7): the one decision this screen supports is
-             "is something running that I should stop". Two figures, the stage
-             strip and the stuck list answer it; the caps table below is where
-             the money is stopped. -->
         <div id="ledger-head" class="ledger-head"><div class="muted">loading…</div></div>
-        <!-- From the old Metrics tab (great_cto-ki1x.16): the period chips, the caps
-             card and the cost panel keep their ids — the code that fills them did
-             not move, only the screen that shows them. -->
-        <!-- Budgets live HERE, on Metrics, not two clicks deep in the Agents
-             drill-in. A control the operator could not find is a control they do
-             not have — and it was invisible on top of that, hidden whenever a
-             project had declared no caps, which is exactly the project that
-             needs the button to declare one. -->
-        <div class="mp-section-label" style="margin-top:24px">Agent budgets</div>
-        <div id="agent-budgets" class="mp-card" style="padding:12px 16px;font-size:var(--fs-small);margin-bottom:4px;"></div>
-        <!-- The old cost panel (four tiles: 'vs human team', a projected month, a
-             daily burn, an empty chart) left in the fidelity pass — a forecast and a
-             human-team comparison are two of the brief's refusals, and the
-             Ledger head already carries spend with its provenance. -->
-
-        <!-- Whether the judge is connected at all. Without a key nothing breaks
-             — every stage is scored `unverifiable`, honestly — but "not
-             connected" and "nothing to check" read the same from here, and the
-             key is not discoverable: the README names OpenRouter once without
-             saying where it goes. -->
         <div id="budgets-page-body">loading…</div>
       </div>
     </div>
@@ -4333,12 +4468,12 @@ function gateChip(t) {
 }
 function renderInbox(d) {
   inboxSecondOpinion = d?.second_opinion || null;
-  { const c = document.getElementById('decisions-count'); const n = (d?.pending_gates || []).length; if (c) c.textContent = n ? `${n} waiting` : 'nothing waiting'; }
   for (const g of (d?.pending_gates || [])) if (g?.id && g.reversibility) GATE_REVERSIBILITY[g.id] = g.reversibility;
   if (d && Array.isArray(d.pending_gates)) d = { ...d, pending_gates: sortGatesByCostOfUndo(d.pending_gates) };
   // Kept so renderResume can ask what this section is already showing, rather
   // than the two of them rendering the same task independently.
   window.__inboxData = d;
+  window.__homeReadAt = Date.now();
   inboxData = d || {};
   const s = d?.summary || { gates: 0, blocked: 0, p0: 0, stale: 0 };
   // `needs_you` counts distinct objects. Summing the three categories double-counted
@@ -4350,15 +4485,19 @@ function renderInbox(d) {
   // open P0s one project over is the same lie as the headline was. When
   // `elsewhere` is unknown the badge shows what it knows and says so in its
   // title rather than adding a zero it never measured.
-  const here = Number.isFinite(s.needs_you) ? s.needs_you : s.gates + s.p0 + s.blocked;
+  // One number, one definition (UX audit 2026-11, F1). The badge used to add the
+  // P0s and gates of the person's OTHER projects, so it read 51 on a project whose
+  // own headline said "nothing waiting", and 43 on an empty one. It now counts
+  // exactly what the Home headline counts; other projects stay in the tooltip and
+  // in the sentence under the headline, where they are named as other projects.
   const ew = d?.elsewhere;
   const ewKnown = ew && ew.state !== 'unreadable';
   const away = ewKnown ? (Number(ew.p0) || 0) + (Number(ew.gates) || 0) : 0;
+  renderHomeHead();
   const badge = document.getElementById('nav-inbox-count');
-  badge.textContent = here + away;
-  badge.title = ewKnown
-    ? `${here} here · ${away} in other projects`
-    : `${here} here · other projects not read`;
+  if (badge) badge.title = ewKnown
+    ? `${homeNeedsYou().total} here · ${away} in other projects`
+    : `${homeNeedsYou().total} here · other projects not read`;
   // Same rule as the all-clear card: "nothing urgent" is a claim about data we
   // may not have. When a read failed, say that instead of reassuring the user.
   // The headline states the SITUATION, not the time of day.
@@ -4382,32 +4521,9 @@ function renderInbox(d) {
     return (Date.now() - Math.max(...stamps)) / 3600e3;
   })();
 
-  const needs = s.gates + s.p0;
   const STALL_H = 72;               // the same 72h the gate-expiry hook uses
-  const greetEl = document.getElementById('inbox-greet');
-  greetEl.setAttribute('role', 'status');
-  greetEl.setAttribute('aria-live', 'polite');
-
-  if (anyDegraded()) {
-    // A read failed. Reassurance would be a claim about data we do not have.
-    greetEl.textContent = 'Some data could not be read — treat the counts below as incomplete.';
-  } else if (newestEventAgeH != null && newestEventAgeH > STALL_H) {
-    const days = Math.floor(newestEventAgeH / 24);
-    // "Here", because the count above is this project's. What the person has
-    // waiting in other projects is appended — or, when it could not be read,
-    // nothing is claimed about them at all.
-    const ew = elsewhereClause(d?.elsewhere);
-    const tail = ew.text ? ` ${ew.text}` : (ew.known ? ' Nothing elsewhere either.' : '');
-    greetEl.textContent = needs
-      ? `Stalled — nothing has moved in ${days} days, and ${needs} item${needs > 1 ? 's' : ''} ${needs > 1 ? 'are' : 'is'} waiting on you here.${tail}`
-      : `Stalled — nothing has moved in ${days} days, and nothing is waiting on you here.${tail}`;
-  } else if (needs) {
-    greetEl.textContent = "Here's what needs your decision.";
-  } else {
-    greetEl.textContent = newestEventAgeH == null
-      ? 'Nothing recorded yet for this project.'
-      : `All clear — last activity ${relTime(new Date(Date.now() - newestEventAgeH * 3600e3).toISOString())}.`;
-  }
+  window.__homeAgeH = newestEventAgeH;
+  renderHomeHead();
   // The stat-tile row is gone: two of its four boxes read 0 on an ordinary
   // morning, and the two that did not repeated a count the section headings
   // below already carry. The counts still reach the nav badge.
@@ -4463,6 +4579,7 @@ function renderInbox(d) {
   }
   renderDegradedBanner('degraded-read', degradedFor('/api/tasks'),
     'Some project data could not be read — counts below are incomplete.');
+  refreshHomeTiles();
 }
 
 /**
@@ -4545,11 +4662,15 @@ function renderQueue(d) {
     }),
     ...withReason(d?.p0_open, (t) => (t.is_gate ? 'expired gate' : 'P0')),
     ...withReason(d?.blocked, 'blocked'),
-    ...withReason(d?.stale_in_progress, (t) => {
-      const dd = ageD(t);
-      return dd == null ? 'stale' : `stale ${dd}d`;
-    }),
   ];
+  // Stale in-progress work is not a decision. It is one number on the Agents
+  // tile, and the rows open from there (F3) — in the queue they outnumbered the
+  // items that do need the operator and pushed them off the first screen.
+  const stale = withReason(d?.stale_in_progress, (t) => {
+    const dd = ageD(t);
+    return dd == null ? 'stale' : `stale ${dd}d`;
+  }).sort((a, b) => (ageHours(b.updated_at) ?? -1) - (ageHours(a.updated_at) ?? -1));
+  renderInboxList('home-stale-list', stale, null, { reasons: true });
   // The receipt-drift row, when there is one. It is not a task, so it arrives as
   // a synthetic item rather than from any bucket.
   if (window.__receiptDrift) queue.push(window.__receiptDrift);
@@ -4563,17 +4684,27 @@ function renderQueue(d) {
     if (bh == null) return -1;
     return bh - ah;
   });
-  renderInboxList('inbox-queue', queue, 'inbox-queue-count', { reasons: true });
-  // The heading claims what the rows can deliver, and no more. "Needs you" over a
-  // list of things you cannot touch is the same overclaim this screen spent the
-  // day removing — it was simply mine.
-  // "Needs you" means a decision only you can make — a gate to sign. Everything
-  // else is work that continues elsewhere, and saying otherwise is the overclaim
-  // that made six rows promise an action five of them did not have.
-  const decidable = queue.some((t) => t.is_gate);
-  const head = document.querySelector('#inbox-queue-section h3');
-  if (head) head.textContent = queue.length === 0 ? 'Needs you'
-    : (decidable ? 'Needs you' : 'Waiting on work elsewhere');
+  // The first screen shows the oldest few; the rest is one click away. Gates are
+  // never folded: a signature that is owed must not sit behind "Show more".
+  const HOME_ROWS = 4;
+  const sessionRows = homeSessionRowCount();
+  const gates = queue.filter((t) => t.is_gate).length;
+  const room = Math.max(gates, HOME_ROWS - sessionRows);
+  const folded = homeQueueOpen ? 0 : Math.max(0, queue.length - room);
+  renderInboxList('inbox-queue', folded ? queue.slice(0, room) : queue, null, { reasons: true, home: true });
+  const section = document.getElementById('inbox-queue-section');
+  if (section) section.style.display = (queue.length + sessionRows) ? '' : 'none';
+  renderHomeHead();
+  const total = homeNeedsYou().total;
+  const cnt = document.getElementById('inbox-queue-count');
+  if (cnt) cnt.textContent = folded ? `${total - folded} of ${total}` : String(total);
+  const more = document.getElementById('home-more');
+  if (more) {
+    more.hidden = !(folded || (homeQueueOpen && queue.length > room));
+    more.textContent = homeQueueOpen ? 'Show fewer' : `Show ${folded} more`;
+    more.setAttribute('aria-expanded', String(homeQueueOpen));
+  }
+  window.__homeQueueLen = queue.length;
 }
 
 /**
@@ -5044,6 +5175,22 @@ function renderInboxList(rootId, items, countId, opts = {}) {
     const reasonChip = (opts.reasons && t.__reason)
       ? `<span class="why why-${tone}">${esc(t.__reason)}</span>`
       : '';
+    // Home shows a non-gate row as: why it is here and for how long, what it is,
+    // one button. A blocked row keeps Unblock — the one thing the operator can do
+    // about it from here, and the reason this row has a button at all (see the
+    // note on `unblock` above). The id, priority, agent and the rest are in the
+    // task panel the row opens.
+    if (opts.home && !canDecide) {
+      const dd = hrs == null ? null : Math.floor(hrs / 24);
+      const why = String(t.__reason || 'open');
+      const chip = `${why.charAt(0).toUpperCase()}${why.slice(1)}${dd == null || /\d+d$/.test(why) ? '' : dd >= 1 ? ` ${dd}d` : ' today'}`;
+      return `
+      <div class="inbox-row home-row" onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
+        <span class="why why-${tone} home-chip" title="${esc(t.id || '')}${t.updated_at ? ' · last change ' + esc(fmtDate(t.updated_at)) : ''}">${esc(chip)}</span>
+        <span class="ttl"><button type="button" class="home-title" onclick='event.stopPropagation(); openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>${esc(t.title || t.id)}</button>${desc}</span>
+        ${t.__synthetic ? diffBtn : (unblock || '<div class="actions"><span class="gate-btn home-open" aria-hidden="true">Open</span></div>')}
+      </div>`;
+    }
     return `
       <div class="inbox-row${aged ? ' row-aged' : ''}"${canDecide ? ` data-gate-id="${esc(t.id)}"` : ''} tabindex="0" role="button" aria-label="${esc(t.title || t.id)}" onkeydown='if(event.key==="Enter"||event.key===" "){event.preventDefault();this.click();}' onclick='openSide(${JSON.stringify(t).replace(/'/g, "&apos;")})'>
         ${canDecide ? gateChip(t) : `<span class="id">${esc(t.id || '')}</span>`}
@@ -5055,24 +5202,188 @@ function renderInboxList(rootId, items, countId, opts = {}) {
   reattachGateBriefs(root);
 }
 
+// ── Home (UX audit 2026-11) ────────────────────────────────────────────────
+// What "needs you" means, in one place. The headline, the sidebar badge, the
+// queue count and the sentence under the headline all read this function, so
+// they cannot disagree again: the audit found 51, 18, 8 and "nothing waiting"
+// on one project within ten minutes, each from its own arithmetic.
+//
+//   gates    a signature is owed
+//   p0       open P0s
+//   blocked  tasks that will not move until somebody unblocks them
+//   replies  sessions stopped on the operator (a prompt, or a finished turn)
+//
+// `tasks` is the server's own distinct count (`summary.needs_you`): a P0 that is
+// also blocked is one item. Stale in-progress work is NOT in it — nothing is
+// asked of the operator there; it is the Agents tile's number.
+let homeQueueOpen = false;
+function homeNeedsYou() {
+  const d = window.__inboxData || {};
+  const s = d.summary || {};
+  const gates = (d.pending_gates || []).length;
+  const p0 = (d.p0_open || []).length;
+  const blocked = (d.blocked || []).length;
+  const tasks = Number.isFinite(s.needs_you) ? s.needs_you : gates + p0 + blocked;
+  const ss = window.__sessionStatus || { blocked: [], waiting: 0 };
+  const replies = ss.blocked.length + ss.waiting;
+  // Reviewed files changed after an approval: not a task, still a decision.
+  const drift = window.__receiptDrift ? 1 : 0;
+  return { gates, p0, blocked, tasks, replies, drift, total: tasks + replies + drift, read: !!window.__inboxData };
+}
+function homeSessionRowCount() {
+  const ss = window.__sessionStatus || { blocked: [], waiting: 0 };
+  return ss.blocked.length + (ss.waiting ? 1 : 0);
+}
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+function renderHomeHead() {
+  const n = homeNeedsYou();
+  const badge = document.getElementById('nav-inbox-count');
+  if (badge) badge.textContent = n.total;
+  const h = document.getElementById('home-headline');
+  const sub = document.getElementById('inbox-greet');
+  if (!h || !sub) return;
+  sub.setAttribute('role', 'status');
+  sub.setAttribute('aria-live', 'polite');
+  if (!n.read) { h.textContent = 'Home'; sub.textContent = 'Reading project data…'; return; }
+  if (anyDegraded()) {
+    // A read failed. "Nothing needs you" would be a claim about data we do not
+    // have, so the headline says only what was counted, as a floor.
+    h.textContent = n.total ? `At least ${plural(n.total, 'item needs', 'items need')} you` : 'Home';
+    sub.textContent = 'Some data could not be read — treat the counts below as incomplete.';
+    return;
+  }
+  h.textContent = n.total ? `${plural(n.total, 'item needs', 'items need')} you` : 'Nothing needs you here';
+  let parts = [];
+  if (n.replies) parts.push(`${plural(n.replies, 'session waits', 'sessions wait')} for your reply`);
+  if (n.blocked) parts.push(`${plural(n.blocked, 'task is', 'tasks are')} blocked`);
+  if (n.p0) parts.push(`${n.p0} P0 open`);
+  parts.push(n.gates ? `${plural(n.gates, 'gate', 'gates')} waiting` : 'no gates waiting');
+  if (n.drift) parts.push('reviewed files changed after approval');
+  // Silence is a reading: a project where nothing has moved for days says so
+  // here instead of reading as calm.
+  const ageH = window.__homeAgeH;
+  if (!n.total && ageH == null) parts = ['Nothing recorded yet for this project'];
+  else if (ageH != null && ageH > 72) parts.push(`nothing has moved in ${Math.floor(ageH / 24)} days`);
+  // Scoped to "here", and the person's other projects are consulted every time:
+  // "nothing needs you" beside open P0s one project over is the claim this page
+  // already had to stop making once (tests/lib/hero-wording.test.mjs).
+  const ew = elsewhereClause((window.__inboxData || {}).elsewhere);
+  if (ew.text) parts.push(String(ew.text).replace(/\.$/, ''));
+  if (window.__homeReadAt) {
+    const min = Math.floor((Date.now() - window.__homeReadAt) / 60000);
+    parts.push(min < 1 ? 'updated just now' : `updated ${min} min ago`);
+  }
+  sub.textContent = parts.join(' · ');
+}
+function toggleHomeQueue() {
+  homeQueueOpen = !homeQueueOpen;
+  renderQueue(window.__inboxData);
+}
+function toggleHomeStale() {
+  const box = document.getElementById('home-stale');
+  const btn = document.getElementById('home-stale-toggle');
+  if (!box || !btn) return;
+  box.hidden = !box.hidden;
+  btn.setAttribute('aria-expanded', String(!box.hidden));
+  btn.textContent = box.hidden ? 'Review stale tasks' : 'Hide stale tasks';
+}
+// "New task" prepares a launch command; it does not create a Beads issue (that
+// is "New issue", in the command palette) and does not start a session.
+function openNewTask() {
+  switchTab('work');
+  const d = document.querySelector('details.admin-compose');
+  if (d) d.open = true;
+  setTimeout(() => document.getElementById('work-goal')?.focus(), 0);
+}
+// Running, from ONE source: the task projection Work is drawn from. The Ledger
+// tile used to count pipeline stages whose last verdict was not final, which
+// read "6 running" for stages last heard from weeks ago, beside "Running 0" on
+// Work (F3). `null` means the projection has not been read — not zero.
+function homeRunningNow() {
+  const snap = window.GctoWork?.getSnapshot?.();
+  if (!snap || !Array.isArray(snap.entries)) return null;
+  return snap.entries.filter((e) => !e.terminal && ['working', 'publishing'].includes(e.phase)).length;
+}
+async function refreshHomeTiles() {
+  const set = (id, html) => { const el = document.getElementById(id); if (el) el.innerHTML = html; };
+  const d = window.__inboxData || {};
+  // Agents
+  const running = homeRunningNow();
+  const stale = (d.stale_in_progress || []).length;
+  set('home-agents-num', running == null ? absent('unloaded', 'the task projection has not been read') : `${running} running now`);
+  // The task projection loads on its own schedule; look again rather than leave
+  // "not read" on screen after it has been read.
+  if (running == null && (refreshHomeTiles.tries = (refreshHomeTiles.tries || 0) + 1) <= 10) setTimeout(refreshHomeTiles, 1500);
+  else if (running != null) refreshHomeTiles.tries = 0;
+  set('home-agents-sub', stale
+    ? `${plural(stale, 'in-progress task has', 'in-progress tasks have')} not moved for 2+ days`
+    : (window.__inboxData ? 'No stale in-progress tasks' : ''));
+  const st = document.getElementById('home-stale-toggle');
+  if (st) st.hidden = !stale;
+  if (!stale) { const box = document.getElementById('home-stale'); if (box) box.hidden = true; }
+  // Cost and Shipped share the Ledger's own reads, pinned to 30 days.
+  // Every inbox arrival lands here (init, refresh, SSE); the 30-day reads are
+  // not repeated more than twice a minute for the same project.
+  const project = currentProject;
+  if (!project) return;
+  let last = refreshHomeTiles.last || {};
+  if (!(last.project === project && Date.now() - last.at < 30000)) {
+    const q = `${pqs()}${pqs() ? '&' : '?'}days=30`;
+    last = refreshHomeTiles.last = { project, at: Date.now(), m: null, cost: null };
+    [last.m, last.cost] = await Promise.all([
+      api(`/api/metrics${q}`).catch(() => null),
+      api(`/api/cost${q}`).catch(() => null),
+    ]);
+  }
+  if (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length) {
+    await Promise.resolve(refreshAgentsInstalled()).catch(() => null);
+  }
+  const m = last.m, cost = last.cost;
+  if (project !== currentProject) return;
+  const real = m?.cost?.real_llm_usd ?? null, est = m?.cost?.llm_usd ?? null;
+  const spent = real != null ? real : est;
+  set('home-cost-num', !m || !m.cost ? absent('unloaded', 'the metrics payload carried no cost section')
+    : (spent == null || (real === 0 && est === 0)) ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
+    : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)} <span class="home-tile-unit">${real != null ? 'measured' : 'estimated'}</span>`);
+  const over = (fleetState?.agents || []).filter((a) => a.budget && a.budget.state === 'exceeded');
+  const cap = cost?.monthly_budget;
+  set('home-cost-sub', over.length
+    ? `<span class="home-warn">${esc(over[0].slug || over[0].name || 'an agent')}${over.length > 1 ? ` and ${over.length - 1} more` : ''} ${over.length > 1 ? 'are' : 'is'} over ${over.length > 1 ? 'their caps' : 'its cap'}</span>`
+    : cap ? `of $${fmtMoney(cap)} monthly cap` : 'No monthly cap set');
+  const done = m?.tasks ? ((m.tasks.done_in_window || m.tasks.done) ?? 0) : null;
+  set('home-shipped-num', done == null ? absent('unloaded', 'the metrics payload carried no tasks section') : `${plural(done, 'task', 'tasks')} done`);
+  set('home-shipped-sub', m?.avg_completion_min ? `Median ${m.avg_completion_min} min from start to done` : '');
+}
+
 // Sessions waiting on a person (scripts/lib/session-status.mjs). `blocked` is a
 // prompt or an unanswered wait and gets a row; `waiting` (turn ended) is what every
-// open session is between turns, so it is one muted count, not a row each.
+// open session is between turns, so it is one row for all of them, not a row each.
+// Both are counted in the Home headline: they are the items most plainly waiting
+// on the operator, and they used to be a muted sentence above the queue.
 async function refreshSessionStatus() {
-  const el = document.getElementById('inbox-sessions');
+  const el = document.getElementById('inbox-sessions-rows');
   if (!el) return;
+  const project = currentProject;
   const r = await api(`/api/session-status${pqs()}`);
+  if (project !== currentProject) return;
   const rows = (r && Array.isArray(r.sessions)) ? r.sessions : [];
   const blocked = rows.filter((x) => x.state === 'blocked');
   const waiting = rows.filter((x) => x.state === 'waiting').length;
-  if (!blocked.length && !waiting) { el.style.display = 'none'; el.innerHTML = ''; return; }
-  el.style.display = '';
-  el.innerHTML = blocked.map((x) => `<div class="session-blocked">
-      <strong>⏸ session ${esc(String(x.session).slice(0, 8))} waits for you</strong>
-      <span class="muted">· ${esc(agoStr(x.since))}${x.kind ? ` · ${esc(x.kind)}` : ''}</span><br>
-      <span>${esc(x.reason || 'waiting for input')}</span>
+  window.__sessionStatus = { blocked, waiting };
+  el.innerHTML = blocked.map((x) => `<div class="inbox-row home-row home-row-static">
+      <span class="why why-gate home-chip">Reply</span>
+      <span class="ttl"><span>Session ${esc(String(x.session).slice(0, 8))} waits for you</span>
+        <span class="ttl-desc">${esc(x.reason || 'waiting for input')} · ${esc(agoStr(x.since))}${x.kind ? ` · ${esc(x.kind)}` : ''}</span></span>
+      <div class="actions"></div>
     </div>`).join('')
-    + (waiting ? `<div class="muted" title="these sessions finished their turn; the next message is yours">${waiting} session${waiting === 1 ? '' : 's'} finished a turn and wait for your next message</div>` : '');
+    + (waiting ? `<div class="inbox-row home-row home-row-static">
+      <span class="why why-gate home-chip">Reply</span>
+      <span class="ttl"><span>${plural(waiting, 'session', 'sessions')} finished a turn and ${waiting === 1 ? 'waits' : 'wait'} for your next message</span>
+        <span class="ttl-desc">The agent stopped and will not continue until you answer in that session.</span></span>
+      <div class="actions"><button type="button" class="gate-btn gate-approve" onclick="switchTab('sessions')">Open sessions</button></div>
+    </div>` : '');
+  renderHomeHead();
+  if (window.__inboxData) renderQueue(window.__inboxData);
 }
 
 async function refreshInbox() {
@@ -5413,89 +5724,98 @@ async function verifyJudgeKey() {
   loadJudgeStatus();
 }
 
-// Ledger head (great_cto-ki1x.7). Every figure names its state: spend is
-// `measured` only when a verdict carried a cost, otherwise `estimated` and
-// labelled so; a cap that is not set says "no cap", never $0; a stage is a
-// filled dot when done, hollow when active, red when failed, bare when idle;
-// a stuck task with no readable age is counted and shown as `?`, never dropped.
-function renderLedgerHead({ heartbeat, pipeline, cost, metrics }) {
+// Cost head (UX audit 2026-11, F4; replaces the Ledger head). Every figure
+// names its state: spend is `measured` only when a verdict carried a cost,
+// otherwise `estimated` and labelled so; list price is n/a when no price is
+// set, never $0. Running now, the stage strip and the stuck list moved to Home
+// and Work — this screen answers "what did it cost".
+function costOverCap() {
+  const agents = (fleetState?.agents || []).filter((a) => a.budget?.state === 'exceeded');
+  return agents.map((a) => ({ slug: a.slug, spent: a.budget.measuredUsd ?? 0, cap: a.budget.limitUsd }));
+}
+function costRange(days) {
+  const end = new Date(), start = new Date(end.getTime() - (days - 1) * 86400000);
+  const f = (d) => d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  return `${f(start)} – ${f(end)}`;
+}
+function renderLedgerHead({ cost, metrics, usage, over }) {
+  if (!over) over = costOverCap();
   const el = document.getElementById('ledger-head');
   if (!el) return;
-  // Spend, three states, and $0.00 is only one of them (carried over from the
-  // Metrics tab this replaced): a measured figure; a time-based ESTIMATE that
-  // says so; and a zero that is the estimate with nothing to estimate from,
-  // which is not a figure at all.
+  const title = document.getElementById('cost-title');
+  if (title) title.innerHTML = `Cost · <span class="cost-long">last </span>${esc(periodLabel(currentPeriod))}`;
+  const sub = document.getElementById('cost-sub');
+  if (sub) sub.textContent = `${costRange(currentPeriod)} · updated just now`;
   const costKnown = !!(metrics && metrics.cost);
   const realLlmUsd = metrics?.cost?.real_llm_usd ?? null;
   const llmUsd = metrics?.cost?.llm_usd ?? null;
   const spent = realLlmUsd != null ? realLlmUsd : llmUsd;
   const spentState = realLlmUsd != null ? 'measured' : (llmUsd != null ? 'estimated' : 'unmeasured');
-  const cap = cost?.monthly_budget;
-  const pct = (spent != null && cap) ? Math.min(100, Math.round(spent / cap * 100)) : null;
   const spentCell = !costKnown
     ? absent('unloaded', 'the metrics payload carried no cost section')
     : (realLlmUsd === 0 && llmUsd === 0) || spent == null
       ? absent('uncomputable', 'no verdict carries a cost and there is nothing to estimate from')
       : `$${spent < 10 ? spent.toFixed(2) : fmtMoney(spent)}`;
-  // Tasks done: a zero is a count; only a payload with no tasks section is an absence.
+
+  // One alert: agents over their cap, and the project's monthly cap if passed.
+  // `over` is read once per load: the fleet is re-read in the background and a
+  // redraw mid-reload must not drop the alert.
+  const cap = cost?.monthly_budget;
+  const monthlyOver = !!(cap && spent != null && spent > cap);
+  let alert = '';
+  if (over.length === 1) {
+    const o = over[0];
+    alert = `<b>${esc(o.slug)} is over its cap:</b> $${o.spent.toFixed(2)} spent of $${esc(String(o.cap))}`;
+  } else if (over.length > 1) {
+    alert = `<b>${over.length} agents are over their caps:</b> ${over.map((o) => esc(o.slug)).join(', ')}`;
+  }
+  if (monthlyOver) alert += `${alert ? '<br>' : ''}<b>The project is over its monthly cap:</b> $${fmtMoney(spent)} of $${fmtMoney(cap)}`;
+  const alertAction = over.length === 1
+    ? `<button type="button" class="home-link" onclick="editAgentBudget('${esc(over[0].slug)}', ${Number(over[0].cap)})">Change cap</button>` : '';
+
+  // List price: Claude Code tokens priced at the API's list price. Codex has none.
+  let listCell, listNote = '';
+  if (!usage) listCell = absent('unloaded', 'session statistics have not been read yet');
+  else if (usage.state === 'computing') listCell = '<span class="muted">counting…</span>';
+  else if (usage.error || usage.state !== 'counted') listCell = absent('unloaded', usage.why || usage.error || 'session statistics are unavailable');
+  else if (!usage.seen?.claude) listCell = absent('none', 'no Claude Code session logs are attributed to this project');
+  else if (usage.hosts?.claude?.usd == null) listCell = absent('uncomputable', 'no price is set for these models — add one to ~/.great_cto/model-prices.json');
+  else {
+    listCell = esc(fmtUsdEq(usage.hosts.claude.usd));
+    if (usage.hosts.claude.unpricedResponses) listNote = ` ${usage.hosts.claude.unpricedResponses} responses from unpriced models are not in it.`;
+  }
+
+  // One line of results. Each part keeps its three-way distinction: a zero is a
+  // count, an absence names its kind. Omitted only when the metrics never loaded.
+  const acc = metrics?.acceptance || {};
   const doneKnown = !!(metrics && metrics.tasks);
   const done = (metrics?.tasks?.done_in_window || metrics?.tasks?.done) ?? 0;
-  const acc = metrics?.acceptance || {};
   const avgMin = metrics?.avg_completion_min;
-  // The same tiles the Metrics tab drew, as facts on one line. Each keeps its
-  // three-way distinction: a zero is a count, an absence names its kind.
-  const facts = [
-    { label: 'Done', v: doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section'), sub: 'in window' },
+  const facts = metrics ? [
+    `${doneKnown ? done : absent('unloaded', 'the metrics payload carried no tasks section')} tasks done`,
     // A dash here means "could not be computed", not "took no time".
-    { label: 'Cycle', v: avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure'), sub: avgMin ? 'min median' : '' },
-    { label: 'Cost', v: acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window'), sub: acc.cost_per_accepted != null ? '/ accepted' : '' },
-  ];
-  // Fleet 30d spend from verdicts — measured for some agents, or not at all.
-  const s = fleetState?.summary || null;
-  const fleetSpend = s == null ? absent('unloaded', 'the fleet summary has not been read')
-    : s.llm_usd_30d != null ? `$${s.llm_usd_30d.toFixed(2)} <span class="muted">measured for ${s.llm_usd_30d_measured_for} agent(s)</span>`
-    : absent('uncomputable', `no verdict carries a cost — ${s.llm_usd_30d_agents_with_runs ?? 0} agent(s) ran in this window`);
-  facts.push({ label: 'Fleet 30d', v: fleetSpend, sub: '' });
-  const capCell = cap ? `of $${fmtMoney(cap)}${pct != null ? ` · ${pct}%` : ''}` : `<span class="abs" title="no monthly cap in PROJECT.md — spend is not being stopped">no cap</span>`;
-  const stages = Array.isArray(pipeline) ? pipeline : [];
-  const running = stages.filter((st) => st.status === 'active');
-  const dotFor = (st) => st.status === 'done' ? 'dot ok' : st.status === 'active' ? 'dot run' : st.status === 'failed' ? 'dot bad' : 'dot';
-  const strip = stages.length
-    ? stages.map((st, i) => `${i ? '<span class="muted">→</span>' : ''}<span class="ledger-stage${st.status === 'idle' ? ' muted' : ''}" title="${esc(st.stage)} · ${esc(st.status)}${st.verdict ? ' · ' + esc(st.verdict) : ''}${st.ts ? ' · ' + esc(fmtDT(st.ts)) : ''}"><span class="${dotFor(st)}"${st.status === 'idle' ? ' style="background:var(--bg-strong)"' : ''}></span>${esc(st.stage)}</span>`).join('')
-    : `<span class="abs" title="/api/pipeline returned nothing — stage state unknown, not idle">· pipeline state unloaded</span>`;
-  const stuck = Array.isArray(heartbeat?.stuck) ? heartbeat.stuck : [];
-  const unmeasurable = Number(heartbeat?.stuck_unmeasurable) || 0;
-  const stuckRows = stuck.slice(0, 5).map((t) => `
-    <div class="ledger-stuck-row">
-      <span class="mono">${esc(t.id || '')}</span>
-      <span class="ttl-desc">${esc(t.title || '')}</span>
-      <span class="mono tab" style="color:var(--status-progress)" title="${t.since ? esc(fmtDate(t.since)) : 'no timestamp'}">${t.age_h != null ? Math.round(t.age_h) + 'h' : '<span class="abs" title="updated_at unreadable — counted, age unknown">?</span>'}</span>
-    </div>`).join('');
+    `median ${avgMin ? `${avgMin}` : absent('uncomputable', 'no completion in this window carried a timestamp to measure')} min<span class="cost-long"> from start to done</span>`,
+    `${acc.cost_per_accepted != null ? `$${Number(acc.cost_per_accepted).toFixed(2)}` : absent('none', 'nothing was accepted in this window')} per accepted task`,
+  ] : [];
+
   el.innerHTML = `
-    <div class="ledger-kpis">
-      <div class="metric-card">
-        <div class="metric-num">${spentCell}</div>
-        <div class="metric-label">Spent · ${esc(spentState)}</div>
-        <div class="metric-trend">${capCell}</div>
-        ${pct != null ? `<div class="bar" style="margin-top:8px"><i style="width:${pct}%${pct >= 100 ? ';background:var(--status-blocked)' : ''}"></i></div>` : ''}
-      </div>
-      <div class="metric-card">
-        <div class="metric-num"><span class="dot run" style="width:12px;height:12px;vertical-align:middle;margin-right:8px"></span>${Array.isArray(pipeline) ? running.length : absent('unloaded', 'pipeline state not read')}</div>
-        <div class="metric-label">Running now</div>
-        <div class="metric-trend">${running.length ? esc(running.map((st) => st.stage).join(' · ')) : (Array.isArray(pipeline) ? 'nothing active' : '')}</div>
-      </div>
+    ${alert ? `<div class="cost-alert" role="alert"><div>${alert}</div>${alertAction}</div>` : ''}
+    <div class="cost-totals">
+      <section class="cost-total">
+        <h2>${spentState === 'estimated' ? 'Estimated spend' : 'Measured spend'}</h2>
+        <div class="cost-total-num">${spentCell}</div>
+        <p>${spentState === 'estimated'
+          ? 'No run recorded a cost, so this is estimated from run time. Caps fire only on measured spend.'
+          : 'What agent runs recorded as spent. <span class="cost-long">This is the number the caps are checked against.</span><span class="cost-short">Caps are checked against it.</span>'}</p>
+      </section>
+      <section class="cost-total">
+        <h2>At API list price</h2>
+        <div class="cost-total-num">${listCell}</div>
+        <p>Claude Code tokens<span class="cost-long"> in this project,</span> priced as if bought from the API. On a subscription this is not a charge.<span class="cost-long"> Codex has no list price.</span>${esc(listNote)}</p>
+        <button type="button" class="home-link" onclick="switchTab('insights/consumption')">Token detail</button>
+      </section>
     </div>
-    <div class="ledger-facts">
-      ${facts.map((f) => `<span><span class="eyebrow">${esc(f.label)}</span> <span class="mono">${f.v}</span>${f.sub ? ` <span class="muted cap">${esc(f.sub)}</span>` : ''}</span>`).join('')}
-    </div>
-    <div class="ledger-strip">${strip}</div>
-    <div class="ledger-stuck">
-      <div class="ledger-stuck-head">
-        <span class="eyebrow">Stuck · in progress over the line</span>
-        <span class="mono cap" style="color:var(--status-progress)">${stuck.length}${unmeasurable ? ` <span class="abs" title="${unmeasurable} in-progress task(s) with no readable age — counted, not dropped">+${unmeasurable}?</span>` : ''}</span>
-      </div>
-      ${stuckRows || `<div class="muted cap">${Array.isArray(heartbeat?.stuck) ? 'nothing over the line' : '<span class="abs" title="heartbeat not read">· stuck state unloaded</span>'}</div>`}
-    </div>`;
+    ${facts.length ? `<div class="cost-facts">${facts.join(' · ')}</div>` : ''}`;
 }
 
 // Settings (great_cto-ki1x.11). A row is a fact and the file that holds it;
@@ -5578,32 +5898,33 @@ async function registerProjectFromSettings() {
   } catch (e) { showToast(`Not registered: ${String(e.message || e)}`, 'error', 3000); }
 }
 
+let _costUsageTimer = null, _costRequest = 0;
 async function loadBudgetsPage() {
   loadJudgeStatus();
   loadJudgeScores();
   const body = document.getElementById('budgets-page-body');
   if (!body) return;
   body.innerHTML = '<div class="muted">loading…</div>';
+  if (![7, 30, 90].includes(currentPeriod)) {
+    // The chips offer 7, 30 and 90 days; an older stored 1D or 1Y reads as 30.
+    currentPeriod = 30;
+    document.querySelectorAll('.period-chip').forEach((c) => c.classList.toggle('active', parseInt(c.dataset.period, 10) === 30));
+  }
+  document.querySelectorAll('.period-chip').forEach((c) => c.setAttribute('aria-pressed', String(c.classList.contains('active'))));
+  const request = ++_costRequest;
+  clearTimeout(_costUsageTimer);
 
-  // Three states, not two: loading | loaded | failed.
-  //
-  // Without this catch the two reads below were awaited bare, so a rejection
-  // returned from the function and left `loading…` on screen permanently. Caught
-  // once in the wild: opening Budgets during startup raced the agent list, the
-  // promise rejected, and the page sat there looking busy. A page that failed
-  // and a page still working are the same picture, and the one you are looking
-  // at is the one where nothing more is coming.
-  let h, pipe = null, cost = null, m = null;
+  // Three states, not two: loading | loaded | failed. A page that failed and a
+  // page still working must not look the same.
+  let h, cost = null, m = null;
   try {
-    [h, pipe, cost, m] = await Promise.all([
+    [h, cost, m] = await Promise.all([
       api(`/api/heartbeat${pqs()}`),
-      api(`/api/pipeline${pqs()}`).catch(() => null),
       api(`/api/cost${pqsd()}`).catch(() => null),
       api(`/api/metrics${pqsd()}`).catch(() => null),
       (typeof refreshAgentsInstalled === 'function' && !(fleetState?.agents || []).length)
         ? refreshAgentsInstalled() : Promise.resolve(),
     ]);
-    renderLedgerHead({ heartbeat: h, pipeline: pipe, cost, metrics: m });
   } catch (err) {
     body.innerHTML = `
       <div class="budgets-failed">
@@ -5615,114 +5936,103 @@ async function loadBudgetsPage() {
       </div>`;
     return;
   }
+  if (request !== _costRequest) return;
+  const over = costOverCap();
+  renderLedgerHead({ cost, metrics: m, usage: null, over });
+  // The list-price total comes from the session logs, which can take a while to
+  // count; it fills in when ready and never holds the rest of the screen.
+  const period = currentPeriod;
+  const readUsage = async (tries) => {
+    const u = await api(`/api/usage?days=${period}${pqs().replace('?', '&')}`).catch(() => null);
+    if (request !== _costRequest || currentTab !== 'budgets') return;
+    renderLedgerHead({ cost, metrics: m, usage: u || { error: 'the board is not reachable' }, over });
+    if (u && (u.state === 'computing' || u.refreshing) && tries < 30) _costUsageTimer = setTimeout(() => readUsage(tries + 1), 2000);
+  };
+  readUsage(0);
+
   const caps = h?.budgets || {};
   const agents = (fleetState?.agents || []).filter((a) => !a.retired);
-
-  // 69 identical chips in one blob answered none of the three questions a person
-  // arrives with: what does this agent do, what does it usually cost, and over
-  // what period. Worse, 62 of the 69 had not run in thirty days — a cap on an
-  // agent that never runs is a cap on nothing, and they were the bulk of the
-  // wall.
-  //
-  // Ordered by what it costs to leave uncapped: agents that ran, most spend
-  // first. The ones that never ran are still reachable, behind a count.
-  const spendOf = (a) => (a.llm_usd_30d_real ?? a.llm_usd_30d_est ?? 0);
-  const ran = agents.filter((a) => (a.runs_30d || 0) > 0)
-    .sort((x, y) => spendOf(y) - spendOf(x) || (y.runs_30d || 0) - (x.runs_30d || 0));
-  const idle = agents.filter((a) => !(a.runs_30d > 0));
-
+  const bySlug = new Map((fleetState?.agents || []).map((a) => [a.slug, a]));
+  const ranUncapped = agents.filter((a) => (a.runs_30d || 0) > 0 && !(a.slug in caps));
+  const idle = agents.filter((a) => !(a.runs_30d > 0) && !(a.slug in caps));
   const firstSentence = (t) => {
     const s1 = String(t || '').split(/(?<=[.!?])\s/)[0] || '';
     return s1.length > 150 ? s1.slice(0, 147) + '…' : s1;
   };
 
-  // Spend is stated with its window and its provenance. `est` is a time-based
-  // guess and says so; a real figure only exists where a verdict carried a cost.
-  const spendCell = (a) => {
-    if (a.llm_usd_30d_real != null && a.llm_usd_30d_real > 0) {
-      return `<span class="bt-usd">$${a.llm_usd_30d_real.toFixed(2)}</span> <span class="muted">measured</span>`;
-    }
-    if (a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0) {
-      return `<span class="bt-usd">$${a.llm_usd_30d_est.toFixed(2)}</span> <span class="muted">estimated</span>`;
-    }
-    return '<span class="muted">not measured</span>';
-  };
-
-  const stateCell = (slug) => {
-    const b = (fleetState?.agents || []).find((a) => a.slug === slug)?.budget;
-    if (!b || b.state === 'no-limit') return '';
-    const spent = (b.state === 'within' || b.state === 'exceeded')
-      ? `$${(b.measuredUsd ?? 0).toFixed(2)} measured` : (b.state === 'unmeasured' ? 'nothing measured yet' : '');
-    return `${budgetChip(b)} <span class="ab-spent">${esc(spent)}</span>`;
-  };
-
-  const row = (a, cap) => `
-    <tr>
-      <td class="bt-agent">
-        <div class="bt-slug">${esc(a.slug)}</div>
-        <div class="bt-desc">${esc(firstSentence(a.description))}</div>
-      </td>
-      <td class="bt-runs">${a.runs_30d || 0}</td>
-      <td class="bt-spend">${spendCell(a)}</td>
-      <td class="bt-cap">${cap != null ? `$${esc(String(cap))}` : '<span class="muted">—</span>'}</td>
-      <td class="bt-state">${cap != null ? stateCell(a.slug) : ''}</td>
-      <td class="bt-actions">${cap != null
-        ? `<button type="button" class="ab-btn" onclick="editAgentBudget('${esc(a.slug)}', ${Number(cap)})">Change</button>`
-          + `<button type="button" class="ab-btn ab-rm" onclick="clearAgentBudget('${esc(a.slug)}', ${Number(cap)})">Remove</button>`
-        : `<button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')">Set a cap</button>`}</td>
-    </tr>`;
-
-  const table = (rows) => `
-    <table class="budgets-table">
-      <thead><tr>
-        <th scope="col">Agent</th>
-        <th scope="col" title="Dispatches in the last 30 days">Runs 30d</th>
-        <th scope="col" title="LLM spend over the same 30 days">Spend 30d</th>
-        <th scope="col">Cap</th><th scope="col">State</th><th scope="col"></th>
-      </tr></thead>
-      <tbody>${rows}</tbody>
-    </table>`;
-
-  // A cap declared for an agent the fleet does not list still has to appear —
-  // otherwise a limit that is holding a stage would be invisible here.
-  const known = new Set(agents.map((a) => a.slug));
-  const orphanCaps = Object.entries(caps).filter(([slug]) => !known.has(slug));
-
-  const capped = ran.filter((a) => a.slug in caps);
-  const uncappedRan = ran.filter((a) => !(a.slug in caps));
-
+  // One table, one row per cap, then the agents that ran without one as one row.
+  const row = ({ agent, spent, cap, state, over, line, action, title }) => `
+    <div class="cost-row"${title ? ` title="${esc(title)}"` : ''}>
+      <div class="cost-agent">${esc(agent)}<span class="cost-line${over ? ' cost-over' : ''}">${esc(line)}</span></div>
+      <div class="cost-col num">${esc(spent)}</div>
+      <div class="cost-col num">${esc(cap)}</div>
+      <div class="cost-col${over ? ' cost-over' : ''}">${esc(state)}</div>
+      <div class="act">${action || ''}</div>
+    </div>`;
+  const capRows = Object.entries(caps).map(([slug, capUsd]) => {
+    const b = bySlug.get(slug)?.budget;
+    const st = b?.state;
+    const spent = st === 'within' || st === 'exceeded' ? `$${(b.measuredUsd ?? 0).toFixed(2)}`
+      : st === 'unmeasured' ? 'nothing yet' : 'not loaded';
+    const state = st === 'exceeded' ? 'Over cap' : (st === 'within' || st === 'unmeasured') ? 'Under cap' : '—';
+    return row({
+      agent: slug, spent, cap: `$${capUsd}`, state, over: st === 'exceeded',
+      line: st === 'exceeded' ? `${spent} of $${capUsd} · over cap` : `${spent} of $${capUsd}`,
+      action: `<button type="button" class="ab-btn" onclick="editAgentBudget('${esc(slug)}', ${Number(capUsd)})" aria-label="Change the ${esc(slug)} cap">Change</button>`,
+      title: bySlug.has(slug) ? firstSentence(bySlug.get(slug).description) : 'not among the installed agents',
+    });
+  }).join('');
+  let otherRow = '';
+  if (ranUncapped.length) {
+    const measured = ranUncapped.filter((a) => a.llm_usd_30d_real != null && a.llm_usd_30d_real > 0);
+    const sum = measured.reduce((t, a) => t + a.llm_usd_30d_real, 0);
+    const unmeasured = ranUncapped.length - measured.length;
+    const spent = measured.length ? `$${sum.toFixed(2)}` : 'not measured';
+    otherRow = row({
+      agent: `other agents (${ranUncapped.length})`, spent: spent + (measured.length && unmeasured ? ` · ${unmeasured} not measured` : ''),
+      cap: 'no cap', state: '—', line: `${spent} · no cap`,
+      title: ranUncapped.map((a) => a.slug).join(', '),
+    });
+  }
   const notes = [
     h?.budgets_deprecated_key
       ? `<div class="ab-note">Read from the deprecated <code>${esc(h.budgets_deprecated_key)}:</code> key — rename it to <code>agent-budgets:</code>.</div>` : '',
     (h?.budgets_malformed || []).length
       ? `<div class="ab-note ab-bad">${h.budgets_malformed.length} line(s) in PROJECT.md were not read: `
-        + h.budgets_malformed.map((m) => `<code>${esc(m.line)}</code> — ${esc(m.why)}`).join('; ') + '</div>' : '',
+        + h.budgets_malformed.map((x) => `<code>${esc(x.line)}</code> — ${esc(x.why)}`).join('; ') + '</div>' : '',
   ].join('');
-
-  const capsBlock = (capped.length || orphanCaps.length) ? `
-    <div class="mp-section-label">Capped (${capped.length + orphanCaps.length})</div>
-    ${table(capped.map((a) => row(a, caps[a.slug])).join('')
-      + orphanCaps.map(([slug, cap]) => row({ slug, description: 'not among the installed agents', runs_30d: 0 }, cap)).join(''))}`
-    : `<div class="budgets-empty">No agent has a spending cap in this project. Nothing is being held, and nothing will be.</div>`;
-
-  const activeBlock = uncappedRan.length ? `
-    <div class="mp-section-label" style="margin-top:28px">Ran in the last 30 days, no cap (${uncappedRan.length})</div>
-    <p class="muted" style="margin:4px 0 10px">These are the ones a cap would actually apply to.</p>
-    ${table(uncappedRan.map((a) => row(a, null)).join(''))}` : '';
-
-  // Capping an agent that has not run is capping nothing. Reachable, not shown.
   const idleBlock = idle.length ? `
-    <details class="budgets-idle" style="margin-top:28px">
-      <summary>${idle.length} installed agents have not run in 30 days</summary>
+    <details class="cost-idle">
+      <summary>${idle.length} installed agents have not run<span class="cost-long"> in 30 days</span></summary>
       <div class="budgets-uncapped">${idle.slice(0, 80).map((a) => `
         <button type="button" class="ab-btn" onclick="addBudgetFor('${esc(a.slug)}')"
                 title="${esc(firstSentence(a.description))}">${esc(a.slug)} +</button>`).join('')}
         ${idle.length > 80 ? `<span class="muted">and ${idle.length - 80} more</span>` : ''}
       </div>
     </details>` : '';
+  const empty = !capRows && !otherRow
+    ? '<div class="cost-row"><div class="muted" style="grid-column:1/-1">No agent has a cap and none ran in 30 days.</div></div>' : '';
 
-  body.innerHTML = `${notes}${capsBlock}${activeBlock}${idleBlock}
-    <button type="button" class="ab-btn ab-add" onclick="addAgentBudget()">+ Add a budget for any agent</button>`;
+  body.innerHTML = `${notes}
+    <section class="cost-agents" aria-labelledby="cost-agents-title">
+      <div class="cost-agents-head">
+        <h2 id="cost-agents-title">By agent</h2>
+        <button type="button" class="ab-btn" onclick="addAgentBudget()">Add a cap</button>
+      </div>
+      <div class="cost-row cost-row-head" aria-hidden="true">
+        <div>Agent</div><div class="num" title="Last 30 days, from verdicts">Spent</div><div class="num">Cap</div><div>State</div><div></div>
+      </div>
+      ${capRows}${otherRow}${empty}${idleBlock}
+    </section>
+    <details class="cost-about">
+      <summary>About this data</summary>
+      <ul>
+        <li>Measured spend counts only runs whose verdict carried a cost. When none did, the figure is estimated from run time and labelled so.</li>
+        <li>The list-price total prices every Claude Code token in this project's session logs at the API's list price. It is not what a subscription is charged.</li>
+        <li>Spent by agent covers the last 30 days whatever the period above. Caps live in <code>.great_cto/PROJECT.md</code> under <code>agent-budgets:</code>.</li>
+        <li>Monthly project cap: ${cost?.monthly_budget ? `$${esc(fmtMoney(cost.monthly_budget))}` : 'none set — spend is not being stopped'}.</li>
+      </ul>
+    </details>`;
 
   const badge = document.getElementById('nav-budget-count');
   if (badge) badge.textContent = Object.keys(caps).length ? String(Object.keys(caps).length) : '';
@@ -5761,9 +6071,12 @@ function budgetPrompt(agent, current) {
   const raw = prompt(
     `Spending cap for ${agent}, in dollars.\n\n`
     + `Measured spend past this figure stops the pipeline dispatching ${agent}.\n`
-    + `Spend is measured from verdicts; while none carries a cost the cap cannot fire.`,
+    + `Spend is measured from verdicts; while none carries a cost the cap cannot fire.`
+    + (current != null ? `\n\nLeave it empty to remove the cap.` : ''),
     current != null ? String(current) : '');
   if (raw === null) return null;
+  // Cost shows one Change button per cap; an empty answer is how a cap is removed.
+  if (current != null && String(raw).trim() === '') return 'remove';
   const usd = Number(String(raw).replace(/[$\s,]/g, ''));
   if (!Number.isFinite(usd) || usd <= 0) { alert(`Not a positive dollar amount: ${raw}`); return null; }
   return usd;
@@ -5772,6 +6085,7 @@ function budgetPrompt(agent, current) {
 function editAgentBudget(agent, current) {
   const usd = budgetPrompt(agent, current);
   if (usd == null) return;
+  if (usd === 'remove') { clearAgentBudget(agent, current); return; }
   writeAgentBudget({ agent, limit_usd: usd },
     `Set ${agent} to $${usd}, replacing $${current}?\n\n`
     + `Written to .great_cto/PROJECT.md. Measured spend past $${usd} stops the pipeline dispatching ${agent}.`);
@@ -5871,6 +6185,16 @@ function renderResume(d) {
   // still want to know where you left off. The claim about it was wrong, so the
   // claim is what changes. It now states the age of the newest thing shown, and
   // says "last 24h" only when that is true.
+  // The closed "activity log" line names the newest verdict, so the reader opens
+  // it only when that is worth chasing.
+  const latest = document.getElementById('home-latest');
+  if (latest) {
+    const v = verdicts.filter((x) => x && x.ts && !Number.isNaN(Date.parse(x.ts)))
+      .sort((a, b) => Date.parse(b.ts) - Date.parse(a.ts))[0];
+    latest.textContent = v
+      ? `Latest: ${v.agent || 'agent'} ${String(v.verdict || 'reported').toLowerCase()} · ${relTime(v.ts)}`
+      : 'No verdict recorded yet';
+  }
   const meta = document.getElementById('resume-meta');
   if (meta) {
     const stamps = [...verdicts.map((v) => v.ts), ...wip.map((t) => t.updated_at)]
@@ -6093,7 +6417,7 @@ function renderTurns(snap) {
       // The session goes in as a JSON string, escaped for the attribute: esc() turns '
       // into &#39;, which the browser decodes before the handler runs, so a quoted
       // string built from esc() alone could be broken out of.
-      buttons.push(`<button type="button" class="tp-turn" onclick="showTurnDiff(${esc(JSON.stringify(String(s.session)))}, ${n})">${n}</button>`);
+      buttons.push(`<button type="button" class="tp-turn" aria-label="Show what turn ${n} of session ${esc(String(s.session).slice(0, 8))} changed" onclick="showTurnDiff(${esc(JSON.stringify(String(s.session)))}, ${n})">${n}</button>`);
     }
     return `<div class="tp-session"><span class="aa-time">${esc(when(s.newestAt))}</span> <code>${esc(String(s.session).slice(0, 8))}</code> · ${esc(String(s.turns))} turn(s)`
       + `<div class="tp-turns">${buttons.join('')}</div></div>`;
@@ -6795,7 +7119,7 @@ async function renderHarnesses() {
 
   body.innerHTML = `
     <div class="mp-card harness-hosts">
-      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="72 agents · commands · skills · hooks">full pipeline</span></div>
+      <div><span class="dot ok"></span><b>Claude Code</b> <span class="mono cap muted">host · v${esc(h.claude_code?.version || '')}</span><span class="cap muted" style="margin-left:auto" title="73 agents · commands · skills · hooks">full pipeline</span></div>
       <div><span class="${codexDot}"></span><b>OpenAI Codex</b> <span class="mono cap">${codexState}</span>${cx.version ? `<span class="mono cap muted">${esc(cx.version)}</span>` : ''}${cx.model ? `<span class="mono cap muted" style="margin-left:auto">${esc(cx.model)}</span>` : ''}</div>
     </div>
     <div class="mp-card" style="margin-top:12px">
@@ -7079,6 +7403,7 @@ function setPeriod(days) {
   // Highlight active chip
   document.querySelectorAll('.period-chip').forEach(c => {
     c.classList.toggle('active', parseInt(c.dataset.period, 10) === days);
+    c.setAttribute('aria-pressed', String(parseInt(c.dataset.period, 10) === days));
   });
   // Update BOTH labels immediately on click — so user never sees a mismatch
   // between the active chip and the section headers, even before fetch returns
@@ -9182,19 +9507,23 @@ async function checkBoardFreshness() {
   // `unknown` are both silent, because a comparison we could not make must not
   // render as a mismatch.
   if (!v || (v.stale !== 'behind' && v.stale !== 'ahead')) return;
-  const host = document.querySelector('.workspace');
+  // One line in the sidebar footer, not a banner over every screen (F16). The
+  // full sentence — which build runs, which is installed, what a restart would
+  // do — is the tooltip and the accessible name, so nothing it said is lost.
+  const host = document.getElementById('stale-board-slot');
   if (!host || document.getElementById('stale-board')) return;
-  const el = document.createElement('div');
+  const el = document.createElement('span');
   el.id = 'stale-board';
   el.className = 'stale-board';
   el.setAttribute('role', 'status');
-  el.innerHTML = v.stale === 'behind'
-    ? `<span>This board is running <code>v${esc(v.version)}</code> — `
-      + `<code>v${esc(v.installed)}</code> is installed. Restart it to pick up the new version.</span>`
-    : `<span>This board is running <code>v${esc(v.version)}</code>, which is newer than the `
-      + `installed <code>v${esc(v.installed)}</code>. Restarting would go back to the older build — `
-      + `install this version first.</span>`;
-  host.insertBefore(el, host.firstChild);
+  el.tabIndex = 0;
+  const full = v.stale === 'behind'
+    ? `This board is running v${v.version} — user-installed plugin v${v.installed} is newer. Restart from that installation to use it.`
+    : `This board is running v${v.version}, which is newer than the user-installed plugin v${v.installed}. Restarting from that installation would use the older build — install this version first.`;
+  el.title = full;
+  el.setAttribute('aria-label', full);
+  el.textContent = v.stale === 'behind' ? `· update ready: v${v.installed}` : `· newer than installed v${v.installed}`;
+  host.appendChild(el);
 }
 
 /* ── Command palette ───────────────────────────────────────────────────────
@@ -9538,10 +9867,10 @@ async function replayBoardRoute() {
   }
   if (project && typeof currentProject !== 'undefined' && currentProject && project !== currentProject) {
     const loading = switchProject(project);
-    history.replaceState(history.state, '', expectedHash || '#/work');
+    history.replaceState(history.state, '', expectedHash || '#/home');
     await loading;
     if (ticket !== routeReplay || project !== new URLSearchParams(location.search).get('project')) return;
-    history.replaceState(history.state, '', expectedHash || '#/work');
+    history.replaceState(history.state, '', expectedHash || '#/home');
   }
   if (ticket !== routeReplay) return;
   const r = routeFromHash(); if (r) switchTab(r);

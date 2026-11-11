@@ -6,74 +6,64 @@ All notable changes to great_cto are documented here.
 
 
 
+## v3.78.1 — 2026-11-10
 
+The Cost screen's wording now matches the approved mockups on the phone as well as on the desktop.
 
+### Fixed
 
+- **Cost wording on the phone.** 3.78.0 showed the desktop wording on every screen width. Below 768 px the screen now reads "Cost · 30 days", "Caps are checked against it.", "median 45 min" and "have not run", as the approved phone mockup shows; the desktop list-price line drops "All", as the desktop mockup shows. Found by comparing the live 3.78.0 board with the mockups.
 
+---
 
+## v3.78.0 — 2026-11-10
 
+The board opens on Home and shows cost on one screen; its local API stops answering other web pages.
 
+### Changed
 
+- **Home is the board's landing screen** (#271). One "needs you" count, from one counting function, and one source for what is running now. The navigation is Home · Work · Cost · Knowledge · Settings. Design approved by the owner in Claude Design; the audit and its deviations are in `docs/design/UX-AUDIT-board-2026-11.md`.
+- **Cost is one screen instead of the Insights tabs** (#271). Period chips for 7, 30 and 90 days, one alert for agents over their cap, measured spend next to the API list price, one line of results and one "By agent" table with an aggregate row for agents without a cap. Idle agents and the data caveats are folded. Old links (`#/insights`, `#/ledger`, `#/budgets`, `#/insights/consumption`, `#/insights/outcomes`) still land. Changing a cap can remove it.
 
+### Security
 
+- **The board's local API refuses cross-site requests** (#270, ADR-048). CORS is limited to the board's own origins (it was `*`), a request to `/api/*` from another site is refused with 403, and binding to a non-loopback address without authentication is refused. `docs/PRIVACY.md` describes it.
 
+### Fixed
 
+- **Browser checks launch the bundled Chromium**, not the installed Chrome, so gate runs no longer leave Chrome code-sign copies on the disk (#270).
+- The Outcomes table region can be focused from the keyboard.
 
+### Docs
 
+- RFC draft: `docs/rfc/RFC-accounts-sso-and-hosting.md` (decisions open).
 
+---
 
+## v3.77.0 — 2026-11-10
 
+Web frontends and mobile builds get their own release agent, and a production promote or store submission now always stops at `gate:release`.
 
+### Added
 
+- **`release-manager` agent (73 agents).** `devops` keeps services; a web frontend, an iOS or Android build or an OTA update goes to `release-manager` through the new `CLIENT_RELEASE` verdict. Run 1 builds once from the CI-green commit and stages it on a preview URL or an internal test track (TestFlight internal, Play internal, Firebase). `e2e-test-engineer` tests that exact artifact (Playwright on the preview, Maestro on the internal-track build) and writes `ARTIFACT_PASSED`. Run 2 promotes or prepares the store submission only after `gate:release`, proves the version landed, names the rollback and removes old builds. With `store-submit: hand-off` (the default) the operator presses "Submit for review" or "Start rollout". The agent never reads signing keys; signing goes through fastlane `match --readonly`, Play App Signing or EAS.
+- **`gate:release` is a floor, like `gate:import`.** No `approval-level`, `auto` included, opts out of it: a store submission or a production promote cannot be taken back.
+- **Release receipts.** `scripts/lib/release-receipt.mjs` writes `.great_cto/releases/<version>-<kind>-<stage>.json` only when CI, the artifact sha, the E2E run on the shipped artifact, the gate, the landed check, the rollback and the cleanup are all present; otherwise it exits 1 with "NOT RELEASED" and the missing items. No receipt, no "released".
+- **Three skills:** `web-release` (Vercel, Cloudflare Pages and Workers, S3/CDN: preview, promote, build-id proof, rollback by re-aliasing), `mobile-release` (build numbers read from the store, signing through tooling, phased rollout and halt, OTA refused when the native fingerprint changed) and `artifact-retention` (keep the shipped build and one rollback, measure with `df`).
+- **`/release ship <web|ios|android|ota>`** starts the client release.
+- RFC: `docs/rfc/RFC-release-manager-agent.md`.
 
+### Fixed
 
+- **The board's stale-version banner compares the plugin Claude Code actually loads** (#267): the enabled user registration in `installed_plugins.json`, not the newest directory in the local plugin cache. A conflicting, partial or unreadable registration is reported as unknown with a reason.
+- **Controlled ship reviews are bound to the candidate and the reviewer** (#268). A later role verdict no longer drops the candidate identity from the ship evidence: reviews carry the receipt head, the dirty snapshot and the task, plus the reviewer identity, and are persisted with a fence.
 
+### Tests
 
+- The client-release route in the pipeline map: `CLIENT_RELEASE` → `release-manager` → `STAGED` → e2e → `ARTIFACT_PASSED` held at `gate:release` on every approval level → `RELEASED` → `l3-support`; `HANDED-OFF` ends the chain.
+- `release-receipt` (15 tests) and an 8 + 6 case eval for `release-manager` (`EVAL-release-manager-ship-safety.md`).
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+---
 
 ## v3.76.1 — 2026-11-09
 
