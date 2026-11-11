@@ -101,6 +101,16 @@ test('a permission badge marks only an agent that differs from the common set', 
   assert.match(odd.html, /not classified/, 'an unjudged agent keeps the chip that says so');
 });
 
+test('the permission note counts the rows the way the list marks them', () => {
+  const { permissionNote } = run(['permissionNote']);
+  assert.equal(permissionNote(9, 0, 0), 'All 9 have the standard permissions.');
+  assert.equal(permissionNote(1, 0, 0), 'This agent has the standard permissions.');
+  // 3.79.0 candidate said "All 9 have the standard permissions. 2 have extra ones".
+  assert.equal(permissionNote(9, 0, 2), '7 of 9 have the standard permissions; 2 have extra ones, marked in the list.');
+  assert.equal(permissionNote(9, 1, 1), '7 of 9 have the standard permissions; 1 has extra ones, 1 differs from them, marked in the list.');
+  assert.equal(permissionNote(0, 0, 0), '');
+});
+
 test('filters are four chips on the page; "expensive" has none and "retired" appears only when used', () => {
   assert.match(html, /const AGENT_CHIPS = \['project', 'needs', 'never', 'all', 'retired'\];/);
   assert.match(html, /if \(key === 'retired' && !n && fleetState\.view !== 'retired'\) return '';/);

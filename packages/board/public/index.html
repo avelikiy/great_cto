@@ -10366,16 +10366,11 @@ function renderFleetList() {
       ? `Starts are counted from Claude Code session logs on this machine (they keep about 30 days): ${Object.values(uu.agents || {}).filter((x) => x.dispatches > 0).length} of ${Object.keys(uu.agents || {}).length} agents were started, ${(uu.window?.from || '?').slice(0, 10)} to ${(uu.window?.to || '?').slice(0, 10)}.`
       : (uu.state === 'computing' ? 'Counting starts in the session logs…' : (uu.why || 'Starts were not counted.'));
   const std = fleetStandardSig();
-  const extra = filtered.filter((a) => (a.posture?.scopedInNameOnly || []).length > 0).length;
+  // Counted the way permissionCell() marks a row, so the note and the list agree.
   const differ = filtered.filter((a) => postureSig(a) !== std).length;
+  const extra = filtered.filter((a) => postureSig(a) === std && (a.posture?.scopedInNameOnly || []).length > 0).length;
   const note = document.getElementById('agents-perm-note');
-  if (note) {
-    const parts = [differ === 0
-      ? `${filtered.length === 1 ? 'This agent has' : `All ${filtered.length} have`} the standard permissions.`
-      : `${differ} of ${filtered.length} differ from the standard permissions, marked in the list.`];
-    if (extra) parts.push(`${extra} ${extra === 1 ? 'has' : 'have'} extra ones, marked in the list.`);
-    note.textContent = parts.join(' ');
-  }
+  if (note) note.textContent = permissionNote(filtered.length, differ, extra);
   const head = `<li class="fleet-head" aria-hidden="true"><span>Agent</span><span>Permissions</span><span>Last result</span><span class="tab">Runs 30d</span><span class="tab">Pass</span><span class="tab">Spend 30d</span></li>`;
   el.innerHTML = head + filtered.map((a) => agentRowHtml(a, std)).join('');
 }
@@ -10418,6 +10413,12 @@ function requiredChip(a) {
   return r.verdict
     ? `<span class="pos rou" title="required by ${esc(r.why)} — has a verdict in this project">✓ required</span>`
     : `<span class="pos warn" title="required by ${esc(r.why)} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it">⚠ required · not run</span>`;
+}
+function permissionNote(total, differ, extra) {
+  if (!total) return '';
+  if (!differ && !extra) return `${total === 1 ? 'This agent has' : `All ${total} have`} the standard permissions.`;
+  const marked = [extra ? `${extra} ${extra === 1 ? 'has' : 'have'} extra ones` : '', differ ? `${differ} ${differ === 1 ? 'differs' : 'differ'} from them` : ''].filter(Boolean).join(', ');
+  return `${total - differ - extra} of ${total} have the standard permissions; ${marked}, marked in the list.`;
 }
 function permissionCell(a, std) {
   const p = a.posture || {};
