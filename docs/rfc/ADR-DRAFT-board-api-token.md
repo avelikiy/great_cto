@@ -126,6 +126,7 @@ Found by `git grep` on 2026-11-11 (outside docs and tests):
 
 1. Owner accepts this text.
 2. Mockup of the decision-6 page approved in Claude Design (current next to proposed, desktop
-   and mobile). Prepared 2026-11-11, version 5, **awaiting the owner's approval**:
-   https://claude.ai/artifact/9ZFw9Nqs14KTNeqRXd51zd
+   and mobile). Version 5 **approved by the owner on 2026-11-11**:
+   https://claude.ai/artifact/9ZFw9Nqs14KTNeqRXd51zd. Code implements exactly this version;
+   any deviation goes back to Claude Design first.
 3. Lands before or together with the first `.dmg` release.
