@@ -20,18 +20,34 @@ import { fileURLToPath } from 'node:url';
 const pkgRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const pkg = JSON.parse(readFileSync(join(pkgRoot, 'package.json'), 'utf8'));
 
+// Entries that exist only while the release builder runs. Each one must name the
+// builder check that fails the build when the packed members are not exactly what
+// it generated, so "skipped silently" cannot happen to them either.
+const GENERATED_AT_PACK = {
+  'plugin/': ['scripts/build-release-artifacts.mjs', 'npm embedded plugin set membership mismatch'],
+};
+
 test('every "files" entry resolves to something on disk', () => {
   const missing = [];
   for (const entry of pkg.files || []) {
     // Entries may be dirs ("dist/"), files ("index.mjs") or globs. Only literal
     // paths are checked — a glob that matches nothing is a separate concern.
     if (/[*?[\]]/.test(entry)) continue;
+    if (GENERATED_AT_PACK[entry]) continue;
     const p = join(pkgRoot, entry.replace(/\/$/, ''));
     if (!existsSync(p)) missing.push(entry);
   }
   assert.deepEqual(missing, [],
     `package.json "files" lists path(s) that do not exist: ${missing.join(', ')} — ` +
     'npm skips these silently, so the package ships less than the manifest claims');
+});
+
+test('an entry generated at pack time is asserted by the builder (ADR-048)', () => {
+  for (const [entry, [script, refusal]] of Object.entries(GENERATED_AT_PACK)) {
+    assert.ok(pkg.files.includes(entry), `${entry} is no longer in "files"; drop it from GENERATED_AT_PACK`);
+    const source = readFileSync(join(pkgRoot, '..', '..', script), 'utf8');
+    assert.ok(source.includes(refusal), `${script} no longer refuses a pack whose ${entry} differs from what it generated`);
+  }
 });
 
 test('"files" is non-empty — an empty list would ship almost nothing', () => {

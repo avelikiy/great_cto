@@ -24,8 +24,11 @@ A private transaction preserves only its package and bin link. Concurrent drift
 causes refusal or `RECOVERY_REQUIRED`. Initial `LEGACY_LOCAL_RECOVERY` restores
 preexisting local state; it does not authenticate the old installation.
 
-Volta, pnpm, native marketplace activation and automatic companion installation
-remain unsupported until their own executable-byte and recovery contracts pass.
+Volta, pnpm and automatic companion installation remain unsupported until their
+own executable-byte and recovery contracts pass. Claude Code plugin activation by
+`init` follows [ADR-048](../adr/ADR-048-managed-plugin-activation.md) and the
+embedded set below; companions (superpowers, beads) are optional and never
+installed by `init`.
 No clone, cache removal, settings change or host execution may precede admission.
 A verified archive does not authorize native-session activation or runtime fetches.
 
@@ -89,11 +92,50 @@ UTF-8 newline, then the unmodified blob bytes. This binds the namespace, filenam
 and complete release index; no self-referential signature digest is stored.
 Malformed JSON, fields, key type, base64, profile or context refuse admission.
 
+## Embedded plugin set (ADR-048)
+
+The npm package carries the plugin it activates, so `init` fetches nothing. The
+builder writes `plugin/` inside the package before `npm pack`: ten files,
+exactly `release-index.json`, `great-cto-plugin-<v>.tgz`, `plugin-inventory.json`,
+`sbom.cdx.json`, a `.signature.json` sidecar for each of those four, and
+`release-key.pub`. The index is schema 3 with
+`publisher: {profile: embedded-ed25519, keyFingerprint}` and names the plugin,
+inventory and SBOM only — never the npm tarball that contains it. Signatures use
+the namespace `great-cto-embedded-release-v1`, so an outer `local-ed25519`
+signature can never be replayed as an embedded one.
+
+**First-install trust statement.** On a first install nothing is trusted yet
+except the npm package itself. The embedded set is verified against the release
+key fingerprint pinned in the CLI source (`EMBEDDED_RELEASE_KEY_FINGERPRINT` in
+`packages/cli/src/release-trust.mjs`); the shipped `release-key.pub` is accepted
+only when its SPKI SHA-256 equals that pin. This proves the plugin was signed by
+the key the same package names. It does not prove the npm package itself is
+genuine: that rests on npm's registry integrity and, for later updates, on the
+schema-2 local-ed25519 route above. While the pin is the `NOT_ENROLLED` sentinel,
+`init` refuses activation with `embedded-release-key-not-enrolled`, and the
+builder refuses to sign a production set.
+
+Build rules, held by `scripts/build-release-artifacts.mjs` and its tests:
+
+- the command line requires `--embedded-key` (an absolute, owner-only PKCS8 PEM
+  outside the source tree and release directory) and `--embedded-key-fingerprint`,
+  and refuses a key that is not the one pinned in source;
+- the set is generated into `packages/cli/plugin/` (git-ignored), a stale copy is
+  refused, and the directory is removed after the pack whether it succeeded or not;
+- the packed `plugin/` members must equal the signed set exactly, byte for byte
+  and with mode 0644; the embedded plugin, inventory and SBOM are byte-identical
+  to the outer artifacts of the same name;
+- `packages/cli/plugin/**` never enters the plugin snapshot.
+
+Ed25519 signatures are deterministic, so two clean builds with the same key still
+compare byte for byte (`--compare`).
+
 ## Release sequence
 
 1. Run local canonical gates and independent reviews on the exact source commit.
-2. Produce npm and complete plugin archives, inventory, SBOM and index once.
-   Compare a second clean build byte for byte, then freeze the output set.
+2. Produce npm and complete plugin archives, inventory, SBOM and index once,
+   signing the embedded plugin set with the pinned release key before the npm
+   pack. Compare a second clean build byte for byte, then freeze the output set.
 3. After separate key selection/enrollment, sign all five final blobs through
    the selected local profile without publication or installation.
 4. Admit them using the production consumer, then complete artifact/ship gates.

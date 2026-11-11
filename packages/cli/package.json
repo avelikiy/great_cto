@@ -71,6 +71,7 @@
     "dist/",
     "assets/",
     "board/",
+    "plugin/",
     "postinstall.mjs",
     "README.md"
   ],
