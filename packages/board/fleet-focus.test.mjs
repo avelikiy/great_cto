@@ -92,7 +92,13 @@ test('late installed-roster replies cannot overwrite the selected project roster
 });
 
 test('focus navigation is keyboard accessible and explains uncertainty without changing policy', () => {
-  assert.match(html, /id="nav-view-project" role="button" tabindex="0"[^\n]+onkeydown=/);
+  // The filters are real buttons on the page since the 2026-11 Settings redraw
+  // (they were div rows in the sidebar that needed their own key handler).
+  assert.match(html, /<button type="button" class="agents-chip\$\{selected \? ' active' : ''\}" id="agents-chip-\$\{key\}" aria-pressed=/);
+  // The explanation is one click away — except when the requirements could not
+  // be read: then it is opened, because that is when it changes what the list means.
+  assert.match(html, /const unusable = !!fleetState\.required && !fleetRequirementsKnown\(\) && fleetState\.requiredScope === pqs\(\);/);
+  assert.match(html, /box\.hidden = !\(agentsAboutOpen \|\| unusable\);/);
   assert.match(html, /id="fleet-focus-note"[^>]+role="status"/);
   assert.match(html, /Project reviewer requirements are unknown/);
   assert.match(html, /required reviewer\(s\) missing from the installed catalog/);
