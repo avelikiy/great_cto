@@ -78,6 +78,36 @@ was created and no specialist agent ran (details in the [RFC](../rfc/RFC-cockpit
     screen's "Checked by" line names the host that verified. A second host stays available
     through routes for users who have one.
 
+## Consequences
+
+Section added on 2026-11-11, after acceptance, because the artifact check requires it. It
+restates what the rules above and the plan already imply; it adds no rule.
+
+- **The board stops being read-only.** One route can now spend the user's money and change
+  their repository. It carries the origin check, the confirmation and the event log for
+  every start, stop and refusal (rules 1 and 7), and it is the place a security review of
+  the board has to look first.
+- **Start runs the controller, not the `/start` pipeline** (rules 12–14). The first cockpit
+  can plan, write and review code with two decisions from the user. It cannot yet run tests
+  on a machine without Docker or put anything live; Home and the decision screen have to say
+  what was and was not checked ([plan](../rfc/PLAN-phase1-cockpit.md), "Limits the user will
+  meet").
+- **No queue.** A second task in the same project is refused until the first one ends
+  (rule 4). Users with several ideas wait or stop the running task.
+- **A budget is a required input** (rule 2), so the Start form needs a default the owner has
+  chosen; a run that reaches it stops and asks.
+- **On a machine with only Claude Code the check is weaker.** The verifier is a fresh session
+  of the same host, not a second model family (rule 15), and the "Checked by" line has to
+  say so.
+- **Start depends on the host CLI's print mode and sign-in.** A change in its flags or in how
+  it reads credentials can disable Start. The free probe of rule 10 shows that a credential
+  is configured, not that it works; a wrong one fails at the first model call, which rule 11
+  already treats as a failed start
+  ([research note](../rfc/RESEARCH-cli-subscription-launch.md), section 2).
+- **Cost of the decision:** about 13–19 days of work in seven slices (plan), and one paid
+  run on a fixture project before each release that changes this route.
+- **Easy to undo:** a setting turns the route off, with no data migration (Rollback).
+
 ## Open at acceptance
 
 - Answered on 2026-11-11: the existing controller already routes roles to Claude Code and
