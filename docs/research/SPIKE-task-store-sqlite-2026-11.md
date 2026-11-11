@@ -1,7 +1,7 @@
 # Spike: the task store on Node's built-in SQLite
 
 - **Date:** 2026-11-11
-- Status: measured once; a decision for the owner, not a design
+- Status: measured once. **Owner's decision 2026-11-11: option A**, built the same day
 - Question: [RFC-task-tracker-and-kanban.md](../rfc/RFC-task-tracker-and-kanban.md), phase 6 —
   does a built-in store behind the task API remove the cost of Beads?
 - Contract it was held to: [task-api.md](../reference/task-api.md)
@@ -82,3 +82,12 @@ agent call keeps costing seconds.
 Recommended: **A**, after phase 2 (keys) lands — the allocator is the same transaction in
 either backend, and phase 4 (moving callers to the task API) is what makes a backend switch
 invisible to agents.
+
+## Decision
+
+The owner chose **A** on 2026-11-11. The backend was built behind the task API the same day:
+`scripts/lib/task-backend-sqlite.mjs`, started with `great-cto tracker init`, held to the same
+contract tests as Beads — see [ARCH-task-api.md](../architecture/ARCH-task-api.md) §6. Two
+parts of A wait: project setup keeps starting Beads until phase 4 moves the callers that run
+`bd` directly, and migrating an existing Beads project is its own piece of work, proven on a
+copy first.

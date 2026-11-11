@@ -15,13 +15,16 @@
  *      looks once to see whether it landed and says what it found; it never
  *      repeats the write on its own.
  *
- * Backends are replaceable: Beads today, `.great_cto/tasks.md` for projects
- * without it. Nothing outside task-backend-beads.mjs should launch `bd`.
+ * Backends are replaceable: the built-in SQLite file `.great_cto/tasks.db`
+ * (owner's decision 2026-11-11, option A of the store spike), Beads for the
+ * projects that already use it, `.great_cto/tasks.md` for projects with neither.
+ * Nothing outside task-backend-beads.mjs should launch `bd`.
  */
 import { existsSync } from 'node:fs';
 import { join, dirname, resolve } from 'node:path';
 import { beadsBackend } from './task-backend-beads.mjs';
 import { tasksMdBackend } from './task-backend-tasks-md.mjs';
+import { sqliteBackend, initSqliteStore, SQLITE_FILE } from './task-backend-sqlite.mjs';
 
 /** What the store really holds. Anything else in a write is a usage error. */
 export const STATUSES = Object.freeze(['open', 'in_progress', 'blocked', 'deferred', 'closed']);
@@ -45,23 +48,59 @@ export class TaskUsageError extends Error {
   constructor(message) { super(message); this.name = 'TaskUsageError'; this.code = 'usage'; }
 }
 
-/** Nearest ancestor that holds `.beads/`, the way `bd` itself resolves a workspace. */
-function findBeadsRoot(start) {
+export const BACKENDS = Object.freeze(['sqlite', 'beads', 'tasks-md']);
+
+/**
+ * Nearest ancestor that holds a task store: `.great_cto/tasks.db` or `.beads/`.
+ * The nearer one wins, so a project inside a folder that has Beads keeps its own
+ * store; in one folder an explicit tasks.db wins over `.beads/`.
+ */
+function findStoreRoot(start) {
   for (let dir = resolve(start); ; dir = dirname(dir)) {
-    if (existsSync(join(dir, '.beads'))) return dir;
+    if (existsSync(join(dir, SQLITE_FILE))) return { kind: 'sqlite', dir };
+    if (existsSync(join(dir, '.beads'))) return { kind: 'beads', dir };
     if (dirname(dir) === dir) return null;
   }
 }
 
 function pickBackend(cwd, opts) {
   const forced = opts.backend || process.env.GREAT_CTO_TASK_BACKEND || null;
-  if (forced && !['beads', 'tasks-md'].includes(forced)) throw new TaskUsageError(`unknown task backend "${forced}"`);
-  const hasBeads = Boolean(process.env.BEADS_DIR) || findBeadsRoot(cwd) !== null;
-  const hasMd = existsSync(join(cwd, '.great_cto', 'tasks.md'));
-  if (forced === 'beads' || (!forced && hasBeads)) return beadsBackend(cwd, opts);
-  if (forced === 'tasks-md' || (!forced && hasMd)) return tasksMdBackend(cwd, opts);
+  if (forced && !BACKENDS.includes(forced)) throw new TaskUsageError(`unknown task backend "${forced}" — one of: ${BACKENDS.join(', ')}`);
+  const found = process.env.BEADS_DIR ? { kind: 'beads', dir: cwd } : findStoreRoot(cwd);
+  if (forced === 'sqlite') return sqliteBackend(found?.kind === 'sqlite' ? found.dir : cwd, opts);
+  if (forced === 'beads' || (!forced && found?.kind === 'beads')) return beadsBackend(cwd, opts);
+  if (!forced && found?.kind === 'sqlite') return sqliteBackend(found.dir, opts);
+  if (forced === 'tasks-md' || existsSync(join(cwd, '.great_cto', 'tasks.md'))) return tasksMdBackend(cwd, opts);
   throw new TaskReadFailed('not_initialized',
-    'no task source in this project: neither a .beads/ store nor .great_cto/tasks.md was found');
+    'no task source in this project: no .great_cto/tasks.db, no .beads/ store and no .great_cto/tasks.md — run `great-cto tracker init`');
+}
+
+/**
+ * Start a task store in a project that has none: `.great_cto/tasks.db`.
+ * Refuses when the project already has a store, so two stores never split one backlog.
+ * @returns {{backend: 'sqlite', file: string, created: boolean}}
+ */
+export function initTaskStore(cwd = process.cwd()) {
+  const root = resolve(cwd);
+  const found = process.env.BEADS_DIR ? { kind: 'beads', dir: process.env.BEADS_DIR } : findStoreRoot(root);
+  if (found?.kind === 'beads') {
+    throw new TaskWriteFailed('store_refused',
+      `this project already uses Beads (${join(found.dir, '.beads')}); it stays on Beads until it is migrated`);
+  }
+  if (found?.kind === 'sqlite' && found.dir !== root) {
+    throw new TaskWriteFailed('store_refused', `a task store already covers this folder: ${join(found.dir, SQLITE_FILE)}`);
+  }
+  if (existsSync(join(root, '.great_cto', 'tasks.md'))) {
+    throw new TaskWriteFailed('store_refused',
+      'this project keeps its tasks in .great_cto/tasks.md; moving them into a store is a migration, not an init');
+  }
+  try {
+    return { backend: 'sqlite', ...initSqliteStore(root) };
+  } catch (e) {
+    // Nothing exists yet, so a failure here is a refusal, not an unread store.
+    if (e instanceof TaskReadFailed) throw new TaskWriteFailed(e.code, e.message);
+    throw e;
+  }
 }
 
 function requireActor(actor) {
@@ -99,7 +138,7 @@ const timedOut = (e) => e && e.code === 'timeout';
  *
  * @param {string} cwd Project directory (or any directory inside it).
  * @param {object} [opts]
- * @param {'beads'|'tasks-md'} [opts.backend] Force a backend (also GREAT_CTO_TASK_BACKEND).
+ * @param {'sqlite'|'beads'|'tasks-md'} [opts.backend] Force a backend (also GREAT_CTO_TASK_BACKEND).
  * @param {string} [opts.bin] Path to `bd` (tests pass a stub).
  * @param {number} [opts.timeoutMs] Per-call cap for the backend process.
  */

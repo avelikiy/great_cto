@@ -15,7 +15,7 @@
  */
 import { resolve } from 'node:path';
 import { isMainModule } from './lib/is-main.mjs';
-import { openTaskStore, TaskReadFailed, TaskWriteFailed, TaskWriteUnknown, TaskUsageError } from './lib/task-store.mjs';
+import { openTaskStore, initTaskStore, TaskReadFailed, TaskWriteFailed, TaskWriteUnknown, TaskUsageError } from './lib/task-store.mjs';
 
 export const EXIT = Object.freeze({ ok: 0, usage: 2, absent: 3, unread: 4, refused: 5 });
 
@@ -29,6 +29,7 @@ const USAGE = `usage: great-cto tracker <command> [options]
   link       <id> --depends-on <id> --actor A
   note       <id> "<text>" --actor A
   find-open  [--label L] [--text T]
+  init       start .great_cto/tasks.db in a project that has no task store
 
   common:    --dir PATH (project, default .)   --json
 
@@ -73,7 +74,13 @@ export async function runTracker(argv, { cwd = process.cwd(), storeOptions = {} 
     const need = (n, what) => { if (positional.length !== n) throw new TaskUsageError(`${command} takes ${what}`); };
     const ok = (data, text) => ({ code: EXIT.ok, out: json ? JSON.stringify({ ok: true, ...data }) : text });
     const actor = flags['--actor'];
-    const store = openTaskStore(resolve(cwd, flags['--dir'] || '.'), storeOptions);
+    const dir = resolve(cwd, flags['--dir'] || '.');
+    if (command === 'init') {
+      need(0, 'no positional arguments');
+      const made = initTaskStore(dir);
+      return ok(made, made.created ? `task store created: ${made.file}` : `task store already here: ${made.file}`);
+    }
+    const store = openTaskStore(dir, storeOptions);
 
     switch (command) {
       case 'list':

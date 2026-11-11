@@ -730,7 +730,7 @@ ${bold("Usage:")}
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
   npx great-cto task work decisions|approve|verify|complete|metrics|preview|publish ...
-  npx great-cto tracker list|show|create|move|close|link|note|find-open ...  Project tasks (tracker help)
+  npx great-cto tracker list|show|create|move|close|link|note|find-open|init ...  Project tasks (tracker help)
   npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Unsupported pending companion artifact admission

@@ -1,7 +1,8 @@
 /**
  * The task store contract: one suite, three ways in.
  *
- *   1. a real `bd` in a temporary project   — what agents and the board get today
+ *   1. a real store in a temporary project — `bd` (projects on Beads) and the
+ *      built-in `.great_cto/tasks.db` (new projects), held to the same tests
  *   2. a `.great_cto/tasks.md` project      — the supported bd-less source
  *   3. a `bd` that fails, hangs or prints garbage
  *
@@ -17,8 +18,9 @@ import { mkdtempSync, mkdirSync, writeFileSync, chmodSync, rmSync, readFileSync,
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
-  openTaskStore, STATUSES, TaskReadFailed, TaskWriteFailed, TaskWriteUnknown, TaskUsageError,
+  openTaskStore, initTaskStore, STATUSES, TaskReadFailed, TaskWriteFailed, TaskWriteUnknown, TaskUsageError,
 } from '../../scripts/lib/task-store.mjs';
+import { sqliteAvailable } from '../../scripts/lib/task-backend-sqlite.mjs';
 
 const scratch = (name) => realpathSync(mkdtempSync(join(tmpdir(), `task-store-${name}-`)));
 
@@ -43,82 +45,95 @@ function beadsProject(t) {
   return project;
 }
 
-// ── 1. Real bd ───────────────────────────────────────────────────────────────
+// ── 1. A real store: bd, and the built-in SQLite file ─────────────────────────
 
-test('beads: create, read back, move, note, link, close', async (t) => {
-  const project = beadsProject(t);
-  if (!project) return;
-  const store = openTaskStore(project);
-  assert.equal(store.backend, 'beads');
+function sqliteProject(t) {
+  if (!sqliteAvailable()) { t.skip(`node:sqlite is absent in ${process.version} — not checked, not passed`); return null; }
+  const project = scratch('sqlite');
+  t.after(() => rmSync(project, { recursive: true, force: true }));
+  initTaskStore(project);
+  return project;
+}
 
-  const a = await store.create({ title: 'contract: first', type: 'task', priority: 1, labels: ['alpha', 'phase:qa'], description: 'body text', actor: 'agent:qa-engineer' });
-  assert.match(a.id, /\S+-\S+/);
-  const b = await store.create({ title: 'contract: second', actor: 'human' });
+const projectFor = (kind, t) => (kind === 'beads' ? beadsProject(t) : sqliteProject(t));
 
-  const got = await store.get(a.id);
-  assert.equal(got.state, 'found');
-  assert.equal(got.task.title, 'contract: first');
-  assert.equal(got.task.status, 'open');
-  assert.equal(got.task.priority, 1);
-  assert.deepEqual([...got.task.labels].sort(), ['alpha', 'phase:qa']);
-  assert.equal(got.task.description, 'body text');
-  assert.equal(got.task.is_gate, false);
+for (const kind of ['beads', 'sqlite']) {
 
-  assert.deepEqual(await store.get('nope-zzzz'), { state: 'absent' }, 'a task that is not there is absent, not an error');
+  test(`${kind}: create, read back, move, note, link, close`, async (t) => {
+    const project = projectFor(kind, t);
+    if (!project) return;
+    const store = openTaskStore(project);
+    assert.equal(store.backend, kind);
 
-  const moved = await store.move(a.id, 'in_progress', { actor: 'agent:senior-dev', reason: 'claimed' });
-  assert.equal(moved.to, 'in_progress');
-  await store.move(a.id, 'blocked', { actor: 'agent:senior-dev', reason: 'waiting for a key' });
-  await store.note(a.id, 'a second note', { actor: 'human' });
-  const afterNotes = (await store.get(a.id)).task;
-  assert.equal(afterNotes.status, 'blocked');
-  // Notes are appended. `bd update --notes` REPLACES them, which is how a gate
-  // approved with a reason loses whatever was written on it before.
-  assert.match(afterNotes.notes, /claimed/);
-  assert.match(afterNotes.notes, /waiting for a key/);
-  assert.match(afterNotes.notes, /a second note/);
-  assert.match(afterNotes.notes, /agent:senior-dev/, 'the declared actor is in the store');
+    const a = await store.create({ title: 'contract: first', type: 'task', priority: 1, labels: ['alpha', 'phase:qa'], description: 'body text', actor: 'agent:qa-engineer' });
+    assert.match(a.id, /\S+-\S+/);
+    const b = await store.create({ title: 'contract: second', actor: 'human' });
 
-  await store.link(b.id, a.id, { actor: 'human' });
+    const got = await store.get(a.id);
+    assert.equal(got.state, 'found');
+    assert.equal(got.task.title, 'contract: first');
+    assert.equal(got.task.status, 'open');
+    assert.equal(got.task.priority, 1);
+    assert.deepEqual([...got.task.labels].sort(), ['alpha', 'phase:qa']);
+    assert.equal(got.task.description, 'body text');
+    assert.equal(got.task.is_gate, false);
 
-  const open = await store.list();
-  assert.equal(open.state, 'read');
-  assert.deepEqual(open.tasks.map((x) => x.id).sort(), [a.id, b.id].sort());
-  assert.deepEqual((await store.list({ label: 'alpha' })).tasks.map((x) => x.id), [a.id]);
-  assert.deepEqual((await store.list({ status: 'blocked' })).tasks.map((x) => x.id), [a.id]);
-  assert.deepEqual((await store.findOpen({ text: 'SECOND' })).tasks.map((x) => x.id), [b.id]);
+    assert.deepEqual(await store.get('nope-zzzz'), { state: 'absent' }, 'a task that is not there is absent, not an error');
 
-  await store.close(a.id, { actor: 'agent:qa-engineer', reason: 'verified' });
-  assert.equal((await store.get(a.id)).task.status, 'closed');
-  assert.deepEqual((await store.list()).tasks.map((x) => x.id), [b.id], 'closed tasks leave the default list');
-  assert.equal((await store.list({ includeClosed: true })).tasks.length, 2);
-  assert.deepEqual((await store.findOpen({ text: 'first' })).tasks, [], 'an empty answer after a real read is a real empty');
-});
+    const moved = await store.move(a.id, 'in_progress', { actor: 'agent:senior-dev', reason: 'claimed' });
+    assert.equal(moved.to, 'in_progress');
+    await store.move(a.id, 'blocked', { actor: 'agent:senior-dev', reason: 'waiting for a key' });
+    await store.note(a.id, 'a second note', { actor: 'human' });
+    const afterNotes = (await store.get(a.id)).task;
+    assert.equal(afterNotes.status, 'blocked');
+    // Notes are appended. `bd update --notes` REPLACES them, which is how a gate
+    // approved with a reason loses whatever was written on it before.
+    assert.match(afterNotes.notes, /claimed/);
+    assert.match(afterNotes.notes, /waiting for a key/);
+    assert.match(afterNotes.notes, /a second note/);
+    assert.match(afterNotes.notes, /agent:senior-dev/, 'the declared actor is in the store');
 
-test('beads: a gate is recognised; deferred is a status, not "backlog"', async (t) => {
-  const project = beadsProject(t);
-  if (!project) return;
-  const store = openTaskStore(project);
-  const g = await store.create({ title: 'gate:plan — approve the plan', labels: ['gate'], type: 'decision', actor: 'agent:architect' });
-  const d = await store.create({ title: 'later', actor: 'human' });
-  await store.move(d.id, 'deferred', { actor: 'human', reason: 'not this month' });
-  assert.equal((await store.get(g.id)).task.is_gate, true);
-  assert.equal((await store.get(d.id)).task.status, 'deferred');
-});
+    await store.link(b.id, a.id, { actor: 'human' });
 
-test('beads: writes to a missing task fail as absent, and usage errors are refused before bd runs', async (t) => {
-  const project = beadsProject(t);
-  if (!project) return;
-  const store = openTaskStore(project);
-  await assert.rejects(() => store.move('nope-zzzz', 'blocked', { actor: 'human' }),
-    (e) => e instanceof TaskWriteFailed && e.code === 'absent');
-  const a = await store.create({ title: 'usage', actor: 'human' });
-  await assert.rejects(() => store.move(a.id, 'bogus', { actor: 'human' }), TaskUsageError);
-  await assert.rejects(() => store.move(a.id, 'blocked', {}), TaskUsageError, 'a write without an actor is refused');
-  await assert.rejects(() => store.move(a.id, 'blocked', { actor: 'somebody' }), TaskUsageError, 'the actor has a shape');
-  await assert.rejects(() => store.create({ title: '  ', actor: 'human' }), TaskUsageError);
-  assert.equal((await store.get(a.id)).task.status, 'open', 'a refused write changed nothing');
-});
+    const open = await store.list();
+    assert.equal(open.state, 'read');
+    assert.deepEqual(open.tasks.map((x) => x.id).sort(), [a.id, b.id].sort());
+    assert.deepEqual((await store.list({ label: 'alpha' })).tasks.map((x) => x.id), [a.id]);
+    assert.deepEqual((await store.list({ status: 'blocked' })).tasks.map((x) => x.id), [a.id]);
+    assert.deepEqual((await store.findOpen({ text: 'SECOND' })).tasks.map((x) => x.id), [b.id]);
+
+    await store.close(a.id, { actor: 'agent:qa-engineer', reason: 'verified' });
+    assert.equal((await store.get(a.id)).task.status, 'closed');
+    assert.deepEqual((await store.list()).tasks.map((x) => x.id), [b.id], 'closed tasks leave the default list');
+    assert.equal((await store.list({ includeClosed: true })).tasks.length, 2);
+    assert.deepEqual((await store.findOpen({ text: 'first' })).tasks, [], 'an empty answer after a real read is a real empty');
+  });
+
+  test(`${kind}: a gate is recognised; deferred is a status, not "backlog"`, async (t) => {
+    const project = projectFor(kind, t);
+    if (!project) return;
+    const store = openTaskStore(project);
+    const g = await store.create({ title: 'gate:plan — approve the plan', labels: ['gate'], type: 'decision', actor: 'agent:architect' });
+    const d = await store.create({ title: 'later', actor: 'human' });
+    await store.move(d.id, 'deferred', { actor: 'human', reason: 'not this month' });
+    assert.equal((await store.get(g.id)).task.is_gate, true);
+    assert.equal((await store.get(d.id)).task.status, 'deferred');
+  });
+
+  test(`${kind}: writes to a missing task fail as absent, and usage errors are refused before the store runs`, async (t) => {
+    const project = projectFor(kind, t);
+    if (!project) return;
+    const store = openTaskStore(project);
+    await assert.rejects(() => store.move('nope-zzzz', 'blocked', { actor: 'human' }),
+      (e) => e instanceof TaskWriteFailed && e.code === 'absent');
+    const a = await store.create({ title: 'usage', actor: 'human' });
+    await assert.rejects(() => store.move(a.id, 'bogus', { actor: 'human' }), TaskUsageError);
+    await assert.rejects(() => store.move(a.id, 'blocked', {}), TaskUsageError, 'a write without an actor is refused');
+    await assert.rejects(() => store.move(a.id, 'blocked', { actor: 'somebody' }), TaskUsageError, 'the actor has a shape');
+    await assert.rejects(() => store.create({ title: '  ', actor: 'human' }), TaskUsageError);
+    assert.equal((await store.get(a.id)).task.status, 'open', 'a refused write changed nothing');
+  });
+}
 
 test('the status vocabulary is the five the store really holds', () => {
   assert.deepEqual([...STATUSES].sort(), ['blocked', 'closed', 'deferred', 'in_progress', 'open']);

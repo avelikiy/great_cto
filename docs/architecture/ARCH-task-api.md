@@ -32,8 +32,11 @@ flowchart TD
   C --> S
   S --> BB[task-backend-beads.mjs]
   S --> MB[task-backend-tasks-md.mjs]
+  S --> SB[task-backend-sqlite.mjs]
+  C -->|tracker init| SB
   BB --> BD[(bd · .beads)]
   MB --> MD[(.great_cto/tasks.md)]
+  SB --> DB[(.great_cto/tasks.db · node:sqlite)]
   P -.->|today, frozen by the ratchet| BD
   B -.->|today, frozen by the ratchet| BD
 ```
@@ -58,6 +61,12 @@ until phase 4; `tests/lib/raw-bd-ratchet.test.mjs` keeps them from growing.
 | `tasks.md` | file unreadable or unparseable | yes — `TaskReadFailed{store_refused}` from the parser's recorded reason | no — only the healthy file and the missing file are tested | `NOT READ — tasks.md could not be …`, exit 4 | stderr |
 | `tasks.md` | create, link, note | yes — `TaskWriteFailed{unsupported}` | `task-store-contract`: "unsupported writes say so" | names the backend, exit 5 | stderr |
 | `tasks.md` | the board's parser module cannot be loaded | yes — `TaskReadFailed{backend_unavailable}` | no | `NOT READ — the tasks.md reader could not be loaded`, exit 4 | stderr |
+| `sqlite` | the file is missing (forced backend) | yes — `not_initialized`; nothing creates the file but `init` | `task-store-sqlite`: "no file is not initialised" | `NOT READ — … run great-cto tracker init`, exit 4 | stderr |
+| `sqlite` | the file is not a database | yes — `TaskReadFailed{store_refused}` | `task-store-sqlite`: "not a database is unread" | `NOT READ — … could not be opened`, exit 4 | stderr |
+| `sqlite` | written by a newer schema | yes — refused before any read | `task-store-sqlite`: "newer great-cto" | `NOT READ — … upgrade great-cto`, exit 4 | stderr |
+| `sqlite` | another writer holds the lock past 5 s | yes — `TaskWriteFailed{store_refused}`, rolled back | `task-store-sqlite`: "cannot take the lock" | `… nothing was written`, exit 5 | stderr |
+| `sqlite` | Node has no `node:sqlite` | yes — `not_installed` | `task-store-sqlite`: "without node:sqlite" | `NOT READ — … use Node 22.13 or newer`, exit 4 | stderr |
+| `init` | a backlog already lives here (Beads, tasks.md, a covering tasks.db) | yes — `TaskWriteFailed{store_refused}`, no file made | `task-store-sqlite`: "init refuses"; CLI case | names the existing store, exit 5 | stderr |
 
 Nothing is written to a log file of its own: the module reports to its caller, and the CLI
 prints to stderr. Two rows are handled but have no test yet; both fail closed.
@@ -312,16 +321,40 @@ load average 95–157 (other sessions were working) — a loaded machine, not a 
 temporary store every operation is well under a second, so the cost follows store size.
 The phase-6 rule (median write above 1 s) holds on this one sample.
 
+### The SQLite backend (added 2026-11-11, owner's decision: option A of the store spike)
+
+`scripts/lib/task-backend-sqlite.mjs`, one file per project at `.great_cto/tasks.db`, on
+`node:sqlite`. Same seven operations and the same error classes as Beads; the three contract
+tests run on both backends. What differs:
+
+- **Selection:** walking up from the working folder, the nearer of `.great_cto/tasks.db` and
+  `.beads/` wins; in one folder `tasks.db` wins. `BEADS_DIR` still forces Beads.
+- **Creation:** only `initTaskStore` / `great-cto tracker init` makes the file, and it refuses
+  where a backlog already lives. A read never creates an empty second store.
+- **History:** every write adds a row to `events` (task, actor, time, what), so the actor is
+  kept as data, not only as a line in the notes.
+- **Writes:** one `BEGIN IMMEDIATE` transaction each; a lock not taken within 5 s means
+  nothing was written (`store_refused`), so there is no "unknown" state on this backend.
+- **Ids:** `<folder>-<6 hex>`, children `<parent>.<n>`, as with `bd`. Sequential task keys
+  are phase 2 and are not in this file.
+- **Not done here:** making it the default of project setup (waits for phase 4, because
+  agent prompts still run `bd`), migrating a Beads store, a change feed for the board.
+
+Measured through `great-cto tracker`, fresh process per call, 1000 tasks, load average
+109–131: `show` 0.41–1.00 s, `note` 0.31–0.67 s, `create` 0.33–0.97 s, `list` (1000 lines
+printed) 0.75–1.66 s. Three processes creating 30 tasks each at once: 90 tasks, 90 ids.
+
 ### Tests
 
 | File | Holds |
 |---|---|
-| `tests/lib/task-store-contract.test.mjs` (14) | the contract on a real `bd`, on `tasks.md`, and on a `bd` that fails, hangs or prints garbage |
+| `tests/lib/task-store-contract.test.mjs` (17) | the contract on a real `bd` and on `tasks.db` (same three tests), on `tasks.md`, and on a `bd` that fails, hangs or prints garbage |
+| `tests/lib/task-store-sqlite.test.mjs` (12) | which store a folder gets, `init` and its refusals, a garbage file, a newer schema, a held lock, a Node without `node:sqlite`, child ids, the event log, three concurrent writers, the CLI |
 | `tests/lib/tracker-cli.test.mjs` (8) | exit codes 0 / 2 / 3 / 4 / 5 through the real program, and through `great-cto tracker` |
 | `tests/lib/raw-bd-ratchet.test.mjs` (5) | raw `bd` calls outside the backend: 12 code launch points, 36 shell lines, 155 prompt lines — may only shrink |
 
 Both guards were proven on a planted defect: a failed read swallowed into `[]` turns seven
-tests red; a new `spawnSync('bd', …)` in `scripts/lib` turns the ratchet red.
+tests red (four in the SQLite file when its reads swallow errors); a new `spawnSync('bd', …)` in `scripts/lib` turns the ratchet red.
 
 ## 7. Risks and what is deliberately left out
 

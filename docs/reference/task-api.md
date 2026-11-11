@@ -81,15 +81,40 @@ before trying again.
 
 | Backend | Chosen when | Supports |
 |---|---|---|
-| `beads` | a `.beads/` directory is found in the project or above it, or `BEADS_DIR` is set | everything above |
-| `tasks-md` | no Beads store, and `.great_cto/tasks.md` exists | `list`, `show`, `find-open`, `move` and `close` for table rows with a status cell. `create`, `link` and `note` are refused with exit `5` |
+| `sqlite` | `.great_cto/tasks.db` is found in the project or above it, nearer than any `.beads/` | everything above; needs Node 22.13 or newer (`node:sqlite`) |
+| `beads` | a `.beads/` directory is found in the project or above it, nearer than any `tasks.db`, or `BEADS_DIR` is set | everything above |
+| `tasks-md` | no store of either kind, and `.great_cto/tasks.md` exists | `list`, `show`, `find-open`, `move` and `close` for table rows with a status cell. `create`, `link` and `note` are refused with exit `5` |
 
-`GREAT_CTO_TASK_BACKEND=beads|tasks-md` forces one. `GREAT_CTO_BD_BIN` names the `bd` binary.
-A project with neither source is `unread` (exit `4`), not empty.
+`GREAT_CTO_TASK_BACKEND=sqlite|beads|tasks-md` forces one. `GREAT_CTO_BD_BIN` names the `bd`
+binary. A project with no source is `unread` (exit `4`), not empty.
+
+### Starting a store
+
+```bash
+great-cto tracker init        # creates .great_cto/tasks.db in this folder
+```
+
+`init` is the only thing that creates the file; no read or write does. It refuses (exit `5`)
+in a project that already keeps tasks in Beads or in `.great_cto/tasks.md`, and in a folder
+that another `tasks.db` above it already covers: moving an existing backlog is a migration,
+not an init. A second `init` in the same folder changes nothing.
+
+The file holds `tasks`, `deps` and `events` (who changed what, when). Each write is one
+transaction; a write that waits more than 5 s for another writer's lock is refused with
+"nothing was written" (exit `5`). A file written by a newer great-cto is refused, not misread.
+On a Node without `node:sqlite` every call is `unread` with cause `not_installed`.
+
+Owner's decision, 2026-11-11 (option A of
+[SPIKE-task-store-sqlite-2026-11.md](../research/SPIKE-task-store-sqlite-2026-11.md)): new
+projects use this backend, projects on Beads stay there until migrated one by one. Project
+setup still starts Beads until the callers that run `bd` directly are moved (phase 4 of the
+RFC); `init` is how a project opts in before that.
 
 ## What it costs today
 
-Each call starts one `bd` process, and `bd` makes callers wait in line. On this repository's
+On `sqlite`, one call through `great-cto tracker` in a fresh process took 0.3–1.0 s on a
+1000-task store with load average 109–131 (2026-11-11; 0.1–0.25 s in the spike at load 50).
+On `beads`, each call starts one `bd` process, and `bd` makes callers wait in line. On this repository's
 store (1132 issues), 2026-11-11, on a heavily loaded machine: one read 3–15 s, a note 5 s,
 three reads started together 20 s. Batch what you can: one `list --json` and a filter in the
 caller is cheaper than several `show` calls.
