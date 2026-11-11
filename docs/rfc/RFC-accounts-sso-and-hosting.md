@@ -364,6 +364,13 @@ Described only; none built. Each shows current next to proposed, desktop and mob
 7. Account page: email, providers, delete account.
 8. Site: privacy policy and terms pages (layout only; text needs legal review).
 
+**Approved 2026-11-11.** The owner approved the mockups for screens 1–6 as published in
+Claude Design: https://claude.ai/artifact/PQUJSgqmoMUJGmPAPfMpwH (version 7: settings
+switch off/on, sign-in, link a phone and approve it, linked devices, the phone web client).
+Screens 7 (account page) and 8 (site privacy and terms pages) have no mockup yet. The
+approval covers how those six screens look; building remote control still needs the open
+decisions below.
+
 ## Phased plan (Beads-ready; no task created yet)
 
 | Phase | Task | Done when |

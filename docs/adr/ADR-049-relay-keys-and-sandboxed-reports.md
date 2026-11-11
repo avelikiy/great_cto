@@ -1,6 +1,6 @@
 # ADR-049 — The hosted relay acts only for the board that holds the key, and serves reports sandboxed
 
-**Status:** Proposed
+**Status:** Accepted (owner, 2026-11-11)
 **Date:** 2026-11-11
 **Deciders:** great_cto core
 **Supersedes:** —
