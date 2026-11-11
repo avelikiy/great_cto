@@ -10407,13 +10407,6 @@ function postureChips(a) {
   return out.join('');
 }
 // Required by this project's PROJECT.md: the chip says why, and whether it has run.
-function requiredChip(a) {
-  const r = requiredOf(a.slug);
-  if (!r) return '';
-  return r.verdict
-    ? `<span class="pos rou" title="required by ${esc(r.why)} — has a verdict in this project">✓ required</span>`
-    : `<span class="pos warn" title="required by ${esc(r.why)} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it">⚠ required · not run</span>`;
-}
 function permissionNote(total, differ, extra) {
   if (!total) return '';
   if (!differ && !extra) return `${total === 1 ? 'This agent has' : `All ${total} have`} the standard permissions.`;
@@ -10436,11 +10429,18 @@ function agentRowHtml(a, std) {
   const observed = a.runs_total > 0 || !!a.last_run;
   const u = usageOf(a.slug);
   const dispatchNote = u ? `started ${u.dispatches}× in the session logs${u.lastRun ? `, last ${agoStr(u.lastRun)}` : ''}${u.projects ? `, ${u.projects} project${u.projects === 1 ? '' : 's'}` : ''}` : 'starts not counted';
-  const lastText = observed
+  // A reviewer this project requires, with no result here yet, is a fact about its
+  // runs, not its permissions: it says so in Last result (approved 2026-11-11).
+  const reqd = requiredOf(a.slug);
+  const reqPending = !!(reqd && !reqd.verdict);
+  const lastText = reqPending ? 'Required here, not run yet'
+    : observed
     ? `${a.health === 'failing' ? 'Failing' : 'OK'} · ${longAgo(a.last_run)}`
     : u && u.dispatches > 0 ? `Started ${u.dispatches} ${u.dispatches === 1 ? 'time' : 'times'}, no result recorded`
     : u ? 'Never started' : 'Never observed';
-  const last = observed
+  const last = reqPending
+    ? `<span class="home-warn" title="${esc(`required by ${reqd.why} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it`)}">${esc(lastText)}</span>`
+    : observed
     ? `<span title="${esc(dispatchNote)}"${a.health === 'failing' ? ' style="color:var(--status-blocked)"' : ''}>${esc(lastText)}</span>`
     : `<span class="${u && u.dispatches > 0 ? 'home-warn' : 'muted'}" title="${esc(u ? dispatchNote + ' — no result line names this agent' : 'no result line names this agent — absence of a log is not absence of a run')}">${esc(lastText)}</span>`;
   const passText = !observed || runs === 0 || rate == null ? null : `${rate}%`;
@@ -10465,12 +10465,12 @@ function agentRowHtml(a, std) {
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
         <span class="ar-name">${groupIcon(a.domain)}<strong>${esc(a.slug)}</strong> <span class="muted">· ${model}${role ? ` · ${esc(role)}` : ''}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
-        <span class="ar-posture${perm.standard && !(req && !req.verdict) ? ' std' : ''}">${req && !req.verdict ? requiredChip(a) : ''}${perm.html}</span>
+        <span class="ar-posture${perm.standard ? ' std' : ''}">${perm.html}</span>
         <span class="ar-last">${last}</span>
         <span class="tab ar-runs" title="runs in the last 30 days">${runs}</span>
         <span class="tab ar-pass" title="pass rate over those runs">${pass}</span>
         <span class="tab ar-spend" title="LLM spend, last 30 days">${spend}</span>
-        <span class="ar-sub muted">${esc(sub)}</span>
+        <span class="ar-sub ${reqPending ? 'home-warn' : 'muted'}">${esc(sub)}</span>
       </button>
     </li>`;
 }
