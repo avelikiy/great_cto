@@ -364,6 +364,24 @@ The owner accepted every recommendation above. In detail:
 These decisions fix the direction. They do not authorize code: the board-token ADR and the
 accounts ADR each need acceptance of their own text, and every screen needs its mockup.
 
+### Setup done on 2026-11-11 (owner's later instruction)
+
+Later the same day the owner changed decision 7: set up Google and GitHub sign-in **now**, as
+separate apps for great_cto (not shared with any other product of the owner).
+
+| Item | State |
+|---|---|
+| Google Cloud project `great-cto-identity` | created; **billing disabled** (verified) |
+| Google Auth Platform | app name "Great CTO", audience **External**, publishing status **Testing**; developer contact `alex@greatcto.systems`; user support email is the owner's Google account until a Google Group on the domain exists |
+| Google OAuth client | **Web application**, redirect URI `https://app.greatcto.systems/auth/google/callback`, no JavaScript origins. Its creation-time secret was not read or stored: the identity service adds a fresh secret when it is built (step 14) |
+| GitHub OAuth app "Great CTO" | owned by `avelikiy`; homepage `https://greatcto.systems`; callback `https://app.greatcto.systems/auth/github/callback`; device flow off; **no client secret generated** |
+
+Still open, owner's steps: 2, 3, 4 and 6 of §5 (2FA with a passkey, second project owner,
+Search Console verification of `greatcto.systems`, a support group address); branding links
+(homepage, privacy policy, terms) and the authorized domain wait for the site pages (step 7);
+brand verification and "In production" wait for those (steps 9 and 11). Scopes stay `openid
+email` (decision 8); basic scopes need no entry on the Data Access page.
+
 ## Sources checked on 2026-11-11
 
 - Google, "OAuth 2.0 for iOS & Desktop Apps": `developers.google.com/identity/protocols/oauth2/native-app`
