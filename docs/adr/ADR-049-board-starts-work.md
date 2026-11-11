@@ -118,27 +118,6 @@ restates what the rules above and the plan already imply; it adds no rule.
   in the task's budget.
 - Wording and layout of the Start form: Claude Design mockup, approval first.
 
-## Consequences
-
-Each line restates a rule from the Decision above; none adds one.
-
-- The board gains its first route that starts paid work. It is origin-checked and needs a
-  person's confirmation and a budget (rules 1, 2), so a page, a notification or another agent
-  cannot start a run.
-- A run costs at most its budget: it stops and asks at the budget instead of continuing
-  (rule 2).
-- A project runs one task at a time in the first version; a second Start is refused with a
-  reason (rule 4).
-- The board holds no credentials. Start depends on the user's own Claude Code or Codex being
-  installed and signed in, proven by a probe in the session (rules 5, 10).
-- Gates keep their protocol. Projects created from the cockpit default to two stops,
-  `approval-level: product-only`; regulated archetypes keep every gate (rules 8, 9).
-- Stops are owned by the controller, not by the model, so a stage cannot continue past a
-  decision (rules 12–14).
-- On a Claude-only machine the verifier is a fresh Claude session, and the decision screen
-  says so (rule 15).
-- Turning the route off restores the copy-command card with no data migration (Rollback).
-
 ## Alternatives
 
 - Keep "prepare launch command" (copy a command into a terminal): rejected for this audience.
