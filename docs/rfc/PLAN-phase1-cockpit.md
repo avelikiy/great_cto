@@ -98,7 +98,7 @@ a live URL, tests on machines without Docker, Windows and Linux.
 
 ## Preconditions outside this plan
 
-- Managed plugin activation (ADR-048, accepted, implementation in progress in another
+- Managed plugin activation (ADR-050, accepted, implementation in progress in another
   session): a new user cannot install at all until it lands. Phase 1 can be built and tested
   on a machine that already has the plugin.
 - `packages/cli/**` is being edited by another session. Phase 1 touches `scripts/lib/**`,

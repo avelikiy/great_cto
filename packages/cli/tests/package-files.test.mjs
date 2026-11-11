@@ -42,7 +42,7 @@ test('every "files" entry resolves to something on disk', () => {
     'npm skips these silently, so the package ships less than the manifest claims');
 });
 
-test('an entry generated at pack time is asserted by the builder (ADR-048)', () => {
+test('an entry generated at pack time is asserted by the builder (ADR-050)', () => {
   for (const [entry, [script, refusal]] of Object.entries(GENERATED_AT_PACK)) {
     assert.ok(pkg.files.includes(entry), `${entry} is no longer in "files"; drop it from GENERATED_AT_PACK`);
     const source = readFileSync(join(pkgRoot, '..', '..', script), 'utf8');

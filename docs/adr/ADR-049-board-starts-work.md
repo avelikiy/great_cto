@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 **Status:** Accepted (2026-11-11, owner)
-**Related:** [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [ADR-047 one task, one worktree](ADR-047-worktree-per-task.md) · ADR-048 managed plugin activation (not on the main branch yet) · [RFC: cockpit for non-developers](../rfc/RFC-cockpit-for-non-developers.md) · [phase 1 plan](../rfc/PLAN-phase1-cockpit.md)
+**Related:** [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [ADR-047 one task, one worktree](ADR-047-worktree-per-task.md) · [ADR-050 managed plugin activation](ADR-050-managed-plugin-activation.md) · [RFC: cockpit for non-developers](../rfc/RFC-cockpit-for-non-developers.md) · [phase 1 plan](../rfc/PLAN-phase1-cockpit.md)
 
 Acceptance covers the rules below. It does not approve any screen: the Start form and every
 visible change follow the approved Claude Design mockups named in the plan.

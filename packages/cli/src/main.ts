@@ -1177,7 +1177,7 @@ async function runInit(args: CliArgs): Promise<number> {
     return 0;
   }
 
-  // ── 3. activate the plugin from the signed snapshot in this package (ADR-048) ──
+  // ── 3. activate the plugin from the signed snapshot in this package (ADR-050) ──
   // One journalled transaction: publish the cache directory, then swap the host
   // registry, settings and local marketplace entry. Nothing is fetched.
   step(3, 5, "activating the plugin from the signed snapshot in this package");
@@ -1193,7 +1193,7 @@ async function runInit(args: CliArgs): Promise<number> {
   } else {
     log(`  ${green("✓")} ${activation.version} ${dim("published to")} ${activation.versionDir}`);
     log(`  ${dim("verified against the release key pinned in this CLI; registered as great_cto@local")}`);
-    // What a first install does and does not prove (ADR-048 decision 3) — said once, plainly.
+    // What a first install does and does not prove (ADR-050 decision 3) — said once, plainly.
     log(`  ${dim("First install: these bytes, their verifier and the pinned key all came from npm.")}`);
     log(`  ${dim("Their authenticity rests on the npm registry; later activations check the pinned key.")}`);
     log(`  ${dim("~/.claude/agents and ~/.claude/commands are synced by the plugin at the next session start.")}`);
@@ -1209,7 +1209,7 @@ async function runInit(args: CliArgs): Promise<number> {
   // ── 4. optional companions ───────────────────────────────
   // great_cto runs without them: `bd` calls fall back to .great_cto/tasks.md and
   // skill references degrade to plain prompts. They are never installed from here —
-  // a third-party snapshot has no publisher admission (ADR-048 decision 6).
+  // a third-party snapshot has no publisher admission (ADR-050 decision 6).
   step(4, 5, "optional companions");
   log(`  ${dim("beads (task tracker, the `bd` binary):")} ${cyan("https://github.com/steveyegge/beads")}`);
   log(`  ${dim("superpowers (review and planning skills):")} ${cyan("https://github.com/obra/superpowers")}`);

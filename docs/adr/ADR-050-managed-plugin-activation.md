@@ -1,4 +1,4 @@
-# ADR-048: Managed activation of the Claude Code plugin from an embedded signed snapshot
+# ADR-050: Managed activation of the Claude Code plugin from an embedded signed snapshot
 
 **Date:** 2026-11-10
 Status: Accepted by the owner on 2026-11-10 (design and slice 1); implementation in progress

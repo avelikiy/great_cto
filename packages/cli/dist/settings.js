@@ -4,7 +4,7 @@
 // The write is: read -> digest -> build next -> write a private temp file in the same
 // directory -> re-read the original and confirm its digest is unchanged -> rename. A host
 // write between the first read and the rename is therefore refused, never lost.
-// (ARCH-plugin-activation Q2 step 8, ADR-048 decision 4.)
+// (ARCH-plugin-activation Q2 step 8, ADR-050 decision 4.)
 import { closeSync, constants, existsSync, fstatSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, renameSync, rmSync, writeFileSync, } from "node:fs";
 import { createHash, randomUUID } from "node:crypto";
 import { homedir } from "node:os";

@@ -383,7 +383,7 @@ test('SIGN_ONLY accepts an off-main candidate while publication requires exact c
   assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run:()=>{throw Error('network unavailable');}}),/unavailable/);
 });
 
-// ADR-048: the signed plugin set that travels inside the npm package.
+// ADR-050: the signed plugin set that travels inside the npm package.
 function embeddedKey(t,{allowUnpinnedKey=true}={}){
   const dir=fixture(t),{privateKey,publicKey}=generateKeyPairSync('ed25519');
   const privateKeyPath=path.join(dir,'release.pem');fs.writeFileSync(privateKeyPath,privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});

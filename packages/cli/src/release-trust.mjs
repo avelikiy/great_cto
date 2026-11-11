@@ -382,7 +382,7 @@ export function inspectPluginPayload(ticket) {
 }
 
 // ---------------------------------------------------------------------------------------------
-// Embedded plugin set (ADR-048). The signed plugin snapshot travels inside the npm package; the
+// Embedded plugin set (ADR-050). The signed plugin snapshot travels inside the npm package; the
 // only authority here is a key fingerprint pinned in this source file. Nothing in the set, and no
 // environment, chooses the key, the profile or the policy. This module imports node built-ins and
 // ./release-archive.mjs only, so the verifier always comes from the npm installation (decision 8).

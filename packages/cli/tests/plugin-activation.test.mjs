@@ -1,5 +1,5 @@
 /**
- * Managed plugin activation (ADR-048 decision 4, slice 1): the transaction that publishes the
+ * Managed plugin activation (ADR-050 decision 4, slice 1): the transaction that publishes the
  * cache directory and swaps the host registry, settings and local marketplace entry.
  *
  * Every run uses a fixture ticket and a throwaway Claude directory under the system temp

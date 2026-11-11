@@ -2,7 +2,7 @@
 
 **Date:** 2026-11-10
 Status: Proposed for gate:arch. No key enrollment, release, publication or activation follows from reading this.
-Design: [ADR-048](../adr/ADR-048-managed-plugin-activation.md). Extends [ADR-045](../adr/ADR-045-verified-distribution.md) and its contract [ARCH-distribution-trust](ARCH-distribution-trust.md).
+Design: [ADR-050](../adr/ADR-050-managed-plugin-activation.md). Extends [ADR-045](../adr/ADR-045-verified-distribution.md) and its contract [ARCH-distribution-trust](ARCH-distribution-trust.md).
 
 For the implementer and the reviewer of `npx great-cto init`: this selects **where the
 plugin bytes come from and how they become active**, so that `init` works for a new user

@@ -1,4 +1,4 @@
-/** Write the signed plugin set that travels inside the npm package (ADR-048).
+/** Write the signed plugin set that travels inside the npm package (ADR-050).
  *
  * Nine files: the plugin archive, its inventory and SBOM, a schema-3 index naming exactly those
  * three, one signature sidecar for each of the four, and the public key. The consumer is

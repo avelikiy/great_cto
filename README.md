@@ -42,7 +42,7 @@ not proof of execution or expertise.
 
 ## Quick start
 
-**Verified distribution boundary (ADR-045, ADR-048):** this implementation replaces mutable installers
+**Verified distribution boundary (ADR-045, ADR-050):** this implementation replaces mutable installers
 with verified artifact admission. `init` activates the Claude Code plugin from a
 signed set shipped inside the npm package; until a release key is enrolled in
 source it refuses with `embedded-release-key-not-enrolled`. Companions

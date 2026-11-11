@@ -1,5 +1,5 @@
 /**
- * Embedded plugin-set admission (ADR-048 decisions 1, 2, 3, 8).
+ * Embedded plugin-set admission (ADR-050 decisions 1, 2, 3, 8).
  *
  * Fixture keys are ephemeral and carry no authority: they can only be injected through the
  * explicit `testOnlyKeyFingerprint` option, and the ticket they produce is marked

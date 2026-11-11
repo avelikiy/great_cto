@@ -26,7 +26,7 @@ preexisting local state; it does not authenticate the old installation.
 
 Volta, pnpm and automatic companion installation remain unsupported until their
 own executable-byte and recovery contracts pass. Claude Code plugin activation by
-`init` follows [ADR-048](../adr/ADR-048-managed-plugin-activation.md) and the
+`init` follows [ADR-050](../adr/ADR-050-managed-plugin-activation.md) and the
 embedded set below; companions (superpowers, beads) are optional and never
 installed by `init`.
 No clone, cache removal, settings change or host execution may precede admission.
@@ -92,7 +92,7 @@ UTF-8 newline, then the unmodified blob bytes. This binds the namespace, filenam
 and complete release index; no self-referential signature digest is stored.
 Malformed JSON, fields, key type, base64, profile or context refuse admission.
 
-## Embedded plugin set (ADR-048)
+## Embedded plugin set (ADR-050)
 
 The npm package carries the plugin it activates, so `init` fetches nothing. The
 builder writes `plugin/` inside the package before `npm pack`: ten files,

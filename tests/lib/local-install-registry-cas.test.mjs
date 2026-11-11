@@ -1,5 +1,5 @@
 // Compare-and-swap behaviour of scripts/lib/local-install-registry.mjs
-// (ARCH-plugin-activation Q2 steps 7 and 9, ADR-048 decision 4).
+// (ARCH-plugin-activation Q2 steps 7 and 9, ADR-050 decision 4).
 //
 // Every test builds its own temp tree and passes explicit paths. Nothing here reads or
 // writes the real ~/.claude.

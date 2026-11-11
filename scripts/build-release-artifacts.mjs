@@ -166,7 +166,7 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   const ref=`pkg:npm/great-cto@${version}`;
   const sbom={bomFormat:'CycloneDX',specVersion:'1.6',version:1,metadata:{tools:{components:[{type:'application',name:'great-cto-release-builder',version:'1'}]},component:{type:'application',name:'great-cto',version,purl:ref,'bom-ref':ref},properties:[{name:'great-cto:inventory-scope',value:'production runtime dependency closure only; development build tools excluded'},{name:'great-cto:source-commit',value:commit}]},components:[],dependencies:[{ref,dependsOn:[]}]};
   write('sbom.cdx.json',JSON.stringify(sbom,null,2)+'\n');
-  // ADR-048: the signed plugin set travels inside the npm package, so it must exist before the
+  // ADR-050: the signed plugin set travels inside the npm package, so it must exist before the
   // pack. It names plugin, inventory and SBOM only — never the npm tarball that will contain it.
   const embeddedDirectory=join(source,'packages/cli/plugin');
   if (fs.existsSync(embeddedDirectory)) throw Error('stale embedded plugin set in source; remove packages/cli/plugin and rebuild');
@@ -240,7 +240,7 @@ if (process.argv[1] && isMain()) {
   const args=process.argv.slice(2), out=args.indexOf('--out'), source=args.indexOf('--source');
   if(args[0]==='--compare'){try{process.stdout.write(JSON.stringify(compareReleaseArtifactSets(args[1],args[2]))+'\n');}catch(error){console.error(`release comparison refused: ${error.message}`);process.exitCode=1;}}
   else {
-  // A release without the embedded signed set cannot run `init` (ADR-048), so the command line
+  // A release without the embedded signed set cannot run `init` (ADR-050), so the command line
   // never builds one: the key and its fingerprint are required. Tests call the function directly.
   const key=args.indexOf('--embedded-key'), fingerprint=args.indexOf('--embedded-key-fingerprint');
   if (out < 0 || !args[out+1] || key < 0 || !args[key+1] || fingerprint < 0 || !args[fingerprint+1]) { console.error('usage: build-release-artifacts.mjs --out ABSOLUTE_DIRECTORY --embedded-key ABSOLUTE_PKCS8_PEM --embedded-key-fingerprint SPKI_SHA256 [--source GIT_ROOT] [--fresh-checkout]'); process.exitCode=2; }

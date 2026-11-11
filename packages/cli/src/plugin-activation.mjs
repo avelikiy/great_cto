@@ -1,4 +1,4 @@
-/** Managed activation of the Claude Code plugin from an admitted snapshot (ADR-048, slice 1).
+/** Managed activation of the Claude Code plugin from an admitted snapshot (ADR-050, slice 1).
  *
  * One journalled transaction owns four targets: the immutable cache version directory, the host
  * plugin registry, the host settings, and the local directory-marketplace entry. Every host file
