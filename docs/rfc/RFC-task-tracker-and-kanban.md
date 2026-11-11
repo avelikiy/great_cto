@@ -560,5 +560,10 @@ mockup.
 | # | Question | Decision | Consequence |
 |---|---|---|---|
 | 1 | Direction | **Option B**: Beads stays the store behind one great_cto task API; the store is decided in phase 6 by the numbers in section 6 | Phase 1 go-ahead given on 2026-11-11. Architecture: [ARCH-task-api.md](../architecture/ARCH-task-api.md), approved at gate:arch and built the same day; reference: [task-api.md](../reference/task-api.md). The CLI there is `great-cto tracker`, because `great-cto task` is already used |
-| 2–12 | Key format and great_cto's own `KEY`, alias or replacement, who names `KEY`, strictness, release PRs, public key registry, branch protection, bot PRs, kanban placement, mockup go-ahead, external mirror | **Open** | Phase 1 does not depend on them. Phase 2 needs 2–4; phase 3 needs 5–9; phase 5 needs 10–11 |
+| 2 | Key format | `<KEY>-<n>`; great_cto's own `KEY` is **`GCTO`** | Phase 2 uses it |
+| 3 | Alias or replacement | **Alias**; the Beads id stays the internal id | — |
+| 4 | Who names `KEY` | Derived from the project name, editable until the first task exists | First-run flow of the app; needs the phase-5 mockup for the field |
+| 11 | Mockup go-ahead | **Yes**, prepare the kanban mockup now | Mockup in Claude Design; no board code before it is approved |
+| — | Order of work | Phase 1 PR after main is green; then keys (phase 2), the store spike and the mockup in parallel; then phase 3 | The store spike moves forward from phase 6: one read through `bd` already costs about seven seconds, above the 1 s threshold. Its decision stays the owner's |
+| 5–10, 12–14 | Strictness, release PRs, public key registry, branch protection, bot PRs, kanban placement, external mirror, completion evidence, limit handoff | **Open.** Recommendations given on 2026-11-11: every PR needs a task; release tooling creates its task; no public registry until the spike; required status after one or two weeks of the guard; bot PRs exempt by author; List / Board toggle inside Work; no mirror; advice first; propose only | Phase 3 needs 5–9; phase 5 needs 10 |
 | — | Additions from the takt research (section 7) | Added on 2026-11-11 at the request of the research session, which relayed the owner's approval; questions 13–14 are open | Proposals only; nothing is scheduled |
