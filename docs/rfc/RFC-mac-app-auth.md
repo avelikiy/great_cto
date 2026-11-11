@@ -345,6 +345,25 @@ Desktop client only if the owner chooses option B later.
    closed (key in a `0600` file, as in the reference app).
 9. **Sign in with Apple**: not now; revisit only with an App Store or iOS app.
 
+## Owner's decisions (2026-11-11)
+
+The owner accepted every recommendation above. In detail:
+
+| # | Question | Decision | Consequence |
+|---|---|---|---|
+| 1 | Account in v1 | **None.** The app is local and single-user | No `docs/PRIVACY.md` change for accounts in v1 |
+| 2 | Board API token | **Ship with the `.dmg`**, as its own ADR, warn-then-enforce | Draft: [ADR-DRAFT-board-api-token.md](ADR-DRAFT-board-api-token.md). The browser page "open the board from the app" needs an approved Claude Design mockup before code |
+| 3 | Google client | **Our identity service is the client (option C)**; the app ships nothing from Google | No Desktop or iOS OAuth client is created |
+| 4 | Machine credential | **Device-key binding** instead of a refresh token | Amends the token flow in `RFC-accounts-sso-and-hosting.md` when its ADR is written |
+| 5 | Google Cloud project owner | **The owner's personal Google account**, strong 2FA, plus a second owner for recovery | §5 steps 1–6 are the owner's to do now |
+| 6 | Remote agent runtime | **Only while the app runs**; device key in the Keychain | A key in a `0600` file is revisited only if running with the app closed is requested |
+| 7 | Timing of Google steps | Steps 1–6 now; 7–15 only with accounts Phase 2 | No consent screen or OAuth client before the identity service and the privacy policy exist |
+| 8 | Scopes | `openid email` only | `profile` only with a new decision |
+| 9 | Sign in with Apple | Not now | Revisit with an App Store or iOS app |
+
+These decisions fix the direction. They do not authorize code: the board-token ADR and the
+accounts ADR each need acceptance of their own text, and every screen needs its mockup.
+
 ## Sources checked on 2026-11-11
 
 - Google, "OAuth 2.0 for iOS & Desktop Apps": `developers.google.com/identity/protocols/oauth2/native-app`
