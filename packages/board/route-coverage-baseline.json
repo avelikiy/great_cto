@@ -10,7 +10,6 @@
     "/api/memory-pattern",
     "/api/notif-history",
     "/api/notif-history/read",
-    "/api/notifications",
     "/api/portfolio",
     "/api/push/subscribe",
     "/api/push/vapid-key",

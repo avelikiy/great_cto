@@ -83,6 +83,17 @@ function writeAlertsFired(map) {
  * @param {string} dedupeKey   unique per event instance (e.g. "great_cto:GC-42")
  * @param {object} payload     { title, body, level, project, link, action, kv }
  */
+/**
+ * Headers for a request to the alert relay. The send key is what the relay
+ * returned when this board confirmed the address; a board that verified before
+ * keys existed has none and sends without it.
+ */
+export function relayHeaders(state) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (typeof state?.send_key === 'string' && state.send_key) headers.Authorization = `Bearer ${state.send_key}`;
+  return headers;
+}
+
 async function fireEmailAlert(eventName, dedupeKey, payload) {
   try {
     const stateFile = path.join(GREAT_CTO_DIR, 'notifications.json');
@@ -112,7 +123,7 @@ async function fireEmailAlert(eventName, dedupeKey, payload) {
     const relay = process.env.GREATCTO_NOTIFY_URL || 'https://greatcto.systems';
     const res = await fetch(`${relay}/notify`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: relayHeaders(state),
       body: JSON.stringify({
         to: state.to,
         title: payload.title,

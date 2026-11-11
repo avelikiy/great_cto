@@ -76,6 +76,46 @@ function randomCode() {
   return String(buf[0] % 1_000_000).padStart(6, "0");
 }
 
+// ── Send keys ───────────────────────────────────────────────────────────────
+// Confirming the 6-digit code returns a key once; only its hash is stored. An
+// alert for that address must carry the key. Addresses verified before keys
+// existed have no hash: they keep working until REQUIRE_SEND_KEY=1 is set, and
+// then must verify again (which also is how a leaked key is replaced).
+
+function randomKey() {
+  const buf = new Uint8Array(32);
+  crypto.getRandomValues(buf);
+  let bin = "";
+  for (const b of buf) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+async function sha256Hex(text) {
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(String(text)));
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, "0")).join("");
+}
+
+function bearerOf(req) {
+  const m = /^Bearer\s+(\S+)$/i.exec(req.headers.get("authorization") || "");
+  return m ? m[1] : "";
+}
+
+// Compare two hex digests without stopping at the first difference.
+function sameDigest(a, b) {
+  if (typeof a !== "string" || typeof b !== "string" || a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/** Why this request may not act for `record`'s address, or null when it may. */
+async function sendKeyRefusal(record, req, env) {
+  if (!record.key_hash) return env.REQUIRE_SEND_KEY === "1" ? "reverify_required" : null;
+  const key = bearerOf(req);
+  if (!key) return "send_key_required";
+  return sameDigest(await sha256Hex(key), record.key_hash) ? null : "bad_send_key";
+}
+
 function isValidEmail(s) {
   return typeof s === "string" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(s) && s.length <= 254;
 }
@@ -239,17 +279,28 @@ async function confirmVerify(req, env) {
     last_send_at: 0,
     count_24h: 0,
   };
+  const reply = { ok: true };
+  // A key only for a board that asks for one. A board from before keys would drop
+  // the key it was handed, and every alert it sent afterwards would be refused.
+  if (body.keyed === true) {
+    // Returned once, to the board that typed the code. Only its hash is stored.
+    reply.send_key = randomKey();
+    record.key_hash = await sha256Hex(reply.send_key);
+  }
   await env.STATE.put(`verified:${to}`, JSON.stringify(record));
   await env.STATE.delete(`code:${to}`);
-  return json({ ok: true });
+  return json(reply);
 }
 
-async function notifyStatus(url, env) {
+async function notifyStatus(url, env, req) {
   const to = String(url.searchParams.get("to") || "").trim().toLowerCase();
   if (!isValidEmail(to)) return json({ verified: false });
   const raw = await env.STATE.get(`verified:${to}`);
   if (!raw) return json({ verified: false });
   const record = JSON.parse(raw);
+  // Without the key the answer is the same as for an unknown address: this
+  // endpoint must not tell a stranger which addresses are registered.
+  if (await sendKeyRefusal(record, req, env)) return json({ verified: false });
   return json({
     verified: true,
     count_24h: record.count_24h || 0,
@@ -342,6 +393,8 @@ async function sendAlert(req, env) {
   const raw = await env.STATE.get(`verified:${to}`);
   if (!raw) return json({ error: "email_not_verified" }, 403);
   const record = JSON.parse(raw);
+  const refusal = await sendKeyRefusal(record, req, env);
+  if (refusal) return json({ error: refusal }, 401);
 
   const now = Date.now();
   // Reset counter if last send was >24h ago
@@ -399,7 +452,7 @@ export default {
       return confirmVerify(req, env);
     }
     if (pathname === "/notify/status" && req.method === "GET") {
-      return notifyStatus(url, env);
+      return notifyStatus(url, env, req);
     }
     if (pathname === "/notify" && req.method === "POST") {
       return sendAlert(req, env);

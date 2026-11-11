@@ -200,9 +200,11 @@ until you enter an address under Notifications and confirm the 6-digit code.
   Alert content is not stored by the relay; it is passed to the mail provider (Resend)
   for delivery.
 - **Limits:** 100 emails per address per 24 hours.
-- **Known gap:** the relay accepts an alert for any verified address without proving
-  which board sent it. Authenticating the sender is planned
-  (`docs/adr/ADR-048-board-local-api-guards.md`, follow-ups).
+- **Who can send:** when you confirm the code, the relay gives your board a send key
+  and keeps only its hash. Alerts for your address need that key. The key is stored in
+  `~/.great_cto/notifications.json` (mode 0600) and is never given to the board page.
+  An address verified by an older board has no key and still works without one; verify
+  the address again to get a key. Verifying again also replaces a key you think leaked.
 - **Turn it off:** disable alerts under Notifications; the board then sends nothing.
   To have the stored address removed, write to `privacy@greatcto.systems` from that
   address. There is no self-service removal yet.
@@ -220,11 +222,27 @@ numbers at a public, unlisted URL (`https://greatcto.systems/r/<id>`).
   71 characters of the close reason. Descriptions, notes, design text, assignees and
   comments are not included, and neither are open tasks, code or verdict files.
 - **Who can read it:** anyone who has the link. Treat the link as public.
-- **Retention:** 30 days from the last publish, then deleted. Turning Share off marks
-  the page as paused at once.
-- **While Share is on,** approving a gate republishes the snapshot.
-- **Known gap:** publishing and pausing are not tied to an account or a key; whoever
-  holds a report's id can pause it.
+- **How it is served:** inside a browser sandbox with no network access, so a report
+  cannot read cookies or storage of `greatcto.systems`, submit a form or load anything.
+- **Who can change it:** publishing returns a manage key to your board; the relay keeps
+  only its hash. Pausing, resuming, replacing and deleting the report need that key. It
+  is stored in `~/.great_cto/share-<project>.json` (mode 0600) and is never given to
+  the board page. A report published by an older board has no key: anyone holding its
+  link can pause it, and nothing else.
+- **Turning Share off** pauses the report at the relay first. A paused report is not
+  shown. If the relay cannot be reached or refuses, the board says the report is still
+  public and leaves Share on.
+- **While Share is on,** approving a gate replaces the report at the same link. A board
+  without a key publishes a new link each time, and the previous one stays up until it
+  expires.
+- **Retention:** 30 days from the last publish. After that the report is not served, and
+  it is deleted from storage the first time someone asks for it. A report nobody asks
+  for stays in storage until the bucket's own cleanup removes it.
+
+The last four points describe the relay in this repository
+(`packages/board/cloudflare-worker/share-worker.js`). They are true of
+`greatcto.systems` once that version is deployed there; the previous one served a paused
+report in full and let anyone holding a link pause it.
 
 Source: `packages/board/lib/share.mjs`.
 
@@ -412,6 +430,7 @@ else from the file, and only on the machine the board runs on.
 - **2026-05-10**: initial telemetry pipeline (Phase 3). Default off. Schema v1.
 - **2026-11-10**: documented email alerts and share reports, which were already in the product and missing here.
 - **2026-11-11**: the share report embeds only the task fields it displays (it embedded full task records).
+- **2026-11-11**: send keys for email alerts and manage keys for share reports; reports are served sandboxed; a paused report is no longer shown.
 
 ## Local execution graph observations
 

@@ -52,25 +52,39 @@ function getShareState(cwd = process.cwd()) {
 }
 function saveShareState(state, cwd = process.cwd()) {
   fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
-  fs.writeFileSync(shareStatePath(cwd), JSON.stringify(state, null, 2));
+  // 0600: the file holds the report's manage key. chmod too, because `mode` only
+  // applies when the file is created.
+  const file = shareStatePath(cwd);
+  fs.writeFileSync(file, JSON.stringify(state, null, 2), { mode: 0o600 });
+  try { fs.chmodSync(file, 0o600); } catch { /* not ours to chmod */ }
+}
+/** The share state as the page may see it: everything but the manage key. */
+function shareStateForPage(state) {
+  if (!state || typeof state !== 'object') return state;
+  const { manage_key, ...rest } = state;
+  return rest;
 }
 
-async function publishReport(html) {
-  // POST to Cloudflare Worker
+// One request to the share relay. `key` is the report's manage key, returned when
+// it was published; the relay needs it to pause, resume or replace a report.
+// Rejects when the relay cannot be reached or answers with something that is not
+// JSON; resolves { status, body } otherwise, so the caller decides what a 401 means.
+async function shareRelay(pathname, payload, key) {
   const { default: https } = await import('https');
+  const { default: http } = await import('http');
+  const url = new URL(pathname, process.env.GREATCTO_SHARE_URL || SHARE_ENDPOINT);
+  const body = JSON.stringify(payload);
+  const headers = { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) };
+  if (typeof key === 'string' && key) headers.Authorization = `Bearer ${key}`;
   return new Promise((resolve, reject) => {
-    const body = JSON.stringify({ html, ttl: 2592000 }); // 30 days
-    const url = new URL(SHARE_ENDPOINT);
-    const req = https.request({
-      hostname: url.hostname, path: url.pathname,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-    }, res => {
+    const req = (url.protocol === 'http:' ? http : https).request({
+      hostname: url.hostname, port: url.port || undefined, path: url.pathname, method: 'POST', headers,
+    }, (res) => {
       let data = '';
-      res.on('data', c => data += c);
+      res.on('data', (c) => { data += c; });
       res.on('end', () => {
-        try { resolve(JSON.parse(data)); }
-        catch { reject(new Error('Invalid response: ' + data)); }
+        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
+        catch { reject(new Error('Invalid response: ' + data.slice(0, 200))); }
       });
     });
     req.on('error', reject);
@@ -79,44 +93,55 @@ async function publishReport(html) {
   });
 }
 
+async function publishReport(html) {
+  const r = await shareRelay('/r/', { html, ttl: 2592000, manage: true }); // 30 days; ask for a manage key
+  if (r.status !== 200 || !r.body?.hash) throw new Error(`share relay refused the report (${r.status}): ${r.body?.error || 'no id returned'}`);
+  return r.body;
+}
+
 async function toggleShare(enable, cwd = process.cwd(), force = false) {
   const state = getShareState(cwd);
   // (enable && !state.enabled) → first publish
-  // (enable && state.enabled && force) → re-publish with fresh data (new URL)
+  // (enable && state.enabled && force) → re-publish with fresh data
   if (enable && (!state.enabled || force)) {
-    // Generate and publish
     // Share report is a marketing artifact — show LIFETIME numbers, not a
     // rolling window. 365 days × 100 = effectively-lifetime cap for any project.
     try {
       const tasks = await getTasksAsync(cwd);
       if (getReadDegradation(cwd)) return { error: 'Task snapshot is unavailable; report not published' };
       const html = generateShareHTML(tasks, getMetrics(cwd, 36500, { tasks }), cwd);
+      // A report this board holds the key for is replaced in place: the link stays
+      // the same and no older copy is left public. Without a key (published before
+      // keys existed, or the relay refused) a new report is published.
+      if (state.hash && state.manage_key) {
+        const r = await shareRelay(`/r/${state.hash}`, { html, enabled: true, ttl: 2592000 }, state.manage_key);
+        if (r.status === 200) {
+          const kept = { ...state, enabled: true, published_at: new Date().toISOString() };
+          saveShareState(kept, cwd);
+          return kept;
+        }
+      }
       const result = await publishReport(html);
       const newState = { enabled: true, url: result.url, hash: result.hash, published_at: new Date().toISOString() };
+      if (typeof result.manage_key === 'string' && result.manage_key) newState.manage_key = result.manage_key;
       saveShareState(newState, cwd);
       return newState;
     } catch (e) {
       return { error: e.message };
     }
   } else if (!enable && state.enabled) {
+    // Pause at the relay FIRST, and say so when it did not happen: the report is
+    // public, and "off" on this machine while the link still works is the worse lie.
+    if (state.hash) {
+      let r;
+      try { r = await shareRelay(`/r/${state.hash}`, { enabled: false }, state.manage_key); }
+      catch (e) { return { ...state, error: `The report is still public: the share relay could not be reached (${e.message})` }; }
+      if (r.status !== 200 && r.status !== 404) {
+        return { ...state, error: `The report is still public: the share relay refused to pause it (${r.status} ${r.body?.error || ''})`.trim() };
+      }
+    }
     const newState = { ...state, enabled: false };
     saveShareState(newState, cwd);
-    // Tell Cloudflare worker to mark this hash as paused
-    if (state.hash) {
-      try {
-        const { default: https } = await import('https');
-        await new Promise((resolve) => {
-          const body = JSON.stringify({ enabled: false });
-          const req = https.request({
-            hostname: 'greatcto.systems', path: `/r/${state.hash}`,
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }
-          }, res => { res.on('data', () => {}); res.on('end', resolve); });
-          req.on('error', resolve);
-          req.write(body); req.end();
-        });
-      } catch {}
-    }
     return newState;
   }
   return state;
@@ -170,4 +195,4 @@ function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
     .replaceAll('{{PAUSED}}', () => 'false');
 }
 
-export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML, shareTask, SHARE_TASK_FIELDS };
+export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML, shareTask, SHARE_TASK_FIELDS, shareStateForPage, shareRelay };

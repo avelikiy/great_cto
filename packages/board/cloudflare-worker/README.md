@@ -1,6 +1,16 @@
-# great_cto Cloudflare Worker
+# great_cto Cloudflare Workers
 
-Two surfaces on `greatcto.systems`:
+Two workers on `greatcto.systems`:
+
+- `worker.js` + `wrangler.toml` → `great-cto-notify`, the `/notify*` routes (KV + Resend).
+- `share-worker.js` + `wrangler.share.toml` → `great-cto-share`, the `/r/*` routes (R2).
+  Deploy with `npx wrangler deploy -c wrangler.share.toml` after filling in the live
+  bucket name (see the comment in that file).
+
+`worker.js` also carries `/r/` handlers from before the split; they are not routed.
+Keys, the sandbox and what a deploy changes: `docs/adr/ADR-049-relay-keys-and-sandboxed-reports.md`.
+
+Routes:
 
 | Route | Purpose |
 |-------|---------|

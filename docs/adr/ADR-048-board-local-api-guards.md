@@ -89,7 +89,8 @@ still serves `/` from a cross-site link; a server started with `--host 0.0.0.0` 
 
 - ~~`great-cto console` help calls it "the operator console (no dev board)".~~ Done
   2026-11-11: the help says what it starts. Removing the command is a separate decision.
-- Authenticate share publish, share pause and alert send at the relay.
+- ~~Authenticate share pause and alert send at the relay.~~ ADR-049.
 - ~~The share report embeds full records of the last 20 completed tasks.~~ Done
   2026-11-11: it embeds only the fields it displays.
-- Serve published reports from an origin that is not the brand domain.
+- ~~Serve published reports from an origin that is not the brand domain.~~ ADR-049
+  serves them sandboxed instead, which needs no second domain.

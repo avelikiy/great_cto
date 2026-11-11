@@ -1,0 +1,26 @@
+# The share-report worker: greatcto.systems/r/*  (source: share-worker.js)
+#
+# Deploy:  npx wrangler deploy -c wrangler.share.toml
+#
+# bucket_name is deliberately not filled in: the name of the live bucket is not
+# recorded in this repository. Copy it from the deployed worker's R2 binding
+# (dashboard → Workers → great-cto-share → Settings → Bindings) before the first
+# deploy from here. With the placeholder, the deploy fails instead of binding the
+# worker to a new, empty bucket.
+name = "great-cto-share"
+main = "share-worker.js"
+compatibility_date = "2025-01-01"
+account_id = "8b4c82576661609fadcac6ae8a5b2708"
+
+routes = [
+  { pattern = "greatcto.systems/r/*", zone_name = "greatcto.systems" },
+]
+
+[[r2_buckets]]
+binding = "SHARE_BUCKET"
+bucket_name = "REPLACE_WITH_THE_LIVE_BUCKET_NAME"
+
+# Set to "1" only after boards older than the release that introduced manage keys
+# are out of use: it stops a report published without a key from being paused.
+# [vars]
+# REQUIRE_MANAGE_KEY = "1"
