@@ -3,7 +3,8 @@
 - Status: **draft, analysis only** — nothing here is implemented, registered or deployed
 - Date: 2026-11-10
 - Related: `RFC-board-desktop-app.md`, `RFC-cockpit-for-non-developers.md` (both still in
-  another worktree, not on `main`), ADR-007, ADR-009, ADR-024, ADR-045, `docs/PRIVACY.md`
+  another worktree, not on `main`), ADR-007, ADR-009, ADR-024, ADR-045, `docs/PRIVACY.md`,
+  [RFC-task-tracker-and-kanban.md](RFC-task-tracker-and-kanban.md) (tracker, kanban and task key for the same app)
 
 ## Summary
 

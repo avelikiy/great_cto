@@ -51,6 +51,7 @@ export const PROTOCOL_SENSITIVE_COMMANDS = new Set([
   "mcp",      // stdio JSON-RPC protocol — any stray byte on stdout/stderr breaks the client
   "worker",   // long-running daemon; status is polled programmatically
   "task",     // machine-invoked task runner (spawned by worker)
+  "tracker",  // task store CLI; agents and scripts parse its output and exit code
 ]);
 
 export interface UpdateCache {
