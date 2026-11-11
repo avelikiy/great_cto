@@ -439,6 +439,92 @@ If none holds, Beads stays and the question is closed with the numbers.
 | Kanban duplicates Work and the two drift | one read model (`work.mjs`), two layouts; no separate kanban endpoint |
 | Backfill misnumbers on a store that could not be fully read | backfill refuses to run on a degraded read; dry run prints the mapping first |
 
+## 7. Additions from the takt research (proposals)
+
+Source: [RESEARCH-takt-2026-11.md](../research/RESEARCH-takt-2026-11.md). takt is licensed PolyForm Noncommercial 1.0.0 and great_cto is MIT, so only
+ideas are taken — no code, text, icons or design. takt has no task key and no PR binding;
+sections 4 and 5 of this RFC already go further than it does.
+
+Nothing below is implemented. Each item names where it would land and what it needs first.
+
+### 7.1 Acceptance items with evidence, shown as "k of n verified"
+
+**Today.** A Work task holds `acceptance` as a list of strings
+(`scripts/lib/work-tasks.mjs`). Nothing records which criterion was checked, or by what.
+
+**Proposal.**
+
+- An acceptance item becomes `{ text, status, evidence? }` with `status` one of `pending`,
+  `verified`, `waived`, and `evidence` as `{ kind, ref, at }`. An existing list of strings
+  reads as all `pending`.
+- An item changes only through a helper that records the evidence: a command with its exit
+  code, a verdict line, or a receipt id. A box an agent ticks for itself does not count.
+- A task is done only when every item is `verified` or `waived`. A waiver names who waived
+  it and why.
+- A record that cannot be read is an error. It is never shown as "0 of 0".
+- `scripts/hooks/subagent-stop-completion.mjs` reports unverified items as advice first;
+  `GREAT_CTO_ENFORCE_COMPLETION=block` keeps its current meaning.
+
+**Where it shows.** The kanban card's progress (section 3) becomes "k of n verified" in
+place of "4 of 7 steps" when the task has acceptance items. That is a visible change and
+goes into the phase-5 mockup.
+
+### 7.2 Handoff at a limit, with lineage
+
+**Today.** When a session hits its usage limit the work stops, and nothing on the task says
+that it stopped for that reason or who continued it.
+
+**Proposal.**
+
+- Attempt-level fields: `handedTo` on the attempt that stopped, `takeoverOf` on the attempt
+  that continues, and `stopReason` (`limit:session`, `limit:weekly`, …).
+- Detection reuses the limit classification in `scripts/lib/session-usage.mjs` and
+  `scripts/hooks/quota-check.mjs`. No reading of screen text.
+- The handoff payload is the stage context packet of
+  [ADR-026](../adr/ADR-026-stage-context-packet.md): a file and its SHA-256. The new attempt
+  records that it started from that packet.
+- `scripts/hooks/pipeline-stall-guard.mjs` and `session-pipeline-resume.mjs` **propose** the
+  takeover. Starting it is the operator's decision while the capacity costs money
+  ([ADR-009](../adr/ADR-009-gates-follow-reversibility.md)).
+
+### 7.3 One precedence table for the state a person sees
+
+**Today.** Several board readers classify a task on their own (fleet, the Work view, gate
+affordances), so two screens can disagree about the same task.
+
+**Proposal.** Stored transitions stay in the tracker, behind the task API. The **displayed**
+state is derived in one module (for example `scripts/lib/task-display-state.mjs`) from the
+stored status, the acceptance counts, the session status (working, waiting, blocked on a
+prompt), the limit status and any open gate, in a fixed order:
+
+`limit` > `waiting at a gate` > `blocked` > `asking` > `done` (all items verified) >
+`failed or killed` > `running` > `idle`
+
+- A table-driven test pins the order.
+- Board readers call the module and stop classifying themselves.
+- A task whose process exited with unverified items is **not** done.
+
+This is the rule behind the kanban columns in section 3: "Needs you" is `waiting at a gate`,
+`asking`, and `blocked` when the need is the owner's; a new visible state (`limit`) needs the
+mockup.
+
+### 7.4 Two small conventions
+
+- A done task names the merge commit and its date.
+- The task file layout takt uses (goal, scope, do not, who edits what, context, acceptance)
+  is the layout of the existing implementation briefs under `docs/impl-briefs/`. Reuse that
+  format; do not add a second one.
+
+### How these fit the phases
+
+| Item | Earliest phase | Needs a mockup |
+|---|---|---|
+| 7.1 data model and helper | after phase 4 (callers go through the task API) | no |
+| 7.1 "k of n" on the card | phase 5 | yes |
+| 7.2 lineage fields and proposal | independent of the kanban; after phase 1 | no, unless a `limit` state is shown |
+| 7.3 display-state module and test | before phase 5 — the board layout reads it | no for the module; yes for any new visible state |
+| 7.4 merge commit on a done task | phase 3 (the merge guard knows the commit) | no |
+
 ## Decisions only the owner can make
 
 1. **Direction.** Accept option B now, with the store decided in phase 6 by the numbers
@@ -464,6 +550,10 @@ If none holds, Beads stays and the question is closed with the numbers.
     Needs you, phone, key display) while phases 1–4 are built?
 12. **External mirror.** Is a one-way mirror to Linear or GitHub Issues wanted at all, and
     for which projects? Not part of this plan unless you say so.
+13. **Completion by acceptance evidence (7.1).** Advice first, or blocking for managed
+    tasks from the first day?
+14. **Handoff at a limit (7.2).** Propose the takeover only, or start it automatically when
+    the other harness is on a flat subscription?
 
 ## Owner's decisions (2026-11-11)
 
@@ -471,3 +561,4 @@ If none holds, Beads stays and the question is closed with the numbers.
 |---|---|---|---|
 | 1 | Direction | **Option B**: Beads stays the store behind one great_cto task API; the store is decided in phase 6 by the numbers in section 6 | Phase 1 go-ahead given on 2026-11-11. Architecture: [ARCH-task-api.md](../architecture/ARCH-task-api.md), approved at gate:arch and built the same day; reference: [task-api.md](../reference/task-api.md). The CLI there is `great-cto tracker`, because `great-cto task` is already used |
 | 2–12 | Key format and great_cto's own `KEY`, alias or replacement, who names `KEY`, strictness, release PRs, public key registry, branch protection, bot PRs, kanban placement, mockup go-ahead, external mirror | **Open** | Phase 1 does not depend on them. Phase 2 needs 2–4; phase 3 needs 5–9; phase 5 needs 10–11 |
+| — | Additions from the takt research (section 7) | Added on 2026-11-11 at the request of the research session, which relayed the owner's approval; questions 13–14 are open | Proposals only; nothing is scheduled |
