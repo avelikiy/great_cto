@@ -2,11 +2,13 @@
 #
 # Deploy:  npx wrangler deploy -c wrangler.share.toml
 #
-# bucket_name is deliberately not filled in: the name of the live bucket is not
-# recorded in this repository. Copy it from the deployed worker's R2 binding
-# (dashboard → Workers → great-cto-share → Settings → Bindings) before the first
-# deploy from here. With the placeholder, the deploy fails instead of binding the
-# worker to a new, empty bucket.
+# The R2 bucket is the one the deployed worker has been bound to since 2026-04-30
+# (checked with `wrangler versions view` on 2026-11-11).
+#
+# The bucket has a lifecycle rule `expire-reports`: objects under r/ are deleted
+# 31 days after their last write. Every page write sets expires_at at most 30 days
+# ahead (MAX_TTL_SEC), so the rule only removes reports that have already expired
+# and were never opened again.
 name = "great-cto-share"
 main = "share-worker.js"
 compatibility_date = "2025-01-01"
@@ -18,7 +20,7 @@ routes = [
 
 [[r2_buckets]]
 binding = "SHARE_BUCKET"
-bucket_name = "REPLACE_WITH_THE_LIVE_BUCKET_NAME"
+bucket_name = "great-cto-share"
 
 # Set to "1" only after boards older than the release that introduced manage keys
 # are out of use: it stops a report published without a key from being paused.

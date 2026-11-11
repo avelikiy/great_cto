@@ -4,8 +4,9 @@ Two workers on `greatcto.systems`:
 
 - `worker.js` + `wrangler.toml` → `great-cto-notify`, the `/notify*` routes (KV + Resend).
 - `share-worker.js` + `wrangler.share.toml` → `great-cto-share`, the `/r/*` routes (R2).
-  Deploy with `npx wrangler deploy -c wrangler.share.toml` after filling in the live
-  bucket name (see the comment in that file).
+  Deploy with `npx wrangler deploy -c wrangler.share.toml`. Bucket `great-cto-share`
+  expires objects under `r/` 31 days after their last write (lifecycle rule
+  `expire-reports`, set 2026-11-11).
 
 `worker.js` also carries `/r/` handlers from before the split; they are not routed.
 Keys, the sandbox and what a deploy changes: `docs/adr/ADR-049-relay-keys-and-sandboxed-reports.md`.
