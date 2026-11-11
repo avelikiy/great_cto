@@ -2,11 +2,12 @@
 import { mkdirSync, readFileSync, writeFileSync, renameSync, rmdirSync, realpathSync } from 'node:fs';
 import { join, resolve, relative, sep, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { newRun, runStage, runParallelWave, parallelPair, approve, reject, recover, cancel } from './lib/codex-pipeline.mjs';
+import { newRun, runStage, runParallelWave, parallelPair, approve, reject, recover, cancel, verifierHost } from './lib/codex-pipeline.mjs';
 import { approveRelease } from './lib/codex-release.mjs';
 import { codexRunStore, listCodexRuns, codexHostDoctor } from './lib/codex-host-state.mjs';
-import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions } from './lib/work-tasks.mjs';
+import { beginWork, finishWork, acquireProjectLease, readWorkTask, linkWork, observeWorkRun, controlledDecisions, controlledTask } from './lib/work-tasks.mjs';
 import { detectClaude } from './lib/claude-exec.mjs';
+import { detectCodex } from './lib/codex-exec.mjs';
 import { dispatchEvidenceSummary } from './lib/controller-dispatch-evidence.mjs';
 import { projectExecutionTrace } from './lib/execution-trace.mjs';
 import { readBenchmarkRegistration, bindBenchmarkTrial } from './lib/adaptive-benchmark-collector.mjs';
@@ -36,6 +37,13 @@ const routes = raw => {
     out[role] = host;
   }
   return out;
+};
+// ADR-049: `--host` puts every unlisted role and the verifier on one host;
+// `--verifier-host` names the verifier alone. Absent, both stay on Codex.
+const hostOption = name => {
+  if (!args.includes(name)) return null;
+  if (args.filter(a => a === name).length !== 1 || !['codex', 'claude-code'].includes(value(name))) throw Error(`${name} requires codex or claude-code`);
+  return value(name);
 };
 const inheritedLease = process.env.GREAT_CTO_WORK_LEASE;
 delete process.env.GREAT_CTO_WORK_LEASE;
@@ -114,24 +122,36 @@ try {
     const observeHostGraph = args.includes('--observe-graph');
     const allowed = (value('--allow') || '').split(',').map(p => p.trim()).filter(Boolean);
     let acceptance = [], intent = value('--intent') || 'delivery', maxAttempts = value('--max-attempts') === null ? 3 : Number(value('--max-attempts'));
+    // Hosts are resolved and probed before a task or a run exists: a start refused
+    // for a missing or signed-out host leaves nothing behind.
+    const defaultHost = hostOption('--host'), verifier = hostOption('--verifier-host') || defaultHost;
+    if (args.includes('--routes') && value('--routes') == null) throw Error('--routes requires a value');
+    const hostRoutes = routes(value('--routes'));
+    const selected = new Set([defaultHost, verifier, ...Object.values(hostRoutes)]);
+    if (selected.has('claude-code')) {
+      const claude = detectClaude();
+      if (claude.state !== 'available') throw Error(`Claude Code host unavailable: ${claude.why}`);
+    }
+    // Codex is probed only when it was named; the unnamed default keeps its old start.
+    if (defaultHost === 'codex' || hostOption('--verifier-host') === 'codex') {
+      const codex = detectCodex();
+      if (codex.state !== 'available') throw Error(`Codex host unavailable: ${codex.why}`);
+    }
+    // The task's host is the run's host. A Claude Code task is accepted only in its
+    // controlled form; the interactive native task is never driven from here.
+    const taskHost = defaultHost || 'codex';
     if (taskId) {
       projectLease = acquireProjectLease(root, { reuseToken: inheritedLease });
       const task = readWorkTask(taskId, { root });
       acceptance = task.acceptance; intent = task.intent || 'delivery'; maxAttempts = task.budget?.maxStageAttempts || 3;
-      if (task.host !== 'codex' || task.goal !== value('--prompt')?.trim()
+      if (task.host !== taskHost || !controlledTask(task) || task.goal !== value('--prompt')?.trim()
         || JSON.stringify(task.authority?.writeScope) !== JSON.stringify(allowed)) throw Error('task authority does not match run request');
     } else {
-      work = beginWork({ root, host: 'codex', goal: value('--prompt'), intent, maxAttempts, authority: { mode: 'explicit-paths', writeScope: allowed } });
+      work = beginWork({ root, host: taskHost, goal: value('--prompt'), intent, maxAttempts, authority: { mode: 'explicit-paths', writeScope: allowed } });
       projectLease = work.lease; taskForFinish = work.task.taskId;
     }
     const listing = listCodexRuns({ root, store });
     if (listing.state === 'degraded' || listing.runs.some(r => !['done', 'cancelled'].includes(r.status))) throw Error('unfinished or unreadable project run exists; resume or inspect it first');
-    if (args.includes('--routes') && value('--routes') == null) throw Error('--routes requires a value');
-    const hostRoutes = routes(value('--routes'));
-    if (Object.values(hostRoutes).includes('claude-code')) {
-      const claude = detectClaude();
-      if (claude.state !== 'available') throw Error(`Claude Code host unavailable: ${claude.why}`);
-    }
     let checkPolicy = null;
     if (value('--checks-policy')) {
       const policyPath = realpathSync(value('--checks-policy'));
@@ -169,7 +189,7 @@ try {
     }
     state = newRun({ root, prompt: value('--prompt'), checkPolicy, releasePolicy, specialistPolicy, domainPolicy,
       allowed, intent, entry: intent === 'research' ? 'project-auditor' : value('--entry') || 'product-owner',
-      maxAttempts, hostRoutes, gatePolicy });
+      maxAttempts, hostRoutes, defaultHost, verifierHost: verifier, gatePolicy });
     state.observeHostGraph = observeHostGraph;
     state.taskId = taskId || work.task.taskId;
     state.acceptance = acceptance;
@@ -177,7 +197,7 @@ try {
       if (!value('--benchmark-trial')) throw Error('--benchmark-trial requires an operator-owned trial registration');
       bindBenchmarkTrial(state, readBenchmarkRegistration(root, value('--benchmark-trial')));
     }
-    linkWork(state.taskId, 'runs', state.id, { root, host: 'codex' });
+    linkWork(state.taskId, 'runs', state.id, { root, host: taskHost });
     if (args.includes('--ship-evidence-policy')) {
       if (args.filter(a => a === '--ship-evidence-policy').length !== 1 || !value('--ship-evidence-policy') || value('--ship-evidence-policy').startsWith('--') || args.includes('--ship-revision')) throw Error('SHIP_POLICY_INVALID');
       const lock = join(store, `${state.id}.lock`); mkdirSync(lock, {mode: 0o700}); locked = lock;
@@ -201,7 +221,7 @@ try {
     }
     if (command !== 'status') {
       if (command === 'resume' && state.taskId && !inheritedLease) {
-        work = beginWork({ root: state.root, host: 'codex', kind: 'resume', taskId: state.taskId });
+        work = beginWork({ root: state.root, host: readWorkTask(state.taskId, { root: state.root }).host, kind: 'resume', taskId: state.taskId });
         projectLease = work.lease; taskForFinish = work.task.taskId;
       } else projectLease = acquireProjectLease(state.root, { reuseToken: inheritedLease });
     }
@@ -257,7 +277,7 @@ try {
       fingerprint: state.specialistPreparation.fingerprint, reusablePass: false } : null,
     specialistReview: state.specialistReview ? {
       roles: state.specialistReview.roles, fingerprint: state.specialistReview.fingerprint, reusablePass: false } : null,
-    hostRoutes: state.hostRoutes || {}, wave: state.wave ? {
+    hostRoutes: state.hostRoutes || {}, hosts: { default: state.defaultHost || 'codex', verifier: verifierHost(state) }, wave: state.wave ? {
       id: state.wave.id, roles: state.wave.roles, hosts: state.wave.hosts, status: state.wave.status } : null,
     rolesCompleted: Object.keys(state.results), stateFile: join(store, `${state.id}.json`) }, null, 2));
   process.exitCode = ['blocked', 'manual-action', 'join-wait'].includes(state.status) ? 2 : 0;

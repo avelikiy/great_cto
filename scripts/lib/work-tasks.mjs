@@ -11,6 +11,14 @@ const hosts = new Set(['codex', 'claude-code']);
 const digest = value => createHash('sha256').update(JSON.stringify(value)).digest('hex');
 export const projectIdentity = root => 'project:' + createHash('sha256').update(realpathSync(root)).digest('hex');
 const canonical = root => realpathSync(root);
+/**
+ * A controlled task is run by the stage controller: it owns the writes, the gates
+ * and the run cursor, and the task links runs. Every Codex task is controlled. A
+ * Claude Code task is controlled only when it was created with path-scoped
+ * authority (ADR-049); with `native-interactive` authority it is the user's own
+ * interactive session, which the controller never drives and which links sessions.
+ */
+export const controlledTask = t => t?.managed !== false && (t?.host === 'codex' || t?.authority?.mode === 'explicit-paths');
 const fileFor = (store, id) => { if (!UUID.test(id || '')) throw Error('invalid task UUID'); return join(store, `${id}.json`); };
 export function assertExternal(root, store) {
   let actual = resolve(store), suffix = [];
@@ -121,7 +129,7 @@ function newTaskRecord({ root, host, goal, acceptance = [], authority = null, in
   const now = new Date().toISOString();
   return { schemaVersion: 1, taskId: randomUUID(), root, managed: true, projectId: projectIdentity(root), host,
         goal: goal.trim(), acceptance: [...acceptance], authority, intent,
-        budget: { maxStageAttempts: host === 'codex' ? maxAttempts : null, authority: 'host-owned' },
+        budget: { maxStageAttempts: host === 'codex' || authority?.mode === 'explicit-paths' ? maxAttempts : null, authority: 'host-owned' },
         stage: null, decisions: [], outcome: null, activity: [],
         revision: 1, createdAt: now, updatedAt: now, phase: 'accepted', reason: null,
         links: { runs: [], sessions: [], issues: [] }, operations: [], observations: [], evidence: [],
@@ -184,7 +192,7 @@ export function finishWork(taskId, operationId, exitCode, { store = workTaskStor
       op.resume = { state: advanced.length ? 'progressed' : t.phase === 'needs_decision' ? 'waiting_decision' : t.phase === 'blocked' ? 'blocked' : 'unobserved', evidence: advanced.map(a => a.id) };
     }
     // Host exit does not prove acceptance, and absence of hooks does not prove progress.
-    if (['start', 'resume'].includes(op.kind) && (!t.observations.length || (t.host === 'claude-code' && t.phase === 'working'))) { t.phase = exitCode === 0 ? 'unknown' : 'blocked'; t.reason = 'Host returned; no execution observation recorded'; }
+    if (['start', 'resume'].includes(op.kind) && (!t.observations.length || (!controlledTask(t) && t.phase === 'working'))) { t.phase = exitCode === 0 ? 'unknown' : 'blocked'; t.reason = 'Host returned; no execution observation recorded'; }
   }, { store, root });
 }
 export function linkWork(taskId, type, id, { store = workTaskStore(), root, host } = {}) {
@@ -192,6 +200,8 @@ export function linkWork(taskId, type, id, { store = workTaskStore(), root, host
   if (type !== 'issues' && !UUID.test(id)) throw Error('invalid execution UUID');
   return mutateWorkTask(taskId, t => {
     if (host && t.host !== host) throw Error('host link mismatch');
+    if (type === 'runs' && !controlledTask(t)) throw Error('only a controlled task links controller runs');
+    if (type === 'sessions' && t.host === 'claude-code' && controlledTask(t)) throw Error('a controlled task has no native session');
     if (t.links[type].includes(id)) return false;
     t.links[type].push(id);
   }, { store, root });
@@ -209,7 +219,7 @@ export function observeWorkRun(state, { store = workTaskStore() } = {}) {
   if (!state.taskId) return null;
   return mutateWorkTask(state.taskId, t => {
     if (t.phase === 'completed') return false;
-    if (t.host !== 'codex' || !t.links.runs.includes(state.id)) throw Error('run is not linked to task');
+    if (!controlledTask(t) || !t.links.runs.includes(state.id)) throw Error('run is not linked to task');
     let evidenceChanged = false;
     const started = (state.attempts || []).find(a => a.startedAt)?.startedAt;
     if (started && !t.metrics.firstObservedStartAt) {
@@ -260,7 +270,7 @@ export function observeWorkSession(payload, { store = workTaskStore() } = {}) {
   if (!UUID.test(payload?.session_id || '') || !payload.cwd) return null;
   const listing = listWorkTasks(payload.cwd, { store });
   if (listing.state === 'degraded') throw Error('task metadata is unreadable');
-  let tasks = listing.tasks.filter(t => t.host === 'claude-code' && !['completed', 'cancelled'].includes(t.phase) && t.links.sessions.includes(payload.session_id));
+  let tasks = listing.tasks.filter(t => t.host === 'claude-code' && !controlledTask(t) && !['completed', 'cancelled'].includes(t.phase) && t.links.sessions.includes(payload.session_id));
   if (!tasks.length) { const registered = registerNativeStart(payload, { store }); if (registered) return registered; }
   if (tasks.length !== 1) return null;
   const event = payload.hook_event_name;
@@ -305,7 +315,7 @@ export function observeNativePipeline({ root, sessionId, agent, verdict, decisio
   if (!UUID.test(sessionId || '')) return null;
   const listing = listWorkTasks(root, { store });
   if (listing.state === 'degraded') throw Error('task metadata is unreadable');
-  const matches = listing.tasks.filter(t => t.host === 'claude-code' && !['completed', 'cancelled'].includes(t.phase) && t.links.sessions.includes(sessionId));
+  const matches = listing.tasks.filter(t => t.host === 'claude-code' && !controlledTask(t) && !['completed', 'cancelled'].includes(t.phase) && t.links.sessions.includes(sessionId));
   if (matches.length !== 1) return null;
   return mutateWorkTask(matches[0].taskId, t => {
     t.stage = agent; t.activity ||= [];
