@@ -136,32 +136,88 @@ test('every new row says what covers it, or says that nothing does', () => {
   }
 });
 
-test('every cited test exists in its file, is not skipped, and the file is inside the repository', () => {
-  const seen = new Set();
-  for (const row of newRows()) {
+/**
+ * What is wrong with the tests a list of rows cites, as sentences; empty when every citation is sound.
+ * A citation is sound when its file is inside the repository and exists, and the test it names is
+ * DECLARED there (the name sits in a string literal on a line that is not a comment) and not skipped.
+ * `read` and `exists` are parameters so the check can be shown to fail on a fabricated repository.
+ */
+function citationProblems(rows, { read: readSource = read, exists = rel => fs.existsSync(path.join(ROOT, rel)) } = {}) {
+  const problems = [];
+  for (const row of rows) {
     for (const { file, test: name } of row.coveredBy) {
-      assert.ok(!path.isAbsolute(file) && !file.includes('..') && !file.startsWith('docs/gates/'), `${row.id}: ${file}`);
-      assert.ok(fs.existsSync(path.join(ROOT, file)), `${row.id}: ${file} does not exist`);
-      const source = read(file);
+      if (path.isAbsolute(file) || file.includes('..') || file.startsWith('docs/gates/')) { problems.push(`${row.id}: ${file} is outside the repository or is a frozen gate`); continue; }
+      if (!exists(file)) { problems.push(`${row.id}: ${file} does not exist`); continue; }
+      const source = readSource(file);
       const at = source.indexOf(name);
-      assert.ok(at >= 0, `${row.id}: no test named ${JSON.stringify(name)} in ${file}`);
+      if (at < 0) { problems.push(`${row.id}: no test named ${JSON.stringify(name)} in ${file}`); continue; }
       const line = source.slice(source.lastIndexOf('\n', at) + 1, source.indexOf('\n', at));
-      assert.doesNotMatch(line, /\b(skip|todo)\b/i, `${row.id}: ${name} is skipped — a skipped test covers nothing`);
-      seen.add(`${file}::${name}`);
+      if (/\b(skip|todo)\b/i.test(line)) problems.push(`${row.id}: ${name} is skipped: a skipped test covers nothing`);
     }
   }
-  assert.ok(seen.size >= 15, 'a contract with almost no citations is a contract nobody checked');
+  return problems;
+}
+
+test('every cited test exists in its file, is not skipped, and the file is inside the repository', () => {
+  const rows = newRows();
+  assert.deepEqual(citationProblems(rows), []);
+  const cited = new Set(rows.flatMap(row => row.coveredBy.map(c => `${c.file}::${c.test}`)));
+  assert.ok(cited.size >= 15, 'a contract with almost no citations is a contract nobody checked');
 });
 
-test('the citation check is not vacuous: a made-up test name is reported missing (known-bad sample)', () => {
-  const source = read('packages/cli/tests/plugin-activation.test.mjs');
-  assert.ok(source.includes('second run is ALREADY_ACTIVE and writes nothing'));
-  assert.equal(source.includes('a test that was never written'), false);
+test('the citation check is not vacuous: it is run on fabricated citations and reports each of them (known-bad sample)', () => {
+  const files = {
+    'fake/real.test.mjs': [
+      "test('a test that is declared', () => {});",
+      "// test('a test that exists only in a comment', () => {});",
+      " * test('a test inside a block comment', () => {});",
+      "// the row cites 'a name that appears in prose, once, after a comment' here",
+      "test.skip('a test that is skipped', () => {});",
+      "const cases = [['a table-driven case', 1]];",
+      "// test('named in a comment and declared below', () => {});",
+      "test('named in a comment and declared below', () => {});",
+    ].join('\n'),
+  };
+  const options = { read: file => files[file], exists: file => file in files };
+  const cite = (id, file, name) => ({ id, coveredBy: [{ file, test: name }] });
+  const problems = citationProblems([
+    cite('sound', 'fake/real.test.mjs', 'a test that is declared'),
+    cite('table', 'fake/real.test.mjs', 'a table-driven case'),
+    cite('both', 'fake/real.test.mjs', 'named in a comment and declared below'),
+    cite('missing_name', 'fake/real.test.mjs', 'a test that was never written'),
+    cite('comment_only', 'fake/real.test.mjs', 'a test that exists only in a comment'),
+    cite('block_comment', 'fake/real.test.mjs', 'a test inside a block comment'),
+    cite('prose', 'fake/real.test.mjs', 'a name that appears in prose, once, after a comment'),
+    cite('skipped', 'fake/real.test.mjs', 'a test that is skipped'),
+    cite('missing_file', 'fake/absent.test.mjs', 'anything'),
+    cite('absolute', '/etc/passwd', 'anything'),
+    cite('climbs', '../outside.test.mjs', 'anything'),
+    cite('frozen_gate', 'docs/gates/some-gate.test.mjs', 'anything'),
+  ], options);
+  const byRow = id => problems.filter(problem => problem.startsWith(id + ':'));
+  for (const id of ['sound', 'table', 'both']) assert.deepEqual(byRow(id), [], `${id} is a sound citation and must not be reported`);
+  assert.match(byRow('missing_name')[0], /no test named/);
+  assert.match(byRow('comment_only')[0], /no test named/);
+  assert.match(byRow('block_comment')[0], /no test named/);
+  assert.match(byRow('prose')[0], /no test named/);
+  assert.match(byRow('skipped')[0], /skipped/);
+  assert.match(byRow('missing_file')[0], /does not exist/);
+  for (const id of ['absolute', 'climbs', 'frozen_gate']) assert.match(byRow(id)[0], /outside the repository|frozen gate/);
+  assert.equal(problems.length, 9, problems.join('\n'));
 });
 
 test('a row nothing covers is listed, not hidden: the uncovered rows are exactly these', () => {
   const uncovered = newRows().filter(row => row.coverage === 'UNCOVERED').map(row => row.id);
-  // Owned by a stream that has not landed (S8, per-host runtime scope). This list only changes together
-  // with a test that earns the row a COVERED or PARTIAL — and it must never grow without a reason in the row.
-  assert.deepEqual(uncovered, ['external_runtime_scope']);
+  // external_runtime_scope was the one, until stream S8 landed with its tests. This list changes only
+  // together with a test that earns a row COVERED or PARTIAL, and it must never grow without a reason in the row.
+  assert.deepEqual(uncovered, []);
+});
+
+test('external_runtime_scope is PARTIAL, cites the boundary tests, and still names what is not covered', () => {
+  const row = newRows().find(r => r.id === 'external_runtime_scope');
+  assert.equal(row.coverage, 'PARTIAL');
+  assert.ok(row.coveredBy.some(c => c.file === 'packages/cli/tests/plugin-runtime-boundary.test.mjs'));
+  assert.ok(row.coveredBy.length >= 10, 'the row cites the per-host, argv, fail-closed and shipped-manifest tests, not one of them');
+  assert.ok(row.uncovered.some(clause => /does not print/.test(clause)), 'the report that init does not print is written down');
+  assert.ok(row.uncovered.some(clause => /not a parser/.test(clause)), 'the limit of a lint is written down');
 });

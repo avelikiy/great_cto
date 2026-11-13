@@ -488,10 +488,60 @@
       "id": "external_runtime_scope",
       "requirement": "Per-host classification: a Codex-only `npx` entry does not refuse a Claude activation; a *fetching* command in the activated host's manifest does refuse; `python3` is classified and reported as host toolchain",
       "state": "NOT_RUN",
-      "coverage": "UNCOVERED",
-      "coveredBy": [],
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "a Codex-only npx entry does not refuse a Claude activation"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "the same files do refuse a Codex activation, naming the file and the program"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "a fetching command in the Claude manifest refuses a Claude activation, with the evidence in the message"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "claude: a python3 MCP server is host toolchain, reported, and does not refuse"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "adapter: python3 is reported on the outcome as host toolchain, on first activation and on the idempotent one"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "mcp: a package install through an interpreter fetches, though the program is python3 or uv"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "claude: git clone, fetch and pull in a hook fetch, however they are chained (bug 5fz8)"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "claude: a hook that runs a program nobody classified is reported, and refuses"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "adapter: an unclassified entrypoint in the Claude manifest refuses before anything is written (bug xhqq)"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "shipped: the Claude manifest has no fetching and no unclassified entrypoint, so a real activation is not refused"
+        },
+        {
+          "file": "packages/cli/tests/plugin-runtime-boundary.test.mjs",
+          "test": "shipped: no hook clones or pulls a repository (bug 5fz8): skills come from `great-cto skills sync`, on request"
+        },
+        {
+          "file": "packages/cli/tests/skills-sync.test.mjs",
+          "test": "sync clones each missing source with git clone --depth=1 into ~/.great_cto/<name>, and nothing else"
+        }
+      ],
       "uncovered": [
-        "Per-host classification of runtime commands (a Codex-only npx entry does not refuse a Claude activation, a fetching command in the activated host's manifest does, python3 is reported as host toolchain): admission checks that manifest paths exist but classifies no commands, and stream S8 had not landed when this contract was written (.claude-plugin/plugin.json still declares a python3 MCP server), so no test exists."
+        "`python3` is reported as host toolchain on the activation outcome (externalRuntime.toolchain), but `great-cto init` does not print that report, so the person who ran init is not shown it: packages/cli/src/main.ts does not read the field. No test asserts a printed report.",
+        "The scan of a shell command is a lint over the publisher's own manifest, not a parser and not a sandbox: it does not defend against a publisher who obfuscates a command, and that publisher holds the signing key. Every test here uses an honest manifest."
       ]
     },
     {
