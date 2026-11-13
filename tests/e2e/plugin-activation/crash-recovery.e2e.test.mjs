@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {
   newMachine, buildPackage, runInit, crashAt, recoverCrashed, hostFiles, paths, versionDir, seedHost, readHost,
-  inventoryOf, executions, journals, stateRecords, alive, PHASES, PLUGIN_KEY, tail,
+  inventoryOf, executions, ranFiles, SMOKE_FILES, SUCCESSFUL_INIT_RUNS, journals, stateRecords, alive, PHASES, PLUGIN_KEY, tail,
 } from './harness.mjs';
 
 /** Boundaries after which the host may already differ from where it started: recovery restores it. */
@@ -37,7 +37,7 @@ for (const boundary of PHASES) {
     assert.equal(left.pointer.state, 'IN_FLIGHT');
     assert.deepEqual(journals(machine).map(j => j.phases.at(-1)), [boundary]);
     // The only candidate code that runs is the smoke, which comes after ACTIVE is journalled.
-    assert.equal(executions(pkg).length, boundary === 'SMOKE_PASSED' ? 1 : 0, 'candidate bytes ran before the smoke');
+    assert.deepEqual(ranFiles(pkg), boundary === 'SMOKE_PASSED' ? SMOKE_FILES : [], 'candidate bytes ran before the smoke');
 
     const run = runInit(machine, pkg);
     assert.equal(run.status, 0, tail(run.output));
@@ -51,7 +51,7 @@ for (const boundary of PHASES) {
     assert.deepEqual([host.settings.theme, host.settings.enabledPlugins['other@market']], ['dark', true]);
     assert.deepEqual(inventoryOf(versionDir(machine, '3.72.0')), pkg.set.inventory.files);
     assert.equal(stateRecords(machine).pointer.state, 'COMPLETE');
-    assert.equal(executions(pkg).length, 1, 'candidate bytes ran once in total: the smoke of the activation that completed');
+    assert.deepEqual(ranFiles(pkg), SUCCESSFUL_INIT_RUNS, 'the candidate ran once in total: one smoke, then the discovery script init runs when activation is done');
 
     // The journals show what recovery did: the interrupted transaction was rolled back (or, when its
     // smoke had already passed, kept), and one more finished the job.
@@ -83,7 +83,7 @@ for (const boundary of PHASES) {
       assert.deepEqual(hostFiles(machine), before, 'every host file is byte-for-byte what it was before the transaction');
     }
     assert.equal(stateRecords(machine).pointer.state, 'COMPLETE');
-    assert.equal(executions(pkg).length, boundary === 'SMOKE_PASSED' ? 1 : 0, 'recovery ran no candidate byte');
+    assert.deepEqual(ranFiles(pkg), boundary === 'SMOKE_PASSED' ? SMOKE_FILES : [], 'recovery ran no candidate byte');
   });
 }
 

@@ -87,19 +87,54 @@ export const readHost = machine => Object.fromEntries(['registry', 'settings', '
   return [name, fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : null];
 }));
 
-/** The plugin files, with `packages/cli/index.mjs` replaced by a script that leaves a marker when it runs. */
-function instrumentedFiles(version, { marker, hold }) {
-  const script = [
+// ── what "a candidate byte ran" means ────────────────────────────────────────────────────────────────
+//
+// Every executable member of the fixture set (.mjs, .js, .sh, .py) is replaced by a stand-in that appends
+// one JSON line to the package's marker file when it runs: which file, with what arguments. A scenario
+// that says "no candidate byte ran" is therefore measured over ALL of them, not over one entry point.
+//
+// The set holds the entry points the activation or `init` can reach, and tripwires for the ones nothing
+// should reach:
+//   reached on purpose  packages/cli/index.mjs and scripts/lib/gate-plan.mjs (the smoke, defaultSmoke in
+//                       plugin-activation.mjs), and scripts/skill-discover.sh (init runs it from the
+//                       activated bytes once activation is done: main.ts, section 4c)
+//   tripwires           the board server, the compiled CLI inside the plugin, two hook scripts and the
+//                       python MCP server: no scenario here has a reason to run any of them
+export const SMOKE_FILES = ['packages/cli/index.mjs', 'scripts/lib/gate-plan.mjs'];
+export const AFTER_ACTIVATION_FILES = ['scripts/skill-discover.sh'];
+/** What a successful `init` runs of the candidate, in order. Anything else appearing here is a finding. */
+export const SUCCESSFUL_INIT_RUNS = [...SMOKE_FILES, ...AFTER_ACTIVATION_FILES];
+export const EXECUTABLE = /\.(?:mjs|js|sh|py)$/;
+const EXTRA_MEMBERS = [
+  ['scripts/lib/gate-plan.mjs', 0o644], ['scripts/skill-discover.sh', 0o755], ['scripts/hooks/session-start.mjs', 0o644],
+  ['scripts/hooks/secret-scan.mjs', 0o644], ['mcp-servers/llm-router/server.py', 0o644],
+];
+
+/** The stand-in for one executable member: leaves a marker line, then (for the entry point) behaves like the fixture did. */
+function standIn(rel, { marker, version, hold }) {
+  const m = JSON.stringify(marker), r = JSON.stringify(rel);
+  if (rel.endsWith('.sh')) return `#!/bin/sh\nprintf '{"file":"%s","argv":[],"envKeys":null}\\n' '${rel}' >> '${marker}'\n`;
+  if (rel.endsWith('.py')) return `import json, sys\nopen(${m}, 'a').write(json.dumps({'file': ${r}, 'argv': sys.argv[1:], 'envKeys': None}) + '\\n')\n`;
+  if (rel.endsWith('.js')) return `require('node:fs').appendFileSync(${m}, JSON.stringify({ file: ${r}, argv: process.argv.slice(2), envKeys: Object.keys(process.env).sort() }) + '\\n');\n`;
+  const entry = rel === 'packages/cli/index.mjs';
+  return [
     "import fs from 'node:fs';",
-    `fs.appendFileSync(${JSON.stringify(marker)}, JSON.stringify({ argv: process.argv.slice(2), envKeys: Object.keys(process.env).sort() }) + '\\n');`,
-    ...(hold ? [
+    `fs.appendFileSync(${m}, JSON.stringify({ file: ${r}, argv: process.argv.slice(2), envKeys: Object.keys(process.env).sort() }) + '\\n');`,
+    ...(entry && hold ? [
       'const cell = new Int32Array(new SharedArrayBuffer(4)), deadline = Date.now() + 30000;',
       `while (!fs.existsSync(${JSON.stringify(hold)})) { if (Date.now() > deadline) { console.error('held smoke was never released'); process.exit(3); } Atomics.wait(cell, 0, 0, 20); }`,
     ] : []),
-    `console.log(${JSON.stringify(version)});`,
+    ...(entry ? [`console.log(${JSON.stringify(version)});`] : ['export {};']),
     '',
   ].join('\n');
-  return pluginFiles(version).map(f => f.path === 'packages/cli/index.mjs' ? { ...f, bytes: Buffer.from(script) } : f);
+}
+
+/** The fixture set with every executable member instrumented, plus the entry points and tripwires above. */
+function instrumentedFiles(version, { marker, hold, claudeManifest }) {
+  const base = pluginFiles(version).map(f => claudeManifest && f.path === '.claude-plugin/plugin.json'
+    ? { ...f, bytes: Buffer.from(JSON.stringify({ name: 'great-cto', version, ...claudeManifest })) } : f);
+  const members = [...base, ...EXTRA_MEMBERS.map(([path, mode]) => ({ path, bytes: Buffer.alloc(0), mode }))];
+  return members.map(f => EXECUTABLE.test(f.path) ? { ...f, bytes: Buffer.from(standIn(f.path, { marker, version, hold })) } : f);
 }
 
 /**
@@ -107,7 +142,7 @@ function instrumentedFiles(version, { marker, hold }) {
  * `pin` is the fingerprint written into the copy's source constant; `null` leaves the shipped
  * NOT_ENROLLED pin, i.e. the build exactly as it ships today.
  */
-export function buildPackage(machine, { version, pin = machine.key.fingerprint, hold = false } = {}) {
+export function buildPackage(machine, { version, pin = machine.key.fingerprint, hold = false, claudeManifest = null } = {}) {
   const dist = path.join(CLI, 'dist');
   if (!fs.existsSync(path.join(dist, 'main.js'))) {
     throw new Error('packages/cli/dist/main.js is missing: build the CLI first (npm run build in packages/cli). The gate builds it before this step; a missing build is a failure, not a skip.');
@@ -126,12 +161,14 @@ export function buildPackage(machine, { version, pin = machine.key.fingerprint, 
     fs.writeFileSync(file, source.replace(PIN, `export const EMBEDDED_RELEASE_KEY_FINGERPRINT = '${pin}';`));
   }
   const name = path.basename(root), marker = path.join(machine.markers, `${name}.jsonl`), release = path.join(machine.markers, `${name}.release`);
-  const set = writeEmbeddedSet(root, { version, privateKeyPem: machine.key.pem, files: instrumentedFiles(version, { marker, hold: hold ? release : null }) });
+  const set = writeEmbeddedSet(root, { version, privateKeyPem: machine.key.pem, files: instrumentedFiles(version, { marker, hold: hold ? release : null, claudeManifest }) });
   return { root, version, set, marker, release, index: path.join(root, 'index.mjs') };
 }
 
-/** The marker lines the instrumented `packages/cli/index.mjs` wrote: one per time candidate bytes ran. */
+/** The marker lines every instrumented member wrote: one per time any candidate byte ran. */
 export const executions = pkg => fs.existsSync(pkg.marker) ? fs.readFileSync(pkg.marker, 'utf8').split('\n').filter(Boolean).map(line => JSON.parse(line)) : [];
+/** Which members ran, in order. */
+export const ranFiles = pkg => executions(pkg).map(entry => entry.file);
 
 export function cleanEnv(machine, extra = {}) {
   return {

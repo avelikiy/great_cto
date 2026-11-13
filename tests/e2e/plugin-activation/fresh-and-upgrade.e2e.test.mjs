@@ -8,7 +8,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import {
-  newMachine, buildPackage, runInit, paths, versionDir, seedHost, readHost, snapshot, inventoryOf, executions,
+  newMachine, buildPackage, runInit, paths, versionDir, seedHost, readHost, snapshot, inventoryOf, executions, ranFiles,
+  SMOKE_FILES, SUCCESSFUL_INIT_RUNS,
   journals, stateRecords, PHASES, PLUGIN_KEY, tail,
 } from './harness.mjs';
 
@@ -45,15 +46,19 @@ test('fresh machine: the first install states what it does not prove', t => {
   assert.doesNotMatch(run.output, /OIDC|provenance|transparency|Rekor|Sigstore|Fulcio|SLSA|attest/i);
 });
 
-test('fresh machine: the smoke is the only run of candidate bytes and inherits no environment', t => {
+test('fresh machine: init runs exactly the smoke and the discovery script of the candidate, and the smoke inherits no environment', t => {
   const machine = newMachine(t), pkg = buildPackage(machine, { version: '3.72.0' });
   const run = runInit(machine, pkg);
   assert.equal(run.status, 0, tail(run.output));
   const ran = executions(pkg);
-  assert.equal(ran.length, 1);
+  // Every executable member of the set is instrumented, so this list is complete: not a hook, the board
+  // server, the compiled CLI inside the plugin or the MCP server ran.
+  assert.deepEqual(ran.map(entry => entry.file), SUCCESSFUL_INIT_RUNS);
   assert.deepEqual(ran[0].argv, ['--version']);
-  const inherited = ran[0].envKeys.filter(key => !['PATH', 'HOME', 'GREAT_CTO_NO_BOARD', 'GREAT_CTO_QUIET_POSTINSTALL'].includes(key) && !key.startsWith('__CF'));
-  assert.deepEqual(inherited, [], 'the smoke inherits no plugin, credential or runner environment');
+  for (const smoke of ran.filter(entry => SMOKE_FILES.includes(entry.file))) {
+    const inherited = smoke.envKeys.filter(key => !['PATH', 'HOME', 'GREAT_CTO_NO_BOARD', 'GREAT_CTO_QUIET_POSTINSTALL'].includes(key) && !key.startsWith('__CF'));
+    assert.deepEqual(inherited, [], `${smoke.file}: the smoke inherits no plugin, credential or runner environment`);
+  }
 });
 
 test('a second init is ALREADY_ACTIVE and rewrites nothing under the Claude directory', t => {
@@ -65,7 +70,7 @@ test('a second init is ALREADY_ACTIVE and rewrites nothing under the Claude dire
   assert.match(again.output, /already active at/);
   assert.doesNotMatch(again.output, /First install:/, 'the trust statement belongs to the activation that happened');
   assert.deepEqual(snapshot(machine.claudeDir, { times: true }), before, 'not a byte, mode or timestamp changed');
-  assert.equal(executions(pkg).length, 1, 'a no-op activation does not run the candidate again');
+  assert.deepEqual(ranFiles(pkg), [...SUCCESSFUL_INIT_RUNS, 'scripts/skill-discover.sh'], 'a no-op activation does not run the smoke again; init runs the discovery script each time it is invoked');
 });
 
 test('upgrade from an older admitted version repoints all three host files, keeps the previous version directory and every other plugin', t => {

@@ -3,14 +3,14 @@
 // Each case damages one file of the embedded set — a single flipped byte in the archive, the inventory,
 // a sidecar signature or the release index; a valid sidecar moved onto another blob; a sidecar that names
 // another index digest — and runs the real `init`. It must refuse by name, before the transaction opens,
-// with the host files untouched, nothing published, and no byte of the candidate executed (the fixture's
-// entry point leaves a marker whenever it runs). Putting the file back must make the same init succeed:
+// with the host files untouched, nothing published, and no byte of the candidate executed (every executable
+// member of the fixture set leaves a marker whenever it runs: see harness.mjs and instrumentation.e2e.test.mjs). Putting the file back must make the same init succeed:
 // the refusal was about the damage, not about the machine.
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
-import { newMachine, buildPackage, runInit, seedHost, snapshot, executions, journals, versionDir, tail } from './harness.mjs';
+import { newMachine, buildPackage, runInit, seedHost, snapshot, executions, ranFiles, SUCCESSFUL_INIT_RUNS, journals, versionDir, tail } from './harness.mjs';
 
 /** Damages a set with `damage(directory, version)`, expects a clean refusal, then puts the set back and expects success. */
 // A copy of the undamaged set is kept beside the package so a case can restore it byte for byte.
@@ -37,7 +37,7 @@ function withPristineCopy(t, reason, damage, label) {
   for (const name of fs.readdirSync(kept)) fs.copyFileSync(path.join(kept, name), path.join(pkg.set.directory, name));
   const repaired = runInit(machine, pkg);
   assert.equal(repaired.status, 0, tail(repaired.output));
-  assert.equal(executions(pkg).length, 1);
+  assert.deepEqual(ranFiles(pkg), SUCCESSFUL_INIT_RUNS);
 }
 
 const flipOneByte = (file, offsetOf) => {

@@ -8,7 +8,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  newMachine, buildPackage, runInit, startInit, waitFor, seedHost, readHost, snapshot, executions,
+  newMachine, buildPackage, runInit, startInit, waitFor, seedHost, readHost, snapshot, executions, ranFiles,
   journals, stateRecords, alive, PHASES, PLUGIN_KEY, tail,
 } from './harness.mjs';
 
@@ -22,7 +22,7 @@ test('two concurrent inits: the second refuses with installation-busy-lock and w
   const first = startInit(machine, pkg);
   release = () => { first.child.kill('SIGKILL'); fs.writeFileSync(pkg.release, ''); };
 
-  await waitFor('the first init to reach its smoke', () => executions(pkg).length === 1);
+  await waitFor('the first init to reach its smoke', () => ranFiles(pkg).includes('packages/cli/index.mjs'));
   const held = stateRecords(machine);
   assert.equal(held.owner.pid, first.child.pid, 'the lock belongs to the first init');
   assert.equal(alive(held.owner.pid), true);
@@ -36,7 +36,7 @@ test('two concurrent inits: the second refuses with installation-busy-lock and w
   assert.deepEqual(snapshot(machine.claudeDir, { times: true }), before, 'zero writes to the cache, registry, settings, marketplace or managed directories');
   assert.equal(fs.existsSync(path.join(second.project, '.great_cto')), false, 'the second init did not bootstrap its project');
   assert.equal(stateRecords(machine).owner.pid, first.child.pid, 'a live lock is not taken over, not even by recovery');
-  assert.equal(executions(pkg).length, 1, 'the second init ran no candidate byte');
+  assert.deepEqual(ranFiles(pkg), ['packages/cli/index.mjs'], 'the second init ran no candidate byte: only the held smoke of the first has started');
 
   fs.writeFileSync(pkg.release, '');
   const done = await first.done;
