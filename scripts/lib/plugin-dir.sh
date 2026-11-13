@@ -5,11 +5,10 @@
 #
 # Exit 0 and print exactly one absolute path, or exit 1, print nothing on stdout and say why on
 # stderr. It never lists a plugin cache and never picks "the newest" of anything. The hooks used to
-# resolve their plugin with `ls -d ~/.claude/plugins/cache/*/great_cto/*/ | sort -V | tail -1`: the
-# highest version in ANY marketplace cache. On a machine that holds the admitted local copy beside
-# the git-marketplace copy, a session registered to the admitted one could then run bytes the host
-# had pulled from a mutable branch. A hook that cannot tell which bytes it is running does nothing
-# and says so.
+# resolve their plugin by listing every marketplace cache and taking the highest version found in
+# ANY of them. On a machine that holds the admitted local copy beside the git-marketplace copy, a
+# session registered to the admitted one could then run bytes the host had pulled from a mutable
+# branch. A hook that cannot tell which bytes it is running does nothing and says so.
 #
 # Order:
 #   1. CLAUDE_PLUGIN_ROOT, the directory the host loaded the plugin from. When it is set it is the
@@ -70,6 +69,8 @@ case $? in
 esac
 install_path=${install_path%/}
 
+# Deliberately the local marketplace: `great-cto init` publishes the admitted copy only there, as a
+# directory marketplace the host has nothing to refresh from. Any other cache is not admitted.
 cache_root="$home/.claude/plugins/cache/local/great_cto"
 case "$install_path" in
   "$cache_root"/*) version=${install_path#"$cache_root"/} ;;

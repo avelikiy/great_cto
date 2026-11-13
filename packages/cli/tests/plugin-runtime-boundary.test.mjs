@@ -242,17 +242,17 @@ test('adapter: a fetching entrypoint in the Claude manifest refuses before anyth
 test('adapter: a Codex-only npx file does not stop a Claude activation', t => {
   const m = machine(t, [claude({}), ...codexFiles()]);
   const r = m.run();
-  assert.equal(r.state, 'SMOKE_PASSED', r.reason);
+  assert.equal(r.state, 'SIMULATED_SMOKE_PASSED', r.reason);
   assert.deepEqual(r.externalRuntime.fetching, []);
 });
 
 test('adapter: python3 is reported on the outcome as host toolchain, on first activation and on the idempotent one', t => {
   const m = machine(t, [claude({ mcpServers: { router: { command: 'python3', args: ['${CLAUDE_PLUGIN_ROOT}/mcp-servers/r.py'] } } }), file('mcp-servers/r.py', '# inert\n')]);
   const first = m.run();
-  assert.equal(first.state, 'SMOKE_PASSED', first.reason);
+  assert.equal(first.state, 'SIMULATED_SMOKE_PASSED', first.reason);
   assert.deepEqual(first.externalRuntime.toolchain, ['python3']);
   const again = m.run();
-  assert.equal(again.state, 'ALREADY_ACTIVE');
+  assert.equal(again.state, 'SIMULATED_ALREADY_ACTIVE');
   assert.deepEqual(again.externalRuntime.toolchain, ['python3']);
 });
 
@@ -339,7 +339,7 @@ test('divergence: after a real activation, the other registration, its settings 
   fs.writeFileSync(m.targets.registry, JSON.stringify({ version: 2, plugins: { 'great_cto@great-cto': [gitCopy] } }, null, 2) + '\n');
   fs.writeFileSync(m.targets.settings, JSON.stringify({ enabledPlugins: { 'great_cto@great-cto': true } }, null, 2) + '\n');
 
-  assert.equal(m.run().state, 'SMOKE_PASSED');
+  assert.equal(m.run().state, 'SIMULATED_SMOKE_PASSED');
 
   const after = fs.readFileSync(m.targets.registry);
   const d = describeDivergence(after);

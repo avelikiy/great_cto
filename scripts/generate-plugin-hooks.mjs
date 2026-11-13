@@ -33,6 +33,8 @@ export const TOKEN = '@@PLUGIN_DIR@@';
 // admitted cache root, and nothing otherwise, so a path outside it is never executed. The resolver
 // then validates again; this is not a second implementation of its rules. No quote characters other
 // than double quotes, because the snippet sits inside single quotes in the shell.
+// Deliberately the local marketplace's cache directory: it is where `great-cto init` publishes the
+// admitted copy, and the only cache the registration may point into.
 const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
   + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
   + 'p=e.length===1?e[0].installPath:"";a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))?p:""}catch{""}';
@@ -42,8 +44,9 @@ export const BOOTSTRAP = 'PLUGIN_DIR=$(_r="${CLAUDE_PLUGIN_ROOT:-$(node -p \'' +
   + '[ -n "$_r" ] && bash "$_r/scripts/lib/plugin-dir.sh" 2>/dev/null)';
 
 // The form being replaced, in both quotings of its last sed. Plain strings: the `${` is shell.
+const EVERY_CACHE = '~/.claude/plugins/cache/*/great_cto/*/';
 const AWK = 'awk -F\'/plugins/cache/\' \'{split($NF,p,"/"); print p[3], $0}\' | sort -V | tail -1 | cut -d\' \' -f2-';
-const legacy = (q) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ~/.claude/plugins/cache/*/great_cto/*/ 2>/dev/null | '
+const legacy = (q) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ' + EVERY_CACHE + ' 2>/dev/null | '
   + AWK + ' | sed ' + q + 's|/$||' + q + ')}';
 const REPLACED = [legacy("'"), legacy('"'), 'PLUGIN_DIR=' + TOKEN];
 

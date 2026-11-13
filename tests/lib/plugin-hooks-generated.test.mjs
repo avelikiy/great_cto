@@ -120,7 +120,7 @@ test('the command line: --check passes on the repository, fails on drift, and th
   assert.match(check.stderr, /plugin\.json/);
   assert.equal(spawnSync('node', [GENERATOR, '--manifest', file], { encoding: 'utf8' }).status, 0);
   assert.equal(spawnSync('node', [GENERATOR, '--check', '--manifest', file], { encoding: 'utf8' }).status, 0);
-  assert.ok(fs.readFileSync(file, 'utf8').includes(BOOTSTRAP));
+  assert.ok(hookCommands(JSON.parse(fs.readFileSync(file, 'utf8')))[0].includes(BOOTSTRAP), 'the repaired hook carries the generated bootstrap');
 });
 
 // ── 3. the bootstrap, run ────────────────────────────────────────────────────
