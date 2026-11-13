@@ -210,3 +210,22 @@ test('a machine with no ~/.claude yet: init creates it private and activates', t
   assert.equal(fs.statSync(machine.claudeDir).mode & 0o777, 0o700, '~/.claude is created owner-only');
   assert.deepEqual(inventoryOf(versionDir(machine, '3.72.0')), pkg.set.inventory.files);
 });
+
+// The same machine, a signed set whose own manifest runs something the signature does not vouch for:
+// the outcome is documented as nothing written, and an empty ~/.claude would be something written.
+for (const [label, manifest, reason] of [
+  ['a fetching MCP server', { mcpServers: { x: { command: 'npx', args: ['-y', 'some-package'] } } }, /external-runtime-fetching/],
+  ['a program nobody classified', { hooks: { SessionStart: [{ matcher: '', hooks: [{ type: 'command', command: 'frobnicate --now' }] }] } }, /external-runtime-unclassified/],
+  ['inline code in an MCP server', { mcpServers: { x: { command: 'node', args: ['-e', 'console.log(1)'] } } }, /external-runtime-unclassified/],
+]) {
+  test(`a machine with no ~/.claude yet: ${label} in the manifest is refused and nothing is created, not even ~/.claude`, t => {
+    const machine = newMachine(t, { claudeDir: false }), pkg = buildPackage(machine, { version: '3.72.0', claudeManifest: manifest });
+    const run = runInit(machine, pkg);
+    assert.equal(run.status, 1, tail(run.output));
+    assert.match(run.output, /plugin activation refused/);
+    assert.match(run.output, reason);
+    assert.equal(fs.existsSync(machine.claudeDir), false, 'a REFUSED outcome leaves no ~/.claude behind');
+    assert.deepEqual(ranFiles(pkg), [], 'no candidate byte ran');
+    assert.equal(fs.existsSync(path.join(run.project, '.great_cto')), false, 'init stopped before bootstrapping the project');
+  });
+}

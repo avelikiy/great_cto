@@ -421,7 +421,7 @@
       "coveredBy": [
         {
           "file": "tests/e2e/plugin-activation/offline-init.e2e.test.mjs",
-          "test": "the network guard records every way out (known-bad sample)"
+          "test": "the network guard records the network a process uses and every fetching program it spawns: directly, through a shell, through a wrapper (known-bad sample)"
         },
         {
           "file": "tests/e2e/plugin-activation/offline-init.e2e.test.mjs",
@@ -450,7 +450,11 @@
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
-          "test": "fresh machine: the smoke is the only run of candidate bytes and inherits no environment"
+          "test": "fresh machine: init runs exactly the smoke and the discovery script of the candidate, and the smoke inherits no environment"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/instrumentation.e2e.test.mjs",
+          "test": "every executable member of the fixture set is instrumented, in every language, and says so when it runs"
         },
         {
           "file": "packages/cli/tests/embedded-admission.test.mjs",
@@ -462,7 +466,8 @@
         }
       ],
       "uncovered": [
-        "The row says the marker never appears before SMOKE_PASSED, but the design runs the smoke, the only execution of candidate bytes, after the host files are written (ARCH step 11) and before SMOKE_PASSED is journalled, so the literal wording cannot hold. The tests assert what the design permits: no candidate byte runs before the smoke, none runs after a refused admission or a crash before ACTIVE, and the smoke gets a minimal environment. The ARCH wording should be amended."
+        "The row says the marker never appears before SMOKE_PASSED, but the design runs the smoke, the only execution of candidate bytes, after the host files are written (ARCH step 11) and before SMOKE_PASSED is journalled, so the literal wording cannot hold. The tests assert what the design permits: no candidate byte runs before the smoke, none runs after a refused admission or a crash before ACTIVE, and the smoke gets a minimal environment. The ARCH wording should be amended.",
+        "The marker is measured over every executable member of the fixture set (instrumentation.e2e.test.mjs runs each one and checks it leaves a line), not over one entry point. What init runs of the candidate is named, not hidden: the smoke runs packages/cli/index.mjs and scripts/lib/gate-plan.mjs, and once activation is done init runs scripts/skill-discover.sh from the activated bytes with the caller's environment (main.ts section 4c), on every invocation, including an ALREADY_ACTIVE one. So 'the smoke is the only step that runs candidate bytes' holds for the activation, not for init as a whole."
       ]
     },
     {
