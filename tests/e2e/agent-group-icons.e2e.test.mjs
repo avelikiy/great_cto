@@ -51,14 +51,17 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
       await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme);
       for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 1000 });
-        // Found and measured in one page.evaluate: the list re-renders when a late
-        // response (usage, required reviewers) lands, and a handle resolved by a
-        // locator can be a row that was just replaced (boundingBox() null, a
-        // detached rect 0x0).
-        const box = await page.evaluate(() => {
-          const r = document.querySelector('.agent-row[data-slug="architect"] .grp-icon').getBoundingClientRect();
+        // The list is rebuilt when a late response (usage, required reviewers,
+        // a roster refresh) lands, so a handle or a lookup can hit a row that was
+        // just replaced or a list that is being refilled. Find and measure
+        // in one in-page step, waiting until the row is there.
+        const sel = '.agent-row[data-slug="architect"] .grp-icon';
+        const box = await (await page.waitForFunction((q) => {
+          const e = document.querySelector(q);
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
           return { width: r.width, height: r.height };
-        });
+        }, sel)).jsonValue();
         assert.equal(box.width, 14); assert.equal(box.height, 14);
         assert(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1), `${theme}/${width}`);
         if (process.env.GCTO_ICON_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.GCTO_ICON_SCREENSHOTS, `admin-${theme}-${width}.png`) });
