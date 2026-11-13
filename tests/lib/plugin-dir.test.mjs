@@ -225,6 +225,45 @@ test('a registered path that is not a string is refused', (t) => {
   refused(m.run(), 'installPath is a number');
 });
 
+// The registered path is checked physically, not as a string (bug 0m3u). The documented guarantee is
+// that the resolver never hands back a path outside the version directory the admitted registration
+// names. A version directory that is a symlink satisfies every string comparison and still runs
+// whatever it points at.
+
+test('a registered version directory that is a symlink is refused, whether it points outside the cache or inside it', (t) => {
+  const m = machine(t);
+  const real = m.plugin(m.cache('local', '3.80.0'));
+  const outside = m.plugin(path.join(m.home, 'outside'));
+  const link = m.cache('local', '9.0.0');
+  for (const target of [outside, real]) {
+    fs.rmSync(link, { force: true, recursive: true });
+    fs.symlinkSync(target, link);
+    m.registry({ version: 2, plugins: { 'great_cto@local': [m.entry(link)] } });
+    const r = m.run();
+    refused(r, `a symlink to ${target}`);
+    assert.match(r.stderr, /symbolic link/);
+  }
+});
+
+test('the same registration with a real directory in place of the symlink resolves: the refusal above is about the link', (t) => {
+  const m = machine(t);
+  const dir = m.plugin(m.cache('local', '9.0.0'));
+  m.registry({ version: 2, plugins: { 'great_cto@local': [m.entry(dir)] } });
+  assert.equal(m.run().stdout, dir + '\n');
+});
+
+test('a Claude directory that is itself a symlink (dotfile managers do this) still resolves: the comparison is physical on both sides', (t) => {
+  const m = machine(t);
+  const dotfiles = path.join(m.home, 'dotfiles', 'claude');
+  fs.mkdirSync(dotfiles, { recursive: true });
+  fs.symlinkSync(dotfiles, path.join(m.home, '.claude'));
+  const dir = m.plugin(m.cache('local', '3.80.0'));
+  m.registry({ version: 2, plugins: { 'great_cto@local': [m.entry(dir)] } });
+  const r = m.run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stdout, dir + '\n', 'the registered path is printed as registered');
+});
+
 // ── 4. the property the hooks depend on ──────────────────────────────────────
 
 test('the script lists no cache and sorts nothing: it cannot pick "the newest"', () => {

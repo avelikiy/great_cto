@@ -208,6 +208,42 @@ test('bootstrap: a registration pointing outside the admitted cache is never exe
   assert.equal(fs.existsSync(marker), false, 'a script outside the admitted cache was executed');
 });
 
+test('bootstrap: a registered version directory that is a symlink is never executed, inside the cache or out (bug 0m3u)', (t) => {
+  // The locator checks the path physically: a link satisfies every string comparison and still runs
+  // whatever it points at. Each target carries a resolver that writes a marker if it is ever run.
+  const m = machine(t);
+  const marker = path.join(m.home, 'MARKER');
+  const planted = (dir) => {
+    fs.mkdirSync(path.join(dir, 'scripts/lib'), { recursive: true });
+    fs.writeFileSync(path.join(dir, 'scripts/lib/plugin-dir.sh'), '#!/usr/bin/env bash\ntouch "' + marker + '"\necho "' + dir + '"\n');
+    return dir;
+  };
+  const real = m.plugin('local', '3.80.0');
+  const outside = planted(path.join(m.home, 'outside'));
+  planted(real);
+  const link = path.join(m.home, '.claude/plugins/cache/local/great_cto/9.0.0');
+  m.register({ 'great_cto@local': [{ scope: 'user', installPath: real, version: '3.80.0' }] });
+  assert.equal(m.resolve(), real, 'a real directory in the same place resolves');
+  fs.rmSync(marker, { force: true });
+  for (const target of [outside, real]) {
+    fs.rmSync(link, { recursive: true, force: true });
+    fs.symlinkSync(target, link);
+    m.register({ 'great_cto@local': [{ scope: 'user', installPath: link, version: '9.0.0' }] });
+    assert.equal(m.resolve(), '', `a link to ${path.basename(target)} was handed to the shell`);
+    assert.equal(fs.existsSync(marker), false, 'the resolver behind a symlink was executed');
+  }
+});
+
+test('bootstrap: a Claude directory that is a symlink (dotfile managers) still resolves', (t) => {
+  const m = machine(t);
+  const dotfiles = path.join(m.home, 'dotfiles-claude');
+  const admitted = m.plugin('local', '3.80.0');
+  fs.renameSync(path.join(m.home, '.claude'), dotfiles);
+  fs.symlinkSync(dotfiles, path.join(m.home, '.claude'));
+  m.register({ 'great_cto@local': [{ scope: 'user', installPath: admitted, version: '3.80.0' }] });
+  assert.equal(m.resolve(), admitted);
+});
+
 test('bootstrap: a hook still behaves as before when the plugin is found', (t) => {
   // End to end through the real shape of a hook: resolve, then run a script from the result.
   const m = machine(t);
@@ -216,4 +252,104 @@ test('bootstrap: a hook still behaves as before when the plugin is found', (t) =
   const cmd = BOOTSTRAP + '; [ -n "$PLUGIN_DIR" ] && node "${PLUGIN_DIR}/scripts/lib/hello.mjs" 2>/dev/null; true';
   const r = spawnSync('bash', ['-c', cmd], { encoding: 'utf8', env: { PATH: process.env.PATH, HOME: m.home, CLAUDE_PLUGIN_ROOT: dir } });
   assert.equal(r.stdout, 'hello from scripts/lib/hello.mjs');
+});
+
+// ── 4. a guard that cannot find its code blocks (bug osik) ───────────────────
+//
+// Six PreToolUse hooks decide whether a tool call may go ahead. With no PLUGIN_DIR each ran
+// `node "/scripts/hooks/<name>.mjs"`, which exits 1, and their wrapper turns anything but 2 into
+// "allow": secret-scan and the Bash guards silently did not run. Dormant while the host exports
+// CLAUDE_PLUGIN_ROOT to every hook; reachable with a git-marketplace-only install, where the
+// bootstrap now (correctly) refuses to guess. The main branch had the same fail-open behind its
+// cache listing, so this is not new, but the new bootstrap makes an empty PLUGIN_DIR a normal
+// answer rather than an absent cache.
+
+const GUARDS = ['bash-guards', 'secret-read-guard', 'secret-scan', 'frozen-gates-guard', 'gate-weakening-guard', 'edit-scope-guard'];
+const EXIT_TWO = 'if [ $EXIT -eq 2 ]; then exit 2; fi';
+const preToolUse = () => Object.entries(JSON.parse(fs.readFileSync(MANIFEST, 'utf8')).hooks.PreToolUse)
+  .flatMap(([, group]) => group.hooks.map((h) => h.command));
+const scriptOf = (command) => /hooks\/([\w-]+)\.mjs/.exec(command)?.[1];
+
+test('guards: the PreToolUse hooks that can block are exactly the six, and each carries the empty-PLUGIN_DIR check', () => {
+  const blocking = preToolUse().filter((c) => c.includes(EXIT_TWO));
+  assert.deepEqual(blocking.map(scriptOf).sort(), [...GUARDS].sort());
+  for (const command of blocking) {
+    assert.ok(command.includes(BOOTSTRAP), 'the guard resolves PLUGIN_DIR through the generated bootstrap');
+    const after = command.slice(command.indexOf(BOOTSTRAP) + BOOTSTRAP.length);
+    assert.match(after, /^; if \[ -z "\$PLUGIN_DIR" \]; then /, `the check follows the bootstrap directly: ${scriptOf(command)}`);
+    assert.match(after, /permissionDecision":"deny"/);
+    assert.match(after, /exit 2; fi/);
+  }
+});
+
+test('guards: hooks that are not guards are left as they were: no new early exit in an advisory hook', () => {
+  const others = preToolUse().filter((c) => !c.includes(EXIT_TWO));
+  assert.ok(others.length >= 3, 'the scan saw the advisory PreToolUse hooks');
+  for (const command of others) assert.doesNotMatch(command, /-z "\$PLUGIN_DIR"/, scriptOf(command));
+});
+
+test('guards: the generator adds the check to a guard once, and only to a PreToolUse hook of that shape', () => {
+  const guard = 'x; PLUGIN_DIR=' + TOKEN + '; node "${PLUGIN_DIR}/scripts/hooks/g.mjs"; EXIT=$?; ' + EXIT_TWO + '; exit 0';
+  const once = expandHookCommand(guard, { event: 'PreToolUse' });
+  assert.match(once, /-z "\$PLUGIN_DIR"/);
+  assert.equal(expandHookCommand(once, { event: 'PreToolUse' }), once, 'expanding twice changes nothing');
+  assert.equal(once.split('-z "$PLUGIN_DIR"').length, 2, 'the check is there exactly once');
+  assert.doesNotMatch(expandHookCommand(guard, { event: 'Stop' }), /-z "\$PLUGIN_DIR"/, 'exit 2 means something else on other events');
+  assert.doesNotMatch(expandHookCommand(guard), /-z "\$PLUGIN_DIR"/, 'no event given: nothing is added');
+  const advisory = 'x; PLUGIN_DIR=' + TOKEN + '; node "${PLUGIN_DIR}/scripts/hooks/a.mjs" 2>/dev/null; exit 0';
+  assert.doesNotMatch(expandHookCommand(advisory, { event: 'PreToolUse' }), /-z "\$PLUGIN_DIR"/);
+});
+
+test('guards: the manifest is still exactly the generator\'s output, check included', () => {
+  const text = fs.readFileSync(MANIFEST, 'utf8');
+  assert.deepEqual(checkManifestText(text), []);
+  assert.equal(generateManifestText(text), text);
+});
+
+function noPluginMachine(t) {
+  // A machine where only the git-marketplace copy is registered: the bootstrap answers with nothing.
+  const m = machine(t);
+  const gitCopy = m.plugin('great-cto', '9.9.9');
+  m.register({ 'great_cto@great-cto': [{ scope: 'user', installPath: gitCopy, version: '9.9.9' }] });
+  assert.equal(m.resolve(), '', 'precondition: PLUGIN_DIR is empty on this machine');
+  return m;
+}
+const runHook = (command, m, env = {}, input = '{"tool_name":"Bash","tool_input":{"command":"echo hi"}}') => spawnSync('bash', ['-c', command], {
+  encoding: 'utf8', cwd: m.home, input, env: { PATH: process.env.PATH, HOME: m.home, ...env },
+});
+
+test('guards: with PLUGIN_DIR unresolvable every one of the six blocks, in the format the guards themselves use', (t) => {
+  const m = noPluginMachine(t);
+  const blocking = preToolUse().filter((c) => c.includes(EXIT_TWO));
+  assert.equal(blocking.length, 6);
+  for (const command of blocking) {
+    const r = runHook(command, m);
+    const name = scriptOf(command);
+    assert.equal(r.status, 2, `${name} let the call through (status ${r.status}): ${r.stderr}`);
+    const decision = JSON.parse(r.stdout).hookSpecificOutput;
+    assert.equal(decision.hookEventName, 'PreToolUse', name);
+    assert.equal(decision.permissionDecision, 'deny', name);
+    assert.match(decision.permissionDecisionReason, /plugin dir not resolved/, name);
+    assert.match(r.stderr, /plugin dir not resolved/, `${name}: exit 2 shows stderr to the model`);
+    assert.match(r.stderr, /npx great-cto init/, `${name}: and says what to do`);
+  }
+});
+
+test('guards: with the plugin found the same hooks run their guard and let a harmless call through', (t) => {
+  const m = machine(t);
+  const blocking = preToolUse().filter((c) => c.includes(EXIT_TWO));
+  for (const command of blocking) {
+    const r = runHook(command, m, { CLAUDE_PLUGIN_ROOT: ROOT });
+    assert.equal(r.status, 0, `${scriptOf(command)} blocked a harmless call: ${r.stdout}${r.stderr}`);
+    assert.doesNotMatch(r.stdout + r.stderr, /plugin dir not resolved/);
+  }
+});
+
+test('guards: a hook that is not a guard still does nothing, quietly, when PLUGIN_DIR is empty', (t) => {
+  const m = noPluginMachine(t);
+  const advisory = preToolUse().find((c) => scriptOf(c) === 'edit-impact');
+  assert.ok(advisory, 'the advisory hook exists');
+  const r = runHook(advisory, m);
+  assert.equal(r.status, 0);
+  assert.equal(r.stdout, '');
 });
