@@ -112,6 +112,10 @@ same agents work in private projects and the habit is what carries over
 
 Exceptions: the operator asks for a push, or a red `main` needs a fix now.
 
+The PR workflows (`plugin-ci`, `runtime-ci`, `cli-ci`) carry `concurrency` with
+`cancel-in-progress` for pull requests: a newer push cancels the run it made moot. Keep it
+on any new PR workflow; never on `push` to `main` or on release workflows.
+
 ---
 
 ## Code style

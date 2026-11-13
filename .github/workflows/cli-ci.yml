@@ -15,6 +15,12 @@ on:
       - "tests/run-archetype-e2e.mjs"
       - ".github/workflows/cli-ci.yml"
 
+# A newer push to the same PR makes this run's result moot: cancel it instead of paying
+# for it to finish (CLAUDE.md, "CI budget"). Pushes to main are never cancelled.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   test:
     name: Test (Node ${{ matrix.node }} on ${{ matrix.os }})
