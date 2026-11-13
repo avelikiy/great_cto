@@ -47,6 +47,13 @@ test("DO_NOT_TRACK opts out whatever non-empty value it holds", async () => {
   const { isTelemetryEnabled } = await import("../dist/telemetry.js");
   const prior = process.env.DO_NOT_TRACK;
   const priorOn = process.env.GREAT_CTO_TELEMETRY;
+  // The last assertion expects an explicit opt-in to hold, and a CI marker turns telemetry
+  // off on its own (isCI in telemetry.ts). Under GitHub Actions (CI=true, GITHUB_ACTIONS=true)
+  // the test failed for that reason, not for DO_NOT_TRACK. Clear the markers for this test only.
+  const CI_MARKERS = ["CI", "GITHUB_ACTIONS", "GITLAB_CI", "CIRCLECI", "BUILDKITE", "JENKINS_URL",
+    "TF_BUILD", "DRONE", "TRAVIS", "APPVEYOR", "BITBUCKET_BUILD_NUMBER", "TEAMCITY_VERSION", "CODEBUILD_BUILD_ID"];
+  const priorCI = Object.fromEntries(CI_MARKERS.map((k) => [k, process.env[k]]));
+  for (const k of CI_MARKERS) delete process.env[k];
   try {
     process.env.GREAT_CTO_TELEMETRY = "on";   // an explicit opt-in to override
     for (const v of ["1", "true", "yes", "on", "0 "]) {
@@ -58,6 +65,21 @@ test("DO_NOT_TRACK opts out whatever non-empty value it holds", async () => {
   } finally {
     if (prior === undefined) delete process.env.DO_NOT_TRACK; else process.env.DO_NOT_TRACK = prior;
     if (priorOn === undefined) delete process.env.GREAT_CTO_TELEMETRY; else process.env.GREAT_CTO_TELEMETRY = priorOn;
+    for (const [k, v] of Object.entries(priorCI)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
+  }
+});
+
+// The other half of the rule above: in CI telemetry stays off even with an explicit opt-in.
+test("a CI marker keeps telemetry off even with an explicit opt-in", async () => {
+  const { isTelemetryEnabled } = await import("../dist/telemetry.js");
+  const prior = { CI: process.env.CI, DO_NOT_TRACK: process.env.DO_NOT_TRACK, GREAT_CTO_TELEMETRY: process.env.GREAT_CTO_TELEMETRY };
+  try {
+    delete process.env.DO_NOT_TRACK;
+    process.env.GREAT_CTO_TELEMETRY = "on";
+    process.env.CI = "true";
+    assert.equal(isTelemetryEnabled(), false, "CI=true must keep telemetry off");
+  } finally {
+    for (const [k, v] of Object.entries(prior)) { if (v === undefined) delete process.env[k]; else process.env[k] = v; }
   }
 });
 
