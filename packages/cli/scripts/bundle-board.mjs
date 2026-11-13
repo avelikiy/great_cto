@@ -76,7 +76,9 @@ for (const f of boardFiles) {
 // a second hand-written runtime list.
 const codexController = join(repoRoot, "scripts", "codex-pipeline.mjs");
 const taskController = join(repoRoot, "scripts", "work-task.mjs");
-for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskController, "utf8")].join("\n").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
+// `great-cto tracker` (the task store CLI) is a third entrypoint with its own closure.
+const trackerController = join(repoRoot, "scripts", "tracker.mjs");
+for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskController, "utf8"), readFileSync(trackerController, "utf8")].join("\n").matchAll(/from\s+['"]\.\/lib\/([\w.-]+\.mjs)['"]/g)) needed.add(m[1]);
 
 // Follow literal imports across directories, not only scripts/lib siblings.
 // controlled-specialists imports ../hooks/auto-attach-reviewers.mjs. A sibling
@@ -87,7 +89,7 @@ for (const m of [readFileSync(codexController, "utf8"), readFileSync(taskControl
 // board never names itself. Dropping them for being unmentioned would have
 // replaced two missing files with two different missing files — a fix that moves
 // the defect rather than removing it.
-const runtimeFiles = runtimeImportClosure(repoRoot, [codexController, taskController,
+const runtimeFiles = runtimeImportClosure(repoRoot, [codexController, taskController, trackerController,
   ...boardFiles.filter(file => !skip.test(file)),
   ...[...neededTop].map(f => join(repoRoot, "scripts", f)),
   ...[...needed].map(f => join(repoRoot, "scripts", "lib", f))]);

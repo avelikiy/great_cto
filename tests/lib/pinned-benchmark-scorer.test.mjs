@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, chmodSync } from 'node:fs';
+import { mkdtempSync, realpathSync, mkdirSync, writeFileSync, readFileSync, rmSync, symlinkSync, chmodSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { tmpdir } from 'node:os';
@@ -56,11 +56,22 @@ function fixture(t) {
 }
 
 test('actual pinned timeout retains opt-in stage, never private stderr or cleanup proof',t=>{
- const f=fixture(t);
- f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
- // This case proves stage retention after launch, not minimum-deadline startup.
- // The separate timeout-cause case below still exercises the 250 ms floor.
- assert.throws(()=>f.score({timeoutMs:1000,stageDiagnostics:true}),error=>{
+ // The stage line is written by the scorer's first statement. On a host so loaded
+ // that node cannot start inside the 1000 ms deadline, the deadline ends the scorer
+ // before that statement and there is no stage to retain: the same outcome as the
+ // SIGTERM scenario below, re-armed the same way (fresh fixture, at most 3 attempts).
+ let f,thrown;
+ for(let attempt=1;attempt<=3;attempt++){
+  f=fixture(t);
+  f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
+  thrown=undefined;
+  // This case proves stage retention after launch, not minimum-deadline startup.
+  // The separate timeout-cause case below still exercises the 250 ms floor.
+  try{f.score({timeoutMs:1000,stageDiagnostics:true});}catch(error){thrown=error;}
+  if(!(thrown?.processDiagnostic?.outcome==='timeout'&&thrown.stageTimings?.length===0))break;
+  t.diagnostic('attempt '+attempt+': the scorer was killed at its 1000 ms deadline before it could start (host load)');
+ }
+ assert.throws(()=>{if(thrown)throw thrown;},error=>{
   assert.equal(error.processDiagnostic.outcome,'timeout');assert.deepEqual(error.stageTimings,[{stage:'launch',elapsedMs:1}]);
   assert.equal(error.processDiagnostic.timeoutMs,1000);
   assert.equal(error.processDiagnostic.descendantQuiescenceVerified,false);assert.doesNotMatch(error.message,/PRIVATE_PAYLOAD/);return true;
@@ -226,7 +237,17 @@ test('fixed lifecycle launcher reports a timeout without manufacturing ready evi
   assert.ok(!child.stdout.includes(f.root));
 });
 
-test('timeout remains bounded when trusted scorer handles SIGTERM and stays alive', {timeout:10000}, async t => {
+// The scorer gets 1000 ms from spawn (frozen acceptance clock) to start node and
+// publish its ready marker. On a host so loaded that node cannot start in that
+// time the product's SIGKILL deadline ends the scorer before its first statement:
+// the SIGTERM-handling behaviour this test is about never came into existence, and
+// there is nothing to assert it on. That outcome, and only that one (no marker was
+// ever written, readiness never observed), re-arms the whole scenario with a fresh
+// fixture, at most 3 attempts inside the same 10000 ms test cap. Every assertion
+// runs unchanged on the attempt that reaches readiness; a scorer that is broken
+// rather than slow misses on every attempt and fails with its original error.
+class ScorerNeverReady extends Error {}
+async function signalHandlingScorerScenario(t) {
   if (!['darwin','linux'].includes(process.platform)) return t.skip('owned process identity unavailable; hostile signal timeout NOT CHECKED');
   const f=fixture(t), marker=join(f.options.scorerFile,'..','owned-pid.json');
   const oracle=JSON.stringify({...f.recipe.oracle,signalTestMarker:marker});
@@ -237,7 +258,7 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
   // Only this trusted fixture gets an owned process group. Production scorer
   // spawning and its1000ms timeout remain unchanged.
   const child=spawn(process.execPath,[lifecycleLauncher],{detached:true,env:{LANG:'C',TZ:'UTC'},stdio:['pipe','pipe','pipe']});
-  let output='',observer,launcherIdentity,observedLineCount=0;
+  let output='',observer,launcherIdentity,observedLineCount=0,neverReady=false;
   const stageArrivals=[],knownStages=new Set(['launcher-started','runner-invoked','runner-unavailable','prelaunch-refused','runner-refused','unexpected-completion']);
   const closed=new Promise((resolve,reject)=>{child.once('close',(code,signal)=>resolve({code,signal}));child.once('error',reject);});
   closed.catch(()=>undefined);
@@ -290,10 +311,11 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
     assert.equal(processIdentity(pid),null,'timed-out owned scorer must no longer be a live process');
   }catch(error){
     const ready=observer?.snapshot().observation;
+    neverReady=error.message==='trusted scorer readiness was not observed before launcher completion'&&!ready&&!existsSync(marker);
     t.diagnostic('owned launcher failure observation: '+JSON.stringify({launchAt,readyPublicationAt:ready?.publishedAt??null,
       readyObserved:Number.isInteger(ready?.pid)&&ready.pid>1,parentElapsedMs:Math.max(0,Math.round(performance.now()-launchStart)),
       stageArrivals,launcher:{pid:child.pid,exitCode:child.exitCode,signal:child.signalCode}}));
-    throw error;
+    throw neverReady?Object.assign(new ScorerNeverReady(error.message),{cause:error}):error;
   }finally{
     terminateOwnedScorerFixture({launcher:child,launcherIdentity,ready:observer?.snapshot().observation});
     observer?.dispose();
@@ -301,5 +323,14 @@ test('timeout remains bounded when trusted scorer handles SIGTERM and stays aliv
     // it must not leave a launcher waiting for stdin.
     if(!child.stdin.writableEnded)child.stdin.end();
     await closed;
+  }
+}
+test('timeout remains bounded when trusted scorer handles SIGTERM and stays alive', {timeout:10000}, async t => {
+  for (let attempt = 1; ; attempt++) {
+    try { return await signalHandlingScorerScenario(t); }
+    catch (error) {
+      if (!(error instanceof ScorerNeverReady) || attempt === 3) throw error.cause ?? error;
+      t.diagnostic(`attempt ${attempt}: the scorer was killed at its 1000 ms deadline before it could start (host load); re-arming with a fresh fixture`);
+    }
   }
 });

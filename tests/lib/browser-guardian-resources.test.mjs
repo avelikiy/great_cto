@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdirSync,chmodSync,symlinkSync,rmSync,lstatSync,renameSync} from 'node:fs';
+import {mkdirSync,chmodSync,symlinkSync,rmSync,lstatSync,renameSync,writeFileSync} from 'node:fs';
 import {join} from 'node:path';
 import {spawn,spawnSync} from 'node:child_process';
 import {createBrowserResourceOwner} from '../../scripts/lib/browser-guardian-resources.mjs';
@@ -61,7 +61,7 @@ test('resource owner rejects replaced root inode before registration',platformOp
 // supervisor. A fixed caller refuses quiescent for a surviving child. Separate
 // guaranteed-retained fixtures exercise identity negatives, without assuming
 // whether Playwright happens to remove its scratch after abrupt scorer death.
-for(const mode of ['surviving-child','profile-mode','artifact-replacement'])test('registered real-process negative '+mode,
+for(const mode of ['surviving-child','profile-mode','artifact-replacement','chromium-temp-file','chromium-temp-dir','chromium-temp-symlink'])test('registered real-process negative '+mode,
  {...platformOptions,timeout:10000},async t=>{
  const env={LANG:'C',TZ:'UTC'},pause=ms=>new Promise(r=>setTimeout(r,ms));
  const table=()=>{
@@ -98,6 +98,8 @@ child.on('error',()=>process.exit(1));setInterval(()=>{},1000);`;
   assert.ok(Number.isSafeInteger(ready.pid)&&ready.pid>1);childPid=ready.pid;
   childIdentity=table().get(childPid);assert.ok(childIdentity);assert.equal(childIdentity.parent,parent.pid);
   assert.equal(childIdentity.uid,process.getuid());assert.equal(childIdentity.group,childPid);
+  const chromiumTemp=join(root,'.org.chromium.Chromium.Ab12Cd');
+  if(mode==='chromium-temp-file')writeFileSync(chromiumTemp,'',{mode:0o600});
   assert.equal(owner.register({scorerPid:parent.pid,browserRoots:[childPid],profilePath:profile}).state,'OBSERVING');
   assert.equal(owner.observe().liveProcesses,2);
   parent.kill('SIGKILL');assert.equal((await closed).signal,'SIGKILL');
@@ -116,6 +118,13 @@ child.on('error',()=>process.exit(1));setInterval(()=>{},1000);`;
   if(mode==='profile-mode'){
    chmodSync(profile,0o755);assert.equal(owner.observe().state,'PRESERVED');
    chmodSync(profile,0o700);assert.equal(owner.observe().state,'PRESERVED','restoring mode cannot revive a refused sampler');
+  }else if(mode==='chromium-temp-file'){
+   assert.equal(owner.observe().state,'OBSERVING','Chromium temp file is passed over while present');
+   rmSync(chromiumTemp);assert.equal(owner.observe().state,'OBSERVING','and after Chromium removes it');
+  }else if(mode==='chromium-temp-dir'){
+   mkdirSync(join(root,'.org.chromium.Chromium.Dr12Cd'),{mode:0o700});assert.equal(owner.observe().state,'PRESERVED');
+  }else if(mode==='chromium-temp-symlink'){
+   symlinkSync(profile,join(root,'.org.chromium.Chromium.Ln12Cd'));assert.equal(owner.observe().state,'PRESERVED');
   }else if(mode==='artifact-replacement'){
    const holder=join(profile,'held-artifact');renameSync(artifact,holder);mkdirSync(artifact,{mode:0o700});
    assert.equal(owner.observe().state,'PRESERVED');assert.equal(lstatSync(holder).ino,artifactIdentity.ino,'sampler never alters retained original');

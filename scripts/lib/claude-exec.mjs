@@ -12,6 +12,17 @@ const PROPOSAL_SCHEMA = JSON.stringify({
   },
   required: ['verdict', 'summary', 'meta', 'files'],
 });
+/** Output contract of a verifier session: a judgement and what was inspected, never a file proposal. */
+export const VERIFIER_SCHEMA = JSON.stringify({
+  type: 'object',
+  properties: {
+    state: { type: 'string', enum: ['verified', 'rework', 'unverifiable'] },
+    findings: { type: 'array', items: { type: 'string' } },
+    checks: { type: 'array', items: { type: 'string' } },
+    dependencyAttestation: { type: 'object' }, workflowAttestation: { type: 'object' },
+  },
+  required: ['state', 'findings', 'checks'],
+});
 
 export function detectClaude({ bin = process.env.GREAT_CTO_CLAUDE_BIN || 'claude', run = spawnSync } = {}) {
   const version = run(bin, ['--version'], { encoding: 'utf8', timeout: 10000 });
@@ -36,7 +47,7 @@ export function parseClaudeResult(raw) {
     usage: body.usage || null, model: body.model || null };
 }
 
-export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.env.GREAT_CTO_CLAUDE_BIN || 'claude', onEvent = null }) {
+export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.env.GREAT_CTO_CLAUDE_BIN || 'claude', onEvent = null, schema = PROPOSAL_SCHEMA }) {
   return new Promise(resolve => {
     const deadline = performance.now() + timeoutMs;
     // Safe mode removes hooks, skills, plugins and project instructions. Restricted
@@ -45,7 +56,7 @@ export function runClaudeExec({ prompt, cwd, timeoutMs = 300000, bin = process.e
     const streaming = typeof onEvent === 'function';
     const args = ['--print', '--output-format', streaming ? 'stream-json' : 'json', ...(streaming ? ['--verbose'] : []), '--no-session-persistence',
       '--safe-mode', '--restricted', '--strict-mcp-config', '--tools', 'Read,Glob,Grep',
-      '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--json-schema', PROPOSAL_SCHEMA];
+      '--permission-mode', 'dontAsk', '--permission-prompts', 'none', '--json-schema', schema];
     const group = process.platform !== 'win32';
     const proc = spawn(bin, args, { cwd, stdio: ['pipe', 'pipe', 'pipe'], detached: group });
     let out = '', err = '', settled = false, timedOut = false, stdinError = null;

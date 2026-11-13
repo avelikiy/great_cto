@@ -253,7 +253,7 @@ test('Skills shows safe local observations with filters, failures and no install
     const { page, errors } = await openBoard(env, '#/skills');
     await page.waitForSelector('#skills-table tbody tr', { timeout: 10000 });
     assert.equal(await page.getByRole('tab', { name: 'Settings', exact: true }).getAttribute('aria-selected'), 'true');
-    assert.equal(await page.getByRole('button', { name: 'Capabilities', exact: true }).getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.getByRole('button', { name: 'Skills', exact: true }).getAttribute('aria-pressed'), 'true');
     assert.equal(await page.locator('#skills-table tbody tr').count(), 3);
     assert.match(await page.locator('#skills-status').innerText(), /Partial inventory/);
     assert.match(await page.locator('#skills-body').innerText(), /Upstream revision: unknown/);
@@ -421,7 +421,10 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
     const { page } = await openBoard(b);
     assert.equal(await page.locator('.nav-item[data-tab="work"] svg.icon').count(), 1, 'Work has the same icon column as other destinations');
     await page.getByRole('tab', { name: 'Settings', exact: true }).click();
-    await page.waitForSelector('#nav-view-all .nav-label');
+    // The agent filters are chips on the Agents page since the 2026-11 Settings
+    // redraw; the sidebar holds destinations only.
+    await page.getByRole('button', { name: 'Agents', exact: true }).click();
+    await page.waitForSelector('#agents-chip-all');
     for (const width of [1440, 1000, 375]) {
       await page.setViewportSize({ width, height: 1000 });
       if (width === 375) await page.locator('button[aria-controls="sidebar"]').click();
@@ -429,9 +432,12 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
         .filter(el => el.getClientRects().length && getComputedStyle(el).display !== 'none')
         .map(el => {
           const s = getComputedStyle(el), icon = el.querySelector('svg.icon'), label = el.querySelector('.nav-label');
-          return { name: el.getAttribute('aria-label') || label?.textContent, height: el.getBoundingClientRect().height,
+          // Layout reports fractions of a pixel (15.999998 for a 16px icon under
+          // load). Round to 1/100 px: that absorbs float noise and nothing a user can see.
+          const px = n => n === undefined ? n : Math.round(n * 100) / 100;
+          return { name: el.getAttribute('aria-label') || label?.textContent, height: px(el.getBoundingClientRect().height),
             font: s.fontSize, padding: s.paddingLeft, gap: s.gap,
-            icon: icon?.getBoundingClientRect().width, labelVisible: label && getComputedStyle(label).display !== 'none' };
+            icon: px(icon?.getBoundingClientRect().width), labelVisible: label && getComputedStyle(label).display !== 'none' };
         }));
       assert.ok(rows.length >= 5, 'five primary destinations, with contextual filters where visible');
       for (const row of rows) {
@@ -443,8 +449,8 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
         assert.equal(row.labelVisible, width !== 1000, `${row.name} rail label visibility`);
       }
       assert.equal(await page.locator('.nav-item[aria-selected="true"]').count(), 1);
-      assert.equal(await page.locator('#nav-view-project').getAttribute('aria-pressed'), 'true');
-      assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'false');
+      assert.equal(await page.locator('#agents-chip-project').getAttribute('aria-pressed'), 'true');
+      assert.equal(await page.locator('#agents-chip-needs').getAttribute('aria-pressed'), 'false');
       if (process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS) {
         fs.mkdirSync(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, { recursive: true });
         await page.locator('#sidebar').screenshot({ path: path.join(process.env.GREAT_CTO_SIDEBAR_SCREENSHOTS, `sidebar-${width}.png`) });
@@ -455,7 +461,7 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
     const { settledStyle, settledHoverStyle } = await import('../helpers/settled-style.mjs');
     for (const theme of ['light', 'dark']) {
       await page.evaluate(theme => document.documentElement.dataset.theme = theme, theme);
-      const work = page.locator('.nav-item[data-tab="work"]'), view = page.locator('#nav-view-all');
+      const work = page.locator('.nav-item[data-tab="work"]'), view = page.locator('.nav-item[data-tab="knowledge"]');
       const hoverSnapshot = locator => locator.evaluate(el => {
         const rect = el.getBoundingClientRect(), style = getComputedStyle(el);
         return { hovered: el.matches(':hover'), rect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height },
@@ -479,10 +485,10 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
       assert.equal(await view.evaluate(el => getComputedStyle(el).outlineWidth), '2px');
     }
     await page.evaluate(() => document.documentElement.dataset.theme = 'light');
-    await page.locator('#nav-view-all').focus();
+    await page.locator('#agents-chip-all').focus();
     await page.keyboard.press('Enter');
-    assert.equal(await page.locator('#nav-view-all').getAttribute('aria-pressed'), 'true');
-    assert.equal(await page.locator('#nav-view-needs').getAttribute('aria-pressed'), 'false');
+    assert.equal(await page.locator('#agents-chip-all').getAttribute('aria-pressed'), 'true');
+    assert.equal(await page.locator('#agents-chip-needs').getAttribute('aria-pressed'), 'false');
     await page.locator('#nav-tablist .nav-item[data-tab="work"]').click();
     await page.locator('[data-work-filter="completed"]').click();
     assert.equal(await page.locator('.nav-item.active').count(), 1, 'only the current destination is active');
@@ -499,8 +505,9 @@ test('the sidebar moves between screens, by mouse and by keyboard', { timeout: 1
     assert.equal(await page.locator('#nav-tablist .nav-item').count(), 5, 'five primary destinations');
     await page.getByRole('tab', { name: 'Settings', exact: true }).click();
     await page.waitForTimeout(700);
-    assert.match(await page.locator('.panel.active').first().innerText(), /Fleet|agent/i,
-      'clicking Fleet in the sidebar shows Fleet');
+    assert.match(await page.locator('.panel.active').first().innerText(), /Settings/,
+      'clicking Settings in the sidebar shows the settings, not the agent list');
+    assert.equal(await page.locator('.panel.active').first().getAttribute('id'), 'panel-settings');
     assert.match(page.url(), /#\/settings/, 'and the URL says where the operator is');
 
     // The nav is a tablist: a keyboard operator reaches every screen.
@@ -726,17 +733,17 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
     assert.equal(await row('senior-dev').count(), 1, 'core role remains in Project focus');
     assert.equal(await row('legal-reviewer').count(), 0, 'unrelated specialist stays in the full catalog');
     assert.match(await page.locator('#fleet-focus-note').innerText(), /Display only, not an execution plan/);
-    assert.match(await row('pci-reviewer').innerText(), /required · not run/,
+    assert.match(await row('pci-reviewer').innerText(), /Required here, not run yet/,
       'and its row says it is required and has not run');
 
     await page.evaluate(() => setFleetView('all'));
     await page.waitForTimeout(600);
     const legal = await row('legal-reviewer').innerText();
-    assert.match(legal, /dispatched 4× · no verdict/,
+    assert.match(legal, /Started 4 times, no result recorded/,
       'an agent the logs dispatched but no verdict names reads as dispatched, not as never observed');
-    assert.doesNotMatch(legal, /never observed/);
+    assert.doesNotMatch(legal, /never (observed|started)/i);
 
-    await page.locator('#nav-view-project').focus();
+    await page.locator('#agents-chip-project').focus();
     await page.keyboard.press('Enter');
     assert.equal(await row('legal-reviewer').count(), 0, 'keyboard returns to Project focus');
     await page.route('**/api/required-reviewers*', json({state:'unreadable'}));

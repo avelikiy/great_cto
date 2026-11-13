@@ -55,7 +55,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "distribution" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "distribution" | "task" | "tracker" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -152,6 +152,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "--projects") args.projects = true;
     else if (a === "--self") args.upgradeSelf = true;
     else if (a === "task") { args.command = "task"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "tracker") { args.command = "tracker"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "worker") { args.command = "worker"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "codex-host") { args.command = "codex-host"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "run" || a === "status" || a === "resume") { args.command = a; args.taskArgs = argv.slice(i + 1); break; }
@@ -729,6 +730,7 @@ ${bold("Usage:")}
   npx great-cto mcp [--sse --port N]
   npx great-cto adapt [--dry-run]
   npx great-cto task work decisions|approve|verify|complete|metrics|preview|publish ...
+  npx great-cto tracker list|show|create|move|close|link|note|find-open|init ...  Project tasks (tracker help)
   npx great-cto codex-host doctor|list|start|resume|status ...
   npx great-cto serve [--port 3142]
   npx great-cto upgrade [superpowers|beads]  Unsupported pending companion artifact admission
@@ -1607,6 +1609,10 @@ async function main(): Promise<void> {
       error((e as Error).message);
       await finish(2);
     }
+  }
+  if (args.command === "tracker") {
+    const { runTracker } = await import("./tracker.js");
+    await finish(runTracker(args.taskArgs ?? []));
   }
   if (args.command === "task" && args.taskArgs?.[0] === "work") {
     const { runWorkTask } = await import("./work-task.js");
