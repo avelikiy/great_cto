@@ -17,8 +17,8 @@ Skills come from different places with different update cadences and trust level
 | Tier | Source | Update cadence | Trust |
 |---|---|---|---|
 | **1** | great_cto built-in (`packs/`, `templates/`, `references/`) | per plugin release | maintained by plugin author |
-| **2** | declared external dependencies (superpowers, anthropics/skills, beads) | 7d cache, auto-pull | upstream-maintained |
-| **3** | personal repo (default `avelikiy/ai-agent-skills`, override via `GREAT_CTO_PERSONAL_SKILLS` env) | 24h cache, auto-pull | you-maintained |
+| **2** | declared external dependencies (superpowers, anthropics/skills, beads) | on `great-cto skills sync` (never automatic) | upstream-maintained |
+| **3** | personal repo (default `avelikiy/ai-agent-skills`, override via `GREAT_CTO_PERSONAL_SKILLS` env) | on `great-cto skills sync` (never automatic) | you-maintained |
 | **4** | on-demand fetch (Template Bridge `/template`) + MCP servers | per-invocation | varies |
 
 ## Discovery flow (per session)
@@ -27,13 +27,13 @@ Skills come from different places with different update cadences and trust level
 SessionStart hook
   ↓
 1. Plugin install / version check  (existing — check-update.sh)
-2. Catalog clone (davila7/templates) — already there
-3. Anthropic skills clone/pull     (NEW v1.0.139, 7d cache)
-4. Personal skills clone/pull      (NEW v1.0.139, 1d cache)
-5. skill-discover.sh               (NEW v1.0.139, 24h cache)
+2. Hint when the optional catalogs are missing: run `great-cto skills sync`
+   (the catalog, anthropics/skills and the personal repo are cloned only by that
+   command, never by the hook: a clone of a mutable branch is read as instructions)
+3. skill-discover.sh               (24h cache)
    → writes ~/.great_cto/skills-registry.json
-6. bd prime (existing)
-7. Status output (existing)
+4. bd prime (existing)
+5. Status output (existing)
 ```
 
 All git operations run in background (`&`) so they don't block session start. First session may hit cold-cache delay (~10–30 s depending on bandwidth); subsequent sessions are instant.
@@ -178,7 +178,5 @@ sources:                       # optional — links to upstream patterns
 | 4 tiers, not 1 flat list | Different update cadences, different trust levels |
 | Git clones (not API fetch) | Offline-capable; no API rate limits; works behind firewalls |
 | 24h cache on registry | Cheap re-scan; rebuilds in <1s; faster than disk-walk every session |
-| 7d cache on Anthropic skills | Upstream changes are slow; weekly pull is enough |
-| 1d cache on personal | You commit changes daily; pull frequency matches |
-| Background `&` for clones | First session not blocked by cold-cache pulls |
+| Clones only on `great-cto skills sync` | A clone of a mutable branch is read by agents as instructions (ADR-050 decision 9); the user asks for it, the session start never does |
 | `~/.great_cto/` not `~/.claude/` | Plugin-namespaced, doesn't interfere with Claude Code's own skills dir |

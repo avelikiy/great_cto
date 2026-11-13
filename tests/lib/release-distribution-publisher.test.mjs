@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createHash } from 'node:crypto';
+import { createHash, generateKeyPairSync } from 'node:crypto';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { encodeReleaseArchive, inspectReleaseArchive } from '../../packages/cli/src/release-archive.mjs';
 import { isPluginRuntimePath, makeReleaseIndex, buildReleaseArtifacts } from '../../scripts/build-release-artifacts.mjs';
@@ -121,10 +121,10 @@ test('tag workflow is sign-only and every JSR path fails closed', () => {
   assert.match(jsr,/not implemented|blocked|BLOCKED/i);
 });
 
-function buildFixture(t,{packExtra=[],packVersion=version,sourceDependency=false,packedMain='export {};',trackedDist=false}={}) {
+function buildFixture(t,{packExtra=[],packVersion=version,sourceDependency=false,packedMain='export {};',trackedDist=false,packPlugin=entries=>entries}={}) {
   const base=fixture(t),source=path.join(base,'source'),directory=path.join(base,'release');fs.mkdirSync(source);
   const contents={
-    '.gitignore':'packages/cli/dist/\n',
+    '.gitignore':'packages/cli/dist/\npackages/cli/plugin/\n',
     'LICENSE':'MIT synthetic fixture license',
     '.claude-plugin/plugin.json':JSON.stringify({name:'great-cto',version,agents:['./agents-full/architect.md','./agents-full/senior-dev.md'],types:'./types/index.d.ts',mcpServers:{router:{command:'python3',args:['${CLAUDE_PLUGIN_ROOT}/mcp-servers/llm-router/server.py']}}}),
     '.claude-plugin/marketplace.json':'{}',
@@ -176,6 +176,10 @@ function buildFixture(t,{packExtra=[],packVersion=version,sourceDependency=false
     if(bin===process.execPath)return '';
     if(bin==='npm'&&args[0]==='pack'){
       packs++;const manifest=Buffer.from(JSON.stringify({name:'great-cto',version:packVersion}));
+      // npm packs whatever packages/cli/plugin/ holds at that moment, as `files: ["plugin/"]` says.
+      const pluginDir=path.join(source,'packages/cli/plugin');
+      const pluginEntries=packPlugin(fs.existsSync(pluginDir)?fs.readdirSync(pluginDir).sort().map(name=>({path:`plugin/${name}`,bytes:fs.readFileSync(path.join(pluginDir,name)),mode:0o644})):[]);
+      packExtra=[...pluginEntries,...packExtra];
       const bytes=encodeReleaseArchive([{path:'package.json',bytes:manifest,mode:0o644},{path:'index.mjs',bytes:Buffer.from(''),mode:0o755},{path:'dist/main.js',bytes:Buffer.from(packedMain),mode:0o644},{path:'dist/archetypes.js',bytes:Buffer.from('export {};'),mode:0o644},{path:'dist/release-trust.mjs',bytes:Buffer.from('export {};'),mode:0o644},{path:'board/packages/board/server.mjs',bytes:Buffer.from('export {};'),mode:0o644},...packExtra]);
       fs.writeFileSync(path.join(directory,`great-cto-${version}.tgz`),bytes);
       return JSON.stringify([{filename:`great-cto-${version}.tgz`,integrity:'sha512-'+createHash('sha512').update(bytes).digest('base64')}]);
@@ -377,4 +381,60 @@ test('SIGN_ONLY accepts an off-main candidate while publication requires exact c
   git(remote,['update-ref','-d','refs/heads/main']);
   assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run}),/fetch|main|unavailable/);
   assert.throws(()=>assertPublicationSource({source,version,commit:candidate,run:()=>{throw Error('network unavailable');}}),/unavailable/);
+});
+
+// ADR-050: the signed plugin set that travels inside the npm package.
+function embeddedKey(t,{allowUnpinnedKey=true}={}){
+  const dir=fixture(t),{privateKey,publicKey}=generateKeyPairSync('ed25519');
+  const privateKeyPath=path.join(dir,'release.pem');fs.writeFileSync(privateKeyPath,privateKey.export({type:'pkcs8',format:'pem'}),{mode:0o600});
+  return {privateKeyPath,keyFingerprint:sha('sha256',publicKey.export({type:'spki',format:'der'})),allowUnpinnedKey};
+}
+
+test('builder packs the signed plugin set the CLI admits, byte-identical to the outer artifacts', async t => {
+  const f=buildFixture(t),key=embeddedKey(t);const result=await buildReleaseArtifacts({...f,embeddedKey:key});
+  assert.equal(result.embeddedSet.keyFingerprint,key.keyFingerprint);assert.equal(f.packs,1);
+  const {embeddedSetMembers}=await import('../../scripts/sign-embedded-release-set.mjs');
+  const npm=inspectReleaseArchive(fs.readFileSync(path.join(f.directory,`great-cto-${version}.tgz`)),{prefix:'package'});
+  const packed=npm.filter(x=>x.path.startsWith('plugin/'));
+  assert.deepEqual(packed.map(x=>x.path.slice(7)).sort(),embeddedSetMembers(version));
+  for(const name of [`great-cto-plugin-${version}.tgz`,'plugin-inventory.json','sbom.cdx.json'])assert(packed.find(x=>x.path===`plugin/${name}`).bytes.equals(fs.readFileSync(path.join(f.directory,name))),name);
+  const extracted=fixture(t);for(const x of packed)fs.writeFileSync(path.join(extracted,x.path.slice(7)),x.bytes,{mode:0o644});
+  const {admitEmbeddedRelease}=await import('../../packages/cli/src/release-trust.mjs');
+  assert.ok(admitEmbeddedRelease({dir:extracted,version,expectedCommit:result.commit},{testOnlyKeyFingerprint:key.keyFingerprint}));
+  assert.equal(fs.existsSync(path.join(f.source,'packages/cli/plugin')),false,'generated set removed from the source tree');
+});
+
+test('builder refuses a key the CLI does not pin, before packing anything', async t => {
+  const f=buildFixture(t);
+  await assert.rejects(buildReleaseArtifacts({...f,embeddedKey:embeddedKey(t,{allowUnpinnedKey:false})}),/no release key is enrolled|not the release key pinned/);
+  assert.equal(f.packs,0);assert.equal(fs.existsSync(path.join(f.source,'packages/cli/plugin')),false);
+});
+
+test('builder refuses a signing key stored inside the source tree', async t => {
+  const f=buildFixture(t),key=embeddedKey(t),inside=path.join(f.source,'.git/release.pem');
+  fs.copyFileSync(key.privateKeyPath,inside);fs.chmodSync(inside,0o600);
+  await assert.rejects(buildReleaseArtifacts({...f,embeddedKey:{...key,privateKeyPath:inside}}),/outside the source tree/);assert.equal(f.packs,0);
+});
+
+test('builder refuses a pack whose embedded set differs from what was signed, and cleans the source', async t => {
+  const tamper=entries=>entries.map(x=>x.path===`plugin/great-cto-plugin-${version}.tgz`?{...x,bytes:Buffer.concat([x.bytes,Buffer.from('x')])}:x);
+  const f=buildFixture(t,{packPlugin:tamper});
+  await assert.rejects(buildReleaseArtifacts({...f,embeddedKey:embeddedKey(t)}),/differ from the signed set/);
+  assert.equal(fs.existsSync(path.join(f.source,'packages/cli/plugin')),false);
+  const g=buildFixture(t,{packPlugin:entries=>entries.slice(1)});
+  await assert.rejects(buildReleaseArtifacts({...g,embeddedKey:embeddedKey(t)}),/membership mismatch/);
+  const h=buildFixture(t,{packExtra:[{path:'plugin/extra.json',bytes:Buffer.from('{}'),mode:0o644}]});
+  await assert.rejects(buildReleaseArtifacts({...h,embeddedKey:embeddedKey(t)}),/membership mismatch/);
+});
+
+test('a stale generated set in the source tree is refused, never packed', async t => {
+  const f=buildFixture(t);fs.mkdirSync(path.join(f.source,'packages/cli/plugin'));fs.writeFileSync(path.join(f.source,'packages/cli/plugin/release-index.json'),'{}');
+  await assert.rejects(buildReleaseArtifacts({...f,embeddedKey:embeddedKey(t)}),/stale embedded plugin set/);assert.equal(f.packs,0);
+});
+
+test('the generated set never enters the plugin snapshot, and the command line requires the key', () => {
+  for(const name of ['packages/cli/plugin','packages/cli/plugin/release-index.json','packages/cli/plugin/release-key.pub'])assert.equal(isPluginRuntimePath(name),false,name);
+  const out=path.join(os.tmpdir(),'never-built');
+  const r=spawnSync(process.execPath,[new URL('../../scripts/build-release-artifacts.mjs',import.meta.url).pathname,'--out',out],{encoding:'utf8'});
+  assert.equal(r.status,2);assert.match(r.stderr,/--embedded-key/);assert.equal(fs.existsSync(out),false);
 });

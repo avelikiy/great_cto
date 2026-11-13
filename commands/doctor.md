@@ -445,11 +445,11 @@ if [ -f "$REGISTRY" ]; then
   # Check tier 2 sources presence
   [ -d "$HOME/.great_cto/anthropic-skills" ] && \
     echo "  ✓ anthropic-skills cloned ($(cd $HOME/.great_cto/anthropic-skills && git log -1 --pretty=%cr 2>/dev/null))" || \
-    echo "  ⚠ anthropic-skills not cloned — SessionStart will pull it next session"
+    echo "  ⚠ anthropic-skills not cloned — optional, run: great-cto skills sync"
 
   [ -d "$HOME/.great_cto/personal-skills" ] && \
     echo "  ✓ personal-skills cloned ($(cd $HOME/.great_cto/personal-skills && git log -1 --pretty=%cr 2>/dev/null))" || \
-    echo "  ⚠ personal-skills not configured — set up: gh repo create <your-account>/ai-agent-skills"
+    echo "  ⚠ personal-skills not cloned — optional, run: great-cto skills sync (or set up: gh repo create <your-account>/ai-agent-skills)"
 
   # If invoked with --skills, show archetype-relevant skills
   if [ "${SKILLS_DETAIL:-false}" = "true" ]; then
