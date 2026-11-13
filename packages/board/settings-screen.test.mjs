@@ -127,3 +127,23 @@ test('ages are words', () => {
   assert.equal(ctx.longAgo('2026-08-07T12:00:00Z'), '96 days ago');
   assert.equal(ctx.longAgo('nonsense'), 'time unknown');
 });
+
+test('a required reviewer with no result says so in Last result, not in Permissions', () => {
+  const std = 'expensive|code.destructive';
+  const ctx = run(['agentRowHtml', 'permissionCell', 'postureSig', 'longAgo'], {
+    esc: (v) => String(v), usageOf: () => null, agoStr: () => '', groupLabel: () => 'review', groupIcon: () => '',
+    postureChips: () => '<chip>', Date, Number, Math, String,
+    requiredOf: (slug) => (slug === 'pci-reviewer' ? { why: 'commerce', verdict: null } : slug === 'done-reviewer' ? { why: 'commerce', verdict: 'APPROVED' } : null),
+  });
+  const posture = { state: 'expensive', expensive: ['code.destructive'] };
+  const row = ctx.agentRowHtml({ slug: 'pci-reviewer', posture, runs_30d: 0, runs_total: 0, health: 'unknown' }, std);
+  const cell = (cls) => row.match(new RegExp(`<span class="${cls}[^"]*">([\\s\\S]*?)</span>\\n`))[1];
+  assert.doesNotMatch(cell('ar-posture'), /required/, 'the permission cell is about permissions');
+  assert.match(cell('ar-posture'), />Standard</);
+  assert.match(row, /class="ar-posture std"/, 'a standard cell hides on a phone');
+  assert.match(cell('ar-last'), /class="home-warn"[^>]*gate:ship refuses[^>]*>Required here, not run yet</);
+  assert.match(row, /<span class="ar-sub home-warn">0 runs · Required here, not run yet<\/span>/);
+  const ran = ctx.agentRowHtml({ slug: 'done-reviewer', posture, runs_30d: 2, runs_total: 2, last_run: '2026-11-01T00:00:00Z', health: 'ok' }, std);
+  assert.doesNotMatch(ran, /Required here/);
+  assert.match(ran, /· required reviewer/);
+});

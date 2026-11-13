@@ -730,7 +730,7 @@ test('Fleet shows real dispatches and required reviewers, and puts a missing one
     assert.equal(await row('senior-dev').count(), 1, 'core role remains in Project focus');
     assert.equal(await row('legal-reviewer').count(), 0, 'unrelated specialist stays in the full catalog');
     assert.match(await page.locator('#fleet-focus-note').innerText(), /Display only, not an execution plan/);
-    assert.match(await row('pci-reviewer').innerText(), /required · not run/,
+    assert.match(await row('pci-reviewer').innerText(), /Required here, not run yet/,
       'and its row says it is required and has not run');
 
     await page.evaluate(() => setFleetView('all'));
