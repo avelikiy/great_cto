@@ -6,7 +6,7 @@ import { createContext, runInContext } from 'node:vm';
 const html = readFileSync(new URL('./public/index.html', import.meta.url), 'utf8');
 function fixture(api = async () => null) {
   const context = createContext({
-    scope: '?project=a', api, pqs() { return context.scope; },
+    scope: '?project=a', currentProject: 'a', api, pqs() { return context.scope; },
     renderFleetList() {}, renderLegacyAgentsSection() {}, location: { hash: '' },
     document: { getElementById() { return null; } },
   });
@@ -89,6 +89,20 @@ test('late installed-roster replies cannot overwrite the selected project roster
   pending[1]({agents:[{slug:'architect'}]}); await second;
   pending[0]({agents:[{slug:'pci-reviewer'}]}); await first;
   assert.equal(run('fleetState.agents[0].slug'), 'architect');
+});
+
+test('a roster refresh before init() has chosen the project asks for nothing and clears nothing', async () => {
+  const urls = [];
+  const run = fixture(url => { urls.push(url); return Promise.resolve(null); });
+  run("fleetState.agents = [{slug:'architect'}]; fleetState.rosterScope = '?project=a';");
+  run("currentProject = ''; scope = '';");
+  await run('refreshAgentsInstalled()');
+  assert.ok(!urls.some(u => u.startsWith('/api/agents-installed')), 'no roster request without a project');
+  assert.equal(run('fleetState.agents.length'), 1, 'a loaded roster is not wiped');
+  assert.equal(run('fleetState.rosterScope'), '?project=a');
+  run("currentProject = 'a'; scope = '?project=a';");
+  await run('refreshAgentsInstalled()');
+  assert.ok(urls.some(u => u.startsWith('/api/agents-installed?project=a')), 'once the project is known the roster is asked for');
 });
 
 test('focus navigation is keyboard accessible and explains uncertainty without changing policy', () => {

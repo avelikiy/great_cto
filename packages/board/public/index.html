@@ -10160,13 +10160,21 @@ async function refreshAgentUsage() {
 
 async function refreshAgentsInstalled() {
   const scope = pqs(), request = ++fleetState.rosterRequest;
-  if (fleetState.rosterScope !== scope) {
+  // A hash route (#/fleet) opens the Agents tab before init() has chosen the
+  // project, so pqs() is '' for want of a project, not because the server's
+  // default project was asked for. That roster would be accepted if it landed
+  // first, and init()'s own refresh (a different scope) would then wipe it and
+  // paint an empty list until its reply arrived. init() always refreshes once
+  // the project is set, so there is nothing to ask for yet.
+  const projectKnown = !!currentProject;
+  if (projectKnown && fleetState.rosterScope !== scope) {
     fleetState.agents = [];
     fleetState.summary = null;
     fleetState.rosterScope = scope;
   }
   refreshAgentUsage();
   refreshRequiredReviewers();
+  if (!projectKnown) return;
   const data = await api(`/api/agents-installed${scope}`);
   if (!data || request !== fleetState.rosterRequest || scope !== pqs()) return;
   fleetState.agents = data.agents || [];

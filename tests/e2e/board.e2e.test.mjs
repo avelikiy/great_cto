@@ -432,9 +432,12 @@ test('sidebar rows share geometry, icons and accessible states at every breakpoi
         .filter(el => el.getClientRects().length && getComputedStyle(el).display !== 'none')
         .map(el => {
           const s = getComputedStyle(el), icon = el.querySelector('svg.icon'), label = el.querySelector('.nav-label');
-          return { name: el.getAttribute('aria-label') || label?.textContent, height: el.getBoundingClientRect().height,
+          // Layout reports fractions of a pixel (15.999998 for a 16px icon under
+          // load). Round to 1/100 px: that absorbs float noise and nothing a user can see.
+          const px = n => n === undefined ? n : Math.round(n * 100) / 100;
+          return { name: el.getAttribute('aria-label') || label?.textContent, height: px(el.getBoundingClientRect().height),
             font: s.fontSize, padding: s.paddingLeft, gap: s.gap,
-            icon: icon?.getBoundingClientRect().width, labelVisible: label && getComputedStyle(label).display !== 'none' };
+            icon: px(icon?.getBoundingClientRect().width), labelVisible: label && getComputedStyle(label).display !== 'none' };
         }));
       assert.ok(rows.length >= 5, 'five primary destinations, with contextual filters where visible');
       for (const row of rows) {

@@ -126,7 +126,7 @@ test("isSuppressed: worker and task commands suppress", () => {
 });
 
 test("isSuppressed: protocol and distribution commands cannot trigger update prompts", () => {
-  assert.deepEqual([...PROTOCOL_SENSITIVE_COMMANDS].sort(), ["distribution", "mcp", "task", "worker"]);
+  assert.deepEqual([...PROTOCOL_SENSITIVE_COMMANDS].sort(), ["distribution", "mcp", "task", "tracker", "worker"]);
   assert.equal(isSuppressed({ env: {}, command: "distribution", stderrIsTTY: true }), true);
 });
 
@@ -317,8 +317,8 @@ test("shouldPrompt: false in CI even with both TTYs true", () => {
   );
 });
 
-test("shouldPrompt: false for protocol-sensitive commands (mcp/worker/task)", () => {
-  for (const command of ["mcp", "worker", "task"]) {
+test("shouldPrompt: false for protocol-sensitive commands (mcp/worker/task/tracker)", () => {
+  for (const command of ["mcp", "worker", "task", "tracker"]) {
     assert.equal(
       shouldPrompt({ currentVersion: "2.78.0", cache: freshCache, env: {}, command, stderrIsTTY: true, stdinIsTTY: true }),
       false,

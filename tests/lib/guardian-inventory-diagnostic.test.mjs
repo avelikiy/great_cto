@@ -7,6 +7,13 @@ import {mkdirSync,lstatSync,rmSync} from 'node:fs';
 import {join} from 'node:path';
 import {createBrowserResourceOwner} from '../../scripts/lib/browser-guardian-resources.mjs';
 const entry=fileURLToPath(new URL('../helpers/guardian-inventory-fault.mjs',import.meta.url));
+// The product gives /bin/ps 1000 ms and the tests assert that contract. The
+// stand-in is a fresh node process, which on a loaded host can need longer than
+// that just to start, so every fault but 'timeout' would be reported as one.
+// Only 'timeout' is about the clock; the others run the stand-in under a bound
+// that only guards a hang, so the product's own deadline never fires on them.
+const standIn=(original,mode,options)=>original(process.execPath,[entry,mode],
+ mode==='timeout'?options:{...options,timeout:60000});
 for(const [mode,outcome,errorCode,signal,status,reason] of [
  ['nonzero','nonzero-or-unknown',null,null,7,'process-refused'],
  ['timeout','timeout','ETIMEDOUT','SIGKILL',null,'process-refused'],
@@ -20,7 +27,7 @@ for(const [mode,outcome,errorCode,signal,status,reason] of [
  cp.spawnSync=(bin,args,options)=>{
   assert.equal(bin,'/bin/ps');assert.equal(options.timeout,1000);assert.equal(options.maxBuffer,1048576);
   assert.equal(options.killSignal,'SIGKILL');
-  return original(process.execPath,[entry,mode],options);
+  return standIn(original,mode,options);
  };
  syncBuiltinESMExports();
  assert.throws(()=>createBrowserResourceOwner({ownerPid:process.pid}),error=>{
@@ -62,7 +69,7 @@ for(const [mode,outcome,reason] of [
  cp.spawnSync=(bin,args,options)=>{
   assert.equal(bin,'/bin/ps');assert.equal(options.timeout,1000);
   assert.equal(options.maxBuffer,1048576);assert.equal(options.killSignal,'SIGKILL');
-  return original(process.execPath,[entry,mode],options);
+  return standIn(original,mode,options);
  };
  syncBuiltinESMExports();
  const snapshot=owner.register({scorerPid:process.pid,browserRoots:[process.pid+1],profilePath});

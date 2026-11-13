@@ -44,7 +44,14 @@ export async function openBoard({ prefix = 'gcto-board-page-', viewport = { widt
   const page = await browser.newPage({ viewport });
   const errors = [];
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
-  page.on('console', (m) => { if (m.type() === 'error') errors.push(`console.error: ${m.text()}`); });
+  // Chromium aborts every request in flight, loopback ones included, when the host's
+  // network interfaces change, and logs exactly this line. On the shared CI host other
+  // projects' Docker bridges and veth pairs come and go (`ip -br link` lists a dozen),
+  // so a journey meets it at random. It says nothing about the board: a step that a
+  // dropped request really broke still fails its own page-and-API assertions. Only this
+  // exact text is ignored; any other console error, including other net::ERR_ codes, stays.
+  const hostNetworkChanged = (text) => text === 'Failed to load resource: net::ERR_NETWORK_CHANGED';
+  page.on('console', (m) => { if (m.type() === 'error' && !hostNetworkChanged(m.text())) errors.push(`console.error: ${m.text()}`); });
   // Requests in flight, except the event stream, which never ends.
   const inflight = new Set();
   page.on('request', (r) => { if (!/\/api\/sse/.test(r.url()) && ['fetch', 'xhr'].includes(r.resourceType())) inflight.add(r); });
