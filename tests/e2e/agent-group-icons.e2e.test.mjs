@@ -51,7 +51,12 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
       await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme);
       for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 1000 });
-        const box = await architect.locator('.grp-icon').boundingBox();
+        // Measured inside the page in one step: the list re-renders when a late
+        // response (usage, required reviewers) lands, and boundingBox() on a row
+        // that was just replaced returns null.
+        const box = await architect.locator('.grp-icon').evaluate((e) => {
+          const r = e.getBoundingClientRect(); return { width: r.width, height: r.height };
+        });
         assert.equal(box.width, 14); assert.equal(box.height, 14);
         assert(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1), `${theme}/${width}`);
         if (process.env.GCTO_ICON_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.GCTO_ICON_SCREENSHOTS, `admin-${theme}-${width}.png`) });
