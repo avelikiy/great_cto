@@ -39,9 +39,15 @@ const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(
   + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
   + 'p=e.length===1?e[0].installPath:"";a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))?p:""}catch{""}';
 
-/** What every generated hook starts with. `$_r` is the directory the resolver runs from. */
-export const BOOTSTRAP = 'PLUGIN_DIR=$(_r="${CLAUDE_PLUGIN_ROOT:-$(node -p \'' + LOCATOR + '\' 2>/dev/null)}"; '
-  + '[ -n "$_r" ] && bash "$_r/scripts/lib/plugin-dir.sh" 2>/dev/null)';
+/**
+ * What every generated hook starts with. The host's own value is taken as given, as a plain
+ * expansion that starts no process: 17 of these hooks fire on every tool call, so a process each
+ * would be a cost on every call. Only when the host did not set it is the registration located and
+ * the resolver run from there, which replaces six processes of the old cache listing with two.
+ * `$_r` is the directory the resolver runs from.
+ */
+export const BOOTSTRAP = 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(_r=$(node -p \'' + LOCATOR + '\' 2>/dev/null); '
+  + '[ -n "$_r" ] && bash "$_r/scripts/lib/plugin-dir.sh" 2>/dev/null)}';
 
 // The form being replaced, in both quotings of its last sed. Plain strings: the `${` is shell.
 const EVERY_CACHE = '~/.claude/plugins/cache/*/great_cto/*/';

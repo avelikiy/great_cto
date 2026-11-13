@@ -67,8 +67,7 @@ test('a command that never assigns PLUGIN_DIR is left alone', () => {
 });
 
 test('the bootstrap names the resolver, the host variable and the registration, and no cache glob', () => {
-  assert.match(BOOTSTRAP, /^PLUGIN_DIR=\$\(/);
-  assert.match(BOOTSTRAP, /CLAUDE_PLUGIN_ROOT/);
+  assert.match(BOOTSTRAP, /^PLUGIN_DIR=\$\{CLAUDE_PLUGIN_ROOT:-/, 'the host variable comes first, as a plain expansion');
   assert.match(BOOTSTRAP, /scripts\/lib\/plugin-dir\.sh/);
   assert.match(BOOTSTRAP, /great_cto@local/);
   assert.doesNotMatch(BOOTSTRAP, /cache\/\*|sort -V|\bls\b/);
@@ -151,6 +150,16 @@ test('bootstrap: the directory the host names is used', (t) => {
   const m = machine(t);
   const dir = m.plugin('great-cto', '3.80.0');
   assert.equal(m.resolve({ CLAUDE_PLUGIN_ROOT: dir }), dir);
+});
+
+test('bootstrap: the host variable is taken as given and starts nothing: 17 hooks fire on every tool call', (t) => {
+  // 8 PreToolUse and 9 PostToolUse hooks resolve PLUGIN_DIR, so a process per hook is a cost on every
+  // tool call. A directory with neither a manifest nor a resolver would be REFUSED if the resolver
+  // ran; coming back verbatim shows the host's own value never reaches it.
+  const m = machine(t);
+  const bare = path.join(m.home, 'bare');
+  fs.mkdirSync(bare);
+  assert.equal(m.resolve({ CLAUDE_PLUGIN_ROOT: bare }), bare);
 });
 
 test('bootstrap: with no host variable the admitted registration is used, not the newer git-marketplace copy', (t) => {

@@ -18,6 +18,10 @@
 #      Its installPath must be a version directory directly under
 #      ~/.claude/plugins/cache/local/great_cto/.
 #
+# The generated hook bootstrap (scripts/generate-plugin-hooks.mjs) takes CLAUDE_PLUGIN_ROOT as given,
+# because 17 hooks fire on every tool call and a process each would be a cost on every call; it runs
+# this script only when the host did not set the variable. Step 1 here is for every other caller.
+#
 # Step 2 needs node, which every hook needs anyway. Written for bash 3.2, the one macOS ships.
 set -u
 
