@@ -56,7 +56,9 @@ Every agent runs as the same OS user as the operator. No file on this machine is
 out of an agent's reach:
 
 - code that imports `verdict-seal.mjs` can seal anything;
-- an agent can run `log-verdict.sh qa-engineer PASS` without being the QA agent.
+- an agent can run `log-verdict.sh qa-engineer PASS` without being the QA agent
+  (from ADR-051 a *subagent* doing so is refused, and a shell or edit-tool write to a
+  verdict log is refused for everyone; the main session and a determined agent remain).
 
 The seal makes forgery *deliberate* rather than *accidental*:
 

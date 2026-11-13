@@ -12,6 +12,7 @@ great_cto uses [Claude Code hooks](https://docs.anthropic.com/en/docs/claude-cod
 | `PreToolUse` | `Bash` | `shared-tree-guard.mjs` | Refuses `git stash`, `checkout -- <path>`, `restore <path>`, `reset --hard`, `clean -f` — they destroy other sessions' uncommitted work in a shared tree |
 | `PreToolUse` | `Bash` | `gate-bypass-guard.mjs` | Refuses skipping the git hooks: `--no-verify`, `commit -n`, `-c core.hooksPath=`, setting `core.hooksPath`, `HUSKY=0`, `SKIP=` |
 | `PreToolUse` | `Read\|Grep`, `Bash` | `secret-read-guard.mjs` | Refuses printing a secret file into the transcript: `Read .env`, `cat ~/.great_cto/secrets.env`, `head id_ed25519`, a Grep glob of `.env*`; `source .env` and `grep -q KEY .env` pass |
+| `PreToolUse` | `Bash`, `Edit\|Write\|MultiEdit` | `verdict-authorship-guard.mjs` | Refuses a subagent recording a verdict for a role other than its own (`log-verdict.sh <role>` must name the subagent's `agent_type`), and any shell or edit-tool write, truncation, move or deletion of `.great_cto/verdicts/*.log` (ADR-051) |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `secret-scan.mjs` | Blocks writes containing hardcoded API keys |
 | `PreToolUse` | `Edit\|Write\|MultiEdit` | `gate-weakening-guard.mjs` | Refuses an edit that adds a test skip, a CI allow-failure, a lint/type suppression (`@ts-ignore`, `eslint-disable`, `noqa`, `#[allow(`…) or a weakened tsconfig/ESLint/Python-lint config |
 | `PostToolUse` | `Write\|Edit\|MultiEdit` | inline + `format-check.mjs` + `docs-reference-sync.mjs` + `typecheck-accumulate.mjs` | Logs writes to `.great_cto/agent-writes.log` + auto-formats by extension + regenerates `docs/reference/` + notes edited TS/Python files for the Stop typecheck |
@@ -88,6 +89,23 @@ sessions — so a secret printed once is spent, and revoking it is the only fix.
 Runs for Bash inside `bash-guards.mjs`, so Codex shell calls get it too. Bypass: a signed
 `secret-read` exception, or `GREAT_CTO_DISABLE_SECRET_READ_GUARD=1`. Not covered: a Grep over
 a directory (ripgrep skips hidden files, so `.env` is not searched, but a `.pem` in the tree can be).
+
+### `verdict-authorship-guard.mjs`
+
+A verdict in `.great_cto/verdicts/<role>.log` moves the pipeline and is what a deploy checks.
+ADR-046 seals each line, but a seal proves the writer ran, not who asked it to. ADR-051 slice 1:
+
+| Refused | Passes |
+|---|---|
+| A subagent running `log-verdict.sh <role>` (or `AGENT=<role> … verdict-record.mjs --emit`) for a role that is not its own `agent_type`, including inside `bash -c` and chains | A subagent recording its own role, under any of `great-cto:` / `great_cto-` / bare names |
+| A subagent calling the writer with a role it cannot read (`"$ROLE"`, `<role>`) | The main session recording any role (covered by ADR-051 slices 2–3, not here) |
+| `>`/`>>`, `tee`, `sed -i`, `cp`/`mv`, `rm`, `truncate`, `dd of=`, `git checkout --` on a file in `.great_cto/verdicts/` (or `$GREAT_CTO_DIR/verdicts/`) | `cat`, `tail`, `grep` of a verdict log; writes anywhere else |
+| `Edit` / `Write` / `MultiEdit` of a verdict log | — |
+
+Runs for Bash inside `bash-guards.mjs` and as its own `Edit|Write|MultiEdit` hook; on Codex the
+edit half runs through `codex-adapter.mjs` (Codex payloads carry no `agent_type`, so only the
+write rule applies there). A speed bump, not a lock: the writer's path in a variable goes round
+the role check. Operator repair of a log: `GREAT_CTO_DISABLE_VERDICT_GUARD=1`.
 
 ### `destructive-guard.mjs`
 

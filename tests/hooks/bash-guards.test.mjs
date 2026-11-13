@@ -54,9 +54,10 @@ test('the real checks, end to end: refusals still refuse, ordinary commands pass
   assert.equal(spawn(bash('mkdir -p ~/.claude/agents')).status, 0, 'a .claude path and a -p flag are not an inline subagent');
 });
 
-test('the list is the six hooks it replaces, minus the reminder, plus secret-read', () => {
-  // secret-read joined here rather than as a seventh process: the cost the merge
-  // removed was per-process, and a cancelled guard does not block.
+test('the list is the six hooks it replaces, minus the reminder, plus secret-read and verdict-authorship', () => {
+  // secret-read and verdict-authorship (ADR-051) joined here rather than as more
+  // processes: the cost the merge removed was per-process, and a cancelled guard
+  // does not block.
   assert.deepEqual(BASH_CHECKS.map(([n]) => n),
-    ['inline-subagent', 'shared-tree', 'gate-bypass', 'destructive', 'frozen-gates', 'secret-read']);
+    ['inline-subagent', 'shared-tree', 'gate-bypass', 'destructive', 'frozen-gates', 'secret-read', 'verdict-authorship']);
 });

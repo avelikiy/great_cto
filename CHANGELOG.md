@@ -7,6 +7,16 @@ All notable changes to great_cto are documented here.
 
 
 
+## Unreleased
+
+### Added
+
+- **A role records only its own verdict** (ADR-051, slice 1). A subagent that runs `log-verdict.sh` for another role, or with a role spelled as a variable, is refused at the tool layer; so is any shell or edit-tool write, truncation, move or deletion of `.great_cto/verdicts/*.log`, for the main session too. `scripts/hooks/verdict-authorship-guard.mjs`, run inside `bash-guards.mjs` and as an `Edit|Write|MultiEdit` hook (and through the Codex adapter for `apply_patch`). Every shipped agent already names only its own role, so honest runs are unaffected. Off switch for the operator: `GREAT_CTO_DISABLE_VERDICT_GUARD=1`.
+
+### Docs
+
+- **What great_cto takes from Archon, and in what order** (`docs/plans/PLAN-archon-lessons.md`): verdict authority, a pipeline dry-run over stub verdicts, one event log, one attention queue, budgets refused before an attempt, a provider contract, a reviewer eval set — and what is deliberately not taken.
+
 ## v3.79.0 — 2026-11-11
 
 Settings opens on the settings, and the agent list says only what differs.
