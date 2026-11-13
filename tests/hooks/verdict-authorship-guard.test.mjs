@@ -140,6 +140,32 @@ test('a verdict directory named by GREAT_CTO_DIR is guarded too', () => {
   assert.equal(run(bash('echo x > /state/p/verdicts/qa-engineer.log'), { GREAT_CTO_DIR: '/state/p' }).code, 2);
 });
 
+// Codex review on #288: the target was matched as written, never resolved against the
+// call's cwd, and a reference to the configured directory was resolved literally.
+test('a target is resolved against the cwd before the check: relative names, ./ and ../ segments', () => {
+  const inVerdicts = (command) => JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: '/proj/.great_cto/verdicts' });
+  assert.equal(run(inVerdicts('rm qa-engineer.log'), ENV).code, 2, 'a bare name from inside the verdict directory');
+  assert.equal(run(inVerdicts('truncate -s 0 *.log'), ENV).code, 2, 'a glob from inside it');
+  assert.equal(run(inVerdicts('cat qa-engineer.log'), ENV).code, 0, 'reading stays allowed');
+  for (const cmd of [
+    'echo x > .great_cto/./verdicts/qa-engineer.log',
+    'echo x > src/../.great_cto/verdicts/qa-engineer.log',
+    'rm .great_cto//verdicts/qa-engineer.log',
+  ]) assert.equal(run(bash(cmd), ENV).code, 2, cmd);
+  assert.equal(run(bash('echo x > .great_cto/verdicts/../events.jsonl'), ENV).code, 0, 'a path that leaves the directory is not a verdict log');
+});
+
+test('a reference to $GREAT_CTO_DIR, ${GREAT_CTO_DIR}, ~ or $HOME is expanded before the check', () => {
+  const env = { GREAT_CTO_DIR: '/state/p', HOME: '/home/u' };
+  for (const cmd of [
+    'rm "$GREAT_CTO_DIR/verdicts/qa-engineer.log"',
+    'echo x > ${GREAT_CTO_DIR}/verdicts/qa-engineer.log',
+    'rm ~/proj/.great_cto/verdicts/qa-engineer.log',
+    'rm "$HOME/proj/.great_cto/verdicts/qa-engineer.log"',
+  ]) assert.equal(run(bash(cmd), env).code, 2, cmd);
+  assert.equal(run(bash('rm "$GREAT_CTO_DIR_OLD/verdicts/x.log"'), env).code, 0, 'another variable is not the configured directory');
+});
+
 test('Edit, Write and MultiEdit of a verdict log are refused; other files pass', () => {
   for (const tool of ['Edit', 'Write', 'MultiEdit']) {
     const r = run(edit(tool, '/proj/.great_cto/verdicts/qa-engineer.log'), ENV);

@@ -75,15 +75,30 @@ export function verdictWrites(command) {
   return out;
 }
 
-/** Is `p` inside the project's verdict directory (or that directory itself)? */
-export function isVerdictPath(p, { cwd = process.cwd(), dir = process.env.GREAT_CTO_DIR } = {}) {
+/**
+ * A shell word as the shell will see it, for the variables that name the state directory.
+ * `"$GREAT_CTO_DIR/verdicts/x.log"` reaches this check unexpanded, and resolving it
+ * literally points at a directory named `$GREAT_CTO_DIR`, not at the verdicts.
+ */
+function expandKnown(word, { dir, home }) {
+  let w = String(word);
+  if (dir) w = w.replace(/\$\{GREAT_CTO_DIR\}|\$GREAT_CTO_DIR(?![A-Za-z0-9_])/g, dir);
+  if (home) w = w.replace(/^~(?=\/|$)/, home).replace(/\$\{HOME\}|\$HOME(?![A-Za-z0-9_])/g, home);
+  return w;
+}
+
+/**
+ * Is `p` inside the project's verdict directory (or that directory itself)? The path is
+ * resolved against the call's cwd first: `rm qa-engineer.log` run from inside
+ * `.great_cto/verdicts`, or `.great_cto/./verdicts/…`, names a verdict log too.
+ */
+export function isVerdictPath(p, { cwd = process.cwd(), dir = process.env.GREAT_CTO_DIR, home = process.env.HOME } = {}) {
   if (!p) return false;
-  const norm = String(p).replace(/\\/g, '/');
-  if (/(^|\/)\.great_cto\/verdicts(\/|$)/.test(norm)) return true;
+  const abs = (x) => (isAbsolute(x) ? resolve(x) : resolve(cwd, x)).replace(/\\/g, '/');
+  const target = abs(expandKnown(String(p).replace(/\\/g, '/'), { dir, home }));
+  if (/(^|\/)\.great_cto\/verdicts(\/|$)/.test(target)) return true;
   if (dir) {
-    const abs = (x) => (isAbsolute(x) ? resolve(x) : resolve(cwd, x)).replace(/\\/g, '/');
     const vdir = abs(`${dir}/verdicts`);
-    const target = abs(norm);
     return target === vdir || target.startsWith(`${vdir}/`);
   }
   return false;
@@ -101,7 +116,7 @@ export function run(raw, env = process.env) {
   try { d = JSON.parse(raw); } catch { return PASS; }
   if (!d || typeof d !== 'object') return PASS;
   const cwd = d.cwd || process.cwd();
-  const where = { cwd, dir: env.GREAT_CTO_DIR };
+  const where = { cwd, dir: env.GREAT_CTO_DIR, home: env.HOME };
   const off = 'The operator can repair a log by hand with GREAT_CTO_DISABLE_VERDICT_GUARD=1 in their own shell.';
 
   if (d.tool_name === 'Bash') {
