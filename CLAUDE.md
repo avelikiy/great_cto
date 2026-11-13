@@ -85,6 +85,35 @@ author or committer is avelikiy with any other address.
 
 ---
 
+## CI budget — commit often, push in batches
+
+GitHub Actions runs on every **push**, not on every commit: a push to a branch with an
+open PR fires every `pull_request` workflow whose paths it touches, a push to `main` fires
+the `push` workflows. On private repositories each run is billed by the minute, and
+`cli-ci` alone is a 3 OS × 3 Node matrix (9 jobs, macOS at the highest rate). great_cto
+itself is public, so standard runners are free here — the rule holds anyway, because the
+same agents work in private projects and the habit is what carries over
+(`scripts/hooks/operating-rules.md`, rule 7, prints it in every project).
+
+1. **Commit as often as you like; push once per finished slice.** A slice is finished when
+   its local checks pass: the targeted tests plus `bash scripts/ci-local.sh --quick`
+   (or the full gate for a release), and the pre-push hook.
+2. **Never push to find out whether CI is green.** Run the local equivalent first. If CI
+   then fails, reproduce the failure locally before the next push.
+3. **One push per round of fixes.** Review comments and CI failures found together are
+   fixed together and pushed once — not one push per comment.
+4. **Open the PR with the first finished batch,** not with an empty or half-done branch.
+5. **A push only to save work** (end of a cloud session, whose container is reclaimed,
+   or a handover) carries `[skip ci]` in the head commit's message. Remove it from the
+   next commit when the batch is finished — the PR's head commit decides whether CI runs.
+6. **No CI kicks:** no empty commits, no close/reopen, at most one re-run of a failed job.
+7. **Docs-only batches are cheap** (the workflows' `paths:` filters skip them) but are
+   still batched: one push for the docs of a slice, not one per file.
+
+Exceptions: the operator asks for a push, or a red `main` needs a fix now.
+
+---
+
 ## Code style
 
 - TypeScript strict mode; no `any` without comment explaining why
