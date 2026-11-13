@@ -209,7 +209,7 @@
       "coveredBy": [
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
-          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+          "test": "fresh machine: the first install states what it does not prove"
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
@@ -236,7 +236,7 @@
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
-          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+          "test": "fresh machine: init publishes exactly the admitted bytes and registers them"
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
@@ -450,7 +450,7 @@
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
-          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+          "test": "fresh machine: the smoke is the only run of candidate bytes and inherits no environment"
         },
         {
           "file": "packages/cli/tests/embedded-admission.test.mjs",
@@ -522,7 +522,7 @@
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
-          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+          "test": "fresh machine: init publishes exactly the admitted bytes and registers them"
         },
         {
           "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",

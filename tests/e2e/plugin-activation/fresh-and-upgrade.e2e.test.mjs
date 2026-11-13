@@ -14,7 +14,7 @@ import {
 
 const strays = machine => Object.keys(snapshot(machine.claudeDir)).filter(key => /\.(bak|tmp)$|great-cto-.*\.bak|\.stage-/.test(key));
 
-test('fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove', t => {
+test('fresh machine: init publishes exactly the admitted bytes and registers them', t => {
   const machine = newMachine(t), pkg = buildPackage(machine, { version: '3.72.0' });
   const run = runInit(machine, pkg);
   assert.equal(run.status, 0, tail(run.output));
@@ -34,13 +34,21 @@ test('fresh machine: init publishes exactly the admitted bytes, registers them a
   assert.deepEqual(journals(machine).map(j => j.phases), [PHASES]);
   assert.deepEqual(fs.readdirSync(machine.home).sort(), ['.claude', '.great_cto']);
   assert.ok(fs.existsSync(path.join(run.project, '.great_cto', 'PROJECT.md')), 'init went on to bootstrap the project');
+});
 
-  // What a first install proves, and what it does not.
+test('fresh machine: the first install states what it does not prove', t => {
+  const machine = newMachine(t), pkg = buildPackage(machine, { version: '3.72.0' });
+  const run = runInit(machine, pkg);
+  assert.equal(run.status, 0, tail(run.output));
   assert.match(run.output, /First install: these bytes, their verifier and the pinned key all came from npm/);
   assert.match(run.output, /authenticity rests on the npm registry/);
   assert.doesNotMatch(run.output, /OIDC|provenance|transparency|Rekor|Sigstore|Fulcio|SLSA|attest/i);
+});
 
-  // Candidate bytes ran once — the smoke — with a minimal environment and nothing inherited.
+test('fresh machine: the smoke is the only run of candidate bytes and inherits no environment', t => {
+  const machine = newMachine(t), pkg = buildPackage(machine, { version: '3.72.0' });
+  const run = runInit(machine, pkg);
+  assert.equal(run.status, 0, tail(run.output));
   const ran = executions(pkg);
   assert.equal(ran.length, 1);
   assert.deepEqual(ran[0].argv, ['--version']);
