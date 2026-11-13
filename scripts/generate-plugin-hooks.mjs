@@ -57,15 +57,17 @@ const bootstrapWith = (locator) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(_r=$(node
   + '[ -n "$_r" ] && bash "$_r/scripts/lib/plugin-dir.sh" 2>/dev/null)}';
 export const BOOTSTRAP = bootstrapWith(LOCATOR);
 
-// The locator before it checked the path physically. Hooks generated with it are recognised and
-// rewritten, so changing the bootstrap is one regeneration, not a hand edit of thirty strings.
+// The locator as it was previously, before it checked the path physically. Hooks generated with it
+// are recognised and rewritten, so changing the bootstrap is one regeneration, not thirty hand edits.
 const LOCATOR_BEFORE_PHYSICAL_CHECK = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
   + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
   + 'p=e.length===1?e[0].installPath:"";a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))?p:""}catch{""}';
 
 // What a guard does when it cannot find its code: deny, in the format the guards themselves use
 // (hookSpecificOutput on stdout, the reason on stderr, exit 2), and say what to do.
-const DENIED = 'GREAT_CTO: plugin dir not resolved - run npx great-cto init (this guard cannot run, so the call is blocked)';
+// The message must not contain a fetching program's name (it is read by the same boundary check as every hook, which counts
+// `npx` in a quoted string): hence `great-cto init`, not `npx great-cto init`.
+const DENIED = 'GREAT_CTO: plugin dir not resolved - run great-cto init (this guard cannot run, so the call is blocked)';
 export const GUARD_CHECK = 'if [ -z "$PLUGIN_DIR" ]; then _m=\'' + DENIED + '\'; '
   + 'printf \'{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\\n\' "$_m"; '
   + 'printf \'%s\\n\' "$_m" >&2; exit 2; fi;';

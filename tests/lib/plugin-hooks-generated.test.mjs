@@ -340,7 +340,8 @@ test('guards: with PLUGIN_DIR unresolvable every one of the six blocks, in the f
     assert.equal(decision.permissionDecision, 'deny', name);
     assert.match(decision.permissionDecisionReason, /plugin dir not resolved/, name);
     assert.match(r.stderr, /plugin dir not resolved/, `${name}: exit 2 shows stderr to the model`);
-    assert.match(r.stderr, /npx great-cto init/, `${name}: and says what to do`);
+    assert.match(r.stderr, /great-cto init/, `${name}: and says what to do`);
+    assert.doesNotMatch(r.stderr, /npx/, `${name}: the message names no fetching program, or the boundary check would refuse the manifest`);
   }
 });
 
