@@ -130,7 +130,8 @@ npx great-cto init [options]
 
 ## Requirements
 
-- **Node.js ≥ 18.17.0** (Node 18 / 20 / 22 all tested in CI)
+- **Node.js ≥ 20** (Node 20 and 22 tested in CI)
+- **macOS or Linux.** Windows is not supported natively: the release and activation path relies on POSIX file modes and symlink semantics. On Windows, run it under [WSL](https://learn.microsoft.com/windows/wsl/).
 - **Git** (to clone the plugin repo)
 - [Claude Code](https://claude.com/claude-code)
 

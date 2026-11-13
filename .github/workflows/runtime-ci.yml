@@ -5,14 +5,17 @@ name: Runtime CI
 #   - tests/hooks/*.test.mjs      (PreToolUse / SubagentStop hook logic)
 #   - packages/board/*.test.mjs   (board push-adapter)
 # cli-ci's `tests/*.test.mjs` runs with working-directory packages/cli, so it only
-# sees packages/cli/tests — the repo-root and board tests were orphaned. These need
-# no external deps (node: builtins + relative imports only), so no npm ci.
+# sees packages/cli/tests — the repo-root and board tests were orphaned. They use only
+# node: builtins, but some board tests import the built CLI (packages/cli/dist), so the
+# CLI is built first: without it agent-events, bundle-imports and decision-log-survives
+# fail for a missing dist, not for what they test.
 
 on:
   push:
     branches: [main]
     paths:
       - "packages/board/**"
+      - "packages/cli/src/**"
       - "workers/**"
       - "tests/**"
       - "scripts/**"
@@ -23,6 +26,7 @@ on:
   pull_request:
     paths:
       - "packages/board/**"
+      - "packages/cli/src/**"
       - "workers/**"
       - "tests/**"
       - "scripts/**"
@@ -41,6 +45,11 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
+          cache: "npm"
+          cache-dependency-path: packages/cli/package-lock.json
+      - name: Build the CLI (board tests import packages/cli/dist)
+        working-directory: packages/cli
+        run: npm ci && npm run build
       - name: Run orphaned runtime tests (root + hooks + board)
         run: node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
       - name: Lint agent artifacts (structure + freshness)
