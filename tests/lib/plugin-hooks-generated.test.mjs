@@ -363,3 +363,42 @@ test('guards: a hook that is not a guard still does nothing, quietly, when PLUGI
   assert.equal(r.status, 0);
   assert.equal(r.stdout, '');
 });
+
+// ── 5. the session start fetches nothing (bug 5fz8) ──────────────────────────
+//
+// It used to start three background `git clone --depth=1` of mutable branch heads, and `git pull` to
+// refresh them. Run for real, with a git that records every call: it says how to get the optional
+// catalogs, and it starts no clone, pull or fetch.
+
+test('session start: with the skill catalogs missing it says how to get them, and runs no git clone, pull or fetch', (t) => {
+  const m = machine(t);
+  const bin = path.join(m.home, 'fakebin'), log = path.join(m.home, 'git.log');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'git'), `#!/bin/sh\nprintf '%s\\n' "$*" >> "${log}"\n`, { mode: 0o755 });
+  fs.symlinkSync(process.execPath, path.join(bin, 'node'));
+  // A plugin directory with nothing in it: every script the hook would call is absent and its failure is quiet.
+  const plugin = m.plugin('great-cto', '3.80.0');
+  const hook = hookCommands(JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))).find((c) => /GREAT_CTO: optional skill catalogs/.test(c));
+  assert.ok(hook, 'the session start hook that carries the hint exists');
+  const run = () => spawnSync('bash', ['-c', hook], {
+    encoding: 'utf8', cwd: m.home, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { PATH: `${bin}:/usr/bin:/bin`, HOME: m.home, CLAUDE_PLUGIN_ROOT: plugin },
+  });
+
+  const missing = run();
+  assert.match(missing.stdout, /GREAT_CTO: optional skill catalogs are not installed - run: great-cto skills sync/);
+  const calls = fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '';
+  assert.doesNotMatch(calls, /\b(?:clone|pull|fetch)\b|github\.com/, `the session start talked to a remote:\n${calls}`);
+  for (const name of ['catalog', 'anthropic-skills', 'personal-skills']) assert.equal(fs.existsSync(path.join(m.home, '.great_cto', name)), false, `${name} was created by the session start`);
+
+  // Three checkouts, each last touched at the epoch: the old hook would have pulled every one of them.
+  for (const name of ['catalog', 'anthropic-skills', 'personal-skills']) {
+    const git = path.join(m.home, '.great_cto', name, '.git');
+    fs.mkdirSync(git, { recursive: true });
+    fs.utimesSync(git, 0, 0);
+  }
+  fs.rmSync(log, { force: true });
+  const present = run();
+  assert.doesNotMatch(present.stdout, /skills sync/, 'with all three present there is nothing to say');
+  assert.doesNotMatch(fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '', /\b(?:clone|pull|fetch)\b/, 'and an old checkout is not refreshed behind the user\'s back');
+});
