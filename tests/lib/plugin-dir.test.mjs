@@ -229,11 +229,15 @@ test('a registered path that is not a string is refused', (t) => {
 
 test('the script lists no cache and sorts nothing: it cannot pick "the newest"', () => {
   const src = fs.readFileSync(SCRIPT, 'utf8').split('\n').filter((l) => !/^\s*#/.test(l)).join('\n');
+  // Not vacuous: an empty file would also contain no glob. The script must actually read both sources.
+  assert.match(src, /CLAUDE_PLUGIN_ROOT/);
+  assert.match(src, /installed_plugins\.json/);
   assert.doesNotMatch(src, /cache\/\*|\bsort\b|\bls\b|\bfind\b/, 'a glob or a sort over the cache is the defect this script exists to remove');
 });
 
 test('the script is executable by bash on macOS: no bash 4 features', () => {
   const src = fs.readFileSync(SCRIPT, 'utf8');
   assert.match(src, /^#!\/usr\/bin\/env bash\n/);
+  assert.match(src, /CLAUDE_PLUGIN_ROOT/, 'the file under test is the resolver, not a placeholder');
   assert.doesNotMatch(src, /\$\{[A-Za-z_]+(,,|\^\^)\}|\bmapfile\b|\breadarray\b|declare -A/, 'macOS ships bash 3.2');
 });

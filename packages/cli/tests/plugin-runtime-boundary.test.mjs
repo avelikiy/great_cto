@@ -124,14 +124,23 @@ test('claude: a node MCP server is admitted only when its script is in the inven
   assert.deepEqual(absent.fetching, [], 'reported, not refused: only a fetching entrypoint refuses');
 });
 
-test('claude: prose that merely names a program is not a program', () => {
-  const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks("echo 'GREAT_CTO: nothing to do'; printf '%s\\n' welcome.sh install.sh") })] });
+test('claude: ordinary words and script names are not programs; the real one beside them still is', () => {
+  const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks("echo 'GREAT_CTO: nothing to do'; printf '%s\\n' welcome.sh install.sh node_modules; python3 x.py") })] });
   assert.deepEqual(r.fetching, []);
-  assert.deepEqual(r.toolchain, []);
+  assert.deepEqual(r.toolchain, ['python3'], 'only python3 is a program here');
+});
+
+test('the scan is a lint over the publisher\'s own manifest, so it is conservative: a fetching name anywhere in a command counts', () => {
+  // Deliberate: it does not claim to parse shell. A false positive costs one edit before release
+  // (the shipped-manifest test below catches it); a false negative would let a download through.
+  const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks("echo 'run npx later'") })] });
+  assert.deepEqual(r.fetching.map(e => e.program), ['npx']);
 });
 
 test('claude: a manifest with neither servers nor hooks has no external runtime', () => {
   const r = inspectExternalRuntime({ host: 'claude', files: [claude({})] });
+  assert.equal(r.host, 'claude');
+  assert.deepEqual(r.sources, ['.claude-plugin/plugin.json'], 'it read the Claude manifest, and only that');
   assert.deepEqual([r.entries, r.fetching, r.toolchain], [[], [], []]);
 });
 
@@ -145,6 +154,7 @@ const codexFiles = () => [
 
 test('a Codex-only npx entry does not refuse a Claude activation', () => {
   const files = [claude({ hooks: hooks('node "${PLUGIN_DIR}/a.mjs"') }), ...codexFiles()];
+  assert.equal(inspectExternalRuntime({ host: 'codex', files }).fetching.length, 1, 'the npx is really there, for Codex');
   assert.deepEqual(inspectExternalRuntime({ host: 'claude', files }).fetching, []);
   assert.doesNotThrow(() => assertNoFetchingRuntime(files, { host: 'claude' }));
 });
@@ -190,6 +200,7 @@ function shippedFiles() {
 test('shipped: the Claude manifest has no fetching entrypoint, so a real activation is not refused', () => {
   const r = assertNoFetchingRuntime(shippedFiles(), { host: 'claude' });
   assert.deepEqual(r.fetching, []);
+  assert.ok(r.entries.length >= 30, `only ${r.entries.length} entries: the scan did not read the shipped hooks`);
 });
 
 test('shipped: python3 (the router and two hooks), git and bd are reported as host toolchain', () => {
@@ -266,9 +277,15 @@ test('divergence: the admitted key is the one the adapter writes', () => {
 });
 
 test('divergence: no registry, or only the admitted registration, is not divergence', () => {
-  for (const bytes of [null, registry({}), registry({ [ADMITTED_KEY]: [admittedCopy], 'other@market': [{ scope: 'user', installPath: '/x' }] })]) {
+  const cases = [
+    [null, null],
+    [registry({}), null],
+    [registry({ [ADMITTED_KEY]: [admittedCopy], 'other@market': [{ scope: 'user', installPath: '/x' }] }), admittedCopy.installPath],
+  ];
+  for (const [bytes, admittedPath] of cases) {
     const d = describeDivergence(bytes);
     assert.equal(d.diverged, false);
+    assert.equal(d.admitted?.installPath ?? null, admittedPath, 'it still reports the admitted registration it found');
     assert.deepEqual(d.others, []);
     assert.deepEqual(d.lines, []);
   }

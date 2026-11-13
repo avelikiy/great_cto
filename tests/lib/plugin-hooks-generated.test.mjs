@@ -42,7 +42,9 @@ test('the old lookup is replaced in both quotings, and only the lookup is touche
 });
 
 test('expanding twice changes nothing', () => {
-  const once = expandHookCommand('a; ' + LEGACY_SINGLE + '; b');
+  const input = 'a; ' + LEGACY_SINGLE + '; b';
+  const once = expandHookCommand(input);
+  assert.notEqual(once, input, 'the first expansion did something, so the second has something to leave alone');
   assert.equal(expandHookCommand(once), once);
 });
 
@@ -76,6 +78,10 @@ test('the bootstrap names the resolver, the host variable and the registration, 
 
 test('the shipped manifest is exactly what the generator produces', () => {
   const text = fs.readFileSync(MANIFEST, 'utf8');
+  // Not vacuous: a generator that does nothing also leaves the file as it found it. The bootstrap
+  // must be there, JSON-escaped as the file writes it.
+  assert.ok(BOOTSTRAP.length > 100, 'the bootstrap is a real snippet');
+  assert.ok(text.includes(JSON.stringify(BOOTSTRAP).slice(1, -1)), 'the manifest carries the generated bootstrap');
   assert.deepEqual(checkManifestText(text), []);
   assert.equal(generateManifestText(text), text, 'run: node scripts/generate-plugin-hooks.mjs');
 });
@@ -160,15 +166,21 @@ test('bootstrap: with no host variable the admitted registration is used, not th
 test('bootstrap: with only the git-marketplace copy registered, PLUGIN_DIR stays empty', (t) => {
   const m = machine(t);
   const gitCopy = m.plugin('great-cto', '9.9.9');
-  m.plugin('local', '3.80.0'); // on disk, never registered
+  const admitted = m.plugin('local', '3.80.0'); // on disk, never registered
+  // Same machine, registered properly: it resolves. So the empty answer below is a refusal, not a broken bootstrap.
+  m.register({ 'great_cto@local': [{ scope: 'user', installPath: admitted, version: '3.80.0' }] });
+  assert.equal(m.resolve(), admitted);
   m.register({ 'great_cto@great-cto': [{ scope: 'user', installPath: gitCopy, version: '9.9.9' }] });
   assert.equal(m.resolve(), '');
 });
 
 test('bootstrap: no registry at all leaves PLUGIN_DIR empty rather than searching', (t) => {
   const m = machine(t);
-  m.plugin('local', '3.80.0');
-  assert.equal(m.resolve(), '');
+  const admitted = m.plugin('local', '3.80.0');
+  m.register({ 'great_cto@local': [{ scope: 'user', installPath: admitted, version: '3.80.0' }] });
+  assert.equal(m.resolve(), admitted, 'with the registry it resolves');
+  fs.rmSync(path.join(m.home, '.claude/plugins/installed_plugins.json'));
+  assert.equal(m.resolve(), '', 'without it the plugin on disk is not guessed');
 });
 
 test('bootstrap: a registration pointing outside the admitted cache is never executed', (t) => {
@@ -179,6 +191,9 @@ test('bootstrap: a registration pointing outside the admitted cache is never exe
   fs.mkdirSync(path.join(outside, 'scripts/lib'), { recursive: true });
   const marker = path.join(m.home, 'MARKER');
   fs.writeFileSync(path.join(outside, 'scripts/lib/plugin-dir.sh'), '#!/usr/bin/env bash\ntouch "' + marker + '"\necho "' + outside + '"\n');
+  const admitted = m.plugin('local', '3.80.0');
+  m.register({ 'great_cto@local': [{ scope: 'user', installPath: admitted, version: '3.80.0' }] });
+  assert.equal(m.resolve(), admitted, 'a registration inside the admitted cache resolves');
   m.register({ 'great_cto@local': [{ scope: 'user', installPath: outside, version: '1.0.0' }] });
   assert.equal(m.resolve(), '');
   assert.equal(fs.existsSync(marker), false, 'a script outside the admitted cache was executed');
