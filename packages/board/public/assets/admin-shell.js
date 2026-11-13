@@ -1,13 +1,13 @@
 /* Task-first projection. Existing controller commands and authorization remain authoritative. */
 (() => {
   const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-  const aliases = { docs:'knowledge', usage:'insights/consumption', ledger:'insights/ledger', budgets:'insights/ledger', dashboard:'insights/ledger', fleet:'settings/executors', agents:'settings/executors', harness:'settings/runtime', skills:'settings/capabilities', history:'work/completed', inbox:'home', decisions:'home', cost:'insights/ledger', insights:'insights/ledger', notifications:'settings/general', share:'settings/general' };
+  const aliases = { docs:'knowledge', usage:'insights/consumption', ledger:'insights/ledger', budgets:'insights/ledger', dashboard:'insights/ledger', fleet:'settings/executors', agents:'settings/executors', harness:'settings/runtime', 'settings/agents':'settings/executors', 'settings/skills':'settings/capabilities', skills:'settings/capabilities', history:'work/completed', inbox:'home', decisions:'home', cost:'insights/ledger', insights:'insights/ledger', notifications:'settings/general', share:'settings/general' };
   function route(input) {
     const taskRoute = window.GctoWork?.parseRoute?.(input);
     if (taskRoute) return { canonical:taskRoute.canonical, panel:'work', primary:'work', workRoute:true };
     if (/^(?:agents|fleet)\/[a-z0-9-]+$/i.test(input)) return {canonical:input,panel:'agents',primary:'settings'};
     const canonical = aliases[input] || input;
-    const panels = { home:'inbox', work:'work','work/completed':'history',knowledge:'knowledge',insights:'admin-outcomes','insights/outcomes':'admin-outcomes','insights/consumption':'usage','insights/ledger':'budgets',settings:'agents','settings/executors':'agents','settings/runtime':'harness','settings/capabilities':'skills','settings/general':'settings' };
+    const panels = { home:'inbox', work:'work','work/completed':'history',knowledge:'knowledge',insights:'admin-outcomes','insights/outcomes':'admin-outcomes','insights/consumption':'usage','insights/ledger':'budgets',settings:'settings','settings/executors':'agents','settings/runtime':'harness','settings/capabilities':'skills','settings/general':'settings' };
     if (!panels[canonical]) return null;
     return { canonical, panel:panels[canonical], primary:canonical.split('/')[0] };
   }
@@ -145,8 +145,8 @@
       else original(old); // Keep established loaders and mutation guards; task inspection adds no view POST.
       document.querySelectorAll('.nav-item[data-tab]').forEach(n=>{const active=n.closest('#nav-tablist')&&n.dataset.tab===r.primary;n.classList.toggle('active',!!active);n.setAttribute('aria-selected',String(!!active));});
       panel('crumb-here').textContent=({home:'Home',insights:'Cost'})[r.primary]||r.primary[0].toUpperCase()+r.primary.slice(1);
-      const items=r.primary==='settings'?[['settings/executors','Executors'],['settings/runtime','Runtime'],['settings/capabilities','Capabilities'],['settings/general','General']]:[];
-      bar.hidden=!items.length;bar.innerHTML=items.map(([key,label])=>`<button type="button" class="admin-subtab" data-route="${key}" aria-pressed="${r.canonical===key||(r.canonical===r.primary&&key===items[0][0])}">${label}</button>`).join('');
+      const items=r.primary==='settings'?[['settings/general','General'],['settings/executors','Agents'],['settings/capabilities','Skills'],['settings/runtime','Runtime']]:[];
+      bar.hidden=!items.length;bar.innerHTML=items.map(([key,label])=>`<button type="button" class="admin-subtab" data-route="${key}" aria-pressed="${r.canonical===key||(r.canonical===r.primary&&key===items[0][0])||(r.canonical==='settings'&&key==='settings/general')}">${label}</button>`).join('');
       bar.querySelectorAll('[data-route]').forEach(b=>b.onclick=()=>window.switchTab(b.dataset.route));
       history.replaceState(history.state,'','#/'+r.canonical);
       if(r.primary==='knowledge')loadKnowledge();

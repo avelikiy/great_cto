@@ -57,7 +57,17 @@ export function createBrowserResourceOwner({ownerPid}={}){
  const checkRoot=()=>{if(!same(directory(root),rootIdentity))throw Error('identity changed');};
  const scratchInventory=()=>{
   checkRoot();const entries=new Map(),dir=opendirSync(root);
+  let transient=0;
   try{for(let entry;(entry=dir.readSync());){
+   // Chromium on Linux creates and removes its own temporary files here
+   // (".org.chromium.Chromium.XXXXXX"). Only a plain regular file of ours with
+   // exactly that name is passed over, and it is never registered; a directory,
+   // a symlink or a hard link under that name is still an unknown resource.
+   if(/^\.org\.chromium\.Chromium\.[A-Za-z0-9]{6}$/.test(entry.name)){
+    let t;try{t=lstatSync(join(root,entry.name));}catch(error){if(error.code==='ENOENT')continue;throw error;}
+    if(++transient>8||!t.isFile()||t.isSymbolicLink()||t.nlink!==1||t.uid!==process.getuid()||t.dev!==rootIdentity.dev)throw Error('unknown scratch resource');
+    continue;
+   }
    if(entries.size>=8||!/^(?:playwright_chromiumdev_profile|playwright-artifacts)-[A-Za-z0-9]+$/.test(entry.name))throw Error('unknown scratch resource');
    const identity=directory(join(root,entry.name));if(identity.dev!==rootIdentity.dev)throw Error('identity changed');
    entries.set(entry.name,identity);

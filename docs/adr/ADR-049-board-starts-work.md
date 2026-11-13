@@ -78,6 +78,36 @@ was created and no specialist agent ran (details in the [RFC](../rfc/RFC-cockpit
     screen's "Checked by" line names the host that verified. A second host stays available
     through routes for users who have one.
 
+## Consequences
+
+Section added on 2026-11-11, after acceptance, because the artifact check requires it. It
+restates what the rules above and the plan already imply; it adds no rule.
+
+- **The board stops being read-only.** One route can now spend the user's money and change
+  their repository. It carries the origin check, the confirmation and the event log for
+  every start, stop and refusal (rules 1 and 7), and it is the place a security review of
+  the board has to look first.
+- **Start runs the controller, not the `/start` pipeline** (rules 12–14). The first cockpit
+  can plan, write and review code with two decisions from the user. It cannot yet run tests
+  on a machine without Docker or put anything live; Home and the decision screen have to say
+  what was and was not checked ([plan](../rfc/PLAN-phase1-cockpit.md), "Limits the user will
+  meet").
+- **No queue.** A second task in the same project is refused until the first one ends
+  (rule 4). Users with several ideas wait or stop the running task.
+- **A budget is a required input** (rule 2), so the Start form needs a default the owner has
+  chosen; a run that reaches it stops and asks.
+- **On a machine with only Claude Code the check is weaker.** The verifier is a fresh session
+  of the same host, not a second model family (rule 15), and the "Checked by" line has to
+  say so.
+- **Start depends on the host CLI's print mode and sign-in.** A change in its flags or in how
+  it reads credentials can disable Start. The free probe of rule 10 shows that a credential
+  is configured, not that it works; a wrong one fails at the first model call, which rule 11
+  already treats as a failed start
+  ([research note](../rfc/RESEARCH-cli-subscription-launch.md), section 2).
+- **Cost of the decision:** about 13–19 days of work in seven slices (plan), and one paid
+  run on a fixture project before each release that changes this route.
+- **Easy to undo:** a setting turns the route off, with no data migration (Rollback).
+
 ## Open at acceptance
 
 - Answered on 2026-11-11: the existing controller already routes roles to Claude Code and
@@ -87,27 +117,6 @@ was created and no specialist agent ran (details in the [RFC](../rfc/RFC-cockpit
 - Whether the session-end learner hook runs for cockpit starts; if it does, its cost belongs
   in the task's budget.
 - Wording and layout of the Start form: Claude Design mockup, approval first.
-
-## Consequences
-
-Each line restates a rule from the Decision above; none adds one.
-
-- The board gains its first route that starts paid work. It is origin-checked and needs a
-  person's confirmation and a budget (rules 1, 2), so a page, a notification or another agent
-  cannot start a run.
-- A run costs at most its budget: it stops and asks at the budget instead of continuing
-  (rule 2).
-- A project runs one task at a time in the first version; a second Start is refused with a
-  reason (rule 4).
-- The board holds no credentials. Start depends on the user's own Claude Code or Codex being
-  installed and signed in, proven by a probe in the session (rules 5, 10).
-- Gates keep their protocol. Projects created from the cockpit default to two stops,
-  `approval-level: product-only`; regulated archetypes keep every gate (rules 8, 9).
-- Stops are owned by the controller, not by the model, so a stage cannot continue past a
-  decision (rules 12–14).
-- On a Claude-only machine the verifier is a fresh Claude session, and the decision screen
-  says so (rule 15).
-- Turning the route off restores the copy-command card with no data migration (Rollback).
 
 ## Alternatives
 
