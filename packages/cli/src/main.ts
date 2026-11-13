@@ -53,7 +53,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "distribution" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "skills" | "telemetry" | "distribution" | "task" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -146,6 +146,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "upgrade") args.command = "upgrade";
     else if (a === "uninstall") args.command = "uninstall";
     else if (a === "statusline") { args.command = "statusline"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "skills") { args.command = "skills"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "--purge-data") args.purgeData = true;
     else if (a === "--projects") args.projects = true;
     else if (a === "--self") args.upgradeSelf = true;
@@ -808,6 +809,7 @@ ${bold("Usage:")}
   npx great-cto distribution status          Inspect separately configured verifier toolchain
   npx great-cto statusline install            Record Claude's plan use (5h / weekly %) for the board; keeps your status line
   npx great-cto statusline uninstall          Put your previous status line back
+  npx great-cto skills sync                   Clone the optional skill catalogs into ~/.great_cto (only when you run this)
   npx great-cto uninstall [--yes]             Show what great_cto installed; --yes removes it (your data stays)
   npx great-cto help
   npx great-cto version
@@ -1719,6 +1721,11 @@ async function main(): Promise<void> {
   if (args.command === "statusline") {
     const { runStatuslineCommand } = await import("./statusline.js");
     await finish(runStatuslineCommand(args.taskArgs ?? []));
+  }
+  if (args.command === "skills") {
+    // The only place the optional skill catalogs are cloned: on request, never from a hook (ADR-050 decision 9).
+    const { runSkillsCommand } = await import("./skills-sync.mjs");
+    await finish(runSkillsCommand(args.taskArgs ?? [], { log, error }));
   }
   if (args.command === "upgrade") {
     try {
