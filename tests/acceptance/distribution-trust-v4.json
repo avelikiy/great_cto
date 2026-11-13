@@ -1,0 +1,598 @@
+{
+  "schemaVersion": 1,
+  "contract": "distribution-trust",
+  "revision": 4,
+  "status": "ACCEPTED_DESIGN",
+  "authority": "NONE",
+  "releaseEligibility": "NOT_CHECKED",
+  "sourceDecision": "docs/adr/ADR-050-managed-plugin-activation.md",
+  "productionIdentity": {
+    "profile": "local-ed25519",
+    "keyAlgorithm": "Ed25519",
+    "fingerprintAlgorithm": "SHA256(SPKI DER)",
+    "enrolledFingerprint": null,
+    "keyEnrollment": "REQUIRES_SEPARATE_EXPLICIT_OPERATOR_APPROVAL",
+    "hostedAlternative": "Explicit original schema1 GitHub OIDC profile, never implicit fallback"
+  },
+  "requiredScenarios": [
+    {
+      "id": "crypto_identity",
+      "requirement": "Explicit local-ed25519 profile, independently enrolled Ed25519 SPKI fingerprint, strict signature envelope, filename and actual index digest bound to every blob; reject missing/altered proof, untrusted keys and profile substitution. Original exact issuer/workflow/tag/SHA checks remain for separately selected hosted profile.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "trusted_verifier",
+      "requirement": "Trusted operator Node crypto runtime and independent separately configured public-key pin for local profile; separately authenticated Cosign and root for hosted profile; no candidate/environment trust override.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "bounded_download",
+      "requirement": "Fixed asset origins, bounded bodies, no private redirects or truncation",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "archive_membership",
+      "requirement": "Reject traversal, duplicate/colliding paths, links, special files, private entries and missing runtime",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "zero_pre_admission_execution",
+      "requirement": "Failed admission produces zero lifecycle, import, package-manager or host activation calls",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "dependency_closure",
+      "requirement": "Zero runtime, optional and bundled dependencies or explicit unsupported result",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "npm_activation",
+      "requirement": "Local admitted tgz, exact prefix, sanitized configuration, offline and ignore-scripts",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "transaction_recovery",
+      "requirement": "Exclusive updater lock, durable phases, target-drift refusal and package/bin-only rollback; first legacy snapshot restoration is labelled LEGACY_LOCAL_RECOVERY and cannot grant signed-release admission",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "version_replay",
+      "requirement": "Reject downgrade and changed bytes under the same stable version",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "claude_registration",
+      "requirement": "Immutable complete snapshot, compare-and-swap and managed-file recovery",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "native_capability",
+      "requirement": "Actual isolated host tracing before support; otherwise zero native upgrade/install calls; reject external npx MCP and automatic companion downloads without independently admitted runtime closure",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "legacy_timer",
+      "requirement": "Inventory old owned timer; installed-phase migration only with authority",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "signed_release_outputs",
+      "requirement": "Sign final archives, inventory, SBOM and strict index from one reviewed commit",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "production_bootstrap",
+      "requirement": "Separate explicit approval of dedicated production-key selection/creation and initial fingerprint enrollment; real local signatures from that authority plus production consumer admission before publication. Ephemeral fixtures grant no release approval. Original hosted OIDC profile remains separate, no automatic fallback.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "same_byte_publish",
+      "requirement": "Publish existing verified tarball; registry read-back matches admitted digest",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "regression",
+      "requirement": "Preserve existing graph gates, frozen assertions/deadlines and final independent/canonical review",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "local_publisher_zero_bypass",
+      "requirement": "Legacy cd-local --publish and real release.sh routes refuse before subprocess mutation; explicit local publisher consumes admitted exact tar, independently supplied auth and exact commit/index approval; no rebuild or registry override.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "release_key_lifecycle",
+      "requirement": "Never autogenerate/enroll/reuse Git keys. Reject unselected/changed/revoked key via separately approved operator config; rotation must not overwrite existing trust silently.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "local_scope_honesty",
+      "requirement": "Local owner signature establishes publisher authority, not hosted OIDC provenance or independently hosted build; real ephemeral-key tests remain fixture-only and no ship approval.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "scorer_fixture_phase_clock",
+      "requirement": "Actual-ready observer plus marker PID/timestamp bound to real1000ms scorer window;2000ms watchdog from observed ready and10000ms overall test cap. Reject wrong PID/out-of-window markers and retain live ownership, SIGKILL and cleanup checks. No production deadline/budget change.",
+      "state": "NOT_RUN"
+    },
+    {
+      "id": "embedded_plugin_set",
+      "requirement": "Schema-3 embedded index with exactly three artifacts; sidecars bind namespace, filename and the embedded index digest; fingerprint pinned in source and never read from the set; tampered member, inventory, sidecar, index or substituted profile refuse before any write",
+      "state": "NOT_RUN",
+      "coverage": "COVERED",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "the production pin is an explicit not-enrolled sentinel or a lowercase sha256 fingerprint"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "schema 3 validator accepts exactly plugin, inventory and sbom and returns a copy"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "local-namespace signatures relabelled as embedded"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "substituted profile in a blob sidecar"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "substituted profile in the index publisher"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "tampered index that was not re-signed"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "archive tampered without re-signing"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "inventory entry digest differs from the archive member"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "no fixture key can satisfy production admission, signed set or not"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/tampered-snapshot.e2e.test.mjs",
+          "test": "one flipped byte in the ${label} is refused before any write and no candidate byte runs"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/tampered-snapshot.e2e.test.mjs",
+          "test": "a valid sidecar copied onto another blob is refused: it is bound to its own filename"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/tampered-snapshot.e2e.test.mjs",
+          "test": "a sidecar naming another index digest is refused: it is bound to the index it was signed with"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "the shipped build refuses a fixture-signed set: no key but the enrolled one is accepted, and nothing is written"
+        }
+      ],
+      "uncovered": []
+    },
+    {
+      "id": "verifier_resolution",
+      "requirement": "Verification modules resolve from the npm installation only; a planted copy under a plugin cache or `CLAUDE_PLUGIN_ROOT` is never imported",
+      "state": "NOT_RUN",
+      "coverage": "COVERED",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "the resolution scanner flags a planted-cache import (known-bad sample) and passes the real module"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "admitEmbeddedRelease loads no module from a plugin cache even when the environment points at one"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "the adapter imports node built-ins and sibling release modules only"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "a planted verifier under a plugin cache and CLAUDE_PLUGIN_ROOT is never imported"
+        }
+      ],
+      "uncovered": []
+    },
+    {
+      "id": "bootstrap_trust_statement",
+      "requirement": "First install prints what is and is not authenticated; no output claims OIDC provenance, transparency-log inclusion or release-key authority for a bootstrap install",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "a second init is ALREADY_ACTIVE and rewrites nothing under the Claude directory"
+        }
+      ],
+      "uncovered": [
+        "No output claims release-key authority for a bootstrap install: init prints 'verified against the release key pinned in this CLI' in the same step as the statement that authenticity rests on the npm registry. The test requires the npm statement and forbids OIDC, provenance, transparency-log and attestation terms; it cannot judge whether the 'release key' wording overstates a first install."
+      ]
+    },
+    {
+      "id": "plugin_cache_publication",
+      "requirement": "Immutable version directory; same-version-different-bytes refuses; inventory modes reproduced exactly; staged directory discarded on any failure",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "fresh machine: publishes exactly the admitted bytes and registers them"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "a cache directory with other bytes under our version is a conflict, not an update"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "a second init is ALREADY_ACTIVE and rewrites nothing under the Claude directory"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "same version, different bytes in the cache directory: refused, the directory is not rewritten"
+        }
+      ],
+      "uncovered": [
+        "A staged directory is discarded when publication fails between staging and rename: no test induces a failure at that point, so the cleanup in publishCache is untested on its failure path.",
+        "'Immutable version directory' is asserted as never rewritten in place and refused on a byte difference; the published directory is writable by its owner (mode 0755), so nothing enforces immutability through file permissions and no test claims it."
+      ]
+    },
+    {
+      "id": "registry_cas",
+      "requirement": "Concurrent host write between read and rename refuses; other plugins' entries byte-unchanged; backups bounded to the transaction, one previous kept",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/lib/local-install-registry-cas.test.mjs",
+          "test": "lost update is refused and leaves no temp, backup or lock"
+        },
+        {
+          "file": "tests/lib/local-install-registry-cas.test.mjs",
+          "test": "backupDir takes the backup instead of writing one beside the registry"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "if the host changes a file we wrote, rollback refuses to touch it and says so"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "existing host files: other plugins and keys survive byte-for-byte in meaning"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "upgrade from an older admitted version repoints all three host files, keeps the previous version directory and every other plugin"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "a great_cto registration from another marketplace is reported and left untouched, known_marketplaces.json included"
+        }
+      ],
+      "uncovered": [
+        "Other plugins' entries are byte-unchanged: the tests compare them as parsed JSON, because the registry file is re-rendered with two-space indentation and the original whitespace is not preserved.",
+        "'One previous kept': backups go to the transaction directory and no backup file is left beside the registry, but the activation code never prunes older transaction directories and no test asserts a bound on them."
+      ]
+    },
+    {
+      "id": "settings_cas",
+      "requirement": "Same for `enabledPlugins`; unparseable settings refuse before mutation; no other key altered",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/settings-cas.test.mjs",
+          "test": "lost update is refused when the host writes after the ${phase} phase"
+        },
+        {
+          "file": "packages/cli/tests/settings-cas.test.mjs",
+          "test": "unparseable settings refuse, name the file and the one key to add by hand"
+        },
+        {
+          "file": "packages/cli/tests/settings-cas.test.mjs",
+          "test": "backupDir receives the original bytes, 0600, before the swap"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "a host write that lands mid-transaction is never overwritten"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "unparseable settings: refused by name before anything is written"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "unparseable settings.json: init refuses by name before anything is written"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "upgrade from an older admitted version repoints all three host files, keeps the previous version directory and every other plugin"
+        }
+      ],
+      "uncovered": [
+        "'One previous kept': backups go to the transaction directory and none is left beside settings.json, but older transaction directories are never pruned and no test asserts a bound on them."
+      ]
+    },
+    {
+      "id": "managed_file_journal",
+      "requirement": "Every write and prune recorded; rollback restores exactly those; an unmarked user file differing from the plugin's is never touched or restored over",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/lib/sync-managed.test.mjs",
+          "test": "every command is installed, a user command of the same name is kept, a retired one is removed"
+        },
+        {
+          "file": "tests/lib/sync-managed.test.mjs",
+          "test": "a managed agent whose source was retired is removed; files great_cto did not write are not"
+        }
+      ],
+      "uncovered": [
+        "Every write and prune in ~/.claude/agents and ~/.claude/commands is journalled and rollback restores exactly those: scripts/lib/sync-managed.mjs has no journal option, so there is nothing to test. Slice 1 defers this (ARCH, Smallest safe slice) and the activation result reports managedSync NOT_PERFORMED.",
+        "An unmarked user file is never touched or restored over by a rollback: the cited tests cover sync-managed.mjs not overwriting or removing such files, but the activation transaction does not run the sync, so no test exercises a rollback over them."
+      ]
+    },
+    {
+      "id": "plugin_transaction_recovery",
+      "requirement": "Crash at each of the six durable boundaries recovers or reports `RECOVERY_REQUIRED`; target drift never overwrites a concurrent change",
+      "state": "NOT_RUN",
+      "coverage": "COVERED",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "crash after ${at}: recovery restores the host exactly, then activation works"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "crash after SMOKE_PASSED: recovery keeps the activation and only finishes the bookkeeping"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "recovery after a crash refuses to undo a file the host changed meanwhile"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "a damaged journal is RECOVERY_REQUIRED, never \"nothing was written\""
+        },
+        {
+          "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
+          "test": "the transaction journals exactly the eight boundaries the crash tests cover"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
+          "test": "crash after ${boundary}: the next init recovers, activates, and ran no candidate byte before the smoke"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
+          "test": "a host edit made after a crash is never overwritten: init stops with RECOVERY_REQUIRED and activates nothing"
+        }
+      ],
+      "uncovered": []
+    },
+    {
+      "id": "concurrent_init",
+      "requirement": "Second concurrent `init` refuses with zero writes to cache, registry, settings, marketplace or managed dirs",
+      "state": "NOT_RUN",
+      "coverage": "COVERED",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "a second activation while one is in flight is refused and writes nothing"
+        },
+        {
+          "file": "packages/cli/tests/release-transaction.test.mjs",
+          "test": "a second locker is refused and writes nothing"
+        },
+        {
+          "file": "packages/cli/tests/release-transaction.test.mjs",
+          "test": "recovery never steals the lock of a live process"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/concurrent-init.e2e.test.mjs",
+          "test": "two concurrent inits: the second refuses with installation-busy-lock and writes nothing"
+        }
+      ],
+      "uncovered": []
+    },
+    {
+      "id": "offline_init",
+      "requirement": "Zero network calls on the activation path; a blocked network does not fail `init`; no git clone is attempted",
+      "state": "NOT_RUN",
+      "coverage": "COVERED",
+      "coveredBy": [
+        {
+          "file": "tests/e2e/plugin-activation/offline-init.e2e.test.mjs",
+          "test": "the network guard records every way out (known-bad sample)"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/offline-init.e2e.test.mjs",
+          "test": "init with the network blocked completes and makes no network call, no clone and no package-manager spawn"
+        }
+      ],
+      "uncovered": []
+    },
+    {
+      "id": "no_pre_admission_exec",
+      "requirement": "Instrumented candidate marker never appears before `SMOKE_PASSED`; a failed admission yields zero spawns of plugin bytes",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/e2e/plugin-activation/tampered-snapshot.e2e.test.mjs",
+          "test": "one flipped byte in the ${label} is refused before any write and no candidate byte runs"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/tampered-snapshot.e2e.test.mjs",
+          "test": "a valid sidecar copied onto another blob is refused: it is bound to its own filename"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
+          "test": "crash after ${boundary}: the next init recovers, activates, and ran no candidate byte before the smoke"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+        },
+        {
+          "file": "packages/cli/tests/embedded-admission.test.mjs",
+          "test": "admission is read-only: the directory is byte- and mode-identical afterwards"
+        },
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "an archive changed after admission is caught by the re-admission under the lock"
+        }
+      ],
+      "uncovered": [
+        "The row says the marker never appears before SMOKE_PASSED, but the design runs the smoke, the only execution of candidate bytes, after the host files are written (ARCH step 11) and before SMOKE_PASSED is journalled, so the literal wording cannot hold. The tests assert what the design permits: no candidate byte runs before the smoke, none runs after a refused admission or a crash before ACTIVE, and the smoke gets a minimal environment. The ARCH wording should be amended."
+      ]
+    },
+    {
+      "id": "marketplace_divergence",
+      "requirement": "A `great_cto@<non-local>` registration is detected and reported; it is not modified without explicit confirmation; `known_marketplaces.json` is never written",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "packages/cli/tests/plugin-activation.test.mjs",
+          "test": "another marketplace registration of the same plugin is reported, with its paths"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "a great_cto registration from another marketplace is reported and left untouched, known_marketplaces.json included"
+        }
+      ],
+      "uncovered": [
+        "'Not modified without explicit confirmation': slice 1 reduces the report to a printed warning (ARCH, Smallest safe slice) and has no confirmation flow, so no test can exercise a confirmed modification; the tests show only that the other registration is reported and left untouched."
+      ]
+    },
+    {
+      "id": "external_runtime_scope",
+      "requirement": "Per-host classification: a Codex-only `npx` entry does not refuse a Claude activation; a *fetching* command in the activated host's manifest does refuse; `python3` is classified and reported as host toolchain",
+      "state": "NOT_RUN",
+      "coverage": "UNCOVERED",
+      "coveredBy": [],
+      "uncovered": [
+        "Per-host classification of runtime commands (a Codex-only npx entry does not refuse a Claude activation, a fetching command in the activated host's manifest does, python3 is reported as host toolchain): admission checks that manifest paths exist but classifies no commands, and stream S8 had not landed when this contract was written (.claude-plugin/plugin.json still declares a python3 MCP server), so no test exists."
+      ]
+    },
+    {
+      "id": "companion_absence_degrade",
+      "requirement": "`init` completes and a pipeline runs with neither companion present; each degradation is named",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "neither companion on PATH: init completes, names both, installs neither"
+        }
+      ],
+      "uncovered": [
+        "A pipeline run with neither companion present: no test in this repository runs a pipeline without bd and superpowers.",
+        "'Each degradation is named': init names the two companions and says they are optional and installed by the user, but does not print what degrades without each (bd falls back to .great_cto/tasks.md, skills fall back to plain prompts), so there is no message to assert."
+      ]
+    },
+    {
+      "id": "plugin_byte_equality",
+      "requirement": "The release chain proves the embedded `plugin/great-cto-plugin-<v>.tgz` is byte-identical to the standalone signed asset, and that the installed cache directory recomputes to the admitted inventory",
+      "state": "NOT_RUN",
+      "coverage": "PARTIAL",
+      "coveredBy": [
+        {
+          "file": "tests/lib/release-distribution-publisher.test.mjs",
+          "test": "builder packs the signed plugin set the CLI admits, byte-identical to the outer artifacts"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "fresh machine: init publishes exactly the admitted bytes, registers them and says what the first install does not prove"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/fresh-and-upgrade.e2e.test.mjs",
+          "test": "upgrade from an older admitted version repoints all three host files, keeps the previous version directory and every other plugin"
+        }
+      ],
+      "uncovered": [
+        "Two clean builds must agree on the embedded set: compareReleaseArtifactSets compares the five outer artifacts only, so no test requires the embedded files to be reproducible.",
+        "`great-cto distribution verify-installed` recomputes the installed directory on demand: that command does not exist yet, so only the activation-time recomputation is tested (the end-to-end tests recompute the installed directory independently and compare it to the signed inventory)."
+      ]
+    }
+  ],
+  "existingGateChanges": false,
+  "gateAdditions": [
+    {
+      "step": "plugin activation e2e (isolated HOME)",
+      "file": "scripts/ci-local.sh",
+      "runs": "tests/e2e/plugin-activation/*.test.mjs",
+      "weakensExisting": false,
+      "reason": "A new step. No existing step, assertion, deadline or budget changed; the browser step globs tests/e2e/*.test.mjs and does not descend, so the new directory needs a step of its own."
+    }
+  ],
+  "syntheticEvidenceCanAuthorizeRelease": false,
+  "approvedAt": "2026-11-10",
+  "supersedes": "distribution-trust-v3.json",
+  "supersessionScope": "Extension only. Adds the fifteen managed-plugin-activation rows of ADR-050 decision 10. Every revision-3 row, productionIdentity, existingGateChangeScope and fixtureClockRevision is carried over verbatim; nothing is relaxed. Approval of ADR-050 authorises no key creation, key enrolment, signing, publication or activation on any machine.",
+  "coverageMeaning": "state keeps its revision-3 meaning: NOT_RUN means the row has not been checked against a real production release. coverage records only whether a test in this repository exercises the row, using synthetic evidence (a throwaway signing key and a temporary HOME); synthetic evidence never authorizes release, so a COVERED row is still NOT_RUN. coveredBy cites each test by a string found in the named file, and tests/lib/distribution-trust-v4.test.mjs checks that it exists and is not skipped. uncovered states in words every clause of the row that no test exercises.",
+  "isolatedHomeE2E": {
+    "directory": "tests/e2e/plugin-activation/",
+    "authority": "NONE",
+    "method": "Spawns the compiled CLI's real `init` with HOME in a temporary directory. The shipped build pins no release key, so each scenario runs a throwaway copy of the compiled CLI, under os.tmpdir(), whose pin constant is rewritten to the fingerprint of an ephemeral Ed25519 key that signed a fixture plugin set. The shipped build is shown to refuse the same set. Nothing outside the temporary directory is read or written, and the evidence grants no release authority.",
+    "fixtureModeCoveredBy": "packages/cli/tests/plugin-activation.test.mjs",
+    "crashBoundaries": [
+      "SNAPSHOTTED",
+      "PUBLISHED",
+      "ACTIVATING",
+      "REGISTRY_WRITTEN",
+      "SETTINGS_WRITTEN",
+      "MARKETPLACE_WRITTEN",
+      "ACTIVE",
+      "SMOKE_PASSED"
+    ],
+    "crashBoundariesNote": "The transaction journals eight phases; every one is crashed. The ARCH names six durable boundaries, which these include."
+  },
+  "existingGateChangeScope": {
+    "kind": "stricter documentation orphan ratchet only",
+    "file": "tests/lib/doc-links.test.mjs",
+    "previousMaximum": 47,
+    "currentMaximum": 46,
+    "reason": "ADR045 now links previously isolated LOCAL-CICD.md; ratchet explicitly requires lowering its baseline when earned",
+    "sourceInstructions": "tests/lib/doc-links.test.mjs:91",
+    "releaseGatePolicyChanged": false,
+    "deadlineOrBudgetChanged": false,
+    "assertionsRemoved": false
+  },
+  "fixtureClockRevision": {
+    "approvedAt": "2026-10-26",
+    "source": "explicit operator approval of actual-ready phase clocks",
+    "testFile": "tests/lib/pinned-benchmark-scorer.test.mjs",
+    "productionCodeChanged": false,
+    "scorerTimeoutMs": 1000,
+    "watchdogMs": 2000,
+    "overallTestTimeoutMs": 10000,
+    "readinessReference": "actual scorer startedAt/timeoutMs with marker PID and publication timestamp",
+    "watchdogReference": "actual observed ready marker",
+    "originalParentPoll": "50x20ms retained as diagnostic only",
+    "retainedChecks": [
+      "live PID/PPID ownership",
+      "ETIMEDOUT",
+      "SIGKILL",
+      "direct scorer no longer live",
+      "no descendant-quiescence claim",
+      "all owned watcher/timer/process cleanup"
+    ],
+    "historicalFailuresRetained": true
+  }
+}

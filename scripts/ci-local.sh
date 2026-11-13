@@ -522,6 +522,10 @@ fi
 # ── CLI tests + pack (cli-ci + release); the build ran before the unit tests ──
 if [ "$QUICK" -eq 0 ]; then
   step "cli unit tests" bash -c 'cd packages/cli && node --test tests/*.test.mjs'
+  # ADR-050 / acceptance v4: the real `init` on an isolated HOME, signed with a throwaway key, never on
+  # the real machine. The browser step above globs tests/e2e/*.test.mjs and does not descend, so these
+  # tests need a step of their own. They use the CLI built at the top of this script.
+  step "plugin activation e2e (isolated HOME)" env GATE_SUITE="plugin activation e2e (isolated HOME)" node --test $(ctrf_to plugin-activation-e2e) tests/e2e/plugin-activation/*.test.mjs
   step "cli pack (release readiness)" bash -c 'cd packages/cli && npm pack >/dev/null'
 fi
 

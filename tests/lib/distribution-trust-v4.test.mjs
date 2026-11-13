@@ -161,7 +161,7 @@ test('the citation check is not vacuous: a made-up test name is reported missing
 
 test('a row nothing covers is listed, not hidden: the uncovered rows are exactly these', () => {
   const uncovered = newRows().filter(row => row.coverage === 'UNCOVERED').map(row => row.id);
-  // Deferred inside slice 1 (ARCH § Smallest safe slice) or owned by a stream that has not landed.
-  // This list only changes together with a test that earns the row a COVERED or PARTIAL.
-  assert.deepEqual(uncovered, ['managed_file_journal', 'external_runtime_scope']);
+  // Owned by a stream that has not landed (S8, per-host runtime scope). This list only changes together
+  // with a test that earns the row a COVERED or PARTIAL — and it must never grow without a reason in the row.
+  assert.deepEqual(uncovered, ['external_runtime_scope']);
 });
