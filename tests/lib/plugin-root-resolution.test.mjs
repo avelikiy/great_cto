@@ -27,7 +27,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { BOOTSTRAP } from '../../scripts/generate-plugin-hooks.mjs';
+import { BOOTSTRAP, checkManifestText, generateManifestText, pluginCacheMentions } from '../../scripts/generate-plugin-hooks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HARDCODED = /cache\/local\/great_cto/;
@@ -78,7 +78,11 @@ test('nothing shipped assumes the plugin lives under the `local` marketplace', (
 test('the manifest names the local cache only inside the generated bootstrap', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, JSON_MANIFEST), 'utf8'));
   const strings = [];
-  const visit = (v) => { if (typeof v === 'string') strings.push(v); else if (v && typeof v === 'object') Object.values(v).forEach(visit); };
+  // Keys as well as values: a path spelled as a key is as much a dependency as one spelled as a value.
+  const visit = (v) => {
+    if (typeof v === 'string') strings.push(v);
+    else if (v && typeof v === 'object') for (const [key, value] of Object.entries(v)) { strings.push(key); visit(value); }
+  };
   visit(manifest);
   const naming = strings.filter((x) => HARDCODED.test(x));
   assert.ok(naming.length >= 30, `only ${naming.length} strings name the local cache; the scan is not seeing the hooks`);
@@ -99,9 +103,40 @@ test('the hooks prefer the variable the host sets, and fall back only to the adm
       `a hook resolves PLUGIN_DIR without asking the host first: ${c.slice(0, 90)}`);
     assert.match(c, /scripts\/lib\/plugin-dir\.sh/,
       `a hook resolves PLUGIN_DIR by hand instead of through the one resolver: ${c.slice(0, 90)}`);
-    assert.doesNotMatch(c, /ls -d [^;|]*plugins\/cache\/\*/,
-      `the fallback lists every marketplace cache again, which can pick bytes the host pulled: ${c.slice(0, 90)}`);
+    assert.deepEqual(pluginCacheMentions(c), [],
+      `a hook names the plugin cache: that is how a fallback came to list every marketplace and pick bytes the host pulled: ${c.slice(0, 90)}`);
   }
+  // The manifest is the generator's output, byte for byte, so no hook was edited by hand after it ran.
+  const text = fs.readFileSync(path.join(ROOT, JSON_MANIFEST), 'utf8');
+  assert.deepEqual(checkManifestText(text), []);
+  assert.equal(generateManifestText(text), text, 'run: node scripts/generate-plugin-hooks.mjs');
+});
+
+test('no spelling of a cache listing gets past the check: the cache has to be named to be listed, and naming it is what is caught', () => {
+  const listings = [
+    'ls -d ~/.claude/plugins/cache/*/great_cto/*/',
+    'find ~/.claude/plugins/cache -maxdepth 3 -name plugin.json',
+    'echo ~/.claude/plugins/cache/*/great_cto/*',
+    'for d in "$HOME/.claude/plugins/cache/"*/great_cto/*/; do :; done',
+    "node -e 'console.log(require(\"fs\").readdirSync(require(\"os\").homedir() + \"/.claude/plugins/cache\"))'",
+    "node -p 'require(\"fs\").readdirSync(require(\"path\").join(h, \".claude\", \"plugins\", \"cache\"))'",
+    "node -p 'require(\"fs\").opendirSync(d)'",
+    "python3 -c 'import glob; print(glob.glob(\"/home/u/.claude/plugins/cache/*\"))'",
+    'p=~/.claude/plugins; ls "$p/cache"',
+    'ls ~/.claude/plugins/ca\\che',
+    'cd ~/.claude/plugins/cache && ls',
+    'X=$(ls "$HOME"/.claude/plugins/cache/*/great_cto | tail -1)',
+  ];
+  for (const command of listings) assert.ok(pluginCacheMentions(command).length >= 1, `not caught: ${command}`);
+});
+
+test('the two uses of the cache that are not resolution are the only ones tolerated, and only as written', () => {
+  // The review banner sorts report names with the lookup's own awk, and the cleanup loop keeps the
+  // newest cached versions. Neither picks a PLUGIN_DIR. Anything beside them is still caught.
+  assert.deepEqual(pluginCacheMentions("ls docs/qa-reports/QA-*.md | awk -F'/plugins/cache/' '{print $1}'"), []);
+  assert.deepEqual(pluginCacheMentions('for CR in "$HOME"/.claude/plugins/cache/*/great_cto; do echo "$CR"; done'), []);
+  assert.ok(pluginCacheMentions('for CR in "$HOME"/.claude/plugins/cache/*/great_cto; do PLUGIN_DIR=$CR; done; ls ~/.claude/plugins/cache').length >= 1);
+  assert.deepEqual(pluginCacheMentions('echo global patterns; cat --cache-root x; node scripts/glob-free.mjs'), [], 'ordinary words that contain "cache" or "glob" are not a listing');
 });
 
 test('a plugin that cannot be located says so once, rather than every hook failing mutely', () => {
