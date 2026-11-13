@@ -18,7 +18,9 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
-  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/board-openapi.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/sign-embedded-release-set.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/board-openapi.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  // The embedded signed set is generated into packages/cli/plugin/ for the npm pack only.
+  if (name === 'packages/cli/plugin' || name.startsWith('packages/cli/plugin/')) return false;
   const parts = name.split('/');
   if (parts.some(p => !p || p === '.' || p === '..' || /^(?:node_modules|\.git|\.beads|\.great_cto|\.codex|\.claude|tests?|fixtures?|private(?:-overlay)?s?|overlays?|__pycache__)$/i.test(p) || /^\.env(?:$|\.)/.test(p))) return false;
   if (/\.(?:test\.[cm]?[jt]s|tgz|log|pem|key|p12|pfx|bak|pyc)$/i.test(name)) return false;
@@ -99,7 +101,7 @@ function walkBuild(source, name) {
   visit(name); return files;
 }
 
-export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLToPath(import.meta.url)), '..'), directory, run = execFileSync, encodeArchive, freshCheckout = false } = {}) {
+export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLToPath(import.meta.url)), '..'), directory, run = execFileSync, encodeArchive, freshCheckout = false, embeddedKey } = {}) {
   source = fs.realpathSync(source);
   if (!isAbsolute(directory || '')) throw Error('release directory must be absolute and outside source');
   if (fs.existsSync(directory) && fs.lstatSync(directory).isSymbolicLink()) throw Error('release directory symlink refused');
@@ -138,21 +140,7 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   const buildOptions={cwd:source,encoding:'utf8',timeout:180000,maxBuffer:16*1024*1024,stdio:['ignore','pipe','pipe']};
   run('npm',['run','build','--ignore-scripts','--offline','--prefix',join(source,'packages/cli')],buildOptions);
   run(process.execPath,[join(source,'packages/cli/scripts/bundle-board.mjs')],buildOptions);
-  const packed = String(run('npm',['pack','--ignore-scripts','--offline','--json','--pack-destination',directory],{...buildOptions,cwd:join(source,'packages/cli')}));
-  let pack; try { pack=JSON.parse(packed); } catch { throw Error('npm pack did not return a single JSON artifact'); }
-  const npmName=`great-cto-${version}.tgz`;
-  if (!Array.isArray(pack) || pack.length !== 1 || pack[0].filename !== npmName) throw Error('npm pack artifact identity mismatch');
-  fs.chmodSync(join(directory,npmName),0o600);
-  const npmBytes=readRegular(join(directory,npmName),MAX_ARCHIVE);
-  if (pack[0].integrity !== `sha512-${createHash('sha512').update(npmBytes).digest('base64')}`) throw Error('npm pack digest mismatch');
   const archive = await import('../packages/cli/src/release-archive.mjs');
-  const npmFiles = archive.inspectReleaseArchive(npmBytes, {prefix:'package'});
-  const packageEntry = npmFiles.find(x=>x.path==='package.json');
-  const packedPackage = packageEntry && json(packageEntry.bytes,'packed package manifest');
-  if (!packedPackage || packedPackage.name !== 'great-cto' || packedPackage.version !== version) throw Error('packed package identity differs from source');
-  assertZeroDependencies(packedPackage);
-  for (const name of ['index.mjs','dist/main.js','board/packages/board/server.mjs']) if (!npmFiles.some(x=>x.path===name)) throw Error('npm runtime is incomplete');
-  for (const entry of npmFiles) if (!/^(?:index\.mjs|package\.json|postinstall\.mjs|LICENSE|README\.md|dist\/[^/]+\.[cm]?js|assets\/.+|board\/.+)$/.test(entry.path) || /(?:^|\/)(?:tests?|fixtures?|private(?:-overlay)?s?|overlays?)(?:\/|$)/i.test(entry.path)) throw Error('unapproved npm runtime member');
   const selected=tracked.filter(x=>isPluginRuntimePath(x.path));
   const snapshot=selected.map(entry=>{
     const bytes=sourceFile(source,entry.path);
@@ -164,19 +152,12 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   for (const name of ['packages/cli/dist/main.js','packages/cli/dist/archetypes.js']) if (!built.includes(name)) throw Error('complete CLI build is missing');
   const newestSource=Math.max(...tracked.filter(x=>x.path.startsWith('packages/cli/src/')).map(x=>fs.statSync(join(source,x.path)).mtimeMs));
   if (built.some(name=>fs.statSync(join(source,name)).mtimeMs < newestSource)) throw Error('compiled runtime is stale');
-  const packedDist=npmFiles.filter(x=>x.path.startsWith('dist/'));
-  if (JSON.stringify(packedDist.map(x=>x.path).sort())!==JSON.stringify(built.map(x=>x.slice('packages/cli/'.length)).sort())) throw Error('npm and plugin compiled runtime inventories differ');
-  for (const name of built) {
-    const bytes=sourceFile(source,name);
-    if (!packedDist.find(x=>x.path===name.slice('packages/cli/'.length))?.bytes.equals(bytes)) throw Error('npm and plugin compiled runtime bytes differ');
-    snapshot.push({path:name,bytes,mode:0o644});
-  }
+  for (const name of built) snapshot.push({path:name,bytes:sourceFile(source,name),mode:0o644});
   const {inspectRuntimeImportReferences}=await import('../packages/cli/src/release-trust.mjs');
   inspectRuntimeImportReferences(snapshot);
   snapshot.sort((a,b)=>a.path < b.path ? -1 : a.path > b.path ? 1 : 0);
   if (snapshot.length > MAX_FILES || new Set(snapshot.map(x=>x.path)).size !== snapshot.length || snapshot.reduce((n,x)=>n+x.bytes.length,0)>MAX_TOTAL) throw Error('runtime inventory exceeds bounds or duplicates files');
   for (const name of ['LICENSE','.claude-plugin/plugin.json','.codex-plugin/plugin.json','.codex-plugin/mcp.json','.agents/plugins/marketplace.json','skills/great_cto/SKILL.md','mcp-servers/llm-router/server.py','packages/board/server.mjs','packages/cli/index.mjs']) if (!snapshot.some(x=>x.path===name)) throw Error('required plugin runtime missing');
-  if (git(['status','--porcelain','--untracked-files=normal','--','.',...legacyDist.map(x=>`:(exclude)${x.path}`)]).trim() || git(['rev-parse','HEAD']).trim() !== commit) throw Error('release source changed during build');
   const encode=encodeArchive || archive.encodeReleaseArchive;
   const inventory={schema:1,version,files:snapshot.map(x=>({path:x.path,size:x.bytes.length,sha256:hash('sha256',x.bytes),mode:x.mode}))};
   const write=(name,bytes)=>{if(Buffer.byteLength(bytes)>MAX_ARCHIVE)throw Error('release artifact exceeds approved archive bound');return fs.writeFileSync(join(directory,name),bytes,{flag:'wx',mode:0o600});};
@@ -185,9 +166,50 @@ export async function buildReleaseArtifacts({ source = resolve(dirname(fileURLTo
   const ref=`pkg:npm/great-cto@${version}`;
   const sbom={bomFormat:'CycloneDX',specVersion:'1.6',version:1,metadata:{tools:{components:[{type:'application',name:'great-cto-release-builder',version:'1'}]},component:{type:'application',name:'great-cto',version,purl:ref,'bom-ref':ref},properties:[{name:'great-cto:inventory-scope',value:'production runtime dependency closure only; development build tools excluded'},{name:'great-cto:source-commit',value:commit}]},components:[],dependencies:[{ref,dependsOn:[]}]};
   write('sbom.cdx.json',JSON.stringify(sbom,null,2)+'\n');
+  // ADR-050: the signed plugin set travels inside the npm package, so it must exist before the
+  // pack. It names plugin, inventory and SBOM only — never the npm tarball that will contain it.
+  const embeddedDirectory=join(source,'packages/cli/plugin');
+  if (fs.existsSync(embeddedDirectory)) throw Error('stale embedded plugin set in source; remove packages/cli/plugin and rebuild');
+  let embedded=null;
+  if (embeddedKey) {
+    const {writeEmbeddedReleaseSet}=await import('./sign-embedded-release-set.mjs');
+    embedded=writeEmbeddedReleaseSet({outDirectory:embeddedDirectory,version,commit,tree,
+      artifacts:{plugin:readRegular(join(directory,`great-cto-plugin-${version}.tgz`),MAX_ARCHIVE),inventory:readRegular(join(directory,'plugin-inventory.json'),MAX_ARCHIVE),sbom:readRegular(join(directory,'sbom.cdx.json'),MAX_ARCHIVE)},
+      privateKeyPath:embeddedKey.privateKeyPath,keyFingerprint:embeddedKey.keyFingerprint,forbiddenRoots:[source,directory],allowUnpinnedKey:embeddedKey.allowUnpinnedKey===true});
+  }
+  let npmFiles;
+  try {
+    const packed = String(run('npm',['pack','--ignore-scripts','--offline','--json','--pack-destination',directory],{...buildOptions,cwd:join(source,'packages/cli')}));
+    let pack; try { pack=JSON.parse(packed); } catch { throw Error('npm pack did not return a single JSON artifact'); }
+    const npmName=`great-cto-${version}.tgz`;
+    if (!Array.isArray(pack) || pack.length !== 1 || pack[0].filename !== npmName) throw Error('npm pack artifact identity mismatch');
+    fs.chmodSync(join(directory,npmName),0o600);
+    const npmBytes=readRegular(join(directory,npmName),MAX_ARCHIVE);
+    if (pack[0].integrity !== `sha512-${createHash('sha512').update(npmBytes).digest('base64')}`) throw Error('npm pack digest mismatch');
+    npmFiles = archive.inspectReleaseArchive(npmBytes, {prefix:'package'});
+    const packageEntry = npmFiles.find(x=>x.path==='package.json');
+    const packedPackage = packageEntry && json(packageEntry.bytes,'packed package manifest');
+    if (!packedPackage || packedPackage.name !== 'great-cto' || packedPackage.version !== version) throw Error('packed package identity differs from source');
+    assertZeroDependencies(packedPackage);
+    for (const name of ['index.mjs','dist/main.js','board/packages/board/server.mjs']) if (!npmFiles.some(x=>x.path===name)) throw Error('npm runtime is incomplete');
+    for (const entry of npmFiles) if (!/^(?:index\.mjs|package\.json|postinstall\.mjs|LICENSE|README\.md|dist\/[^/]+\.[cm]?js|assets\/.+|board\/.+|plugin\/[^/]+)$/.test(entry.path) || /(?:^|\/)(?:tests?|fixtures?|private(?:-overlay)?s?|overlays?)(?:\/|$)/i.test(entry.path)) throw Error('unapproved npm runtime member');
+    // What was packed is what was signed: exact membership, exact bytes, nothing else under plugin/.
+    const packedPlugin=npmFiles.filter(x=>x.path.startsWith('plugin/'));
+    if (JSON.stringify(packedPlugin.map(x=>x.path.slice('plugin/'.length)).sort())!==JSON.stringify(embedded?embedded.members:[])) throw Error('npm embedded plugin set membership mismatch');
+    for (const entry of packedPlugin) if (entry.mode!==0o644 || !entry.bytes.equals(readRegular(join(embeddedDirectory,entry.path.slice('plugin/'.length)),MAX_ARCHIVE))) throw Error('npm embedded plugin set bytes differ from the signed set');
+  } finally {
+    // Never leave generated files in the source tree, whether the pack succeeded or not.
+    fs.rmSync(embeddedDirectory,{recursive:true,force:true});
+  }
+  const packedDist=npmFiles.filter(x=>x.path.startsWith('dist/'));
+  if (JSON.stringify(packedDist.map(x=>x.path).sort())!==JSON.stringify(built.map(x=>x.slice('packages/cli/'.length)).sort())) throw Error('npm and plugin compiled runtime inventories differ');
+  for (const entry of snapshot.filter(x=>x.path.startsWith('packages/cli/dist/'))) {
+    if (!packedDist.find(x=>x.path===entry.path.slice('packages/cli/'.length))?.bytes.equals(entry.bytes)) throw Error('npm and plugin compiled runtime bytes differ');
+  }
+  if (git(['status','--porcelain','--untracked-files=normal','--','.',...legacyDist.map(x=>`:(exclude)${x.path}`)]).trim() || git(['rev-parse','HEAD']).trim() !== commit) throw Error('release source changed during build');
   const index=makeReleaseIndex({version,commit,tree,directory});
   write('release-index.json',JSON.stringify(index,null,2)+'\n');
-  return {state:'PREPARED',version,commit,tree,artifacts:index.artifacts,pluginFiles:snapshot.length,signed:false,published:false,installed:false};
+  return {state:'PREPARED',version,commit,tree,artifacts:index.artifacts,pluginFiles:snapshot.length,embeddedSet:embedded?{indexDigest:embedded.indexDigest,keyFingerprint:embedded.keyFingerprint}:null,signed:false,published:false,installed:false};
 }
 
 /** Compare independent builds before signing; never rebuild during publication. */
@@ -217,8 +239,12 @@ if (process.argv[1] && isMain()) {
   }else{
   const args=process.argv.slice(2), out=args.indexOf('--out'), source=args.indexOf('--source');
   if(args[0]==='--compare'){try{process.stdout.write(JSON.stringify(compareReleaseArtifactSets(args[1],args[2]))+'\n');}catch(error){console.error(`release comparison refused: ${error.message}`);process.exitCode=1;}}
-  else
-  if (out < 0 || !args[out+1]) { console.error('usage: build-release-artifacts.mjs --out ABSOLUTE_DIRECTORY [--source GIT_ROOT]'); process.exitCode=2; }
-  else buildReleaseArtifacts({directory:args[out+1],freshCheckout:args.includes('--fresh-checkout'),...(source>=0?{source:args[source+1]}:{})}).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{console.error(`release build refused: ${error.message}`);process.exitCode=1;});
+  else {
+  // A release without the embedded signed set cannot run `init` (ADR-050), so the command line
+  // never builds one: the key and its fingerprint are required. Tests call the function directly.
+  const key=args.indexOf('--embedded-key'), fingerprint=args.indexOf('--embedded-key-fingerprint');
+  if (out < 0 || !args[out+1] || key < 0 || !args[key+1] || fingerprint < 0 || !args[fingerprint+1]) { console.error('usage: build-release-artifacts.mjs --out ABSOLUTE_DIRECTORY --embedded-key ABSOLUTE_PKCS8_PEM --embedded-key-fingerprint SPKI_SHA256 [--source GIT_ROOT] [--fresh-checkout]'); process.exitCode=2; }
+  else buildReleaseArtifacts({directory:args[out+1],freshCheckout:args.includes('--fresh-checkout'),embeddedKey:{privateKeyPath:args[key+1],keyFingerprint:args[fingerprint+1]},...(source>=0?{source:args[source+1]}:{})}).then(result=>process.stdout.write(JSON.stringify(result)+'\n')).catch(error=>{console.error(`release build refused: ${error.message}`);process.exitCode=1;});
+  }
   }
 }

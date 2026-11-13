@@ -42,9 +42,11 @@ not proof of execution or expertise.
 
 ## Quick start
 
-**Verified distribution boundary (ADR-045):** this implementation replaces mutable installers
-with verified artifact admission. `init`, native plugin refresh and automatic
-companion installation currently refuse activation. Plain npm self-update needs
+**Verified distribution boundary (ADR-045, ADR-050):** this implementation replaces mutable installers
+with verified artifact admission. `init` activates the Claude Code plugin from a
+signed set shipped inside the npm package; until a release key is enrolled in
+source it refuses with `embedded-release-key-not-enrolled`. Companions
+(superpowers, beads) are optional and are not installed by `init`. Plain npm self-update needs
 the separately configured verifier and a signed release artifact set. This is
 not evidence of an installed or published update. See
 [verified updates](docs/reference/verified-updates.md) for the supported boundary.

@@ -154,7 +154,7 @@ for sp_root in $SUPERPOWERS_CANDIDATES; do
   done
 done
 
-# anthropic-skills (cloned to ~/.great_cto/anthropic-skills by SessionStart hook)
+# anthropic-skills (cloned to ~/.great_cto/anthropic-skills by `great-cto skills sync`, on request; absent is fine)
 ANTHROPIC_DIR="$HOME/.great_cto/anthropic-skills"
 if [ -d "$ANTHROPIC_DIR" ]; then
   while IFS= read -r f; do
@@ -408,4 +408,4 @@ echo "  tier1 (great_cto built-in): ${#T1[@]} skills"
 echo "  tier2 (external deps):      ${#T2[@]} skills"
 echo "  tier3 (personal):           ${#T3[@]} skills"
 [ "${#T3[@]}" -eq 0 ] && [ ! -d "$PERSONAL_DIR" ] && \
-  echo "  ⚠ tier3 not configured. Set up: gh repo create avelikiy/ai-agent-skills, then SessionStart will clone it."
+  echo "  ⚠ tier3 not configured. Set up: gh repo create avelikiy/ai-agent-skills, then run: great-cto skills sync"

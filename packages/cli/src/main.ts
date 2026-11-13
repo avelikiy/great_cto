@@ -15,9 +15,6 @@ import { resolve } from "node:path";
 import { banner, bold, cyan, dim, error, gray, green, log, step, success, warn, yellow, confirm } from "./ui.js";
 import { detect } from "./detect.js";
 import { pickArchetype, suggestCompliance } from "./archetypes.js";
-import { install, findInstalledVersions } from "./installer.js";
-import { enableGreatCto } from "./settings.js";
-import { installAllCompanions } from "./companion.js";
 import { bootstrap } from "./bootstrap.js";
 import { compileFlow } from "./flow.js";
 import { shouldUseLlmFallback, suggestArchetypeFromLlm } from "./llm-fallback.js";
@@ -25,6 +22,7 @@ import { sendUsagePing, sendInstallPing, telemetrySubcommand, isTelemetryEnabled
 import { checkForUpdate } from "./update-check.js";
 import { findBoardServerPath } from "./board-path.js";
 import { daemonSpec, decideEnsureAction, isBoardResponse, type Platform } from "./board-daemon.js";
+import { alwaysOnVerdict, daemonCliPath, installAppHint, unitNeedsRefresh, parseAlwaysOnState, renderAlwaysOnState, shouldOpenBoard } from "./board-onboarding.js";
 import { readFileSync, writeFileSync, copyFileSync, chmodSync, mkdirSync, readdirSync, unlinkSync, existsSync as fsExistsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -55,7 +53,7 @@ function getCliVersion(): string {
 }
 
 interface CliArgs {
-  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "telemetry" | "distribution" | "task" | "tracker" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
+  command: "init" | "help" | "version" | "board" | "console" | "register" | "ci" | "mcp" | "adapt" | "serve" | "webhook" | "report" | "upgrade" | "uninstall" | "statusline" | "skills" | "telemetry" | "distribution" | "task" | "tracker" | "worker" | "codex-host" | "run" | "status" | "resume" | "chat-only-hint" | "unknown";
   taskArgs?: string[];
   unknownToken?: string;
   dir: string;
@@ -148,6 +146,7 @@ function parseArgs(argv: string[]): CliArgs {
     else if (a === "upgrade") args.command = "upgrade";
     else if (a === "uninstall") args.command = "uninstall";
     else if (a === "statusline") { args.command = "statusline"; args.taskArgs = argv.slice(i + 1); break; }
+    else if (a === "skills") { args.command = "skills"; args.taskArgs = argv.slice(i + 1); break; }
     else if (a === "--purge-data") args.purgeData = true;
     else if (a === "--projects") args.projects = true;
     else if (a === "--self") args.upgradeSelf = true;
@@ -538,11 +537,11 @@ async function runBoardEnsure(args: CliArgs): Promise<number> {
  * `great-cto board install-daemon` — write + activate a per-user OS service that
  * keeps the board running across crashes and reboots. `--dry-run` prints only.
  */
-async function runBoardInstallDaemon(args: CliArgs): Promise<number> {
+async function runBoardInstallDaemon(args: CliArgs, cliPath: string = cliEntryPath()): Promise<number> {
   const { spawnSync } = await import("node:child_process");
   const spec = daemonSpec(process.platform as Platform, {
     nodePath: process.execPath,
-    cliPath: cliEntryPath(),
+    cliPath,
     port: args.boardPort,
     home: homedir(),
   });
@@ -585,6 +584,80 @@ async function runBoardInstallDaemon(args: CliArgs): Promise<number> {
   log(dim(`  now:      great-cto board ensure   (brings it up immediately)`));
   log(dim(`  remove:   great-cto board uninstall-daemon`));
   return 0;
+}
+
+/**
+ * The last step of `init`: offer the always-on service once, bring the board up,
+ * say how to install it as an app, and open it for a person at a terminal.
+ *
+ * Never fails init — the project is already set up by the time this runs — and
+ * never stays silent about why something did not happen.
+ */
+async function offerBoardAfterInit(args: CliArgs, activatedDir: string | null = null): Promise<void> {
+  const env = process.env;
+  // Same rule as postinstall: no board process out of CI or a test runner.
+  if (env.CI || env.GITHUB_ACTIONS || env.NODE_TEST_CONTEXT || env.GREAT_CTO_NO_BOARD) return;
+  try {
+    const port = args.boardPort;
+    const isTTY = Boolean(process.stdin.isTTY);
+    // The service runs the CLI inside the activated, immutable plugin directory —
+    // not this process's own path, which under npx is a cache npm may delete.
+    const cliPath = daemonCliPath({ activatedDir, runningCli: cliEntryPath(), exists: fsExistsSync });
+    const spec = daemonSpec(process.platform as Platform, {
+      nodePath: process.execPath, cliPath, port, home: homedir(),
+    });
+    const stateFile = join(homedir(), ".great_cto", "board-always-on.json");
+    let decided = false;
+    if (fsExistsSync(stateFile)) {
+      try { decided = parseAlwaysOnState(readFileSync(stateFile, "utf8")) !== null; } catch { /* unreadable — ask again */ }
+    }
+    let daemon = Boolean(spec.unitPath) && fsExistsSync(spec.unitPath);
+    const verdict = alwaysOnVerdict({ isTTY, env, yes: args.yes, supported: spec.supported, installed: daemon, decided });
+
+    log("");
+    if (verdict.ask) {
+      const yes = await confirm(bold("Keep the board always on (start at login, restart on crash)?"), true);
+      try {
+        mkdirSync(dirname(stateFile), { recursive: true });
+        writeFileSync(stateFile, renderAlwaysOnState(yes ? "yes" : "no"));
+      } catch { /* best-effort — worst case the question is asked again */ }
+      if (yes) daemon = (await runBoardInstallDaemon(args, cliPath)) === 0;
+      else log(dim(`  Not installed. Later: ${cyan("great-cto board install-daemon")}`));
+    } else if (verdict.reason === "yes-flag" || verdict.reason === "not-a-tty") {
+      log(dim(`  Board stops with this terminal. Keep it always on: ${cyan("great-cto board install-daemon")}`));
+    }
+
+    // A unit from an earlier version would keep starting that version at login.
+    if (daemon && !verdict.ask && spec.unitPath) {
+      let current: string | null = null;
+      try { current = readFileSync(spec.unitPath, "utf8"); } catch { /* unreadable — leave the unit alone */ }
+      if (unitNeedsRefresh(current, spec.render())) {
+        log(dim("  the always-on service points at an earlier version — updating it"));
+        await runBoardInstallDaemon(args, cliPath);
+      }
+    }
+
+    // With the service installed the supervisor starts the board; otherwise start it here.
+    const up = daemon ? await waitForBoard(port, WARM_WINDOW_MS) : (await runBoardEnsure(args)) === 0;
+    if (!up) {
+      warn(`board is not answering on ${port} yet — start it with: great-cto board`);
+      return;
+    }
+    for (const line of installAppHint(port)) log(`  ${dim(line)}`);
+    if (shouldOpenBoard({ isTTY, env, noOpen: args.boardNoOpen })) {
+      const { spawn } = await import("node:child_process");
+      const url = `http://localhost:${port}`;
+      const [cmd, cmdArgs] = process.platform === "darwin" ? ["open", [url]]
+        : process.platform === "win32" ? ["cmd", ["/c", "start", "", url]]
+        : ["xdg-open", [url]];
+      const child = spawn(cmd as string, cmdArgs as string[], { stdio: "ignore", detached: true });
+      child.on("error", () => { /* no opener on this machine — the URL is printed above */ });
+      child.unref();
+    }
+  } catch (e) {
+    warn(`could not set up the board: ${(e as Error).message}`);
+    log(dim(`  Start it yourself with: great-cto board`));
+  }
 }
 
 /** `great-cto board uninstall-daemon` — deactivate the service and remove its unit file. */
@@ -738,6 +811,7 @@ ${bold("Usage:")}
   npx great-cto distribution status          Inspect separately configured verifier toolchain
   npx great-cto statusline install            Record Claude's plan use (5h / weekly %) for the board; keeps your status line
   npx great-cto statusline uninstall          Put your previous status line back
+  npx great-cto skills sync                   Clone the optional skill catalogs into ~/.great_cto (only when you run this)
   npx great-cto uninstall [--yes]             Show what great_cto installed; --yes removes it (your data stays)
   npx great-cto help
   npx great-cto version
@@ -856,6 +930,74 @@ ${bold("Links:")}
 async function runInitCodex(args: CliArgs): Promise<number> {
   error("Codex activation is unsupported until a verified no-fetch local runtime and recovery route are proven. No marketplace or installed plugin was changed.");
   return 1;
+}
+
+interface PluginActivation {
+  ok: true;
+  state: "SMOKE_PASSED" | "ALREADY_ACTIVE";
+  version: string;
+  versionDir: string;
+  others: { key: string; installPaths: string[] }[];
+}
+interface PluginActivationRefusal {
+  ok: false;
+  state: string;
+  reason: string;
+  detail?: string;
+}
+
+/**
+ * Admit the signed plugin set shipped beside this CLI and activate it for this
+ * user's Claude Code. A leftover lock or unfinished transaction from an
+ * interrupted run is recovered once, then the activation is retried.
+ */
+async function activateEmbeddedPlugin(): Promise<PluginActivation | PluginActivationRefusal> {
+  const { realpathSync } = await import("node:fs");
+  const { admitEmbeddedRelease } = await import("./release-trust.mjs");
+  const { activatePluginRelease, recoverPluginActivation, otherRegistrations, pluginActivationTargets } = await import("./plugin-activation.mjs");
+  const { stateHome } = await import("./state-home.mjs");
+  // The deciding modules return plain records; this is the part of their shape init reads.
+  type Outcome = { state: string; reason?: string; detail?: string; versionDir?: string };
+  const refusal = (state: string, reason: string, detail?: string): PluginActivationRefusal => ({ ok: false, state, reason, detail });
+  const version = getCliVersion();
+  let ticket: unknown;
+  try {
+    const packageRoot = realpathSync(join(dirname(fileURLToPath(import.meta.url)), ".."));
+    ticket = admitEmbeddedRelease({ dir: join(packageRoot, "plugin"), version });
+  } catch (e) {
+    const err = e as { reason?: string; message?: string };
+    return refusal("REFUSED", err.reason ?? "embedded-admission-refused", err.message);
+  }
+  const opts = { claudeDir: join(homedir(), ".claude"), stateRoot: join(stateHome(), "distribution-trust") };
+  let result = activatePluginRelease(ticket, opts) as Outcome;
+  if (result.state === "REFUSED" && ["installation-busy-lock", "recovery-required-before-activation"].includes(result.reason ?? "")) {
+    const recovered = recoverPluginActivation(opts) as Outcome;
+    if (recovered.state === "RECOVERY_REQUIRED") return refusal("RECOVERY_REQUIRED", recovered.reason ?? "recovery-failed", recovered.detail);
+    result = activatePluginRelease(ticket, opts) as Outcome;
+  }
+  if (result.state !== "SMOKE_PASSED" && result.state !== "ALREADY_ACTIVE") {
+    return refusal(result.state, result.reason ?? "activation-failed", result.detail);
+  }
+  const targets = pluginActivationTargets(opts.claudeDir, version);
+  let others: { key: string; installPaths: string[] }[] = [];
+  try {
+    others = otherRegistrations(fsExistsSync(targets.registry) ? readFileSync(targets.registry) : null);
+  } catch { /* the registry was just written by the transaction; a failed re-read only loses the notice */ }
+  return { ok: true, state: result.state, version, versionDir: result.versionDir ?? targets.versionDir, others };
+}
+
+/** What the user can do about a refusal. Every line is an action, not an apology. */
+function activationAdvice(reason: string): string[] {
+  if (reason === "embedded-release-key-not-enrolled") return [
+    "This build has no release key enrolled, so no plugin can be verified. Nothing was changed.",
+    "Install a published release: npm i -g great-cto@latest",
+  ];
+  if (reason === "embedded-set-missing") return ["This package carries no plugin set. Reinstall it: npm i -g great-cto@latest"];
+  if (reason === "installation-busy-lock") return ["Another great-cto init is running for this user. Wait for it, then run init again."];
+  if (reason.startsWith("settings-")) return [`Fix ~/.claude/settings.json, or add this by hand: "enabledPlugins": { "great_cto@local": true }`];
+  if (reason === "cache-version-conflict") return ["~/.claude/plugins/cache/local/great_cto/<version> holds different bytes than this release. Move that directory away and run init again."];
+  if (reason === "candidate-below-watermark") return ["A newer version was already activated here. Update the CLI: npm i -g great-cto@latest"];
+  return ["Nothing outside great_cto's own state directory was left changed. Details: ~/.great_cto/distribution-trust/"];
 }
 
 async function runInit(args: CliArgs): Promise<number> {
@@ -1035,118 +1177,63 @@ async function runInit(args: CliArgs): Promise<number> {
   if (args.dryRun) {
     log("");
     log(yellow("dry-run: no changes made."));
-    log(`  would install plugin into ~/.claude/plugins/cache/local/great_cto/<version>/`);
-    log(`  would enable great_cto@local in ~/.claude/settings.json`);
+    log(`  would verify the signed plugin snapshot shipped in this package`);
+    log(`  would publish it to ~/.claude/plugins/cache/local/great_cto/<version>/`);
+    log(`  would register and enable great_cto@local (installed_plugins.json, settings.json, local marketplace)`);
     log(`  would create .great_cto/PROJECT.md with archetype=${archetype}`);
     return 0;
   }
 
-  // ── 3. install plugin ────────────────────────────────────
-  step(3, 5, "installing plugin");
-  const existing = findInstalledVersions();
-  if (existing.length > 0 && !args.version && !args.force) {
-    log(`  ${dim("already-installed versions:")} ${existing.join(", ")}`);
+  // ── 3. activate the plugin from the signed snapshot in this package (ADR-050) ──
+  // One journalled transaction: publish the cache directory, then swap the host
+  // registry, settings and local marketplace entry. Nothing is fetched.
+  step(3, 5, "activating the plugin from the signed snapshot in this package");
+  const activation = await activateEmbeddedPlugin();
+  if (!activation.ok) {
+    error(`plugin activation ${activation.state === "RECOVERY_REQUIRED" ? "needs recovery" : "refused"}: ${activation.reason}`);
+    if (activation.detail) log(`  ${dim(activation.detail)}`);
+    for (const line of activationAdvice(activation.reason)) log(`  ${line}`);
+    return 1;
   }
-  const installResult = install({
-    version: args.version ?? undefined,
-    force: args.force,
-  });
-  if (installResult.alreadyInstalled) {
-    log(`  ${dim("version")} ${installResult.version} ${dim("already installed at")} ${installResult.pluginDir}`);
-    log(`  ${dim("(use --force to reinstall)")}`);
+  if (activation.state === "ALREADY_ACTIVE") {
+    log(`  ${dim("version")} ${activation.version} ${dim("already active at")} ${activation.versionDir}`);
   } else {
-    // New version installed — restart board server if it was running so it
-    // picks up the updated server.mjs immediately (no manual restart needed).
+    log(`  ${green("✓")} ${activation.version} ${dim("published to")} ${activation.versionDir}`);
+    log(`  ${dim("verified against the release key pinned in this CLI; registered as great_cto@local")}`);
+    // What a first install does and does not prove (ADR-050 decision 3) — said once, plainly.
+    log(`  ${dim("First install: these bytes, their verifier and the pinned key all came from npm.")}`);
+    log(`  ${dim("Their authenticity rests on the npm registry; later activations check the pinned key.")}`);
+    log(`  ${dim("~/.claude/agents and ~/.claude/commands are synced by the plugin at the next session start.")}`);
+    // The board must serve the version that was just activated, not the one before it.
     await restartBoardAfterUpgrade(args.boardPort);
   }
-
-  // ── 4. enable in settings ────────────────────────────────
-  step(4, 5, "enabling plugin in ~/.claude/settings.json");
-  const enableResult = enableGreatCto();
-  if (enableResult.alreadyEnabled) {
-    log(`  ${dim("already enabled in")} ${enableResult.settingsPath}`);
+  for (const other of activation.others) {
+    warn(`also registered as ${other.key} → ${other.installPaths.join(", ") || "(no path)"}`);
+    log(`  ${dim("That copy is refreshed by its marketplace without a signature check. A session using it")}`);
+    log(`  ${dim("does not run the verified bytes. Disable it in Claude Code (/plugin) if you do not need it.")}`);
   }
 
-  // ── 4b. one-shot legacy cleanup ──────────────────────────
-  // Versions < 1.0.104 copied commands to ~/.claude/commands/ without a
-  // `great_cto-managed` marker; the SessionStart hook in 1.0.104+ can't
-  // safely delete them. If this looks like an upgrade from an older version,
-  // remove any unmarked copies of commands we used to ship so the new loop
-  // can drop its marker-tagged versions.
-  if (existing.length > 0) {
-    try {
-      const { existsSync, readFileSync, unlinkSync } = await import("node:fs");
-      const { homedir } = await import("node:os");
-      const { join } = await import("node:path");
-      const legacy = [
-        "triage", "gates", "dora", "investigate", "threat-model", "sbom",
-        "security-incident", "update", "status", "capture", "revisit",
-        "board-report", "burn", "cost", "poc", "promote", "sec",
-      ];
-      const cmdDir = join(homedir(), ".claude", "commands");
-      let cleaned = 0;
-      for (const name of legacy) {
-        const f = join(cmdDir, `${name}.md`);
-        if (!existsSync(f)) continue;
-        const head = readFileSync(f, "utf-8").slice(0, 4096);
-        // Only delete files that look like OUR old commands (contain great_cto
-        // references) AND lack the 1.0.104+ marker. Hand-written user files
-        // won't match the great_cto reference test.
-        const looksOurs = /great_cto|\.great_cto|Great CTO/.test(head);
-        const hasMarker = /great_cto-managed/.test(head);
-        if (looksOurs && !hasMarker) {
-          unlinkSync(f);
-          cleaned++;
-        }
-      }
-      if (cleaned > 0) {
-        log(`  ${dim(`cleaned ${cleaned} legacy command file(s) from ~/.claude/commands (pre-1.0.104 unmarked)`)}`);
-      }
-    } catch { /* best-effort — don't block install */ }
-  }
+  // ── 4. optional companions ───────────────────────────────
+  // great_cto runs without them: `bd` calls fall back to .great_cto/tasks.md and
+  // skill references degrade to plain prompts. They are never installed from here —
+  // a third-party snapshot has no publisher admission (ADR-050 decision 6).
+  step(4, 5, "optional companions");
+  log(`  ${dim("beads (task tracker, the `bd` binary):")} ${cyan("https://github.com/steveyegge/beads")}`);
+  log(`  ${dim("superpowers (review and planning skills):")} ${cyan("https://github.com/obra/superpowers")}`);
+  log(`  ${dim("Both are optional and installed by you, not by great_cto.")}`);
 
-  // ── 4b-companion. install superpowers + beads ────────────
-  // These are required companion plugins. Auto-install so users don't need
-  // a separate manual step after reading "Requires:" in the README.
-  // Idempotent — silently skips if already present.
-  {
-    log("");
-    step(4, 5, "installing companion plugins (superpowers + beads)");
-    const companions = installAllCompanions();
-    for (const r of companions) {
-      if (r.status === "installed") {
-        log(`  ${dim(`${r.name} ${r.version} installed`)}`);
-      } else if (r.status === "already_present") {
-        log(`  ${dim(`${r.name} ${r.version} already installed`)}`);
-      } else {
-        warn(`  ${r.name} skipped — ${r.reason ?? "unknown reason"}`);
-        warn(`  install manually: claude plugin install github.com/obra/${r.name === "superpowers" ? "superpowers" : ""} or github.com/steveyegge/beads`);
-      }
-    }
-    // Apply bundled critic overlays (idempotent — skips already-applied changes)
-    try {
-      const { applyOverlays } = await import("./overlay.js");
-      applyOverlays();
-    } catch { /* best-effort — overlay failure must not block init */ }
-  }
-
-  // ── 4c. bootstrap skills catalog (v1.0.140+) ─────────────
-  // Clone external skill repos + run skill-discover.sh so agents have
-  // the catalog locally from session 1, not after first SessionStart hook.
+  // ── 4c. local state ──────────────────────────────────────
+  // No repository is cloned here any more: skill repositories were unverified
+  // clones of a mutable branch that agents read as instructions.
   try {
-    const { existsSync, mkdirSync } = await import("node:fs");
-    const { homedir } = await import("node:os");
-    const { join } = await import("node:path");
-    const { spawnSync } = await import("node:child_process");
     const greatCtoDir = join(homedir(), ".great_cto");
     mkdirSync(greatCtoDir, { recursive: true });
 
     // Create secrets.env template if missing — used by llm-router MCP server.
     // Never overwrite an existing file (user may have real keys in there).
-    const { writeFileSync: wf } = await import("node:fs");
     const secretsPath = join(greatCtoDir, "secrets.env");
-    if (!existsSync(secretsPath)) {
-      wf(secretsPath,
+    if (!fsExistsSync(secretsPath)) {
+      writeFileSync(secretsPath,
         "# great_cto secrets — never commit this file\n" +
         "# LLM router (optional, ~25% cost reduction on non-critical tasks):\n" +
         "# Get a key at https://openrouter.ai/keys\n" +
@@ -1159,67 +1246,23 @@ async function runInit(args: CliArgs): Promise<number> {
       log(`  ${dim("created ~/.great_cto/secrets.env (add OPENROUTER_API_KEY for LLM router)")}`);
     }
 
-    const skillSources = [
-      { name: "anthropic-skills", url: "https://github.com/anthropics/skills.git" },
-      { name: "personal-skills", url: "https://github.com/avelikiy/ai-agent-skills.git" },
-    ];
-
-    for (const src of skillSources) {
-      const path = join(greatCtoDir, src.name);
-      if (!existsSync(path)) {
-        log(`  ${dim(`cloning ${src.name}...`)}`);
-        const r = spawnSync("git", ["clone", "--depth=1", src.url, path], {
-          stdio: "pipe",
-          timeout: 30_000,
-        });
-        if (r.status !== 0) {
-          log(`  ${dim(`(skipped ${src.name}: clone failed; SessionStart hook will retry)`)}`);
-        }
+    // Build the skills registry from the directory that was just activated — not
+    // from whichever version sorts highest in the cache.
+    const discover = join(activation.versionDir, "scripts", "skill-discover.sh");
+    if (fsExistsSync(discover)) {
+      const { spawnSync } = await import("node:child_process");
+      const registryPath = join(greatCtoDir, "skills-registry.json");
+      if (fsExistsSync(registryPath)) {
+        try {
+          const reg = JSON.parse(readFileSync(registryPath, "utf-8")) as { plugin_version?: string };
+          if (reg.plugin_version && reg.plugin_version !== activation.version) unlinkSync(registryPath);
+        } catch { /* malformed — let discover overwrite */ }
       }
-    }
-
-    // Run skill-discover.sh to build initial registry.
-    // v1.0.146: version-sort properly (semver) and force refresh if registry
-    // plugin_version != installed plugin_version (stale cache from prior version).
-    const pluginCacheBase = join(homedir(), ".claude", "plugins", "cache", "local", "great_cto");
-    const { readdirSync, readFileSync, unlinkSync } = await import("node:fs");
-    if (existsSync(pluginCacheBase)) {
-      const semverCmp = (a: string, b: string) => {
-        const pa = a.split(".").map(n => parseInt(n, 10) || 0);
-        const pb = b.split(".").map(n => parseInt(n, 10) || 0);
-        for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
-          const d = (pa[i] ?? 0) - (pb[i] ?? 0);
-          if (d !== 0) return d;
-        }
-        return 0;
-      };
-      const versions = readdirSync(pluginCacheBase).sort(semverCmp).reverse();
-      if (versions.length > 0) {
-        const latest = versions[0]!;
-        const discover = join(pluginCacheBase, latest, "scripts", "skill-discover.sh");
-        if (existsSync(discover)) {
-          // Force refresh: unlink existing registry if it pins to a different version
-          const registryPath = join(greatCtoDir, "skills-registry.json");
-          if (existsSync(registryPath)) {
-            try {
-              const reg = JSON.parse(readFileSync(registryPath, "utf-8")) as { plugin_version?: string };
-              if (reg.plugin_version && reg.plugin_version !== latest) {
-                unlinkSync(registryPath);
-                log(`  ${dim(`registry version mismatch (${reg.plugin_version} → ${latest}) — refreshing`)}`);
-              }
-            } catch { /* malformed — let discover overwrite */ }
-          }
-          spawnSync("bash", [discover], {
-            stdio: "ignore",
-            timeout: 15_000,
-            env: { ...process.env, PLUGIN_DIR: join(pluginCacheBase, latest) },
-          });
-          log(`  ${dim("skills registry built at ~/.great_cto/skills-registry.json")}`);
-        }
-      }
+      spawnSync("bash", [discover], { stdio: "ignore", timeout: 15_000, env: { ...process.env, PLUGIN_DIR: activation.versionDir } });
+      log(`  ${dim("skills registry built at ~/.great_cto/skills-registry.json")}`);
     }
   } catch {
-    /* best-effort — don't block install if skills bootstrap fails */
+    /* best-effort — local state must not block init */
   }
 
   // ── 5. bootstrap ─────────────────────────────────────────
@@ -1245,6 +1288,9 @@ async function runInit(args: CliArgs): Promise<number> {
     await sendInstallPing({ cliVersion: getCliVersion(), archetype: String(archetype), consent: true, noTelemetry: args.noTelemetry })
       .catch(() => { /* never block init on telemetry */ });
   }
+
+  // ── 8. board: always-on offer, bring it up, install-app hint ──
+  await offerBoardAfterInit(args, activation.versionDir);
 
   // ── done ─────────────────────────────────────────────────
   log("");
@@ -1684,6 +1730,11 @@ async function main(): Promise<void> {
   if (args.command === "statusline") {
     const { runStatuslineCommand } = await import("./statusline.js");
     await finish(runStatuslineCommand(args.taskArgs ?? []));
+  }
+  if (args.command === "skills") {
+    // The only place the optional skill catalogs are cloned: on request, never from a hook (ADR-050 decision 9).
+    const { runSkillsCommand } = await import("./skills-sync.mjs");
+    await finish(runSkillsCommand(args.taskArgs ?? [], { log, error }));
   }
   if (args.command === "upgrade") {
     try {
