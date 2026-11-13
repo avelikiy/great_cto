@@ -136,6 +136,18 @@ test('every new row says what covers it, or says that nothing does', () => {
   }
 });
 
+/** The lines of `source` that declare a test called `name`: the name sits in a string literal, on a line that is not a comment. */
+function declaringLines(source, name) {
+  const found = [];
+  for (let at = source.indexOf(name); at >= 0; at = source.indexOf(name, at + 1)) {
+    const start = source.lastIndexOf('\n', at) + 1, end = source.indexOf('\n', at);
+    const line = source.slice(start, end < 0 ? source.length : end);
+    if (/^\s*(\/\/|\/\*|\*)/.test(line) || !'\'"`'.includes(source[at - 1])) continue;
+    found.push(line);
+  }
+  return found;
+}
+
 /**
  * What is wrong with the tests a list of rows cites, as sentences; empty when every citation is sound.
  * A citation is sound when its file is inside the repository and exists, and the test it names is
@@ -148,11 +160,9 @@ function citationProblems(rows, { read: readSource = read, exists = rel => fs.ex
     for (const { file, test: name } of row.coveredBy) {
       if (path.isAbsolute(file) || file.includes('..') || file.startsWith('docs/gates/')) { problems.push(`${row.id}: ${file} is outside the repository or is a frozen gate`); continue; }
       if (!exists(file)) { problems.push(`${row.id}: ${file} does not exist`); continue; }
-      const source = readSource(file);
-      const at = source.indexOf(name);
-      if (at < 0) { problems.push(`${row.id}: no test named ${JSON.stringify(name)} in ${file}`); continue; }
-      const line = source.slice(source.lastIndexOf('\n', at) + 1, source.indexOf('\n', at));
-      if (/\b(skip|todo)\b/i.test(line)) problems.push(`${row.id}: ${name} is skipped: a skipped test covers nothing`);
+      const lines = declaringLines(readSource(file), name);
+      if (!lines.length) { problems.push(`${row.id}: no test named ${JSON.stringify(name)} is declared in ${file}`); continue; }
+      if (lines.every(line => /\b(skip|todo)\b/i.test(line))) problems.push(`${row.id}: ${name} is skipped: a skipped test covers nothing`);
     }
   }
   return problems;
