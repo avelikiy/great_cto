@@ -196,12 +196,15 @@ test('neither companion on PATH: init completes, names both, installs neither', 
   assert.ok(fs.existsSync(path.join(run.project, '.great_cto', 'PROJECT.md')), 'init completed without them');
 });
 
-// Deliberately outcome-agnostic. Whether `init` should create ~/.claude or refuse by name when Claude Code
-// has never run is an open decision; today it refuses with the raw `activation-failed` (an ENOENT from
-// lstat). What must hold either way is that it never leaves a half-built host behind. When the decision
-// is taken, replace this with a test that pins the chosen behaviour.
-test('a machine with no ~/.claude yet: init leaves no partial state whether it activates or refuses', t => {
+// Claude Code may never have run on a new machine. `init` creates ~/.claude itself, private (0700),
+// and activates; it does not fail on the missing directory.
+test('a machine with no ~/.claude yet: init creates it private and activates', t => {
   const machine = newMachine(t, { claudeDir: false }), pkg = buildPackage(machine, { version: '3.72.0' });
+  const run = runInit(machine, pkg);
+  assert.equal(run.status, 0, tail(run.output));
+  assert.equal(fs.statSync(machine.claudeDir).mode & 0o777, 0o700, '~/.claude is created owner-only');
+  assert.deepEqual(inventoryOf(versionDir(machine, '3.72.0')), pkg.set.inventory.files);
+});
   const run = runInit(machine, pkg);
   t.diagnostic(`status ${run.status}: ${tail(run.output, 600).replace(/\s+/g, ' ')}`);
   assert.ok([0, 1].includes(run.status), tail(run.output));

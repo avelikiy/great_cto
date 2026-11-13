@@ -481,7 +481,7 @@ PID/SIGKILL/cleanup checks. Nothing is relaxed. New rows:
 | `plugin_transaction_recovery` | Crash at each of the six durable boundaries recovers or reports `RECOVERY_REQUIRED`; target drift never overwrites a concurrent change |
 | `concurrent_init` | Second concurrent `init` refuses with zero writes to cache, registry, settings, marketplace or managed dirs |
 | `offline_init` | Zero network calls on the activation path; a blocked network does not fail `init`; no git clone is attempted |
-| `no_pre_admission_exec` | Instrumented candidate marker never appears before `SMOKE_PASSED`; a failed admission yields zero spawns of plugin bytes |
+| `no_pre_admission_exec` | Instrumented candidate marker never appears before the smoke step (the smoke is the only step that runs candidate bytes, and it runs before `SMOKE_PASSED` is journalled); a failed admission yields zero spawns of plugin bytes |
 | `marketplace_divergence` | A `great_cto@<non-local>` registration is detected and reported; it is not modified without explicit confirmation; `known_marketplaces.json` is never written |
 | `external_runtime_scope` | Per-host classification: a Codex-only `npx` entry does not refuse a Claude activation; a *fetching* command in the activated host's manifest does refuse; `python3` is classified and reported as host toolchain |
 | `companion_absence_degrade` | `init` completes and a pipeline runs with neither companion present; each degradation is named |

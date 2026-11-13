@@ -241,7 +241,9 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
     if (typeof stateRoot !== 'string' || !path.isAbsolute(stateRoot)) fail('absolute-state-root-required');
     const synthetic = syntheticMode(testing, info, targets, stateRoot);
     context = { synthetic, version: info.version };
-    canonicalDirectory(targets.claudeDir);
+    // A machine where Claude Code has never run has no ~/.claude yet: create it private (0700)
+    // rather than fail on a raw ENOENT. Claude Code accepts an existing directory.
+    canonicalDirectory(targets.claudeDir, { create: true });
 
     // One lock per configuration directory, whatever the version: two versions share the host files.
     state = privateInstallationState(path.join(stateRoot, 'plugin'), targets.cacheRoot);
