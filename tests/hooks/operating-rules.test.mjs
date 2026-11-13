@@ -40,6 +40,11 @@ test('the rules say: take reversible steps, ask for irreversible ones, prove don
   assert.match(t, /Done when:/);
   assert.match(t, /reproduce it first/);
   assert.match(t, /shared\/agent-fragments\/task-brief\.md/);
-  // Paid in every session: keep it short. Raised from 1500 for rule 6.
-  assert.ok(t.length < 1700, `operating rules are ${t.length} chars`);
+  // CI minutes are billed per push on private repos (2026-11-13): rule 7 batches pushes
+  // and saves work without a run.
+  assert.match(t, /once per finished slice/);
+  assert.match(t, /Never push to see if CI is\s+green/);
+  assert.match(t, /\[skip ci\]/);
+  // Paid in every session: keep it short. Raised from 1500 for rule 6, from 1700 for rule 7.
+  assert.ok(t.length < 1900, `operating rules are ${t.length} chars`);
 });

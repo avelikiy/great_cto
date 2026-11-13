@@ -273,13 +273,14 @@ test('bootstrap: a hook still behaves as before when the plugin is found', (t) =
 // cache listing, so this is not new, but the new bootstrap makes an empty PLUGIN_DIR a normal
 // answer rather than an absent cache.
 
-const GUARDS = ['bash-guards', 'secret-read-guard', 'secret-scan', 'frozen-gates-guard', 'gate-weakening-guard', 'edit-scope-guard'];
+const GUARDS = ['bash-guards', 'secret-read-guard', 'secret-scan', 'frozen-gates-guard', 'gate-weakening-guard', 'edit-scope-guard',
+  'verdict-authorship-guard'];
 const EXIT_TWO = 'if [ $EXIT -eq 2 ]; then exit 2; fi';
 const preToolUse = () => Object.entries(JSON.parse(fs.readFileSync(MANIFEST, 'utf8')).hooks.PreToolUse)
   .flatMap(([, group]) => group.hooks.map((h) => h.command));
 const scriptOf = (command) => /hooks\/([\w-]+)\.mjs/.exec(command)?.[1];
 
-test('guards: the PreToolUse hooks that can block are exactly the six, and each carries the empty-PLUGIN_DIR check', () => {
+test('guards: the PreToolUse hooks that can block are exactly the seven, and each carries the empty-PLUGIN_DIR check', () => {
   const blocking = preToolUse().filter((c) => c.includes(EXIT_TWO));
   assert.deepEqual(blocking.map(scriptOf).sort(), [...GUARDS].sort());
   for (const command of blocking) {
@@ -327,10 +328,10 @@ const runHook = (command, m, env = {}, input = '{"tool_name":"Bash","tool_input"
   encoding: 'utf8', cwd: m.home, input, env: { PATH: process.env.PATH, HOME: m.home, ...env },
 });
 
-test('guards: with PLUGIN_DIR unresolvable every one of the six blocks, in the format the guards themselves use', (t) => {
+test('guards: with PLUGIN_DIR unresolvable every one of the seven blocks, in the format the guards themselves use', (t) => {
   const m = noPluginMachine(t);
   const blocking = preToolUse().filter((c) => c.includes(EXIT_TWO));
-  assert.equal(blocking.length, 6);
+  assert.equal(blocking.length, GUARDS.length);
   for (const command of blocking) {
     const r = runHook(command, m);
     const name = scriptOf(command);

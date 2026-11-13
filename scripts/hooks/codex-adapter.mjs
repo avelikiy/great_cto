@@ -15,7 +15,7 @@
 // fails closed on its own bug would stop every edit in every Codex session.
 //
 // Usage (from .codex-plugin/hooks.json):
-//   node codex-adapter.mjs secret-scan frozen-gates-guard gate-weakening-guard
+//   node codex-adapter.mjs secret-scan frozen-gates-guard verdict-authorship-guard gate-weakening-guard
 
 import { spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';

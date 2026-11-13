@@ -9,6 +9,10 @@ All notable changes to great_cto are documented here.
 
 ## Unreleased
 
+### Added
+
+- **A role records only its own verdict** (ADR-051, slice 1). A subagent that runs `log-verdict.sh` for another role, or with a role spelled as a variable, is refused at the tool layer; so is any shell or edit-tool write, truncation, move or deletion of `.great_cto/verdicts/*.log`, for the main session too. `scripts/hooks/verdict-authorship-guard.mjs`, run inside `bash-guards.mjs` and as an `Edit|Write|MultiEdit` hook (and through the Codex adapter for `apply_patch`). Every shipped agent already names only its own role, so honest runs are unaffected. Off switch for the operator: `GREAT_CTO_DISABLE_VERDICT_GUARD=1`.
+
 ### Changed
 
 - **The CLI needs Node 20 or newer, on macOS or Linux** (`engines: >=20`). Node 18 reached end-of-life in April 2025. Windows was never green: the release, activation and transaction path relies on POSIX file modes, symlink refusal and directory `fsync`, and 219 CLI tests failed on `windows-latest` the first time CI ran again (2026-11-13). On Windows, run it under WSL. `cli-ci` now runs 3 jobs (Linux on Node 20 and 22, macOS on Node 22) instead of 9.
@@ -19,6 +23,10 @@ All notable changes to great_cto are documented here.
   - the activation tests passed `process.execPath` as the npm executable, which the activation rightly refuses when it is group-writable, as node is (0775) in the GitHub runner's toolcache. They now use a private 0755 stand-in;
   - the `DO_NOT_TRACK` telemetry test failed under `CI=true`. It now clears the CI markers, and a new test pins the other half of the rule: in CI telemetry stays off even when opted in;
   - `runtime-ci` never built the CLI, which the board and root tests import. It builds it first now, and runs when `packages/cli/src` changes.
+
+### Docs
+
+- **What great_cto takes from Archon, and in what order** (`docs/plans/PLAN-archon-lessons.md`): verdict authority, a pipeline dry-run over stub verdicts, one event log, one attention queue, budgets refused before an attempt, a provider contract, a reviewer eval set — and what is deliberately not taken.
 
 ## v3.79.0 — 2026-11-11
 
