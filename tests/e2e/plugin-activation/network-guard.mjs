@@ -4,14 +4,22 @@
 //   fetch      global fetch()
 //   socket     a TCP connection (local IPC sockets are not the network and pass through)
 //   dns        a name lookup
-//   spawn      a program that fetches by design (curl, wget, a package manager, ssh, gh) or a git
-//              command that talks to a remote (clone, fetch, pull, push, ls-remote, submodule)
+//   spawn      a program that fetches by design (curl, wget, a package manager, ssh, gh, deno, docker run,
+//              python -m pip...) or a git command that talks to a remote (clone, fetch, pull, push,
+//              ls-remote, submodule), however it is started: as argv0, through a shell (`shell: true`,
+//              `exec`, `sh -c`, `bash -lc`) or through a wrapper (`env`, `timeout`, `xargs`...)
+//
+// What counts as a fetching program is NOT decided here. fetchingInArgv and fetchingInLine come from
+// plugin-runtime-boundary.mjs, the module that classifies a plugin manifest's commands, so this guard and
+// the manifest check cannot disagree about what fetches (bug n4jt: they used to keep separate lists).
 //
 // A blocked call fails the way an unplugged cable would, so "a blocked network does not fail init" is
-// observed, not assumed. Everything else — node itself, local git queries — runs untouched.
+// observed, not assumed. Everything else — node itself, local git queries, a shell running `echo` — runs
+// untouched. A child process that is allowed to run is not itself guarded: this records what THIS
+// process asks for, and what it asks the operating system to start.
 import fs from 'node:fs';
-import path from 'node:path';
 import { createRequire, syncBuiltinESMExports } from 'node:module';
+import { fetchingInArgv, fetchingInLine } from '../../../packages/cli/src/plugin-runtime-boundary.mjs';
 
 const log = process.env.GCTO_E2E_NET_LOG;
 if (!log) throw new Error('GCTO_E2E_NET_LOG must name the file that records network attempts');
@@ -44,15 +52,19 @@ for (const name of ['lookup', 'resolve', 'resolve4', 'resolve6', 'resolveAny']) 
 }
 dns.promises.lookup = async host => { throw refused('dns', `lookup ${String(host)}`); };
 
-const PROGRAMS = new Set(['curl', 'wget', 'npm', 'npx', 'pnpm', 'yarn', 'ssh', 'scp', 'gh', 'pip', 'pip3']);
-const GIT_REMOTE = new Set(['clone', 'fetch', 'pull', 'push', 'ls-remote', 'submodule']);
 const childProcess = require('node:child_process');
+const isOptions = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 for (const name of ['spawn', 'spawnSync', 'execFile', 'execFileSync', 'exec', 'execSync', 'fork']) {
   const original = childProcess[name];
   childProcess[name] = function (command, ...rest) {
-    const argv = name === 'exec' || name === 'execSync' ? String(command).split(/\s+/) : [String(command), ...(Array.isArray(rest[0]) ? rest[0].map(String) : [])];
-    const program = path.basename(argv[0]);
-    if (PROGRAMS.has(program) || (program === 'git' && argv.slice(1).some(a => GIT_REMOTE.has(a)))) throw refused('spawn', argv.join(' ').slice(0, 160));
+    const args = Array.isArray(rest[0]) ? rest[0].map(String) : [];
+    const options = rest.find(isOptions);
+    // exec and execSync always run their first argument as a shell command line, and any of the others
+    // does when it is given `shell: true`: then the "program" is a whole command line, not an argv0.
+    const viaShell = name === 'exec' || name === 'execSync' || Boolean(options?.shell);
+    const argv = [String(command), ...args];
+    const found = viaShell ? fetchingInLine(argv.join(' ')) : fetchingInArgv(argv);
+    if (found.length) throw refused('spawn', argv.join(' ').slice(0, 160));
     return original.call(this, command, ...rest);
   };
 }
