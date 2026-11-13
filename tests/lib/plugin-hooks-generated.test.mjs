@@ -48,6 +48,15 @@ test('expanding twice changes nothing', () => {
   assert.equal(expandHookCommand(once), once);
 });
 
+test('the bootstrap generated before the physical path check is recognised and rewritten, so a bootstrap change is one regeneration', () => {
+  const before = BOOTSTRAP
+    .replace('f=require("fs"),', '')
+    .replace('&&!f.lstatSync(p).isSymbolicLink()&&f.realpathSync(p)===a.join(f.realpathSync(r),a.basename(p))', '');
+  assert.notEqual(before, BOOTSTRAP, 'the simulated old form differs from the current one');
+  assert.doesNotMatch(before, /isSymbolicLink/);
+  assert.equal(expandHookCommand('a; ' + before + '; b'), 'a; ' + BOOTSTRAP + '; b');
+});
+
 test('the token form expands too, so a new hook is written once and generated', () => {
   assert.equal(expandHookCommand('x; PLUGIN_DIR=' + TOKEN + '; y'), 'x; ' + BOOTSTRAP + '; y');
 });

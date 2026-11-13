@@ -16,6 +16,10 @@
  * Any other `PLUGIN_DIR=` assignment in a hook is refused: a form this script does not recognise
  * would otherwise keep whatever glob it carried and look generated.
  *
+ * A PreToolUse hook that can block (its wrapper passes exit 2 through) also gets a check right after
+ * the bootstrap: with no PLUGIN_DIR it denies the call and says why, instead of running
+ * `node "/scripts/hooks/<name>.mjs"`, failing with exit 1, and being read as "allow" (bug osik).
+ *
  * Usage:
  *   node scripts/generate-plugin-hooks.mjs                  # rewrite the manifest
  *   node scripts/generate-plugin-hooks.mjs --check          # exit 1 if it is not the generator's output
@@ -34,10 +38,13 @@ export const TOKEN = '@@PLUGIN_DIR@@';
 // then validates again; this is not a second implementation of its rules. No quote characters other
 // than double quotes, because the snippet sits inside single quotes in the shell.
 // Deliberately the local marketplace's cache directory: it is where `great-cto init` publishes the
-// admitted copy, and the only cache the registration may point into.
-const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
+// admitted copy, and the only cache the registration may point into. The path is checked physically as
+// well as by name (bug 0m3u): the version directory must not be a symlink, and it and the cache root
+// must agree once every link on the way is resolved, as scripts/lib/plugin-dir.sh checks it.
+const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),f=require("fs"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
   + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
-  + 'p=e.length===1?e[0].installPath:"";a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))?p:""}catch{""}';
+  + 'p=e.length===1?e[0].installPath:"";'
+  + 'a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))&&!f.lstatSync(p).isSymbolicLink()&&f.realpathSync(p)===a.join(f.realpathSync(r),a.basename(p))?p:""}catch{""}';
 
 /**
  * What every generated hook starts with. The host's own value is taken as given, as a plain
@@ -46,21 +53,40 @@ const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(
  * the resolver run from there, which replaces six processes of the old cache listing with two.
  * `$_r` is the directory the resolver runs from.
  */
-export const BOOTSTRAP = 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(_r=$(node -p \'' + LOCATOR + '\' 2>/dev/null); '
+const bootstrapWith = (locator) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(_r=$(node -p \'' + locator + '\' 2>/dev/null); '
   + '[ -n "$_r" ] && bash "$_r/scripts/lib/plugin-dir.sh" 2>/dev/null)}';
+export const BOOTSTRAP = bootstrapWith(LOCATOR);
+
+// The locator before it checked the path physically. Hooks generated with it are recognised and
+// rewritten, so changing the bootstrap is one regeneration, not a hand edit of thirty strings.
+const LOCATOR_BEFORE_PHYSICAL_CHECK = 'try{const h=require("os").homedir(),a=require("path"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
+  + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
+  + 'p=e.length===1?e[0].installPath:"";a.dirname(p)===r&&!/^\\.\\.?$/.test(a.basename(p))?p:""}catch{""}';
+
+// What a guard does when it cannot find its code: deny, in the format the guards themselves use
+// (hookSpecificOutput on stdout, the reason on stderr, exit 2), and say what to do.
+const DENIED = 'GREAT_CTO: plugin dir not resolved - run npx great-cto init (this guard cannot run, so the call is blocked)';
+export const GUARD_CHECK = 'if [ -z "$PLUGIN_DIR" ]; then _m=\'' + DENIED + '\'; '
+  + 'printf \'{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\\n\' "$_m"; '
+  + 'printf \'%s\\n\' "$_m" >&2; exit 2; fi;';
+// A PreToolUse hook is a guard when its wrapper passes exit 2 through: that is what lets it block.
+const BLOCKS = 'if [ $EXIT -eq 2 ]; then exit 2; fi';
 
 // The form being replaced, in both quotings of its last sed. Plain strings: the `${` is shell.
 const EVERY_CACHE = '~/.claude/plugins/cache/*/great_cto/*/';
 const AWK = 'awk -F\'/plugins/cache/\' \'{split($NF,p,"/"); print p[3], $0}\' | sort -V | tail -1 | cut -d\' \' -f2-';
 const legacy = (q) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ' + EVERY_CACHE + ' 2>/dev/null | '
   + AWK + ' | sed ' + q + 's|/$||' + q + ')}';
-const REPLACED = [legacy("'"), legacy('"'), 'PLUGIN_DIR=' + TOKEN];
+const REPLACED = [legacy("'"), legacy('"'), bootstrapWith(LOCATOR_BEFORE_PHYSICAL_CHECK), 'PLUGIN_DIR=' + TOKEN];
 
 /** A `PLUGIN_DIR=` assignment that is still there once every generated one is taken out. */
 const STRAY = /(^|[^A-Za-z0-9_])PLUGIN_DIR=/;
 
-/** @param {string} command one hook command */
-export function expandHookCommand(command) {
+/**
+ * @param {string} command one hook command
+ * @param {{ event?: string }} [options] the event the hook is registered for; a guard check is added only for PreToolUse
+ */
+export function expandHookCommand(command, { event } = {}) {
   let out = command;
   for (const form of REPLACED) out = out.split(form).join(BOOTSTRAP);
   if (STRAY.test(out.split(BOOTSTRAP).join(''))) {
@@ -74,6 +100,9 @@ export function expandHookCommand(command) {
       throw new Error('PLUGIN_DIR must be followed by `;`, not chained. Command starts: ' + command.slice(0, 100));
     }
   }
+  if (event === 'PreToolUse' && out.includes(BLOCKS) && !out.includes(GUARD_CHECK)) {
+    out = out.split(BOOTSTRAP + '; ').join(BOOTSTRAP + '; ' + GUARD_CHECK + ' ');
+  }
   return out;
 }
 
@@ -86,7 +115,7 @@ function* hookCommands(manifest) {
   for (const [event, groups] of Object.entries(manifest.hooks ?? {})) {
     for (const [g, group] of (groups ?? []).entries()) {
       for (const [h, hook] of (group.hooks ?? []).entries()) {
-        if (typeof hook.command === 'string') yield { where: `hooks.${event}[${g}].hooks[${h}]`, hook };
+        if (typeof hook.command === 'string') yield { where: `hooks.${event}[${g}].hooks[${h}]`, event, hook };
       }
     }
   }
@@ -95,7 +124,7 @@ function* hookCommands(manifest) {
 /** @param {string} text the manifest */
 export function generateManifestText(text) {
   const manifest = JSON.parse(text);
-  for (const { hook } of hookCommands(manifest)) hook.command = expandHookCommand(hook.command);
+  for (const { event, hook } of hookCommands(manifest)) hook.command = expandHookCommand(hook.command, { event });
   return serialize(manifest);
 }
 

@@ -83,5 +83,15 @@ esac
 case "$version" in
   ''|.|..|*/*) refuse "the registered path is not a version directory directly under $cache_root: $install_path" ;;
 esac
+
+# The registered path is checked physically as well as by its name (bug 0m3u). A symlink satisfies every
+# comparison above and still runs whatever it points at, so the version directory has to be a real
+# directory, and it and the cache root are compared after every link on the way is resolved: a link in
+# the middle of the path that leaves the cache is refused too. A Claude directory that is itself a link
+# (dotfile managers do this) resolves the same way on both sides and is accepted.
+[ ! -L "$install_path" ] || refuse "the registered path is a symbolic link: $install_path"
+physical_root=$(cd -P "$cache_root" 2>/dev/null && pwd -P) || refuse "$cache_root does not exist"
+physical_path=$(cd -P "$install_path" 2>/dev/null && pwd -P) || refuse "the registered path cannot be entered: $install_path"
+[ "$physical_path" = "$physical_root/$version" ] || refuse "the registered path resolves outside $cache_root: $install_path"
 is_plugin_root "$install_path" || refuse "the registered path holds no great-cto plugin: $install_path"
 printf '%s\n' "$install_path"
