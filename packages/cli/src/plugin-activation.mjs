@@ -17,6 +17,7 @@ import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { getAdmissionInfo, getAdmittedArtifact, inspectPluginPayload } from './release-trust.mjs';
+import { assertNoFetchingRuntime } from './plugin-runtime-boundary.mjs';
 import {
   UUID, hash, within, fail, canonicalDirectory, syncDirectory, writeRecord, readRecord, outcome,
   privateInstallationState, releaseLock, snapshotFile, compareAndSwapFile, restoreFileIfOurs,
@@ -260,6 +261,9 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
 
     // Re-admit: nothing checked before the lock is trusted after it.
     const payload = inspectPluginPayload(admission);
+    // A signature covers the snapshot's bytes, not what it downloads when the host starts it. This
+    // activation is for Claude Code, so only Claude's manifest decides: a Codex-only `npx` does not.
+    const externalRuntime = assertNoFetchingRuntime(payload.files, { host: 'claude' });
     const current = Object.fromEntries(HOST_FILES.map(name => [name, readHost(targets[name])]));
     const next = {
       registry: nextRegistryBytes(current.registry, { installPath: targets.versionDir, version: info.version, inventoryDigest, now }),
@@ -267,7 +271,7 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
       marketplace: nextMarketplaceBytes(current.marketplace, { sourceDir: targets.versionDir, version: info.version }),
     };
     const published = fs.existsSync(targets.versionDir) && sameInventory(directoryInventory(targets.versionDir), admittedInventory(payload.files));
-    if (published && HOST_FILES.every(name => !next[name].changed)) return { ...outcome('ALREADY_ACTIVE', context), versionDir: targets.versionDir, inventoryDigest };
+    if (published && HOST_FILES.every(name => !next[name].changed)) return { ...outcome('ALREADY_ACTIVE', context), versionDir: targets.versionDir, inventoryDigest, externalRuntime };
 
     const transactionId = randomUUID(), dir = transactionDir(state, transactionId);
     context.transactionId = transactionId;
@@ -306,7 +310,7 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
     phase('SMOKE_PASSED');
     writeRecord(state.watermarkPath, { schema: 1, version: info.version, digest: inventoryDigest, synthetic });
     writeRecord(pointerPath(state), { schema: 1, transactionId, version: info.version, claudeDir: targets.claudeDir, synthetic, state: 'COMPLETE' });
-    return { ...outcome('SMOKE_PASSED', context), versionDir: targets.versionDir, inventoryDigest, managedSync: 'NOT_PERFORMED' };
+    return { ...outcome('SMOKE_PASSED', context), versionDir: targets.versionDir, inventoryDigest, managedSync: 'NOT_PERFORMED', externalRuntime };
   } catch (error) {
     const reason = error?.activationReason || error?.reason || 'activation-failed';
     if (!activating) {

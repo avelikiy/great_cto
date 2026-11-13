@@ -287,7 +287,7 @@ test('the adapter imports node built-ins and sibling release modules only', () =
   const source = fs.readFileSync(path.join(HERE, '..', 'src', 'plugin-activation.mjs'), 'utf8');
   const specifiers = [...source.matchAll(/from '([^']+)'/g)].map(m => m[1]);
   assert.ok(specifiers.length >= 5);
-  for (const s of specifiers) assert.ok(s.startsWith('node:') || /^\.\/release-(trust|transaction)\.mjs$/.test(s), `unexpected import ${s}`);
+  for (const s of specifiers) assert.ok(s.startsWith('node:') || /^\.\/(release-(trust|transaction)|plugin-runtime-boundary)\.mjs$/.test(s), `unexpected import ${s}`);
   assert.equal(/import\(/.test(source.replace(/await import\(\$\{/g, '')), false, 'no dynamic import of a computed path');
   assert.equal(digest(Buffer.from('')).length, 64);
 });

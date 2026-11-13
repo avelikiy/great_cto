@@ -13,6 +13,13 @@
 // Claude Code sets CLAUDE_PLUGIN_ROOT for the hooks it runs. That is the
 // answer, and the fallback for everything else must look across EVERY
 // marketplace rather than assuming one.
+//
+// SUPERSEDED FOR THE HOOKS (ADR-050 decision 7): "look across every marketplace" is how a session
+// registered to the admitted local copy came to run the git-marketplace copy the host had pulled
+// from a mutable branch. The hooks in plugin.json no longer search: they ask the host, then the
+// admitted registration, and do nothing when neither answers (scripts/lib/plugin-dir.sh, tested in
+// plugin-dir.test.mjs; the strings are generated, tested in plugin-hooks-generated.test.mjs). The
+// lookups elsewhere in this file still describe commands, agents and scripts, which are not hooks.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -20,6 +27,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
+import { BOOTSTRAP } from '../../scripts/generate-plugin-hooks.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const HARDCODED = /cache\/local\/great_cto/;
@@ -41,8 +49,13 @@ function shipped() {
   return out;
 }
 
+// JSON cannot carry the explanation this scan asks for next to a use of the local cache path. The one
+// manifest that names it does so only inside the generated bootstrap (ADR-050: the admitted
+// registration is the local directory marketplace), and the test after this one holds it to that.
+const JSON_MANIFEST = '.claude-plugin/plugin.json';
+
 test('nothing shipped assumes the plugin lives under the `local` marketplace', () => {
-  const offenders = shipped().filter((rel) => {
+  const offenders = shipped().filter((rel) => rel !== JSON_MANIFEST).filter((rel) => {
     const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
     if (!HARDCODED.test(text)) return false;
     // A line that NAMES the old path while explaining why it is wrong is
@@ -62,7 +75,20 @@ test('nothing shipped assumes the plugin lives under the `local` marketplace', (
     + 'use ${CLAUDE_PLUGIN_ROOT} with a fallback that walks every marketplace');
 });
 
-test('the hooks prefer the variable the host sets, and fall back across marketplaces', () => {
+test('the manifest names the local cache only inside the generated bootstrap', () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, JSON_MANIFEST), 'utf8'));
+  const strings = [];
+  const visit = (v) => { if (typeof v === 'string') strings.push(v); else if (v && typeof v === 'object') Object.values(v).forEach(visit); };
+  visit(manifest);
+  const naming = strings.filter((x) => HARDCODED.test(x));
+  assert.ok(naming.length >= 30, `only ${naming.length} strings name the local cache; the scan is not seeing the hooks`);
+  for (const x of naming) {
+    assert.doesNotMatch(x.split(BOOTSTRAP).join(''), HARDCODED,
+      `a string names the local cache outside the generated bootstrap: ${x.slice(0, 90)}`);
+  }
+});
+
+test('the hooks prefer the variable the host sets, and fall back only to the admitted registration', () => {
   const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, '.claude-plugin/plugin.json'), 'utf8'));
   const commands = Object.values(manifest.hooks || {})
     .flat().flatMap((g) => g.hooks || []).map((h) => h.command || '');
@@ -71,8 +97,10 @@ test('the hooks prefer the variable the host sets, and fall back across marketpl
   for (const c of resolving) {
     assert.match(c, /CLAUDE_PLUGIN_ROOT/,
       `a hook resolves PLUGIN_DIR without asking the host first: ${c.slice(0, 90)}`);
-    assert.match(c, /cache\/\*\/great_cto|cache\/\$\{?\w/,
-      `the fallback names one marketplace instead of all of them: ${c.slice(0, 90)}`);
+    assert.match(c, /scripts\/lib\/plugin-dir\.sh/,
+      `a hook resolves PLUGIN_DIR by hand instead of through the one resolver: ${c.slice(0, 90)}`);
+    assert.doesNotMatch(c, /ls -d [^;|]*plugins\/cache\/\*/,
+      `the fallback lists every marketplace cache again, which can pick bytes the host pulled: ${c.slice(0, 90)}`);
   }
 });
 
