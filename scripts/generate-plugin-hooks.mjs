@@ -81,6 +81,30 @@ const legacy = (q) => 'PLUGIN_DIR=${CLAUDE_PLUGIN_ROOT:-$(ls -d ' + EVERY_CACHE 
   + AWK + ' | sed ' + q + 's|/$||' + q + ')}';
 const REPLACED = [legacy("'"), legacy('"'), bootstrapWith(LOCATOR_BEFORE_PHYSICAL_CHECK), 'PLUGIN_DIR=' + TOKEN];
 
+// A hook may name the plugin cache only to do something other than choose a PLUGIN_DIR from it. These two
+// uses are the whole list, matched as written: the review banner sorts report names with the same awk
+// the old lookup used, and the cleanup loop keeps the newest cached versions. Anything else that names
+// the cache is read as a listing, whatever it is spelled with, because a listing has to name what it lists.
+const CACHE_USES_ALLOWED = ["awk -F'/plugins/cache/'", '"$HOME"/.claude/plugins/cache/*/great_cto'];
+const CACHE_NAMED = /plugins[\/"'`\s,\\+]*cache|\bcache[\/"'`\s,\\+]*great_cto|\/cache(?![\w-])|\b(?:readdir|opendir|scandir|listdir)\w*|\b(?:glob|globSync)\s*\(|\bwalk\s*\(/gi;
+
+/**
+ * Every place a hook command names the plugin cache or calls a directory-listing API, other than the
+ * generated bootstrap and the two uses above. Shell quote removal is undone first, so `ca\che` and
+ * `ca''che` are the cache. An empty list means the hook lists no cache.
+ * @param {string} command one hook command
+ * @returns {string[]} the offending text, with a little context
+ */
+export function pluginCacheMentions(command) {
+  let rest = command.split(BOOTSTRAP).join('');
+  for (const allowed of CACHE_USES_ALLOWED) rest = rest.split(allowed).join('');
+  const found = [];
+  for (const text of [rest, rest.replace(/\\|""|''/g, '')]) {
+    for (const match of text.matchAll(CACHE_NAMED)) found.push(text.slice(Math.max(0, match.index - 20), match.index + match[0].length + 20));
+  }
+  return [...new Set(found)];
+}
+
 /** A `PLUGIN_DIR=` assignment that is still there once every generated one is taken out. */
 const STRAY = /(^|[^A-Za-z0-9_])PLUGIN_DIR=/;
 
@@ -139,7 +163,7 @@ export function checkManifestText(text) {
     const command = hook.command;
     if (command.includes(TOKEN)) problems.push(`${where}: the ${TOKEN} token was not expanded; run scripts/generate-plugin-hooks.mjs`);
     if (STRAY.test(command.split(BOOTSTRAP).join(''))) problems.push(`${where}: PLUGIN_DIR is resolved by hand; it must come from the generator`);
-    if (/ls -d [^;|]*plugins\/cache\/\*/.test(command)) problems.push(`${where}: lists the plugin cache (PLUGIN_DIR must come from the generator)`);
+    for (const mention of pluginCacheMentions(command)) problems.push(`${where}: names the plugin cache or lists a directory (PLUGIN_DIR must come from the generator): ...${mention}...`);
   }
   try {
     if (generateManifestText(text) !== text) problems.push('plugin.json differs from the generator\'s output: run node scripts/generate-plugin-hooks.mjs');
