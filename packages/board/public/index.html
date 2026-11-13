@@ -566,7 +566,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .sidebar { --nav-row-height: 36px; --nav-row-pad: 10px; --nav-icon-size: 16px; --nav-row-gap: 10px; }
 .nav { padding: 8px; flex: 0 0 auto; display: flex; flex-direction: column; gap: 2px; }
 /* One row pattern for destinations, disclosure and Fleet filters. */
-.nav-item, .nav-view-item, .nav-group-toggle {
+.nav-item, .nav-group-toggle {
   display: flex; align-items: center; gap: var(--nav-row-gap);
   height: var(--nav-row-height); padding: 0 var(--nav-row-pad);
   border-radius: 0;
@@ -577,9 +577,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   position: relative;
   user-select: none;
 }
-.nav-item:hover, .nav-view-item:hover, .nav-group-toggle:hover { background: var(--bg-muted); }
-.nav-item.active, .nav-view-item.active { background: var(--bg-strong); font-weight: 500; }
-.nav-item:focus-visible, .nav-view-item:focus-visible, .nav-group-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
+.nav-item:hover, .nav-group-toggle:hover { background: var(--bg-muted); }
+.nav-item.active { background: var(--bg-strong); font-weight: 500; }
+.nav-item:focus-visible, .nav-group-toggle:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: -2px; }
 .nav-item.active::before {
   content: "";
   position: absolute;
@@ -589,9 +589,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   border-radius: 0;
 }
 .sidebar .icon { width: var(--nav-icon-size); height: var(--nav-icon-size); color: var(--text2); flex-shrink: 0; }
-.nav-item.active .icon, .nav-view-item.active .icon { color: var(--accent-text); }
+.nav-item.active .icon { color: var(--accent-text); }
 .nav-label { flex: 1; min-width: 0; }
-.nav-item .count, .nav-view-count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.nav-item .count { margin-left: auto; font-size: var(--fs-caption); color: var(--text3); font-family: var(--mono); font-variant-numeric: tabular-nums; }
 #tools-nav { flex: 0 0 auto; }
 #tools-nav > summary { margin: 0 8px; list-style: none; }
 #tools-nav > summary::-webkit-details-marker { display: none; }
@@ -599,8 +599,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 #tools-nav[open] > summary .icon { transform: rotate(90deg); }
 #tools-nav .nav { padding-top: 2px; }
 .nav-divider { height: 1px; background: var(--border); margin: 12px 8px; }
-.nav-views-label { padding: 0 18px; font-size: var(--fs-caption); color: var(--text3); text-transform: uppercase; letter-spacing: 0.06em; }
-.nav-views { display: flex; flex-direction: column; gap: 2px; padding: 6px 8px 12px; }
 
 .sidebar-footer {
   margin-top: auto;
@@ -1567,6 +1565,15 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .sr-name { display: flex; flex-direction: column; min-width: 0; }
   .sr-value { min-width: 0; }
   .sr-action { display: flex; justify-content: flex-end; gap: 8px; }
+  .settings-row { grid-template-columns: 200px 1fr auto; }
+  .sr-action { align-items: center; }
+  #panel-settings { padding: 22px 32px 40px; }
+  .settings-head { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .settings-group-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 4px 0 8px; }
+  .settings-group-head + .settings-row, .settings-stored + .settings-row, #settings-alerts > .settings-row:first-child { border-top: 1px solid var(--border); }
+  .settings-stored { padding: 0 0 8px; }
+  .settings-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; align-items: start; }
+  .settings-pair .settings-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto; }
   .pill.on { background: var(--text); color: var(--bg-page); }
   /* Two-ring focus (§7.1): the outer ring is the focus token, the inner ring is
      the page itself, so the ring reads on any bed — a card, a solid pill, a strip.
@@ -2927,7 +2934,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .agent-row.status-unused  .ar-status { background: var(--agent-unused); }
 .agent-row.status-retired .ar-status { background: var(--agent-retired); }
 .agent-row .ar-body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.agent-row .ar-name { font-family: var(--mono); font-size: var(--fs-body); color: var(--text); }
+.agent-row .ar-name { font-family: var(--sans); font-size: var(--fs-body); color: var(--text); }
 .agent-row .ar-meta { font-size: var(--fs-caption); color: var(--text3); display: flex; gap: 10px; flex-wrap: wrap; }
 .agent-row .ar-meta .ar-domain {
   background: var(--bg-muted); padding: 1px 6px; border-radius: 0;
@@ -3319,7 +3326,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
    operator caused, none for state the machine caused. Hover and focus 90ms
    linear; the drawer 200ms out / 140ms in (exit faster than enter); SSE
    arrival 0ms — rows and figures swap, they do not animate in. ── */
-.nav-item, .nav-view-item, .nav-group-toggle, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
+.nav-item, .nav-group-toggle, .agent-row, .inbox-row, .gate-btn, .btn-black, .btn-ghost-sm, .pill, .so-option { transition: background-color 90ms linear, border-color 90ms linear, outline-color 90ms linear; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: 1ms !important; animation-duration: 1ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
@@ -3352,13 +3359,27 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 .fleet-controls-row select { background: var(--bg-muted); border: 1px solid var(--border); color: var(--text); font-family: var(--mono); font-size: var(--fs-small); padding: 5px 8px; }
 .fleet-list { padding: 0; margin: 0; list-style: none; }
 .fleet-list > li { margin: 0; }
-.fleet-head, .agent-row { display: grid; grid-template-columns: 10px minmax(200px, 1fr) minmax(220px, 1.3fr) 130px 48px 56px 100px 16px; gap: 12px; align-items: center; }
+.fleet-head, .agent-row { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(120px, 210px) minmax(150px, 220px) 70px 60px minmax(110px, 150px); gap: 12px; align-items: center; }
 .fleet-head { padding: 6px 12px; font-size: var(--fs-eyebrow); letter-spacing: .08em; text-transform: uppercase; color: var(--text2); border-bottom: 1px solid var(--border); }
-.agent-row { min-height: 36px; padding: 4px 12px; border-radius: 0; border: none; border-bottom: 1px solid var(--border); width: 100%; }
+.agent-row { min-height: 42px; padding: 6px 12px; text-align: left; font-size: var(--fs-small); font-family: var(--sans); border-radius: 0; border: none; border-bottom: 1px solid var(--border); width: 100%; }
 .agent-row .ar-name { font-size: var(--fs-small); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agent-row .ar-posture { display: flex; gap: 6px; flex-wrap: nowrap; overflow: hidden; }
-.agent-row .ar-status { width: 6px; height: 6px; border-radius: 50%; }
-.agent-row .ar-chev { color: var(--text3); }
+.agent-row .ar-sub { display: none; }
+.agent-row .tab, .fleet-head .tab { text-align: right; font-variant-numeric: tabular-nums; }
+.fleet-title-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; }
+.agents-about { border: 1px solid var(--border); background: var(--bg-card); padding: 10px 14px; margin: 8px 0 10px; font-size: var(--fs-small); }
+.agents-about p { margin: 0 0 6px; } .agents-about p:last-child { margin: 0; }
+.fleet-controls-row { flex-wrap: wrap; }
+.agents-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.agents-chip {
+  font-family: inherit; font-size: var(--fs-small); padding: 5px 12px; cursor: pointer;
+  border: 1px solid var(--border-strong); border-radius: 16px; background: var(--bg-card); color: var(--text2);
+}
+.agents-chip:hover { background: var(--bg-muted); }
+.agents-chip.active { background: var(--bg-solid); border-color: var(--bg-solid); color: var(--on-solid); }
+.agents-chip:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.agents-spacer { flex: 1 1 auto; }
+.agents-perm-note { font-size: var(--fs-small); margin: 0 0 4px; }
 .budgets-table .bt-desc { display: none; }
 .mp-card { padding: 14px 16px; }
 /* ── 768–1199: the sidebar becomes a 56px icon rail (DESIGN §9). Labels leave
@@ -3372,24 +3393,31 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
   .nav-group-toggle .nav-label { display: none; }
   .nav-item .count.abs { display: inline; position: absolute; top: 2px; right: 6px; }
   .nav-item { position: relative; }
-  .nav-divider, .nav-views-label, .nav-views { display: none; }
+  .nav-divider { display: none; }
   .proj-switch > :not(.proj-arch-icon):not(svg) { display: none; }
   .proj-switch { justify-content: center; padding: 14px 8px; }
   #live-label { display: none; }
 }
 @media (max-width: 768px) {
-  .settings-row { grid-template-columns: 1fr; gap: 6px; }
-  .sr-action { justify-content: flex-start; }
+  .settings-row, .settings-pair .settings-row { grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; min-height: 48px; }
+  .settings-row .sr-name { grid-column: 1; }
+  .settings-row .sr-value { grid-column: 1; }
+  .settings-row .sr-action { grid-column: 2; grid-row: 1 / span 2; }
+  .settings-pair { grid-template-columns: 1fr; }
+  #panel-settings { padding: 16px 16px 32px; }
 
   .harness-hosts, .so-options { grid-template-columns: 1fr; }
 
   .fleet-head { display: none; }
-  .agent-row { grid-template-columns: 10px 1fr auto auto auto 16px; grid-template-areas: "dot name name name name chev" "dot posture posture posture posture chev" "dot last runs pass spend chev"; row-gap: 4px; padding: 8px 12px; }
-  .agent-row .ar-status { grid-area: dot; }
+  .agent-row { grid-template-columns: 1fr auto; grid-template-areas: "name spend" "sub sub" "posture posture"; row-gap: 2px; padding: 12px; }
   .agent-row .ar-name { grid-area: name; white-space: normal; }
+  .agent-row .ar-spend { grid-area: spend; }
+  .agent-row .ar-sub { grid-area: sub; display: block; }
   .agent-row .ar-posture { grid-area: posture; flex-wrap: wrap; }
-  .agent-row .ar-last { grid-area: last; }
-  .agent-row .ar-chev { grid-area: chev; }
+  .agent-row .ar-posture.std, .agent-row .ar-last, .agent-row .ar-runs, .agent-row .ar-pass { display: none; }
+  .agents-spacer, .fleet-controls-row > label, .fleet-controls-row > input[type="search"], .fleet-controls-row > select { display: none; }
+  .agents-chips { flex-wrap: nowrap; overflow-x: auto; width: 100%; }
+  .agents-chip { white-space: nowrap; min-height: 44px; border-radius: 22px; }
   .fleet-controls-row { flex-wrap: wrap; }
   .fleet-controls-row input[type="search"] { width: 100%; }
 
@@ -3505,7 +3533,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
      So: every control gets the floor, and the ones with something to say about
      their own size say it after. A button added tomorrow is covered by default;
      one that must stay small has to opt out in writing. */
-  button, [role="button"], .nav-item, .toggle, summary, label.radio, .copy, .so-option, .nav-view-item { min-height: 44px; }
+  button, [role="button"], .nav-item, .toggle, summary, label.radio, .copy, .so-option { min-height: 44px; }
   .gate-btn, .inbox-row .actions .gate-btn { height: 44px; font-size: var(--fs-body); }
   .menu-btn { width: 44px; height: 44px; }
   .btn-bell { min-width: 44px; justify-content: center; }
@@ -3517,7 +3545,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
 ::-webkit-scrollbar-thumb { background: rgba(15, 17, 21, 0.12); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(15, 17, 21, 0.22); border: 2px solid transparent; background-clip: content-box; }
 /* Task read-side: reuse the board's measured typography and colour tokens. */
-.nav-views[hidden], #nav-views-label[hidden], #work-allow-row[hidden] { display: none; }
+#work-allow-row[hidden] { display: none; }
 .work-page { padding: 24px; max-width: 1000px; }
 .work-card, #work-compose { padding: 16px; border: 1px solid var(--border); border-radius: 8px; margin: 12px 0; background: var(--bg-card); }
 .work-page h1 { font-size: var(--fs-title-l); font-weight: 500; }
@@ -3677,16 +3705,6 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
     </nav>
     </details>
     <div class="nav-divider"></div>
-    <div class="nav-views-label" id="nav-views-label" hidden>Views</div>
-    <!-- Fleet filters share the row pattern, but stay buttons, not destinations. -->
-    <div class="nav-views" hidden>
-      <div class="nav-view-item" id="nav-view-project" role="button" tabindex="0" onclick="setFleetView('project')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('project')}">Project focus</div>
-      <div class="nav-view-item" id="nav-view-needs" role="button" tabindex="0" onclick="setFleetView('needs')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('needs')}">Needs attention</div>
-      <div class="nav-view-item" id="nav-view-expensive" role="button" tabindex="0" onclick="setFleetView('expensive')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('expensive')}">Expensive grants</div>
-      <div class="nav-view-item" id="nav-view-never" role="button" tabindex="0" onclick="setFleetView('never')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('never')}">Never observed</div>
-      <div class="nav-view-item" id="nav-view-all" role="button" tabindex="0" onclick="setFleetView('all')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('all')}">All agents</div>
-      <div class="nav-view-item" id="nav-view-retired" role="button" tabindex="0" onclick="setFleetView('retired')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();setFleetView('retired')}">Retired</div>
-    </div>
     <div class="sidebar-footer">
       <!-- Ships in the CONNECTING state. This markup used to say "live · synced
            just now" before any connection existed, so from first paint until the
@@ -4033,26 +4051,36 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
              "What must NOT be on the board"). The view title carries the one
              number that is — how many need attention, of how many. -->
         <section aria-label="Fleet summary" class="fleet-title-row">
-          <h1 class="page-title" id="fleet-view-title" style="margin:0">Fleet</h1>
+          <h1 class="page-title" id="fleet-view-title" style="margin:0">Agents</h1>
+          <button type="button" class="home-link" id="agents-about-toggle" aria-expanded="false" aria-controls="agents-about" onclick="toggleAgentsAbout()">About this data</button>
         </section>
-        <p id="fleet-focus-note" class="muted" role="status"></p>
+        <!-- What the list is and is not. It used to be two sentences above every
+             view; it is one click away now (UX audit 2026-11, F5/F6). -->
+        <div id="agents-about" class="agents-about" hidden>
+          <p id="fleet-focus-note" class="muted" role="status"></p>
+          <p id="agents-usage-note" class="muted"></p>
+        </div>
 
-        <!-- §3.1 Fleet controls -->
+        <!-- Filters are chips on the page, not a "Views" block in the sidebar. -->
         <section aria-label="Fleet controls" class="fleet-controls-row">
-          <input type="search" id="fleet-search" placeholder="Filter agents  ( / )" aria-label="Filter agents by slug" />
+          <div id="agents-chips" class="agents-chips" role="group" aria-label="Which agents to list"></div>
+          <span class="agents-spacer"></span>
+          <label for="fleet-search" class="muted cap">Find</label>
+          <input type="search" id="fleet-search" placeholder="agent name" aria-label="Find an agent by name" />
           <label for="fleet-sort-by" class="muted cap">Sort</label>
           <select id="fleet-sort-by">
-            <option value="runs_30d">runs (30d)</option>
-            <option value="last_run">last run</option>
-            <option value="success_rate">success rate</option>
-            <option value="llm_usd_30d_est">LLM spend (30d)</option>
-            <option value="slug">slug A→Z</option>
+            <option value="runs_30d">Most runs</option>
+            <option value="last_run">Last run</option>
+            <option value="success_rate">Pass rate</option>
+            <option value="llm_usd_30d_est">Spend</option>
+            <option value="slug">Name</option>
           </select>
-          <button type="button" id="fleet-reset-filters" class="btn-ghost-sm">Reset</button>
+          <button type="button" id="fleet-reset-filters" class="btn-ghost-sm" hidden>Reset</button>
         </section>
+        <p id="agents-perm-note" class="muted agents-perm-note"></p>
 
         <!-- §3.1 Fleet list -->
-        <section aria-label="Agent fleet" aria-live="polite" style="margin-top:20px">
+        <section aria-label="Agent fleet" aria-live="polite" style="margin-top:10px">
           <div class="mp-card">
             <ul class="fleet-list" id="fleet-list" role="list">
               <li class="cost-empty">Loading…</li>
@@ -4061,7 +4089,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         </section>
 
         <!-- Legacy non-canonical sources note — kept per §9 #6 -->
-        <section aria-label="Legacy agents" id="legacy-agents-section" style="margin-top:20px" hidden>
+        <p id="agents-legacy-line" class="muted agents-perm-note" hidden><span id="agents-legacy-text"></span> <button type="button" class="home-link" aria-expanded="false" aria-controls="legacy-agents-detail" onclick="const d=document.getElementById('legacy-agents-detail');d.hidden=!d.hidden;this.setAttribute('aria-expanded',String(!d.hidden));this.textContent=d.hidden?'Show':'Hide'">Show</button></p>
+        <section aria-label="Legacy agents" id="legacy-agents-section" style="margin-top:8px" hidden>
+          <div id="legacy-agents-detail" hidden>
           <div class="mp-card">
             <div class="mp-card-head">
               <h3 style="font-size:var(--fs-body)">Legacy / non-canonical sources</h3>
@@ -4072,6 +4102,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
               (older log files, custom scripts). Listed in <code>m.legacy_agent_runs</code>; cleanup is a
               one-time housekeeping task.
             </div>
+          </div>
           </div>
         </section>
 
@@ -4164,9 +4195,9 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
          (not their .panel class) so every function that renders into them still
          finds its element. -->
     <div class="panel" id="panel-settings" role="tabpanel">
-      <div class="panel-head"><h2>Settings <span class="muted" style="font-weight:400;font-size:var(--fs-small)">everything that writes to <code>PROJECT.md</code> or <code>~/.great_cto</code> — each row names its file</span></h2></div>
+      <div class="panel-head settings-head"><h1 class="page-title" style="margin:0">Settings</h1><span class="muted cap" id="settings-privacy-line"></span></div>
       <div id="settings-rows" class="settings-rows"><div class="muted">loading…</div></div>
-      <div id="panel-share">
+      <div id="panel-share" hidden>
       <div class="share-page">
         <div class="share-card">
           <h2>Share this project</h2>
@@ -4206,8 +4237,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
       </div>
       <div id="panel-notifications">
       <div class="share-page">
-        <h1 class="page-title">Notifications</h1>
-        <div class="share-card">
+        <div class="share-card" id="notif-email-card" hidden>
           <h2 class="section-title">Email alerts</h2>
           <p class="sub">Get notified when something needs your attention — even when you're away from the board. Verify your email once, pick what to receive, done. No API keys, no extra signup.</p>
 
@@ -4274,7 +4304,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         </div>
 
         <!-- ── Browser push card ───────────────────────────────────────── -->
-        <div class="share-card" style="margin-top:16px" id="push-card">
+        <div class="share-card" style="margin-top:16px" id="push-card" hidden>
           <h2 class="section-title">Browser push</h2>
           <p class="sub">Native desktop notifications — works even when the board tab is in the background. No email required. Uses Web Push (VAPID) — keys stay local.</p>
           <div class="share-toggle-row">
@@ -4293,7 +4323,7 @@ h1, h2, h3, h4 { font-weight: 600; font-family: var(--sans); }
         </div>
 
         <!-- ── In-app notification history ─────────────────────────────── -->
-        <div class="share-card" style="margin-top:16px">
+        <div class="share-card" style="margin-top:16px" id="notif-recent-card" hidden>
           <h2 class="section-title">Recent notifications</h2>
           <p class="sub">Last 100 alerts fired this session. Also accessible via the notification drawer (bell icon).</p>
           <div id="notif-history-inline" style="display:flex;flex-direction:column;gap:0;margin-top:12px;
@@ -5822,6 +5852,59 @@ function renderLedgerHead({ cost, metrics, usage, over }) {
 // what writes elsewhere links to the screen that owns the write (caps → Ledger,
 // second opinion and judge → Harness). Nothing here is a toggle for a fact the
 // board cannot change: the Codex binary and telemetry are read-only rows.
+// What Settings keeps off the screen until asked: local paths of every registered
+// project and the alert address. A screenshot or a screen share of Settings used
+// to show both (UX audit 2026-11, F15). In memory only — a reload hides them again.
+const settingsView = { reveal: false, allProjects: false, files: {}, register: false, registerValue: '' };
+function settingsToggle(key, sub) {
+  if (sub) settingsView[key][sub] = !settingsView[key][sub]; else settingsView[key] = !settingsView[key];
+  loadSettingsPage();
+}
+// One long form at a time, opened from its row.
+function settingsOpenForm(id) {
+  const ids = ['panel-share', 'notif-email-card', 'push-card', 'notif-recent-card'];
+  let opened = null;
+  for (const x of ids) {
+    const el = document.getElementById(x);
+    if (!el) continue;
+    el.hidden = x === id ? !el.hidden : true;
+    if (x === id && !el.hidden) opened = el;
+  }
+  renderAlertRows();
+  if (opened) opened.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+function maskAddress(v) {
+  const m = String(v || '').match(/^(.)[^@]*@.*?(\.[^.@]+)$/);
+  return m ? `${m[1]}•••@•••${m[2]}` : '';
+}
+// The alert rows read the forms' own state, so there is one source for "on".
+function renderAlertRows() {
+  const el = document.getElementById('settings-alerts');
+  if (!el) return;
+  const open = (id) => { const x = document.getElementById(id); return !!x && !x.hidden; };
+  const emailOn = !!document.getElementById('notif-toggle')?.checked;
+  const kinds = document.querySelectorAll('#notif-triggers input[data-trigger]:checked').length;
+  const addr = (document.getElementById('notif-verified-email')?.textContent || '').trim();
+  const shown = addr && addr !== '—' ? (settingsView.reveal ? esc(addr) : esc(maskAddress(addr))) : '';
+  const pushOn = !!document.getElementById('push-toggle')?.checked;
+  const btn = (label, id) => `<button type="button" class="btn-ghost-sm" aria-expanded="${open(id)}" aria-controls="${id}" onclick="settingsOpenForm('${id}')">${open(id) ? 'Close' : label}</button>`;
+  el.innerHTML = `
+    <div class="settings-row"><div class="sr-name"><span>Email</span></div>
+      <div class="sr-value">${emailOn ? `On · ${kinds} ${kinds === 1 ? 'kind' : 'kinds'}` : 'Off'}${shown ? ` <span class="muted">· ${shown}</span>` : ''}</div>
+      <div class="sr-action">${btn(emailOn ? 'Edit' : 'Set up', 'notif-email-card')}</div></div>
+    <div class="settings-row"><div class="sr-name"><span>Browser push</span></div>
+      <div class="sr-value">${pushOn ? 'On' : 'Off'}</div>
+      <div class="sr-action">${btn(pushOn ? 'Edit' : 'Turn on', 'push-card')}</div></div>
+    <div class="settings-row"><div class="sr-name"><span>Recent notifications</span></div>
+      <div class="sr-value"></div>
+      <div class="sr-action">${btn('Show', 'notif-recent-card')}</div></div>`;
+}
+
+// Settings (great_cto-ki1x.11, redrawn after the 2026-11 audit). A row is a fact;
+// what writes elsewhere links to the screen that owns the write (caps → Cost,
+// second opinion and judge → Runtime). Nothing here is a toggle for a fact the
+// board cannot change. The file or key behind a row is one click away
+// ("Where is this stored?") instead of printed under every label.
 async function loadSettingsPage() {
   const el = document.getElementById('settings-rows');
   if (!el) return;
@@ -5829,62 +5912,80 @@ async function loadSettingsPage() {
   const [tiers, share, harn, projects, cost] = await Promise.all([
     get(`/api/gate-tiers${pqs()}`), get(`/api/share${pqs()}`), get(`/api/harnesses${pqs()}`), get('/api/projects'), get(`/api/cost${pqsd()}`),
   ]);
-  const row = (name, file, value, action) => `
+  const row = (group, name, file, value, action) => `
     <div class="settings-row">
-      <div class="sr-name"><span>${name}</span><span class="cap muted mono">${esc(file)}</span></div>
+      <div class="sr-name"><span>${name}</span>${settingsView.files[group] ? `<span class="cap muted mono">${esc(file)}</span>` : ''}</div>
       <div class="sr-value">${value}</div>
       <div class="sr-action">${action || ''}</div>
     </div>`;
   const link = (label, fn) => `<button type="button" class="btn-ghost-sm" onclick="${fn}">${label}</button>`;
+  const head = (group, label, stored) => `<div class="settings-group-head"><span class="eyebrow">${label}</span>${stored ? `<button type="button" class="home-link" aria-pressed="${!!settingsView.files[group]}" onclick="settingsToggle('files','${group}')">${settingsView.files[group] ? 'Hide where this is stored' : 'Where is this stored?'}</button>` : ''}</div>${stored && settingsView.files[group] ? `<div class="settings-stored muted cap mono">${esc(stored)}</div>` : ''}`;
   const so = harn?.second_opinion || null;
   const cx = harn?.codex || null;
-  const cap = cost ? (cost.monthly_budget ? `<span class="mono">$${fmtMoney(cost.monthly_budget)}</span> <span class="muted">monthly</span>` : '<span class="abs" title="no cap set — spend is not being stopped">no cap</span>') : '<span class="abs" title="cost not read">· unloaded</span>';
-  const tiering = tiers == null ? '<span class="abs" title="gate-tiers not read">· unloaded</span>'
-    : tiers.enabled === false ? '<span class="mono">off</span> <span class="muted">— every gate waits for a human</span>'
-    : `<span class="mono">on</span> <span class="muted">— ${tiers.measured ? 'evidence-tiered: an agent with a passing eval may stand a gate down to notify-only' : 'declared, nothing measured yet'}</span>`;
-  const shareV = share == null ? '<span class="abs" title="share state not read">· unloaded</span>'
-    : share.enabled ? `<span class="mono">on</span> <span class="muted">— <a href="${esc(share.url || '#')}" target="_blank" rel="noopener">public report</a>, gate confirms name it</span>`
-    : '<span class="mono">off</span> <span class="muted">— gate confirms never claim a public report</span>';
-  const soV = so == null ? '<span class="abs" title="harness state not read">· unloaded</span>'
-    : `<span class="mono">${esc(so.declared?.tool || so.declared?.state || 'undeclared')}</span> <span class="muted">→ resolves</span> <span class="mono" style="color:${so.state === 'declared' ? 'var(--status-done)' : so.state === 'unavailable' ? 'var(--status-blocked)' : 'var(--absent-warn-fg)'}">${esc(so.state || '?')}</span>`;
-  const codexV = cx == null ? '<span class="abs" title="harness state not read">· unloaded</span>'
-    : cx.state === 'available' ? `<span class="mono">codex</span> <span class="muted">· on PATH · ${esc(cx.auth || 'authenticated')} · ${esc(cx.version || '')}</span>`
-    : cx.state === 'no-auth' ? '<span class="mono">codex</span> <span style="color:var(--status-blocked)">· not logged in</span>'
-    : `<span class="abs" title="${esc(cx.why || '')}">— absent</span>`;
+  const cap = cost ? (cost.monthly_budget ? `$${fmtMoney(cost.monthly_budget)} <span class="muted">a month</span>` : '<span class="home-warn" title="no cap set — spend is not being stopped">Not set</span>') : '<span class="abs" title="cost not read">· not read</span>';
+  const tiering = tiers == null ? '<span class="abs" title="gate-tiers not read">· not read</span>'
+    : tiers.enabled === false ? 'Off <span class="muted">· every gate waits for a human</span>'
+    : `On <span class="muted">· ${tiers.measured ? 'an agent with a passing eval may stand a gate down to notify-only' : 'nothing measured yet'}</span>`;
+  const shareV = share == null ? '<span class="abs" title="share state not read">· not read</span>'
+    : share.enabled ? `On <span class="muted">· anyone with <a href="${esc(share.url || '#')}" target="_blank" rel="noopener">the link</a> can view</span>`
+    : 'Off <span class="muted">· only you can see this project</span>';
+  const soName = so?.declared?.tool || so?.declared?.state || 'undeclared';
+  const soV = so == null ? '<span class="abs" title="harness state not read">· not read</span>'
+    : `${esc(soName)}${so.state === 'declared' ? '' : ` <span class="${so.state === 'unavailable' ? 'home-warn' : 'muted'}">· ${esc(so.state || 'state unknown')}</span>`}`;
+  const codexV = cx == null ? '<span class="abs" title="harness state not read">· not read</span>'
+    : cx.state === 'available' ? `Installed <span class="muted">· ${esc(cx.auth || 'signed in')}${cx.version ? ' · ' + esc(cx.version) : ''}</span>`
+    : cx.state === 'no-auth' ? 'Installed, <span class="home-warn">not logged in</span>'
+    : `<span class="abs" title="${esc(cx.why || '')}">Not installed</span>`;
   const plist = Array.isArray(projects) ? projects : (projects?.projects || null);
-  const projRows = plist == null ? '<div class="abs" title="the project registry could not be read">! registry unreadable</div>'
-    : plist.slice(0, 40).map((pr) => `
+  // The current project first; three rows until asked for the rest.
+  const ordered = plist == null ? null : [...plist].sort((x, y) => (y.slug === currentProject) - (x.slug === currentProject));
+  const shownProjects = ordered == null ? [] : (settingsView.allProjects ? ordered.slice(0, 40) : ordered.slice(0, 3));
+  const hiddenCount = ordered == null ? 0 : Math.min(ordered.length, 40) - shownProjects.length;
+  const projRows = ordered == null ? '<div class="abs" title="the project registry could not be read">! registry unreadable</div>'
+    : shownProjects.map((pr) => `
       <div class="settings-row">
-        <div class="sr-name"><span>${esc(pr.slug)}${pr.slug === currentProject ? ' <span class="cap muted">current</span>' : ''}</span><span class="cap muted mono">${esc(String(pr.path || '').replace(/^\/Users\/[^/]+/, '~'))}</span></div>
-        <div class="sr-value">${pr.archetype ? `<span class="mono cap">${esc(pr.archetype)}</span>` : '<span class="abs" title="no PROJECT.md read for this project">· no archetype</span>'}${pr.last_activity ? ` <span class="muted cap">· ${esc(agoStr(pr.last_activity))}</span>` : ''}</div>
-        <div class="sr-action">${pr.slug === currentProject ? '' : link('switch', `switchProject('${esc(pr.slug)}')`)}</div>
+        <div class="sr-name"><span>${esc(pr.slug)}</span>${settingsView.reveal ? `<span class="cap muted mono">${esc(String(pr.path || '').replace(/^\/Users\/[^/]+/, '~'))}</span>` : ''}</div>
+        <div class="sr-value">${pr.archetype ? `<span class="muted">${esc(pr.archetype)}</span>` : '<span class="abs" title="no PROJECT.md read for this project">· no archetype</span>'}${pr.last_activity ? ` <span class="muted">· ${esc(longAgo(pr.last_activity))}</span>` : ''}</div>
+        <div class="sr-action">${pr.slug === currentProject ? '<span class="muted cap">current</span>' : link('Switch', `switchProject('${esc(pr.slug)}')`)}</div>
       </div>`).join('');
   const theme = document.documentElement.dataset.theme || 'dark';
+  const privacy = document.getElementById('settings-privacy-line');
+  if (privacy) privacy.innerHTML = `${settingsView.reveal ? 'Paths and addresses are shown' : 'Paths and addresses are hidden'} · <button type="button" class="home-link" aria-pressed="${settingsView.reveal}" onclick="settingsToggle('reveal')">${settingsView.reveal ? 'Hide' : 'Show'}</button>`;
   el.innerHTML = `
     <div class="settings-group">
-      <div class="eyebrow">Project · .great_cto/PROJECT.md</div>
-      ${row('Budget cap', 'agent-budgets · monthly, USD', cap, link('Ledger', "switchTab('ledger')"))}
-      ${row('Second opinion', 'capabilities.second_opinion', soV, link('Harness', "switchTab('harness')"))}
-      ${row('Gate tiering', 'gate-tiering', tiering, '')}
-      ${row('Share', 'promote / public report', shareV, link('below', "document.getElementById('panel-share').scrollIntoView({behavior:'smooth'})"))}
+      ${head('project', `This project · ${esc(currentProject || '')}`, '.great_cto/PROJECT.md — agent-budgets, capabilities.second_opinion, gate-tiering, promote')}
+      ${row('project', 'Monthly budget cap', 'agent-budgets · monthly, USD', cap, link('Set in Cost', "switchTab('ledger')"))}
+      ${row('project', 'Second opinion', 'capabilities.second_opinion', soV, link('Change in Runtime', "switchTab('harness')"))}
+      ${row('project', 'Gate tiering', 'gate-tiering', tiering, '<span class="muted cap">set in PROJECT.md</span>')}
+      ${row('project', 'Public report', 'promote / public report', shareV, `<button type="button" class="btn-ghost-sm" aria-controls="panel-share" onclick="settingsOpenForm('panel-share')">Manage</button>`)}
     </div>
     <div class="settings-group">
-      <div class="eyebrow">Machine · ~/.great_cto</div>
-      ${row('Judge key', 'secrets.env · OPENROUTER_API_KEY', '<span class="muted">stored and replaced on the Harness screen</span>', link('Harness', "switchTab('harness')"))}
-      ${row('Codex binary', 'GREAT_CTO_CODEX_BIN', codexV, '')}
-      ${row('Telemetry', 'opt-in, off by default', '<span class="mono">off</span>', '<a class="cap" href="https://github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>')}
-      ${row('Theme', 'localStorage · this browser', `<span class="pill${theme !== 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme==='light')toggleBoardTheme();loadSettingsPage()">Dark</span> <span class="pill${theme === 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme!=='light')toggleBoardTheme();loadSettingsPage()">Light</span>`, '')}
+      ${head('machine', 'This computer', '~/.great_cto — secrets.env (OPENROUTER_API_KEY), GREAT_CTO_CODEX_BIN; theme in this browser')}
+      ${row('machine', 'Judge key', 'secrets.env · OPENROUTER_API_KEY', '<span class="muted">checked and replaced in Runtime</span>', link('Open Runtime', "switchTab('harness')"))}
+      ${row('machine', 'Codex', 'GREAT_CTO_CODEX_BIN', codexV, cx && cx.state === 'no-auth' ? '<span class="mono cap muted">codex login</span>' : '')}
+      ${row('machine', 'Telemetry', 'opt-in, off by default', 'Off', '<a class="cap" href="https://github.com/avelikiy/great_cto/blob/main/docs/PRIVACY.md" target="_blank" rel="noopener">What would be sent</a>')}
+      ${row('machine', 'Theme', 'localStorage · this browser', '', `<span class="pill${theme === 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme!=='light')toggleBoardTheme();loadSettingsPage()">Light</span> <span class="pill${theme !== 'light' ? ' on' : ''}" role="button" tabindex="0" onclick="if(document.documentElement.dataset.theme==='light')toggleBoardTheme();loadSettingsPage()">Dark</span>`)}
     </div>
-    <div class="settings-group">
-      <div class="eyebrow">Projects · ~/.great_cto/projects.json · ${plist ? plist.length + ' registered' : ''}</div>
-      ${projRows}
-      <div class="settings-row" style="border-top:none">
-        <div class="sr-name"><span class="muted cap">Paths must live inside HOME — /tmp and /etc are refused.</span></div>
-        <div class="sr-value"><input id="settings-register-path" class="input" placeholder="~/path/to/project" style="width:100%"></div>
-        <div class="sr-action">${link('Register', 'registerProjectFromSettings()')}</div>
+    <div class="settings-pair">
+      <div class="settings-group">
+        <div class="settings-group-head"><span class="eyebrow">Projects${plist ? ' · ' + plist.length : ''}</span><button type="button" class="home-link" aria-pressed="${settingsView.reveal}" onclick="settingsToggle('reveal')">${settingsView.reveal ? 'Hide paths' : 'Show paths'}</button></div>
+        ${projRows}
+        <div class="settings-row" style="grid-template-columns:1fr auto">
+          <div class="sr-name">${hiddenCount > 0 || settingsView.allProjects ? `<button type="button" class="home-link" aria-expanded="${settingsView.allProjects}" onclick="settingsToggle('allProjects')">${settingsView.allProjects ? 'Show fewer' : `Show ${hiddenCount} more`}</button>` : ''}</div>
+          <div class="sr-action"><button type="button" class="btn-ghost-sm" aria-expanded="${settingsView.register}" onclick="settingsToggle('register')">Register a project</button></div>
+        </div>
+        ${settingsView.register || (plist && plist.length === 0) ? `<div class="settings-row" style="grid-template-columns:1fr auto">
+          <div class="sr-value"><label class="cap muted" for="settings-register-path">Folder inside your home directory</label><input id="settings-register-path" class="input" placeholder="~/path/to/project" style="width:100%" value="${esc(settingsView.registerValue || '')}" oninput="settingsView.registerValue=this.value"></div>
+          <div class="sr-action">${link('Register', 'registerProjectFromSettings()')}</div>
+        </div>` : ''}
       </div>
-    </div>
-    <div class="eyebrow" style="margin:18px 0 6px">Alerts · the channel delivers, the board does not</div>`;
+      <div class="settings-group">
+        <div class="settings-group-head"><span class="eyebrow">Alerts</span></div>
+        <div id="settings-alerts"></div>
+      </div>
+    </div>`;
+  renderAlertRows();
+  if (settingsView.register && !settingsView.registerValue) document.getElementById('settings-register-path')?.focus();
 }
 async function registerProjectFromSettings() {
   const inp = document.getElementById('settings-register-path');
@@ -5894,6 +5995,7 @@ async function registerProjectFromSettings() {
     const r = await api('/api/projects/register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ path: v }) });
     if (r && r.error) { showToast(`Not registered: ${r.error}`, 'error', 3000); return; }
     showToast('Registered', 'info', 1500);
+    settingsView.registerValue = ''; settingsView.register = false;
     loadSettingsPage();
   } catch (e) { showToast(`Not registered: ${String(e.message || e)}`, 'error', 3000); }
 }
@@ -8216,6 +8318,7 @@ async function switchProject(slug) {
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
   if (currentTab === 'skills') loadSkillsInventory();
+  if (currentTab === 'settings') loadSettingsPage();
   if (window.GctoWork.parseRoute((location.hash || '').replace(/^#\/?/, ''))?.selectedKey) history.replaceState(history.state, '', '#/work');
   window.GctoWork.reset();
   // Optimistic UI clear
@@ -8440,6 +8543,7 @@ async function init() {
   resetProjectUsage();
   if (currentTab === 'usage') loadUsage();
   if (currentTab === 'skills') loadSkillsInventory();
+  if (currentTab === 'settings') loadSettingsPage();
   // Work already reads the URL's project during bind(). Late bootstrap data
   // must refresh that same scope, not erase an Execution/Evidence selection.
   window.GctoWork.refresh();
@@ -9196,6 +9300,7 @@ async function loadNotifications() {
   document.querySelectorAll('#notif-triggers input[data-trigger]').forEach(cb => {
     cb.checked = selected.has(cb.dataset.trigger);
   });
+  if (typeof renderAlertRows === 'function') renderAlertRows();
 }
 
 async function sendVerifyCode() {
@@ -9751,8 +9856,6 @@ function switchTab(id, el) {
   if (!el) el = document.querySelector(`.nav-item[data-tab="${navKey}"]`)
     || document.querySelector('.nav-item[data-tab="decisions"]');
   currentTab = lid;
-  document.getElementById('nav-views-label').hidden = lid !== 'agents';
-  document.querySelector('.nav-views').hidden = lid !== 'agents';
   if (['agents', 'budgets', 'harness', 'usage', 'skills'].includes(lid)) document.getElementById('tools-nav').open = true;
   if (lid === 'work' || lid === 'history') window.GctoWork.refresh();
   if (ROUTES[id]) {
@@ -10089,9 +10192,41 @@ async function refreshAgentsInstalled() {
 
 
 const FLEET_VIEWS = [
-  ['project', 'Project focus'],
-  ['needs', 'Needs attention'], ['expensive', 'Expensive grants'], ['never', 'Never observed'], ['all', 'All agents'], ['retired', 'Retired'],
+  ['project', 'In this project'],
+  ['needs', 'Needs attention'], ['expensive', 'Expensive grants'], ['never', 'Never run'], ['all', 'All'], ['retired', 'Retired'],
 ];
+// The chips on the page. `expensive` is still a view (old links open it) but has
+// no chip: on a real fleet it was every agent, so it filtered nothing. `retired`
+// gets a chip only when there is something behind it.
+const AGENT_CHIPS = ['project', 'needs', 'never', 'all', 'retired'];
+let agentsAboutOpen = false;
+function toggleAgentsAbout() {
+  agentsAboutOpen = !agentsAboutOpen;
+  renderFleetViews();
+}
+// "14d ago" made the reader count; a result that is three months old should say so.
+function longAgo(iso) {
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return 'time unknown';
+  const min = Math.max(0, Math.floor((Date.now() - t) / 60000));
+  if (min < 60) return min <= 1 ? 'just now' : `${min} minutes ago`;
+  const h = Math.floor(min / 60);
+  if (h < 48) return h === 1 ? '1 hour ago' : `${h} hours ago`;
+  const d = Math.floor(h / 24);
+  return `${d} days ago`;
+}
+// The permissions most agents share. A badge that sits on every row marks
+// nothing (it was `code.destructive +3` on 73 of 73), so a row is marked only
+// when it differs from this, or holds a grant that is scoped in name only.
+function postureSig(a) {
+  const p = a.posture || {};
+  return `${p.state || 'unreadable'}|${[...(p.expensive || [])].sort().join(',')}`;
+}
+function fleetStandardSig() {
+  const n = {};
+  for (const a of (fleetState.agents || [])) if (!a.retired) n[postureSig(a)] = (n[postureSig(a)] || 0) + 1;
+  return Object.keys(n).sort((x, y) => n[y] - n[x])[0] || '';
+}
 // What "needs attention" means, in one place: failing, an unjudged posture, a
 // grant that is scoped in name only, or spend past its cap. Not "idle" — the
 // brief refuses an inferred idle/retired status in v1.
@@ -10139,23 +10274,29 @@ function renderFleetViews() {
       ? `Core roles and this project's required reviewers. ${missing.length} required reviewer(s) missing from the installed catalog${missing.length ? ': ' + missing.join(', ') : ''}. ${attention} installed agent(s) need attention across the full catalog; open Needs attention. Display only, not an execution plan or proof of expertise.`
       : 'Project reviewer requirements are unknown; showing the installed catalog rather than hiding specialists. Display only; execution policy is unchanged.';
   }
-  for (const [key, label] of FLEET_VIEWS) {
-    const el = document.getElementById(`nav-view-${key}`);
-    if (!el) continue;
-    const n = agents.filter((a) => inFleetView(a, key)).length;
-    const selected = fleetState.view === key;
-    el.classList.toggle('active', selected);
-    el.setAttribute('aria-pressed', String(selected));
-    // A filter glyph keeps the same icon/label columns as the destinations.
-    el.innerHTML = `<svg class="icon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 5h16l-6 7v6l-4 2v-8z"/></svg><span class="nav-label">${esc(label)}</span><span class="nav-view-count">${n}</span>`;
+  // Opened by the operator, or by the one case that changes what the list means:
+  // the reviewer requirements were asked for and could not be used. "Not loaded
+  // yet" is not that case.
+  { const box = document.getElementById('agents-about'), btn = document.getElementById('agents-about-toggle');
+    const unusable = !!fleetState.required && !fleetRequirementsKnown() && fleetState.requiredScope === pqs();
+    if (box) { box.hidden = !(agentsAboutOpen || unusable); if (btn) btn.setAttribute('aria-expanded', String(!box.hidden)); } }
+  const chips = document.getElementById('agents-chips');
+  if (chips) {
+    chips.innerHTML = AGENT_CHIPS.map((key) => {
+      const label = (FLEET_VIEWS.find(([k]) => k === key) || [key, key])[1];
+      const n = agents.filter((a) => inFleetView(a, key)).length;
+      if (key === 'retired' && !n && fleetState.view !== 'retired') return '';
+      const selected = fleetState.view === key;
+      return `<button type="button" class="agents-chip${selected ? ' active' : ''}" id="agents-chip-${key}" aria-pressed="${selected}" onclick="setFleetView('${key}')">${esc(label)} <span class="mono">${n}</span></button>`;
+    }).join('');
   }
   const abs = document.getElementById('nav-fleet-abs');
   if (abs) abs.hidden = !agents.some((a) => a.posture?.state === 'unclassified' || a.posture?.state === 'unreadable');
   const title = document.getElementById('fleet-view-title');
   if (title) {
-    const [, label] = FLEET_VIEWS.find(([k]) => k === fleetState.view) || ['all', 'All agents'];
-    const n = agents.filter((a) => inFleetView(a, fleetState.view)).length;
-    title.innerHTML = `${esc(label)} <span class="muted" style="font-weight:400;font-size:var(--fs-title-s)">${n} of ${agents.length}</span>`;
+    const inProject = agents.filter((a) => inFleetView(a, 'project')).length;
+    const installed = agents.filter((a) => !a.retired).length;
+    title.innerHTML = `Agents <span class="muted" style="font-weight:400;font-size:var(--fs-title-s)">${fleetRequirementsKnown() ? `${inProject} used in this project · ` : ''}${installed} installed</span>`;
   }
 }
 
@@ -10215,28 +10356,23 @@ function renderFleetList() {
     el.innerHTML = '<li class="empty" style="padding:20px;text-align:center;color:var(--text3)">No agents match this view.</li>';
     return;
   }
-  // Groups come from deriveDomain() on the server — one taxonomy, not two. A
-  // group with rows in this view is expanded; the rest are one line each with
-  // their count, so 70 agents fit a screen without a scroll or a virtualizer.
-  const DOMAINS = AGENT_GROUPS.map(g => g.key);
-  const totals = {}; for (const a of fleetState.agents) totals[a.domain] = (totals[a.domain] || 0) + 1;
-  const byDomain = {}; for (const a of filtered) (byDomain[a.domain] = byDomain[a.domain] || []).push(a);
-  const order = [...DOMAINS, ...Object.keys(byDomain).filter((d) => !DOMAINS.includes(d))];
-  const expanded = order.filter((d) => (byDomain[d] || []).length);
-  const collapsed = order.filter((d) => !(byDomain[d] || []).length && totals[d]);
+  // One flat list in the chosen order. The role group (deriveDomain() on the
+  // server) is a word on the row: as headings, ten groups of one or two rows
+  // cost more lines than the rows did.
   const uu = fleetState.usage;
-  const usageLine = !uu ? ''
+  const usage = document.getElementById('agents-usage-note');
+  if (usage) usage.textContent = !uu ? ''
     : uu.state === 'counted'
-      ? `<li class="fleet-group-collapsed" title="read from Claude Code session logs on this machine; they keep about 30 days"><span>dispatched in session logs: ${Object.values(uu.agents || {}).filter((x) => x.dispatches > 0).length} of ${Object.keys(uu.agents || {}).length} agents · ${esc((uu.window?.from || '?').slice(0, 10))} → ${esc((uu.window?.to || '?').slice(0, 10))}</span></li>`
-      : `<li class="fleet-group-collapsed"><span class="abs">${esc(uu.state === 'computing' ? 'counting dispatches in the session logs…' : (uu.why || 'dispatches not counted'))}</span></li>`;
-  const head = usageLine + `<li class="fleet-head" aria-hidden="true"><span></span><span>Agent</span><span>Posture</span><span>Last verdict</span><span class="tab">Runs</span><span class="tab">Pass</span><span class="tab">30d $</span><span></span></li>`;
-  const rows = head + expanded.map((d) => `
-    <li class="fleet-group-head">${groupIcon(d)}<span>${esc(groupLabel(d))} · ${byDomain[d].length} of ${totals[d] || 0}</span></li>
-    ${byDomain[d].map(agentRowHtml).join('')}`).join('');
-  const tail = collapsed.length
-    ? `<li class="fleet-group-collapsed">${collapsed.map((d) => `<span title="no ${esc(groupLabel(d))} agent is in this view">${esc(groupLabel(d))} · 0 of ${totals[d]}</span>`).join('')}</li>`
-    : '';
-  el.innerHTML = rows + tail;
+      ? `Starts are counted from Claude Code session logs on this machine (they keep about 30 days): ${Object.values(uu.agents || {}).filter((x) => x.dispatches > 0).length} of ${Object.keys(uu.agents || {}).length} agents were started, ${(uu.window?.from || '?').slice(0, 10)} to ${(uu.window?.to || '?').slice(0, 10)}.`
+      : (uu.state === 'computing' ? 'Counting starts in the session logs…' : (uu.why || 'Starts were not counted.'));
+  const std = fleetStandardSig();
+  // Counted the way permissionCell() marks a row, so the note and the list agree.
+  const differ = filtered.filter((a) => postureSig(a) !== std).length;
+  const extra = filtered.filter((a) => postureSig(a) === std && (a.posture?.scopedInNameOnly || []).length > 0).length;
+  const note = document.getElementById('agents-perm-note');
+  if (note) note.textContent = permissionNote(filtered.length, differ, extra);
+  const head = `<li class="fleet-head" aria-hidden="true"><span>Agent</span><span>Permissions</span><span>Last result</span><span class="tab">Runs 30d</span><span class="tab">Pass</span><span class="tab">Spend 30d</span></li>`;
+  el.innerHTML = head + filtered.map((a) => agentRowHtml(a, std)).join('');
 }
 
 // One glyph per role group, so a reviewer and a builder differ at a glance —
@@ -10271,49 +10407,70 @@ function postureChips(a) {
   return out.join('');
 }
 // Required by this project's PROJECT.md: the chip says why, and whether it has run.
-function requiredChip(a) {
-  const r = requiredOf(a.slug);
-  if (!r) return '';
-  return r.verdict
-    ? `<span class="pos rou" title="required by ${esc(r.why)} — has a verdict in this project">✓ required</span>`
-    : `<span class="pos warn" title="required by ${esc(r.why)} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it">⚠ required · not run</span>`;
+function permissionNote(total, differ, extra) {
+  if (!total) return '';
+  if (!differ && !extra) return `${total === 1 ? 'This agent has' : `All ${total} have`} the standard permissions.`;
+  const marked = [extra ? `${extra} ${extra === 1 ? 'has' : 'have'} extra ones` : '', differ ? `${differ} ${differ === 1 ? 'differs' : 'differ'} from them` : ''].filter(Boolean).join(', ');
+  return `${total - differ - extra} of ${total} have the standard permissions; ${marked}, marked in the list.`;
 }
-function agentRowHtml(a) {
+function permissionCell(a, std) {
+  const p = a.posture || {};
+  const extras = p.scopedInNameOnly || [];
+  // Anything that is not the common case keeps the chip that names it.
+  if (postureSig(a) !== std) return { html: postureChips(a), standard: false };
+  if (extras.length) {
+    return { standard: false, html: `<span class="pos warn" title="beyond the standard set: ${esc(extras.map((t) => String(t).replace(/^Bash\(|\)$/g, '')).join(', '))} — each reads as a restriction and is a full shell">${extras.length} extra</span>` };
+  }
+  return { standard: true, html: `<span class="muted" title="${esc((p.expensive || []).join(' · ') || p.state || '')}">Standard</span>` };
+}
+function agentRowHtml(a, std) {
   const rate = a.success_rate;
   const runs = a.runs_30d ?? 0;
   const observed = a.runs_total > 0 || !!a.last_run;
   const u = usageOf(a.slug);
-  const dispatchNote = u ? `dispatched ${u.dispatches}× in the session logs${u.lastRun ? `, last ${agoStr(u.lastRun)}` : ''}${u.projects ? `, ${u.projects} project${u.projects === 1 ? '' : 's'}` : ''}` : 'dispatches not counted';
-  const last = observed
-    ? `<span title="${esc(dispatchNote)}">${a.health === 'failing' ? `<span style="color:var(--status-blocked)">failing</span>` : `<span style="color:var(--status-done)">ok</span>`} ${esc(agoStr(a.last_run))}</span>`
-    : u && u.dispatches > 0
-      ? `<span class="abs" title="${esc(dispatchNote)} — but no verdict line names it: it ran and did not report">dispatched ${u.dispatches}× · no verdict</span>`
-      : u
-        ? '<span class="abs" title="no verdict line names this agent, and the session logs on this machine never dispatched it">never dispatched</span>'
-        : '<span class="abs" title="no verdict line names this agent — absence of a log is not absence of a run">never observed</span>';
-  const pass = !observed ? '<span class="abs" title="never observed">—</span>'
-    : runs === 0 ? '<span class="abs" title="no run in this window — measured, none">—</span>'
-    : rate != null ? `${rate}%` : '<span class="abs" title="runs exist but no verdict carried a result yet">·</span>';
-  const spend = a.llm_usd_30d_real != null ? `$${a.llm_usd_30d_real.toFixed(2)}`
-    : a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0 ? `<span title="estimated from time, not from a verdict">≈$${a.llm_usd_30d_est.toFixed(2)}</span>`
-    : `<span class="abs" title="no verdict carries a cost for this agent">—</span>`;
-  const model = a.model_state === 'pinned' && a.model ? esc(a.model)
-    : a.model_state === 'undeclared' ? '<span class="abs" title="declares no model — not pinned to any default">—</span>'
-    : '<span class="abs" title="the agent file could not be read">!</span>';
+  const dispatchNote = u ? `started ${u.dispatches}× in the session logs${u.lastRun ? `, last ${agoStr(u.lastRun)}` : ''}${u.projects ? `, ${u.projects} project${u.projects === 1 ? '' : 's'}` : ''}` : 'starts not counted';
+  // A reviewer this project requires, with no result here yet, is a fact about its
+  // runs, not its permissions: it says so in Last result (approved 2026-11-11).
+  const reqd = requiredOf(a.slug);
+  const reqPending = !!(reqd && !reqd.verdict);
+  const lastText = reqPending ? 'Required here, not run yet'
+    : observed
+    ? `${a.health === 'failing' ? 'Failing' : 'OK'} · ${longAgo(a.last_run)}`
+    : u && u.dispatches > 0 ? `Started ${u.dispatches} ${u.dispatches === 1 ? 'time' : 'times'}, no result recorded`
+    : u ? 'Never started' : 'Never observed';
+  const last = reqPending
+    ? `<span class="home-warn" title="${esc(`required by ${reqd.why} — no verdict in this project yet; gate:ship refuses until it runs or a signed exception names it`)}">${esc(lastText)}</span>`
+    : observed
+    ? `<span title="${esc(dispatchNote)}"${a.health === 'failing' ? ' style="color:var(--status-blocked)"' : ''}>${esc(lastText)}</span>`
+    : `<span class="${u && u.dispatches > 0 ? 'home-warn' : 'muted'}" title="${esc(u ? dispatchNote + ' — no result line names this agent' : 'no result line names this agent — absence of a log is not absence of a run')}">${esc(lastText)}</span>`;
+  const passText = !observed || runs === 0 || rate == null ? null : `${rate}%`;
+  const pass = passText || `<span class="muted" title="${!observed ? 'never observed' : runs === 0 ? 'no run in this window — measured, none' : 'runs exist but no result carried a pass or fail yet'}">n/a</span>`;
+  const base = a.llm_usd_30d_real != null ? `$${a.llm_usd_30d_real.toFixed(2)}`
+    : a.llm_usd_30d_est != null && a.llm_usd_30d_est > 0 ? `about $${a.llm_usd_30d_est.toFixed(2)}` : null;
+  const bud = a.budget && a.budget.state !== 'no-limit' ? a.budget : null;
+  const over = bud && (bud.state === 'exceeded' || String(bud.state).startsWith('over'));
+  const spend = base
+    ? `<span${over ? ' class="home-warn"' : ''} title="${esc(bud ? bud.why : a.llm_usd_30d_real != null ? 'measured from results' : 'estimated from time, not from a result')}">${base}${bud ? ` <span${over ? '' : ' class="muted"'}>of $${esc(String(bud.limitUsd))}</span>` : ''}</span>`
+    : `<span class="muted" title="${esc(bud ? bud.why : 'no result carries a cost for this agent')}">none${bud ? ` · cap $${esc(String(bud.limitUsd))}` : ''}</span>`;
+  const model = a.model_state === 'pinned' && a.model ? esc(String(a.model).replace(/^claude-/, '').replace(/-\d+(-\d+)*$/, ''))
+    : a.model_state === 'undeclared' ? 'no model set' : 'unreadable';
+  const req = requiredOf(a.slug);
+  const role = req ? 'required reviewer' : String(groupLabel(a.domain) || '').toLowerCase();
+  const perm = permissionCell(a, std);
+  const sub = [`${runs} ${runs === 1 ? 'run' : 'runs'}`, passText ? `${passText} pass` : '', lastText].filter(Boolean).join(' · ');
   return `<li>
       <button class="agent-row status-${esc(a.health)}${a.retired ? ' retired' : ''}"
               role="button" data-slug="${esc(a.slug)}"
               aria-label="${esc(a.slug)} · ${esc(a.health)} · ${runs} runs 30d"
               onclick="openAgentDrawer('${esc(a.slug)}')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();openAgentDrawer('${esc(a.slug)}')}">
-        <span class="ar-status" aria-hidden="true"></span>
-        <span class="ar-name">${groupIcon(a.domain)}${esc(a.slug)} <span class="mono cap muted" style="font-weight:400">${model}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
-        <span class="ar-posture">${requiredChip(a)}${postureChips(a)}</span>
-        <span class="mono cap ar-last">${last}</span>
-        <span class="mono cap tab" title="runs in the last 30 days">${runs}</span>
-        <span class="mono cap tab" title="pass rate over those runs">${pass}</span>
-        <span class="mono cap tab" title="LLM spend, last 30 days">${spend}${budgetChip(a.budget)}</span>
-        <span class="ar-chev" aria-hidden="true">›</span>
+        <span class="ar-name">${groupIcon(a.domain)}<strong>${esc(a.slug)}</strong> <span class="muted">· ${model}${role ? ` · ${esc(role)}` : ''}</span>${a.retired ? ' <span class="cap" style="color:var(--agent-retired)">retired</span>' : ''}</span>
+        <span class="ar-posture${perm.standard ? ' std' : ''}">${perm.html}</span>
+        <span class="ar-last">${last}</span>
+        <span class="tab ar-runs" title="runs in the last 30 days">${runs}</span>
+        <span class="tab ar-pass" title="pass rate over those runs">${pass}</span>
+        <span class="tab ar-spend" title="LLM spend, last 30 days">${spend}</span>
+        <span class="ar-sub ${reqPending ? 'home-warn' : 'muted'}">${esc(sub)}</span>
       </button>
     </li>`;
 }
@@ -10322,11 +10479,14 @@ function renderLegacyAgentsSection() {
   const sec = document.getElementById('legacy-agents-section');
   const cnt = document.getElementById('legacy-agents-count');
   if (!sec) return;
-  if (fleetState.legacy_count > 0) {
-    sec.hidden = false;
-    if (cnt) cnt.textContent = `${fleetState.legacy_count} runs`;
-  } else {
-    sec.hidden = true;
+  const line = document.getElementById('agents-legacy-line');
+  const n = fleetState.legacy_count;
+  sec.hidden = !(n > 0);
+  if (line) line.hidden = !(n > 0);
+  if (n > 0) {
+    if (cnt) cnt.textContent = `${n} runs`;
+    const txt = document.getElementById('agents-legacy-text');
+    if (txt) txt.textContent = `${n} ${n === 1 ? 'run is' : 'runs are'} recorded under agent names that are no longer installed.`;
   }
 }
 
@@ -10938,6 +11098,7 @@ function _updatePushUI() {
     : 'Click to enable desktop push notifications.';
   if (vis) vis.classList.toggle('on', _pushEnabled);
   _refreshNavNotifBadge();  // sync nav badge with push state
+  if (typeof renderAlertRows === 'function') renderAlertRows();
 }
 async function togglePush(e) {
   if (e) e.stopPropagation();

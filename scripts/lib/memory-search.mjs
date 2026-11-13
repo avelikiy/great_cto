@@ -45,6 +45,15 @@ const STOP = new Set(('a an and are as at be but by for if in into is it no not 
 
 const K1 = 1.5;
 const B = 0.75;
+// The docs corpus mixes 90-line ADRs with 500-line RFCs and plans. At the default
+// length normalization a long plan that mentions every subject once outranks the
+// short ADR that decides one; 2026-11-11 a 537-line RFC pushed ADR-024 out of the
+// top three for a question it answers. 0.9 normalizes length harder. Measured on
+// tests/fixtures/recall-golden.json: before that RFC, 0.75 and 0.9 both find 11 of
+// 16 with the same five misses; after it, 0.75 finds 10 and 0.9 finds 11 again.
+// (0.5 finds 8; 1.0 finds 11.) Memory corpora keep B: they are short and /resume
+// was tuned against them.
+const DOCS_B = 0.9;
 
 /** Lowercase, split on non-[a-z0-9_], drop stopwords + 1-char tokens. */
 export function tokenize(text) {
@@ -245,8 +254,8 @@ export function splitSections(text) {
  * "Consequences" means nothing without the ADR it belongs to. A document none of
  * whose sections holds a query term gets no pointer, rather than an invented one.
  */
-function searchSections(docs, query, limit) {
-  const ranked = search(buildIndex(docs), query, { limit });
+function searchSections(docs, query, limit, b = B) {
+  const ranked = search(buildIndex(docs), query, { limit, b });
   if (ranked.length === 0) return [];
 
   const units = [];
@@ -284,8 +293,9 @@ export function searchMemory({ query, cwd = process.cwd(), source = 'all', limit
   const docs = corpus ?? gatherCorpus({ cwd, source });
   if (docs.length === 0) return [];
   const mode = granularity ?? (source === 'docs' ? 'section' : 'document');
-  if (mode === 'section') return searchSections(docs, query, limit);
-  return search(buildIndex(docs), query, { limit }).map(r => ({
+  const b = source === 'docs' ? DOCS_B : B;
+  if (mode === 'section') return searchSections(docs, query, limit, b);
+  return search(buildIndex(docs), query, { limit, b }).map(r => ({
     // `id`, not `basename`: for docs it is the relative path, and for the two
     // global memory files it is the label that tells them apart from the
     // project's own decisions.md — which the basename collapsed.

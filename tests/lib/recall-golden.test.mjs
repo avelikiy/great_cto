@@ -52,6 +52,11 @@ test('every golden answer is a document the corpus actually holds', () => {
 // matching, not recall) and none reached past a document's first section.
 // On the revised set (16 questions) document ranking finds the answer 11 times,
 // and the pointer lands in the right section 5 times out of 5.
+//
+// 2026-11-11: a 537-line RFC (#274) pushed ADR-024 out of the top three for the
+// cross-site question and document ranking fell to 10. The docs corpus now ranks
+// with stronger length normalization (DOCS_B in memory-search.mjs): 11 again,
+// with the same five misses as before that RFC, and 11 on the corpus before it.
 const HIT_AT_3_FLOOR = 11;
 const SECTION_POINTER_FLOOR = 5;
 
