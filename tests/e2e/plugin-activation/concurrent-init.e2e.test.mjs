@@ -13,11 +13,14 @@ import {
 } from './harness.mjs';
 
 test('two concurrent inits: the second refuses with installation-busy-lock and writes nothing', async t => {
+  // However this test ends, the first init must not outlive it. Hooks run in the order they were
+  // registered and newMachine() registers the removal of the machine, so this one goes first.
+  let release = () => {};
+  t.after(() => release());
   const machine = newMachine(t); seedHost(machine);
   const pkg = buildPackage(machine, { version: '3.72.0', hold: true });
   const first = startInit(machine, pkg);
-  // However this test ends, let the held smoke go and make sure the first init does not outlive it.
-  t.after(() => { fs.writeFileSync(pkg.release, ''); first.child.kill('SIGKILL'); });
+  release = () => { first.child.kill('SIGKILL'); fs.writeFileSync(pkg.release, ''); };
 
   await waitFor('the first init to reach its smoke', () => executions(pkg).length === 1);
   const held = stateRecords(machine);
