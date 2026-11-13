@@ -1,7 +1,7 @@
 # ADR-051: Verdict authority — a role writes only its own verdict, and the harness says who wrote it
 
 **Date:** 2026-11-13
-**Status:** Proposed (slice 1 implemented for review; slices 2–3 await the owner)
+**Status:** Accepted (2026-11-13, owner) — slice 1 implemented; slices 2 and 3 approved, in that order
 **Related:** [ADR-046 verdict seals](ADR-046-verdict-seals.md) · [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [plan](../plans/PLAN-archon-lessons.md), item 1
 
 ## Context
@@ -52,7 +52,7 @@ A PreToolUse check, run inside `bash-guards.mjs` for shell calls and as its own 
    operator. It is an environment variable on the operator's shell, not a flag an agent's
    command can carry.
 
-### Slice 2 — attest the writer (proposed)
+### Slice 2 — attest the writer (approved, next)
 
 A PostToolUse hook on a subagent's writer call appends
 `{ts, agent_id, agent_type, role, line_digest}` to `.great_cto/verdict-attestations.jsonl`,
@@ -60,7 +60,7 @@ sealed with the ADR-046 key. `receipt.mjs --verify --require` and the board's me
 report each approving verdict as **attested** (a subagent of that role wrote it, seen by the
 harness) or **self-reported** (no attestation). Self-reported is said, never passed as attested.
 
-### Slice 3 — require attestation where it matters (proposed, owner decision)
+### Slice 3 — require attestation where it matters (approved, after slice 2)
 
 For regulated archetypes (`REGULATED_FLOOR`), `gate:ship` requires the code-reviewer,
 qa-engineer and security-officer verdicts to be attested or controller-written.
