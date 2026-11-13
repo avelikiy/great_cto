@@ -36,11 +36,11 @@ export const TOKEN = '@@PLUGIN_DIR@@';
 // resolver: it prints the registered path when that is a version directory directly under the
 // admitted cache root, and nothing otherwise, so a path outside it is never executed. The resolver
 // then validates again; this is not a second implementation of its rules. No quote characters other
-// than double quotes, because the snippet sits inside single quotes in the shell.
+// than double quotes, because the snippet sits inside single quotes in the shell. The path is checked
+// physically as well as by name (bug 0m3u): the version directory must not be a symlink, and it and the
+// cache root must agree once every link on the way is resolved, as scripts/lib/plugin-dir.sh checks it.
 // Deliberately the local marketplace's cache directory: it is where `great-cto init` publishes the
-// admitted copy, and the only cache the registration may point into. The path is checked physically as
-// well as by name (bug 0m3u): the version directory must not be a symlink, and it and the cache root
-// must agree once every link on the way is resolved, as scripts/lib/plugin-dir.sh checks it.
+// admitted copy, and the only cache the registration may point into.
 const LOCATOR = 'try{const h=require("os").homedir(),a=require("path"),f=require("fs"),r=a.join(h,".claude/plugins/cache/local/great_cto"),'
   + 'e=require(a.join(h,".claude/plugins/installed_plugins.json")).plugins["great_cto@local"].filter(x=>x.scope==="user"),'
   + 'p=e.length===1?e[0].installPath:"";'
@@ -85,7 +85,7 @@ const REPLACED = [legacy("'"), legacy('"'), bootstrapWith(LOCATOR_BEFORE_PHYSICA
 // uses are the whole list, matched as written: the review banner sorts report names with the same awk
 // the old lookup used, and the cleanup loop keeps the newest cached versions. Anything else that names
 // the cache is read as a listing, whatever it is spelled with, because a listing has to name what it lists.
-const CACHE_USES_ALLOWED = ["awk -F'/plugins/cache/'", '"$HOME"/.claude/plugins/cache/*/great_cto'];
+const CACHE_USES_ALLOWED = ["awk -F'/plugins/cache/'", 'for CR in "$HOME"/.claude/plugins/cache/*/great_cto; do'];
 const CACHE_NAMED = /plugins[\/"'`\s,\\+]*cache|\bcache[\/"'`\s,\\+]*great_cto|\/cache(?![\w-])|\b(?:readdir|opendir|scandir|listdir)\w*|\b(?:glob|globSync)\s*\(|\bwalk\s*\(/gi;
 
 /**
