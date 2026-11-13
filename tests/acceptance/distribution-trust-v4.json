@@ -379,6 +379,10 @@
         },
         {
           "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
+          "test": "crash after ${boundary}: recovery alone puts every host file back exactly as it was"
+        },
+        {
+          "file": "tests/e2e/plugin-activation/crash-recovery.e2e.test.mjs",
           "test": "a host edit made after a crash is never overwritten: init stops with RECOVERY_REQUIRED and activates nothing"
         }
       ],

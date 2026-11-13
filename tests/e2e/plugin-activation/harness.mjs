@@ -230,5 +230,16 @@ export function crashAt(machine, pkg, phase = '') {
   return { status: r.status, stdout: r.stdout, stderr: r.stderr };
 }
 
+/** Runs only the recovery `init` would run, in its own process, and returns its outcome record. */
+export function recoverCrashed(machine, pkg) {
+  const r = spawnSync(process.execPath, [CRASH_CHILD, pkg.root, '--recover'], { env: cleanEnv(machine), encoding: 'utf8', timeout: 120_000 });
+  if (r.error) throw r.error;
+  if (r.status !== 0) throw new Error(`recovery child exited ${r.status}: ${r.stderr}`);
+  return JSON.parse(r.stdout).result;
+}
+
+/** Everything under the Claude directory except the published cache directories: the host's own files. */
+export const hostFiles = machine => Object.fromEntries(Object.entries(snapshot(machine.claudeDir)).filter(([key]) => !key.startsWith('plugins/cache')));
+
 export const alive = pid => { try { process.kill(pid, 0); return true; } catch (error) { return error.code === 'EPERM'; } };
 export const tail = (text, n = 1500) => text.length > n ? '…' + text.slice(-n) : text;

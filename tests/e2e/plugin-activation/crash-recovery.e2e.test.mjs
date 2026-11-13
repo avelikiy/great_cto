@@ -7,8 +7,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import {
-  newMachine, buildPackage, runInit, crashAt, paths, versionDir, seedHost, readHost, inventoryOf, executions,
-  journals, stateRecords, alive, PHASES, PLUGIN_KEY, tail,
+  newMachine, buildPackage, runInit, crashAt, recoverCrashed, hostFiles, paths, versionDir, seedHost, readHost,
+  inventoryOf, executions, journals, stateRecords, alive, PHASES, PLUGIN_KEY, tail,
 } from './harness.mjs';
 
 /** Boundaries after which the host may already differ from where it started: recovery restores it. */
@@ -58,6 +58,32 @@ for (const boundary of PHASES) {
     const interrupted = [...PHASES.slice(0, PHASES.indexOf(boundary) + 1), ...(ROLLS_BACK.includes(boundary) ? ['ROLLED_BACK'] : [])];
     const expected = boundary === 'SMOKE_PASSED' ? [PHASES] : [interrupted, PHASES];
     assert.deepEqual(journals(machine).map(j => j.phases.join(',')).sort(), expected.map(list => list.join(',')).sort());
+  });
+}
+
+// `init` recovers and retries in one go, so its end state cannot tell "restored, then redone" from "left
+// as the crash found it, then completed". Looking at the host between the two can.
+for (const boundary of PHASES) {
+  test(`crash after ${boundary}: recovery alone puts every host file back exactly as it was`, t => {
+    const machine = newMachine(t); seedHost(machine);
+    const pkg = buildPackage(machine, { version: '3.72.0' });
+    const before = hostFiles(machine);
+    assert.equal(crashAt(machine, pkg, boundary).status, 9);
+    const crashedState = hostFiles(machine);
+    // From ACTIVATING on, the crash left the host different from where it started; before that it is untouched.
+    const touched = ['REGISTRY_WRITTEN', 'SETTINGS_WRITTEN', 'MARKETPLACE_WRITTEN', 'ACTIVE', 'SMOKE_PASSED'].includes(boundary);
+    assert.equal(JSON.stringify(crashedState) !== JSON.stringify(before), touched, `the crash at ${boundary} ${touched ? 'should have' : 'should not have'} changed a host file`);
+
+    const outcome = recoverCrashed(machine, pkg);
+    if (boundary === 'SMOKE_PASSED') {
+      assert.equal(outcome.state, 'RECOVERED_ACTIVE', JSON.stringify(outcome));
+      assert.deepEqual(hostFiles(machine), crashedState, 'a passed smoke is kept, not undone');
+    } else {
+      assert.equal(outcome.state, 'ROLLED_BACK', JSON.stringify(outcome));
+      assert.deepEqual(hostFiles(machine), before, 'every host file is byte-for-byte what it was before the transaction');
+    }
+    assert.equal(stateRecords(machine).pointer.state, 'COMPLETE');
+    assert.equal(executions(pkg).length, boundary === 'SMOKE_PASSED' ? 1 : 0, 'recovery ran no candidate byte');
   });
 }
 
