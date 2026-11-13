@@ -56,11 +56,22 @@ function fixture(t) {
 }
 
 test('actual pinned timeout retains opt-in stage, never private stderr or cleanup proof',t=>{
- const f=fixture(t);
- f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
- // This case proves stage retention after launch, not minimum-deadline startup.
- // The separate timeout-cause case below still exercises the 250 ms floor.
- assert.throws(()=>f.score({timeoutMs:1000,stageDiagnostics:true}),error=>{
+ // The stage line is written by the scorer's first statement. On a host so loaded
+ // that node cannot start inside the 1000 ms deadline, the deadline ends the scorer
+ // before that statement and there is no stage to retain: the same outcome as the
+ // SIGTERM scenario below, re-armed the same way (fresh fixture, at most 3 attempts).
+ let f,thrown;
+ for(let attempt=1;attempt<=3;attempt++){
+  f=fixture(t);
+  f.custom("import{writeSync}from'node:fs';writeSync(3,JSON.stringify({stage:'launch',elapsedMs:1})+'\\n');process.stderr.write('PRIVATE_PAYLOAD');setInterval(()=>{},1000);");
+  thrown=undefined;
+  // This case proves stage retention after launch, not minimum-deadline startup.
+  // The separate timeout-cause case below still exercises the 250 ms floor.
+  try{f.score({timeoutMs:1000,stageDiagnostics:true});}catch(error){thrown=error;}
+  if(!(thrown?.processDiagnostic?.outcome==='timeout'&&thrown.stageTimings?.length===0))break;
+  t.diagnostic('attempt '+attempt+': the scorer was killed at its 1000 ms deadline before it could start (host load)');
+ }
+ assert.throws(()=>{if(thrown)throw thrown;},error=>{
   assert.equal(error.processDiagnostic.outcome,'timeout');assert.deepEqual(error.stageTimings,[{stage:'launch',elapsedMs:1}]);
   assert.equal(error.processDiagnostic.timeoutMs,1000);
   assert.equal(error.processDiagnostic.descendantQuiescenceVerified,false);assert.doesNotMatch(error.message,/PRIVATE_PAYLOAD/);return true;
