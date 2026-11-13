@@ -1,10 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, realpathSync, writeFileSync, readFileSync, rmSync, statSync, existsSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, realpathSync, writeFileSync, readFileSync, rmSync, statSync, existsSync, symlinkSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
+import { gzipSync } from 'node:zlib';
 import { runPinnedPackageSmoke, smokeProcessDiagnostic, runProgressWatchedProcess, PROBE_STALL_MS, PROBE_HARD_MS } from '../../scripts/lib/pinned-package-smoke.mjs';
 import { fileURLToPath } from 'node:url';
 import { relative } from 'node:path';
@@ -149,6 +150,58 @@ test('traversal, duplicate, special, overlapping and oversized archive inventory
       f.clean(error.evidenceRoot); assert.equal(existsSync(join(error.evidenceRoot, 'runs')), false);
       assert.equal(existsSync(f.marker), false); return /extraction failed/.test(error.message);
     });
+  }
+});
+// Archives assembled byte by byte, so the member sizes in the headers do not
+// depend on what the CPython that runs this test would write or accept.
+// CPython 3.12.16 ends tar iteration silently at a header it cannot parse,
+// while 3.12.3 reports a negative size and lets the extractor refuse it.
+function tarHeader(name, size, sizeField = Buffer.from(size.toString(8).padStart(11, '0') + '\0')) {
+  const header = Buffer.alloc(512);
+  header.write(name, 0); header.write('0000644\0', 100); header.write('0000000\0', 108); header.write('0000000\0', 116);
+  sizeField.copy(header, 124); header.write('00000000000\0', 136);
+  header.fill(0x20, 148, 156); header.write('0', 156); header.write('ustar\0', 257); header.write('00', 263);
+  let sum = 0; for (const byte of header) sum += byte;
+  header.write(sum.toString(8).padStart(6, '0') + '\0 ', 148);
+  return header;
+}
+function tarFile(name, content) {
+  const data = Buffer.from(content);
+  return Buffer.concat([tarHeader(name, data.length), data, Buffer.alloc((512 - data.length % 512) % 512)]);
+}
+function rawArchive(t, ...tail) {
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'package-smoke-raw-')));
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  const archive = join(root, 'package.tgz');
+  writeFileSync(archive, gzipSync(Buffer.concat([
+    tarFile('package/package.json', JSON.stringify({ name: 'great-cto', version: '9.0.0', bin: { 'great-cto': 'index.mjs' } })),
+    tarFile('package/index.mjs', entry), ...tail, Buffer.alloc(1024), Buffer.alloc(8192)])));
+  return { artifactFile: archive, artifactSha256: sha(readFileSync(archive)) };
+}
+// python3.12 on PATH is the pinned interpreter; GCTO_EXTRA_PYTHON312 may list
+// more (colon separated absolute paths, e.g. another patch release) to run the same checks on.
+const extractorPythons = ['python3.12', ...(process.env.GCTO_EXTRA_PYTHON312 ?? '').split(':').filter(Boolean)];
+test('hand-built archive with a valid header chain is extracted (control for the refusals below)', async t => {
+  for (const pythonBin of extractorPythons) {
+    const report = await runPinnedPackageSmoke({ ...rawArchive(t), pythonBin });
+    t.after(() => rmSync(report.evidenceRoot, { recursive: true, force: true }));
+    assert.equal(report.packageVersion, '9.0.0'); assert.equal(report.extractedFiles, 2);
+  }
+});
+test('a header the interpreter would skip silently is refused, whatever its patch version does with it', async t => {
+  const negative = tarHeader('package/negative', 0, Buffer.alloc(12, 0xff)); // base-256 size of -1
+  const unknownMarker = tarHeader('package/marker', 0, Buffer.from([0x81, ...Array(11).fill(0)]));
+  const garbage = Buffer.alloc(512, 0x41); // not a header at all
+  const afterTerminator = [Buffer.alloc(1024), tarFile('package/late', 'after the terminator')];
+  const truncatedData = [tarHeader('package/short', 1 << 20)]; // claims 1 MiB, far fewer bytes follow
+  for (const pythonBin of extractorPythons) {
+    for (const tail of [[negative], [unknownMarker], [garbage], afterTerminator, truncatedData]) {
+      await assert.rejects(() => runPinnedPackageSmoke({ ...rawArchive(t, ...tail), pythonBin }), error => {
+        t.after(() => rmSync(error.evidenceRoot, { recursive: true, force: true }));
+        assert.deepEqual(readdirSync(join(error.evidenceRoot, 'extracted')), [], `${pythonBin}: nothing was extracted`);
+        return /extraction failed/.test(error.message);
+      });
+    }
   }
 });
 test('gzip expansion is bounded before tar metadata parsing', async t => {
