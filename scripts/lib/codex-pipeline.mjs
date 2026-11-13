@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { parsePipelineToml } from './pipeline-toml.mjs';
 import { scan } from './secret-patterns.mjs';
 import { runCodexExec, codexToolEvent } from './codex-exec.mjs';
-import { runClaudeExec } from './claude-exec.mjs';
+import { runClaudeExec, VERIFIER_SCHEMA } from './claude-exec.mjs';
 import { auditHostGraphRuntimes } from './host-graph-runtime.mjs';
 import { graphBinding, observeHostGraph, recordHostGraphGap } from './host-graph-observer.mjs';
 import { appendEvent } from './agent-events.mjs';
@@ -48,8 +48,19 @@ export function validateRoutes(routes, graph) {
   }
   return { ...routes };
 }
-const roleHost = (state, role) => state.hostRoutes?.[role] || state.hostRoutes?.[specialistRole(state, role)] || 'codex';
-const hostAgent = (state, role) => `${roleHost(state, role) === 'codex' ? 'codex' : 'claude'}-${role}`;
+// ADR-049: an explicit route wins, then the run's one host, then Codex. Runs
+// recorded before the option existed carry no defaultHost and stay on Codex.
+const roleHost = (state, role) => state.hostRoutes?.[role] || state.hostRoutes?.[specialistRole(state, role)] || state.defaultHost || 'codex';
+const agentPrefix = host => host === 'codex' ? 'codex' : 'claude';
+const hostAgent = (state, role) => `${agentPrefix(roleHost(state, role))}-${role}`;
+/**
+ * The host that verifies every stage of this run. On a machine with only Claude
+ * Code it is a fresh Claude session: same host, no shared context, not a second
+ * model family. It is recorded on each attempt so a screen can name it.
+ */
+export const verifierHost = state => state.verifierHost || 'codex';
+/** Every host this run can call, for a readiness probe before anything is created. */
+export const runHosts = state => [...new Set([state.defaultHost || 'codex', verifierHost(state), ...Object.values(state.hostRoutes || {})])].sort();
 const hostRunner = (state, role, runners) => runners[roleHost(state, role)];
 function cleanResponse(response) {
   const errors = (response.errors || []).filter(e => !String(e).split('\n').every(line =>
@@ -207,8 +218,9 @@ function releaseSummary(state) {
 }
 
 export async function verifyStage(state, role, proposal, execute) {
-  const agent = 'codex-verifier';
+  const host = verifierHost(state), agent = `${agentPrefix(host)}-verifier`;
   const verifierAttempt = state.attempts?.findLast(a => a.role === role);
+  if (verifierAttempt) verifierAttempt.verifierHost = host;
   const invocationId = invocationIdentity({ session_id: state.id,
     agent_id: `${verifierAttempt?.id || randomUUID()}:verifier` });
   if (verifierAttempt) verifierAttempt.verifierInvocationId = invocationId;
@@ -219,15 +231,20 @@ export async function verifyStage(state, role, proposal, execute) {
   const attestWorkflow = wave?.roles.includes(role);
   try {
     const invoke = options => {
-      const admitted = domainInvocation(state, 'codex', options);
+      const admitted = domainInvocation(state, host, options);
       const attempt = state.attempts?.findLast(a => a.role === role);
       if (attempt && admitted.evidence) attempt.domainVerifierContext = admitted.evidence;
       return execute(admitted.options);
     };
     const verifierResponse = await invoke({
-      cwd: state.root, sandbox: 'read-only', ephemeral: true, extraArgs: workerArgs,
-      bin: process.env.GREAT_CTO_CODEX_BIN || 'codex', timeoutMs: 300000,
-      invocationId, onEvent: toolListener(state, agent, invocationId, execute === runCodexExec),
+      cwd: state.root, sandbox: 'read-only', ephemeral: true, timeoutMs: 300000, invocationId,
+      ...(host === 'codex'
+        ? { extraArgs: workerArgs, bin: process.env.GREAT_CTO_CODEX_BIN || 'codex',
+          onEvent: toolListener(state, agent, invocationId, execute === runCodexExec) }
+        // A Claude verifier is a new restricted session (inspection tools only) with
+        // its own output contract; like a Claude worker it streams only when observed.
+        : { extraArgs: [], bin: process.env.GREAT_CTO_CLAUDE_BIN || 'claude', schema: VERIFIER_SCHEMA,
+          onEvent: state.observeHostGraph === true ? toolListener(state, agent, invocationId, execute === runClaudeExec) : null }),
       prompt: `You are an independent verifier for the ${role} stage. Read the ACTUAL files and assess whether they satisfy the task for this stage.\n` +
         frozenPolicyContext(state) +
         (state.specialistStages?.[role] ? `Controlled phase: ${state.specialistStages[role].phase}, before implementation. Verify an implementable contract/threat model and its evidence; do not require nonexistent implementation or treat design sign-off as code approval. Capability: ${codexRoleProfile(specialistRole(state, role))}\n` : '') +
@@ -251,12 +268,14 @@ export async function verifyStage(state, role, proposal, execute) {
         `Check every report/summary claim about concurrency, other roles, completion and timing against controller observations; task wording and report self-claims are not workflow evidence. Failed or unfinished invocations do not prove successful parallel work. ` +
         `Parallel siblings review the same pre-proposal snapshot; a sibling report need not exist during this stage's verification. Independently inspect this stage's actual files and claims.\n` +
         (attestWorkflow ? `Include workflowAttestation {state:"supported|unsupported|unverifiable",waveId:${JSON.stringify(wave.id)},roles:${JSON.stringify(wave.roles)},checks:["actual report workflow assertions checked against controller evidence"]}. Use unsupported for a false/unsupported factual workflow claim and unverifiable when evidence cannot be inspected; do not waive report inaccuracies because implementation checks pass. If no workflow claims exist, state that explicitly in checks.\n` : '') +
-        `You may inspect files and run tests that work in the read-only sandbox. ${readOnlyShellContract}Never modify files or call external services. ` +
+        (host === 'codex'
+          ? `You may inspect files and run tests that work in the read-only sandbox. ${readOnlyShellContract}Never modify files or call external services. `
+          : `You may inspect files with the read-only tools provided. You cannot run commands or tests in this session: never claim that a test was executed, and list in checks only what you actually read. Never modify files or call external services. `) +
         `Do not treat file existence, a previous agent's statement or tests that were not executed as evidence of correctness. ` +
         `Return ONLY JSON {"state":"verified|rework|unverifiable","findings":["..."],"checks":["what you actually inspected or ran"]}, plus dependencyAttestation when scoped dependency evidence is provided. ` +
         `Use unverifiable if unable to inspect the evidence. Use rework when you find defects. No gate approval or file proposals.`,
     });
-    observeRunnerHealth(state, verifierResponse, { host: 'codex', invocationId, attemptId: verifierAttempt?.id || null });
+    observeRunnerHealth(state, verifierResponse, { host, invocationId, attemptId: verifierAttempt?.id || null });
     const result = cleanResponse(verifierResponse);
     if (!['verified', 'rework', 'unverifiable'].includes(result.state) || !Array.isArray(result.findings) || !Array.isArray(result.checks) || !result.checks.length) throw Error('invalid or empty verifier evidence');
     if (attestWorkflow && result.state === 'verified') {
@@ -294,13 +313,15 @@ export function safePath(root, name, allowed) {
   return target;
 }
 
-export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, gatePolicy = null, specialistPolicy = null, domainPolicy = null, shipEvidencePolicy = null }) {
+export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginRoot = PLUGIN_ROOT, maxAttempts = 3, intent = 'delivery', checkPolicy = null, releasePolicy = null, hostRoutes = {}, defaultHost = null, verifierHost: verifier = null, gatePolicy = null, specialistPolicy = null, domainPolicy = null, shipEvidencePolicy = null }) {
   root = realpathSync(root);
   pluginRoot = realpathSync(pluginRoot);
   if (root === pluginRoot) throw Error('run from a target project, not the controller installation');
   if (!prompt?.trim() || !Array.isArray(allowed) || !allowed.length) throw Error('prompt and explicit allowed paths are required');
   if (!Number.isInteger(maxAttempts) || maxAttempts < 1 || maxAttempts > 5) throw Error('maxAttempts must be an integer from 1 to 5');
   if (!['delivery', 'research'].includes(intent)) throw Error('invalid task intent');
+  if (defaultHost != null && !HOSTS.has(defaultHost)) throw Error(`unsupported host: ${defaultHost}`);
+  if (verifier != null && !HOSTS.has(verifier)) throw Error(`unsupported verifier host: ${verifier}`);
   if (intent === 'research' && (entry !== 'project-auditor' || releasePolicy || allowed.some(p => !/^(docs|research|reports)(\/|$)/.test(p)))) throw Error('research runs require report-only paths, auditor entry and no release policy');
   if (checkPolicy) validateCheckPolicy(checkPolicy);
   for (const p of allowed) safePath(root, p, allowed);
@@ -316,6 +337,10 @@ export function newRun({ root, prompt, allowed, entry = 'product-owner', pluginR
     executionBudget: readExecutionBudget(root) };
   if (specialistPolicy) { state.specialistGraph = structuredClone(graph); validateSpecialistPolicy(state, specialistPolicy); }
   state.hostRoutes = validateRoutes(hostRoutes, state.graph);
+  // Additive v1 fields, written only when chosen: one host for every unlisted
+  // role, and the verifier's host (which follows the run host unless named).
+  if (defaultHost) state.defaultHost = defaultHost;
+  if (verifier || defaultHost) state.verifierHost = verifier || defaultHost;
   if (domainPolicy) state.domainAdmission = bindDomainPolicy(root, domainPolicy);
   if (shipEvidencePolicy) state.shipEvidencePolicy = readShipPolicy({root, path: shipEvidencePolicy.policyPath});
   initializeTrace(state);
@@ -909,18 +934,23 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
       save(state);
     }
     attempt.phase = 'verifying'; save(state);
+    const checker = verifierHost(state);
     const beforeVerifier = stageReceipt(state, treeReceipt(state.root), 'verifier input');
     if (JSON.stringify(beforeVerifier) !== JSON.stringify(receipt)) throw Error('working tree changed before verification');
     if (!attempt.checks || attempt.checks.state === 'passed') {
       attempt.verifierInvocationId = invocationIdentity({ session_id: state.id, agent_id: `${attempt.id}:verifier` });
-      recordTrace(state, 'verifier', { key: `verifier:${attempt.id}`, role, attemptId: attempt.id, host: 'codex', status: 'intent',
+      attempt.verifierHost = checker;
+      recordTrace(state, 'verifier', { key: `verifier:${attempt.id}`, role, attemptId: attempt.id, host: checker, status: 'intent',
         parents: [traceKey(state, `checks:${attempt.id}`) || proposalSource,
           ...traceParents(state, Object.keys(state.results), false)], relation: 'verification', input: receipt });
       save(state);
     }
-    const verifierCall = () => withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: 'codex', role: 'codex-verifier' }, () =>
-      observeControllerCall(state, { id: `${attempt.id}:verifier`, attemptId: attempt.id, host: 'codex', role: 'codex-verifier', kind: 'verifier' },
-        () => verify(state, role, proposal, execute || runCodexExec), save));
+    // `runners` are worker runners. As before, the verifier is the host's real
+    // subprocess unless one `execute` stands in for every call.
+    const verifierRunner = execute || (checker === 'codex' ? runCodexExec : runClaudeExec);
+    const verifierCall = () => withAgentBudget(state, { callId: `${attempt.id}:verifier`, host: checker, role: `${agentPrefix(checker)}-verifier` }, () =>
+      observeControllerCall(state, { id: `${attempt.id}:verifier`, attemptId: attempt.id, host: checker, role: `${agentPrefix(checker)}-verifier`, kind: 'verifier' },
+        () => verify(state, role, proposal, verifierRunner), save));
     let verification = attempt.checks && attempt.checks.state !== 'passed'
       ? { state: attempt.checks.state === 'failed' ? 'rework' : 'unverifiable', findings: [`Required checks ${attempt.checks.state}: ${JSON.stringify(checkSummary(attempt.checks))}`], checks: ['controller executed mandatory checks'] }
       : await (shipCapability ? shipBoundary.runCall(shipCapability, {kind: 'verifier', callId: `${attempt.id}:verifier`, invoke: verifierCall}) : verifierCall());
@@ -965,7 +995,9 @@ export async function runStage(state, { execute = null, runners = { codex: runCo
     // re-reviews the candidate. Human gates and repair limits remain unchanged.
     if (state.rework?.role === role) state.rework = null;
     const completedResult = { verdict: proposal.verdict, summary: proposal.summary, meta: proposal.meta || {},
-      attemptId: attempt.id, invocationId: attempt.invocationId, host: roleHost(state, role), checks: attempt.checks ?? null, receipt,
+      attemptId: attempt.id, invocationId: attempt.invocationId, host: roleHost(state, role),
+      // Absent when no verifier session ran (failed required checks decide alone).
+      ...(attempt.verifierHost ? { verifierHost: attempt.verifierHost } : {}), checks: attempt.checks ?? null, receipt,
       receiptEvidence: receipt ? 'git-tree' : 'report-artifacts-only', verification,
       digest: hash(JSON.stringify({ attemptId: attempt.id, proposal })), usage: response.usage ?? null,
       diagnostics: response.errors || [], at: new Date().toISOString() };
