@@ -6,6 +6,22 @@ All notable changes to great_cto are documented here.
 
 
 
+
+## v3.79.0 — 2026-11-11
+
+Settings opens on the settings, and the agent list says only what differs.
+
+### Changed
+
+- **Settings opens on General** (#281). The tabs are General · Agents · Skills · Runtime; the agent table is no longer the first thing Settings shows. General is one screen: alerts are rows with an Edit button, the long forms (sharing, email, push, recent alerts) start closed and open one at a time, three projects are listed with the current one first and "Show more" for the rest. Project paths and the alert address stay hidden until "Show paths" is pressed; nothing about that switch is stored. Design approved by the owner in Claude Design (findings F6 and F15 of `docs/design/UX-AUDIT-board-2026-11.md`).
+- **Agents is a flat list with four filter chips** (#281). The six sidebar "Views" are gone; the sidebar holds destinations only. Columns are Agent · Permissions · Last result · Runs 30d · Pass · Spend 30d. A permission badge appears only on an agent whose grants differ from the common set ("1 extra", with the grant on the tooltip); an agent that has not been classified keeps its chip. Ages read as words ("45 minutes ago"). Old links (`#/fleet`, `#/agents`, `#/skills`, `settings/executors`, `settings/capabilities`) still land.
+
+### Docs
+
+- Research on starting the user's own Claude Code CLI from the board under a subscription, with a check script (#280); research on what to take from takt (#279); the non-developer cockpit RFC and ADR drafts (#274).
+
+---
+
 ## v3.78.1 — 2026-11-10
 
 The Cost screen's wording now matches the approved mockups on the phone as well as on the desktop.

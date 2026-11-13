@@ -31,6 +31,8 @@ test('untrusted or unknown keys cannot enter SVG markup; symbols are not status 
   assert.equal(classifyAgentGroup(null), 'other');
   for (const g of agentGroups) assert.doesNotMatch(agentGroupIcon(g.key), /status-|health|approved|passed|failed/);
   const html = readFileSync(new URL('../../packages/board/public/index.html', import.meta.url), 'utf8');
-  assert.match(html, /<span class="ar-status" aria-hidden="true"><\/span>/);
+  // Health is said in words in the row's "Last result" cell since the 2026-11
+  // Settings redraw; a group symbol still never stands in for it.
+  assert.match(html, /a\.health === 'failing' \? 'Failing' : 'OK'/);
   assert(html.indexOf('/assets/agent-groups.js') < html.indexOf('const AGENT_GROUPS'));
 });
