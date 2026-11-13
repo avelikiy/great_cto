@@ -9,6 +9,56 @@ import tarfile
 import tempfile
 
 LIMIT = 128 * 1024 * 1024
+BLOCK = 512
+
+
+def header_size(field):
+    """Size of one tar member as the raw header says it, never as tarfile reports it."""
+    if field[0] & 0x80:
+        # GNU base-256: 0o200 marks a non-negative value, 0o377 a negative one.
+        # Any other marker is not a size this extractor understands.
+        if field[0] not in (0o200, 0o377):
+            raise ValueError("unsafe package member")
+        value = int.from_bytes(field[1:], "big")
+        return value if field[0] == 0o200 else -((1 << (8 * (len(field) - 1))) - value)
+    text = field.rstrip(b"\0 ")
+    if not text or any(byte not in b"01234567" for byte in text.lstrip(b" ")):
+        raise ValueError("unsafe package member")
+    return int(text, 8)
+
+
+def check_header_chain(stream):
+    """Walk the raw 512-byte headers of the expanded archive.
+
+    tarfile ends iteration silently at the first header it cannot parse, so a
+    member it refuses to read (a negative size, since CPython 3.12.16) simply
+    vanishes from the inventory and the rest of the archive is extracted as if
+    it were complete. What tarfile reports therefore proves nothing about what
+    the archive contains: the headers are checked here, byte by byte, and every
+    byte after the terminator must be padding. This does not depend on the
+    interpreter's patch version.
+    """
+    stream.seek(0, os.SEEK_END)
+    end = stream.tell()
+    stream.seek(0)
+    position = 0
+    while position < end:
+        header = stream.read(BLOCK)
+        if len(header) != BLOCK:
+            raise ValueError("unsafe package member")
+        if header.count(0) == BLOCK:
+            # Terminator: nothing but NUL padding may follow it.
+            while chunk := stream.read(65536):
+                if chunk.count(0) != len(chunk):
+                    raise ValueError("unsafe package member")
+            return
+        size = header_size(header[124:136])
+        if size < 0 or size > LIMIT:
+            raise ValueError("unsafe package member")
+        position += BLOCK + (size + BLOCK - 1) // BLOCK * BLOCK
+        if position > end:
+            raise ValueError("unsafe package member")
+        stream.seek(position)
 
 
 def extract(archive, pin, destination):
@@ -41,6 +91,7 @@ def extract(archive, pin, destination):
                     if total > LIMIT:
                         raise ValueError("package expansion exceeds bound")
                     expanded.write(chunk)
+            check_header_chain(expanded)
             expanded.seek(0)
             with tarfile.open(fileobj=expanded, mode="r:") as bundle:
                 members, names, files, total = [], set(), set(), 0
