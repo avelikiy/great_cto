@@ -241,9 +241,12 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
     if (typeof stateRoot !== 'string' || !path.isAbsolute(stateRoot)) fail('absolute-state-root-required');
     const synthetic = syntheticMode(testing, info, targets, stateRoot);
     context = { synthetic, version: info.version };
-    // A machine where Claude Code has never run has no ~/.claude yet: create it private (0700)
-    // rather than fail on a raw ENOENT. Claude Code accepts an existing directory.
-    canonicalDirectory(targets.claudeDir, { create: true });
+    // An existing Claude directory is checked now. A machine where Claude Code has never run has none
+    // yet, and it is created (owner-only, 0700) only below, after every refusal has passed: a REFUSED
+    // outcome is documented as nothing written, and an empty ~/.claude is something written.
+    let claudeDirExists = true;
+    try { fs.lstatSync(targets.claudeDir); } catch (error) { if (error.code !== 'ENOENT') throw error; claudeDirExists = false; }
+    if (claudeDirExists) canonicalDirectory(targets.claudeDir);
 
     // One lock per configuration directory, whatever the version: two versions share the host files.
     state = privateInstallationState(path.join(stateRoot, 'plugin'), targets.cacheRoot);
@@ -274,6 +277,9 @@ export function activatePluginRelease(admission, { claudeDir, stateRoot, now = n
     };
     const published = fs.existsSync(targets.versionDir) && sameInventory(directoryInventory(targets.versionDir), admittedInventory(payload.files));
     if (published && HOST_FILES.every(name => !next[name].changed)) return { ...outcome('ALREADY_ACTIVE', context), versionDir: targets.versionDir, inventoryDigest, externalRuntime };
+
+    // The last refusal is behind us. Claude Code accepts an existing directory, so creating it is harmless.
+    canonicalDirectory(targets.claudeDir, { create: true });
 
     const transactionId = randomUUID(), dir = transactionDir(state, transactionId);
     context.transactionId = transactionId;

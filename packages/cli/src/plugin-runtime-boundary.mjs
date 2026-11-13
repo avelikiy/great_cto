@@ -171,22 +171,24 @@ const REDIRECT_BARE = /^(?:\d*|&)(?:>>?|<)$/;
  * Splits a command line into simple commands, each a list of words with their quotes removed.
  * `;`, `&`, `|`, parentheses, backticks and newlines end a command; `>&2` and `&>` do not; a `#`
  * that starts a word is a comment to the end of the line; `$(( ))` is kept as one word.
+ * `substitutions` are the command lines inside `$( )` and backticks that the shell would expand
+ * inside double quotes and arithmetic; inside single quotes they are text, and are not collected.
  */
 function lex(source) {
-  const text = String(source), segments = [];
-  let segment = [], token = '', live = false, quote = null;
+  const text = String(source), segments = [], substitutions = [];
+  let segment = [], token = '', live = false, quote = null, quoteStart = 0;
   const endWord = () => { if (live) segment.push(token); token = ''; live = false; };
   const endSegment = () => { endWord(); if (segment.length) segments.push(segment); segment = []; };
   for (let i = 0; i < text.length; i++) {
     const c = text[i];
     if (quote === "'") { if (c === "'") quote = null; else token += c; continue; }
     if (quote === '"') {
-      if (c === '"') quote = null;
+      if (c === '"') { quote = null; substitutions.push(...substitutionsIn(text.slice(quoteStart, i))); }
       else if (c === '\\' && i + 1 < text.length) token += text[++i];
       else token += c;
       continue;
     }
-    if (c === "'" || c === '"') { quote = c; live = true; continue; }
+    if (c === "'" || c === '"') { quote = c; quoteStart = i + 1; live = true; continue; }
     if (c === '\\') {
       if (text[i + 1] === '\n') i += 1;
       else if (i + 1 < text.length) { token += text[++i]; live = true; }
@@ -197,7 +199,9 @@ function lex(source) {
     if (c === '$' && text[i + 1] === '(' && text[i + 2] === '(') {
       let depth = 0, j = i + 1;
       for (; j < text.length; j++) { if (text[j] === '(') depth += 1; else if (text[j] === ')' && --depth === 0) break; }
-      token += text.slice(i, j + 1); live = true; i = j;
+      const raw = text.slice(i, j + 1);
+      token += raw; live = true; i = j;
+      substitutions.push(...substitutionsIn(raw));
       continue;
     }
     if (c === '&' && (text[i - 1] === '>' || text[i - 1] === '<' || text[i + 1] === '>')) { token += c; live = true; continue; }
@@ -206,10 +210,10 @@ function lex(source) {
     token += c; live = true;
   }
   endSegment();
-  return segments;
+  return { segments, substitutions };
 }
 
-/** The command lines inside `$( )` and backticks in a word (quoted ones; unquoted ones were split by lex). */
+/** The command lines inside `$( )` and backticks in a piece of text the shell would expand. */
 function substitutionsIn(text) {
   const found = [];
   for (let i = 0; i < text.length; i++) {
@@ -259,7 +263,6 @@ const namedFetchers = text => String(text).split(WORD).filter(word => word && is
  * the same words are a shell command line, where `node -p '...'` is how the generated bootstrap works.
  */
 function scanWords(words, depth, found, mcp) {
-  for (const word of words) if (word.includes('$(') || word.includes('`')) for (const inner of substitutionsIn(word)) found.push(...scanLine(inner, depth + 1));
   let command = commandOf(words);
   while (command && LAUNCHERS.has(nameOf(command.program))) {
     const launcher = nameOf(command.program);
@@ -292,7 +295,11 @@ function scanWords(words, depth, found, mcp) {
 /** A shell command line: the unconditional fetchers anywhere in it, and every command that is run. */
 function scanLine(line, depth = 0, mcp = null) {
   const found = namedFetchers(line);
-  if (depth < MAX_DEPTH) for (const words of lex(line)) scanWords(words, depth, found, mcp);
+  if (depth < MAX_DEPTH) {
+    const { segments, substitutions } = lex(line);
+    for (const words of segments) scanWords(words, depth, found, mcp);
+    for (const inner of substitutions) found.push(...scanLine(inner, depth + 1));
+  }
   return withoutDuplicates(found);
 }
 
