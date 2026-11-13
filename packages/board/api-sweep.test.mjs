@@ -31,7 +31,16 @@ import { sweepProject, call } from '../../tests/helpers/board-contract.mjs';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const SERVER = join(HERE, 'server.mjs');
 const TMP_DIRS = [];
-after(() => { for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); });
+// One file-level hook, in the order that works: stop the shared board, wait
+// for its group to be gone, then remove its directories. Two hooks ran the
+// removal first while the board was still writing into its HOME; the
+// ENOTEMPTY failed that hook, the reap hook never ran, and the live board kept
+// this file - and the whole gate - from ever exiting.
+// Registered at file level: an `after` inside a test fires when that test ends.
+after(async () => {
+  if (shared) await reap(shared.proc);
+  for (const d of TMP_DIRS) rmSync(d, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+});
 
 const WRITE_METHODS = ['POST', 'PUT', 'PATCH', 'DELETE'];
 const FOREIGN = 'http://evil.example';
@@ -45,8 +54,6 @@ const project = () => sweepProject((d) => TMP_DIRS.push(d));
 const concrete = (r) => (r.prefix ? `${r.path}x` : r.path);
 
 let shared;
-// Registered at file level: an `after` inside a test fires when that test ends.
-after(() => shared && reap(shared.proc));
 async function board() {
   if (shared) return shared;
   const p = project();

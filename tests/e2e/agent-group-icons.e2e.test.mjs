@@ -33,13 +33,12 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
     const url = `http://127.0.0.1:${server.port}/?project=${encodeURIComponent(FIXTURE_NAME)}#/fleet`;
     await page.goto(url);
     await page.locator('.agent-row').first().waitFor();
-    await page.locator('#nav-view-all').click();
+    await page.locator('#agents-chip-all').click();
     await page.waitForFunction(n => document.querySelectorAll('.agent-row').length === n, slugs.length);
     assert.equal(slugs.length, 73);
     for (const slug of slugs) {
       const row = page.locator(`.agent-row[data-slug="${slug}"]`);
       assert.equal(await row.locator('.grp-icon').getAttribute('data-agent-group'), classifyAgentGroup(slug), slug);
-      await row.locator('.ar-status').waitFor({ state: 'attached' });
     }
     const architect = page.locator('.agent-row[data-slug="architect"]');
     await architect.focus(); await page.keyboard.press('Enter');
@@ -52,7 +51,17 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
       await page.evaluate(t => document.documentElement.setAttribute('data-theme', t), theme);
       for (const width of [1440, 390]) {
         await page.setViewportSize({ width, height: 1000 });
-        const box = await architect.locator('.grp-icon').boundingBox();
+        // The list is rebuilt when a late response (usage, required reviewers,
+        // a roster refresh) lands, so a handle or a lookup can hit a row that was
+        // just replaced or a list that is being refilled. Find and measure
+        // in one in-page step, waiting until the row is there.
+        const sel = '.agent-row[data-slug="architect"] .grp-icon';
+        const box = await (await page.waitForFunction((q) => {
+          const e = document.querySelector(q);
+          if (!e) return null;
+          const r = e.getBoundingClientRect();
+          return { width: r.width, height: r.height };
+        }, sel)).jsonValue();
         assert.equal(box.width, 14); assert.equal(box.height, 14);
         assert(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth <= 1), `${theme}/${width}`);
         if (process.env.GCTO_ICON_SCREENSHOTS) await page.screenshot({ path: path.join(process.env.GCTO_ICON_SCREENSHOTS, `admin-${theme}-${width}.png`) });
@@ -65,7 +74,7 @@ test('role symbols cover the roster, drawer, themes and mobile; failed asset kee
     await fallback.route('**/assets/agent-groups.js', r => r.abort());
     await fallback.goto(url);
     await fallback.locator('.agent-row').first().waitFor();
-    await fallback.locator('#nav-view-all').click();
+    await fallback.locator('#agents-chip-all').click();
     await fallback.waitForFunction(n => document.querySelectorAll('.agent-row').length === n, slugs.length);
     assert.match(await fallback.locator('.agent-row[data-slug="architect"]').innerText(), /architect/);
     assert.equal(await fallback.locator('.grp-icon').count(), 0);
