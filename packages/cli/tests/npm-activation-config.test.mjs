@@ -18,6 +18,10 @@ test('activation environment lets real npm resolve isolated configuration withou
   const archive=path.join(root,'candidate.tgz');fs.writeFileSync(archive,'fixture',{mode:0o600});
   const admission={},info={version:'3.71.1',source:{commit:'a'.repeat(40)},isProduction:false};
   const files=[{path:'index.mjs',bytes:Buffer.from('next'),mode:0o755},{path:'package.json',bytes:Buffer.from(JSON.stringify({name:'great-cto',version:info.version,bin:{'great-cto':'index.mjs'}})),mode:0o644}];
+  // A private 0755 stand-in, not process.execPath: the runner's toolcache node is 0775, which the
+  // activation rightly refuses as an npm executable. Real npm is still the one this test probes,
+  // found on the PATH the activation builds (node's own directory comes first).
+  const npmStub=path.join(root,'npm');fs.writeFileSync(npmStub,'#!/bin/sh\nexit 0\n');fs.chmodSync(npmStub,0o755);
   let probes=0, npmProbe;
   const access={getAdmissionInfo:()=>info,getAdmittedArtifact:()=>({path:archive,sha256:createHash('sha256').update(fs.readFileSync(archive)).digest('hex')}),inspectNpmPayload:()=>({version:info.version,files})};
   const run=(command,args,options)=>{
@@ -33,6 +37,6 @@ test('activation environment lets real npm resolve isolated configuration withou
     }
     return {status:0,stdout:args.includes('--version')?info.version+'\n':'[]\n'};
   };
-  const result=activateNpmRelease(admission,{binaryPath:bin,stateRoot:path.join(root,'state'),npmPath:process.execPath,testing:{fixtureRoot:root,access,run}});
+  const result=activateNpmRelease(admission,{binaryPath:bin,stateRoot:path.join(root,'state'),npmPath:npmStub,testing:{fixtureRoot:root,access,run}});
   assert.equal(probes,1);assert.equal(npmProbe.status,0,npmProbe.stderr||npmProbe.error?.message);assert.match(npmProbe.stdout.trim(),/^\d+\.\d+\.\d+$/);assert.equal(result.state,'SIMULATED_SMOKE_PASSED');assert.equal(result.authority,'NONE');
 });
