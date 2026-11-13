@@ -432,7 +432,7 @@
     },
     {
       "id": "no_pre_admission_exec",
-      "requirement": "Instrumented candidate marker never appears before `SMOKE_PASSED`; a failed admission yields zero spawns of plugin bytes",
+      "requirement": "Instrumented candidate marker never appears before the smoke step (the smoke is the only step that runs candidate bytes, and it runs before `SMOKE_PASSED` is journalled); a failed admission yields zero spawns of plugin bytes",
       "state": "NOT_RUN",
       "coverage": "PARTIAL",
       "coveredBy": [

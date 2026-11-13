@@ -205,13 +205,3 @@ test('a machine with no ~/.claude yet: init creates it private and activates', t
   assert.equal(fs.statSync(machine.claudeDir).mode & 0o777, 0o700, '~/.claude is created owner-only');
   assert.deepEqual(inventoryOf(versionDir(machine, '3.72.0')), pkg.set.inventory.files);
 });
-  const run = runInit(machine, pkg);
-  t.diagnostic(`status ${run.status}: ${tail(run.output, 600).replace(/\s+/g, ' ')}`);
-  assert.ok([0, 1].includes(run.status), tail(run.output));
-  if (run.status === 1) {
-    assert.equal(fs.existsSync(machine.claudeDir), false, 'a refusal must not create a half-built ~/.claude');
-    assert.equal(executions(pkg).length, 0);
-  } else {
-    assert.deepEqual(inventoryOf(versionDir(machine, '3.72.0')), pkg.set.inventory.files);
-  }
-});
