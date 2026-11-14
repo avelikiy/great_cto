@@ -1,6 +1,6 @@
 {
   "id": "sort-allowlist",
-  "summary": "Transactions list gets a sort parameter mapped through an allowlist; values stay parameterised. Clean change.",
+  "summary": "Transactions list gets a user-selectable sort order.",
   "decoy": true,
   "known_defects": []
 }

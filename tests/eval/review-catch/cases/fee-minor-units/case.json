@@ -1,6 +1,6 @@
 {
   "id": "fee-minor-units",
-  "summary": "Fee rule gains a per-merchant rate; arithmetic stays in integer minor units with explicit half-even rounding. Clean change.",
+  "summary": "Fee rule gains a per-merchant rate and moves to half-even rounding.",
   "decoy": true,
   "known_defects": []
 }

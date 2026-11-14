@@ -196,6 +196,9 @@ test('the live prompt carries the diff and never the answer key', () => {
       const p = reviewPrompt(c, role);
       assert.ok(p.includes(c.patch.trimEnd()));
       assert.ok(!/known_defects|decoy|severity_floor/.test(p));
+      // A summary that grades the change ("Clean change.", "no defects") is the answer key in
+      // other words: a reviewer could skip the diff and follow the label (Codex review on #294).
+      assert.ok(!/\b(clean|no (known )?defects?|defect-free|safe|correct(ly)?|bug-free)\b/i.test(c.summary), `${c.id} summary grades the change`);
       for (const d of c.known_defects) {
         assert.ok(!p.includes(d.id), `${d.id} leaks`);
         assert.ok(!p.includes(d.note), `${d.id} note leaks`);
