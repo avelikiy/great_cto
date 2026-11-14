@@ -3,14 +3,14 @@ new file mode 100644
 --- /dev/null
 +++ b/src/refunds/partial.ts
 @@ -0,0 +1,11 @@
-+import { psp } from '../clients/psp';
++import { gateway } from '../clients/gateway';
 +import { db } from '../db';
 +
 +export async function partialRefund(orderId: string, percent: number) {
 +  if (!(percent > 0 && percent <= 100)) throw new RangeError('percent');
 +  const order = await db.order.findUniqueOrThrow({ where: { id: orderId } });
 +  const amountCents = order.totalCents * (percent / 100);
-+  const refund = await psp.refund({ chargeId: order.chargeId, amountCents });
-+  await db.refund.create({ data: { orderId, pspRefundId: refund.id, amountCents } });
++  const refund = await gateway.refund({ chargeId: order.chargeId, amountCents });
++  await db.refund.create({ data: { orderId, gatewayRefundId: refund.id, amountCents } });
 +  return refund;
 +}
