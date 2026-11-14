@@ -92,7 +92,11 @@ security-officer before every deploy. On a regulated archetype (`REGULATED_ARCHE
   nothing can be attested, so it exits **3** — not verified, said in the deploy report,
   never passed as verified. Blocking there would block every regulated deploy on that host.
 
-Elsewhere, and without `--require`, the attestation is printed and nothing else changes.
+The attestation answer is applied last: a blocking receipt answer — a truncated receipt,
+or drift the operator has not accepted — always wins, so the host exception (exit 3) never
+turns a changed tree into a warning, and an operator's acceptance of drift is not an
+attestation (Codex review on #291). Elsewhere, and without `--require`, the attestation is
+printed and nothing else changes.
 The controller writes no verdict lines (its workers return proposals), so there is no
 controller-written case to exempt. Approvals written before slice 2 shipped are
 self-reported: on a regulated project the stage runs again once before its next deploy.

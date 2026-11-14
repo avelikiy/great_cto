@@ -646,7 +646,11 @@ if (isMainModule(import.meta.url)) {
         process.exit(3);
       }
     }
-    // ADR-051 slice 2: who wrote the approval, as the harness saw it.
+    // ADR-051 slice 2: who wrote the approval, as the harness saw it. Slice 3's outcome
+    // is decided here but applied last: a blocking receipt answer (truncated, drifted and
+    // not accepted) always wins, so the "cannot attest here" exit 3 can never turn a
+    // drifted tree into a non-blocking warning (Codex review on #291).
+    let attestExit = 0;
     if (approval) {
       const stateDir = verdictStateDir(cwd);
       const att = attestationOf(approval, stateDir);
@@ -662,10 +666,11 @@ if (isMainModule(import.meta.url)) {
         if (isRegulated(archetype)) {
           if (!attestableHost()) {
             console.log(`  ${archetype} is a regulated archetype, and this host gives hooks no agent identity — who wrote the ${approval.agent} approval cannot be attested here; not verified`);
-            process.exit(3);
+            attestExit = 3;
+          } else {
+            console.log(`  BLOCKED: ${archetype} is a regulated archetype — the ${approval.agent} approval must be written by a ${approval.agent} subagent and attested by the harness (ADR-051). Re-run ${approval.agent} as a subagent.`);
+            attestExit = 5;
           }
-          console.log(`  BLOCKED: ${archetype} is a regulated archetype — the ${approval.agent} approval must be written by a ${approval.agent} subagent and attested by the harness (ADR-051). Re-run ${approval.agent} as a subagent.`);
-          process.exit(5);
         }
       }
     }
@@ -676,7 +681,7 @@ if (isMainModule(import.meta.url)) {
       process.exit(2);
     }
     const drifted = cmp.state === 'differs' || (cmp.state === 'extended' && requireMode);
-    if (!drifted) process.exit(0);
+    if (!drifted) process.exit(attestExit);
 
     // Drift, but a human may already have looked at exactly this state.
     const hash = receiptHash(current);
@@ -688,7 +693,8 @@ if (isMainModule(import.meta.url)) {
       // the one acting on the answer, and an acceptance that survives its own
       // check is a standing permission.
       clearAcceptance(cwd);
-      process.exit(0);
+      // An operator's acceptance of drift is not an attestation: slice 3's answer stands.
+      process.exit(attestExit);
     }
     if (acc.stale) console.log(`  ${acc.why} — accept again if this state is fine`);
     console.log(`  to accept this state: node scripts/lib/receipt.mjs --accept${narrowed ? ` --agent ${narrowed}` : ''}${requireMode ? ' --require' : ''}`);

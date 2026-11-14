@@ -15,7 +15,8 @@ const SEAL_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'gc-attest-req-'));
 process.env.GREAT_CTO_SEAL_KEY = path.join(SEAL_DIR, 'verdict-seal.key');
 test.after(() => fs.rmSync(SEAL_DIR, { recursive: true, force: true }));
 const { sealVerdict, sealAttestation } = await import('../../scripts/lib/verdict-seal.mjs');
-const { treeReceipt, projectArchetype, attestableHost } = await import('../../scripts/lib/receipt.mjs');
+const awaitReceipt = await import('../../scripts/lib/receipt.mjs');
+const { treeReceipt, projectArchetype, attestableHost } = awaitReceipt;
 const { lineDigest, ATTESTATIONS_FILE } = await import('../../scripts/lib/verdict-attestation.mjs');
 
 function fixture(t, archetype) {
@@ -116,4 +117,43 @@ test('devops step 2b, executed: a self-reported code-reviewer approval on fintec
   const r2 = run(ok);
   assert.equal(r2.status, 0, r2.stdout + r2.stderr);
   assert.doesNotMatch(r2.stdout, /BLOCKED/);
+});
+
+// Codex review on #291: the host exception (exit 3) was returned before the drift and
+// truncation checks, so a file changed after the approval stopped blocking on Codex.
+test('a blocking receipt answer wins over the attestation answer: drift after the approval still exits 1', (t) => {
+  for (const env of [{ GREAT_CTO_HOST: 'codex' }, { CLAUDECODE: '' }, {}]) {
+    const f = fixture(t, 'fintech');
+    f.approve('code-reviewer');
+    fs.writeFileSync(path.join(f.d, 'app.js'), 'v2 — changed after the review\n');
+    const r = f.verify(env);
+    assert.equal(r.status, 1, `${JSON.stringify(env)}: ${r.stdout}`);
+    assert.match(r.stdout, /app\.js/);
+  }
+});
+
+test('an operator\'s acceptance of drift is not an attestation: the regulated answer stands', (t) => {
+  const f = fixture(t, 'fintech');
+  f.approve('code-reviewer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2\n');
+  // Record an acceptance of exactly this state, hashed the way --verify hashes it.
+  const { receiptHash, writeAcceptance, pipelineOutputPaths } = awaitReceipt;
+  const approval = JSON.parse(fs.readFileSync(path.join(f.d, '.great_cto/verdicts/code-reviewer.log'), 'utf8').trim());
+  const current = treeReceipt(f.d, { base: approval.receipt.base || null, exclude: pipelineOutputPaths(f.d) });
+  writeAcceptance(f.d, { hash: receiptHash(current), why: 'looked at it', agent: 'code-reviewer' });
+  const r = f.verify();
+  assert.match(r.stdout, /accepted by the operator for this exact state/, 'the acceptance was honoured for the drift');
+  assert.equal(r.status, 5, r.stdout);
+});
+
+test('devops step 2b on a host that cannot attest: drift after the approval blocks the deploy', (t) => {
+  const prompt = fs.readFileSync(path.join(ROOT, 'agents/devops.md'), 'utf8');
+  const block = prompt.slice(prompt.indexOf('**2b. The approvals are of THIS tree.**')).match(/```bash\n([\s\S]*?)```/)[1];
+  const f = fixture(t, 'fintech');
+  f.approve('code-reviewer');
+  fs.writeFileSync(path.join(f.d, 'app.js'), 'v2 — unreviewed\n');
+  const r = spawnSync('bash', ['-c', block], { cwd: f.d, encoding: 'utf8',
+    env: { ...process.env, GREAT_CTO_DIR: '', GREAT_CTO_HOST: 'codex', CLAUDECODE: '', CLAUDE_PLUGIN_ROOT: ROOT, PROJECT_SIZE: 'nano', TIER_EFFECTIVE: 'baseline' } });
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /BLOCKED: files changed or added after code-reviewer approved/);
 });
