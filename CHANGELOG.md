@@ -23,6 +23,14 @@ All notable changes to great_cto are documented here.
 
 - **The owner's release-key ceremony as three commands** (`scripts/enroll-release-key.mjs`, `docs/operations/RELEASE-KEY-CEREMONY.md`). `--generate` writes an Ed25519 key outside the source tree (0600, never overwritten), `--public-key … --write` pins its SPKI sha256 in `release-trust.mjs` as a one-line reviewed diff and refuses to replace an enrolled pin (rotation is an ADR, not a flag), `--check` says whether a key is the pinned one. A private key passed where the public half belongs is refused. Not shipped in the plugin set. The plugin-activation e2e harness now also recognises an enrolled pin, so enrolment does not break it.
 
+- **The plugin is activated from a signed set shipped inside the npm package** (ADR-050). `great-cto init` verifies the embedded plugin set against a key fingerprint pinned in source and activates it without cloning, pulling or fetching anything at session start. The three SessionStart clones (catalog, Anthropic skills, personal skills) are gone; `great-cto skills sync` fetches them on request. PreToolUse guards fail closed when the plugin directory cannot be resolved, and the registered plugin path is checked physically. `~/.claude` is created private (0700) when it does not exist yet. Production admission needs an enrolled release key (`docs/operations/RELEASE-KEY-CEREMONY.md`).
+
+- **A controlled run completes on a machine with only Claude Code** (cockpit S1). The verifier keeps the host's own subprocess when worker runners are replaced.
+
+- **One door to tracker tasks: task store API, `great-cto tracker` CLI and a built-in SQLite store.** Tasks are created, moved and read through one API; the SQLite store is the default backend.
+
+- **Relay keys for alerts and shared reports; shared reports are served sandboxed.** A shared report embeds only the task fields it displays. ADR-049 accepted.
+
 ### Changed
 
 - **The CLI needs Node 22.13 or newer, on macOS or Linux** (`engines: >=22.13`). **Breaking:** dropping a Node line is a major by the repository's own semver rule (`tests/eval/EVAL-library-semver-surface.md`, case 3); the release number is the owner's call. Node 20 reached end-of-life on 2026-04-30, and 22.13 is the first release with `node:sqlite` unflagged, which the task store already uses and the event log (ADR-052) will. CI tests the floor exactly (22.13.0) and the current LTS (24). Windows was never green: the release, activation and transaction path relies on POSIX file modes and symlink semantics; run it under WSL.
@@ -33,6 +41,10 @@ All notable changes to great_cto are documented here.
   - the activation tests passed `process.execPath` as the npm executable, which the activation rightly refuses when it is group-writable, as node is (0775) in the GitHub runner's toolcache. They now use a private 0755 stand-in;
   - the `DO_NOT_TRACK` telemetry test failed under `CI=true`. It now clears the CI markers, and a new test pins the other half of the rule: in CI telemetry stays off even when opted in;
   - `runtime-ci` never built the CLI, which the board and root tests import. It builds it first now, and runs when `packages/cli/src` changes.
+- **The gate is stable under load on the shared CI host** — six flakes fixed: scorer retention and SIGTERM scenarios re-arm when load kept the scorer from starting, the guardian inventory cases no longer count the `ps` stand-in's start-up latency, sidebar geometry compares at 1/100 px, board journeys ignore only Chromium's network-change console line.
+- **A roster refresh before a project is chosen no longer wipes the board's Agents list.**
+- **The pinned package extractor refuses a negative or unreadable tar member size.**
+- **The review-catch fixtures name a generic payment gateway**, so the pre-push leak check no longer refuses them.
 
 ### Docs
 
