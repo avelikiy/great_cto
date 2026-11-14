@@ -243,3 +243,21 @@ test('lint and walk: join partners with only verdict-keyed rules are a valid joi
   assert.match(kinds, /code-reviewer.APPROVED waits for qa-engineer, but qa-engineer does not wait for code-reviewer/);
   assert.match(kinds, /go to different next stages/);
 });
+
+// Codex review on #292 (fourth pass): a fixable finding is routed back, not a stop.
+test('walk: a reviewer\'s fixable BLOCKED (need=implementer) goes back to the implementer and the walk goes on', () => {
+  const r = walk({ stubs: {
+    'senior-dev': { verdict: 'TASK_DONE', meta: { feature: 'f' } },
+    'code-reviewer': [{ verdict: 'BLOCKED', meta: { feature: 'f', need: 'implementer', finding: 'F1' } }, { verdict: 'APPROVED', meta: { feature: 'f' } }],
+  } });
+  assert.deepEqual(r.problems, [], JSON.stringify(r.problems));
+  assert.equal(r.ended, true);
+  const back = r.steps.find((s) => s.kind === 'route');
+  assert.deepEqual(back && [back.agent, back.nexts], ['code-reviewer', ['senior-dev']]);
+  assert.equal(r.steps.filter((s) => s.agent === 'senior-dev').length, 2, 'the implementer ran again');
+});
+
+test('walk: a BLOCKED with no owner to send it to still stops the walk, named', () => {
+  const r = walk({ stubs: { 'code-reviewer': { verdict: 'BLOCKED', meta: { need: 'implementer' } } } });
+  assert.deepEqual(r.problems.map((p) => [p.kind, p.at]), [['stopped', 'code-reviewer']]);
+});

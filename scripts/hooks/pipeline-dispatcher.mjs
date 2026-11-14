@@ -204,7 +204,7 @@ export function routeToOwner({ agent, verdict, transitions, allVerdicts, rule })
   // Reported again before the owner answered: it is already on its way back.
   if (finding && routed.some((v) => v.agent === agent && v.meta?.finding === finding && String(v.ts) > String(ownerLast.ts))) {
     return {
-      kind: 'route-pending',
+      kind: 'route-pending', to: owner,
       text: `PIPELINE-HOLD: ${agent} reported finding ${finding} on ${key} again, and it was already sent back to ${owner}, which has recorded no verdict since. `
         + `Nothing is dispatched: wait for ${owner} to finish. Do NOT spawn ${downstream}.`,
     };
@@ -220,7 +220,7 @@ export function routeToOwner({ agent, verdict, transitions, allVerdicts, rule })
     };
   }
   return {
-    kind: 'route',
+    kind: 'route', to: owner, nexts: [owner],
     text: `PIPELINE-ROUTE: ${agent} returned ${verdict.verdict} with need=implementer${finding ? ` (finding ${finding})` : ''} on ${key} (pass ${passes + 1} of ${MAX_REWORK}). `
       + `Re-spawn ${owner} with ${agent}'s finding quoted verbatim and require it to address it. `
       + `The CTO is not asked: the reviewer declared this fixable without a decision. `

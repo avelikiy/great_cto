@@ -130,6 +130,7 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
   const steps = [];
   const problems = [];
   const recorded = {};
+  const history = []; // every simulated verdict, oldest first — the dispatcher's allVerdicts
   const visits = {};
   const queue = [start];
   const waiting = new Map(); // agent → partners it still waits for
@@ -151,7 +152,11 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
     }
     const verdict = { agent, verdict: stub.verdict, ts: new Date(Date.UTC(2026, 0, 1, 0, 0, n)).toISOString(), meta: stub.meta, hasCost: true };
     recorded[agent] = verdict;
-    const d = decideNext({ agent, transitions, verdict, joinVerdicts: recorded, activeGates, gateStates: null, cwd: null });
+    history.push(verdict);
+    // allVerdicts is what routing reads to find a finding's owner (routeToOwner): without the
+    // walk's own history a fixable BLOCKED read as "no owner" and stopped the walk where a real
+    // run sends the work back (Codex review on #292).
+    const d = decideNext({ agent, transitions, verdict, joinVerdicts: recorded, activeGates, gateStates: null, cwd: null, allVerdicts: history });
     const step = { agent, verdict: stub.verdict, stubbed: stub.stubbed, kind: d ? d.kind : (rulesOf(transitions, agent).length || isReviewer(agent) ? 'unknown-verdict' : 'no-rule') };
     if (d?.nexts) step.nexts = d.nexts;
     if (d?.gates) step.gates = d.gates;
@@ -171,6 +176,11 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
       else enqueue(d.nexts);
     } else if (d.kind === 'join-wait') {
       waiting.set(agent, d.pending);
+    } else if (d.kind === 'route') {
+      // A reviewer's fixable finding goes back to the stage that owns the work.
+      waiting.delete(agent); enqueue(d.nexts);
+    } else if (d.kind === 'route-pending') {
+      // Already on its way back: nothing to dispatch, nothing broken.
     } else if (d.kind === 'done') {
       waiting.delete(agent); sawDone = true;
     } else {
@@ -206,6 +216,7 @@ function render(lint, run, { pipeline, start, level }) {
   for (const s of run.steps) {
     const tail = s.kind === 'gate' ? `  ⏸ hold at ${s.gates.join(' + ')} → ${s.nexts.join(', ')}`
       : s.kind === 'next' ? `  → ${s.nexts.join(', ')}`
+        : s.kind === 'route' ? `  ↩ back to ${s.nexts.join(', ')} (fixable finding)`
         : s.kind === 'join-wait' ? `  … waits for ${s.pending.join(', ')}`
           : s.kind === 'done' ? '  ■ end of chain'
             : `  ✗ ${s.kind}`;

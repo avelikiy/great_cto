@@ -104,6 +104,9 @@ chain ends. Every step goes through the dispatcher's own decision function.
 - `--stubs FILE.json` picks the verdicts: `{"architect": "APPROVED_UI",
   "senior-dev": ["SPEC-OBJECTION", "TASK_DONE"]}` — a list is used one per visit.
   A stage with no stub returns the first token its rule accepts.
+  A stub may carry `meta`: `{"code-reviewer": [{"verdict": "BLOCKED", "meta": {"feature": "f",
+  "need": "implementer"}}, "APPROVED"]}` sends the work back to the stage that owns
+  feature `f`, as a real run would, and walks on.
 - `--hold-at-gates` stops the walk at the first hold instead of walking on as
   though it were approved; `--json` prints the walk as data.
 
