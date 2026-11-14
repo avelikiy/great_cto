@@ -1,6 +1,6 @@
 {
   "id": "redacted-logging",
-  "summary": "Request logging added to the PSP client.",
+  "summary": "Request logging added to the payment-gateway client.",
   "decoy": true,
   "known_defects": []
 }
