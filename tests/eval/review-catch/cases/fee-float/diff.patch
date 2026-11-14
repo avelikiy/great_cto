@@ -1,0 +1,24 @@
+diff --git a/src/payments/fees.ts b/src/payments/fees.ts
+--- a/src/payments/fees.ts
++++ b/src/payments/fees.ts
+@@ -1,12 +1,12 @@
+-// Card fee: 2.9% + 30 cents, all arithmetic in integer cents.
+-export const PERCENT_BPS = 290;
+-export const FIXED_CENTS = 30;
++// Card fee: 2.9% + 30 cents. The checkout API now passes dollar amounts.
++export const PERCENT = 0.029;
++export const FIXED = 0.30;
+ 
+-export function feeCents(amountCents: number): number {
+-  if (!Number.isInteger(amountCents) || amountCents < 0) throw new RangeError('amountCents');
+-  return Math.floor((amountCents * PERCENT_BPS + 5000) / 10000) + FIXED_CENTS;
++export function fee(amount: number): number {
++  if (!(amount >= 0)) throw new RangeError('amount');
++  return Math.round((amount * PERCENT + FIXED) * 100) / 100;
+ }
+ 
+-export function totalCents(amountCents: number): number {
+-  return amountCents + feeCents(amountCents);
++export function total(amount: number): number {
++  return amount + fee(amount);
+ }

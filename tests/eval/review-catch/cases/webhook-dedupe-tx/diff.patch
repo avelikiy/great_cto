@@ -1,0 +1,32 @@
+diff --git a/src/webhooks/refunds.ts b/src/webhooks/refunds.ts
+new file mode 100644
+--- /dev/null
++++ b/src/webhooks/refunds.ts
+@@ -0,0 +1,18 @@
++import { verifySignature } from '../lib/signature';
++import { db } from '../db';
++import type { Request, Response } from 'express';
++
++export async function refundWebhook(req: Request, res: Response) {
++  const event = verifySignature(req.rawBody, req.header('x-signature'));
++  if (!event) return res.status(400).end();
++  if (event.type !== 'refund.succeeded') return res.status(204).end();
++
++  const applied = await db.$transaction(async (tx) => {
++    // processed_events.event_id is UNIQUE: a redelivery inserts nothing and applies nothing.
++    const inserted = await tx.$executeRaw`INSERT INTO processed_events (event_id) VALUES (${event.id}) ON CONFLICT DO NOTHING`;
++    if (inserted === 0) return false;
++    await tx.refund.update({ where: { pspRefundId: event.data.refundId }, data: { status: 'succeeded' } });
++    return true;
++  });
++  return res.status(200).json({ ok: true, duplicate: !applied });
++}
+diff --git a/migrations/0042_processed_events.sql b/migrations/0042_processed_events.sql
+new file mode 100644
+--- /dev/null
++++ b/migrations/0042_processed_events.sql
+@@ -0,0 +1,4 @@
++CREATE TABLE IF NOT EXISTS processed_events (
++  event_id   text PRIMARY KEY,
++  received_at timestamptz NOT NULL DEFAULT now()
++);

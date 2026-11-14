@@ -1,6 +1,6 @@
 # ADR-048 — The board API answers its own page and local tools, and binds beyond loopback only behind authentication
 
-**Status:** Accepted (owner, 2026-11-11; shipped in 3.78.0)
+**Status:** Accepted (2026-11-14, owner)
 **Date:** 2026-11-10
 **Deciders:** great_cto core
 **Supersedes:** —
@@ -87,10 +87,9 @@ still serves `/` from a cross-site link; a server started with `--host 0.0.0.0` 
 
 ## Follow-ups (not in this change)
 
-- ~~`great-cto console` help calls it "the operator console (no dev board)".~~ Done
-  2026-11-11: the help says what it starts. Removing the command is a separate decision.
-- ~~Authenticate share pause and alert send at the relay.~~ ADR-049.
-- ~~The share report embeds full records of the last 20 completed tasks.~~ Done
-  2026-11-11: it embeds only the fields it displays.
-- ~~Serve published reports from an origin that is not the brand domain.~~ ADR-049
-  serves them sandboxed instead, which needs no second domain.
+- `great-cto console` still starts the build board; its help calls it "the operator
+  console (no dev board)". The command should be removed or made true.
+- Authenticate share publish, share pause and alert send at the relay.
+- The share report embeds full records of the last 20 completed tasks; it should embed
+  only the fields it displays.
+- Serve published reports from an origin that is not the brand domain.

@@ -1,0 +1,21 @@
+{
+  "id": "transfer-missing-await",
+  "summary": "Internal transfer moves to the new async ledger client.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "transfer-missing-await.a",
+      "file": "src/transfers/commit.ts",
+      "lines": [
+        4,
+        4
+      ],
+      "class": "race",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "ledger.debit is not awaited; credit and the 200 response happen whether or not the debit succeeded, and a rejected debit is an unhandled rejection."
+    }
+  ]
+}

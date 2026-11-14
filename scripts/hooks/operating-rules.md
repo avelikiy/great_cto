@@ -18,3 +18,7 @@
    check you will run yourself on what ships — plus guesses marked [A1] and at most 3
    questions, each with your pick. A bug: reproduce it first; done is that repro passing
    where the operator saw it. Format: shared/agent-fragments/task-brief.md.
+7. CI runs, and on a private repo bills, on every push, not every commit. Commit often;
+   push once per finished slice, after the local checks pass. Never push to see if CI is
+   green. Review and CI fixes go out together in one push. A push only to save work:
+   `[skip ci]` in the head commit.

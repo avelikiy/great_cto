@@ -1,0 +1,31 @@
+diff --git a/src/clients/psp-log.ts b/src/clients/psp-log.ts
+new file mode 100644
+--- /dev/null
++++ b/src/clients/psp-log.ts
+@@ -0,0 +1,13 @@
++import { logger } from '../logger';
++
++const REDACT = new Set(['authorization', 'x-api-key', 'cookie']);
++
++export function safeHeaders(headers: Record<string, string>): Record<string, string> {
++  return Object.fromEntries(
++    Object.entries(headers).map(([k, v]) => [k, REDACT.has(k.toLowerCase()) ? '[redacted]' : v]),
++  );
++}
++
++export function logPspRequest(path: string, headers: Record<string, string>) {
++  logger.debug('psp request', { path, headers: safeHeaders(headers) });
++}
+diff --git a/src/clients/psp-log.test.ts b/src/clients/psp-log.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/clients/psp-log.test.ts
+@@ -0,0 +1,8 @@
++import { test, expect } from 'vitest';
++import { safeHeaders } from './psp-log';
++
++test('authorization never reaches the log', () => {
++  const out = safeHeaders({ Authorization: 'Bearer sk_live_x', 'content-type': 'application/json' });
++  expect(out.Authorization).toBe('[redacted]');
++  expect(out['content-type']).toBe('application/json');
++});

@@ -458,6 +458,11 @@ step "board e2e (browser)" env GATE_SUITE="board e2e (browser)" node --test $(ct
 # that for one of them the sentence named a setting nobody had changed.
 step "pipeline decisions match the key" node tests/pipeline-fixture/run.mjs
 
+# The whole map, not one decision: walk shared/pipeline.toml from product-owner to the
+# end with default verdicts and say where it holds and whether any edge leads nowhere
+# (scripts/lib/pipeline-dry-run.mjs). A change to the map is checked like code.
+step "pipeline map walks end to end" node scripts/lib/pipeline-dry-run.mjs
+
 # ── The pipeline test suite, blocking (L1–L5) ──
 #
 # `scripts/test-pipeline.sh` existed for months and this file did not call it.

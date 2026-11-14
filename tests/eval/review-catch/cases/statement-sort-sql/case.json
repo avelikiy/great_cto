@@ -1,0 +1,22 @@
+{
+  "id": "statement-sort-sql",
+  "summary": "Statement report gets a user-selectable sort order.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "statement-sort-sql.a",
+      "file": "src/reports/statement.ts",
+      "lines": [
+        10,
+        10
+      ],
+      "class": "injection",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "req.query.sort interpolated into ORDER BY of a raw SQL string; values are parameterised but the identifier is not, so it is SQL injection."
+    }
+  ]
+}

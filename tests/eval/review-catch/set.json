@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "about": "Seeded-defect catch rate for code-reviewer and security-officer. Cases live in cases/<id>/ (diff.patch + case.json). Scorer: scripts/lib/review-catch.mjs. README.md says how to run and how to add a case.",
+  "thresholds": {
+    "recall": 0.6,
+    "decoy_clean": 0.5
+  },
+  "tuning": [
+    "fee-float",
+    "webhook-no-dedupe",
+    "payout-retry",
+    "invoice-tenant",
+    "statement-sort-sql",
+    "transfer-missing-await",
+    "bank-client-logging",
+    "partial-refund",
+    "fee-minor-units",
+    "webhook-dedupe-tx"
+  ],
+  "holdout": [
+    "split-remainder",
+    "payout-destination-idor",
+    "export-command",
+    "withdraw-toctou",
+    "sort-allowlist",
+    "redacted-logging"
+  ]
+}

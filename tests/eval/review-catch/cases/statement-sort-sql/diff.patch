@@ -1,0 +1,17 @@
+diff --git a/src/reports/statement.ts b/src/reports/statement.ts
+--- a/src/reports/statement.ts
++++ b/src/reports/statement.ts
+@@ -2,11 +2,12 @@
+ import type { Request, Response } from 'express';
+ 
+ export async function statement(req: Request, res: Response) {
++  const sort = String(req.query.sort ?? 'booked_at DESC');
+   const { rows } = await pool.query(
+     `SELECT id, booked_at, amount_cents, description
+        FROM ledger_entries
+       WHERE account_id = $1 AND booked_at >= $2
+-      ORDER BY booked_at DESC`,
++      ORDER BY ${sort}`,
+     [req.user.accountId, req.query.from],
+   );
+   res.json(rows);

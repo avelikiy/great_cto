@@ -36,14 +36,11 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        node: ["18.17", "20", "22"]
+        node: ["22.13.0", "24"]
         # 'local' = working tree (fast feedback for PRs);
         # 'npm'   = published artifact (real new-user path).
         # On scheduled runs we exercise BOTH; on manual we honour the input.
         source: [local, npm]
-        exclude:
-          # Trim cells that don't add coverage:
-          - { node: "18.17", source: "npm" }   # 18.17 mostly redundant on npm path
     timeout-minutes: 10
 
     steps:

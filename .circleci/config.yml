@@ -186,7 +186,7 @@ jobs:
 
   evals_drift:
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/node:22.13
     resource_class: medium
     steps:
       - checkout
@@ -209,7 +209,7 @@ jobs:
 
   awesome_list:
     docker:
-      - image: cimg/node:22.11
+      - image: cimg/node:22.13
     resource_class: small
     steps:
       - checkout
@@ -225,8 +225,8 @@ workflows:
   # A push-triggered job here would re-run checks that already ran, and the
   # version of it that tried failed on questions a container cannot answer.
 
-  # 10 cells, matching what the GitHub matrix covered: 2 OS × 3 Node × 2
-  # sources, minus node 18.17 on the npm path (redundant there).
+  # Linux: the engines floor (22.13, first with node:sqlite unflagged) and the
+  # current LTS, each from the working tree and from npm.
   daily_canary:
     triggers:
       - schedule:
@@ -237,10 +237,8 @@ workflows:
           name: linux-node<< matrix.node >>-<< matrix.source >>
           matrix:
             parameters:
-              node: ["18.17.0", "20.18", "22.11"]
+              node: ["22.13", "24.11"]
               source: ["local", "npm"]
-            exclude:
-              - { node: "18.17.0", source: "npm" }
 
   # macOS weekly, two cells — see the budget note above the job.
   weekly_macos_canary:
@@ -253,7 +251,7 @@ workflows:
           name: macos-node<< matrix.node >>-<< matrix.source >>
           matrix:
             parameters:
-              node: ["22.11"]
+              node: ["24.11"]
               source: ["local", "npm"]
 
   weekly_evals_drift:

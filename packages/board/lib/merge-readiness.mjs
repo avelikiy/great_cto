@@ -11,6 +11,7 @@ import path from 'node:path';
 import { execFile, spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { validTaskId } from '../../../scripts/lib/workspace.mjs';
+import { attestationOf } from '../../../scripts/lib/verdict-attestation.mjs';
 
 const SAFE_BRANCH = /^[A-Za-z0-9][A-Za-z0-9._/-]{0,200}$/;
 const REVIEWERS = Object.freeze(['code-reviewer', 'qa-engineer']);
@@ -71,8 +72,8 @@ function verdictRecords(file) {
   return out;
 }
 
-/** Latest verdict per reviewer bound to this exact head, from the project and the branch's worktree. */
-export function readReviewerVerdicts(dirs, head) {
+/** Latest record per reviewer bound to this exact head, with the state directory it came from. */
+function latestBound(dirs, head) {
   const found = {};
   for (const reviewer of REVIEWERS) {
     const records = [];
@@ -80,13 +81,30 @@ export function readReviewerVerdicts(dirs, head) {
       for (const name of [`${reviewer}.log`, `great-cto:${reviewer}.log`]) {
         const got = verdictRecords(path.join(dir, '.great_cto', 'verdicts', name));
         if (got === null) return null;
-        records.push(...got);
+        records.push(...got.map((rec) => ({ rec, stateDir: path.join(dir, '.great_cto') })));
       }
     }
-    const bound = records.filter((r) => r?.receipt?.head === head).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
-    found[reviewer] = bound.at(-1)?.verdict ?? null;
+    const bound = records.filter((r) => r.rec?.receipt?.head === head).sort((a, b) => String(a.rec.ts).localeCompare(String(b.rec.ts)));
+    found[reviewer] = bound.at(-1) ?? null;
   }
   return found;
+}
+
+/** Latest verdict per reviewer bound to this exact head, from the project and the branch's worktree. */
+export function readReviewerVerdicts(dirs, head) {
+  const latest = latestBound(dirs, head);
+  if (latest === null) return null;
+  return Object.fromEntries(REVIEWERS.map((r) => [r, latest[r]?.rec?.verdict ?? null]));
+}
+
+/**
+ * Who wrote each reviewer's latest verdict on this head, as the harness saw it (ADR-051
+ * slice 2): 'attested' | 'self-reported' | 'unreadable', or null where there is no verdict.
+ */
+export function readReviewerAttestations(dirs, head, opts = {}) {
+  const latest = latestBound(dirs, head);
+  if (latest === null) return null;
+  return Object.fromEntries(REVIEWERS.map((r) => [r, latest[r] ? attestationOf(latest[r].rec, latest[r].stateDir, opts).state : null]));
 }
 
 /** Records of <root>/.great_cto/gate-runs.jsonl, or null when it exists and cannot be read. */
@@ -159,6 +177,7 @@ export async function readFacts(root, { branch, base = null, issueIds = [], task
     gateQueue,
     gateRunnable: !!worktree && fs.existsSync(path.join(worktree, 'scripts', 'ci-local.sh')),
     verdicts: head ? readReviewerVerdicts([root, ...(worktree ? [worktree] : [])], head) : null,
+    attestations: head ? readReviewerAttestations([root, ...(worktree ? [worktree] : [])], head) : null,
     linkedIssues: issueIds.length > 0,
     subtasks,
     checkedAt: new Date(now).toISOString(),
@@ -221,7 +240,10 @@ function gateRow(f) {
 
 function reviewersRow(f) {
   if (f.verdicts === null) return row('reviewers', 'Reviewers', 'not-read', NOT_READ);
-  const parts = REVIEWERS.map((r) => `${r}: ${f.verdicts[r] ? f.verdicts[r].toLowerCase() : 'no verdict on this head'}`);
+  // ADR-051 slice 2: say who wrote an approval. Self-reported is shown, not yet failed —
+  // slice 3 makes attestation required for regulated archetypes.
+  const who = (r) => (f.attestations?.[r] === 'attested' ? ', attested' : f.attestations?.[r] === 'self-reported' ? ', self-reported' : '');
+  const parts = REVIEWERS.map((r) => `${r}: ${f.verdicts[r] ? f.verdicts[r].toLowerCase() + who(r) : 'no verdict on this head'}`);
   const ok = REVIEWERS.every((r) => APPROVING.has(f.verdicts[r]));
   return row('reviewers', 'Reviewers', ok ? 'pass' : 'fail', parts.join(' · '), { kind: 'tab', label: 'Verdicts', tab: 'evidence' });
 }

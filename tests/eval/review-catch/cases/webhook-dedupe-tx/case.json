@@ -1,0 +1,6 @@
+{
+  "id": "webhook-dedupe-tx",
+  "summary": "Refund webhook handler now records the event id it processed.",
+  "decoy": true,
+  "known_defects": []
+}

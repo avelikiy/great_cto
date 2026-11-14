@@ -1,0 +1,14 @@
+diff --git a/src/transfers/commit.ts b/src/transfers/commit.ts
+--- a/src/transfers/commit.ts
++++ b/src/transfers/commit.ts
+@@ -1,7 +1,7 @@
+ import { ledger } from '../ledger/client';
+ 
+-export function commitTransfer(from: string, to: string, amountCents: number) {
+-  ledger.debitSync(from, amountCents);
+-  ledger.creditSync(to, amountCents);
++export async function commitTransfer(from: string, to: string, amountCents: number) {
++  ledger.debit(from, amountCents);
++  await ledger.credit(to, amountCents);
+   return { ok: true };
+ }

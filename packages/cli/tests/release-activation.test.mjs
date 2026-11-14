@@ -9,6 +9,18 @@ import { activateNpmRelease, recoverNpmActivation, resolveNpmInstallation, propo
 
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 
+// The activation refuses an npm executable that group or others can write (`mode & 0o022`).
+// The fixtures used to pass `process.execPath`, which is 0755 on a developer machine and 0775
+// in the GitHub runner's toolcache, so 25 tests failed there for a reason that had nothing to
+// do with what they test. Synthetic mode never runs npm (`testing.run` stands in), so a private
+// stub at exactly 0755 is all it needs. chmod, not the write mode: a umask of 002 would leave 0775.
+function privateNpmStub(root) {
+  const npm = path.join(root, 'npm');
+  fs.writeFileSync(npm, '#!/bin/sh\nexit 0\n');
+  fs.chmodSync(npm, 0o755);
+  return npm;
+}
+
 function fixture(t) {
   const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'gcto-activation-')));
   fs.chmodSync(root, 0o700);
@@ -48,8 +60,9 @@ function fixture(t) {
   };
   const stateRoot = path.join(root, 'state');
   const testing = { fixtureRoot: root, access, run };
-  const options = { binaryPath: bin, stateRoot, npmPath: process.execPath, testing };
-  return { root, prefix, pkg, bin, neighbour, archive, files, calls, admission, info, access, installFiles, testing, stateRoot, options };
+  const npmPath = privateNpmStub(root);
+  const options = { binaryPath: bin, stateRoot, npmPath, testing };
+  return { root, prefix, pkg, bin, neighbour, archive, files, calls, admission, info, access, installFiles, testing, stateRoot, options, npmPath };
 }
 
 test('resolved npm shim identifies the exact package and prefix; unknown and foreign bins refuse', t => {
@@ -62,7 +75,7 @@ test('resolved npm shim identifies the exact package and prefix; unknown and for
 
 test('a synthetic or forged admission never authorizes real activation or state creation', t => {
   const f = fixture(t);
-  const r = activateNpmRelease(f.admission, { binaryPath: f.bin, stateRoot: f.stateRoot, npmPath: process.execPath });
+  const r = activateNpmRelease(f.admission, { binaryPath: f.bin, stateRoot: f.stateRoot, npmPath: f.npmPath });
   assert.equal(r.state, 'REFUSED'); assert.equal(r.authority, 'NONE'); assert.equal(fs.existsSync(f.stateRoot), false);
   assert.equal(fs.readFileSync(path.join(f.pkg, 'index.mjs'), 'utf8'), 'previous runtime');
 });
@@ -89,7 +102,7 @@ test('simulation runs only the exact local offline command with sanitized config
   assert.equal(r.state, 'SIMULATED_SMOKE_PASSED'); assert.equal(r.authority, 'NONE'); assert.equal(r.evidence, 'SYNTHETIC_ONLY'); assert.equal(r.releaseEligibility, 'NOT_CHECKED');
   assert.equal(f.calls.length, 3);
   const install = f.calls[0];
-  assert.equal(install.command, process.execPath); assert.ok(install.args[2].startsWith(f.stateRoot + path.sep)); assert.equal(fs.readFileSync(install.args[2], 'utf8'), fs.readFileSync(f.archive, 'utf8')); assert.ok(install.args.includes('--ignore-scripts')); assert.ok(install.args.includes('--offline'));
+  assert.equal(install.command, f.npmPath); assert.ok(install.args[2].startsWith(f.stateRoot + path.sep)); assert.equal(fs.readFileSync(install.args[2], 'utf8'), fs.readFileSync(f.archive, 'utf8')); assert.ok(install.args.includes('--ignore-scripts')); assert.ok(install.args.includes('--offline'));
   assert.equal(install.args[install.args.indexOf('--prefix') + 1], f.prefix); assert.equal(install.args.some(x => /@latest|https?:\/\//.test(x)), false);
   assert.equal(install.options.env.NODE_OPTIONS, undefined); assert.equal(install.options.env.npm_config_prefix, undefined); assert.notEqual(install.options.env.NPM_CONFIG_REGISTRY, 'https://invalid.example');
   assert.equal(fs.readFileSync(install.options.env.NPM_CONFIG_USERCONFIG, 'utf8'), '');
@@ -336,9 +349,9 @@ test('an actual child-process exit leaves an orphan lock that explicit recovery 
     'const access={getAdmissionInfo:()=>({version:"3.71.0",source:{commit:"a".repeat(40)},isProduction:false,authority:"NONE"}),',
     'getAdmittedArtifact:()=>({path:f.archive,sha256:createHash("sha256").update(fs.readFileSync(f.archive)).digest("hex"),size:fs.statSync(f.archive).size}),',
     'inspectNpmPayload:()=>({version:"3.71.0",files:f.files.map(x=>({...x,bytes:Buffer.from(x.bytes)}))})};',
-    'activateNpmRelease(a,{binaryPath:f.bin,stateRoot:f.stateRoot,npmPath:process.execPath,testing:{fixtureRoot:f.root,access,run:()=>{throw Error("must not execute")},onPhase:p=>{if(p==="ACTIVATING")process.exit(87)}}});',
+    'activateNpmRelease(a,{binaryPath:f.bin,stateRoot:f.stateRoot,npmPath:f.npmPath,testing:{fixtureRoot:f.root,access,run:()=>{throw Error("must not execute")},onPhase:p=>{if(p==="ACTIVATING")process.exit(87)}}});',
   ].join('\n');
-  const child = spawnSync(process.execPath, ['--input-type=module', '-e', source, JSON.stringify({ root: f.root, archive: f.archive, bin: f.bin, stateRoot: f.stateRoot, files: f.files.map(x => ({ ...x, bytes: [...x.bytes] })) })], { encoding: 'utf8', timeout: 10000 });
+  const child = spawnSync(process.execPath, ['--input-type=module', '-e', source, JSON.stringify({ root: f.root, archive: f.archive, bin: f.bin, stateRoot: f.stateRoot, npmPath: f.npmPath, files: f.files.map(x => ({ ...x, bytes: [...x.bytes] })) })], { encoding: 'utf8', timeout: 10000 });
   assert.equal(child.status, 87, child.stderr);
   const r = recoverNpmActivation({ prefix: f.prefix, stateRoot: f.stateRoot, testing: f.testing });
   assert.equal(r.state, 'SIMULATED_ROLLED_BACK'); assert.equal(fs.readFileSync(path.join(f.pkg, 'index.mjs'), 'utf8'), 'previous runtime');

@@ -1,0 +1,22 @@
+{
+  "id": "withdraw-toctou",
+  "summary": "Wallet withdrawal endpoint.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "withdraw-toctou.a",
+      "file": "src/wallet/withdraw.ts",
+      "lines": [
+        6,
+        10
+      ],
+      "class": "toctou",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "Balance read, checked, then written as balance - amount with no transaction, row lock or conditional update; two concurrent withdrawals both pass the check (double spend)."
+    }
+  ]
+}

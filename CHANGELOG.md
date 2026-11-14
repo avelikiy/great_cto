@@ -7,6 +7,39 @@ All notable changes to great_cto are documented here.
 
 
 
+## Unreleased
+
+### Added
+
+- **See a pipeline map's stops before a run pays for them** (`scripts/lib/pipeline-dry-run.mjs`). Walks `shared/pipeline.toml` — or a project override, with `--pipeline` — from `product-owner` to the end with stub verdicts, no agents and no spend, through the dispatcher's own `decideNext`: each stage, every hold and its gates (for `--level` and `--archetype`), and where the chain ends. Static checks report an edge into a stage with no rule, an unknown agent, an asymmetric join or a rule that accepts no verdict; the walk reports a verdict no rule accepts, a join partner that never runs and a stub loop. Exit 1 on any problem. `runtime-ci` and `ci-local.sh` walk the shipped map on every change to it; `tests/lib/pipeline-dry-run.test.mjs` pins seven paths of the shipped map (holds at each level, NO_BUILD, APPROVED_UI, client release behind `gate:release`, SPEC-OBJECTION, `depth=small`). `decideNext` now also returns the next stages as data (`nexts`), beside the unchanged directive text. From coleam00/Archon's workflow dry-run.
+
+- **A role records only its own verdict** (ADR-051, slice 1). A subagent that runs `log-verdict.sh` for another role, or with a role spelled as a variable, is refused at the tool layer; so is any shell or edit-tool write, truncation, move or deletion of `.great_cto/verdicts/*.log`, for the main session too. `scripts/hooks/verdict-authorship-guard.mjs`, run inside `bash-guards.mjs` and as an `Edit|Write|MultiEdit` hook (and through the Codex adapter for `apply_patch`). Every shipped agent already names only its own role, so honest runs are unaffected. Off switch for the operator: `GREAT_CTO_DISABLE_VERDICT_GUARD=1`.
+
+- **The harness says who wrote a verdict** (ADR-051, slice 2). When a subagent's shell call appends sealed verdict lines of its own role, a PostToolUse hook records a sealed attestation (`agent_id`, `agent_type`, digest of the line) in `.great_cto/verdict-attestations.jsonl`. `receipt.mjs --verify` and the board's merge-readiness row now say *attested* or *self-reported* for each approval — a verdict written by the main session, by another role, or on Codex reads as self-reported. `log-verdict.sh` now prints `verdict-recorded <role> <seal>`, and a line is attested only when its seal appears in that call's own output, so a verdict another session wrote meanwhile is never credited to the subagent, and a writer that never ran credits nothing. It blocks nothing yet; slice 3 makes attestation required for regulated archetypes. Off switch: `GREAT_CTO_DISABLE_VERDICT_ATTEST=1`.
+
+- **Regulated projects ship only on attested reviews** (ADR-051, slice 3). On a regulated archetype (fintech, healthcare, insurance, legal, web3, … — `REGULATED_ARCHETYPES`), `receipt.mjs --verify --require` exits 5 when the code-reviewer, qa-engineer or security-officer approval was not attested to that stage's own subagent, and devops step 2b blocks the deploy: re-run the stage as a subagent. On a host whose hooks carry no agent identity (Codex) it exits 3, not verified, instead of blocking. Approvals written before slice 2 read as self-reported, so on a regulated project each reviewing stage runs once more before its next deploy.
+
+- **A catch rate for the reviewers, on real diffs** (`tests/eval/review-catch/`, `scripts/lib/review-catch.mjs`). 16 unified diffs — 13 seeded defects across 7 fintech classes (money precision, idempotency, authz, injection, race, secret exposure, TOCTOU) plus 4 clean decoys that look like them — each with a machine-readable answer key. A deterministic scorer, no judge, matches findings by file, line ±3 and class and reports recall, recall at the severity floor, precision and decoy false-alarm rate with Wilson intervals (`eval-power.mjs`); lost cases count as dropout, so a thin run is inconclusive, not good. It scores saved replies offline; a live run is an operator action and refuses under `CI`. What the set can say is stated: four decoys settle the false-alarm bar only with zero false alarms, and comparing two prompts needs about 39 cases. This is the "measures the review itself" set `EVAL-code-reviewer-quality.md` said was missing.
+
+- **The owner's release-key ceremony as three commands** (`scripts/enroll-release-key.mjs`, `docs/operations/RELEASE-KEY-CEREMONY.md`). `--generate` writes an Ed25519 key outside the source tree (0600, never overwritten), `--public-key … --write` pins its SPKI sha256 in `release-trust.mjs` as a one-line reviewed diff and refuses to replace an enrolled pin (rotation is an ADR, not a flag), `--check` says whether a key is the pinned one. A private key passed where the public half belongs is refused. Not shipped in the plugin set. The plugin-activation e2e harness now also recognises an enrolled pin, so enrolment does not break it.
+
+### Changed
+
+- **The CLI needs Node 22.13 or newer, on macOS or Linux** (`engines: >=22.13`). **Breaking:** dropping a Node line is a major by the repository's own semver rule (`tests/eval/EVAL-library-semver-surface.md`, case 3); the release number is the owner's call. Node 20 reached end-of-life on 2026-04-30, and 22.13 is the first release with `node:sqlite` unflagged, which the task store already uses and the event log (ADR-052) will. CI tests the floor exactly (22.13.0) and the current LTS (24). Windows was never green: the release, activation and transaction path relies on POSIX file modes and symlink semantics; run it under WSL.
+
+### Fixed
+
+- **CI tells the truth about `main` again.** Three causes, none of them a product bug:
+  - the activation tests passed `process.execPath` as the npm executable, which the activation rightly refuses when it is group-writable, as node is (0775) in the GitHub runner's toolcache. They now use a private 0755 stand-in;
+  - the `DO_NOT_TRACK` telemetry test failed under `CI=true`. It now clears the CI markers, and a new test pins the other half of the rule: in CI telemetry stays off even when opted in;
+  - `runtime-ci` never built the CLI, which the board and root tests import. It builds it first now, and runs when `packages/cli/src` changes.
+
+### Docs
+
+- **ADR-052, one ordered event log** (Proposed): every engine's observations in one append-only `events.db` table with a commit-order `seq`; observational only, mirroring authoritative records by digest; phased dual-write → readers → legacy as views, with resume-from-events left to a separate ADR. ADR-040 is folded into it; ADR-048 is accepted.
+
+- **What great_cto takes from Archon, and in what order** (`docs/plans/PLAN-archon-lessons.md`): verdict authority, a pipeline dry-run over stub verdicts, one event log, one attention queue, budgets refused before an attempt, a provider contract, a reviewer eval set — and what is deliberately not taken.
+
 ## v3.79.0 — 2026-11-11
 
 Settings opens on the settings, and the agent list says only what differs.

@@ -1,0 +1,13 @@
+diff --git a/src/routes/invoices.ts b/src/routes/invoices.ts
+--- a/src/routes/invoices.ts
++++ b/src/routes/invoices.ts
+@@ -12,3 +12,9 @@
+   });
+   res.json(rows);
+ });
++
++invoices.get('/invoices/:id', requireUser, async (req, res) => {
++  const invoice = await db.invoice.findUnique({ where: { id: req.params.id } });
++  if (!invoice) return res.status(404).end();
++  res.json(invoice);
++});

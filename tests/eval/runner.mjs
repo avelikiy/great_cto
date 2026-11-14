@@ -590,7 +590,7 @@ export function normalizeCacheUsage(usage, raw) {
  * { text, usage:{input_tokens,output_tokens}, stopReason, model } (usage keys
  * are normalized so cost-meter works for both providers). Throws on non-2xx.
  */
-async function callLlm({ model, system, user, maxTokens = 300, reasoning = undefined }) {
+export async function callLlm({ model, system, user, maxTokens = 300, reasoning = undefined }) {
   const { provider, apiKey } = pickProvider();
   if (!provider) throw new Error('No ANTHROPIC_API_KEY or OPENROUTER_API_KEY set.');
 

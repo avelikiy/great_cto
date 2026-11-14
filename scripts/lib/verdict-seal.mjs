@@ -87,6 +87,16 @@ export function checkVerdictSeal(rec, { key = loadSealKey() } = {}) {
   return check(key, VERDICT_FIELDS(rec || {}), rec?.seal);
 }
 
+/** ADR-051 slice 2: the harness's record of which subagent wrote a verdict line. Its own
+ *  domain tag, so a verdict seal can never be replayed as an attestation seal or back. */
+const ATTEST_FIELDS = (a) => ['attest', canonical(a)];
+export function sealAttestation(att, { key = loadSealKey({ create: true }) } = {}) {
+  return key ? mac(key, ATTEST_FIELDS(att)) : null;
+}
+export function checkAttestationSeal(att, { key = loadSealKey() } = {}) {
+  return check(key, ATTEST_FIELDS(att || {}), att?.seal);
+}
+
 export function sealAcceptance(acc, { key = loadSealKey({ create: true }) } = {}) {
   return key ? mac(key, ACCEPT_FIELDS(acc)) : null;
 }

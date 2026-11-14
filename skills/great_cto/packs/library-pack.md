@@ -162,7 +162,7 @@ For runtime libraries, define your support matrix and test against it. Example f
 # .github/workflows/test.yml
 strategy:
   matrix:
-    node-version: ['20', '22', '24']     # LTS + current
+    node-version: ['22', '24']           # supported LTS lines (20 is EOL)
     os: [ubuntu-latest, macos-latest, windows-latest]
 ```
 

@@ -1,0 +1,35 @@
+diff --git a/src/payments/fee-rate.ts b/src/payments/fee-rate.ts
+--- a/src/payments/fee-rate.ts
++++ b/src/payments/fee-rate.ts
+@@ -1,3 +1,9 @@
+-export function feeCents(amountCents: bigint): bigint {
+-  return (amountCents * 290n) / 10000n + 30n;
++/** Fee in integer cents: rateBps basis points plus fixedCents, rounded half-to-even. */
++export function feeCents(amountCents: bigint, rateBps: bigint = 290n, fixedCents: bigint = 30n): bigint {
++  if (amountCents < 0n || rateBps < 0n || fixedCents < 0n) throw new RangeError('negative fee input');
++  const scaled = amountCents * rateBps;
++  const q = scaled / 10000n;
++  const r = scaled % 10000n;
++  const roundUp = r > 5000n || (r === 5000n && q % 2n === 1n);
++  return (roundUp ? q + 1n : q) + fixedCents;
+ }
+diff --git a/src/payments/fee-rate.test.ts b/src/payments/fee-rate.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/payments/fee-rate.test.ts
+@@ -0,0 +1,15 @@
++import { test, expect } from 'vitest';
++import { feeCents } from './fee-rate';
++
++test('half-even at the boundary', () => {
++  expect(feeCents(5000n, 1n, 0n)).toBe(0n);
++  expect(feeCents(15000n, 1n, 0n)).toBe(2n);
++});
++
++test('default merchant rate', () => {
++  expect(feeCents(10000n)).toBe(320n);
++});
++
++test('rejects negative input', () => {
++  expect(() => feeCents(-1n)).toThrow(RangeError);
++});

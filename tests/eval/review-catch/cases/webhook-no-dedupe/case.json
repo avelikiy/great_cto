@@ -1,0 +1,22 @@
+{
+  "id": "webhook-no-dedupe",
+  "summary": "Refactor of the payment-provider webhook handler \"to remove the extra table lookup\".",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "webhook-no-dedupe.a",
+      "file": "src/webhooks/payments.ts",
+      "lines": [
+        10,
+        10
+      ],
+      "class": "idempotency",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "Dedupe on event.id removed; providers redeliver webhooks, so every redelivery credits the wallet again."
+    }
+  ]
+}

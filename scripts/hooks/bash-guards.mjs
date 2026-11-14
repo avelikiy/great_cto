@@ -10,7 +10,7 @@
  * One process starts once and runs the checks back to back.
  *
  * Order: the refusals first (inline subagent, shared tree, gate bypass,
- * destructive command, frozen gates, secret read); the first that refuses decides, exactly as
+ * destructive command, frozen gates, secret read, verdict authorship); the first that refuses decides, exactly as
  * a deny from any one of the six did. Then the reminder (lesson-tripwire), which
  * never blocks. A check that throws is reported and passed over — a crashing
  * guard script was a pass before, and stays one; only its name is now known.
@@ -22,7 +22,9 @@ import { run as gateBypass } from './gate-bypass-guard.mjs';
 import { run as destructive } from './destructive-guard.mjs';
 import { run as frozenGates } from './frozen-gates-guard.mjs';
 import { run as secretRead } from './secret-read-guard.mjs';
+import { run as verdictAuthorship } from './verdict-authorship-guard.mjs';
 import { run as lessonTripwire } from './lesson-tripwire.mjs';
+import { pre as verdictAttestPre } from './verdict-attest.mjs';
 import { isMainModule } from '../lib/is-main.mjs';
 
 export const BASH_CHECKS = Object.freeze([
@@ -33,8 +35,11 @@ export const BASH_CHECKS = Object.freeze([
   ['destructive', destructive],
   ['frozen-gates', frozenGates],
   ['secret-read', secretRead],
+  ['verdict-authorship', verdictAuthorship],
 ]);
-export const BASH_REMINDERS = Object.freeze([['lesson-tripwire', lessonTripwire]]);
+// Run only when no check refused. verdict-attest notes the subagent's own verdict log
+// length before the call (ADR-051 slice 2); it never denies and never prints.
+export const BASH_REMINDERS = Object.freeze([['lesson-tripwire', lessonTripwire], ['verdict-attest', verdictAttestPre]]);
 
 export function runBashGuards(raw, env = process.env, { checks = BASH_CHECKS, reminders = BASH_REMINDERS } = {}) {
   let notes = '';

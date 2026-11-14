@@ -1,0 +1,27 @@
+diff --git a/src/routes/payout-destination.ts b/src/routes/payout-destination.ts
+new file mode 100644
+--- /dev/null
++++ b/src/routes/payout-destination.ts
+@@ -0,0 +1,22 @@
++import { Router } from 'express';
++import { z } from 'zod';
++import { db } from '../db';
++import { requireUser } from '../auth/require-user';
++import { audit } from '../audit';
++
++const Body = z.object({
++  accountId: z.string().uuid(),
++  iban: z.string().regex(/^[A-Z]{2}[0-9]{2}[A-Z0-9]{11,30}$/),
++});
++
++export const payoutDestination = Router();
++
++payoutDestination.patch('/payout-destination', requireUser, async (req, res) => {
++  const body = Body.parse(req.body);
++  await db.account.update({
++    where: { id: body.accountId },
++    data: { payoutIban: body.iban },
++  });
++  await audit('payout-destination.changed', { by: req.user.id, accountId: body.accountId });
++  res.status(204).end();
++});

@@ -104,3 +104,19 @@ a live URL, tests on machines without Docker, Windows and Linux.
 - `packages/cli/**` is being edited by another session. Phase 1 touches `scripts/lib/**`,
   `packages/board/**` and one generated file fed from `packages/cli/src/archetypes.ts` (S3).
   S3 is announced to that session before it starts.
+
+## Folded in from the Archon plan (owner, 2026-11-14)
+
+[PLAN-archon-lessons](../plans/PLAN-archon-lessons.md) items 4 and 5 move here rather than run as
+their own work, because each is a part of the cockpit rather than something beside it:
+
+- **One attention queue** (item 4) is the data model of "what is waiting for me": every gate and
+  controller `manual-action` projected into one queue, with a typed form, a `recommendation
+  {option, why, confidence}`, and `revision` + `occurrence_id` so an answer to a closed occurrence is
+  refused. The decision screen answers that queue. It reads from the event log once
+  [ADR-052](../adr/ADR-052-one-event-log.md) P2 lands; before that it projects the existing stores.
+- **Budgets in USD refused before an attempt starts** (item 5) are where ADR-049 rule 2 ("a
+  budget is required") is enforced: the controller's per-stage cost, a missing cost recorded as
+  unknown and never as zero.
+
+Neither changes S1–S7 as approved; each is scheduled when the slice that needs it starts.
