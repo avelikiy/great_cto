@@ -167,3 +167,29 @@ test('CLI: 0 on the shipped map, 1 on a broken override, 2 on unusable input', (
   assert.deepEqual(json.reached, ['product-owner']);
   assert.equal(json.ended, true);
 });
+
+// Codex review on #292: one finished branch must not make a walk with a held branch "ended".
+test('walk: a branch held at a gate keeps the walk from counting as ended', () => {
+  const t = {
+    'product-owner': { on: ['DONE'], next: ['architect', 'l3-support'] },
+    architect: { on: ['DONE'], next: ['pm'], gate: 'gate:arch' },
+    pm: { on: ['DONE'], next: [] },
+    'l3-support': { on: ['DONE'], next: [] },
+  };
+  const held = dryRun({ transitions: t, start: 'product-owner', holdAtGates: true });
+  assert.equal(held.ended, false, 'pm was never reached');
+  assert.deepEqual(held.held, [{ agent: 'architect', gates: ['gate:arch'], nexts: ['pm'] }]);
+  assert.deepEqual(held.problems, []);
+  const walked = dryRun({ transitions: t, start: 'product-owner' });
+  assert.equal(walked.ended, true);
+  assert.deepEqual(walked.held, []);
+  assert.ok(walked.reached.includes('pm'));
+});
+
+test('CLI --hold-at-gates: says where it stopped, never "reached the end"', () => {
+  const r = spawnSync(process.execPath, [SCRIPT, '--hold-at-gates'], { encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /held at gate:product after product-owner; not walked: architect/);
+  assert.match(r.stdout, /stopped at the holds above \(--hold-at-gates\)/);
+  assert.doesNotMatch(r.stdout, /reached the end of the chain/);
+});

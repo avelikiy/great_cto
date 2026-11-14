@@ -99,9 +99,10 @@ function stubFor(stubs, agent, visit, transitions) {
 }
 
 /**
- * Walk the map from `start`. Returns { steps, ended, problems, reached }.
+ * Walk the map from `start`. Returns { steps, ended, held, problems, reached }.
  *   steps[i] = { agent, verdict, stubbed, kind, nexts?, gates?, pending? }
- *   ended    — the walk reached a `done` (end of chain) on every branch it followed
+ *   ended    — every branch the walk followed reached a `done` (end of chain)
+ *   held     — branches stopped at a hold because of `holdAtGates`: { agent, gates, nexts }
  *   problems — { kind: 'no-rule' | 'unknown-verdict' | 'stopped' | 'join-never-met' | 'loop' | 'step-cap', at, detail }
  *
  * Gates hold the real run; the dry run records the hold and walks on as though the human
@@ -114,7 +115,8 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
   const visits = {};
   const queue = [start];
   const waiting = new Map(); // agent → partners it still waits for
-  let ended = false;
+  let sawDone = false;
+  const held = []; // { agent, gates, nexts } — branches stopped at a hold (holdAtGates)
   let n = 0;
 
   while (queue.length) {
@@ -147,11 +149,12 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
       waiting.delete(agent); enqueue(d.nexts);
     } else if (d.kind === 'gate') {
       waiting.delete(agent);
-      if (!holdAtGates) enqueue(d.nexts);
+      if (holdAtGates) held.push({ agent, gates: d.gates, nexts: d.nexts });
+      else enqueue(d.nexts);
     } else if (d.kind === 'join-wait') {
       waiting.set(agent, d.pending);
     } else if (d.kind === 'done') {
-      waiting.delete(agent); ended = true;
+      waiting.delete(agent); sawDone = true;
     } else {
       problems.push({ kind: 'stopped', at: agent, detail: `${agent} → ${d.kind}: ${String(d.text).slice(0, 160)}` });
     }
@@ -165,7 +168,11 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
     }
   }
   const reached = [...new Set(steps.map((s) => s.agent))];
-  return { steps, ended, problems, reached };
+  // Ended means every branch the walk followed reached an end of chain — not that one
+  // did. A branch held at a gate has not ended (Codex review on #292: a map fanning out
+  // to a gated branch and a finishing one reported "ended" off the finishing one).
+  const ended = sawDone && held.length === 0;
+  return { steps, ended, held, problems, reached };
 }
 
 function readJson(path) {
@@ -185,7 +192,12 @@ function render(lint, run, { pipeline, start, level }) {
   }
   const problems = [...lint.map((p) => ({ ...p, static: true })), ...run.problems];
   out.push('');
-  if (!problems.length) out.push(run.ended ? 'ok: the walk reached the end of the chain, and the map has no problems' : 'no problems, but the walk did not reach an end');
+  for (const h of run.held || []) out.push(`  ⏸ held at ${h.gates.join(' + ')} after ${h.agent}; not walked: ${h.nexts.join(', ')}`);
+  if (!problems.length) {
+    out.push(run.ended ? 'ok: the walk reached the end of the chain, and the map has no problems'
+      : run.held?.length ? 'stopped at the holds above (--hold-at-gates); no problems up to there — not a walk to the end'
+        : 'no problems, but the walk did not reach an end');
+  }
   for (const p of problems) out.push(`  ✗ ${p.kind} at ${p.at}: ${p.detail}`);
   return out.join('\n');
 }
@@ -203,7 +215,9 @@ if (isMainModule(import.meta.url)) {
     const activeGates = gatesForApprovalLevel(level, { archetype: opt('--archetype') });
     const lint = lintGraph(transitions);
     const run = dryRun({ transitions, start, stubs, activeGates, holdAtGates: argv.includes('--hold-at-gates') });
-    const bad = lint.length + run.problems.length > 0 || !run.ended;
+    // A hold the caller asked to stop at is not a failure; a walk that neither ended nor
+    // was held is one.
+    const bad = lint.length + run.problems.length > 0 || (!run.ended && !run.held.length);
     if (argv.includes('--json')) console.log(JSON.stringify({ pipeline, start, level, activeGates, lint, ...run }, null, 2));
     else console.log(render(lint, run, { pipeline, start, level }));
     process.exit(bad ? 1 : 0);
