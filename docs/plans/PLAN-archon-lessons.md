@@ -1,7 +1,7 @@
 # PLAN: what great_cto takes from Archon, and in what order
 
 **Date:** 2026-11-13
-**Status:** Draft — items 1 (ADR-051, accepted 2026-11-13) and 2 implemented; item 3 proposed as ADR-052, item 7 in progress; item 4 moves into the cockpit plan; items 5–6 later (owner, 2026-11-14)
+**Status:** Draft — items 1 (ADR-051, accepted 2026-11-13) and 2 implemented; item 3 proposed as ADR-052, item 7 implemented (`tests/eval/review-catch/`); item 4 moves into the cockpit plan; items 5–6 later (owner, 2026-11-14)
 **Inputs:** a side-by-side read of [coleam00/Archon](https://github.com/coleam00/Archon) v0.14.0
 (commit `2aabbd0`) and great_cto v3.79.0 (commit `a8032db`), every claim below re-checked
 against great_cto's own tree.
@@ -132,7 +132,7 @@ budget is required) gets its enforcement point.
 to start if a node needs something its provider cannot load. Separately worth a spike: Archon
 drives Codex through `codex app-server` (JSON-RPC: streaming, resume) rather than `codex exec`.
 
-### 7. Eval set for the reviewer roles  ·  3 days  ·  **in progress**, run in parallel with item 3
+### 7. Eval set for the reviewer roles  ·  3 days  ·  **implemented** (`tests/eval/review-catch/`; first live numbers are an operator run)
 
 Archon keeps real PRs with seeded `known_defects` and a judge over them
 (`.archon/sdlc/eval/review/set.json`). great_cto's Insights are honestly labelled "not quality
