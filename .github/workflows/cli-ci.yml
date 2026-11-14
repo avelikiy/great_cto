@@ -27,17 +27,18 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      # Linux on both supported Node lines, macOS on the current one: 3 jobs, not 9.
+      # Linux on the floor and the current LTS, macOS on the current one: 3 jobs, not 9.
       # Windows is not a supported platform for the CLI: release, activation and the
       # transaction journal rely on POSIX modes, symlink refusal and directory fsync, and
       # failed 219 tests there the first time this ran (2026-11-13). Windows users run it
-      # under WSL (packages/cli/README.md). Node 18 is end-of-life; engines say >=20.
+      # under WSL (packages/cli/README.md). Node 20 is end-of-life (2026-04-30); engines say >=22.13,
+      # the first release with node:sqlite unflagged, so the floor is tested exactly.
       matrix:
         os: [ubuntu-latest]
-        node: ["20", "22"]
+        node: ["22.13.0", "24"]
         include:
           - os: macos-latest
-            node: "22"
+            node: "24"
     defaults:
       run:
         working-directory: packages/cli

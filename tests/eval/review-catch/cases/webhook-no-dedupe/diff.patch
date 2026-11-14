@@ -1,0 +1,20 @@
+diff --git a/src/webhooks/payments.ts b/src/webhooks/payments.ts
+--- a/src/webhooks/payments.ts
++++ b/src/webhooks/payments.ts
+@@ -1,6 +1,5 @@
+ import { verifySignature } from '../lib/signature';
+ import { wallets } from '../db/wallets';
+-import { processedEvents } from '../db/processed-events';
+ import type { Request, Response } from 'express';
+ 
+ export async function paymentWebhook(req: Request, res: Response) {
+@@ -8,9 +7,6 @@
+   if (!event) return res.status(400).end();
+   if (event.type !== 'payment.succeeded') return res.status(204).end();
+ 
+-  const fresh = await processedEvents.insertIfAbsent(event.id);
+-  if (!fresh) return res.status(200).json({ duplicate: true });
+-
+   await wallets.credit(event.data.userId, event.data.amountCents);
+   return res.status(200).json({ ok: true });
+ }

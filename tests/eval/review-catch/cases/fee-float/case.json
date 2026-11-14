@@ -1,0 +1,21 @@
+{
+  "id": "fee-float",
+  "summary": "Checkout fees move from integer cents to a dollar-amount API.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "fee-float.a",
+      "file": "src/payments/fees.ts",
+      "lines": [
+        7,
+        11
+      ],
+      "class": "money-precision",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "Fee and total computed in binary floating point on dollars; 0.1+0.2-style drift and Math.round on a scaled float misround half-cent fees."
+    }
+  ]
+}

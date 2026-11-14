@@ -1,6 +1,8 @@
 # ADR-040: Controller-recorded causal execution graph
 
-**Status:** Proposed
+**Status:** Folded into [ADR-052](ADR-052-one-event-log.md) (owner, 2026-11-14). Implemented in
+`scripts/lib/execution-trace.mjs`; its decision stands as ADR-052's controller stream and is accepted
+or rejected with ADR-052.
 **Date:** 2026-10-22
 **Deciders:** Product owner; independent code/security review before delivery
 

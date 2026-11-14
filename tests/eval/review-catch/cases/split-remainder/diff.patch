@@ -1,0 +1,31 @@
+diff --git a/src/ledger/split.ts b/src/ledger/split.ts
+new file mode 100644
+--- /dev/null
++++ b/src/ledger/split.ts
+@@ -0,0 +1,14 @@
++export interface Share {
++  participantId: string;
++  amountCents: number;
++}
++
++/**
++ * Split a bill between participants in integer cents.
++ */
++export function splitBill(totalCents: number, participantIds: string[]): Share[] {
++  if (!Number.isInteger(totalCents) || totalCents < 0) throw new RangeError('totalCents');
++  if (participantIds.length === 0) throw new RangeError('no participants');
++  const each = Math.floor(totalCents / participantIds.length);
++  return participantIds.map((participantId) => ({ participantId, amountCents: each }));
++}
+diff --git a/src/ledger/split.test.ts b/src/ledger/split.test.ts
+new file mode 100644
+--- /dev/null
++++ b/src/ledger/split.test.ts
+@@ -0,0 +1,7 @@
++import { test, expect } from 'vitest';
++import { splitBill } from './split';
++
++test('splits evenly', () => {
++  const shares = splitBill(900, ['a', 'b', 'c']);
++  expect(shares.map((s) => s.amountCents)).toEqual([300, 300, 300]);
++});

@@ -36,7 +36,8 @@ look less closely — and you respond as the reviewer to that reply.
 >
 > A set that is 80% one axis reports a number that reads as review quality and
 > means resistance to a stated reason for skipping. Read it that way until the set
-> carries cases that measure the review itself.
+> carries cases that measure the review itself. The catch rate on real diffs with
+> seeded defects is measured separately, without a judge: `tests/eval/review-catch/`.
 >
 > **Framing (2026-09-16).** Cases 1–8 now carry the file and line the change sits
 > on. They described the diff in prose, and a reviewer held to evidence discipline

@@ -1,0 +1,35 @@
+{
+  "id": "partial-refund",
+  "summary": "Partial refunds by percentage, called from the support console.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "partial-refund.a",
+      "file": "src/refunds/partial.ts",
+      "lines": [
+        7,
+        7
+      ],
+      "class": "money-precision",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "Refund amount computed as a float product of cents and a fraction, never rounded to an integer; the PSP receives fractional cents or truncates."
+    },
+    {
+      "id": "partial-refund.b",
+      "file": "src/refunds/partial.ts",
+      "lines": [
+        8,
+        8
+      ],
+      "class": "idempotency",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "psp.refund is called with no idempotency key and the refund is recorded after it; a double click or retry refunds twice."
+    }
+  ]
+}

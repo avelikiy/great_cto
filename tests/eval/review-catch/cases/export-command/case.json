@@ -1,0 +1,22 @@
+{
+  "id": "export-command",
+  "summary": "Statement PDF export shells out to the renderer.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "export-command.a",
+      "file": "src/export/pdf.ts",
+      "lines": [
+        11,
+        11
+      ],
+      "class": "injection",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "req.query.name interpolated into an exec() shell string; OS command injection."
+    }
+  ]
+}

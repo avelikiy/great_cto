@@ -1,0 +1,22 @@
+{
+  "id": "bank-client-logging",
+  "summary": "Debug logging added to the bank API client to chase timeouts.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "bank-client-logging.a",
+      "file": "src/clients/bank.ts",
+      "lines": [
+        11,
+        11
+      ],
+      "class": "secret-exposure",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "Logs the full headers object, which carries the bearer API key."
+    }
+  ]
+}

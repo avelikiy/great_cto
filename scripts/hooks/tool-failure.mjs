@@ -11,7 +11,7 @@
  * Used by continuous-learner to detect recurring failure patterns
  * and crystallize them into procedural memory in brain.md.
  *
- * Zero external deps — Node.js 20+ built-ins only.
+ * Zero external deps — Node.js 22.13+ built-ins only.
  * Never throws — hook must never block the agent.
  */
 

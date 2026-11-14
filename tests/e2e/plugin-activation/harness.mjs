@@ -35,7 +35,8 @@ export const PLUGIN_KEY = 'great_cto@local';
 export const PHASES = ['SNAPSHOTTED', 'PUBLISHED', 'ACTIVATING', 'REGISTRY_WRITTEN', 'SETTINGS_WRITTEN', 'MARKETPLACE_WRITTEN', 'ACTIVE', 'SMOKE_PASSED'];
 export { digest };
 
-const PIN = /export const EMBEDDED_RELEASE_KEY_FINGERPRINT\s*=\s*EMBEDDED_RELEASE_KEY_NOT_ENROLLED\s*;/g;
+// The sentinel today; a quoted sha256 once the owner enrols the release key (docs/operations/RELEASE-KEY-CEREMONY.md).
+const PIN = /export const EMBEDDED_RELEASE_KEY_FINGERPRINT\s*=\s*(?:EMBEDDED_RELEASE_KEY_NOT_ENROLLED|'[a-f0-9]{64}')\s*;/g;
 const inside = (parent, child) => { const rel = path.relative(parent, child); return rel !== '' && !rel.startsWith('..') && !path.isAbsolute(rel); };
 
 function newKey() {

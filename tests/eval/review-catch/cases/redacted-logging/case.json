@@ -1,0 +1,6 @@
+{
+  "id": "redacted-logging",
+  "summary": "Request logging added to the PSP client.",
+  "decoy": true,
+  "known_defects": []
+}

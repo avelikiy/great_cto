@@ -19,9 +19,13 @@ All notable changes to great_cto are documented here.
 
 - **Regulated projects ship only on attested reviews** (ADR-051, slice 3). On a regulated archetype (fintech, healthcare, insurance, legal, web3, … — `REGULATED_ARCHETYPES`), `receipt.mjs --verify --require` exits 5 when the code-reviewer, qa-engineer or security-officer approval was not attested to that stage's own subagent, and devops step 2b blocks the deploy: re-run the stage as a subagent. On a host whose hooks carry no agent identity (Codex) it exits 3, not verified, instead of blocking. Approvals written before slice 2 read as self-reported, so on a regulated project each reviewing stage runs once more before its next deploy.
 
+- **A catch rate for the reviewers, on real diffs** (`tests/eval/review-catch/`, `scripts/lib/review-catch.mjs`). 16 unified diffs — 13 seeded defects across 7 fintech classes (money precision, idempotency, authz, injection, race, secret exposure, TOCTOU) plus 4 clean decoys that look like them — each with a machine-readable answer key. A deterministic scorer, no judge, matches findings by file, line ±3 and class and reports recall, recall at the severity floor, precision and decoy false-alarm rate with Wilson intervals (`eval-power.mjs`); lost cases count as dropout, so a thin run is inconclusive, not good. It scores saved replies offline; a live run is an operator action and refuses under `CI`. What the set can say is stated: four decoys settle the false-alarm bar only with zero false alarms, and comparing two prompts needs about 39 cases. This is the "measures the review itself" set `EVAL-code-reviewer-quality.md` said was missing.
+
+- **The owner's release-key ceremony as three commands** (`scripts/enroll-release-key.mjs`, `docs/operations/RELEASE-KEY-CEREMONY.md`). `--generate` writes an Ed25519 key outside the source tree (0600, never overwritten), `--public-key … --write` pins its SPKI sha256 in `release-trust.mjs` as a one-line reviewed diff and refuses to replace an enrolled pin (rotation is an ADR, not a flag), `--check` says whether a key is the pinned one. A private key passed where the public half belongs is refused. Not shipped in the plugin set. The plugin-activation e2e harness now also recognises an enrolled pin, so enrolment does not break it.
+
 ### Changed
 
-- **The CLI needs Node 20 or newer, on macOS or Linux** (`engines: >=20`). Node 18 reached end-of-life in April 2025. Windows was never green: the release, activation and transaction path relies on POSIX file modes, symlink refusal and directory `fsync`, and 219 CLI tests failed on `windows-latest` the first time CI ran again (2026-11-13). On Windows, run it under WSL. `cli-ci` now runs 3 jobs (Linux on Node 20 and 22, macOS on Node 22) instead of 9.
+- **The CLI needs Node 22.13 or newer, on macOS or Linux** (`engines: >=22.13`). **Breaking:** dropping a Node line is a major by the repository's own semver rule (`tests/eval/EVAL-library-semver-surface.md`, case 3); the release number is the owner's call. Node 20 reached end-of-life on 2026-04-30, and 22.13 is the first release with `node:sqlite` unflagged, which the task store already uses and the event log (ADR-052) will. CI tests the floor exactly (22.13.0) and the current LTS (24). Windows was never green: the release, activation and transaction path relies on POSIX file modes and symlink semantics; run it under WSL.
 
 ### Fixed
 
@@ -31,6 +35,8 @@ All notable changes to great_cto are documented here.
   - `runtime-ci` never built the CLI, which the board and root tests import. It builds it first now, and runs when `packages/cli/src` changes.
 
 ### Docs
+
+- **ADR-052, one ordered event log** (Proposed): every engine's observations in one append-only `events.db` table with a commit-order `seq`; observational only, mirroring authoritative records by digest; phased dual-write → readers → legacy as views, with resume-from-events left to a separate ADR. ADR-040 is folded into it; ADR-048 is accepted.
 
 - **What great_cto takes from Archon, and in what order** (`docs/plans/PLAN-archon-lessons.md`): verdict authority, a pipeline dry-run over stub verdicts, one event log, one attention queue, budgets refused before an attempt, a provider contract, a reviewer eval set — and what is deliberately not taken.
 

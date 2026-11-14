@@ -1,0 +1,14 @@
+diff --git a/src/clients/bank.ts b/src/clients/bank.ts
+--- a/src/clients/bank.ts
++++ b/src/clients/bank.ts
+@@ -7,7 +7,10 @@
+     'content-type': 'application/json',
+     authorization: `Bearer ${process.env.BANK_API_KEY}`,
+   };
++  const started = Date.now();
++  logger.debug('bank request', { path, headers });
+   const res = await fetch(`${BASE}${path}`, { method: 'POST', headers, body: JSON.stringify(body) });
++  logger.debug('bank response', { path, status: res.status, ms: Date.now() - started });
+   if (!res.ok) throw new Error(`bank ${path} ${res.status}`);
+   return res.json();
+ }

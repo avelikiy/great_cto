@@ -1,0 +1,6 @@
+{
+  "id": "sort-allowlist",
+  "summary": "Transactions list gets a user-selectable sort order.",
+  "decoy": true,
+  "known_defects": []
+}

@@ -18,7 +18,7 @@ const artifactNames = version => [
 
 export function isPluginRuntimePath(name) {
   if (typeof name !== 'string' || !name || name.startsWith('/') || name.includes('\\') || name.includes('\0')) return false;
-  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/sign-embedded-release-set.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/board-openapi.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
+  if (['scripts/build-release-artifacts.mjs','scripts/sign-release-artifacts.mjs','scripts/sign-local-release-artifacts.mjs','scripts/sign-embedded-release-set.mjs','scripts/enroll-release-key.mjs','scripts/publish-local-release.mjs','scripts/publish-local-github-release.mjs','scripts/judge-calibrate.mjs','scripts/board-openapi.mjs','scripts/lib/prompt-size.mjs'].includes(name)) return false;
   // The embedded signed set is generated into packages/cli/plugin/ for the npm pack only.
   if (name === 'packages/cli/plugin' || name.startsWith('packages/cli/plugin/')) return false;
   const parts = name.split('/');
