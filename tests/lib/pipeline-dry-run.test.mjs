@@ -261,3 +261,15 @@ test('walk: a BLOCKED with no owner to send it to still stops the walk, named', 
   const r = walk({ stubs: { 'code-reviewer': { verdict: 'BLOCKED', meta: { need: 'implementer' } } } });
   assert.deepEqual(r.problems.map((p) => [p.kind, p.at]), [['stopped', 'code-reviewer']]);
 });
+
+// Codex review on #292 (fifth pass): rework re-runs the same stage.
+test('walk: REWORK re-runs the same stage, and the dispatcher\'s rework ceiling still stops a loop', () => {
+  const r = walk({ stubs: { 'senior-dev': ['REWORK', 'TASK_DONE'] } });
+  assert.deepEqual(r.problems, [], JSON.stringify(r.problems));
+  assert.equal(r.ended, true);
+  assert.deepEqual(r.steps.filter((s) => s.agent === 'senior-dev').map((s) => [s.verdict, s.kind]), [['REWORK', 'rework'], ['TASK_DONE', 'next']]);
+  // Endless rework: the dispatcher's MAX_REWORK turns it into a stop before the visit cap.
+  const endless = dryRun({ transitions: SHIPPED, start: 'senior-dev', stubs: { 'senior-dev': 'REWORK' }, maxVisits: 10 });
+  assert.deepEqual(endless.problems.map((p) => [p.kind, p.at]), [['stopped', 'senior-dev']]);
+  assert.match(endless.problems[0].detail, /blocked/);
+});
