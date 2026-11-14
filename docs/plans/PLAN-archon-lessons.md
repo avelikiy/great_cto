@@ -56,8 +56,8 @@ and only an author the system trusts counts.
 | Slice | What | Size | State |
 |---|---|---|---|
 | 1 | **Identity guard.** PreToolUse refuses a subagent writing a verdict under another role's name, and refuses any shell or edit-tool write, truncation or deletion of `.great_cto/verdicts/*.log` other than through the writer. | 1 day | **this branch** |
-| 2 | **Harness attestation.** PostToolUse on a subagent's writer call appends `{agent_id, agent_type, line digest}` to a sealed attestation log; `receipt.mjs --verify --require` and merge-readiness show *attested* vs *self-reported*. | 2 days | approved, next |
-| 3 | **Regulated archetypes require attested or controller-written verdicts** for code-reviewer, qa-engineer, security-officer before `gate:ship`. | 1 day | approved, after slice 2 |
+| 2 | **Harness attestation.** PostToolUse on a subagent's writer call appends `{agent_id, agent_type, line digest}` to a sealed attestation log; `receipt.mjs --verify --require` and merge-readiness show *attested* vs *self-reported*. | 2 days | implemented |
+| 3 | **Regulated archetypes require attested or controller-written verdicts** for code-reviewer, qa-engineer, security-officer before `gate:ship`. | 1 day | approved, next |
 
 Slice 1 is a speed bump with a known way round (a variable holding the writer's path, a node
 one-liner). It is shipped first because it turns the documented accidental path into a refused

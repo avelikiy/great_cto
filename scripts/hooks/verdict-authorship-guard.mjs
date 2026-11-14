@@ -97,9 +97,28 @@ export function isVerdictPath(p, { cwd = process.cwd(), dir = process.env.GREAT_
   const abs = (x) => (isAbsolute(x) ? resolve(x) : resolve(cwd, x)).replace(/\\/g, '/');
   const target = abs(expandKnown(String(p).replace(/\\/g, '/'), { dir, home }));
   if (/(^|\/)\.great_cto\/verdicts(\/|$)/.test(target)) return true;
+  // The harness's attestations of who wrote which line (ADR-051 slice 2) sit beside the
+  // verdicts and are guarded the same way: an agent that could append one could vouch for itself.
+  if (/(^|\/)\.great_cto\/verdict-attestations\.jsonl$/.test(target)) return true;
   if (dir) {
     const vdir = abs(`${dir}/verdicts`);
+    if (target === abs(`${dir}/verdict-attestations.jsonl`)) return true;
     return target === vdir || target.startsWith(`${vdir}/`);
+  }
+  return false;
+}
+
+const ATTEST_HOOK = 'verdict-attest.mjs';
+const RUNNERS = new Set(['node', 'nodejs', 'bun', 'deno', 'tsx']);
+
+/** Does the command run the attestation hook? It is the harness's to run, never an agent's. */
+export function runsAttestHook(command) {
+  for (const c of simpleCommands(String(command ?? ''))) {
+    if (c.shell && c.script !== null) continue;
+    const w = c.words;
+    const at = w.findIndex((x) => base(x) === ATTEST_HOOK);
+    if (at === 0) return true;
+    if (at > 0 && RUNNERS.has(base(w[0])) && w.slice(1, at).every((x) => x.startsWith('-'))) return true;
   }
   return false;
 }
@@ -133,12 +152,19 @@ export function run(raw, env = process.env) {
         return deny({ guard: 'verdict-authorship', tag: 'verdict-authorship', reason });
       }
     }
+    if (runsAttestHook(command)) {
+      return deny({
+        guard: 'verdict-authorship', tag: 'verdict-authorship',
+        reason: `scripts/hooks/verdict-attest.mjs records which subagent wrote a verdict. The harness runs it ` +
+          `after a call; an agent running it by hand would be vouching for itself (ADR-051 slice 2).`,
+      });
+    }
     const target = shellWriteTargets(command).find((p) => isVerdictPath(p, where));
     if (target) {
       return deny({
         guard: 'verdict-authorship', tag: 'verdict-authorship',
-        reason: `${target} is a verdict log. It is written only by scripts/log-verdict.sh, never ` +
-          `edited, truncated, moved or deleted from a shell (ADR-051, ADR-046). ${off}`,
+        reason: `${target} is a verdict log or the attestation log. They are written only by scripts/log-verdict.sh ` +
+          `and the harness, never edited, truncated, moved or deleted from a shell (ADR-051, ADR-046). ${off}`,
       });
     }
     return PASS;
@@ -149,8 +175,8 @@ export function run(raw, env = process.env) {
     if (!isVerdictPath(p, where)) return PASS;
     return deny({
       guard: 'verdict-authorship', tag: 'verdict-authorship', what: 'edit',
-      reason: `${p} is a verdict log. It is written only by scripts/log-verdict.sh, never with ` +
-        `${d.tool_name} (ADR-051, ADR-046). ${off}`,
+      reason: `${p} is a verdict log or the attestation log. They are written only by scripts/log-verdict.sh ` +
+        `and the harness, never with ${d.tool_name} (ADR-051, ADR-046). ${off}`,
     });
   }
   return PASS;

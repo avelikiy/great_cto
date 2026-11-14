@@ -1,7 +1,7 @@
 # ADR-051: Verdict authority — a role writes only its own verdict, and the harness says who wrote it
 
 **Date:** 2026-11-13
-**Status:** Accepted (2026-11-13, owner) — slice 1 implemented; slices 2 and 3 approved, in that order
+**Status:** Accepted (2026-11-13, owner) — slices 1 and 2 implemented; slice 3 approved, next
 **Related:** [ADR-046 verdict seals](ADR-046-verdict-seals.md) · [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [plan](../plans/PLAN-archon-lessons.md), item 1
 
 ## Context
@@ -52,13 +52,25 @@ A PreToolUse check, run inside `bash-guards.mjs` for shell calls and as its own 
    operator. It is an environment variable on the operator's shell, not a flag an agent's
    command can carry.
 
-### Slice 2 — attest the writer (approved, next)
+### Slice 2 — attest the writer (implemented: `scripts/lib/verdict-attestation.mjs`, `scripts/hooks/verdict-attest.mjs`)
 
-A PostToolUse hook on a subagent's writer call appends
-`{ts, agent_id, agent_type, role, line_digest}` to `.great_cto/verdict-attestations.jsonl`,
-sealed with the ADR-046 key. `receipt.mjs --verify --require` and the board's merge-readiness
-report each approving verdict as **attested** (a subagent of that role wrote it, seen by the
-harness) or **self-reported** (no attestation). Self-reported is said, never passed as attested.
+- **Before** a subagent's shell call, `bash-guards.mjs` (after its refusals) notes the length
+  of that subagent's own role log, keyed by session, `agent_id` and the command.
+- **After** the call, a PostToolUse hook on Bash reads what the call appended to that log.
+  For each line of that role whose verdict seal is valid, it appends
+  `{ts, role, agent_id, agent_type, line}` to `.great_cto/verdict-attestations.jsonl`
+  (0600), where `line` is the SHA-256 of the canonical verdict record, seal included.
+  The attestation is sealed with the ADR-046 key under its own domain tag, so a verdict
+  seal never passes as an attestation seal.
+- It looks at what was appended, not at the command line. A writer called through a
+  variable from the right subagent is attested; the same call from the main session is not.
+- **Readers:** `receipt.mjs --verify` prints `attested` (with the subagent) or
+  `self-reported` for the approval it checks, and the board's merge-readiness row says the
+  same per reviewer. Self-reported is said, never passed as attested, and blocks nothing
+  until slice 3.
+- **The guard covers it:** shell and edit-tool writes to the attestation log are refused like
+  writes to a verdict log, and running `verdict-attest.mjs` from an agent's shell is refused.
+- **Codex** payloads carry no agent identity, so verdicts written there read as self-reported.
 
 ### Slice 3 — require attestation where it matters (approved, after slice 2)
 
@@ -67,7 +79,10 @@ qa-engineer and security-officer verdicts to be attested or controller-written.
 
 ## What this does not do
 
-Every agent still runs as the operator's OS user. Slice 1 is a speed bump with known ways
+Every agent still runs as the operator's OS user. Slice 2 records what the harness saw, but the
+pre-call snapshot in the temp directory and the key are within an agent's reach for one that sets
+out to forge them; what it removes is the casual case and the main session silently standing in
+for a reviewer. Slice 1 is a speed bump with known ways
 round it — the writer's path in a variable (`"$LV" qa-engineer PASS`), a `node -e` one-liner
 importing `verdict-seal.mjs`. It turns the accidental and the casual cases into refusals at
 no cost to an honest agent. Slice 2 is the part that does not depend on parsing a command line.
