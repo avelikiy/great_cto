@@ -252,6 +252,7 @@ const afterOptions = rest => { let i = 0; while (i < rest.length && (rest[i].sta
 const NODE_INLINE = /^(?:-e|-p|-pe|-ep|--eval|--print|--eval=.*|--print=.*)$/;
 const PYTHON_INLINE = /^-[A-Za-z]*c$/;
 const SHELL_COMMAND_FLAG = /^-[A-Za-z]*c[A-Za-z]*$/;
+const FIND_EXEC = /^-(?:exec|execdir|ok|okdir)$/;
 
 const withoutDuplicates = entries => {
   const seen = new Set();
@@ -276,6 +277,11 @@ function scanWords(words, depth, found, mcp) {
   }
   if (!command) return;
   const name = nameOf(command.program);
+  // `trap ACTION SIGNAL...` runs ACTION, a command line, when the signal arrives. `trap -` resets, `-p` and `-l` list.
+  if (name === 'trap') {
+    const action = command.rest.filter(arg => arg !== '--' && arg !== '-p' && arg !== '-l')[0];
+    if (action !== undefined && action !== '-') found.push(...scanLine(action, depth + 1));
+  }
   if (!name || (BUILTINS.has(name) && !mcp)) return;
 
   const inspected = inspectCommand([command.program, ...command.rest]);
@@ -287,6 +293,15 @@ function scanWords(words, depth, found, mcp) {
     const detail = mcp.scriptProblem(command.rest);
     found.push(detail ? { program: name, kind: 'unclassified', detail } : inspected);
   } else found.push(inspected);
+
+  // `find -exec CMD ... ;` (or `+`) runs CMD, so it is read like a launcher's command. A find can have several.
+  if (name === 'find') {
+    command.rest.forEach((word, i) => {
+      if (!FIND_EXEC.test(word)) return;
+      const end = command.rest.findIndex((w, j) => j > i && (w === ';' || w === '+'));
+      scanWords(command.rest.slice(i + 1, end < 0 ? undefined : end), depth + 1, found, mcp);
+    });
+  }
 
   // A shell given a command string: that string is a command line, and its inner commands decide.
   if (shellAt >= 0) {
