@@ -1,7 +1,7 @@
 # ADR-051: Verdict authority — a role writes only its own verdict, and the harness says who wrote it
 
 **Date:** 2026-11-13
-**Status:** Accepted (2026-11-13, owner) — slices 1 and 2 implemented; slice 3 approved, next
+**Status:** Accepted (2026-11-13, owner) — slices 1, 2 and 3 implemented
 **Related:** [ADR-046 verdict seals](ADR-046-verdict-seals.md) · [ADR-009 gates follow reversibility](ADR-009-gates-follow-reversibility.md) · [plan](../plans/PLAN-archon-lessons.md), item 1
 
 ## Context
@@ -79,10 +79,23 @@ A PreToolUse check, run inside `bash-guards.mjs` for shell calls and as its own 
   writes to a verdict log, and running `verdict-attest.mjs` from an agent's shell is refused.
 - **Codex** payloads carry no agent identity, so verdicts written there read as self-reported.
 
-### Slice 3 — require attestation where it matters (approved, after slice 2)
+### Slice 3 — require attestation where it matters (implemented: `scripts/lib/receipt.mjs`, `agents/devops.md` step 2b)
 
-For regulated archetypes (`REGULATED_FLOOR`), `gate:ship` requires the code-reviewer,
-qa-engineer and security-officer verdicts to be attested or controller-written.
+The deploy question is where `gate:ship` meets the tree: devops runs
+`receipt.mjs --verify --agent <stage> --require` for code-reviewer, qa-engineer and
+security-officer before every deploy. On a regulated archetype (`REGULATED_ARCHETYPES` in
+`scripts/lib/approval-level.mjs`, read from `archetype:` in `.great_cto/PROJECT.md`):
+
+- an approval the harness attested passes as before;
+- a self-reported one exits **5**, and devops blocks: "re-run the stage as a subagent";
+- on a host whose hooks get no agent identity (Codex; anything without `CLAUDECODE=1`)
+  nothing can be attested, so it exits **3** — not verified, said in the deploy report,
+  never passed as verified. Blocking there would block every regulated deploy on that host.
+
+Elsewhere, and without `--require`, the attestation is printed and nothing else changes.
+The controller writes no verdict lines (its workers return proposals), so there is no
+controller-written case to exempt. Approvals written before slice 2 shipped are
+self-reported: on a regulated project the stage runs again once before its next deploy.
 
 ## What this does not do
 
