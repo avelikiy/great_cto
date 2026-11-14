@@ -392,7 +392,7 @@ export function inspectPluginPayload(ticket) {
 export const EMBEDDED_RELEASE_KEY_NOT_ENROLLED = 'NOT_ENROLLED';
 // Rotation is a reviewed source change, not a value accepted from release metadata. Enrolling the
 // production key means replacing the sentinel with the lowercase sha256 of its SPKI DER encoding.
-export const EMBEDDED_RELEASE_KEY_FINGERPRINT = EMBEDDED_RELEASE_KEY_NOT_ENROLLED;
+export const EMBEDDED_RELEASE_KEY_FINGERPRINT = 'f933e98316916daca01c18e3566b84599a6d6bec5931b5f53f28a42bd86786e5';
 export const EMBEDDED_RELEASE_PROFILE = 'embedded-ed25519';
 /** Public key shipped beside the set. It is trusted only if its SPKI sha256 equals the pinned fingerprint. */
 export const EMBEDDED_RELEASE_KEY_FILENAME = 'release-key.pub';
