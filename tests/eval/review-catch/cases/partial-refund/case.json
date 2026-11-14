@@ -15,7 +15,7 @@
       "roles": [
         "code-reviewer"
       ],
-      "note": "Refund amount computed as a float product of cents and a fraction, never rounded to an integer; the PSP receives fractional cents or truncates."
+      "note": "Refund amount computed as a float product of cents and a fraction, never rounded to an integer; the gateway receives fractional cents or truncates."
     },
     {
       "id": "partial-refund.b",
@@ -29,7 +29,7 @@
       "roles": [
         "code-reviewer"
       ],
-      "note": "psp.refund is called with no idempotency key and the refund is recorded after it; a double click or retry refunds twice."
+      "note": "gateway.refund is called with no idempotency key and the refund is recorded after it; a double click or retry refunds twice."
     }
   ]
 }

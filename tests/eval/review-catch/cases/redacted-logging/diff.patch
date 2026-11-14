@@ -1,7 +1,7 @@
-diff --git a/src/clients/psp-log.ts b/src/clients/psp-log.ts
+diff --git a/src/clients/gateway-log.ts b/src/clients/gateway-log.ts
 new file mode 100644
 --- /dev/null
-+++ b/src/clients/psp-log.ts
++++ b/src/clients/gateway-log.ts
 @@ -0,0 +1,13 @@
 +import { logger } from '../logger';
 +
@@ -13,16 +13,16 @@ new file mode 100644
 +  );
 +}
 +
-+export function logPspRequest(path: string, headers: Record<string, string>) {
-+  logger.debug('psp request', { path, headers: safeHeaders(headers) });
++export function logGatewayRequest(path: string, headers: Record<string, string>) {
++  logger.debug('gateway request', { path, headers: safeHeaders(headers) });
 +}
-diff --git a/src/clients/psp-log.test.ts b/src/clients/psp-log.test.ts
+diff --git a/src/clients/gateway-log.test.ts b/src/clients/gateway-log.test.ts
 new file mode 100644
 --- /dev/null
-+++ b/src/clients/psp-log.test.ts
++++ b/src/clients/gateway-log.test.ts
 @@ -0,0 +1,8 @@
 +import { test, expect } from 'vitest';
-+import { safeHeaders } from './psp-log';
++import { safeHeaders } from './gateway-log';
 +
 +test('authorization never reaches the log', () => {
 +  const out = safeHeaders({ Authorization: 'Bearer sk_live_x', 'content-type': 'application/json' });
