@@ -179,6 +179,10 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
     } else if (d.kind === 'route') {
       // A reviewer's fixable finding goes back to the stage that owns the work.
       waiting.delete(agent); enqueue(d.nexts);
+    } else if (d.kind === 'rework') {
+      // Rework re-spawns the same stage; the dispatcher's MAX_REWORK and the visit cap
+      // still end a loop (Codex review on #292).
+      waiting.delete(agent); enqueue([agent]);
     } else if (d.kind === 'route-pending') {
       // Already on its way back: nothing to dispatch, nothing broken.
     } else if (d.kind === 'done') {
@@ -217,6 +221,7 @@ function render(lint, run, { pipeline, start, level }) {
     const tail = s.kind === 'gate' ? `  ⏸ hold at ${s.gates.join(' + ')} → ${s.nexts.join(', ')}`
       : s.kind === 'next' ? `  → ${s.nexts.join(', ')}`
         : s.kind === 'route' ? `  ↩ back to ${s.nexts.join(', ')} (fixable finding)`
+          : s.kind === 'rework' ? `  ↻ ${s.agent} again (rework)`
         : s.kind === 'join-wait' ? `  … waits for ${s.pending.join(', ')}`
           : s.kind === 'done' ? '  ■ end of chain'
             : `  ✗ ${s.kind}`;
