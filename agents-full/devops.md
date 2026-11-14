@@ -902,7 +902,9 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    [ -f "$RC" ] || RC="$(pwd)/scripts/lib/receipt.mjs"
    STAGES=""
    [ "$PROJECT_SIZE" != "nano" ] && STAGES="qa-engineer"
-   [ "$TIER_EFFECTIVE" != "baseline" ] && STAGES="$STAGES security-officer"
+   # A regulated archetype's security approval is checked at every tier: baseline writes
+   # a verdict line too, and ADR-051 needs it attested like the others.
+   if [ "$TIER_EFFECTIVE" != "baseline" ] || node "$RC" --regulated >/dev/null 2>&1; then STAGES="$STAGES security-officer"; fi
    # The verdict logs live in the main checkout's .great_cto, also from a worktree.
    VSTATE="$(node "$RC" --state-dir)"
    [ -s "$VSTATE/verdicts/code-reviewer.log" ] && STAGES="$STAGES code-reviewer"
@@ -913,6 +915,7 @@ step for that condition before proceeding to Step 1 (gate:ship check).
        1) echo "BLOCKED: files changed or added after $S approved — re-run $S on this tree, or the operator accepts this exact state in a terminal: node $RC --accept --agent $S --require"; exit 1 ;;
        3) echo "FRESHNESS NOT VERIFIED: the $S approval carries no receipt or no seal — say so in the deploy report; do not write 'verified'" ;;
        4) echo "BLOCKED: the newest $S approval's seal does not match — it was written or edited outside log-verdict.sh. Re-run $S; report it"; exit 1 ;;
+       5) echo "BLOCKED: regulated archetype — the $S approval was not written by a $S subagent as the harness saw it (ADR-051). Re-run $S as a subagent; never write its verdict yourself"; exit 1 ;;
        *) echo "BLOCKED: could not compare $S's receipt with this tree (exit $RC_EXIT) — an unread comparison is not a match"; exit 1 ;;
      esac
    done

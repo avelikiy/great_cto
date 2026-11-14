@@ -41,6 +41,9 @@ Every verdict line and every acceptance carries an HMAC-SHA256 seal.
   - one with no seal (older than 3.75.6, or a machine with no key) exits **3** —
     freshness not verified, said and never passed as verified;
   - an acceptance without a valid seal is not an acceptance.
+  - from ADR-051, on a regulated archetype a validly sealed approval that the harness did
+    not attest to its own stage's subagent exits **5**, and devops blocks (exit **3** on a
+    host that cannot attest).
 - **The gate does not touch the operator's key.** `ci-local.sh` points
   `GREAT_CTO_SEAL_KEY` at a throwaway key. A bare `node --test` run outside the
   gate uses the operator's key, as any real verdict does.

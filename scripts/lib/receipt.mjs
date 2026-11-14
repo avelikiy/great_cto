@@ -33,6 +33,7 @@ import { dirname, join, resolve } from 'node:path';
 import { isMainModule } from './is-main.mjs';
 import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance, loadSealKey } from './verdict-seal.mjs';
 import { attestationOf } from './verdict-attestation.mjs';
+import { isRegulated } from './approval-level.mjs';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
@@ -542,8 +543,27 @@ function requireFs() {
 //    any stage is the wrong question before a deploy: a review of today's tree
 //    must not stand in for a QA pass on yesterday's.
 //    `--require` is the deploy question: "no approval carries a receipt" exits 3,
-//    not 0, and files ADDED since the approval count as drift. Before a push they
+//    not 0, and files ADDED since the approval count as drift. On a regulated
+//    archetype an approval the harness did not attest exits 5 (ADR-051 slice 3),
+//    or 3 on a host that cannot attest. Before a push they
 //    are work continuing; before a deploy they are code nobody reviewed, shipping.
+
+/** The project's archetype from PROJECT.md (the state dir's, else the checkout's), or null. */
+export function projectArchetype(cwd = process.cwd(), stateDir = verdictStateDir(cwd), read = readFileSync) {
+  for (const p of [join(stateDir, 'PROJECT.md'), join(cwd, '.great_cto', 'PROJECT.md')]) {
+    let text;
+    try { text = read(p, 'utf8'); } catch { continue; }
+    const m = /^archetype:\s*([A-Za-z0-9_-]+)/m.exec(String(text));
+    if (m) return m[1].toLowerCase();
+  }
+  return null;
+}
+
+/** Can a hook on this host see which subagent ran a call? Claude Code: yes. Codex: no agent identity. */
+export function attestableHost(env = process.env) {
+  if (env.GREAT_CTO_HOST === 'codex') return false;
+  return env.CLAUDECODE === '1';
+}
 
 function currentForReceipt(cwd, receipt) {
   // Persisted evidence is data, not Git options or a new revision expression.
@@ -567,6 +587,14 @@ if (isMainModule(import.meta.url)) {
   if (argv.includes('--state-dir')) {
     console.log(verdictStateDir());
     process.exit(0);
+  }
+  // `--regulated`: is this project a regulated archetype (ADR-051 slice 3)? Prints the
+  // archetype; exit 0 if regulated, 1 if not. One list (approval-level.mjs), not a copy
+  // in every prompt that needs to ask.
+  if (argv.includes('--regulated')) {
+    const archetype = projectArchetype();
+    console.log(archetype || '');
+    process.exit(isRegulated(archetype) ? 0 : 1);
   }
   if (argv.includes('--emit')) {
     // `--verdicts <dir>`: measure the change from where the previous stage stood.
@@ -626,13 +654,33 @@ if (isMainModule(import.meta.url)) {
         process.exit(3);
       }
     }
-    // ADR-051 slice 2: who wrote the approval, as the harness saw it. Said, not yet a
-    // block — slice 3 makes it one for regulated archetypes.
+    // ADR-051 slice 2: who wrote the approval, as the harness saw it. Slice 3's outcome
+    // is decided here but applied last: a blocking receipt answer (truncated, drifted and
+    // not accepted) always wins, so the "cannot attest here" exit 3 can never turn a
+    // drifted tree into a non-blocking warning (Codex review on #291).
+    let attestExit = 0;
     if (approval) {
-      const att = attestationOf(approval, verdictStateDir(cwd));
+      const stateDir = verdictStateDir(cwd);
+      const att = attestationOf(approval, stateDir);
       if (att.state === 'attested') console.log(`  attested: written by a ${att.att.agent_type} subagent (${att.att.agent_id}), seen by the harness`);
       else if (att.state === 'unreadable') console.log('  attestation log unreadable — who wrote this approval is not known');
       else console.log(`  self-reported: no harness attestation that a ${approval.agent} subagent wrote this line (main session, another role, Codex, or before ADR-051 slice 2)`);
+      // ADR-051 slice 3: on a regulated archetype the deploy question needs the reviewer's
+      // approval to have come from that reviewer, not from whoever ran the writer. Where the
+      // host gives hooks no agent identity (Codex), nothing can be attested: said, exit 3,
+      // never passed as verified — blocking there would block every regulated deploy.
+      if (requireMode && att.state !== 'attested') {
+        const archetype = projectArchetype(cwd, stateDir);
+        if (isRegulated(archetype)) {
+          if (!attestableHost()) {
+            console.log(`  ${archetype} is a regulated archetype, and this host gives hooks no agent identity — who wrote the ${approval.agent} approval cannot be attested here; not verified`);
+            attestExit = 3;
+          } else {
+            console.log(`  BLOCKED: ${archetype} is a regulated archetype — the ${approval.agent} approval must be written by a ${approval.agent} subagent and attested by the harness (ADR-051). Re-run ${approval.agent} as a subagent.`);
+            attestExit = 5;
+          }
+        }
+      }
     }
     // A receipt capped at MAX_FILES lists only part of the change, so a file past
     // the cap could change unseen. For the deploy question that is not a match.
@@ -641,7 +689,7 @@ if (isMainModule(import.meta.url)) {
       process.exit(2);
     }
     const drifted = cmp.state === 'differs' || (cmp.state === 'extended' && requireMode);
-    if (!drifted) process.exit(0);
+    if (!drifted) process.exit(attestExit);
 
     // Drift, but a human may already have looked at exactly this state.
     const hash = receiptHash(current);
@@ -653,7 +701,8 @@ if (isMainModule(import.meta.url)) {
       // the one acting on the answer, and an acceptance that survives its own
       // check is a standing permission.
       clearAcceptance(cwd);
-      process.exit(0);
+      // An operator's acceptance of drift is not an attestation: slice 3's answer stands.
+      process.exit(attestExit);
     }
     if (acc.stale) console.log(`  ${acc.why} — accept again if this state is fine`);
     console.log(`  to accept this state: node scripts/lib/receipt.mjs --accept${narrowed ? ` --agent ${narrowed}` : ''}${requireMode ? ' --require' : ''}`);
