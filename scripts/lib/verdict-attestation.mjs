@@ -14,13 +14,12 @@
  *               `{ts, role, agent_id, agent_type, line}` sealed with the same key under
  *               its own domain tag: `attestAfter`.
  *
- * Two facts must agree before a line is attested: the call ran the writer for the
- * subagent's own role (`expected`, counted from the command by the hook), and exactly
- * that many lines of the role landed in the log during the call. Anything else — a
- * long-running call while the main session writes the same role's verdict, a writer
- * reached through a variable, a loop — is withheld, and the line reads as
- * `self-reported`, as it does when written by the main session, by a subagent of
- * another role, before this slice, or on Codex (no agent identity in its payloads).
+ * A line is attested only when the call's own output carries the writer's
+ * `verdict-recorded <role> <seal>` for it: landing in the shared log during the call is
+ * not enough, since the main session or another subagent of the role may write there
+ * meanwhile, and a writer that never ran printed nothing. A line nobody attested reads
+ * as `self-reported`: written by the main session, by a subagent of another role,
+ * before this slice, or on Codex (no agent identity in its payloads).
  *
  * Limits, said rather than implied: the agent and the hooks run as the same OS user.
  * The snapshot in the temp directory and the attestation log can be written by an
@@ -92,7 +91,7 @@ export function notePre({ stateDir, agentType, agentId, session, command, now = 
  * After the call: attest each sealed line of the subagent's own role that the call
  * appended. Returns the attestations written. Never throws.
  */
-export function attestAfter({ stateDir, agentType, agentId, session, command, expected = 0, now = Date.now(), tmp, seal = sealAttestation, checkSeal = checkVerdictSeal } = {}) {
+export function attestAfter({ stateDir, agentType, agentId, session, command, output = '', now = Date.now(), tmp, seal = sealAttestation, checkSeal = checkVerdictSeal } = {}) {
   try {
     const role = roleOf(agentType);
     if (!role || !ROLE.test(role) || !agentId || !stateDir) return [];
@@ -109,21 +108,20 @@ export function attestAfter({ stateDir, agentType, agentId, session, command, ex
     try { buf = fs.readFileSync(log); } catch { return []; }
     if (!(Number(pre.size) >= 0) || buf.length <= pre.size) return [];
     const appended = buf.subarray(pre.size).toString('utf8');
-    // Every line of this role that landed in the log during the call, sealed or not. A
-    // role's log is shared — the main session, another subagent of the same role, a
-    // worktree — so what landed is only this call's if the call ran the writer for this
-    // role exactly as many times as lines landed (Codex review on #290: a reviewer's
-    // `sleep 10` was credited with a verdict the main session wrote meanwhile).
-    const landed = [];
+    // A role's log is shared — the main session, another subagent of the role, a
+    // worktree — so landing in the log during the call is not authorship. The writer
+    // prints `verdict-recorded <role> <seal>` for the line it wrote, in this call's own
+    // output; only those lines are this call's. A writer that did not run printed
+    // nothing (Codex review on #290: `sleep 10`, then `false && log-verdict.sh …`,
+    // were each credited with a verdict the main session wrote meanwhile).
+    const printed = writtenSeals(output, role);
+    if (!printed.size) return [];
+    const out = [];
     for (const line of appended.split('\n')) {
       if (!line.startsWith('{')) continue;
       let rec;
       try { rec = JSON.parse(line); } catch { continue; }
-      if (rec?.agent === role) landed.push(rec);
-    }
-    if (!(expected > 0) || landed.length !== expected) return [];
-    const out = [];
-    for (const rec of landed) {
+      if (rec?.agent !== role || !printed.has(rec.seal)) continue;
       // A hand-written (unsealed or mis-sealed) line is never attested into looking like the writer's.
       if (checkSeal(rec) !== 'valid') continue;
       const att = { ts: new Date(now).toISOString(), role, agent_id: String(agentId), agent_type: String(agentType), line: lineDigest(rec) };
@@ -138,6 +136,14 @@ export function attestAfter({ stateDir, agentType, agentId, session, command, ex
   } catch {
     return [];
   }
+}
+
+/** The seals the writer printed for `role` in a call's output: `verdict-recorded <role> <seal>`. */
+export function writtenSeals(output, role) {
+  const out = new Set();
+  const re = /^verdict-recorded ([a-z0-9][a-z0-9-]*) (v1:[0-9a-f]{64})\s*$/gm;
+  for (const m of String(output ?? '').matchAll(re)) if (m[1] === role) out.add(m[2]);
+  return out;
 }
 
 /** Valid attestations by line digest, plus how many lines failed their seal. */

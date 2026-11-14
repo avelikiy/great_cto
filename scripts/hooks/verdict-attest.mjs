@@ -16,8 +16,7 @@
  * Off switch: GREAT_CTO_DISABLE_VERDICT_ATTEST=1.
  */
 import { PASS, readStdinOnce } from '../lib/guard-result.mjs';
-import { notePre, attestAfter, roleOf } from '../lib/verdict-attestation.mjs';
-import { verdictWrites } from './verdict-authorship-guard.mjs';
+import { notePre, attestAfter } from '../lib/verdict-attestation.mjs';
 import { verdictStateDir } from '../lib/receipt.mjs';
 import { isMainModule } from '../lib/is-main.mjs';
 
@@ -42,14 +41,20 @@ export function pre(raw, env = process.env) {
   return PASS;
 }
 
+/** What a Bash call printed, as the PostToolUse payload carries it. */
+function outputOf(resp) {
+  if (resp == null) return '';
+  if (typeof resp === 'string') return resp;
+  if (typeof resp === 'object') return [resp.stdout, resp.output].filter((x) => typeof x === 'string').join('\n');
+  return '';
+}
+
 /** PostToolUse half. Returns the attestations written (for tests). */
 export function post(raw, env = process.env) {
   const call = callOf(raw, env);
   if (!call) return [];
-  // How many times this call ran the writer for the subagent's own role, spelled out.
-  const role = roleOf(call.agentType);
-  const expected = verdictWrites(call.command).filter((r) => r === role).length;
-  return attestAfter({ ...call, expected });
+  // The writer's own line in this call's output binds each attested line to this call.
+  return attestAfter({ ...call, output: outputOf(parse(raw)?.tool_response) });
 }
 
 if (isMainModule(import.meta.url)) {

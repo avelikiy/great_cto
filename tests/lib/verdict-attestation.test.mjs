@@ -13,7 +13,7 @@ process.env.GREAT_CTO_SEAL_KEY = path.join(KEYDIR, 'verdict-seal.key');
 
 const { makeVerdict } = await import('../../scripts/lib/verdict-record.mjs');
 const { sealVerdict, sealAttestation } = await import('../../scripts/lib/verdict-seal.mjs');
-const { notePre, attestAfter, attestationOf, readAttestations, lineDigest, ATTESTATIONS_FILE } = await import('../../scripts/lib/verdict-attestation.mjs');
+const { notePre, attestAfter, attestationOf, readAttestations, lineDigest, writtenSeals, ATTESTATIONS_FILE } = await import('../../scripts/lib/verdict-attestation.mjs');
 const { pre } = await import('../../scripts/hooks/verdict-attest.mjs');
 const { BASH_REMINDERS } = await import('../../scripts/hooks/bash-guards.mjs');
 const { run: guard, runsAttestHook, isVerdictPath } = await import('../../scripts/hooks/verdict-authorship-guard.mjs');
@@ -34,7 +34,9 @@ function world(t) {
     return rec;
   };
   const call = (agentType, command = 'scripts/log-verdict.sh x', agentId = 'agent-1') => ({ stateDir, agentType, agentId, session: 's1', command, tmp });
-  return { root, stateDir, tmp, append, call };
+  // What the writer prints for the line it wrote (scripts/log-verdict.sh).
+  const printed = (...recs) => recs.map((r) => `verdict-recorded ${r.agent} ${r.seal}`).join('\n');
+  return { root, stateDir, tmp, append, call, printed };
 }
 
 test('a subagent writing its own sealed verdict is attested, and the attestation names it', (t) => {
@@ -42,7 +44,7 @@ test('a subagent writing its own sealed verdict is attested, and the attestation
   const c = w.call('great-cto:code-reviewer');
   assert.equal(notePre(c).ok, true);
   const rec = w.append('code-reviewer');
-  const got = attestAfter({ ...c, expected: 1 });
+  const got = attestAfter({ ...c, output: `some output\n${w.printed(rec)}\n` });
   assert.equal(got.length, 1);
   assert.equal(got[0].role, 'code-reviewer');
   assert.equal(got[0].agent_type, 'great-cto:code-reviewer');
@@ -52,52 +54,53 @@ test('a subagent writing its own sealed verdict is attested, and the attestation
   assert.equal(fs.statSync(path.join(w.stateDir, ATTESTATIONS_FILE)).mode & 0o777, 0o600);
 });
 
-// Codex review on #290: a role's log is shared, so what landed during a call is only that
-// call's when the call ran the writer for the role exactly as many times as lines landed.
+test('writtenSeals reads only the role\'s own, well-formed writer lines', () => {
+  const seal = 'v1:' + 'a'.repeat(64);
+  const out = `verdict-recorded qa-engineer ${seal}\nverdict-recorded code-reviewer v1:${'b'.repeat(64)}\n  verdict-recorded qa-engineer v1:${'c'.repeat(64)}\nverdict-recorded qa-engineer v1:short`;
+  assert.deepEqual([...writtenSeals(out, 'qa-engineer')], [seal]);
+  assert.deepEqual([...writtenSeals('', 'qa-engineer')], []);
+});
+
+// Codex review on #290, twice: a role's log is shared, so a line landing during a call is
+// not that call's. Only a line whose seal the writer printed in this call's output is.
 test('a long-running call is not credited with a verdict someone else wrote meanwhile', (t) => {
   const w = world(t);
   const c = w.call('code-reviewer', 'sleep 10');
   notePre(c);
   const byMain = w.append('code-reviewer'); // the main session writes while the reviewer sleeps
-  assert.deepEqual(attestAfter({ ...c, expected: 0 }), []);
+  assert.deepEqual(attestAfter({ ...c, output: '' }), []);
   assert.equal(attestationOf(byMain, w.stateDir).state, 'self-reported');
 });
 
-test('when more lines of the role landed than the call wrote, none is attested', (t) => {
+test('a writer that never ran credits nothing, even when one line of the role landed', (t) => {
   const w = world(t);
-  const c = w.call('code-reviewer', 'scripts/log-verdict.sh code-reviewer APPROVED auto');
+  const c = w.call('code-reviewer', 'false && bash scripts/log-verdict.sh code-reviewer APPROVED 0; sleep 1');
+  notePre(c);
+  const byMain = w.append('code-reviewer');
+  assert.deepEqual(attestAfter({ ...c, output: '' }), []);
+  assert.equal(attestationOf(byMain, w.stateDir).state, 'self-reported');
+});
+
+test('of two lines that landed, only the one this call printed is attested', (t) => {
+  const w = world(t);
+  const c = w.call('code-reviewer');
   notePre(c);
   const mine = w.append('code-reviewer');
   const theirs = w.append('code-reviewer');
-  assert.deepEqual(attestAfter({ ...c, expected: 1 }), []);
-  for (const rec of [mine, theirs]) assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
+  assert.equal(attestAfter({ ...c, output: w.printed(mine) }).length, 1);
+  assert.equal(attestationOf(mine, w.stateDir).state, 'attested');
+  assert.equal(attestationOf(theirs, w.stateDir).state, 'self-reported');
 });
 
-test('the hook counts the writer calls: spelled-out writer attested, a writer behind a variable is not', (t) => {
+test('a printed seal that is not in the appended part, or names another role, attests nothing', (t) => {
   const w = world(t);
-  const env = { ...process.env, GREAT_CTO_DIR: w.stateDir, TMPDIR: w.tmp };
-  const run = (command, agentId) => {
-    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: w.root, session_id: 's2', agent_id: agentId, agent_type: 'qa-engineer' });
-    const saved = process.env.TMPDIR; process.env.TMPDIR = w.tmp;
-    try { pre(payload, env); } finally { if (saved === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = saved; }
-    const rec = w.append('qa-engineer', { verdict: 'PASS' });
-    const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts/hooks/verdict-attest.mjs')], { input: payload, env, encoding: 'utf8' });
-    assert.equal(r.status, 0, r.stderr);
-    return attestationOf(rec, w.stateDir).state;
-  };
-  assert.equal(run('scripts/log-verdict.sh qa-engineer PASS auto', 'q1'), 'attested');
-  assert.equal(run('"$LV" qa-engineer PASS auto', 'q2'), 'self-reported');
-});
-
-test('lines the call did not write as that role stay self-reported', (t) => {
-  const w = world(t);
-  const before = w.append('code-reviewer');                    // already there before the call
+  const before = w.append('code-reviewer');                     // already there before the call
   const c = w.call('code-reviewer');
   notePre(c);
-  const unsealed = w.append('code-reviewer', { sealed: false }); // hand-written
+  const unsealed = w.append('code-reviewer', { sealed: false });
   const foreign = w.append('code-reviewer', { agent: 'qa-engineer' }); // another role's line in this log
-  const other = w.append('qa-engineer');                         // another role's log
-  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'the one line of the role that landed is unsealed');
+  const other = w.append('qa-engineer');                          // another role's log
+  assert.deepEqual(attestAfter({ ...c, output: w.printed(before, foreign, other) + `\nverdict-recorded code-reviewer ${unsealed.seal}` }), []);
   for (const rec of [before, unsealed, foreign, other]) assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
 });
 
@@ -105,12 +108,12 @@ test('no snapshot, the main session, or a second Post for the same call: nothing
   const w = world(t);
   const c = w.call('code-reviewer');
   const rec = w.append('code-reviewer');
-  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'no PreToolUse snapshot');
+  assert.deepEqual(attestAfter({ ...c, output: w.printed(rec) }), [], 'no PreToolUse snapshot');
   assert.equal(notePre({ ...c, agentId: '' }).ok, false, 'the main session has no agent id');
   notePre(c);
-  w.append('code-reviewer');
-  assert.equal(attestAfter({ ...c, expected: 1 }).length, 1);
-  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'the snapshot is used once');
+  const next = w.append('code-reviewer');
+  assert.equal(attestAfter({ ...c, output: w.printed(next) }).length, 1);
+  assert.deepEqual(attestAfter({ ...c, output: w.printed(next) }), [], 'the snapshot is used once');
   assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
 });
 
@@ -134,18 +137,50 @@ test('a forged or replayed attestation does not attest', (t) => {
   assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
 });
 
-test('the hooks end to end: bash-guards takes the snapshot, the PostToolUse hook attests', (t) => {
-  const w = world(t);
+// The whole path with the real writer: bash-guards' snapshot, scripts/log-verdict.sh run as
+// the tool would run it, and the PostToolUse hook fed the call's own output.
+function realCall(w, { agentType, agentId, command, writer }) {
   const env = { ...process.env, GREAT_CTO_DIR: w.stateDir, TMPDIR: w.tmp };
-  const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command: 'bash scripts/log-verdict.sh code-reviewer APPROVED auto' }, cwd: w.root, session_id: 's9', agent_id: 'sub-7', agent_type: 'great-cto:code-reviewer' });
+  const payload = (stdout) => JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: w.root, session_id: 's9', agent_id: agentId, agent_type: agentType, ...(stdout === undefined ? {} : { tool_response: { stdout, stderr: '', interrupted: false } }) });
   const savedTmp = process.env.TMPDIR;
   process.env.TMPDIR = w.tmp;
-  try { assert.equal(pre(payload, env).code, 0); } finally { if (savedTmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = savedTmp; }
-  const rec = w.append('code-reviewer');
-  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts/hooks/verdict-attest.mjs')], { input: payload, env, encoding: 'utf8' });
+  try { assert.equal(pre(payload(), env).code, 0); } finally { if (savedTmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = savedTmp; }
+  const ran = writer ? spawnSync('bash', [path.join(ROOT, 'scripts/log-verdict.sh'), ...writer], { cwd: w.root, env, encoding: 'utf8' }) : { status: 0, stdout: '' };
+  assert.equal(ran.status, 0, ran.stderr);
+  const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts/hooks/verdict-attest.mjs')], { input: payload(ran.stdout), env, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.equal(r.stdout, '', 'the hook never prints to the model');
+  return ran.stdout;
+}
+const lastLine = (w, role) => JSON.parse(fs.readFileSync(path.join(w.stateDir, 'verdicts', `${role}.log`), 'utf8').trim().split('\n').at(-1));
+
+test('the real writer prints its line\'s seal, and the hooks end to end attest that line', (t) => {
+  const w = world(t);
+  const out = realCall(w, { agentType: 'great-cto:code-reviewer', agentId: 'sub-7', command: 'bash scripts/log-verdict.sh code-reviewer APPROVED 0', writer: ['code-reviewer', 'APPROVED', '0'] });
+  const rec = lastLine(w, 'code-reviewer');
+  assert.match(out, new RegExp(`^verdict-recorded code-reviewer ${rec.seal}$`, 'm'));
   assert.equal(attestationOf(rec, w.stateDir).state, 'attested');
+});
+
+test('a writer reached through a variable is attested too: what counts is that it ran', (t) => {
+  const w = world(t);
+  realCall(w, { agentType: 'qa-engineer', agentId: 'sub-8', command: '"$LV" qa-engineer PASS 0', writer: ['qa-engineer', 'PASS', '0'] });
+  assert.equal(attestationOf(lastLine(w, 'qa-engineer'), w.stateDir).state, 'attested');
+});
+
+test('the main session\'s write during a subagent\'s call is not credited to the subagent', (t) => {
+  const w = world(t);
+  // The reviewer's call writes nothing; the main session writes a real line meanwhile.
+  const env = { ...process.env, GREAT_CTO_DIR: w.stateDir };
+  const command = 'false && bash scripts/log-verdict.sh code-reviewer APPROVED 0; sleep 1';
+  const payload = (stdout) => JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: w.root, session_id: 's9', agent_id: 'sub-9', agent_type: 'code-reviewer', tool_response: { stdout } });
+  const savedTmp = process.env.TMPDIR;
+  process.env.TMPDIR = w.tmp;
+  try { pre(payload(''), { ...env, TMPDIR: w.tmp }); } finally { if (savedTmp === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = savedTmp; }
+  const main = spawnSync('bash', [path.join(ROOT, 'scripts/log-verdict.sh'), 'code-reviewer', 'APPROVED', '0'], { cwd: w.root, env, encoding: 'utf8' });
+  assert.equal(main.status, 0, main.stderr);
+  spawnSync(process.execPath, [path.join(ROOT, 'scripts/hooks/verdict-attest.mjs')], { input: payload(''), env: { ...env, TMPDIR: w.tmp }, encoding: 'utf8' });
+  assert.equal(attestationOf(lastLine(w, 'code-reviewer'), w.stateDir).state, 'self-reported');
 });
 
 test('wiring: bash-guards runs the snapshot, plugin.json runs the PostToolUse hook on Bash', () => {
@@ -173,8 +208,8 @@ test('the board reads attested vs self-reported for each reviewer on the head', 
   const head = 'b'.repeat(40);
   const c = w.call('code-reviewer');
   notePre(c);
-  w.append('code-reviewer', { head });
-  attestAfter({ ...c, expected: 1 });
+  const rec = w.append('code-reviewer', { head });
+  attestAfter({ ...c, output: w.printed(rec) });
   w.append('qa-engineer', { verdict: 'PASS', head });
   assert.deepEqual(readReviewerAttestations([w.root], head), { 'code-reviewer': 'attested', 'qa-engineer': 'self-reported' });
   assert.deepEqual(readReviewerAttestations([w.root], 'c'.repeat(40)), { 'code-reviewer': null, 'qa-engineer': null });

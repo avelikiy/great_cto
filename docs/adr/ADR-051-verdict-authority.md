@@ -62,13 +62,15 @@ A PreToolUse check, run inside `bash-guards.mjs` for shell calls and as its own 
   (0600), where `line` is the SHA-256 of the canonical verdict record, seal included.
   The attestation is sealed with the ADR-046 key under its own domain tag, so a verdict
   seal never passes as an attestation seal.
-- Two facts must agree: the call ran the writer for the subagent's own role (counted from
-  the command), and exactly that many lines of the role landed in the log during the call.
-  A role's log is shared — the main session, another subagent of the role, a worktree — so a
-  long-running call is never credited with a line someone else wrote meanwhile, and on any
-  mismatch nothing is attested. A writer reached through a variable is not counted, so its
-  line reads as self-reported. (Codex review on #290 found the first version, which looked
-  only at what landed, crediting a reviewer's `sleep 10` with the main session's verdict.)
+- **Bound to the writer's own output.** `log-verdict.sh` prints
+  `verdict-recorded <role> <seal>` for the line it wrote, and a line is attested only when
+  its seal appears in that call's own output. A role's log is shared — the main session,
+  another subagent of the role, a worktree — so landing in the log during the call is not
+  authorship, and a writer that never ran printed nothing. A writer reached through a
+  variable is attested, because what counts is that it ran. Codex review on #290 found two
+  earlier rules wanting: crediting whatever landed (a reviewer's `sleep 10` took the main
+  session's verdict), then counting writer calls in the command text (`false && …` counted a
+  call that never ran).
 - **Readers:** `receipt.mjs --verify` prints `attested` (with the subagent) or
   `self-reported` for the approval it checks, and the board's merge-readiness row says the
   same per reviewer. Self-reported is said, never passed as attested, and blocks nothing
@@ -86,7 +88,8 @@ qa-engineer and security-officer verdicts to be attested or controller-written.
 
 Every agent still runs as the operator's OS user. Slice 2 records what the harness saw, but the
 pre-call snapshot in the temp directory and the key are within an agent's reach for one that sets
-out to forge them; what it removes is the casual case and the main session silently standing in
+out to forge them — or to read another line's seal from the log and print it as its own
+`verdict-recorded` line; what it removes is the casual case and the main session silently standing in
 for a reviewer. Slice 1 is a speed bump with known ways
 round it — the writer's path in a variable (`"$LV" qa-engineer PASS`), a `node -e` one-liner
 importing `verdict-seal.mjs`. It turns the accidental and the casual cases into refusals at
