@@ -148,6 +148,13 @@ LINE=$(TS="$TS" AGENT="$AGENT" VERDICT="$VERDICT" COST="$COST" \
 # global is reserved for cron jobs that aggregate across projects.
 mkdir -p "$PROJ_DIR/verdicts"
 echo "$LINE" >> "$PROJ_DIR/verdicts/$AGENT.log"
+# ADR-051 slice 2: say, in this call's own output, which line this call wrote. The
+# harness attests a line only when its seal appears here, so a verdict another session
+# appends to the same log meanwhile is never credited to this call, and a writer that
+# did not run (`false && …`) credits nothing. The seal is already in the log; it is an
+# HMAC, so printing it reveals nothing about the key.
+SEAL_OUT=$(printf '%s' "$LINE" | sed -n 's/.*"seal":"\(v1:[0-9a-f]\{64\}\)".*/\1/p')
+[ -n "$SEAL_OUT" ] && echo "verdict-recorded $AGENT $SEAL_OUT"
 # The fallback log carries the same distinction: an unmeasured cost is written
 # as `-`, never as 0, so a parser cannot read it back as spend.
 echo "$TS $AGENT ${COST:--}" >> "$PROJ_DIR/cost-history.log"

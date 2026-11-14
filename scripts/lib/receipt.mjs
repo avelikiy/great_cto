@@ -32,6 +32,7 @@ import * as fsModule from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { isMainModule } from './is-main.mjs';
 import { checkVerdictSeal, checkAcceptanceSeal, sealAcceptance, loadSealKey } from './verdict-seal.mjs';
+import { attestationOf } from './verdict-attestation.mjs';
 
 const sha = (s) => createHash('sha256').update(String(s)).digest('hex');
 
@@ -624,6 +625,14 @@ if (isMainModule(import.meta.url)) {
         console.log(`  the ${approval.agent} approval is ${sealed === 'unsealed' ? 'not sealed (written before 3.75.6, or not by log-verdict.sh)' : 'not checkable here (no seal key on this machine)'} — freshness not verified`);
         process.exit(3);
       }
+    }
+    // ADR-051 slice 2: who wrote the approval, as the harness saw it. Said, not yet a
+    // block — slice 3 makes it one for regulated archetypes.
+    if (approval) {
+      const att = attestationOf(approval, verdictStateDir(cwd));
+      if (att.state === 'attested') console.log(`  attested: written by a ${att.att.agent_type} subagent (${att.att.agent_id}), seen by the harness`);
+      else if (att.state === 'unreadable') console.log('  attestation log unreadable — who wrote this approval is not known');
+      else console.log(`  self-reported: no harness attestation that a ${approval.agent} subagent wrote this line (main session, another role, Codex, or before ADR-051 slice 2)`);
     }
     // A receipt capped at MAX_FILES lists only part of the change, so a file past
     // the cap could change unseen. For the deploy question that is not a match.

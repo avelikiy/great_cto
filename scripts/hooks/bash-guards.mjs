@@ -24,6 +24,7 @@ import { run as frozenGates } from './frozen-gates-guard.mjs';
 import { run as secretRead } from './secret-read-guard.mjs';
 import { run as verdictAuthorship } from './verdict-authorship-guard.mjs';
 import { run as lessonTripwire } from './lesson-tripwire.mjs';
+import { pre as verdictAttestPre } from './verdict-attest.mjs';
 import { isMainModule } from '../lib/is-main.mjs';
 
 export const BASH_CHECKS = Object.freeze([
@@ -36,7 +37,9 @@ export const BASH_CHECKS = Object.freeze([
   ['secret-read', secretRead],
   ['verdict-authorship', verdictAuthorship],
 ]);
-export const BASH_REMINDERS = Object.freeze([['lesson-tripwire', lessonTripwire]]);
+// Run only when no check refused. verdict-attest notes the subagent's own verdict log
+// length before the call (ADR-051 slice 2); it never denies and never prints.
+export const BASH_REMINDERS = Object.freeze([['lesson-tripwire', lessonTripwire], ['verdict-attest', verdictAttestPre]]);
 
 export function runBashGuards(raw, env = process.env, { checks = BASH_CHECKS, reminders = BASH_REMINDERS } = {}) {
   let notes = '';
