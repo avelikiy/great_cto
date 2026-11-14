@@ -14,6 +14,7 @@ skills:
   - anydesign
   - committed-aesthetic
   - aesthetic-instrument
+  - reference-lock
   - superpowers:writing-plans
   - decision-eval
   - skeptical-triage
@@ -342,6 +343,14 @@ So say which of the three happened, in the design doc:
 | **consulted** | name the references and what was lifted from each |
 | **unreachable** | "reference research unavailable (`NO_SUBSCRIPTION`) — direction chosen from the committed-aesthetic rules, not from references" |
 | **not attempted** | say so, and why (an existing system governs, so references were not the question) |
+
+**When references are consulted, lock them.** Follow `reference-lock`: take
+references from the free sources first (what the operator gave, Playwright captures
+of named products via `anydesign`, DESIGN.md study files, then any reference MCP the
+operator installed), pick ONE primary, and write a **Reference lock** and a
+**Decision ledger** into the design doc — every major choice names its source, and a
+choice with no source is cut. After the build, the lock check compares the screenshots
+with the Preserve list. Captures of other products never go into the repository.
 
 Never write a design doc that implies references were consulted when the corpus
 refused. The banned list below and the DNA rules in a `committed-aesthetic` skill
