@@ -73,13 +73,15 @@ export function lintGraph(transitions, { agents = shippedAgents() } = {}) {
       if (known && !known.has(next)) problems.push({ kind: 'unknown-agent', at: key, detail: `${key} → ${next}, and no agents/${next}.md exists` });
     }
     for (const partner of rule.join || []) {
-      const theirs = transitions[partner];
-      if (!theirs) { problems.push({ kind: 'asymmetric-join', at: key, detail: `${key} joins ${partner}, which has no rule of its own` }); continue; }
-      if (!(theirs.join || []).includes(baseOf(key))) {
+      // A partner's rules are its default rule and its verdict branches (`partner.TOKEN`) —
+      // a partner routed only by verdict is a real partner (Codex review on #292).
+      const theirs = rulesOf(transitions, partner).map((k) => transitions[k]);
+      if (!theirs.length) { problems.push({ kind: 'asymmetric-join', at: key, detail: `${key} joins ${partner}, which has no rule of its own` }); continue; }
+      if (!theirs.some((r) => (r.join || []).includes(baseOf(key)))) {
         problems.push({ kind: 'asymmetric-join', at: key, detail: `${key} waits for ${partner}, but ${partner} does not wait for ${baseOf(key)}` });
       }
-      const same = JSON.stringify([...(theirs.next || [])].sort()) === JSON.stringify([...(rule.next || [])].sort());
-      if (!same) problems.push({ kind: 'asymmetric-join', at: key, detail: `${key} and its join partner ${partner} go to different next stages` });
+      const nextOf = (r) => JSON.stringify([...(r.next || [])].sort());
+      if (!theirs.some((r) => nextOf(r) === nextOf(rule))) problems.push({ kind: 'asymmetric-join', at: key, detail: `${key} and its join partner ${partner} go to different next stages` });
     }
   }
   return problems;

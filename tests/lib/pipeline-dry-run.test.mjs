@@ -224,3 +224,22 @@ test('walk: a join partner behind a requested hold is not reported as a broken j
   assert.deepEqual(walked.problems, []);
   assert.equal(walked.ended, true);
 });
+
+// Codex review on #292 (third pass): join partners routed only by verdict branches.
+test('lint and walk: join partners with only verdict-keyed rules are a valid join', () => {
+  const t = {
+    'senior-dev': { on: ['DONE'], next: ['code-reviewer', 'qa-engineer'] },
+    'code-reviewer.APPROVED': { on: ['APPROVED'], next: ['devops'], join: ['qa-engineer'] },
+    'qa-engineer.PASS': { on: ['PASS'], next: ['devops'], join: ['code-reviewer'] },
+    devops: { on: ['DONE'], next: [] },
+  };
+  assert.deepEqual(lintGraph(t, { agents: null }), []);
+  const r = dryRun({ transitions: t, start: 'senior-dev' });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.ended, true);
+  // …and a real asymmetry among verdict-only rules is still caught.
+  const broken = { ...t, 'qa-engineer.PASS': { on: ['PASS'], next: ['elsewhere'] }, elsewhere: { on: ['DONE'], next: [] } };
+  const kinds = lintGraph(broken, { agents: null }).map((p) => p.detail).join('\n');
+  assert.match(kinds, /code-reviewer.APPROVED waits for qa-engineer, but qa-engineer does not wait for code-reviewer/);
+  assert.match(kinds, /go to different next stages/);
+});
