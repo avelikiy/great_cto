@@ -350,6 +350,41 @@ test('mcp: what stays allowed: the python3 router, local git, and a node script 
   assert.equal(reasonOf(() => assertNoFetchingRuntime(files)), 'no-refusal');
 });
 
+// find -exec and trap run the command in their arguments, the way env and xargs do. Both programs are on
+// the allow-list, so without this a fetch behind them is read as a local utility (bead tqsw, item 3).
+test('claude: find -exec and trap run the command in their arguments, so that command is read like any other', () => {
+  for (const [command, program, detail] of [
+    ['find . -name x -exec git clone https://example.invalid/r.git \\;', 'git', 'git clone'],
+    ['find . -type f -execdir python3 -m pip install x {} +', 'pip', 'python3 -m pip'],
+    ['find . -ok docker pull img \\; -print', 'docker', 'docker pull'],
+    ['find . -exec env X=1 sh -c "git pull" \\;', 'git', 'git pull'],
+    ['trap "git fetch" EXIT', 'git', 'git fetch'],
+    ["trap 'cd /tmp; git pull' INT TERM", 'git', 'git pull'],
+  ]) {
+    const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks(command) })] });
+    assert.ok(r.fetching.some(e => e.program === program && e.detail === detail), `${command}: ${JSON.stringify(r.entries)}`);
+  }
+  for (const command of ['find . -exec frobnicate {} \\;', 'trap frobnicate EXIT']) {
+    const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks(command) })] });
+    assert.ok(r.unclassified.some(e => e.program === 'frobnicate'), `${command}: ${JSON.stringify(r.entries)}`);
+  }
+});
+
+test('claude: find -exec and trap with ordinary actions stay allowed, including the forms that reset or list traps', () => {
+  const command = [
+    "find . -name '*.tmp' -exec rm -f {} +",
+    'find . -type f -exec grep -l x {} \\; -print',
+    'find . -exec sh -c \'echo "$0"\' {} \\;',
+    'tmp=$(mktemp); trap \'rm -f "$tmp"\' EXIT',
+    'trap - INT',
+    'trap -p',
+    "trap '' HUP",
+  ].join('\n');
+  const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks(command) })] });
+  assert.deepEqual(r.unclassified, [], JSON.stringify(r.unclassified));
+  assert.deepEqual(r.fetching, []);
+});
+
 test('claude: ordinary words and script names are not programs; the real one beside them still is', () => {
   const r = inspectExternalRuntime({ host: 'claude', files: [claude({ hooks: hooks("echo 'GREAT_CTO: nothing to do'; printf '%s\\n' welcome.sh install.sh node_modules; python3 x.py") })] });
   assert.deepEqual(r.fetching, []);
