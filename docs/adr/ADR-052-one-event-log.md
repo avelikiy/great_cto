@@ -1,7 +1,7 @@
 # ADR-052: One ordered event log for what every engine observed — authority stays where it is
 
 **Date:** 2026-11-14
-**Status:** Proposed
+**Status:** Accepted (2026-11-14, owner) — phases P1–P3 as written; P3 still needs the owner decision its exit condition names; P4 is out of scope and needs its own ADR and gate:arch
 **Deciders:** owner (gate:arch); independent code and security review before each phase merges
 **Extends:** [ADR-040 controller-recorded execution graph](ADR-040-recorded-execution-graph.md) (folded in: its trace becomes this log's controller stream)
 **Related:** [ADR-021 live agent events](ADR-021-live-agent-events.md) · [ADR-046 verdict seals](ADR-046-verdict-seals.md) ·

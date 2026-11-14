@@ -1,7 +1,7 @@
 # PLAN: what great_cto takes from Archon, and in what order
 
 **Date:** 2026-11-13
-**Status:** Draft — items 1 (ADR-051, accepted 2026-11-13) and 2 implemented; item 3 proposed as ADR-052, item 7 implemented (`tests/eval/review-catch/`); item 4 moves into the cockpit plan; items 5–6 later (owner, 2026-11-14)
+**Status:** Draft — items 1 (ADR-051, accepted 2026-11-13) and 2 implemented; item 3 accepted as ADR-052 (P1–P3; P4 needs its own ADR), item 7 implemented (`tests/eval/review-catch/`); item 4 moves into the cockpit plan; items 5–6 later (owner, 2026-11-14)
 **Inputs:** a side-by-side read of [coleam00/Archon](https://github.com/coleam00/Archon) v0.14.0
 (commit `2aabbd0`) and great_cto v3.79.0 (commit `a8032db`), every claim below re-checked
 against great_cto's own tree.
