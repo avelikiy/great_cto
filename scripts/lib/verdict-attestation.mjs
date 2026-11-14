@@ -14,11 +14,13 @@
  *               `{ts, role, agent_id, agent_type, line}` sealed with the same key under
  *               its own domain tag: `attestAfter`.
  *
- * It looks at what was appended, not at the command line, so `"$LV" qa-engineer PASS`
- * from a qa-engineer subagent is attested and the same call from the main session is
- * not. A line nobody attested reads as `self-reported`: written by the main session,
- * by a subagent of another role, before this slice, or on Codex (no agent identity in
- * its hook payloads).
+ * Two facts must agree before a line is attested: the call ran the writer for the
+ * subagent's own role (`expected`, counted from the command by the hook), and exactly
+ * that many lines of the role landed in the log during the call. Anything else — a
+ * long-running call while the main session writes the same role's verdict, a writer
+ * reached through a variable, a loop — is withheld, and the line reads as
+ * `self-reported`, as it does when written by the main session, by a subagent of
+ * another role, before this slice, or on Codex (no agent identity in its payloads).
  *
  * Limits, said rather than implied: the agent and the hooks run as the same OS user.
  * The snapshot in the temp directory and the attestation log can be written by an
@@ -90,7 +92,7 @@ export function notePre({ stateDir, agentType, agentId, session, command, now = 
  * After the call: attest each sealed line of the subagent's own role that the call
  * appended. Returns the attestations written. Never throws.
  */
-export function attestAfter({ stateDir, agentType, agentId, session, command, now = Date.now(), tmp, seal = sealAttestation, checkSeal = checkVerdictSeal } = {}) {
+export function attestAfter({ stateDir, agentType, agentId, session, command, expected = 0, now = Date.now(), tmp, seal = sealAttestation, checkSeal = checkVerdictSeal } = {}) {
   try {
     const role = roleOf(agentType);
     if (!role || !ROLE.test(role) || !agentId || !stateDir) return [];
@@ -107,14 +109,23 @@ export function attestAfter({ stateDir, agentType, agentId, session, command, no
     try { buf = fs.readFileSync(log); } catch { return []; }
     if (!(Number(pre.size) >= 0) || buf.length <= pre.size) return [];
     const appended = buf.subarray(pre.size).toString('utf8');
-    const out = [];
+    // Every line of this role that landed in the log during the call, sealed or not. A
+    // role's log is shared — the main session, another subagent of the same role, a
+    // worktree — so what landed is only this call's if the call ran the writer for this
+    // role exactly as many times as lines landed (Codex review on #290: a reviewer's
+    // `sleep 10` was credited with a verdict the main session wrote meanwhile).
+    const landed = [];
     for (const line of appended.split('\n')) {
       if (!line.startsWith('{')) continue;
       let rec;
       try { rec = JSON.parse(line); } catch { continue; }
-      // Only the role's own, sealed lines: a hand-written line is not attested into
-      // looking like the writer's, and another role's line is not this subagent's.
-      if (rec?.agent !== role || checkSeal(rec) !== 'valid') continue;
+      if (rec?.agent === role) landed.push(rec);
+    }
+    if (!(expected > 0) || landed.length !== expected) return [];
+    const out = [];
+    for (const rec of landed) {
+      // A hand-written (unsealed or mis-sealed) line is never attested into looking like the writer's.
+      if (checkSeal(rec) !== 'valid') continue;
       const att = { ts: new Date(now).toISOString(), role, agent_id: String(agentId), agent_type: String(agentType), line: lineDigest(rec) };
       const s = seal(att);
       if (!s) continue; // no key on this machine: nothing to attest with

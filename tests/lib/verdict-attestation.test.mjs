@@ -42,7 +42,7 @@ test('a subagent writing its own sealed verdict is attested, and the attestation
   const c = w.call('great-cto:code-reviewer');
   assert.equal(notePre(c).ok, true);
   const rec = w.append('code-reviewer');
-  const got = attestAfter(c);
+  const got = attestAfter({ ...c, expected: 1 });
   assert.equal(got.length, 1);
   assert.equal(got[0].role, 'code-reviewer');
   assert.equal(got[0].agent_type, 'great-cto:code-reviewer');
@@ -52,13 +52,41 @@ test('a subagent writing its own sealed verdict is attested, and the attestation
   assert.equal(fs.statSync(path.join(w.stateDir, ATTESTATIONS_FILE)).mode & 0o777, 0o600);
 });
 
-test('it does not depend on the command line: a writer called through a variable is attested too', (t) => {
+// Codex review on #290: a role's log is shared, so what landed during a call is only that
+// call's when the call ran the writer for the role exactly as many times as lines landed.
+test('a long-running call is not credited with a verdict someone else wrote meanwhile', (t) => {
   const w = world(t);
-  const c = w.call('qa-engineer', '"$LV" qa-engineer PASS auto');
+  const c = w.call('code-reviewer', 'sleep 10');
   notePre(c);
-  const rec = w.append('qa-engineer', { verdict: 'PASS' });
-  attestAfter(c);
-  assert.equal(attestationOf(rec, w.stateDir).state, 'attested');
+  const byMain = w.append('code-reviewer'); // the main session writes while the reviewer sleeps
+  assert.deepEqual(attestAfter({ ...c, expected: 0 }), []);
+  assert.equal(attestationOf(byMain, w.stateDir).state, 'self-reported');
+});
+
+test('when more lines of the role landed than the call wrote, none is attested', (t) => {
+  const w = world(t);
+  const c = w.call('code-reviewer', 'scripts/log-verdict.sh code-reviewer APPROVED auto');
+  notePre(c);
+  const mine = w.append('code-reviewer');
+  const theirs = w.append('code-reviewer');
+  assert.deepEqual(attestAfter({ ...c, expected: 1 }), []);
+  for (const rec of [mine, theirs]) assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
+});
+
+test('the hook counts the writer calls: spelled-out writer attested, a writer behind a variable is not', (t) => {
+  const w = world(t);
+  const env = { ...process.env, GREAT_CTO_DIR: w.stateDir, TMPDIR: w.tmp };
+  const run = (command, agentId) => {
+    const payload = JSON.stringify({ tool_name: 'Bash', tool_input: { command }, cwd: w.root, session_id: 's2', agent_id: agentId, agent_type: 'qa-engineer' });
+    const saved = process.env.TMPDIR; process.env.TMPDIR = w.tmp;
+    try { pre(payload, env); } finally { if (saved === undefined) delete process.env.TMPDIR; else process.env.TMPDIR = saved; }
+    const rec = w.append('qa-engineer', { verdict: 'PASS' });
+    const r = spawnSync(process.execPath, [path.join(ROOT, 'scripts/hooks/verdict-attest.mjs')], { input: payload, env, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    return attestationOf(rec, w.stateDir).state;
+  };
+  assert.equal(run('scripts/log-verdict.sh qa-engineer PASS auto', 'q1'), 'attested');
+  assert.equal(run('"$LV" qa-engineer PASS auto', 'q2'), 'self-reported');
 });
 
 test('lines the call did not write as that role stay self-reported', (t) => {
@@ -69,7 +97,7 @@ test('lines the call did not write as that role stay self-reported', (t) => {
   const unsealed = w.append('code-reviewer', { sealed: false }); // hand-written
   const foreign = w.append('code-reviewer', { agent: 'qa-engineer' }); // another role's line in this log
   const other = w.append('qa-engineer');                         // another role's log
-  assert.deepEqual(attestAfter(c), []);
+  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'the one line of the role that landed is unsealed');
   for (const rec of [before, unsealed, foreign, other]) assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
 });
 
@@ -77,12 +105,12 @@ test('no snapshot, the main session, or a second Post for the same call: nothing
   const w = world(t);
   const c = w.call('code-reviewer');
   const rec = w.append('code-reviewer');
-  assert.deepEqual(attestAfter(c), [], 'no PreToolUse snapshot');
+  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'no PreToolUse snapshot');
   assert.equal(notePre({ ...c, agentId: '' }).ok, false, 'the main session has no agent id');
   notePre(c);
   w.append('code-reviewer');
-  assert.equal(attestAfter(c).length, 1);
-  assert.deepEqual(attestAfter(c), [], 'the snapshot is used once');
+  assert.equal(attestAfter({ ...c, expected: 1 }).length, 1);
+  assert.deepEqual(attestAfter({ ...c, expected: 1 }), [], 'the snapshot is used once');
   assert.equal(attestationOf(rec, w.stateDir).state, 'self-reported');
 });
 
@@ -146,7 +174,7 @@ test('the board reads attested vs self-reported for each reviewer on the head', 
   const c = w.call('code-reviewer');
   notePre(c);
   w.append('code-reviewer', { head });
-  attestAfter(c);
+  attestAfter({ ...c, expected: 1 });
   w.append('qa-engineer', { verdict: 'PASS', head });
   assert.deepEqual(readReviewerAttestations([w.root], head), { 'code-reviewer': 'attested', 'qa-engineer': 'self-reported' });
   assert.deepEqual(readReviewerAttestations([w.root], 'c'.repeat(40)), { 'code-reviewer': null, 'qa-engineer': null });

@@ -62,8 +62,13 @@ A PreToolUse check, run inside `bash-guards.mjs` for shell calls and as its own 
   (0600), where `line` is the SHA-256 of the canonical verdict record, seal included.
   The attestation is sealed with the ADR-046 key under its own domain tag, so a verdict
   seal never passes as an attestation seal.
-- It looks at what was appended, not at the command line. A writer called through a
-  variable from the right subagent is attested; the same call from the main session is not.
+- Two facts must agree: the call ran the writer for the subagent's own role (counted from
+  the command), and exactly that many lines of the role landed in the log during the call.
+  A role's log is shared — the main session, another subagent of the role, a worktree — so a
+  long-running call is never credited with a line someone else wrote meanwhile, and on any
+  mismatch nothing is attested. A writer reached through a variable is not counted, so its
+  line reads as self-reported. (Codex review on #290 found the first version, which looked
+  only at what landed, crediting a reviewer's `sleep 10` with the main session's verdict.)
 - **Readers:** `receipt.mjs --verify` prints `attested` (with the subagent) or
   `self-reported` for the approval it checks, and the board's merge-readiness row says the
   same per reviewer. Self-reported is said, never passed as attested, and blocks nothing
@@ -85,7 +90,8 @@ out to forge them; what it removes is the casual case and the main session silen
 for a reviewer. Slice 1 is a speed bump with known ways
 round it — the writer's path in a variable (`"$LV" qa-engineer PASS`), a `node -e` one-liner
 importing `verdict-seal.mjs`. It turns the accidental and the casual cases into refusals at
-no cost to an honest agent. Slice 2 is the part that does not depend on parsing a command line.
+no cost to an honest agent. Slice 2 adds what slice 1 cannot: a verdict nobody attested is visible
+as self-reported, whoever wrote it and however the writer was reached.
 A lock against a determined agent still needs a human-presence primitive (ADR-046).
 
 ## Options and trade-offs

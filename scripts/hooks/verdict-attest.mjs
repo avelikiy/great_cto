@@ -16,7 +16,8 @@
  * Off switch: GREAT_CTO_DISABLE_VERDICT_ATTEST=1.
  */
 import { PASS, readStdinOnce } from '../lib/guard-result.mjs';
-import { notePre, attestAfter } from '../lib/verdict-attestation.mjs';
+import { notePre, attestAfter, roleOf } from '../lib/verdict-attestation.mjs';
+import { verdictWrites } from './verdict-authorship-guard.mjs';
 import { verdictStateDir } from '../lib/receipt.mjs';
 import { isMainModule } from '../lib/is-main.mjs';
 
@@ -44,7 +45,11 @@ export function pre(raw, env = process.env) {
 /** PostToolUse half. Returns the attestations written (for tests). */
 export function post(raw, env = process.env) {
   const call = callOf(raw, env);
-  return call ? attestAfter(call) : [];
+  if (!call) return [];
+  // How many times this call ran the writer for the subagent's own role, spelled out.
+  const role = roleOf(call.agentType);
+  const expected = verdictWrites(call.command).filter((r) => r === role).length;
+  return attestAfter({ ...call, expected });
 }
 
 if (isMainModule(import.meta.url)) {
