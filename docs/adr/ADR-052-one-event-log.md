@@ -78,7 +78,7 @@ CREATE INDEX events_kind ON events (stream, kind, seq);
 ### 3. Facts, never content — the ADR-021 rule, kept
 
 Each stream has an allowlist of `facts` keys with types, enforced in one writer module
-(`scripts/lib/event-log.mjs`). Command text, file contents, prompts, tool output, tokens and absolute
+(a new `event-log` module in `scripts/lib/`, written in P1). Command text, file contents, prompts, tool output, tokens and absolute
 paths never enter. Recording never breaks a hook or a dispatch: every failure returns
 `{ok:false, why}`. Nothing is sent anywhere; `docs/PRIVACY.md` does not change.
 
@@ -93,7 +93,7 @@ rather than look empty.
 
 | Phase | What | Exit condition | Size |
 |---|---|---|---|
-| **P1 dual-write** | `event-log.mjs`; `agent-events`, `pipeline-journal`, the verdict writer, `verdict-attest` and `execution-trace` also append. Legacy files unchanged, every reader unchanged. `event-log --parity` compares log and legacy files per run. | parity holds on the repository's own runs and the e2e fixtures; append p95 ≤ 5 ms measured on the hook path | ~2 days |
+| **P1 dual-write** | a new `event-log` writer module; `agent-events`, `pipeline-journal`, the verdict writer, `verdict-attest` and `execution-trace` also append. Legacy files unchanged, every reader unchanged. `event-log --parity` compares log and legacy files per run. | parity holds on the repository's own runs and the e2e fixtures; append p95 ≤ 5 ms measured on the hook path | ~2 days |
 | **P2 readers switch** | board stream, execution graph (now for native runs too), merge-readiness, `receipt --verify` read the log; on `none`/`unreadable`/`unavailable` they fall back to the legacy file and say so. | a release with both paths and no parity alarms | ~2 days |
 | **P3 legacy as views** | `events.jsonl` and `pipeline-runs.jsonl` stop being written; `export` regenerates them on demand. Verdict logs, attestations and run JSON stay authoritative and are **not** retired. | owner decision at that time | ~1 day |
 | **P4 authority** | resume derived from events; CAS `execution_claim(run, executor, epoch)` so a stale executor cannot overwrite a new one. | **separate ADR and gate:arch** — this is the competing-authority question ADR-040 rejected, and it is not decided here | — |
