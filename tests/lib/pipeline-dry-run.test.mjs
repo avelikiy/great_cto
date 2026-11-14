@@ -193,3 +193,34 @@ test('CLI --hold-at-gates: says where it stopped, never "reached the end"', () =
   assert.match(r.stdout, /stopped at the holds above \(--hold-at-gates\)/);
   assert.doesNotMatch(r.stdout, /reached the end of the chain/);
 });
+
+// Codex review on #292 (second pass).
+test('walk: a stage routed only by verdict branches takes its default token from a branch', () => {
+  const t = {
+    'product-owner': { on: ['DONE'], next: ['architect'] },
+    'architect.APPROVED': { on: ['APPROVED'], next: ['pm'] },
+    pm: { on: ['DONE'], next: [] },
+  };
+  assert.deepEqual(lintGraph(t, { agents: null }), []);
+  const r = dryRun({ transitions: t, start: 'product-owner' });
+  assert.deepEqual(r.problems, []);
+  assert.equal(r.ended, true);
+  assert.deepEqual(r.steps.map((s) => [s.agent, s.verdict]), [['product-owner', 'DONE'], ['architect', 'APPROVED'], ['pm', 'DONE']]);
+});
+
+test('walk: a join partner behind a requested hold is not reported as a broken join', () => {
+  const t = {
+    'product-owner': { on: ['DONE'], next: ['architect', 'code-reviewer'] },
+    architect: { on: ['DONE'], next: ['qa-engineer'], gate: 'gate:arch' },
+    'code-reviewer': { on: ['APPROVED'], next: ['devops'], join: ['qa-engineer'] },
+    'qa-engineer': { on: ['PASS'], next: ['devops'], join: ['code-reviewer'] },
+    devops: { on: ['DONE'], next: [] },
+  };
+  assert.deepEqual(lintGraph(t, { agents: null }), []);
+  const held = dryRun({ transitions: t, start: 'product-owner', holdAtGates: true });
+  assert.deepEqual(held.problems, [], JSON.stringify(held.problems));
+  assert.equal(held.ended, false);
+  const walked = dryRun({ transitions: t, start: 'product-owner' });
+  assert.deepEqual(walked.problems, []);
+  assert.equal(walked.ended, true);
+});

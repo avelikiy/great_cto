@@ -93,9 +93,25 @@ function stubFor(stubs, agent, visit, transitions) {
   if (s && typeof s === 'object' && s.verdict) {
     return { verdict: String(s.verdict).toUpperCase(), meta: { agent, ...(s.meta || {}) }, stubbed: true };
   }
-  const rule = transitions[agent] || (isReviewer(agent) ? { on: ['APPROVED'] } : null);
+  // The default rule's first token; failing that, a verdict branch's (`agent.TOKEN`) — a stage an
+  // override routes only by verdict is routable, and must not read as "no rule" (Codex review on #292).
+  const branch = Object.keys(transitions).find((k) => k.startsWith(`${agent}.`));
+  const rule = transitions[agent] || (branch ? transitions[branch] : null) || (isReviewer(agent) ? { on: ['APPROVED'] } : null);
   const token = rule?.on?.[0];
   return token ? { verdict: String(token).toUpperCase(), meta: { agent }, stubbed: false } : null;
+}
+
+/** Every stage reachable from `starts` along `next` edges (default rules and verdict branches). */
+function downstreamOf(transitions, starts) {
+  const seen = new Set();
+  const stack = [...starts];
+  while (stack.length) {
+    const a = stack.pop();
+    if (seen.has(a)) continue;
+    seen.add(a);
+    for (const key of rulesOf(transitions, a)) for (const n of transitions[key].next || []) stack.push(n);
+  }
+  return seen;
 }
 
 /**
@@ -160,8 +176,11 @@ export function dryRun({ transitions, start, stubs = {}, activeGates = null, hol
     }
     // A join partner that will never run: the quorum cannot be met.
     if (!queue.length) {
+      // A partner behind a hold the caller asked to stop at is not missing from the map: the
+      // walk chose not to reach it (Codex review on #292). Only the rest is a broken join.
+      const behindHolds = downstreamOf(transitions, held.flatMap((h) => h.nexts || []));
       for (const [a, pending] of waiting) {
-        const never = (pending || []).filter((p) => !recorded[p]);
+        const never = (pending || []).filter((p) => !recorded[p] && !behindHolds.has(p));
         if (never.length) problems.push({ kind: 'join-never-met', at: a, detail: `${a} waits for ${never.join(', ')}, which this walk never runs` });
       }
       waiting.clear();
