@@ -403,3 +403,41 @@ test('session start: with the skill catalogs missing it says how to get them, an
   assert.doesNotMatch(present.stdout, /skills sync/, 'with all three present there is nothing to say');
   assert.doesNotMatch(fs.existsSync(log) ? fs.readFileSync(log, 'utf8') : '', /\b(?:clone|pull|fetch)\b/, 'and an old checkout is not refreshed behind the user\'s back');
 });
+
+// ── 6. a user with no resolvable plugin is told the command that works (bead tqsw) ──
+//
+// The session start used to say "plugin dir not found - run /update". There is no /update command in
+// this plugin, and none could run: the plugin directory is exactly what was not found. The way back is
+// `great-cto init`, which publishes the admitted copy and registers it, and which the guard hooks already
+// name. The message must not say `npx`: the boundary check counts that word as a fetch wherever it appears
+// in a hook.
+
+test('session start: with no plugin directory to be found it says to run great-cto init, not a command that does not exist', (t) => {
+  const m = noPluginMachine(t);
+  const bin = path.join(m.home, 'fakebin');
+  fs.mkdirSync(bin);
+  fs.writeFileSync(path.join(bin, 'git'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+  fs.symlinkSync(process.execPath, path.join(bin, 'node'));
+  const hook = hookCommands(JSON.parse(fs.readFileSync(MANIFEST, 'utf8'))).find((c) => /GREAT_CTO: optional skill catalogs/.test(c));
+  assert.ok(hook, 'the session start hook exists');
+  const r = spawnSync('bash', ['-c', hook], {
+    encoding: 'utf8', cwd: m.home, timeout: 60_000, stdio: ['ignore', 'pipe', 'pipe'],
+    env: { PATH: `${bin}:/usr/bin:/bin`, HOME: m.home },
+  });
+  const line = r.stdout.split('\n').find((l) => /GREAT_CTO: plugin dir not found/.test(l));
+  assert.ok(line, `the session start did not report the missing plugin directory:\n${r.stdout}`);
+  assert.match(line, /great-cto init/, 'and it says what to do');
+  assert.doesNotMatch(line, /\/update/, 'there is no /update command, and it could not run without the plugin');
+  assert.doesNotMatch(line, /\bnpx\b/, 'the message names no fetching program, or the boundary check would refuse the manifest');
+});
+
+test('hooks only tell the user to run slash commands that exist in commands/', () => {
+  const hints = new Set();
+  for (const command of hookCommands(JSON.parse(fs.readFileSync(MANIFEST, 'utf8')))) {
+    for (const hint of command.matchAll(/\brun (\/[a-z][a-z0-9-]*)/g)) hints.add(hint[1]);
+  }
+  assert.ok(hints.size >= 4, `only ${hints.size} slash-command hints found (${[...hints]}): the scan is not seeing the hooks`);
+  for (const hint of hints) {
+    assert.ok(fs.existsSync(path.join(ROOT, 'commands', hint.slice(1) + '.md')), `a hook says "run ${hint}", and there is no commands/${hint.slice(1)}.md`);
+  }
+});

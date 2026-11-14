@@ -18,7 +18,11 @@
  *                   variable used as a command): these refuse too, with their own reason, because a
  *                   program nobody listed is exactly what a signature does not vouch for
  *
- * Only the activated host's manifest decides that host's activation.
+ * Only the activated host's manifest decides that host's activation, together with the files that host
+ * loads from the plugin root without the manifest naming them. Claude Code reads `.mcp.json` and
+ * `hooks/hooks.json` that way and merges them with what the manifest declares, so a check that read
+ * only the manifest could be bypassed by moving an `npx` entry into one of those files. Codex reads
+ * only what its manifest points at, so nothing is read for it beyond that.
  *
  * A command is classified by its whole argv, not by argv0: `python3 -m pip install`, `git clone`,
  * `docker run`, `env npx x` and `sh -c 'curl ...'` are read through to what they run. Program names
@@ -248,6 +252,7 @@ const afterOptions = rest => { let i = 0; while (i < rest.length && (rest[i].sta
 const NODE_INLINE = /^(?:-e|-p|-pe|-ep|--eval|--print|--eval=.*|--print=.*)$/;
 const PYTHON_INLINE = /^-[A-Za-z]*c$/;
 const SHELL_COMMAND_FLAG = /^-[A-Za-z]*c[A-Za-z]*$/;
+const FIND_EXEC = /^-(?:exec|execdir|ok|okdir)$/;
 
 const withoutDuplicates = entries => {
   const seen = new Set();
@@ -272,6 +277,11 @@ function scanWords(words, depth, found, mcp) {
   }
   if (!command) return;
   const name = nameOf(command.program);
+  // `trap ACTION SIGNAL...` runs ACTION, a command line, when the signal arrives. `trap -` resets, `-p` and `-l` list.
+  if (name === 'trap') {
+    const action = command.rest.filter(arg => arg !== '--' && arg !== '-p' && arg !== '-l')[0];
+    if (action !== undefined && action !== '-') found.push(...scanLine(action, depth + 1));
+  }
   if (!name || (BUILTINS.has(name) && !mcp)) return;
 
   const inspected = inspectCommand([command.program, ...command.rest]);
@@ -283,6 +293,15 @@ function scanWords(words, depth, found, mcp) {
     const detail = mcp.scriptProblem(command.rest);
     found.push(detail ? { program: name, kind: 'unclassified', detail } : inspected);
   } else found.push(inspected);
+
+  // `find -exec CMD ... ;` (or `+`) runs CMD, so it is read like a launcher's command. A find can have several.
+  if (name === 'find') {
+    command.rest.forEach((word, i) => {
+      if (!FIND_EXEC.test(word)) return;
+      const end = command.rest.findIndex((w, j) => j > i && (w === ';' || w === '+'));
+      scanWords(command.rest.slice(i + 1, end < 0 ? undefined : end), depth + 1, found, mcp);
+    });
+  }
 
   // A shell given a command string: that string is a command line, and its inner commands decide.
   if (shellAt >= 0) {
@@ -378,6 +397,27 @@ export function inspectExternalRuntime({ host, files }) {
     const target = declared.replace(/^\.\//, '');
     sources.push(target);
     scan(readJson(files, target)[key], target);
+  }
+
+  // The files Claude Code loads from the plugin root whether or not the manifest names them. Names are
+  // compared in lower case, like program names: a case-insensitive volume opens `.MCP.JSON` as `.mcp.json`.
+  const standardLocations = {
+    claude: [
+      ['.mcp.json', (content, source) => {
+        // Claude Code accepts the file with or without the `mcpServers` wrapper, so both readings run.
+        scanServers(content, source);
+        if (content.mcpServers !== undefined) scanServers(content.mcpServers, source);
+      }],
+      // A hooks file with no `hooks` key declares no command: the one this repository ships holds modules only.
+      ['hooks/hooks.json', (content, source) => { if (content.hooks !== undefined) scanHooks(content.hooks, source); }],
+    ],
+  }[host] ?? [];
+  for (const [standard, scan] of standardLocations) {
+    for (const { path: present } of files.filter(f => f.path.toLowerCase() === standard)) {
+      // The manifest may point at the same file; it is then read twice, listed once, and its entries are not doubled.
+      if (!sources.includes(present)) sources.push(present);
+      scan(readJson(files, present), present);
+    }
   }
 
   return {
