@@ -1,0 +1,68 @@
+# The great_cto full gate, run by the owner's local CI orchestrator.
+#
+# Deliberately NOT under .github/workflows: GitHub would list a file there as an
+# active Actions workflow, and Actions are not used for this repository. The
+# adapter (scripts/ci-orchestrator.mjs) reads THIS file from the commit it gates and
+# submits it as an inline workflow, so the pipeline that ran is the pipeline that
+# was reviewed with the code. See docs/rfc/RFC-ci-on-local-orchestrator.md.
+#
+# The job runs `scripts/ci-local.sh` unchanged — the same script every earlier
+# runner used — so moving runners changes where the gate runs, never what it checks.
+name: great_cto gate
+
+on:
+  push: {}
+  workflow_dispatch: {}
+
+jobs:
+  gate:
+    name: ci-local --e2e
+    # `heavy` takes the orchestrator's heavy-build slot so the gate does not
+    # compete with mobile builds for the same cores. No processor label: a label
+    # naming one makes the job SKIP on the other kind of Mac, and a run whose
+    # every job skipped reports `succeeded`.
+    runs-on: [self-hosted, heavy]
+    timeout-minutes: 90
+    env:
+      GATE_ARGS: --e2e --jobs=8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # A home of its own: the pipeline suite (L5) checks what is installed in
+      # ~/.claude, and the gate must never read or change the host user's install.
+      - name: isolated home
+        run: |
+          set -eu
+          H="$RUNNER_TEMP/gate-home"; rm -rf "$H"; mkdir -p "$H"
+          echo "HOME=$H" >> "$GITHUB_ENV"
+          echo "TMPDIR=$RUNNER_TEMP/gate-tmp" >> "$GITHUB_ENV"; mkdir -p "$RUNNER_TEMP/gate-tmp"
+          git config --file "$H/.gitconfig" user.name gate
+          git config --file "$H/.gitconfig" user.email gate@localhost
+          git config --file "$H/.gitconfig" commit.gpgsign false
+
+      - name: dependencies
+        run: |
+          set -eu
+          npm ci --no-audit --no-fund --loglevel=error
+          (cd packages/cli && npm ci --no-audit --no-fund --loglevel=error && npm run build)
+          # Browsers live in the orchestrator's shared PLAYWRIGHT_BROWSERS_PATH;
+          # installed once, reused by every later run.
+          npx playwright install chromium
+          bash scripts/install-local.sh
+
+      - name: gate
+        run: |
+          echo "HEAD $(git rev-parse HEAD)"
+          set -o pipefail
+          bash scripts/ci-local.sh $GATE_ARGS 2>&1 | tee "$RUNNER_TEMP/gate.log"
+
+      - name: keep the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: gate-log
+          path: ${{ runner.temp }}/gate.log

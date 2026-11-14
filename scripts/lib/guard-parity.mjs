@@ -42,7 +42,7 @@ import { isMainModule } from './is-main.mjs';
 export const REMOTE_BY_DESIGN = Object.freeze([
   { match: /npm publish|jsr publish|gh release|actions\/|softprops/i, why: 'publishes or releases — must run from a clean runner, not a laptop' },
   { match: /great-cto@latest|canary\.sh/i, why: 'probes the package as published — the local tree is the wrong subject' },
-  { match: /apt-get|sudo |playwright install|npm ci\b|actions\/setup/i, why: 'runner provisioning, not a check' },
+  { match: /apt-get|sudo |playwright install|npm ci\b|actions\/setup|scripts\/install-local\.sh/i, why: 'runner provisioning, not a check' },
   { match: /cyclonedx|sbom/i, why: 'produces a release artifact for upload; nothing to assert locally' },
   { match: /announce|awesome-list|scorecard|canary-report/i, why: 'scheduled reporting, not a gate' },
   // Shell plumbing is NOT listed here. It is the fallback in `classify`, so that
@@ -285,7 +285,7 @@ if (isMainModule(import.meta.url)) {
   // 2026-06-01 — but the list stays plural on purpose: the whole reason this
   // block exists is that a second runner arrived once and was invisible, and
   // the next one will arrive the same way.
-  for (const f of ['.cirrus.yml', '.cirrus.yaml', '.circleci/config.yml', '.circleci/config.yaml']) {
+  for (const f of ['.cirrus.yml', '.cirrus.yaml', '.circleci/config.yml', '.circleci/config.yaml', 'ci/orchestrator/gate.yml']) {
     if (!existsSync(f)) continue;
     try { workflows.push({ name: f, text: readFileSync(f, 'utf8') }); }
     catch { /* same */ }

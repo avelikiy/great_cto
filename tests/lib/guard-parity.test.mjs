@@ -6,6 +6,7 @@
 // and most were noise, so most of these are the narrowings.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { runCommands, referencedPath, classify, parity, describeParity, expandNpmScripts } from '../../scripts/lib/guard-parity.mjs';
 
 const never = () => false;
@@ -252,4 +253,13 @@ test('a guard that runs ONLY in CircleCI is a finding', () => {
   assert.equal(p.state, 'gaps');
   assert.ok(p.actionsOnly.some((f) => f.workflow === '.circleci/config.yml'),
     'the finding must name the config it came from');
+});
+
+test('the orchestrator pipeline: install-local is provisioning, the gate is parity', () => {
+  const text = readFileSync('ci/orchestrator/gate.yml', 'utf8');
+  const cmds = runCommands(text);
+  assert.ok(cmds.some((c) => c.startsWith('bash scripts/ci-local.sh')), 'the gate command is read');
+  assert.equal(classify('bash scripts/install-local.sh', { ciLocalText: '', exists: always }).state, 'remote-by-design');
+  const p = parity({ workflows: [{ name: 'ci/orchestrator/gate.yml', text }], ciLocalText: 'bash scripts/ci-local.sh', exists: always });
+  assert.equal(p.state, 'parity', describeParity(p));
 });
