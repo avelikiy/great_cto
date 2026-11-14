@@ -2,8 +2,8 @@
 
 `EVAL-code-reviewer-quality.md` says of its own holdout that 16 of 20 cases measure resistance to
 a stated reason for skipping, not the review. The EVAL files are prose cases scored by an LLM
-judge, one answer at a time. This set measures the review itself: **what share of the defects a
-diff really has does `code-reviewer` / `security-officer` find, and how often does it raise an
+judge, one answer at a time. This set measures the review itself: **what share of the defects in a
+diff does `code-reviewer` / `security-officer` find, and how often does it raise an
 alarm on a change that is clean.**
 
 ## What is here
