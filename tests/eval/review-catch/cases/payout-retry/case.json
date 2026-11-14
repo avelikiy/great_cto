@@ -1,0 +1,21 @@
+{
+  "id": "payout-retry",
+  "summary": "Payouts get a retry loop because the bank API times out under load.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "payout-retry.a",
+      "file": "src/payouts/send.ts",
+      "lines": [
+        12,
+        20
+      ],
+      "class": "idempotency",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "Retrying a non-idempotent transfer POST without an idempotency key; a timeout after the bank accepted the transfer pays out twice."
+    }
+  ]
+}

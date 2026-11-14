@@ -1,0 +1,21 @@
+diff --git a/src/reports/transactions.ts b/src/reports/transactions.ts
+--- a/src/reports/transactions.ts
++++ b/src/reports/transactions.ts
+@@ -1,9 +1,16 @@
+ import { pool } from '../db/pool';
+ import type { Request, Response } from 'express';
+ 
++const SORTS: Record<string, string> = {
++  newest: 'booked_at DESC',
++  oldest: 'booked_at ASC',
++  largest: 'amount_cents DESC',
++};
++
+ export async function transactions(req: Request, res: Response) {
++  const order = SORTS[String(req.query.sort)] ?? SORTS.newest;
+   const { rows } = await pool.query(
+-    'SELECT id, booked_at, amount_cents FROM ledger_entries WHERE account_id = $1 ORDER BY booked_at DESC LIMIT 100',
++    `SELECT id, booked_at, amount_cents FROM ledger_entries WHERE account_id = $1 ORDER BY ${order} LIMIT 100`,
+     [req.user.accountId],
+   );
+   res.json(rows);

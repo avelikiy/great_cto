@@ -1,0 +1,35 @@
+diff --git a/src/payouts/send.ts b/src/payouts/send.ts
+--- a/src/payouts/send.ts
++++ b/src/payouts/send.ts
+@@ -1,13 +1,25 @@
+ import { bank } from '../clients/bank';
+ import { payouts } from '../db/payouts';
+ 
++const MAX_ATTEMPTS = 3;
++
+ export async function sendPayout(payoutId: string) {
+   const payout = await payouts.get(payoutId);
+   if (payout.status !== 'approved') throw new Error(`payout ${payoutId} is ${payout.status}`);
+-  const transfer = await bank.transfer({
+-    toIban: payout.iban,
+-    amountCents: payout.amountCents,
+-    currency: payout.currency,
+-  });
+-  await payouts.markSent(payoutId, transfer.id);
++  let lastError: unknown;
++  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
++    try {
++      const transfer = await bank.transfer({
++        toIban: payout.iban,
++        amountCents: payout.amountCents,
++        currency: payout.currency,
++      });
++      await payouts.markSent(payoutId, transfer.id);
++      return;
++    } catch (err) {
++      lastError = err;
++      await new Promise((r) => setTimeout(r, 250 * attempt));
++    }
++  }
++  throw lastError;
+ }

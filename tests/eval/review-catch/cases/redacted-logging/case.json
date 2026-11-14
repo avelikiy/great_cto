@@ -1,0 +1,6 @@
+{
+  "id": "redacted-logging",
+  "summary": "Request logging for the PSP client, with credential headers redacted before logging. Clean change.",
+  "decoy": true,
+  "known_defects": []
+}

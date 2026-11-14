@@ -1,0 +1,22 @@
+{
+  "id": "payout-destination-idor",
+  "summary": "Lets a merchant change the bank account their payouts go to.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "payout-destination-idor.a",
+      "file": "src/routes/payout-destination.ts",
+      "lines": [
+        16,
+        17
+      ],
+      "class": "authz",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "Target account comes from req.body.accountId, not the session; any merchant can redirect another merchant's payouts to their own IBAN."
+    }
+  ]
+}

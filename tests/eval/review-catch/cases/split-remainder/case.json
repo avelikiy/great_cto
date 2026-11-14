@@ -1,0 +1,21 @@
+{
+  "id": "split-remainder",
+  "summary": "New helper splits a shared bill between participants.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "split-remainder.a",
+      "file": "src/ledger/split.ts",
+      "lines": [
+        12,
+        13
+      ],
+      "class": "money-precision",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer"
+      ],
+      "note": "Math.floor per share drops the remainder cents; shares do not sum to the total."
+    }
+  ]
+}

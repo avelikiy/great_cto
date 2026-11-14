@@ -1,0 +1,22 @@
+{
+  "id": "invoice-tenant",
+  "summary": "Adds a single-invoice endpoint next to the existing tenant-scoped list.",
+  "decoy": false,
+  "known_defects": [
+    {
+      "id": "invoice-tenant.a",
+      "file": "src/routes/invoices.ts",
+      "lines": [
+        17,
+        19
+      ],
+      "class": "authz",
+      "severity_floor": "P1",
+      "roles": [
+        "code-reviewer",
+        "security-officer"
+      ],
+      "note": "findUnique by id only; any authenticated user of any tenant reads any invoice (cross-tenant IDOR), unlike the list route which filters by tenantId."
+    }
+  ]
+}

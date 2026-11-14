@@ -1,0 +1,6 @@
+{
+  "id": "webhook-dedupe-tx",
+  "summary": "Refund webhook records the event id and applies the refund in one transaction behind a unique constraint. Clean change.",
+  "decoy": true,
+  "known_defects": []
+}
