@@ -14,7 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import vm from 'node:vm';
-import { generateShareHTML, shareTask, SHARE_TASK_FIELDS } from './lib/share.mjs';
+import { generateShareHTML, shareTask, SHARE_TASK_FIELDS, shareMetrics } from './lib/share.mjs';
 
 const TMP = [];
 after(() => { for (const d of TMP) rmSync(d, { recursive: true, force: true }); });
@@ -74,12 +74,12 @@ test('the published page does not contain a completed task’s private text', ()
 
 test('task text cannot end the script block or be rewritten by the substitution', () => {
   const title = 'a </script><script>window.pwned=1</script> b $& $1 $\' c';
-  const html = generateShareHTML([full({ title })], { tasks: { done: 1 }, note: '</script>' }, project());
+  const html = generateShareHTML([full({ title })], { tasks: { done: 1 }, agents_cost: [{ agent: '</script>', tasks_total: 1 }] }, project());
   const dataBlock = html.slice(html.indexOf('const metrics ='), html.indexOf('function esc('));
   assert.doesNotMatch(dataBlock, /<\/script/i, 'a closing tag inside the data would end the script');
   const { tasks, metrics } = embedded(html);
   assert.equal(tasks[0].title, title, 'and the value still arrives intact');
-  assert.equal(metrics.note, '</script>');
+  assert.equal(metrics.agents_cost[0].agent, '</script>');
 });
 
 test('a project name cannot break out of the title, an attribute or the script string', () => {
@@ -92,4 +92,49 @@ test('a project name cannot break out of the title, an attribute or the script s
 test('open tasks are not published at all', () => {
   const html = generateShareHTML([full({ status: 'open', title: 'PRIVATE-OPEN-TITLE' }), full()], { tasks: { done: 1 } }, project());
   assert.doesNotMatch(html, /PRIVATE-OPEN-TITLE/);
+});
+
+// Reported by review on PR 275: getMetrics returns recent_done (full records of the
+// last ten completed tasks) and the report embedded the metrics object unchanged, so
+// the task allowlist above was bypassed. Verdicts and server counters went out too.
+const metricsLike = () => ({
+  window_days: 30,
+  tasks: { total: 9, done: 4, done_in_window: 3, in_progress: 2, backlog: 3 },
+  velocity: { last_7d: 2, last_30d: 4, this_week: 2, this_month: 4 },
+  cost: { llm_usd: 1.5, human_usd: 600, savings_x: 400, real_llm_usd: 1.2, count: 3, source: 'verdicts', note: 'PRIVATE-COST-NOTE' },
+  qa: { pass_rate: 90, passed: 9, failed: 1, last_report: 'PRIVATE-QA-PATH' },
+  security: { approved: 2, blocked: 0, findings: ['PRIVATE-FINDING'] },
+  agents: { 'senior-dev': 5, qa: 2 },
+  agents_cost: [{ agent: 'senior-dev', tasks_total: 3, tasks_done: 2, time_min: 40, llm_usd: 1, human_usd: 400, tasks: ['PRIVATE-AGENT-TASK'] }],
+  verdicts: [{ agent: 'qa', task: 'GC-42', summary: 'PRIVATE-VERDICT' }],
+  recent_done: [full()],
+  server: { sse_clients: 1, bd_cache_entries: 7 },
+});
+
+test('the published page does not carry recent_done, verdicts or other unshown metrics', () => {
+  const html = generateShareHTML([full()], metricsLike(), project());
+  for (const s of ['PRIVATE-DESCRIPTION', 'PRIVATE-NOTES', 'PRIVATE-ASSIGNEE', 'PRIVATE-VERDICT',
+    'PRIVATE-COST-NOTE', 'PRIVATE-QA-PATH', 'PRIVATE-FINDING', 'PRIVATE-AGENT-TASK', 'bd_cache_entries']) {
+    assert.ok(!html.includes(s), `${s} is not in the published page`);
+  }
+});
+
+test('the numbers the page draws still arrive', () => {
+  // JSON round trip: objects from the vm context have another realm's prototypes.
+  const m = JSON.parse(JSON.stringify(embedded(generateShareHTML([full()], metricsLike(), project())).metrics));
+  assert.deepEqual(m.tasks, { total: 9, done: 4, in_progress: 2, backlog: 3 });
+  assert.equal(m.velocity.this_week, 2);
+  assert.deepEqual(m.cost, { llm_usd: 1.5, human_usd: 600, savings_x: 400, real_llm_usd: 1.2, count: 3, source: 'verdicts' });
+  assert.deepEqual(m.qa, { pass_rate: 90, passed: 9, failed: 1 });
+  assert.deepEqual(m.security, { approved: 2, blocked: 0 });
+  assert.deepEqual(m.agents, { 'senior-dev': 5, qa: 2 });
+  assert.deepEqual(m.agents_cost, [{ agent: 'senior-dev', tasks_total: 3, tasks_done: 2, time_min: 40, llm_usd: 1, human_usd: 400 }]);
+});
+
+test('missing or malformed metrics do not break the page data', () => {
+  assert.deepEqual(shareMetrics(null), { tasks: {}, velocity: {}, cost: {}, qa: {}, security: {}, agents: {}, agents_cost: [] });
+  const bad = shareMetrics({ tasks: { done: 'many' }, agents: { x: 'y' }, agents_cost: [{ llm_usd: 'free' }] });
+  assert.deepEqual(bad.tasks, {});
+  assert.deepEqual(bad.agents, {});
+  assert.equal(bad.agents_cost[0].llm_usd, 0, 'the page sums these; a string would print NaN');
 });

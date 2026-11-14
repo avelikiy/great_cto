@@ -165,6 +165,41 @@ function shareTask(t) {
     close_reason: str(t?.close_reason).slice(0, CLOSE_REASON_MAX),
   };
 }
+// What a published report carries about the metrics: the numbers share.html draws.
+// getMetrics also returns recent_done (full records of the last ten completed tasks),
+// the last twenty agent verdicts and server counters; none of that is shown, and all
+// of it used to be published.
+const finite = (v) => (typeof v === 'number' && Number.isFinite(v) ? v : null);
+function pickNumbers(o, keys) {
+  const out = {};
+  for (const k of keys) { const v = finite(o?.[k]); if (v !== null) out[k] = v; }
+  return out;
+}
+function shareMetrics(m) {
+  const cost = pickNumbers(m?.cost, ['llm_usd', 'human_usd', 'savings_x', 'real_llm_usd', 'count']);
+  if (typeof m?.cost?.source === 'string') cost.source = m.cost.source.slice(0, 32);
+  const agents = {};
+  for (const [name, n] of Object.entries(m?.agents && typeof m.agents === 'object' ? m.agents : {})) {
+    if (finite(n) !== null) agents[String(name).slice(0, 64)] = n;
+  }
+  const agentsCost = (Array.isArray(m?.agents_cost) ? m.agents_cost : []).map((a) => ({
+    agent: typeof a?.agent === 'string' ? a.agent.slice(0, 64) : '',
+    tasks_total: finite(a?.tasks_total) ?? 0,
+    tasks_done: finite(a?.tasks_done) ?? 0,
+    time_min: finite(a?.time_min) ?? 0,
+    llm_usd: finite(a?.llm_usd) ?? 0,
+    human_usd: finite(a?.human_usd) ?? 0,
+  }));
+  return {
+    tasks: pickNumbers(m?.tasks, ['total', 'done', 'in_progress', 'backlog']),
+    velocity: pickNumbers(m?.velocity, ['this_week']),
+    cost,
+    qa: pickNumbers(m?.qa, ['pass_rate', 'passed', 'failed']),
+    security: pickNumbers(m?.security, ['approved', 'blocked']),
+    agents,
+    agents_cost: agentsCost,
+  };
+}
 // JSON that is safe inside a <script> block: `<` is escaped, so no value can close
 // the tag, and U+2028/2029 cannot end a line in older parsers.
 const scriptJson = (v) => JSON.stringify(v ?? null)
@@ -190,9 +225,9 @@ function generateShareHTML(tasks, metrics, cwd = process.cwd()) {
   return shareTemplate
     .replaceAll('{{PROJECT}}', () => projectName)
     .replaceAll('{{DATE}}', () => date)
-    .replaceAll('{{METRICS_JSON}}', () => scriptJson(metrics))
+    .replaceAll('{{METRICS_JSON}}', () => scriptJson(shareMetrics(metrics)))
     .replaceAll('{{TASKS_JSON}}', () => scriptJson(done.slice(-20).map(shareTask)))
     .replaceAll('{{PAUSED}}', () => 'false');
 }
 
-export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML, shareTask, SHARE_TASK_FIELDS, shareStateForPage, shareRelay };
+export { getResume, shareStatePath, getShareState, saveShareState, publishReport, toggleShare, generateShareHTML, shareTask, SHARE_TASK_FIELDS, shareMetrics, shareStateForPage, shareRelay };
