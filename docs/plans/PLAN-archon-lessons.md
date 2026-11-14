@@ -1,7 +1,7 @@
 # PLAN: what great_cto takes from Archon, and in what order
 
 **Date:** 2026-11-13
-**Status:** Draft — item 1 (ADR-051, accepted 2026-11-13) and item 2 implemented; items 3–7 await the owner
+**Status:** Draft — items 1 (ADR-051, accepted 2026-11-13) and 2 implemented; item 3 proposed as ADR-052, item 7 in progress; item 4 moves into the cockpit plan; items 5–6 later (owner, 2026-11-14)
 **Inputs:** a side-by-side read of [coleam00/Archon](https://github.com/coleam00/Archon) v0.14.0
 (commit `2aabbd0`) and great_cto v3.79.0 (commit `a8032db`), every claim below re-checked
 against great_cto's own tree.
@@ -34,9 +34,9 @@ Where great_cto is already ahead and must not regress:
 
 | # | Finding | Evidence | Owner action |
 |---|---|---|---|
-| B1 | `init` refuses in production: no release key is enrolled | `packages/cli/src/release-trust.mjs:392-395` pins `NOT_ENROLLED`; README L45-54 says so | Key ceremony (ADR-045/050). Cannot be done by an agent: it is the owner's signing key. Until then the current version has no install path except the legacy 3.70.1 flow. |
+| B1 | `init` refuses in production: no release key is enrolled | `packages/cli/src/release-trust.mjs:392-395` pins `NOT_ENROLLED`; README L45-54 says so | Key ceremony (ADR-045/050). Cannot be done by an agent: it is the owner's signing key. Until then the current version has no install path except the legacy 3.70.1 flow. Runbook and tool ready: [RELEASE-KEY-CEREMONY](../operations/RELEASE-KEY-CEREMONY.md), `scripts/enroll-release-key.mjs`. |
 | B2 | ADR-049 is Accepted, `POST /api/work/start` does not exist | no route in `packages/board/lib/routes.mjs` | Already planned in `docs/rfc/PLAN-phase1-cockpit.md` (13–19 days, mockup approval first). Not duplicated here. |
-| B3 | ADR-040 and ADR-048 still say Proposed while their code ships | `docs/adr/ADR-040-*.md`, `ADR-048-*.md` | Owner accepts or rejects; a status line is not an agent's to change. |
+| B3 | ADR-040 and ADR-048 still say Proposed while their code ships | `docs/adr/ADR-040-*.md`, `ADR-048-*.md` | Resolved 2026-11-14 by the owner: ADR-048 accepted; ADR-040 folded into ADR-052. |
 
 ## Items
 
@@ -78,7 +78,7 @@ verdicts from the file, and prints the stage sequence, every hold at a gate, and
 `no-rule` / `unknown-verdict` / `no-map` outcome the journal would have recorded. Fixtures for
 the shipped `pipeline.toml` go into CI, so a change to the graph is checked like code.
 
-### 3. One event log, not five  ·  4–6 days, largest refactor
+### 3. One event log, not five  ·  4–6 days, largest refactor  ·  **proposed: [ADR-052](../adr/ADR-052-one-event-log.md)**
 
 **Gap.** Run state lives in `codex-runs/*.json`, `pipeline-runs.jsonl`, `work-tasks/*.json`,
 `tasks.db` and `verdicts/*.log`, and three engines (native hooks, controller, ZRS worker) each
@@ -93,7 +93,12 @@ overwriting a new one.
 the board's execution graph a query. Phase it: dual-write first, readers switch, old files
 become views. Needs an ADR before work starts.
 
-### 4. One attention queue  ·  3 days, after item 3
+**ADR-052 (2026-11-14)** narrows it: the log is observational only, in its own `events.db` (not every
+project has `tasks.db`), and resume-from-events with a CAS claim (P4) is left to a separate ADR —
+that is the competing-authority question ADR-040 rejected. Engines moved to Node ≥ 22.13 first, so
+`node:sqlite` is always there.
+
+### 4. One attention queue  ·  3 days, after item 3  ·  **moved into [the cockpit plan](../rfc/PLAN-phase1-cockpit.md)** (owner, 2026-11-14)
 
 **Gap.** A human is asked through beads gates, board tokens, `/inbox`, the gates pane and the
 task phase `needs_decision`. No single model of "what is waiting for me".
@@ -127,7 +132,7 @@ budget is required) gets its enforcement point.
 to start if a node needs something its provider cannot load. Separately worth a spike: Archon
 drives Codex through `codex app-server` (JSON-RPC: streaming, resume) rather than `codex exec`.
 
-### 7. Eval set for the reviewer roles  ·  3 days
+### 7. Eval set for the reviewer roles  ·  3 days  ·  **in progress**, run in parallel with item 3
 
 Archon keeps real PRs with seeded `known_defects` and a judge over them
 (`.archon/sdlc/eval/review/set.json`). great_cto's Insights are honestly labelled "not quality
@@ -156,6 +161,6 @@ security-officer, and the one a fintech buyer asks for.
 |---|---|---|
 | 0 | B1 (owner), item 1 slice 1 | Nothing else matters if nobody can install; slice 1 is a day. |
 | 1 | item 1 slices 2–3, item 2 | Trust model and graph checks: little code, large effect. |
-| 2 | item 3, then item 4 | The refactor; the queue needs the log. |
-| 3 | items 5, 6 | Budgets and provider contract; then the Codex app-server spike. |
-| 4 | item 7 | Needs stable reviewer roles to measure. |
+| 2 | B1 runbook, engines ≥ 22.13, item 3 (ADR-052), item 7 in parallel | Reordered 2026-11-14: after ADR-051 made reviewer verdicts required on regulated work, a catch rate is what says the reviewer is worth requiring. |
+| 3 | item 4 inside the cockpit plan; item 5 with ADR-049 rule 2 | The queue is the cockpit's data model; budgets are its enforcement point. |
+| 4 | item 6 | Only if Codex stays a strategic host. |

@@ -130,7 +130,7 @@ npx great-cto init [options]
 
 ## Requirements
 
-- **Node.js ≥ 20** (Node 20 and 22 tested in CI)
+- **Node.js ≥ 22.13** (22.13 and 24 tested in CI). 22.13 is the first release with the built-in `node:sqlite` unflagged, which the task store uses; Node 20 reached end of life on 2026-04-30.
 - **macOS or Linux.** Windows is not supported natively: the release and activation path relies on POSIX file modes and symlink semantics. On Windows, run it under [WSL](https://learn.microsoft.com/windows/wsl/).
 - **Git** (to clone the plugin repo)
 - [Claude Code](https://claude.com/claude-code)

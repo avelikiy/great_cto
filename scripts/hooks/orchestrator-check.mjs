@@ -9,7 +9,7 @@
  * Also detects inline subagent anti-pattern (`claude -p "..."`) in Bash
  * commands passed via stdin (PreToolUse / Bash matcher).
  *
- * Zero external deps — Node.js 20+ built-ins only.
+ * Zero external deps — Node.js 22.13+ built-ins only.
  */
 
 import { readFileSync, existsSync } from 'node:fs';

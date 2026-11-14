@@ -1,6 +1,6 @@
 # ADR-048 — The board API answers its own page and local tools, and binds beyond loopback only behind authentication
 
-**Status:** Proposed
+**Status:** Accepted (2026-11-14, owner)
 **Date:** 2026-11-10
 **Deciders:** great_cto core
 **Supersedes:** —
