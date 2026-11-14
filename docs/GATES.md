@@ -91,6 +91,25 @@ If a gate is declared in `shared/pipeline.toml` but not active at your level, th
 dispatcher hands off with the reason instead of waiting — a gate nobody will
 create must not stall the run.
 
+### See the stops before a run pays for them
+
+`node scripts/lib/pipeline-dry-run.mjs --level <your level> --archetype <yours>`
+walks the map from `product-owner` to the end with stub verdicts — no agents, no
+spend — and prints each stage, where it holds and for which gates, and where the
+chain ends. Every step goes through the dispatcher's own decision function.
+
+- `--pipeline FILE` checks a project override of the map before you mark it as
+  one; an edge into a stage with no rule, an unknown agent, an asymmetric join or
+  a verdict no rule accepts is reported (exit 1), not discovered on a live run.
+- `--stubs FILE.json` picks the verdicts: `{"architect": "APPROVED_UI",
+  "senior-dev": ["SPEC-OBJECTION", "TASK_DONE"]}` — a list is used one per visit.
+  A stage with no stub returns the first token its rule accepts.
+- `--hold-at-gates` stops the walk at the first hold instead of walking on as
+  though it were approved; `--json` prints the walk as data.
+
+Not simulated: budgets, verification scores and artefact checks, which need a
+project on disk — the dry run is about the shape of the map.
+
 ## The other axis
 
 `effectiveGates(archetype, size, tier)` in `packages/cli/src/archetypes.ts`

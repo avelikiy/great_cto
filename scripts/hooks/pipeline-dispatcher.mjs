@@ -634,7 +634,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   });
   if (pendingJoin.length > 0) {
     return {
-      kind: 'join-wait',
+      kind: 'join-wait', nexts: [...(rule.next || [])], pending: pendingJoin,
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}), but the parallel branch ` +
         `[${pendingJoin.join(', ')}] has not recorded a success verdict yet. ` +
         `If not already running, spawn it now (subagent_type: ${pendingJoin[0]}). ` +
@@ -796,7 +796,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     ? ` (skipping ${skip.skipped.join(', ')} — ${skip.why}; no active gate sat on that edge)`
     : '';
   if (nexts.length === 0) {
-    return { kind: 'done', text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.${formatNote}` };
+    return { kind: 'done', nexts: [], text: `PIPELINE: ${agent} succeeded (${verdict.verdict}) — end of chain. Report the outcome to the CTO.${formatNote}` };
   }
 
   // A gate the CTO has already approved is not a stopping point. Until this
@@ -810,7 +810,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
 
   if (active.length && !unapproved.length) {
     return {
-      kind: 'next',
+      kind: 'next', nexts,
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) and ${active.join(' + ')} `
         + `${active.length > 1 ? 'are' : 'is'} APPROVED → spawn ${nexts.map((n) => `Agent(subagent_type: ${n})`).join(' and ')} now. `
         + `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.${skipNote}${formatNote}${verifyNote}`,
@@ -821,7 +821,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
     const active = unapproved;
     const list = active.join(' + ');
     return {
-      kind: 'gate', gates: active,
+      kind: 'gate', gates: active, nexts,
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}). Next stage [${nexts.join(', ')}] is behind ${list} (human approval). ` +
         `Ensure the ${list} Beads task${active.length > 1 ? 's exist' : ' exists'} (bd list --label gate --status open), show the CTO the gate summary with artifact links, and WAIT for approval. ` +
         `${active.length > 1 ? 'EVERY one of them must be approved before proceeding. ' : ''}` +
@@ -834,7 +834,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   // question they chose not to be asked.
   if (gatesOf(rule.gate).length) {
     return {
-      kind: 'next',
+      kind: 'next', nexts,
       text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now. ` +
         `${gatesOf(rule.gate).join(' + ')} ${gatesOf(rule.gate).length > 1 ? 'are' : 'is'} declared in the pipeline map but NOT active at this approval level — the CTO delegated this decision, so do not wait for it. ` +
         `Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote + verifyNote,
@@ -842,7 +842,7 @@ export function decideNext({ agent, transitions, verdict, joinVerdicts, activeGa
   }
 
   return {
-    kind: 'next',
+    kind: 'next', nexts,
     text: `PIPELINE-NEXT: ${agent} succeeded (${verdict.verdict}) → spawn ${nexts.map(n => `Agent(subagent_type: ${n})`).join(' and ')} now ` +
       `(parallel is safe — no gate between these stages). Include the feature slug and artifact paths from ${agent}'s output in the brief. Do not stop the turn before dispatching.` + heldNote + verifyNote,
   };

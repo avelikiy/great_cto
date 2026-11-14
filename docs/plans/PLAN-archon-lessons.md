@@ -1,7 +1,7 @@
 # PLAN: what great_cto takes from Archon, and in what order
 
 **Date:** 2026-11-13
-**Status:** Draft — item 1 (ADR-051, accepted 2026-11-13) implemented in full; items 2–7 await the owner
+**Status:** Draft — item 1 (ADR-051, accepted 2026-11-13) and item 2 implemented; items 3–7 await the owner
 **Inputs:** a side-by-side read of [coleam00/Archon](https://github.com/coleam00/Archon) v0.14.0
 (commit `2aabbd0`) and great_cto v3.79.0 (commit `a8032db`), every claim below re-checked
 against great_cto's own tree.
@@ -64,7 +64,7 @@ one-liner). It is shipped first because it turns the documented accidental path 
 one at zero cost to honest agents: all 73 agent prompts already write only their own name.
 Slice 2 is the part that does not depend on parsing a shell command.
 
-### 2. `pipeline dry-run` over stub verdicts  ·  2 days
+### 2. `pipeline dry-run` over stub verdicts  ·  2 days  ·  **implemented** (`scripts/lib/pipeline-dry-run.mjs`)
 
 **Gap.** A project may override `pipeline.toml`. A broken join, an unreachable stage or a
 verdict token with no rule is found on a live, paid run.

@@ -58,5 +58,7 @@ jobs:
         run: npm ci && npm run build
       - name: Run orphaned runtime tests (root + hooks + board)
         run: node --test tests/*.test.mjs tests/hooks/*.test.mjs packages/board/*.test.mjs
+      - name: Pipeline map walks end to end (dry run, no agents)
+        run: node scripts/lib/pipeline-dry-run.mjs
       - name: Lint agent artifacts (structure + freshness)
         run: node scripts/hooks/artifact-lint.mjs --enforce
