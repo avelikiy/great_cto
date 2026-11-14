@@ -16,7 +16,7 @@ new file mode 100644
 +    // processed_events.event_id is UNIQUE: a redelivery inserts nothing and applies nothing.
 +    const inserted = await tx.$executeRaw`INSERT INTO processed_events (event_id) VALUES (${event.id}) ON CONFLICT DO NOTHING`;
 +    if (inserted === 0) return false;
-+    await tx.refund.update({ where: { pspRefundId: event.data.refundId }, data: { status: 'succeeded' } });
++    await tx.refund.update({ where: { gatewayRefundId: event.data.refundId }, data: { status: 'succeeded' } });
 +    return true;
 +  });
 +  return res.status(200).json({ ok: true, duplicate: !applied });

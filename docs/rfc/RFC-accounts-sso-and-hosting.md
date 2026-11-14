@@ -365,6 +365,13 @@ Described only; none built. Each shows current next to proposed, desktop and mob
 7. Account page: email, providers, delete account.
 8. Site: privacy policy and terms pages (layout only; text needs legal review).
 
+**Approved 2026-11-11.** The owner approved the mockups for screens 1–6 as published in
+Claude Design: https://claude.ai/artifact/PQUJSgqmoMUJGmPAPfMpwH (version 7: settings
+switch off/on, sign-in, link a phone and approve it, linked devices, the phone web client).
+Screens 7 (account page) and 8 (site privacy and terms pages) have no mockup yet. The
+approval covers how those six screens look; building remote control still needs the open
+decisions below.
+
 ## Phased plan (Beads-ready; no task created yet)
 
 | Phase | Task | Done when |
@@ -393,7 +400,11 @@ Phase 0 and Phase 1 have value with no account at all and commit to nothing.
 1. **Direction**: accept C′ (local-first, account only for remote control), or stay at A after
    hardening.
 2. **Hardening now**: go-ahead for Phase 0 (H1–H3, H6) independently of everything else.
+   *Decided: H1, H3 and H6 shipped in 3.78.0 (ADR-048); H2 deferred to the remote-control work.*
 3. **Hosted endpoints**: go-ahead for Phase 1 (H4, H5); H5 needs a second domain or subdomain.
+   *Decided for H4: send and manage keys, reports served with a CSP sandbox (ADR-049, accepted
+   2026-11-11). H5 (a separate origin for reports) stays open; the sandbox removes the
+   same-origin risk it was meant to remove, so it is no longer urgent.*
 4. **Becoming an account operator**: privacy policy, terms, support address, incident duty.
    Who is the legal operator (person or company) and under which jurisdiction.
 5. **Providers in v1**: Google + GitHub (recommended), or Google only.

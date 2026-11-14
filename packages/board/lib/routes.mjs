@@ -20,6 +20,7 @@ import { outcomes as computeOutcomes } from '../../../scripts/lib/outcomes.mjs';
 import { reviewerStatus } from '../../../scripts/lib/required-reviewers.mjs';
 import { readSessionStatus } from '../../../scripts/lib/session-status.mjs';
 import { INSTANT_TRIGGERS } from './instant-alerts.mjs';
+import { relayHeaders } from './alerts.mjs';
 import { readScores, summarizeScores } from '../../../scripts/lib/scores.mjs';
 import { status as routerKeyStatus, writeKey as writeRouterKey, verifyKey as verifyRouterKey } from '../../../scripts/lib/router-key.mjs';
 
@@ -68,7 +69,7 @@ import { upsertCapability, capabilitiesFromProjectMd } from '../../../scripts/li
 import { secondOpinionForTree } from '../../../scripts/lib/second-opinion-for-tree.mjs';
 import { readApprovalReceipt, readSecondOpinion, readTouches } from './receipt-read.mjs';
 import { getAgentsFleet, getAgentProfile, retireAgent, restoreAgent, appendDecisionLog, readDecisionsLog } from './fleet.mjs';
-import { getResume, getShareState, toggleShare } from './share.mjs';
+import { getResume, getShareState, toggleShare, shareStateForPage } from './share.mjs';
 import { listSessions, readSession, editedFiles, searchSessions } from './transcripts.mjs';
 import { recordView, summarizeViews } from './view-counter.mjs';
 import { getSkillsInventory } from './skills-inventory.mjs';
@@ -492,7 +493,10 @@ async function dispatch(req, res, url, cwd) {
 
     function saveState() {
       if (!fs.existsSync(GREAT_CTO_DIR)) fs.mkdirSync(GREAT_CTO_DIR, { recursive: true });
-      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
+      // 0600: the file holds the relay send key. chmod too, because `mode` only
+      // applies when the file is created.
+      fs.writeFileSync(stateFile, JSON.stringify(state, null, 2), { mode: 0o600 });
+      try { fs.chmodSync(stateFile, 0o600); } catch { /* not ours to chmod */ }
     }
 
     if (req.method === 'GET') {
@@ -550,14 +554,18 @@ async function dispatch(req, res, url, cwd) {
             const r = await fetch(`${NOTIFY_RELAY}/notify/confirm`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ to, code }),
+              body: JSON.stringify({ to, code, keyed: true }),
             });
             const j = await r.json().catch(() => null);
             if (r.ok) {
               state.to = to;
               state.verified = true;
+              // The key stays on this side of the board: saved, never sent to the page.
+              if (typeof j?.send_key === 'string' && j.send_key) state.send_key = j.send_key;
+              else delete state.send_key;
               saveState();
             }
+            if (j && 'send_key' in j) delete j.send_key;
             res.writeHead(r.ok ? 200 : (r.status || 502), { 'Content-Type': 'application/json' });
             return res.end(JSON.stringify(j || { error: 'relay_unreachable' }));
           } catch (e) {
@@ -585,7 +593,7 @@ async function dispatch(req, res, url, cwd) {
           try {
             const r = await fetch(`${NOTIFY_RELAY}/notify`, {
               method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
+              headers: relayHeaders(state),
               body: JSON.stringify({
                 to: state.to,
                 title: '🧪 GreatCTO test alert',
@@ -615,7 +623,7 @@ async function dispatch(req, res, url, cwd) {
   if (pathname === '/api/share') {
     if (req.method === 'GET') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify(getShareState(cwd)));
+      res.end(JSON.stringify(shareStateForPage(getShareState(cwd))));
       return true;
     }
     if (req.method === 'POST') {
@@ -635,7 +643,7 @@ async function dispatch(req, res, url, cwd) {
         try {
           const state = await toggleShare(parsed.enabled, cwd, !!parsed.force);
           res.writeHead(200, { 'Content-Type': 'application/json' });
-          res.end(JSON.stringify(state));
+          res.end(JSON.stringify(shareStateForPage(state)));
         } catch (e) {
           res.writeHead(500, { 'Content-Type': 'application/json' });
           res.end(JSON.stringify({ error: e.message }));
