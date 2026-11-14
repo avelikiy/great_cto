@@ -472,7 +472,9 @@ step for that condition before proceeding to Step 1 (gate:ship check).
    [ -f "$RC" ] || RC="$(pwd)/scripts/lib/receipt.mjs"
    STAGES=""
    [ "$PROJECT_SIZE" != "nano" ] && STAGES="qa-engineer"
-   [ "$TIER_EFFECTIVE" != "baseline" ] && STAGES="$STAGES security-officer"
+   # A regulated archetype's security approval is checked at every tier: baseline writes
+   # a verdict line too, and ADR-051 needs it attested like the others.
+   if [ "$TIER_EFFECTIVE" != "baseline" ] || node "$RC" --regulated >/dev/null 2>&1; then STAGES="$STAGES security-officer"; fi
    # The verdict logs live in the main checkout's .great_cto, also from a worktree.
    VSTATE="$(node "$RC" --state-dir)"
    [ -s "$VSTATE/verdicts/code-reviewer.log" ] && STAGES="$STAGES code-reviewer"

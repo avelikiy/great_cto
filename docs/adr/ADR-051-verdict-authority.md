@@ -86,6 +86,9 @@ The deploy question is where `gate:ship` meets the tree: devops runs
 security-officer before every deploy. On a regulated archetype (`REGULATED_ARCHETYPES` in
 `scripts/lib/approval-level.mjs`, read from `archetype:` in `.great_cto/PROJECT.md`):
 
+- devops step 2b checks the security-officer stage on a regulated archetype at every tier,
+  baseline included (it writes a verdict line there too), through `receipt.mjs --regulated`,
+  so the same list decides both questions (Codex review on #291);
 - an approval the harness attested passes as before;
 - a self-reported one exits **5**, and devops blocks: "re-run the stage as a subagent";
 - on a host whose hooks get no agent identity (Codex; anything without `CLAUDECODE=1`)

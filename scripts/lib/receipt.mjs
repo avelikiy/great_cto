@@ -588,6 +588,14 @@ if (isMainModule(import.meta.url)) {
     console.log(verdictStateDir());
     process.exit(0);
   }
+  // `--regulated`: is this project a regulated archetype (ADR-051 slice 3)? Prints the
+  // archetype; exit 0 if regulated, 1 if not. One list (approval-level.mjs), not a copy
+  // in every prompt that needs to ask.
+  if (argv.includes('--regulated')) {
+    const archetype = projectArchetype();
+    console.log(archetype || '');
+    process.exit(isRegulated(archetype) ? 0 : 1);
+  }
   if (argv.includes('--emit')) {
     // `--verdicts <dir>`: measure the change from where the previous stage stood.
     const vi = argv.indexOf('--verdicts');

@@ -157,3 +157,45 @@ test('devops step 2b on a host that cannot attest: drift after the approval bloc
   assert.equal(r.status, 1, r.stdout + r.stderr);
   assert.match(r.stdout, /BLOCKED: files changed or added after code-reviewer approved/);
 });
+
+// Codex review on #291: fintech and healthcare default to the baseline tier, and step 2b
+// skipped security-officer on baseline — so its attestation was never asked for.
+function step2b() {
+  const prompt = fs.readFileSync(path.join(ROOT, 'agents/devops.md'), 'utf8');
+  return prompt.slice(prompt.indexOf('**2b. The approvals are of THIS tree.**')).match(/```bash\n([\s\S]*?)```/)[1];
+}
+const runStep2b = (f, env) => spawnSync('bash', ['-c', step2b()], { cwd: f.d, encoding: 'utf8',
+  env: { ...process.env, GREAT_CTO_DIR: '', GREAT_CTO_HOST: '', CLAUDECODE: '1', CLAUDE_PLUGIN_ROOT: ROOT, PROJECT_SIZE: 'medium', TIER_EFFECTIVE: 'baseline', ...env } });
+
+test('regulated on the baseline tier: a self-reported security approval blocks the deploy', (t) => {
+  const f = fixture(t, 'fintech');
+  f.approve('qa-engineer', { attest: true });
+  f.approve('code-reviewer', { attest: true });
+  f.approve('security-officer');
+  const r = runStep2b(f);
+  assert.equal(r.status, 1, r.stdout + r.stderr);
+  assert.match(r.stdout, /BLOCKED: regulated archetype — the security-officer approval was not written by a security-officer subagent/);
+  f.approve('security-officer', { attest: true });
+  const ok = runStep2b(f);
+  assert.equal(ok.status, 0, ok.stdout + ok.stderr);
+});
+
+test('a non-regulated baseline project still skips the security stage, as before', (t) => {
+  const f = fixture(t, 'web-service');
+  f.approve('qa-engineer');
+  f.approve('code-reviewer');
+  const r = runStep2b(f);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.doesNotMatch(r.stdout, /security-officer/);
+});
+
+test('--regulated answers from the one list in approval-level.mjs', (t) => {
+  const ask = (archetype) => {
+    const f = fixture(t, archetype);
+    return spawnSync(process.execPath, [SCRIPT, '--regulated'], { cwd: f.d, encoding: 'utf8', env: { ...process.env, GREAT_CTO_DIR: '' } });
+  };
+  const yes = ask('healthcare');
+  assert.equal(yes.status, 0); assert.equal(yes.stdout.trim(), 'healthcare');
+  assert.equal(ask('web-service').status, 1);
+  assert.equal(ask(null).status, 1);
+});
